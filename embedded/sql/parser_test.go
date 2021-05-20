@@ -386,7 +386,7 @@ func TestStmtSeparator(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n USE DATABASE db1",
+			input: "CREATE DATABASE db1; USE DATABASE db1; USE DATABASE db1",
 			expectedOutput: []SQLStmt{
 				&CreateDatabaseStmt{DB: "db1"},
 				&UseDatabaseStmt{DB: "db1"},
@@ -418,7 +418,7 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10) COMMIT;",
+			input: "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10) COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -442,7 +442,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -467,7 +467,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
+			input: "BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -492,12 +492,12 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1');",
+			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1');",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
 		},
 		{
-			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); COMMIT; COMMIT",
+			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id) COMMIT; COMMIT",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
@@ -1089,17 +1089,17 @@ func TestMultiLineStmts(t *testing.T) {
 				IMMUDB SQL SCRIPT
 			*/
 
-			CREATE DATABASE db1
+			CREATE DATABASE db1;
 
-			CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)
+			CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id);
 
 			BEGIN TRANSACTION
-				UPSERT INTO table1 (id, label) VALUES (100, 'label1')
+				UPSERT INTO table1 (id, label) VALUES (100, 'label1');
 				
-				UPSERT INTO table2 (id) VALUES (10)
-			COMMIT
+				UPSERT INTO table2 (id) VALUES (10);
+			COMMIT;
 
-			SELECT id, name, time FROM table1 WHERE time >= '20210101 00:00:00.000' AND time < '20210211 00:00:00.000'
+			SELECT id, name, time FROM table1 WHERE time >= '20210101 00:00:00.000' AND time < '20210211 00:00:00.000';
 
 			`,
 			expectedOutput: []SQLStmt{

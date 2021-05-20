@@ -120,10 +120,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     
 %%
 
-sql: opt_separator sqlstmts
+sql: sqlstmts
 {
-    $$ = $2
-    setResult(yylex, $2)
+    $$ = $1
+    setResult(yylex, $1)
 }
 
 sqlstmts:
@@ -137,19 +137,22 @@ sqlstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    sqlstmt STMT_SEPARATOR opt_separator sqlstmts
+    sqlstmt STMT_SEPARATOR sqlstmts
     {
-        $$ = append([]SQLStmt{$1}, $4...)
+        $$ = append([]SQLStmt{$1}, $3...)
     }
 
-opt_separator: {} | STMT_SEPARATOR opt_separator
+opt_separator: {} | STMT_SEPARATOR
 
 sqlstmt:
     dstmt
-|
-    BEGIN TRANSACTION opt_separator dstmts COMMIT
     {
-        $$ = &TxStmt{stmts: $4}
+        $$ = $1
+    }
+|
+    BEGIN TRANSACTION dstmts COMMIT
+    {
+        $$ = &TxStmt{stmts: $3}
     }
 
 dstmt: ddlstmt | dmlstmt
@@ -160,7 +163,7 @@ dstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    dstmt opt_separator dstmts
+    dstmt STMT_SEPARATOR dstmts
     {
         $$ = append([]SQLStmt{$1}, $3...)
     }
