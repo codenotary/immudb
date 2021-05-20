@@ -180,6 +180,10 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
+		if '\t' == ch {
+			continue
+		}
+
 		if '/' == ch && '*' == l.r.nextChar {
 			l.r.ReadByte()
 
