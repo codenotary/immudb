@@ -328,7 +328,11 @@ func TestTransactions(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt(`CREATE TABLE table1 (
+									id INTEGER, 
+									title VARCHAR, 
+									PRIMARY KEY id
+								)`, nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt(`
@@ -340,24 +344,24 @@ func TestTransactions(t *testing.T) {
 
 	_, _, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
-			UPSERT INTO table1 (id, title) VALUES (1, 'title1')
-			UPSERT INTO table1 (id, title) VALUES (2, 'title2')
+			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
+			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
 		COMMIT
 		`, nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
-			CREATE TABLE table2 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)
-			CREATE INDEX ON table2(title)
+			CREATE TABLE table2 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id);
+			CREATE INDEX ON table2(title);
 		COMMIT
 		`, nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
-			CREATE INDEX ON table2(age)
-			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40)
+			CREATE INDEX ON table2(age);
+			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40);
 		COMMIT
 		`, nil, true)
 	require.Equal(t, ErrDDLorDMLTxOnly, err)
@@ -401,8 +405,8 @@ func TestUseSnapshot(t *testing.T) {
 
 	_, _, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
-			UPSERT INTO table1 (id, title) VALUES (1, 'title1')
-			UPSERT INTO table1 (id, title) VALUES (2, 'title2')
+			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
+			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
 		COMMIT
 		`, nil, true)
 	require.NoError(t, err)

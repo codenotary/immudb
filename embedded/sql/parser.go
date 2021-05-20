@@ -202,15 +202,19 @@ func (l *lexer) Lex(lval *yySymType) int {
 			continue
 		}
 
+		if isLineBreak(ch) {
+			if ch == '\r' && l.r.nextChar == '\n' {
+				l.r.ReadByte()
+			}
+			continue
+		}
+
 		if !isSpace(ch) {
 			break
 		}
 	}
 
 	if isSeparator(ch) {
-		if ch == '\r' && l.r.nextChar == '\n' {
-			l.r.ReadByte()
-		}
 		return STMT_SEPARATOR
 	}
 
@@ -396,7 +400,11 @@ func isBLOBPrefix(ch byte) bool {
 }
 
 func isSeparator(ch byte) bool {
-	return ';' == ch || '\r' == ch || '\n' == ch
+	return ';' == ch
+}
+
+func isLineBreak(ch byte) bool {
+	return '\r' == ch || '\n' == ch
 }
 
 func isSpace(ch byte) bool {
