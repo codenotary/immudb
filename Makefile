@@ -162,8 +162,9 @@ clean/dist:
 	rm -Rf ./dist
 
 # SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
+# it enables by default webconsole
 .PHONY: dist
-dist: dist/binaries dist/winsign
+dist: dist/webconsole dist/binaries dist/winsign
 	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
 .PHONY: dist/binaries
@@ -173,9 +174,9 @@ dist/binaries:
     		for os_arch in ${TARGETS}; do \
     			goos=`echo $$os_arch|sed 's|/.*||'`; \
     			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
-    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
+    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
     		done; \
-    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -a -ldflags '${V_LDFLAGS_STATIC} -extldflags "-static"' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
+    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC} -extldflags "-static"' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
     		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
     	done
 
@@ -194,6 +195,7 @@ dist/winsign:
 			-i https://codenotary.io/ \
 			-t http://timestamp.comodoca.com -tr 10 \
 			dist/$$service-v0.9.2-windows-amd64.exe; \
+		rm ./dist/$$service-v${VERSION}-windows-amd64.exe.bak -f; \
 	done
 
 .PHONY: dist/sign
@@ -208,4 +210,10 @@ dist/binary.md:
 		shm_id=$$(sha256sum $$f | awk '{print $$1}'); \
 		printf "[$$ff](https://github.com/vchain-us/immudb/releases/download/v${VERSION}/$$ff) | $$shm_id \n" ; \
 	done
+
+.PHONY: dist/webconsole
+dist/webconsole:
+	rm -rf webconsole/dist; \
+    wget -qO- https://github.com/codenotary/immudb-webconsole/releases/latest/download/immudb-webconsole.tar.gz | tar -xvz -C webconsole; \
+
 ########################## releases scripts end ########################################################################
