@@ -4,8 +4,305 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.0.0"></a>
+## [v1.0.0] - 2021-05-20
+### Bug Fixes
+- fix windows installer service and missing flags
+- make prequisites fixes introduced in [#726](https://github.com/vchain-us/immudb/issues/726) ([#732](https://github.com/vchain-us/immudb/issues/732))
+- tlsConfig is always non-nil
+- **cmd/immuclient/immuclienttest:** fix options injection in client test helper ([#749](https://github.com/vchain-us/immudb/issues/749))
+- **embedded:** ensure readers get properly closed
+- **embedded/sql:** fix selector aliasing
+- **embedded/sql:** add missing error handling
+- **embedded/sql:** close reader after loading catalog
+- **embedded/sql:** prevent side effects in conditional clauses
+- **embedded/store:** fix issue when resuming indexing
+- **embedded/store:** notified latest committed tx when opening store
+- **embedded/store:** fix indexing data race
+- **pkg/client:** row verification with nullable values
+- **pkg/client/cache:** fix lock file cache issue on windows
+- **pkg/client/cache:** clean state file when re-writing old stetes
+- **pkg/database:** use SQLPrefix when reopening database
+- **pkg/database:** unwrap parameter before calling sqlexec
+- **pkg/pgsql/server:** handle data_row message with text format
+- **pkg/server:** complete error handling
+- **pkg/server:** disable pgsql server by default and fix previous server tests
+- **pkg/sql:** columns resolved with aliases
+- **pkg/sql:** resolve shift/reduce conflict in SELECT stmt
+
+### Changes
+- blank line needed after tag or interpreted as comment
+- improved make dist script
+- add pgsql related flags
+- increase coverage and minor fix
+- README SDK description and links ([#717](https://github.com/vchain-us/immudb/issues/717))
+- github workflow to run stress_tool ([#714](https://github.com/vchain-us/immudb/issues/714))
+- make roadmap about pgsql wire more explicit ([#723](https://github.com/vchain-us/immudb/issues/723))
+- fix immugw support
+- dblist interface is moved to database package and extended
+- expose missing methods to REST ([#725](https://github.com/vchain-us/immudb/issues/725))
+- fix rebase leftovers
+- fix acronym uppercase
+- revert 3114f927adf4a9b62c4754d42da88173907a3a9f in order to allow insecure connection on grpc server
+- bundle webconsole inside dist binaries
+- reword wire compatibility
+- inject immudb user authentication
+- move concrete class dblist to database package
+- **cmd/immuclient:** render raw values
+- **cmd/immuclient:** query result rendering
+- **cmd/immudb:** add debug info env var details
+- **cmd/immudb/command:** restore missing pgsql cmd flag
+- **cmd/immudb/command:** enabled pgsql server only in command package
+- **cmd/immudb/command:** remove parsing path option in unix
+- **cmd/immudb/command:** handle tls configuration errors
+- **embedded/cache:** thread-safe lru-cache
+- **embedded/sql:** set 'x' as blob prefix
+- **embedded/sql:** store non-null values and only col ids on encoded rows
+- **embedded/sql:** case insensitive functions
+- **embedded/sql:** validate table is empty before index creation
+- **embedded/sql:** case insensitive identifiers
+- **embedded/sql:** minor refactoring to expose functionality needed for row verification
+- **embedded/sql:** keep one snapshot open and close when releasing
+- **embedded/sql:** resolve query with current snapshot if readers are still open
+- **embedded/sql:** improved nullables
+- **embedded/sql:** skip tabs
+- **embedded/sql:** move sql engine under embedded package
+- **embedded/sql:** safer support for selected database
+- **embedded/sql:** expose functionality needed for row verification
+- **embedded/store:** pausable indexer
+- **embedded/store:** commitWith callback using KeyIndex interface
+- **embedded/store:** use specified sync mode also for the incremental hash tree
+- **embedded/store:** log during compaction
+- **embedded/store:** use indexer state to terminate indexing goroutine
+- **embedded/store:** index info to return latest indexed tx
+- **embedded/tbree:** postpone reader initialization until first read
+- **embedded/tbtree:** make snapshot thread-safe
+- **embedded/tbtree:** remove dots denoting progress when flushing is not needed
+- **embedded/tbtree:** index compaction if there is not opened snapshot, open snapshot if compaction is not in already in progress
+- **embedded/watchers:** cancellable wait
+- **pkg/api:** render varchar as quoted strings
+- **pkg/api:** render varchar as raw string value
+- **pkg/api:** include data needed for row verification
+- **pkg/api:** sql api spec
+- **pkg/api:** render varchar as quoted string
+- **pkg/api/schema:** Handle tools via modules ([#726](https://github.com/vchain-us/immudb/issues/726))
+- **pkg/auth:** add SQL-related permissions
+- **pkg/auth:** perm spec for row verification endpoint
+- **pkg/client:** use  to fetch current database name
+- **pkg/client:** remove deprecated operations
+- **pkg/client:** improved sql API
+- **pkg/client:** auto convert numeric values to uint64
+- **pkg/client/cache:** release lock only if locked file is present, and wait for unlock when already present
+- **pkg/client/clienttest:** add VerifiedGetAt mock method
+- **pkg/database:** upgrade wait for indexing api
+- **pkg/database:** use MaxKeyScanLimit to limit query results
+- **pkg/database:** set implicit database using `UseDatabase` method
+- **pkg/database:** support for nullable values
+- **pkg/database:** add missing copy
+- **pkg/database:** make use of UseDatabase operation
+- **pkg/database:** improved parameters support
+- **pkg/database:** ensure rowReader get closed upon completion
+- **pkg/database:** typed-value proto conversion
+- **pkg/database:** row verification against kv-entries
+- **pkg/database:** return mapped row values
+- **pkg/database:** upgrade ExecAll to use KeyIndex interface
+- **pkg/database:** use store-level snapshots
+- **pkg/database:** close sql engine when db gets closed
+- **pkg/database:** support multi-selected columns
+- **pkg/database:** towards prepared sql query support
+- **pkg/database:** support index compaction with sql engine in place
+- **pkg/embedded:** introduce Snapshot at Store level
+- **pkg/pgsql:** handle parameter status and terminate messages
+- **pkg/pgsql:** bind immudb sql engine
+- **pkg/pgsql:** fix filename format
+- **pkg/pgsql:** add pgsql server wire protocol stub
+- **pkg/pgsql:** use options flag to determine if pgsql server need to be launched
+- **pkg/pgsql:** handle empty response and command complete message
+- **pkg/pgsql/client:** add jackc/pgx pgsql client for testing purpose
+- **pkg/pgsql/server:** move sysdb in session constructor
+- **pkg/pgsql/server:** handle version statement
+- **pkg/pgsql/server:** handle an ssl connection request if no certificate is present on server
+- **pkg/pgsql/server:** improve error handling when client message is not recognized
+- **pkg/pgsql/server:** minor fixes and leftovers
+- **pkg/pgsql/server:** enforce reserved statements checks
+- **pkg/pgsql/server:** fix connection upgrade pgsql protocol messages
+- **pkg/pgsql/server:** protect simple query flow with a mutex
+- **pkg/pgsql/server:** limit number of total connections and do not stop server in case of errors
+- **pkg/pgsql/server:** add missing copyright
+- **pkg/pgsql/server:** add debug logging messages, split session handling in multiple files
+- **pkg/pgsql/server:** default error in simplequery loop has error severity
+- **pkg/pgsql/server:** remove host parameter
+- **pkg/server:** fix db mock
+- **pkg/server:** remove unused options
+- **pkg/server:** inject sqlserver in main immudb server
+- **pkg/server:** load systemdb before any other db
+- **pkg/server:** use systemdb as a shared catalog store
+- **pkg/server:** renamed server reference
+- **pkg/server:** remove tls configuration in server
+- **pkg/sql:** using new KeyReaderSpec
+- **pkg/sql:** grammar adjustments to support aggregated columns
+- **pkg/sql:** swap LIMIT and ORDER BY parse ordering
+- **pkg/sql:** row reader to support GROUP BY behaviour
+- **pkg/sql:** make row values externally accessible
+- **pkg/sql:** support for SUM aggregations
+- **pkg/sql:** unify augmented and grouped row readers
+- **pkg/sql:** refactored AggregatedValue and TypedValue interfaces
+- **pkg/sql:** column descriptors in row readers
+- **pkg/sql:** improve error handling
+- **pkg/sql:** return ErrNoMoreRows when reading
+- **pkg/sql:** row reader used to close the snapshot once reading is completed
+- **pkg/sql:** remove alter column stmt
+- **pkg/sql:** many internal adjustments related to name binding
+- **pkg/sql:** upgrade to new store commit api
+- **pkg/sql:** joins limited to INNER type and equality comparison against ref table PK
+- **pkg/sql:** add comment about nested joins
+- **pkg/sql:** mapping using ids, ordering and renaming support
+- **pkg/sql:** composite readers
+- **pkg/sql:** wip multiple readers
+- **pkg/sql:** catch store indexing errors
+- **pkg/sql:** add generated sql parser
+- **pkg/sql:** alias overriding datasource name
+- **pkg/sql:** remove offset param
+- **pkg/sql:** value-less indexed entries
+- **pkg/sql:** encoded value with pk entry
+- **pkg/sql:** joint column with explicit table reference
+- **pkg/sql:** inmem catalog with table support
+- **pkg/sql:** inmem catalog
+- **pkg/sql:** catalog construct
+- **pkg/sql:** primary key supported type validation
+- **pkg/sql:** use standardized transaction closures
+- **pkg/sql:** support multiple spacing between statements
+- **pkg/sql:** case insensitive reserved words
+- **pkg/sql:** use token IDENTIFIER
+- **pkg/sql:** towards catalog encapsulation
+- **pkg/sql:** improved null value support
+- **pkg/sql:** order-preserving result set
+- **pkg/sql:** ensure use snapshot is on the range of committed txs
+- **pkg/sql:** col selector with resolved datasource
+- **tools/stream:** upgrade stream tools dependencies
+
+### Code Refactoring
+- **pkg/server:** tls configuration is moved in command package from server
+
+### Features
+- enhance database size and number of entries metrics to support multiple databases add CORS middleware to metrics HTTP endpoints ([#756](https://github.com/vchain-us/immudb/issues/756))
+- display version at startup ([#775](https://github.com/vchain-us/immudb/issues/775))
+- CREATE TABLE IF NOT EXISTS ([#738](https://github.com/vchain-us/immudb/issues/738))
+- **cmd/immuclient:** list and describe tables
+- **cmd/immuclient:** use 'tables' to display the list of tables within selected database
+- **embedded/sql:** special case when all selectors are aggregations and there is no matching rows
+- **embedded/sql:** use snapshot as state method
+- **embedded/sql:** 'NOT NULL' constraint
+- **embedded/sql:** arithmetic expressions within where clause
+- **embedded/sql:** INSERT INTO statement
+- **embedded/sql:** LIKE operator support
+- **embedded/sql:** enhanced sql parser to support multi-lined statements
+- **embedded/store:** uniqueness constraint and de-coupled indexer
+- **embedded/store:**  operation
+- **embedded/tools:** initial SQL stress tool ([#760](https://github.com/vchain-us/immudb/issues/760))
+- **pkg/api:** sql endpoints for row verification
+- **pkg/api:** noWait mode for sql statements
+- **pkg/client:** row verification
+- **pkg/client:** towards client-side sql support
+- **pkg/database:** list and describe tables
+- **pkg/database:** towards sql support
+- **pkg/database:** row verification endpoint
+- **pkg/database:** towards integrated sql engine. handling database creation at server level
+- **pkg/pgsql:** add tls support
+- **pkg/pgsql/server:** handle nil values
+- **pkg/pgsql/server:** setup pgsqk error handling
+- **pkg/pgsql/server:** dblist is injected in pgsql server
+- **pkg/server:** row verification endpoint
+- **pkg/server:** initial integration of sql engine
+- **pkg/server:** expose  endpoint
+- **pkg/sql:** column selector alias support
+- **pkg/sql:** aggregations without row grouping
+- **pkg/sql:** towards supporting COUNT, SUM, MIN, MAX and AVG
+- **pkg/sql:** towards aggregated values support
+- **pkg/sql:** towards supporting filtered aggregations
+- **pkg/sql:** towards group by and aggregations support
+- **pkg/sql:** noWait for indexing mode
+- **pkg/sql:** improved nullable support
+- **pkg/sql:** towards GROUP BY support
+- **pkg/sql:** implements NOW() function
+- **pkg/sql:** list and describe tables
+- **pkg/sql:** LIMIT clause to determine max number of returned rows
+- **pkg/sql:** queries over older data
+- **pkg/sql:** parameters support
+- **pkg/sql:** initial parameters support
+- **pkg/sql:** towards parameter support
+- **pkg/sql:** support for SELECT * FROM queries
+- **pkg/sql:** row projection
+- **pkg/sql:** towards projected rows
+- **pkg/sql:** auto-commit multi-statement script
+- **pkg/sql:** subquery aliases
+- **pkg/sql:** support for WHERE clause
+- **pkg/sql:** towards row filtering with conditional readers
+- **pkg/sql:** support for boolean values
+- **pkg/sql:** index reloading
+- **pkg/sql:** catalog reloading
+- **pkg/sql:** ASC/DESC row sorting by any indexed column
+- **pkg/sql:** implements CREATE INDEX stmt
+- **pkg/sql:** support of foreign keys of any pk type
+- **pkg/sql:** multiple joins support
+- **pkg/sql:** col selector binding
+- **pkg/sql:** jointRowReader towards supporting joins
+- **pkg/sql:** seekable, ordered and filtered table scan
+- **pkg/sql:** ordering in descending mode
+- **pkg/sql:** towards ordering row scans
+- **pkg/sql:** towards query resolution with multiple datasources
+- **pkg/sql:** towards query processing
+- **pkg/sql:** upsert processing
+- **pkg/sql:** towards insert into statement processing
+- **pkg/sql:** table creation with primary key
+- **pkg/sql:** primary key spec
+- **pkg/sql:** initial work on sql engine
+- **pkg/sql:** multi-line scripts
+- **pkg/sql:** snapshot support
+- **pkg/sql:** support for comments
+- **pkg/sql:** support for EXISTS in subquery
+- **pkg/sql:** support for INNER, LEFT and RIGHT joins
+- **pkg/sql:** support for parameters
+- **pkg/sql:** support for system values e.g. TIME
+- **pkg/sql:** aggregated functions
+- **pkg/sql:** use colSelector instead of identifiers
+- **pkg/sql:** expressions parsing
+- **pkg/sql:** multi-db queries
+- **pkg/sql:** multi-row insertion
+- **pkg/sql:** initial support for SELECT statement
+- **pkg/sql:** transactional support
+- **pkg/sql:** support for insertions
+- **pkg/sql:** support table modifications
+- **pkg/sql:** support index creation
+- **pkg/sql:** include column specs
+- **pkg/sql:** partial grammar with multiple statements
+- **pkg/sql:** initial commit for sql support
+
+
+<a name="cnlc-2.2"></a>
+## [cnlc-2.2] - 2021-04-23
+### Bug Fixes
+- update Discord invite link
+- readme typo and mascot placement ([#693](https://github.com/vchain-us/immudb/issues/693))
+- **embedded/store:** ensure done message is received
+- **pkg/client:** delete token file on logout only if the file exists
+
+### Changes
+- Add roadmap
+- Add benchmark to README (based on 0.9.x) ([#706](https://github.com/vchain-us/immudb/issues/706))
+- remove grpc term from token expiration description
+- **embedded/store:** check latest indexed tx is not greater than latest committed one
+- **embedded/store:** defer lock releasing
+- **pkg/database:** use newly exposed KeyReaderSpec
+
+### Features
+- add token expiration time flag
+- **embedded/store:** readAsBefore and reset reader
+- **pkg/sql:** readAsBefore operation
+
+
 <a name="v0.9.2"></a>
-## [v0.9.2] - 2021-04-07
+## [v0.9.2] - 2021-04-08
 ### Bug Fixes
 - fix StreamVerifiedSet and Get and add an (integration) test for them
 - fix inclusion proofs in StreamVerifiedSet and Get
@@ -1518,7 +1815,9 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.0.0...HEAD
+[v1.0.0]: https://github.com/vchain-us/immudb/compare/cnlc-2.2...v1.0.0
+[cnlc-2.2]: https://github.com/vchain-us/immudb/compare/v0.9.2...cnlc-2.2
 [v0.9.2]: https://github.com/vchain-us/immudb/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/vchain-us/immudb/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...v0.9.0
