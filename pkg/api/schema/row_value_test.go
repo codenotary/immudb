@@ -125,4 +125,28 @@ func TestRowComparison(t *testing.T) {
 	bv := &SQLValue{Value: blobValue2}
 	bytesBlobValue := RenderValueAsByte(bv.GetValue())
 	require.Equal(t, []byte(hex.EncodeToString([]byte{1, 2, 3})), bytesBlobValue)
+
+	nv = SQLValue{Value: nullValue}
+	rNullValue := RenderValue(nv.GetValue())
+	require.Equal(t, "NULL", rNullValue)
+
+	tv = SQLValue{Value: trueValue}
+	rTrueValue := RenderValue(tv.GetValue())
+	require.Equal(t, "true", rTrueValue)
+
+	bf = SQLValue{Value: falseValue}
+	rFalseValue := RenderValue(bf.GetValue())
+	require.Equal(t, "false", rFalseValue)
+
+	sv = &SQLValue{Value: stringValue1}
+	rStringValue := RenderValue(sv.GetValue())
+	require.Equal(t, "\"string1\"", rStringValue)
+
+	iv = &SQLValue{Value: intValue1}
+	rIntValue := RenderValue(iv.GetValue())
+	require.Equal(t, "1", rIntValue)
+
+	bv = &SQLValue{Value: blobValue2}
+	rBlobValue := RenderValue(bv.GetValue())
+	require.Equal(t, "010203", rBlobValue)
 }
