@@ -174,6 +174,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	res := &schema.SQLQueryResult{Columns: []*schema.Column{
 		{Name: "COLUMN", Type: sql.VarcharType},
 		{Name: "TYPE", Type: sql.VarcharType},
+		{Name: "NULLABLE", Type: sql.BooleanType},
 		{Name: "INDEX", Type: sql.VarcharType},
 	}}
 
@@ -196,6 +197,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 			Values: []*schema.SQLValue{
 				{Value: &schema.SQLValue_S{S: c.Name()}},
 				{Value: &schema.SQLValue_S{S: c.Type()}},
+				{Value: &schema.SQLValue_B{B: c.IsNullable()}},
 				{Value: &schema.SQLValue_S{S: index}},
 			},
 		})
