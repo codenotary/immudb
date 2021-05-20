@@ -47,7 +47,13 @@ func TestImmuClient_SQL(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, err = client.SQLExec(ctx, "CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
+	_, err = client.SQLExec(ctx, `CREATE TABLE table1(
+		id INTEGER, 
+		title VARCHAR, 
+		active BOOLEAN, 
+		payload BLOB, 
+		PRIMARY KEY id
+		);`, nil)
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
