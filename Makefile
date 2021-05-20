@@ -17,8 +17,8 @@ export GO111MODULE=on
 SHELL=/bin/bash -o pipefail
 
 VERSION=0.9.2
-TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x
-SERVICE_EXE=${SERVICE_NAME}-v${VERSION}-windows-amd64.exe
+SERVICES=immudb immuadmin immuclient
+TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64
 
 PWD = $(shell pwd)
 GO ?= go
@@ -31,10 +31,10 @@ V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
 V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
-V_LDFLAGS_COMMON := -s -X "github.com/codenotary/immudb/cmd/version.Version=$(VERSION)" \
-					-X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" \
-					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)"\
-					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
+V_LDFLAGS_COMMON := -s -X "github.com/codenotary/immudb/cmd/version.Version=${VERSION}" \
+					-X "github.com/codenotary/immudb/cmd/version.Commit=${V_COMMIT}" \
+					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=${V_BUILT_BY}"\
+					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=${V_BUILT_AT}"
 V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -X github.com/codenotary/immudb/cmd/version.Static=static \
 				  -extldflags "-static"
@@ -136,38 +136,6 @@ build/codegen:
 clean:
 	rm -f immudb immuclient immuadmin immutest
 
-.PHONY: nimmu
-nimmu:
-	$(GO) build -o nimmu ./tools/nimmu
-
-.PHONY: bm
-bm:
-	$(GO) build -ldflags '-s -w' ./tools/bm
-	$(STRIP) bm
-
-.PHONY: bm/function
-bm/function: bm
-	./bm function
-
-.PHONY: bm/rpc
-bm/rpc: bm
-	./bm rpc
-
-.PHONY: bench
-bench:
-	$(DOCKER) build -t immu_bench -f ./Dockerfile.bench .
-	$(DOCKER) run --rm -it immu_bench
-
-.PHONY: tools/comparison/mongodb
-tools/comparison/mongodb:
-	$(DOCKER) build -t immu_mongodb ./tools/comparison/mongodb
-	$(DOCKER) run --rm -it immu_mongodb
-
-.PHONY: tools/comparison/scylladb
-tools/comparison/scylladb:
-	$(DOCKER) build -t immu_scylladb ./tools/comparison/scylladb
-	$(DOCKER) run --rm -it immu_scylladb
-
 .PHONY: man
 man:
 	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
@@ -189,65 +157,49 @@ CHANGELOG.md:
 CHANGELOG.md.next-tag:
 	git-chglog -o CHANGELOG.md --next-tag v${VERSION}
 
-.PHONY: build/xgo
-build/xgo:
-	$(DOCKER) build \
-			-f ./build/xgo/Dockerfile \
-			-t ${SERVICE_NAME}-xgo \
-			--pull=true \
-			./build/xgo
-
-.PHONY: build/makensis
-build/makensis:
-	$(DOCKER) build \
-		-f ./build/makensis/Dockerfile \
-		-t ${SERVICE_NAME}-makensis \
-		./build/makensis
-
 .PHONY: clean/dist
 clean/dist:
 	rm -Rf ./dist
 
+# SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
 .PHONY: dist
-dist: clean/dist build/xgo
-	mkdir -p dist
-	CGO_ENABLED=0 $(GO) build -a -ldflags '${V_LDFLAGS_STATIC}' \
-			-o ./dist/${SERVICE_NAME}-v${VERSION}-linux-amd64-static \
-     		./cmd/${SERVICE_NAME}
-	$(DOCKER) run --rm \
-			-v "${PWD}/dist:/dist" \
-			-v "${PWD}:/source:ro" \
-			-e GO111MODULE=on \
-			-e FLAG_LDFLAGS="-s ${V_LDFLAGS_COMMON}" \
-			-e TARGETS="${TARGETS}" \
-			-e PACK=cmd/${SERVICE_NAME} \
-			-e OUT=${SERVICE_NAME}-v${VERSION} \
-			${SERVICE_NAME}-xgo .
-	mv ./dist/${SERVICE_NAME}-v${VERSION}-windows-4.0-amd64.exe ./dist/${SERVICE_EXE}
-	mv ./dist/${SERVICE_NAME}-v${VERSION}-darwin-10.6-amd64 ./dist/${SERVICE_NAME}-v${VERSION}-darwin-amd64
+dist: dist/binaries dist/winsign
+	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
-.PHONY: dist/${SERVICE_EXE}
-dist/${SERVICE_EXE}:
-	echo ${SIGNCODE_PVK_PASSWORD} | $(DOCKER) run --rm -i \
-		-v ${PWD}/dist:/dist \
-		-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
-		-v ${SIGNCODE_PVK}:/certs/f.pvk:ro \
-		mono:6.8.0 signcode \
-		-spc /certs/f.spc -v /certs/f.pvk \
-		-a sha1 -$ commercial \
-		-n "CodeNotary ${SERVICE_NAME}" \
-		-i https://codenotary.io/ \
-		-t http://timestamp.comodoca.com -tr 10 \
-		$@
-	rm -Rf $@.bak
+.PHONY: dist/binaries
+dist/binaries:
+		mkdir -p dist; \
+		for service in ${SERVICES}; do \
+    		for os_arch in ${TARGETS}; do \
+    			goos=`echo $$os_arch|sed 's|/.*||'`; \
+    			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
+    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
+    		done; \
+    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -a -ldflags '${V_LDFLAGS_STATIC} -extldflags "-static"' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
+    		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
+    	done
+
+
+.PHONY: dist/winsign
+dist/winsign:
+	for service in ${SERVICES}; do \
+		echo ${SIGNCODE_PVK_PASSWORD} | $(DOCKER) run --rm -i \
+			-v ${PWD}/dist:/dist \
+			-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
+			-v ${SIGNCODE_PVK}:/certs/f.pvk:ro \
+			mono:6.8.0 signcode \
+			-spc /certs/f.spc -v /certs/f.pvk \
+			-a sha1 -$ commercial \
+			-n "CodeNotary $$service" \
+			-i https://codenotary.io/ \
+			-t http://timestamp.comodoca.com -tr 10 \
+			dist/$$service-v0.9.2-windows-amd64.exe; \
+	done
 
 .PHONY: dist/sign
-dist/sign: vendor ${SERVICE_NAME}
+dist/sign:
 	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
 
-# SERVICE_NAME=immudb|immuclient|immuadmin SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
-.PHONY: dist/all
-dist/all: dist dist/${SERVICE_EXE}
 
 .PHONY: dist/binary.md
 dist/binary.md:
