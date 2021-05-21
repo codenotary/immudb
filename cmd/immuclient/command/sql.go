@@ -13,13 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package immuclient
 
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -55,28 +54,8 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-
-			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
-
-			cols := make([]string, len(resp.Columns))
-			for i, c := range resp.Columns {
-				cols[i] = c.Name
-			}
-			consoleTable.SetHeader(cols)
-
-			for _, r := range resp.Rows {
-				row := make([]string, len(r.Values))
-
-				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Value)
-				}
-
-				consoleTable.Append(row)
-			}
-
-			consoleTable.Render()
-
-			return nil
+			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
+			return err
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -95,28 +74,8 @@ func (cl *commandline) listTables(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-
-			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
-
-			cols := make([]string, len(resp.Columns))
-			for i, c := range resp.Columns {
-				cols[i] = c.Name
-			}
-			consoleTable.SetHeader(cols)
-
-			for _, r := range resp.Rows {
-				row := make([]string, len(r.Values))
-
-				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Value)
-				}
-
-				consoleTable.Append(row)
-			}
-
-			consoleTable.Render()
-
-			return nil
+			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
+			return err
 		},
 		Args: cobra.ExactArgs(0),
 	}
@@ -135,28 +94,9 @@ func (cl *commandline) describeTable(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
+			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
+			return err
 
-			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
-
-			cols := make([]string, len(resp.Columns))
-			for i, c := range resp.Columns {
-				cols[i] = c.Name
-			}
-			consoleTable.SetHeader(cols)
-
-			for _, r := range resp.Rows {
-				row := make([]string, len(r.Values))
-
-				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Value)
-				}
-
-				consoleTable.Append(row)
-			}
-
-			consoleTable.Render()
-
-			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
