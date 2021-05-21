@@ -15,6 +15,8 @@ make WEBCONSOLE=1
 This will add the Go build tag `webconsole` which will use the *statik* library to embed the
 front-end code. The front-end will be then served in the web API root "/".
 
+The webconsole generation will override the default page statik.go. To regenerate the default page, change the files in webconsole/default and run `make webconsole/default`
+
 ## Linux (by component)
 
 ```bash
