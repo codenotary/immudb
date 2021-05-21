@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/viper"
@@ -71,9 +70,9 @@ type Client interface {
 	ValueOnly() bool     // TODO: ?
 	SetValueOnly(v bool) // TODO: ?
 	SQLExec(args []string) (string, error)
-	SQLQuery(args []string) (*schema.SQLQueryResult, error)
-	ListTables() (*schema.SQLQueryResult, error)
-	DescribeTable(args []string) (*schema.SQLQueryResult, error)
+	SQLQuery(args []string) (string, error)
+	ListTables() (string, error)
+	DescribeTable(args []string) (string, error)
 }
 
 // Init ...

@@ -19,21 +19,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/olekukonko/tablewriter"
+	"strings"
 )
 
 func (i *immuc) SQLExec(args []string) (string, error) {
-	sqlStmt, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-
+	sqlStmt := strings.Join(args, " ")
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLExec(ctx, string(sqlStmt), nil)
+		return immuClient.SQLExec(ctx, sqlStmt, nil)
 	})
 	if err != nil {
 		return "", err
@@ -44,47 +40,78 @@ func (i *immuc) SQLExec(args []string) (string, error) {
 	return fmt.Sprintf("sql ok, Ctxs: %d Dtxs: %d", len(txMetas.Ctxs), len(txMetas.Dtxs)), nil
 }
 
-func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
-	sqlStmt, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return nil, err
-	}
-
+func (i *immuc) SQLQuery(args []string) (string, error) {
+	sqlStmt := strings.Join(args, " ")
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLQuery(ctx, string(sqlStmt), nil, true)
+		resp, err := immuClient.SQLQuery(ctx, sqlStmt, nil, true)
+		if err != nil {
+			return nil, err
+		}
+		return renderTableResult(resp), nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return response.(*schema.SQLQueryResult), nil
+	return response.(string), nil
 }
 
-func (i *immuc) ListTables() (*schema.SQLQueryResult, error) {
+func (i *immuc) ListTables() (string, error) {
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.ListTables(ctx)
+		resp, err := immuClient.ListTables(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return renderTableResult(resp), nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	return response.(*schema.SQLQueryResult), nil
+	return response.(string), nil
 }
 
-func (i *immuc) DescribeTable(args []string) (*schema.SQLQueryResult, error) {
+func (i *immuc) DescribeTable(args []string) (string, error) {
 	if len(args) != 1 {
-		return nil, client.ErrIllegalArguments
+		return "", client.ErrIllegalArguments
 	}
-
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.DescribeTable(ctx, args[0])
+		resp, err := immuClient.DescribeTable(ctx, args[0])
+		if err != nil {
+			return nil, err
+		}
+		return renderTableResult(resp), nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
+	}
+	return response.(string), nil
+}
+
+func renderTableResult(resp *schema.SQLQueryResult) string {
+	if resp == nil {
+		return ""
+	}
+	result := bytes.NewBuffer([]byte{})
+	consoleTable := tablewriter.NewWriter(result)
+	cols := make([]string, len(resp.Columns))
+	for i, c := range resp.Columns {
+		cols[i] = c.Name
+	}
+	consoleTable.SetHeader(cols)
+
+	for _, r := range resp.Rows {
+		row := make([]string, len(r.Values))
+
+		for i, v := range r.Values {
+			row[i] = schema.RenderValue(v.Value)
+		}
+
+		consoleTable.Append(row)
 	}
 
-	return response.(*schema.SQLQueryResult), nil
+	consoleTable.Render()
+	return result.String()
 }
