@@ -18,6 +18,7 @@ package database
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
@@ -27,8 +28,23 @@ func TestSQLExecAndQuery(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.SQLExecPrepared(nil, nil, false)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.SQLExec(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "invalid sql statement"})
+	require.Error(t, err)
+
+	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"})
+	require.Error(t, err)
+
+	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"})
+	require.Error(t, err)
+
 	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
-		CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)
+		CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 1)
@@ -38,12 +54,15 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 
+	_, err = db.DescribeTable("table2")
+	require.Equal(t, sql.ErrTableDoesNotExist, err)
+
 	res, err = db.DescribeTable("table1")
 	require.NoError(t, err)
-	require.Len(t, res.Rows, 3)
+	require.Len(t, res.Rows, 4)
 
 	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
-		UPSERT INTO table1(id, title) VALUES (1, 'title1'), (2, 'title2'), (3, 'title3')
+		INSERT INTO table1(id, title, active, payload) VALUES (1, 'title1', null, null), (2, 'title2', true, null), (3, 'title3', false, x'AADD')
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 0)
@@ -52,9 +71,54 @@ func TestSQLExecAndQuery(t *testing.T) {
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id, t.id as id2, title FROM (table1 as t) WHERE id < 3 AND active != @active", Params: params})
+	err = db.UseSnapshot(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	err = db.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 0})
+	require.NoError(t, err)
+
+	_, err = db.SQLQueryPrepared(nil, nil, false)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.SQLQuery(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "invalid sql statement"})
+	require.Error(t, err)
+
+	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
+	require.Equal(t, ErrIllegalArguments, err)
+
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id, t.id as id2, title, active, payload FROM (table1 as t) WHERE id <= 3 AND active != @active", Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
+
+	_, err = db.VerifiableSQLGet(nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
+		ProveSinceTx:  2,
+	})
+	require.Equal(t, store.ErrIllegalState, err)
+
+	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table2", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
+		ProveSinceTx:  0,
+	})
+	require.Equal(t, sql.ErrTableDoesNotExist, err)
+
+	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}},
+		ProveSinceTx:  0,
+	})
+	require.Equal(t, sql.ErrInvalidValue, err)
+
+	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 4}}},
+		ProveSinceTx:  0,
+	})
+	require.Equal(t, store.ErrKeyNotFound, err)
 
 	ve, err := db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
