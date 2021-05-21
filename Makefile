@@ -161,10 +161,10 @@ CHANGELOG.md.next-tag:
 clean/dist:
 	rm -Rf ./dist
 
-# SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
+# WEBCONSOLE=1 SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
 # it enables by default webconsole
 .PHONY: dist
-dist: dist/webconsole dist/binaries dist/winsign
+dist: dist/webconsole webconsole dist/binaries dist/winsign
 	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
 .PHONY: dist/binaries
@@ -194,7 +194,7 @@ dist/winsign:
 			-n "CodeNotary $$service" \
 			-i https://codenotary.io/ \
 			-t http://timestamp.comodoca.com -tr 10 \
-			dist/$$service-v0.9.2-windows-amd64.exe; \
+			dist/$$service-v${VERSION}-windows-amd64.exe; \
 		rm ./dist/$$service-v${VERSION}-windows-amd64.exe.bak -f; \
 	done
 
@@ -214,6 +214,5 @@ dist/binary.md:
 .PHONY: dist/webconsole
 dist/webconsole:
 	rm -rf webconsole/dist; \
-    wget -qO- https://github.com/codenotary/immudb-webconsole/releases/latest/download/immudb-webconsole.tar.gz | tar -xvz -C webconsole; \
-
+    wget -qO- https://github.com/codenotary/immudb-webconsole/releases/latest/download/immudb-webconsole.tar.gz | tar -xvz -C webconsole \
 ########################## releases scripts end ########################################################################
