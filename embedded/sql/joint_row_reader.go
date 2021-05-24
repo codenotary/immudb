@@ -34,7 +34,7 @@ type jointRowReader struct {
 }
 
 func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params map[string]interface{}, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
-	if snap == nil || len(joins) == 0 {
+	if db == nil || snap == nil || rowReader == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
