@@ -98,6 +98,10 @@ type Engine struct {
 }
 
 func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine, error) {
+	if catalogStore == nil || dataStore == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	e := &Engine{
 		catalogStore: catalogStore,
 		dataStore:    dataStore,

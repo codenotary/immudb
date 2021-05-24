@@ -456,6 +456,43 @@ func TestEncodeRawValue(t *testing.T) {
 	require.Equal(t, ErrInvalidValue, err)
 }
 
+func TestClosing(t *testing.T) {
+	catalogStore, err := store.Open("catalog_closing", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_closing")
+
+	dataStore, err := store.Open("sqldata_closing", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_closing")
+
+	_, err = NewEngine(nil, nil, nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.UseDatabase("db1")
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = engine.DatabaseInUse()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = engine.Snapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.RenewSnapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.CloseSnapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
+}
+
 func TestQuery(t *testing.T) {
 	catalogStore, err := store.Open("catalog_q", store.DefaultOptions())
 	require.NoError(t, err)
@@ -667,6 +704,9 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestQueryWithNullables(t *testing.T) {
@@ -721,6 +761,9 @@ func TestQueryWithNullables(t *testing.T) {
 	}
 
 	err = r.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
 	require.NoError(t, err)
 }
 
@@ -841,6 +884,9 @@ func TestOrderBy(t *testing.T) {
 	}
 
 	err = r.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
 	require.NoError(t, err)
 }
 
@@ -970,6 +1016,9 @@ func TestQueryWithRowFiltering(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestAggregations(t *testing.T) {
@@ -1067,6 +1116,9 @@ func TestAggregations(t *testing.T) {
 	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
 	require.NoError(t, err)
 }
 
@@ -1171,6 +1223,9 @@ func TestGroupByHaving(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestJoins(t *testing.T) {
@@ -1265,6 +1320,8 @@ func TestJoins(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestNestedJoins(t *testing.T) {
@@ -1328,6 +1385,9 @@ func TestNestedJoins(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestReOpening(t *testing.T) {
@@ -1382,6 +1442,9 @@ func TestReOpening(t *testing.T) {
 
 	_, indexed := table.indexes[col.id]
 	require.True(t, indexed)
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestSubQuery(t *testing.T) {
@@ -1452,5 +1515,8 @@ func TestSubQuery(t *testing.T) {
 	require.Equal(t, ErrInvalidCondition, err)
 
 	err = r.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
 	require.NoError(t, err)
 }
