@@ -103,6 +103,11 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	// call once again catch the currentState error paths
 	s.metricFuncComputeDBEntries()
+
+	// test warning paths (when dbList and sysDb are nil)
+	s.dbList = nil
+	s.sysDb = nil
+	s.metricFuncComputeDBEntries()
 }
 
 func TestMetricFuncServerUptimeCounter(t *testing.T) {
@@ -157,5 +162,10 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 
 	// non-existent dir
 	s.Options.Dir = fmt.Sprintf("%d", time.Now().UnixNano())
+	s.metricFuncComputeDBSizes()
+
+	// test warning paths (when dbList and sysDb are nil)
+	s.dbList = nil
+	s.sysDb = nil
 	s.metricFuncComputeDBSizes()
 }

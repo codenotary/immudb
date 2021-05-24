@@ -50,25 +50,34 @@ func dirSize(dir string) (int64, error) {
 func (s *ImmuServer) metricFuncComputeDBSizes() (dbSizes map[string]float64) {
 	dbSizes = make(map[string]float64)
 
-	for i := 0; i < s.dbList.Length(); i++ {
-		db := s.dbList.GetByIndex(int64(i))
-		dbName := db.GetOptions().GetDbName()
-		dbSize, err := dirSize(filepath.Join(s.Options.Dir, dbName))
-		if err != nil {
-			s.Logger.Errorf("error updating db size metric for db %s: %v", dbName, err)
-			continue
+	if s.dbList != nil {
+		for i := 0; i < s.dbList.Length(); i++ {
+			db := s.dbList.GetByIndex(int64(i))
+			dbName := db.GetOptions().GetDbName()
+			dbSize, err := dirSize(filepath.Join(s.Options.Dir, dbName))
+			if err != nil {
+				s.Logger.Errorf("error updating db size metric for db %s: %v", dbName, err)
+				continue
+			}
+			dbSizes[dbName] = float64(dbSize)
 		}
-		dbSizes[dbName] = float64(dbSize)
+	} else {
+		s.Logger.Warningf(
+			"current update of db sizes metrics for regular dbs was skipped: db list is nil")
 	}
 
 	// add systemdb
-	sysDBName := s.sysDb.GetOptions().GetDbName()
-	sysDBSize, err := dirSize(filepath.Join(s.Options.Dir, sysDBName))
-	if err != nil {
-		s.Logger.Errorf("error updating db size metric for system db %s: %v", sysDBName, err)
+	if s.sysDb != nil {
+		sysDBName := s.sysDb.GetOptions().GetDbName()
+		sysDBSize, err := dirSize(filepath.Join(s.Options.Dir, sysDBName))
+		if err != nil {
+			s.Logger.Errorf("error updating db size metric for system db %s: %v", sysDBName, err)
+		} else {
+			dbSizes[sysDBName] = float64(sysDBSize)
+		}
 	} else {
-
-		dbSizes[sysDBName] = float64(sysDBSize)
+		s.Logger.Warningf(
+			"current update of db size metric for system db was skipped: system db is nil")
 	}
 
 	return
@@ -77,28 +86,38 @@ func (s *ImmuServer) metricFuncComputeDBSizes() (dbSizes map[string]float64) {
 func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]float64) {
 	nbEntriesPerDB = make(map[string]float64)
 
-	for i := 0; i < s.dbList.Length(); i++ {
-		db := s.dbList.GetByIndex(int64(i))
-		dbName := db.GetOptions().GetDbName()
-		state, err := db.CurrentState()
-		if err != nil {
-			s.Logger.Errorf(
-				"error getting current state of db %s to update the number of entries metric: %v",
-				dbName, err)
-			continue
+	if s.dbList != nil {
+		for i := 0; i < s.dbList.Length(); i++ {
+			db := s.dbList.GetByIndex(int64(i))
+			dbName := db.GetOptions().GetDbName()
+			state, err := db.CurrentState()
+			if err != nil {
+				s.Logger.Errorf(
+					"error getting current state of db %s to update the number of entries metric: %v",
+					dbName, err)
+				continue
+			}
+			nbEntriesPerDB[dbName] = float64(state.GetTxId())
 		}
-		nbEntriesPerDB[dbName] = float64(state.GetTxId())
+	} else {
+		s.Logger.Warningf(
+			"current update of db entries metrics for regular dbs was skipped: db list is nil")
 	}
 
 	// add systemdb
-	sysDBName := s.sysDb.GetOptions().GetDbName()
-	state, err := s.sysDb.CurrentState()
-	if err != nil {
-		s.Logger.Errorf(
-			"error getting current state of system db %s to update the number of entries metric: %v",
-			sysDBName, err)
+	if s.sysDb != nil {
+		sysDBName := s.sysDb.GetOptions().GetDbName()
+		state, err := s.sysDb.CurrentState()
+		if err != nil {
+			s.Logger.Errorf(
+				"error getting current state of system db %s to update the number of entries metric: %v",
+				sysDBName, err)
+		} else {
+			nbEntriesPerDB[sysDBName] = float64(state.GetTxId())
+		}
 	} else {
-		nbEntriesPerDB[sysDBName] = float64(state.GetTxId())
+		s.Logger.Warningf(
+			"current update of db entries metric for system db was skipped: system db is nil")
 	}
 
 	return

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"io/ioutil"
 	"log"
 	"math"
@@ -33,6 +32,8 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -334,23 +335,19 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
 	if s.OS.IsNotExist(sysDbErr) {
-		if s.Options.GetAuth() {
-			db, err := database.NewDb(op, nil, s.Logger)
-			if err != nil {
-				return err
-			}
-
-			s.sysDb = db
-			//sys admin can have an empty array of databases as it has full access
-			adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
-			if err != nil {
-				return logErr(s.Logger, "%v", err)
-			}
-
-			time.Sleep(time.Duration(10) * time.Millisecond)
-
-			s.Logger.Infof("Admin user %s successfully created", adminUsername)
+		db, err := database.NewDb(op, nil, s.Logger)
+		if err != nil {
+			return err
 		}
+
+		s.sysDb = db
+		//sys admin can have an empty array of databases as it has full access
+		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
+		if err != nil {
+			return logErr(s.Logger, "%v", err)
+		}
+
+		s.Logger.Infof("Admin user %s successfully created", adminUsername)
 	} else {
 		db, err := database.OpenDb(op, nil, s.Logger)
 		if err != nil {
