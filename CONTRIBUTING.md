@@ -22,7 +22,7 @@ We encourage you to actively participate in the development and future of immudb
 There are many ways to take part in the immudb community.
 ​
 1. <a href="https://github.com/codenotary/immudb" rel="nofollow" target="_blank">Github Repositories</a>: Report bugs or create feature requests against the dedicated immudb repository.
-2. <a href="https://gitter.im/immudb-chat/community" rel="nofollow" target="_blank">Gitter</a>: Join the gitter channel and chat with other developers in the immudb community.
+2. <a href="https://discord.gg/ThSJxNEHhZ" rel="nofollow" target="_blank">Discord</a>: Join the Discord channel and chat with other developers in the immudb community.
 3. <a href="https://twitter.com/immudb" rel="nofollow" target="_blank">Twitter</a>: Stay in touch with the progress we make and learn about the awesome things happening around immudb.
 ​
 ## Developer Certificate of Origin

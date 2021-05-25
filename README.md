@@ -31,7 +31,7 @@ Don't forget to ⭐ this repo if you like immudb!
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-immudb is a key-value database with built-in cryptographic proof and verification. It can track changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server.
+immudb is a database with built-in cryptographic proof and verification. It can track changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server. It can operate as a key-value store or as relational database (SQL).
 
 Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being changed silently.
 
@@ -72,11 +72,11 @@ Companies use immudb to protect credit card transactions and to secure processes
 
 ### Getting immudb running
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
 ```bash
-wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immudb-v0.9.2-linux-amd64
-mv immudb-v0.9.2-linux-amd64 immudb
+wget https://github.com/vchain-us/immudb/releases/download/v1.0.0/immudb-v1.0.0-linux-amd64
+mv immudb-v1.0.0-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
@@ -96,11 +96,11 @@ If you are running the Docker image without host networking, make sure to expose
 
 ### Connecting with immuclient
 
-You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
+You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
 ```bash
-wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immuclient-v0.9.2-linux-amd64
-mv immuclient-v0.9.2-linux-amd64 immuclient
+wget https://github.com/vchain-us/immudb/releases/download/v1.0.0/immuclient-v1.0.0-linux-amd64
+mv immuclient-v1.0.0-linux-amd64 immuclient
 chmod +x immuclient
 
 # start the interactive shell
