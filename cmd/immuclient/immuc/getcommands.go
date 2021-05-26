@@ -18,6 +18,7 @@ package immuc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,11 +27,19 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
+var (
+	errZeroTxID = errors.New("tx id cannot be 0 (should be bigger than 0)")
+)
+
 func (i *immuc) GetTxByID(args []string) (string, error) {
 	id, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
 		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
+	if id == 0 {
+		return "", errZeroTxID
+	}
+
 	ctx := context.Background()
 	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.TxByID(ctx, id)
@@ -53,6 +62,10 @@ func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
+	if id == 0 {
+		return "", errZeroTxID
+	}
+
 	ctx := context.Background()
 	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedTxByID(ctx, id)
