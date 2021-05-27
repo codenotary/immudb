@@ -38,7 +38,7 @@ func TestGroupedRowReader(t *testing.T) {
 	_, err = engine.newGroupedRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	db, err := engine.catalog.newDatabase("db1")
+	db, err := engine.catalog.newDatabase(1, "db1")
 	require.NoError(t, err)
 
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}}, "id")
