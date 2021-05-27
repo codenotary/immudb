@@ -43,6 +43,7 @@ var ErrIllegalState = store.ErrIllegalState
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentState() (*schema.ImmutableState, error)
+	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
 	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
@@ -349,6 +350,11 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 		TxId:   lastTxID,
 		TxHash: lastTxAlh[:],
 	}, nil
+}
+
+// WaitForIndexingUpto blocks caller until specified tx gets committed
+func (d *db) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForIndexingUpto(txID, cancellation)
 }
 
 //VerifiableSet ...
