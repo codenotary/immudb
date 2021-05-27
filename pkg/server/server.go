@@ -353,7 +353,6 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetSystemAdminDbName()).
 		WithDbRootPath(dataDir).
-		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(storeOpts)
 
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
@@ -394,7 +393,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetDefaultDbName()).
 		WithDbRootPath(dataDir).
-		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDb(s.Options.GetDefaultDbName(), remoteStorage))
 
 	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
@@ -446,7 +444,6 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		op := database.DefaultOption().
 			WithDbName(dbname).
 			WithDbRootPath(dataDir).
-			WithDbRootPath(s.Options.Dir).
 			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage))
 
 		db, err := database.OpenDb(op, s.sysDb, s.Logger)
@@ -956,7 +953,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	op := database.DefaultOption().
 		WithDbName(newdb.DatabaseName).
 		WithDbRootPath(dataDir).
-		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDb(newdb.DatabaseName, s.remoteStorage))
 
 	db, err := database.NewDb(op, s.sysDb, s.Logger)
