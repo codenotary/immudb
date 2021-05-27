@@ -20,21 +20,24 @@ import "github.com/codenotary/immudb/embedded/store"
 
 //DbOptions database instance options
 type DbOptions struct {
-	//	dbDir             string
-	dbName            string
-	dbRootPath        string
+	dbName     string
+	dbRootPath string
+	storeOpts  *store.Options
+
 	corruptionChecker bool
-	storeOpts         *store.Options
+
+	replica      bool
+	srcDBName    string
+	srcDBAddress string
+	srcDBPort    int
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	return &DbOptions{
-		//		dbDir:             "immudb",
-		dbName:            "db_name",
-		dbRootPath:        "./data",
-		corruptionChecker: true,
-		storeOpts:         store.DefaultOptions(),
+		dbRootPath: "./data",
+		dbName:     "db_name",
+		storeOpts:  store.DefaultOptions(),
 	}
 }
 
@@ -80,4 +83,28 @@ func (o *DbOptions) WithStoreOptions(storeOpts *store.Options) *DbOptions {
 // GetStoreOptions returns backing store options
 func (o *DbOptions) GetStoreOptions() *store.Options {
 	return o.storeOpts
+}
+
+// AsReplica sets if the database is a replica
+func (o *DbOptions) AsReplica(replica bool) *DbOptions {
+	o.replica = replica
+	return o
+}
+
+// WithSrcDBName sets if the source database name
+func (o *DbOptions) WithSrcDBName(srcDBName string) *DbOptions {
+	o.srcDBName = srcDBName
+	return o
+}
+
+// WithSrcDBName sets if the source database address
+func (o *DbOptions) WithSrcDBAddress(srcDBAddress string) *DbOptions {
+	o.srcDBAddress = srcDBAddress
+	return o
+}
+
+// WithSrcDBPort sets if the source database port
+func (o *DbOptions) WithSrcDBPort(srcDBPort int) *DbOptions {
+	o.srcDBPort = srcDBPort
+	return o
 }
