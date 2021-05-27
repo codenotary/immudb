@@ -713,6 +713,10 @@ service ImmuService {
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
+	// Replication
+	rpc StreamTxs(TxRequest) returns (stream Tx) {};
+	//rpc StreamTxData(TxRequest) returns (stream Chunk) {};
+
 	// SQL
 	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
