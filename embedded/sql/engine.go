@@ -311,6 +311,91 @@ func (e *Engine) CloseSnapshot() error {
 	return nil
 }
 
+func (e *Engine) DumpCatalogTo(dbName string, targetStore *store.ImmuStore) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	db, err := e.catalog.GetDatabaseByName(dbName)
+	if err != nil {
+		return err
+	}
+
+	snap, err := e.catalogStore.SnapshotSince(math.MaxUint64)
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+
+	var entries []*store.KV
+
+	dbKey := e.mapKey(catalogDatabasePrefix, EncodeID(db.ID()))
+
+	v, _, _, err := snap.Get(dbKey)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, &store.KV{Key: dbKey, Value: v})
+
+	tableEntries, err := e.entriesWithPrefix(e.mapKey(catalogTablePrefix, EncodeID(db.ID())), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, tableEntries...)
+
+	colEntries, err := e.entriesWithPrefix(e.mapKey(catalogColumnPrefix, EncodeID(db.ID())), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, colEntries...)
+
+	idxEntries, err := e.entriesWithPrefix(e.mapKey(catalogIndexPrefix), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, idxEntries...)
+
+	_, err = targetStore.Commit(entries, true)
+
+	return err
+}
+
+func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*store.KV, error) {
+	var entries []*store.KV
+
+	dbReader, err := snap.NewKeyReader(&store.KeyReaderSpec{Prefix: prefix})
+	if err != nil {
+		return nil, err
+	}
+	defer dbReader.Close()
+
+	for {
+		mkey, vref, _, _, err := dbReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+
+		entries = append(entries, &store.KV{Key: mkey, Value: v})
+	}
+
+	return entries, nil
+}
+
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
@@ -345,13 +430,9 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 			return nil, err
 		}
 
-		db, err := catalog.newDatabase(string(v))
+		db, err := catalog.newDatabase(id, string(v))
 		if err != nil {
 			return nil, err
-		}
-
-		if id != db.id {
-			return nil, ErrCorruptedData
 		}
 
 		err = e.loadTables(db, snap)

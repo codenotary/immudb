@@ -57,16 +57,14 @@ func (c *Catalog) ExistDatabase(db string) bool {
 	return exists
 }
 
-func (c *Catalog) newDatabase(name string) (*Database, error) {
+func (c *Catalog) newDatabase(id uint64, name string) (*Database, error) {
 	exists := c.ExistDatabase(name)
 	if exists {
 		return nil, ErrDatabaseAlreadyExists
 	}
 
-	id := len(c.dbsByID) + 1
-
 	db := &Database{
-		id:           uint64(id),
+		id:           id,
 		name:         name,
 		tablesByID:   map[uint64]*Table{},
 		tablesByName: map[string]*Table{},
