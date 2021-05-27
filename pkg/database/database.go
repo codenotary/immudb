@@ -82,7 +82,8 @@ type DB interface {
 
 //IDB database instance
 type db struct {
-	st *store.ImmuStore
+	st      *store.ImmuStore
+	ctlogSt *store.ImmuStore
 
 	sqlEngine *sql.Engine
 
@@ -96,7 +97,7 @@ type db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
+func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -120,15 +121,45 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	var catalogStore *store.ImmuStore
-
-	if catalogDB == nil {
-		catalogStore = dbi.st
+	if systemDB == nil {
+		dbi.ctlogSt = dbi.st
 	} else {
-		catalogStore = catalogDB.(*db).st
+		catalogDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), "catalog")
+
+		_, dbErr := os.Stat(catalogDir)
+		migrateCatalog := os.IsNotExist(dbErr)
+
+		dbi.ctlogSt, err = store.Open(catalogDir, op.GetStoreOptions().WithLog(log))
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
+
+		if migrateCatalog {
+			dbi.Logger.Infof("Migrating catalog from systemdb to %s...", catalogDir)
+
+			systemDBI, _ := systemDB.(*db)
+			sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
+			if err != nil {
+				sqlEngine.Close()
+				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			}
+
+			err = sqlEngine.DumpCatalogTo(op.dbName, dbi.ctlogSt)
+			if err != nil {
+				sqlEngine.Close()
+				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			}
+
+			err = sqlEngine.Close()
+			if err != nil {
+				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			}
+
+			dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", catalogDir)
+		}
 	}
 
-	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.ctlogSt, dbi.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
@@ -154,7 +185,7 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
+func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -181,15 +212,18 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	var catalogStore *store.ImmuStore
-
-	if catalogDB == nil {
-		catalogStore = dbi.st
+	if systemDB == nil {
+		dbi.ctlogSt = dbi.st
 	} else {
-		catalogStore = catalogDB.(*db).st
+		catalogDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), "catalog")
+
+		dbi.ctlogSt, err = store.Open(catalogDir, op.GetStoreOptions().WithLog(log))
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 	}
 
-	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.ctlogSt, dbi.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
