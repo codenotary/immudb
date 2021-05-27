@@ -615,6 +615,31 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "replica",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "srcDBName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "srcDBAddress",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "srcDBPort",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
           }
         ],
         "tags": [
@@ -1312,6 +1337,19 @@
       "properties": {
         "databaseName": {
           "type": "string"
+        },
+        "replica": {
+          "type": "boolean"
+        },
+        "srcDBName": {
+          "type": "string"
+        },
+        "srcDBAddress": {
+          "type": "string"
+        },
+        "srcDBPort": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
