@@ -468,6 +468,15 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	}
 };
 
+message ErrorInfo {
+	string cause = 1;
+}
+
+message DebugInfo {
+	repeated string stack_entries = 1;
+	string detail = 2;
+}
+
 // immudb gRPC & REST service
 // IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 service ImmuService {
