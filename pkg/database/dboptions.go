@@ -26,10 +26,12 @@ type DbOptions struct {
 
 	corruptionChecker bool
 
-	replica      bool
-	srcDBName    string
-	srcDBAddress string
-	srcDBPort    int
+	replica     bool
+	srcDatabase string
+	srcAddress  string
+	srcPort     int
+	followerUsr string
+	followerPwd string
 }
 
 // DefaultOption Initialise Db Optionts to default values
@@ -91,20 +93,32 @@ func (o *DbOptions) AsReplica(replica bool) *DbOptions {
 	return o
 }
 
-// WithSrcDBName sets if the source database name
-func (o *DbOptions) WithSrcDBName(srcDBName string) *DbOptions {
-	o.srcDBName = srcDBName
+// WithSrcDatabase sets the source database name
+func (o *DbOptions) WithSrcDatabase(srcDatabase string) *DbOptions {
+	o.srcDatabase = srcDatabase
 	return o
 }
 
-// WithSrcDBName sets if the source database address
-func (o *DbOptions) WithSrcDBAddress(srcDBAddress string) *DbOptions {
-	o.srcDBAddress = srcDBAddress
+// WithSrcAddress sets the source database address
+func (o *DbOptions) WithSrcAddress(srcAddress string) *DbOptions {
+	o.srcAddress = srcAddress
 	return o
 }
 
-// WithSrcDBPort sets if the source database port
-func (o *DbOptions) WithSrcDBPort(srcDBPort int) *DbOptions {
-	o.srcDBPort = srcDBPort
+// WithSrcPort sets the source database port
+func (o *DbOptions) WithSrcPort(srcPort int) *DbOptions {
+	o.srcPort = srcPort
+	return o
+}
+
+// WithFollowerUsr sets follower username
+func (o *DbOptions) WithFollowerUsr(followerUsr string) *DbOptions {
+	o.followerUsr = followerUsr
+	return o
+}
+
+// WithFollowerPwd sets follower password
+func (o *DbOptions) WithFollowerPwd(followerPwd string) *DbOptions {
+	o.followerPwd = followerPwd
 	return o
 }

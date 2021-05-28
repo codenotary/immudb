@@ -39,6 +39,8 @@ var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reach
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
+var ErrIsReplica = errors.New("database is read-only because it's a replica")
+var ErrNotReplica = errors.New("database is NOT a replica")
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -54,6 +56,8 @@ type DB interface {
 	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
 	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
+	ExportTxByID(req *schema.TxRequest) ([]byte, error)
+	ReplicateTx([]byte) (*schema.TxMetadata, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 	History(req *schema.HistoryRequest) (*schema.Entries, error)
@@ -263,6 +267,10 @@ func (d *db) CompactIndex() error {
 func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
+
+	if d.options.replica {
+		return nil, ErrIsReplica
+	}
 
 	return d.set(req)
 }
@@ -590,6 +598,33 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	}
 
 	return schema.TxTo(d.tx1), nil
+}
+
+func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	return d.st.ExportTx(req.Tx, d.tx1)
+}
+
+func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if !d.options.replica {
+		return nil, ErrNotReplica
+	}
+
+	md, err := d.st.ReplicateTx(exportedTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxMetatadaTo(md), nil
 }
 
 //VerifiableTxByID ...
