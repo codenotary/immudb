@@ -424,6 +424,47 @@ func TestImmuClientTampering(t *testing.T) {
 	require.Equal(t, store.ErrCorruptedData, err)
 }
 
+func TestReplica(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	err = client.CreateDatabase(ctx, &schema.Database{
+		DatabaseName: "db1",
+		Replica:      true,
+	})
+	require.NoError(t, err)
+
+	resp, err := client.UseDatabase(ctx, &schema.Database{
+		DatabaseName: "db1",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Token)
+
+	md = metadata.Pairs("authorization", resp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`db1-key1`), []byte(`db1-value1`))
+	require.Error(t, err)
+}
+
 func TestDatabasesSwitching(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -456,6 +497,9 @@ func TestDatabasesSwitching(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Token)
+
+	md = metadata.Pairs("authorization", resp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
 	require.NoError(t, err)
