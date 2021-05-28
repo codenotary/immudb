@@ -48,18 +48,54 @@ func NewUUIDContext(id xid.ID) uuidContext {
 	return uuidContext{id}
 }
 
-func getOrSetUUID(dir string) (xid.ID, error) {
-	fname := path.Join(dir, IDENTIFIER_FNAME)
-	if fileExists(fname) {
-		b, err := ioutil.ReadFile(fname)
-		if err != nil {
-			return xid.ID{}, err
-		}
-		return xid.FromBytes(b)
+// getOrSetUUID either reads the identifier file or creates it if it doesn't exist.
+// In earlier versions, the file was located inside default DB directory. Now, it
+// is moved to the data directory. This function migrates the file to data directory
+// in case it exists in the default db directory.
+func getOrSetUUID(dataDir, defaultDbDir string) (xid.ID, error) {
+	fileInDataDir := path.Join(dataDir, IDENTIFIER_FNAME)
+	if fileExists(fileInDataDir) {
+		return getUUID(fileInDataDir)
 	}
+
+	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
+	if fileExists(fileInDefaultDbDir) {
+		guid, err := getUUID(fileInDefaultDbDir)
+		if err != nil {
+			return guid, err
+		}
+
+		err = moveUUIDFile(guid, fileInDataDir, fileInDefaultDbDir)
+		return guid, err
+	}
+
 	guid := xid.New()
-	err := ioutil.WriteFile(fname, guid.Bytes(), os.ModePerm)
+	err := setUUID(guid, fileInDataDir)
 	return guid, err
+}
+
+func getUUID(fname string) (xid.ID, error) {
+	b, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return xid.ID{}, err
+	}
+	return xid.FromBytes(b)
+}
+
+func setUUID(guid xid.ID, fname string) error {
+	return ioutil.WriteFile(fname, guid.Bytes(), os.ModePerm)
+}
+
+func moveUUIDFile(guid xid.ID, fileInDataDir, fileInDefaultDbDir string) error {
+	// write the new file first in case we crash in between. Do not use
+	// os.Rename here because in case of a crash, bad things can happen.
+	if err := setUUID(guid, fileInDataDir); err != nil {
+		return err
+	}
+
+	// now, delete the old file once we have new file setup
+	err := os.Remove(fileInDefaultDbDir)
+	return err
 }
 
 // fileExists checks if a file exists and is not a directory before we

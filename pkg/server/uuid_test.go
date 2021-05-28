@@ -20,6 +20,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/rs/xid"
@@ -28,7 +29,7 @@ import (
 )
 
 func TestNewUUID(t *testing.T) {
-	id, err := getOrSetUUID("./")
+	id, err := getOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -47,7 +48,7 @@ func TestNewUUID(t *testing.T) {
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID("./")
+	id, err := getOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -63,8 +64,38 @@ func TestExistingUUID(t *testing.T) {
 	}
 }
 
+func TestMigrateUUID(t *testing.T) {
+	defaultDbDir := "defaultDb"
+	if err := os.Mkdir(defaultDbDir, os.ModePerm); err != nil {
+		t.Fatalf("error in creating default db dir")
+	}
+	defer os.Remove(defaultDbDir)
+
+	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
+	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
+	ioutil.WriteFile(fileInDefaultDbDir, x.Bytes(), os.ModePerm)
+	id, err := getOrSetUUID("./", defaultDbDir)
+	if err != nil {
+		t.Fatalf("error creating UUID, %v", err)
+	}
+	defer os.RemoveAll(fileInDefaultDbDir)
+	defer os.RemoveAll(IDENTIFIER_FNAME)
+
+	if !fileExists(IDENTIFIER_FNAME) {
+		t.Errorf("uuid file not created, %s", err)
+	}
+	if fileExists(fileInDefaultDbDir) {
+		t.Errorf("uuid file not moved, %s", err)
+	}
+
+	uuid := NewUUIDContext(id)
+	if id.Compare(uuid.UUID) != 0 {
+		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
+	}
+}
+
 func TestUUIDContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./")
+	id, err := getOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -101,7 +132,7 @@ func TestUUIDContextSetter(t *testing.T) {
 }
 
 func TestUUIDStreamContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./")
+	id, err := getOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}

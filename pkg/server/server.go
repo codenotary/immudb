@@ -132,8 +132,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
-
-	if s.UUID, err = getOrSetUUID(systemDbRootDir); err != nil {
+	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 
