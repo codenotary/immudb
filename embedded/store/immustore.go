@@ -1296,6 +1296,117 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 	return available, nil
 }
 
+func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
+	err := s.ReadTx(txID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	mdBs := tx.Metadata().serialize()
+
+	var buf bytes.Buffer
+
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], uint32(len(mdBs)))
+	_, err = buf.Write(b[:])
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(mdBs)
+	if err != nil {
+		return nil, err
+	}
+
+	valBs := make([]byte, s.maxValueLen)
+
+	for _, e := range tx.Entries() {
+		_, err = s.ReadValueAt(valBs[:e.vLen], e.vOff, e.hVal)
+		if err != nil {
+			return nil, err
+		}
+
+		var lenBs [4]byte
+
+		// kLen
+		binary.BigEndian.PutUint32(lenBs[:], uint32(e.kLen))
+		_, err = buf.Write(lenBs[:])
+		if err != nil {
+			return nil, err
+		}
+
+		// vLen
+		binary.BigEndian.PutUint32(lenBs[:], uint32(e.vLen))
+		_, err = buf.Write(lenBs[:])
+		if err != nil {
+			return nil, err
+		}
+
+		// key
+		_, err = buf.Write(e.Key())
+		if err != nil {
+			return nil, err
+		}
+
+		// val
+		_, err = buf.Write(valBs[:e.vLen])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (s *ImmuStore) ReplicateTx(exportedTx []byte) (*TxMetadata, error) {
+	if len(exportedTx) < 4 {
+		return nil, ErrIllegalArguments
+	}
+
+	i := 0
+
+	mdLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
+	i += 4
+
+	if len(exportedTx[i:]) < mdLen {
+		return nil, ErrIllegalArguments
+	}
+
+	md := &TxMetadata{}
+	err := md.readFrom(exportedTx[i : i+mdLen])
+	if err != nil {
+		return nil, err
+	}
+	i += mdLen
+
+	entries := make([]*KV, md.NEntries)
+
+	for ei := range entries {
+		if len(exportedTx[i:]) < 8 {
+			return nil, ErrIllegalArguments
+		}
+
+		kLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
+		i += 4
+
+		vLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
+		i += 4
+
+		if len(exportedTx[i:]) < kLen+vLen {
+			return nil, ErrIllegalArguments
+		}
+
+		entries[ei] = &KV{
+			Key:   exportedTx[i : i+kLen],
+			Value: exportedTx[i+kLen : i+kLen+vLen],
+		}
+
+		i += kLen + vLen
+	}
+
+	return replicateCommit(md, entries)
+}
+
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	cacheMiss := false
 
