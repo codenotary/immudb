@@ -32,6 +32,7 @@ func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
 
 type MsgReceiver interface {
 	Read(data []byte) (n int, err error)
+	ReadFully() ([]byte, error)
 }
 
 type msgReceiver struct {
@@ -41,6 +42,44 @@ type msgReceiver struct {
 	tl      int
 	s       int
 	msgSend bool
+}
+
+// ReadFully reads the entire message that could be transmitted in several chunks
+func (r *msgReceiver) ReadFully() ([]byte, error) {
+	firstChunk, err := r.stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	if len(firstChunk.Content) < 8 {
+		return nil, ErrChunkTooSmall
+	}
+
+	messageLen := int(binary.BigEndian.Uint64(firstChunk.Content))
+
+	b := make([]byte, messageLen)
+	i := 0
+
+	copy(b, firstChunk.Content[8:])
+	i += len(firstChunk.Content) - 8
+
+	for {
+		chunk, err := r.stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		copy(b[i:], chunk.Content)
+		i += len(chunk.Content)
+	}
+
+	if messageLen > i {
+		return nil, ErrNotEnoughDataOnStream
+	}
+
+	return b, nil
 }
 
 // Read read fill message with received data and return the number of read bytes or error. If no message is present it returns 0 and io.EOF. If the message is complete it returns 0 and nil, in that case successive calls to Read will returns a new message.
