@@ -202,20 +202,6 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		WithFileMode(opts.FileMode).
 		WithMetadata(metadata.Bytes())
 
-	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
-	for i := 0; i < opts.MaxIOConcurrency; i++ {
-		appendableOpts.WithFileExt("val")
-		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
-		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
-		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
-		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
-		vLog, err := multiapp.Open(vLogPath, appendableOpts)
-		if err != nil {
-			return nil, err
-		}
-		vLogs[i] = vLog
-	}
-
 	appendableOpts.WithFileExt("tx")
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
@@ -232,6 +218,21 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
+	}
+
+	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
+	for i := 0; i < opts.MaxIOConcurrency; i++ {
+		appendableOpts.WithSynced(false)
+		appendableOpts.WithFileExt("val")
+		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
+		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
+		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
+		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
+		vLog, err := multiapp.Open(vLogPath, appendableOpts)
+		if err != nil {
+			return nil, err
+		}
+		vLogs[i] = vLog
 	}
 
 	return OpenWith(path, vLogs, txLog, cLog, opts)
@@ -766,6 +767,14 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	if err != nil {
 		donec <- appendableResult{nil, err}
 		return
+	}
+
+	if s.synced {
+		err = vLog.Sync()
+		if err != nil {
+			donec <- appendableResult{nil, err}
+			return
+		}
 	}
 
 	donec <- appendableResult{offsets, nil}
