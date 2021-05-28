@@ -73,8 +73,12 @@ func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer
 	return s.Srv.StreamHistory(request, historyServer)
 }
 
-func (s *ServerMock) StreamTxs(request *schema.TxRequest, txsServer schema.ImmuService_StreamTxsServer) error {
-	return s.Srv.StreamTxs(request, txsServer)
+func (s *ServerMock) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
+	return s.Srv.ExportTx(req, txsServer)
+}
+
+func (s *ServerMock) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateTxServer) error {
+	return s.Srv.ReplicateTx(replicateTxServer)
 }
 
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {

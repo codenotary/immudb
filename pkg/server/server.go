@@ -60,8 +60,8 @@ import (
 const (
 	//KeyPrefixUser All user keys in the key/value store are prefixed by this keys to distinguish them from keys that have other purposes
 	KeyPrefixUser = iota + 1
-	//KeyPrefixDB is used for entries related to database settings
-	KeyPrefixDB
+	//KeyPrefixDBSettings is used for entries related to database settings
+	KeyPrefixDBSettings
 )
 
 var startedAt time.Time
@@ -445,10 +445,21 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		pathparts := strings.Split(val, string(filepath.Separator))
 		dbname := pathparts[len(pathparts)-1]
 
+		settings, err := s.loadSettings(dbname)
+		if err != nil {
+			return err
+		}
+
 		op := database.DefaultOption().
 			WithDbName(dbname).
 			WithDbRootPath(dataDir).
-			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage))
+			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage)).
+			AsReplica(settings.Replica).
+			WithSrcDatabase(settings.SrcDatabase).
+			WithSrcAddress(settings.SrcAddress).
+			WithSrcPort(settings.SrcPort).
+			WithFollowerUsr(settings.FollowerUsr).
+			WithFollowerPwd(settings.FollowerPwd)
 
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
 		if err != nil {
@@ -918,7 +929,7 @@ func (s *ImmuServer) installShutdownHandler() {
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*empty.Empty, error) {
+func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if !s.Options.GetAuth() {
@@ -934,34 +945,56 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
 	}
 
-	if newdb.DatabaseName == SystemdbName {
+	if req.DatabaseName == SystemdbName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
 
-	if strings.ToLower(newdb.DatabaseName) != newdb.DatabaseName {
+	if strings.ToLower(req.DatabaseName) != req.DatabaseName {
 		return nil, fmt.Errorf("provide a lowercase database name")
 	}
 
-	newdb.DatabaseName = strings.ToLower(newdb.DatabaseName)
-	if err = IsAllowedDbName(newdb.DatabaseName); err != nil {
+	req.DatabaseName = strings.ToLower(req.DatabaseName)
+	if err = IsAllowedDbName(req.DatabaseName); err != nil {
 		return nil, err
 	}
 
 	//check if database exists
-	if s.dbList.GetId(newdb.GetDatabaseName()) >= 0 {
-		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabaseName())
+	if s.dbList.GetId(req.GetDatabaseName()) >= 0 {
+		return nil, fmt.Errorf("database %s already exists", req.GetDatabaseName())
+	}
+
+	createdAt := time.Now()
+
+	settings := &dbSettings{
+		Database:    req.DatabaseName,
+		Replica:     req.Replica,
+		SrcDatabase: req.SrcDatabase,
+		SrcAddress:  req.SrcAddress,
+		SrcPort:     int(req.SrcPort),
+		FollowerUsr: req.FollowerUsr,
+		FollowerPwd: req.FollowerPwd,
+		CreatedBy:   user.Username,
+		CreatedAt:   createdAt,
+		UpdatedAt:   createdAt,
+	}
+
+	err = s.saveSettings(settings)
+	if err != nil {
+		return nil, err
 	}
 
 	dataDir := s.Options.Dir
 
 	op := database.DefaultOption().
-		WithDbName(newdb.DatabaseName).
+		WithDbName(req.DatabaseName).
 		WithDbRootPath(dataDir).
-		WithStoreOptions(s.storeOptionsForDb(newdb.DatabaseName, s.remoteStorage)).
-		AsReplica(newdb.Replica).
-		WithSrcDBName(newdb.SrcDBName).
-		WithSrcDBAddress(newdb.SrcDBAddress).
-		WithSrcDBPort(int(newdb.SrcDBPort))
+		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage)).
+		AsReplica(settings.Replica).
+		WithSrcDatabase(settings.SrcDatabase).
+		WithSrcAddress(settings.SrcAddress).
+		WithSrcPort(settings.SrcPort).
+		WithFollowerUsr(settings.FollowerUsr).
+		WithFollowerPwd(settings.FollowerPwd)
 
 	db, err := database.NewDb(op, s.sysDB, s.Logger)
 	if err != nil {
@@ -1407,6 +1440,55 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	}
 
 	return &usr, nil
+}
+
+type dbSettings struct {
+	Database    string    `json:"database"`
+	Replica     bool      `json:"replica"`
+	SrcDatabase string    `json:"srcDatabase"`
+	SrcAddress  string    `json:"srcAddress"`
+	SrcPort     int       `json:"srcPort"`
+	FollowerUsr string    `json:"followerUsr"`
+	FollowerPwd string    `json:"followerPwd"`
+	CreatedBy   string    `json:"createdBy"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+func (s *ImmuServer) loadSettings(database string) (*dbSettings, error) {
+	settingsKey := make([]byte, 1+len(database))
+	settingsKey[0] = KeyPrefixDBSettings
+	copy(settingsKey[1:], []byte(database))
+
+	e, err := s.sysDB.Get(&schema.KeyRequest{Key: settingsKey})
+	if err != nil {
+		return nil, err
+	}
+
+	var settings *dbSettings
+
+	err = json.Unmarshal(e.Value, &settings)
+	if err != nil {
+		return nil, err
+	}
+
+	return settings, nil
+}
+
+func (s *ImmuServer) saveSettings(settings *dbSettings) error {
+	settingsData, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+
+	settingsKey := make([]byte, 1+len(settings.Database))
+	settingsKey[0] = KeyPrefixDBSettings
+	copy(settingsKey[1:], []byte(settings.Database))
+
+	settingsKV := &schema.KeyValue{Key: settingsKey, Value: settingsData}
+	_, err = s.sysDB.Set(&schema.SetRequest{KVs: []*schema.KeyValue{settingsKV}})
+
+	return err
 }
 
 func (s *ImmuServer) saveUser(user *auth.User) error {

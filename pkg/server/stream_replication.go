@@ -16,38 +16,62 @@ limitations under the License.
 
 package server
 
-import "github.com/codenotary/immudb/pkg/api/schema"
+import (
+	"bytes"
 
-func (s *ImmuServer) StreamTxs(req *schema.TxRequest, txsServer schema.ImmuService_StreamTxsServer) error {
+	"github.com/codenotary/immudb/pkg/api/schema"
+)
+
+func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
 	if req == nil || req.Tx == 0 {
 		return ErrIllegalArguments
 	}
 
-	ind, err := s.getDbIndexFromCtx(txsServer.Context(), "StreamTxs")
+	ind, err := s.getDbIndexFromCtx(txsServer.Context(), "ExportTx")
+	if err != nil {
+		return err
+	}
+
+	db := s.dbList.GetByIndex(ind)
+	err = db.WaitForIndexingUpto(req.Tx, nil)
+	if err != nil {
+		return err
+	}
+
+	bs, err := db.ExportTxByID(&schema.TxRequest{Tx: req.Tx})
+	if err != nil {
+		return err
+	}
+
+	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
+
+	err = sender.Send(bytes.NewReader(bs), len(bs))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateTxServer) error {
+	ind, err := s.getDbIndexFromCtx(replicateTxServer.Context(), "ReplicateTx")
+	if err != nil {
+		return err
+	}
+
+	receiver := s.StreamServiceFactory.NewMsgReceiver(replicateTxServer)
+
+	bs, err := receiver.ReadFully()
 	if err != nil {
 		return err
 	}
 
 	db := s.dbList.GetByIndex(ind)
 
-	currentTx := req.Tx
-
-	for {
-		err = db.WaitForIndexingUpto(currentTx, nil)
-		if err != nil {
-			return err
-		}
-
-		tx, err := db.TxByID(&schema.TxRequest{Tx: currentTx})
-		if err != nil {
-			return err
-		}
-
-		err = txsServer.Send(tx)
-		if err != nil {
-			return err
-		}
-
-		currentTx++
+	md, err := db.ReplicateTx(bs)
+	if err != nil {
+		return err
 	}
+
+	return replicateTxServer.SendAndClose(md)
 }
