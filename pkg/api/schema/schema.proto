@@ -328,9 +328,11 @@ message TxList {
 message Database {
 	string databaseName = 1;
 	bool replica = 2;
-	string srcDBName = 3;
-	string srcDBAddress = 4;
-	uint32 srcDBPort = 5;
+	string srcDatabase = 3;
+	string srcAddress = 4;
+	uint32 srcPort = 5;
+	string followerUsr = 6;
+	string followerPwd = 7;
 }
 
 message Table {
@@ -716,9 +718,9 @@ service ImmuService {
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
-	// Replication
-	rpc StreamTxs(TxRequest) returns (stream Tx) {};
-	//rpc StreamTxData(TxRequest) returns (stream Chunk) {};
+	// Replicarion
+	rpc exportTx(TxRequest) returns (stream Chunk) {};
+	rpc replicateTx(stream Chunk) returns (TxMetadata) {};
 
 	// SQL
 	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {
