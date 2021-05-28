@@ -623,23 +623,35 @@
             "type": "boolean"
           },
           {
-            "name": "srcDBName",
+            "name": "srcDatabase",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "srcDBAddress",
+            "name": "srcAddress",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "srcDBPort",
+            "name": "srcPort",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int64"
+          },
+          {
+            "name": "followerUsr",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "followerPwd",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1341,15 +1353,21 @@
         "replica": {
           "type": "boolean"
         },
-        "srcDBName": {
+        "srcDatabase": {
           "type": "string"
         },
-        "srcDBAddress": {
+        "srcAddress": {
           "type": "string"
         },
-        "srcDBPort": {
+        "srcPort": {
           "type": "integer",
           "format": "int64"
+        },
+        "followerUsr": {
+          "type": "string"
+        },
+        "followerPwd": {
+          "type": "string"
         }
       }
     },

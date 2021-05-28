@@ -204,9 +204,11 @@
 | ----- | ---- | ----- | ----------- |
 | databaseName | [string](#string) |  |  |
 | replica | [bool](#bool) |  |  |
-| srcDBName | [string](#string) |  |  |
-| srcDBAddress | [string](#string) |  |  |
-| srcDBPort | [uint32](#uint32) |  |  |
+| srcDatabase | [string](#string) |  |  |
+| srcAddress | [string](#string) |  |  |
+| srcPort | [uint32](#uint32) |  |  |
+| followerUsr | [string](#string) |  |  |
+| followerPwd | [string](#string) |  |  |
 
 
 
@@ -1419,7 +1421,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | streamZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamHistory | [HistoryRequest](#immudb.schema.HistoryRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
-| StreamTxs | [TxRequest](#immudb.schema.TxRequest) | [Tx](#immudb.schema.Tx) stream | Replication |
+| exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replicarion |
+| replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | UseSnapshot | [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) | SQL |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
