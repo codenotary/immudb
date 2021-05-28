@@ -21,12 +21,12 @@ import (
 )
 
 type kvStreamReceiver struct {
-	s          MsgReceiver
+	s          io.Reader
 	BufferSize int
 }
 
 // NewKvStreamReceiver returns a new kvStreamReceiver
-func NewKvStreamReceiver(s MsgReceiver, bs int) KvStreamReceiver {
+func NewKvStreamReceiver(s io.Reader, bs int) KvStreamReceiver {
 	return &kvStreamReceiver{
 		s:          s,
 		BufferSize: bs,

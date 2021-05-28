@@ -18,19 +18,21 @@ package stream
 
 import (
 	"bytes"
+	"io"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/proto"
 )
 
 type execAllStreamReceiver struct {
-	s                MsgReceiver
+	s                io.Reader
 	kvStreamReceiver KvStreamReceiver
 	BufferSize       int
 }
 
 // NewExecAllStreamReceiver returns a new execAllStreamReceiver
-func NewExecAllStreamReceiver(s MsgReceiver, bs int) ExecAllStreamReceiver {
+func NewExecAllStreamReceiver(s io.Reader, bs int) ExecAllStreamReceiver {
 	return &execAllStreamReceiver{
 		s:                s,
 		kvStreamReceiver: NewKvStreamReceiver(s, bs),
