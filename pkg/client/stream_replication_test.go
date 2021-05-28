@@ -19,9 +19,9 @@ package client
 
 import (
 	"context"
+	"io"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestImmuClient_StreamTxs(t *testing.T) {
+func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
@@ -50,27 +50,58 @@ func TestImmuClient_StreamTxs(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, err = client.StreamTxs(ctx, nil)
+	err = client.CreateDatabase(ctx, &schema.Database{
+		DatabaseName: "replicateddb",
+		Replica:      true,
+	})
+	require.NoError(t, err)
+
+	replicatedMD, err := client.UseDatabase(ctx, &schema.Database{DatabaseName: "replicateddb"})
+	require.NoError(t, err)
+
+	defaultMD, err := client.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", defaultMD.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.ExportTx(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	txStream, err := client.StreamTxs(ctx, &schema.TxRequest{Tx: 1})
+	exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
 	require.NoError(t, err)
 
-	tx, err := txStream.Recv()
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), tx.Metadata.Id)
+	md = metadata.Pairs("authorization", replicatedMD.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	go func() {
-		time.Sleep(1 * time.Second)
-		client.Set(ctx, []byte("key2"), []byte("value2"))
-	}()
-
-	tx, err = txStream.Recv()
+	replicateTxStream, err := client.ReplicateTx(ctx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), tx.Metadata.Id)
+
+	for {
+		md = metadata.Pairs("authorization", defaultMD.Token)
+		ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+		txChunk, err := exportTxStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+
+		md = metadata.Pairs("authorization", replicatedMD.Token)
+		ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+		err = replicateTxStream.Send(txChunk)
+		require.NoError(t, err)
+	}
+
+	md = metadata.Pairs("authorization", replicatedMD.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = replicateTxStream.CloseAndRecv()
+	require.NoError(t, err)
 
 	err = client.Logout(ctx)
 	require.NoError(t, err)

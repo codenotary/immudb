@@ -21,7 +21,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func (c *immuClient) StreamTxs(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_StreamTxsClient, error) {
+func (c *immuClient) ExportTx(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_ExportTxClient, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -30,5 +30,13 @@ func (c *immuClient) StreamTxs(ctx context.Context, req *schema.TxRequest) (sche
 		return nil, ErrNotConnected
 	}
 
-	return c.ServiceClient.StreamTxs(ctx, req)
+	return c.ServiceClient.ExportTx(ctx, req)
+}
+
+func (c *immuClient) ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.ReplicateTx(ctx)
 }
