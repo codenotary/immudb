@@ -87,6 +87,65 @@ func (tx *Tx) Metadata() *TxMetadata {
 	}
 }
 
+func (md *TxMetadata) serialize() []byte {
+	var b [txIDSize + 3*sha256.Size + tsSize + 12]byte
+	i := 0
+
+	binary.BigEndian.PutUint64(b[i:], md.ID)
+	i += txIDSize
+
+	copy(b[i:], md.PrevAlh[:])
+	i += sha256.Size
+
+	binary.BigEndian.PutUint64(b[i:], uint64(md.Ts))
+	i += tsSize
+
+	binary.BigEndian.PutUint32(b[i:], uint32(md.NEntries))
+	i += 4
+
+	copy(b[i:], md.Eh[:])
+	i += sha256.Size
+
+	binary.BigEndian.PutUint64(b[i:], uint64(md.BlTxID))
+	i += txIDSize
+
+	copy(b[i:], md.BlRoot[:])
+	i += sha256.Size
+
+	return b[:]
+}
+
+func (md *TxMetadata) readFrom(b []byte) error {
+	if len(b) != txIDSize+3*sha256.Size+tsSize+12 {
+		return ErrIllegalArguments
+	}
+
+	i := 0
+
+	md.ID = binary.BigEndian.Uint64(b[i:])
+	i += txIDSize
+
+	copy(md.PrevAlh[:], b[i:])
+	i += sha256.Size
+
+	md.Ts = int64(binary.BigEndian.Uint64(b[i:]))
+	i += tsSize
+
+	md.NEntries = int(binary.BigEndian.Uint32(b[i:]))
+	i += 4
+
+	copy(md.Eh[:], b[i:])
+	i += sha256.Size
+
+	md.BlTxID = binary.BigEndian.Uint64(b[i:])
+	i += txIDSize
+
+	copy(md.BlRoot[:], b[i:])
+	i += sha256.Size
+
+	return nil
+}
+
 func (txMetadata *TxMetadata) Alh() [sha256.Size]byte {
 	var bi [txIDSize + 2*sha256.Size]byte
 
