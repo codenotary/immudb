@@ -807,6 +807,10 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 }
 
 func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, error) {
+	return s.commitAt(entries, waitForIndexing, time.Now().Unix(), s.aht.Size())
+}
+
+func (s *ImmuStore) commitAt(entries []*KV, waitForIndexing bool, ts int64, blTxID uint64) (*TxMetadata, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
@@ -854,7 +858,7 @@ func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, er
 		return nil, ErrAlreadyClosed
 	}
 
-	err = s.commit(tx, r.offsets)
+	err = s.commit(tx, r.offsets, ts, blTxID)
 	if err != nil {
 		s.mutex.Unlock()
 		return nil, err
@@ -872,7 +876,7 @@ func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, er
 	return tx.Metadata(), nil
 }
 
-func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
+func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) error {
 	if s.blErr != nil {
 		return s.blErr
 	}
@@ -883,15 +887,17 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.txLog.SetOffset(committedTxLogSize)
 
 	tx.ID = committedTxID + 1
-	tx.Ts = time.Now().Unix()
-
-	blTxID, blRoot, err := s.aht.Root()
-	if err != nil && err != ahtree.ErrEmptyTree {
-		return err
-	}
+	tx.Ts = ts
 
 	tx.BlTxID = blTxID
-	tx.BlRoot = blRoot
+
+	if blTxID > 0 {
+		blRoot, err := s.aht.RootAt(blTxID)
+		if err != nil && err != ahtree.ErrEmptyTree {
+			return err
+		}
+		tx.BlRoot = blRoot
+	}
 
 	if tx.ID <= tx.BlTxID {
 		return ErrUnexpectedLinkingError
@@ -921,7 +927,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 
 		if txe.unique {
 			if tx.ID > 1 {
-				err = s.WaitForIndexingUpto(tx.ID-1, nil)
+				err := s.WaitForIndexingUpto(tx.ID-1, nil)
 				if err != nil {
 					return err
 				}
@@ -1103,7 +1109,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		return nil, err
 	}
 
-	err = s.commit(tx, r.offsets)
+	err = s.commit(tx, r.offsets, time.Now().Unix(), s.aht.Size())
 	if err != nil {
 		return nil, err
 	}
@@ -1404,7 +1410,17 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte) (*TxMetadata, error) {
 		i += kLen + vLen
 	}
 
-	return replicateCommit(md, entries)
+	if i != len(exportedTx) {
+		return nil, ErrIllegalArguments
+	}
+
+	return s.replicateCommit(md, entries)
+}
+
+func (s *ImmuStore) replicateCommit(md *TxMetadata, entries []*KV) (*TxMetadata, error) {
+	//TODO: validate metadata and entry hashes against metadata ...
+
+	return s.commitAt(entries, false, md.Ts, md.BlTxID)
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
