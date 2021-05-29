@@ -222,17 +222,17 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return STMT_SEPARATOR
 	}
 
-	if isBLOBPrefix(ch) {
-		if !isQuote(l.r.nextChar) {
-			lval.err = fmt.Errorf("syntax error: unexpected char %c, expecting quote", l.r.nextChar)
-			return ERROR
-		}
-
+	if isBLOBPrefix(ch) && isQuote(l.r.nextChar) {
 		l.r.ReadByte() // consume starting quote
 
 		tail, err := l.readString()
 		if err != nil {
 			lval.err = err
+			return ERROR
+		}
+
+		if !isQuote(l.r.nextChar) {
+			lval.err = fmt.Errorf("syntax error: unexpected char %c, expecting quote", l.r.nextChar)
 			return ERROR
 		}
 
