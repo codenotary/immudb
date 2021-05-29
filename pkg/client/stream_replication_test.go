@@ -68,7 +68,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	_, err = client.ExportTx(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = client.Set(ctx, []byte("key1"), []byte("value1"))
+	txmd, err := client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
 	exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
@@ -100,8 +100,16 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	md = metadata.Pairs("authorization", replicatedMD.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	_, err = replicateTxStream.CloseAndRecv()
+	rtxmd, err := replicateTxStream.CloseAndRecv()
 	require.NoError(t, err)
+	require.Equal(t, txmd.Id, rtxmd.Id)
+
+	md = metadata.Pairs("authorization", replicatedMD.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	replicatedEntry, err := client.Get(ctx, []byte("key1"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("value1"), replicatedEntry.Value)
 
 	err = client.Logout(ctx)
 	require.NoError(t, err)
