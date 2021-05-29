@@ -239,7 +239,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 			table:   table,
 			colName: cs.colName,
 			colType: cs.colType,
-			notNull: cs.notNull,
+			notNull: cs.notNull || cs.colName == pk,
 		}
 
 		table.colsByID[col.id] = col
