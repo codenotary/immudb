@@ -1102,7 +1102,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			CREATE DATABASE db1;
 
-			CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id);
+			CREATE TABLE table1 (id INTEGER, name VARCHAR NULL, ts TIMESTAMP NOT NULL, active BOOLEAN, content BLOB, PRIMARY KEY id);
 
 			BEGIN TRANSACTION
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1');
@@ -1120,7 +1120,7 @@ func TestMultiLineStmts(t *testing.T) {
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
 						{colName: "name", colType: VarcharType},
-						{colName: "ts", colType: TimestampType},
+						{colName: "ts", colType: TimestampType, notNull: true},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
 					},

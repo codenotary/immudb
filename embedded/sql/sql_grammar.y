@@ -338,6 +338,11 @@ opt_not_null:
         $$ = false
     }
 |
+    NULL
+    {
+        $$ = false
+    }
+|
     NOT NULL
     {
         $$ = true
