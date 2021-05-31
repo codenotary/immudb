@@ -21,22 +21,22 @@ import (
 )
 
 type zStreamReceiver struct {
-	s               MsgReceiver
-	StreamChunkSize int
+	s          MsgReceiver
+	BufferSize int
 }
 
 // NewZStreamReceiver ...
-func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
+func NewZStreamReceiver(s MsgReceiver, bs int) *zStreamReceiver {
 	return &zStreamReceiver{
-		s:               s,
-		StreamChunkSize: chunkSize,
+		s:          s,
+		BufferSize: bs,
 	}
 }
 
 func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, uint64, io.Reader, error) {
 	ris := make([][]byte, 4)
 	for i, _ := range ris {
-		r, err := ReadValue(zr.s, zr.StreamChunkSize)
+		r, err := ReadValue(zr.s, zr.BufferSize)
 		if err != nil {
 			return nil, nil, 0, 0, nil, err
 		}

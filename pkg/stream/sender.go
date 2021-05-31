@@ -29,18 +29,18 @@ type MsgSender interface {
 }
 
 type msgSender struct {
-	stream          ImmuServiceSender_Stream
-	b               *bytes.Buffer
-	StreamChunkSize int
+	stream     ImmuServiceSender_Stream
+	b          *bytes.Buffer
+	BufferSize int
 }
 
 // NewMsgSender returns a NewMsgSender. It can be used on server side or client side to send a message on a stream.
-func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
+func NewMsgSender(s ImmuServiceSender_Stream, bs int) *msgSender {
 	buffer := new(bytes.Buffer)
 	return &msgSender{
-		stream:          s,
-		b:               buffer,
-		StreamChunkSize: chunkSize,
+		stream:     s,
+		b:          buffer,
+		BufferSize: bs,
 	}
 }
 
@@ -61,7 +61,7 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 		}
 		// read data from reader and append it to the buffer
 		//  todo @Michele reader need to be dynamic, not of chunk size
-		data := make([]byte, st.StreamChunkSize)
+		data := make([]byte, st.BufferSize)
 		r, err := reader.Read(data)
 		if err != nil {
 			if err != io.EOF {
@@ -90,8 +90,8 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 			}
 		}
 		// enough data to send a chunk
-		if st.b.Len() > st.StreamChunkSize {
-			chunk = make([]byte, st.StreamChunkSize)
+		if st.b.Len() > st.BufferSize {
+			chunk = make([]byte, st.BufferSize)
 			_, err = st.b.Read(chunk)
 			if err != nil {
 				return nil

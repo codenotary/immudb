@@ -7,11 +7,11 @@ import (
 
 // ReadValue returns the complete value from a message
 // If no more data is present on the reader nil and io.EOF are returned
-func ReadValue(vr io.Reader, chunkSize int) (value []byte, err error) {
+func ReadValue(vr io.Reader, bufferSize int) (value []byte, err error) {
 	b := bytes.NewBuffer([]byte{})
 	vl := 0
 	eof := false
-	chunk := make([]byte, chunkSize)
+	chunk := make([]byte, bufferSize)
 	for {
 		l, err := vr.Read(chunk)
 		if err != nil && err != io.EOF {
