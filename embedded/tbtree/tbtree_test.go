@@ -21,6 +21,7 @@ import (
 	"errors"
 	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -536,7 +537,13 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 
 	keyCount := 1000
 
-	go randomInsertions(t, tbtree, keyCount, false)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		randomInsertions(t, tbtree, keyCount, false)
+		wg.Done()
+	}()
 
 	for {
 		snapshot, err := tbtree.Snapshot()
@@ -577,6 +584,8 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 			break
 		}
 	}
+
+	wg.Wait()
 
 	err = tbtree.Close()
 	require.NoError(t, err)
