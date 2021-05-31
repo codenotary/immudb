@@ -21,21 +21,21 @@ import (
 )
 
 type kvStreamReceiver struct {
-	s               MsgReceiver
-	StreamChunkSize int
+	s          MsgReceiver
+	BufferSize int
 }
 
 // NewKvStreamReceiver returns a new kvStreamReceiver
-func NewKvStreamReceiver(s MsgReceiver, chunkSize int) KvStreamReceiver {
+func NewKvStreamReceiver(s MsgReceiver, bs int) KvStreamReceiver {
 	return &kvStreamReceiver{
-		s:               s,
-		StreamChunkSize: chunkSize,
+		s:          s,
+		BufferSize: bs,
 	}
 }
 
 // Next returns the following key and value reader pair found on stream. If no more key values are presents on stream it returns io.EOF
 func (kvr *kvStreamReceiver) Next() ([]byte, io.Reader, error) {
-	key, err := ReadValue(kvr.s, kvr.StreamChunkSize)
+	key, err := ReadValue(kvr.s, kvr.BufferSize)
 	if err != nil {
 		return nil, nil, err
 	}

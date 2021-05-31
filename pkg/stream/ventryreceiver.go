@@ -21,22 +21,22 @@ import (
 )
 
 type vEntryStreamReceiver struct {
-	s               MsgReceiver
-	StreamChunkSize int
+	s          MsgReceiver
+	BufferSize int
 }
 
 // NewVEntryStreamReceiver ...
-func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) VEntryStreamReceiver {
+func NewVEntryStreamReceiver(s MsgReceiver, bs int) VEntryStreamReceiver {
 	return &vEntryStreamReceiver{
-		s:               s,
-		StreamChunkSize: chunkSize,
+		s:          s,
+		BufferSize: bs,
 	}
 }
 
 func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, io.Reader, error) {
 	ris := make([][]byte, 3)
 	for i, _ := range ris {
-		r, err := ReadValue(vesr.s, vesr.StreamChunkSize)
+		r, err := ReadValue(vesr.s, vesr.BufferSize)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}

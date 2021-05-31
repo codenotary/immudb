@@ -30,7 +30,7 @@ func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
 }
 
 type MsgReceiver interface {
-	Read(message []byte) (n int, err error)
+	Read(data []byte) (n int, err error)
 }
 
 type msgReceiver struct {
@@ -43,7 +43,7 @@ type msgReceiver struct {
 }
 
 // Read read fill message with received data and return the number of read bytes or error. If no message is present it returns 0 and io.EOF. If the message is complete it returns 0 and nil, in that case successive calls to Read will returns a new message.
-func (r *msgReceiver) Read(message []byte) (n int, err error) {
+func (r *msgReceiver) Read(data []byte) (n int, err error) {
 	if r.msgSend {
 		r.msgSend = false
 		return 0, nil
@@ -56,7 +56,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 	for {
 		// buffer until reach the capacity of the message
 	bufferLoad:
-		for r.b.Len() <= len(message) {
+		for r.b.Len() <= len(data) {
 			chunk, err := r.stream.Recv()
 			if chunk != nil {
 				r.b.Write(chunk.Content)
@@ -88,8 +88,8 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 
 		// message send edge cases
 		msgInFirstChunk := r.b.Len() >= r.tl
-		lastRead := r.tl-r.s <= len(message)
-		lastMessageSizeTooBig := r.tl-r.s > len(message)
+		lastRead := r.tl-r.s <= len(data)
+		lastMessageSizeTooBig := r.tl-r.s > len(data)
 		if (msgInFirstChunk || lastRead) && !lastMessageSizeTooBig {
 			lastMessageSize := r.tl - r.s
 			lmsg := make([]byte, lastMessageSize)
@@ -97,15 +97,15 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			if err != nil {
 				return 0, err
 			}
-			n := copy(message, lmsg)
+			n := copy(data, lmsg)
 			r.tl = 0
 			r.msgSend = true
 			r.s = 0
 			return n, nil
 		}
 		// message send
-		if r.b.Len() > len(message) {
-			n, err := r.b.Read(message)
+		if r.b.Len() > len(data) {
+			n, err := r.b.Read(data)
 			if err != nil {
 				return 0, err
 			}

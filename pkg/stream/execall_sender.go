@@ -34,7 +34,7 @@ func NewExecAllStreamSender(s MsgSender) ExecAllStreamSender {
 	}
 }
 
-// Send send an ExecAllRequest on straem
+// Send send an ExecAllRequest on stream
 func (st *execAllStreamSender) Send(req *ExecAllRequest) error {
 	for _, op := range req.Operations {
 		switch x := op.Operation.(type) {
