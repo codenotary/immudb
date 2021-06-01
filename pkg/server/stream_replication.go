@@ -33,7 +33,8 @@ func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuServic
 	}
 
 	db := s.dbList.GetByIndex(ind)
-	err = db.WaitForIndexingUpto(req.Tx, nil)
+
+	err = db.WaitForTx(req.Tx, nil)
 	if err != nil {
 		return err
 	}
