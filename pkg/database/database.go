@@ -45,6 +45,7 @@ var ErrNotReplica = errors.New("database is NOT a replica")
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentState() (*schema.ImmutableState, error)
+	WaitForTx(txID uint64, cancellation <-chan struct{}) error
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
 	Get(req *schema.KeyRequest) (*schema.Entry, error)
@@ -308,7 +309,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +395,12 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	}, nil
 }
 
-// WaitForIndexingUpto blocks caller until specified tx gets committed
+// WaitForTx blocks caller until specified tx gets committed
+func (d *db) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForTx(txID, cancellation)
+}
+
+// WaitForIndexingUpto blocks caller until specified tx gets indexed
 func (d *db) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
 	return d.st.WaitForIndexingUpto(txID, cancellation)
 }
@@ -534,7 +540,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +743,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
