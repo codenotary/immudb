@@ -632,6 +632,10 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
+func (s *ImmuStore) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+	return s.wHub.WaitFor(txID, cancellation)
+}
+
 func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
 	return s.indexer.WaitForIndexingUpto(txID, cancellation)
 }
