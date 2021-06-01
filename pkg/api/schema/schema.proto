@@ -469,12 +469,16 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 message ErrorInfo {
-	string cause = 1;
+	string code = 1;
+	string cause = 2;
 }
 
 message DebugInfo {
-	repeated string stack_entries = 1;
-	string detail = 2;
+	string stack = 1;
+}
+
+message RetryInfo {
+	int32 retry_delay = 1;
 }
 
 // immudb gRPC & REST service

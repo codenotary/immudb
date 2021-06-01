@@ -22,8 +22,8 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -60,7 +60,7 @@ type ImmuClient interface {
 	HealthCheck(ctx context.Context) error
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
-	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, *errors.ImmuError)
 	Logout(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
@@ -456,11 +456,11 @@ func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 }
 
 // Login ...
-func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
+func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, *errors.ImmuError) {
 	start := time.Now()
 
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	result, err := c.ServiceClient.Login(ctx, &schema.LoginRequest{
@@ -470,7 +470,7 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 
 	c.Logger.Debugf("login finished in %s", time.Since(start))
 
-	return result, err
+	return result, errors.FromError(err)
 }
 
 // Logout ...
