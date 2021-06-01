@@ -111,7 +111,7 @@ func (cli *cli) Run() {
 				continue
 			}
 		} else if err == io.EOF {
-			continue
+			break
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
