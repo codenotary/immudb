@@ -37,6 +37,7 @@
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
+    - [RetryInfo](#immudb.schema.RetryInfo)
     - [Row](#immudb.schema.Row)
     - [SQLEntry](#immudb.schema.SQLEntry)
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
@@ -231,8 +232,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| stack_entries | [string](#string) | repeated |  |
-| detail | [string](#string) |  |  |
+| stack | [string](#string) |  |  |
 
 
 
@@ -316,6 +316,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| code | [string](#string) |  |  |
 | cause | [string](#string) |  |  |
 
 
@@ -631,6 +632,21 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.RetryInfo"></a>
+
+### RetryInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| retry_delay | [int32](#int32) |  |  |
 
 
 

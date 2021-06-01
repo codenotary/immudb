@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,16 +18,16 @@ import (
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	if !s.Options.auth {
-		return nil, fmt.Errorf("server is running with authentication disabled, please enable authentication to login")
+		return nil, errors.New("server is running with authentication disabled, please enable authentication to login")
 	}
 
 	u, err := s.getValidatedUser(r.User, r.Password)
 	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "invalid user name or password")
+		return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.InvalidCredentials).WithRetryDelay(500)
 	}
 
 	if !u.Active {
-		return nil, fmt.Errorf("user is not active")
+		return nil, errors.New("user is not active").WithCode(errors.InvalidCredentials)
 	}
 
 	//-1 no database yet, must exec the "use" (UseDatabase) command first
@@ -487,12 +488,12 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.User, error) {
 	userdata, err := s.getUser(username, true)
 	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
+		return nil, err
 	}
 
 	err = userdata.ComparePasswords(password)
 	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
+		return nil, err
 	}
 
 	return userdata, nil
