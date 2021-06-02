@@ -39,7 +39,7 @@ V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -X github.com/codenotary/immudb/cmd/version.Static=static \
 				  -extldflags "-static"
 ifdef WEBCONSOLE
-  IMMUDB_BUILD_TAGS=-tags webconsole
+IMMUDB_BUILD_TAGS=-tags webconsole
 endif
 
 .PHONY: all
@@ -50,8 +50,13 @@ all: immudb immuclient immuadmin immutest
 rebuild: clean build/codegen all
 
 .PHONY: webconsole
+ifdef WEBCONSOLE
+webconsole: ./webconsole/dist
+	$(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
+else
 webconsole:
 	$(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
+endif
 
 .PHONY: immuclient
 immuclient:
@@ -134,7 +139,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immudb immuclient immuadmin immutest
+	rm -rf immudb immuclient immuadmin immutest ./webconsole/dist
 
 .PHONY: man
 man:
@@ -164,7 +169,7 @@ clean/dist:
 # WEBCONSOLE=1 SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
 # it enables by default webconsole
 .PHONY: dist
-dist: dist/webconsole webconsole dist/binaries dist/winsign
+dist: webconsole dist/binaries dist/winsign
 	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
 .PHONY: dist/binaries
@@ -211,8 +216,7 @@ dist/binary.md:
 		printf "[$$ff](https://github.com/vchain-us/immudb/releases/download/v${VERSION}/$$ff) | $$shm_id \n" ; \
 	done
 
-.PHONY: dist/webconsole
-dist/webconsole:
-	rm -rf webconsole/dist; \
-    wget -qO- https://github.com/codenotary/immudb-webconsole/releases/latest/download/immudb-webconsole.tar.gz | tar -xvz -C webconsole \
+./webconsole/dist:
+	curl -L https://github.com/codenotary/immudb-webconsole/releases/latest/download/immudb-webconsole.tar.gz | tar -xvz -C webconsole
+
 ########################## releases scripts end ########################################################################
