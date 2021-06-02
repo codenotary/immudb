@@ -25,7 +25,7 @@ func TestSetupWebconsoleDefault(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusMovedPermanently, rr.Code)
+	assert.Equal(t, http.StatusTemporaryRedirect, rr.Code)
 
 	page, err := ioutil.ReadAll(rr.Body)
 	require.NoError(t, err)
