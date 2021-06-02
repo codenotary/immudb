@@ -59,8 +59,8 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"version", "Print version", cli.version, nil, false})
 
 	// SQL
-	cli.Register(&command{"exec", "Executes sql statement", cli.sqlExec, []string{"statement"}, false})
-	cli.Register(&command{"query", "Query sql statement", cli.sqlQuery, []string{"statement"}, false})
+	cli.Register(&command{"exec", "Executes sql statement", cli.sqlExec, []string{"statement"}, true})
+	cli.Register(&command{"query", "Query sql statement", cli.sqlQuery, []string{"statement"}, true})
 	cli.Register(&command{"describe", "Describe table", cli.describeTable, []string{"table"}, false})
 	cli.Register(&command{"tables", "List tables", cli.listTables, nil, false})
 }
