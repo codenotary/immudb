@@ -55,6 +55,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("audit-notification-url", "", "If set, auditor will send a POST request at this URL with audit result details.")
 	cmd.PersistentFlags().String("audit-notification-username", "", "Username used to authenticate when publishing audit result to 'audit-notification-url'.")
 	cmd.PersistentFlags().String("audit-notification-password", "", "Password used to authenticate when publishing audit result to 'audit-notification-url'.")
+	cmd.PersistentFlags().Int("audit-monitoring-port", 9999, "Port for the monitoring HTTP server when running in audit mode (serves health and version endpoints)")
 	cmd.PersistentFlags().String("server-signing-pub-key", "", "Path to the public key to verify signatures when presents")
 
 	viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port"))
@@ -80,6 +81,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.BindPFlag("audit-notification-url", cmd.PersistentFlags().Lookup("audit-notification-url"))
 	viper.BindPFlag("audit-notification-username", cmd.PersistentFlags().Lookup("audit-notification-username"))
 	viper.BindPFlag("audit-notification-password", cmd.PersistentFlags().Lookup("audit-notification-password"))
+	viper.BindPFlag("audit-monitoring-port", cmd.PersistentFlags().Lookup("audit-monitoring-port"))
 	viper.BindPFlag("server-signing-pub-key", cmd.PersistentFlags().Lookup("server-signing-pub-key"))
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
@@ -104,6 +106,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("audit-notification-url", "")
 	viper.SetDefault("audit-notification-username", "")
 	viper.SetDefault("audit-notification-password", "")
+	viper.SetDefault("audit-monitoring-port", 9999)
 	viper.SetDefault("server-signing-pub-key", "")
 	viper.SetDefault("dir", os.TempDir())
 	return nil

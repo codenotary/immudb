@@ -67,7 +67,8 @@ func TestDefaultAuditor(t *testing.T) {
 		nil,
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.Nil(t, err)
 	require.IsType(t, &defaultAuditor{}, da)
 }
@@ -96,7 +97,8 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 		nil,
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "illegal base64 data at input byte 0")
 }
@@ -129,7 +131,8 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", &wm))
+		logger.NewSimpleLogger("test", &wm),
+		nil)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -166,7 +169,8 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", &wm))
+		logger.NewSimpleLogger("test", &wm),
+		nil)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -205,7 +209,8 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", &wm))
+		logger.NewSimpleLogger("test", &wm),
+		nil)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -247,7 +252,8 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", &wm))
+		logger.NewSimpleLogger("test", &wm),
+		nil)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -292,7 +298,8 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", &wm))
+		logger.NewSimpleLogger("test", &wm),
+		nil)
 	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
 	require.NoError(t, err)
@@ -329,7 +336,8 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.Nil(t, err)
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
@@ -389,7 +397,8 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
@@ -465,7 +474,8 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.NoError(t, err)
 
 	auditorStop := make(chan struct{}, 1)
@@ -540,7 +550,8 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)
@@ -595,7 +606,8 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
+		logger.NewSimpleLogger("test", os.Stdout),
+		nil)
 	require.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)

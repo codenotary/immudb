@@ -104,6 +104,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		}
 	}
 
+	auditMonitoringHTTPPort := viper.GetInt("audit-monitoring-port")
+
 	var pk *ecdsa.PublicKey
 	if cliOpts.ServerSigningPubKey != "" {
 		pk, err = signer.ParsePublicKeyFile(cliOpts.ServerSigningPubKey)
@@ -128,7 +130,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cAgent.immuc.GetServiceClient(),
 		cAgent.uuidProvider,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
-		cAgent.metrics.updateMetrics, cAgent.logger)
+		cAgent.metrics.updateMetrics,
+		cAgent.logger,
+		&auditMonitoringHTTPPort)
 	if err != nil {
 		return nil, err
 	}

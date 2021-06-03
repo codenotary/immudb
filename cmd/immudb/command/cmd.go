@@ -17,6 +17,10 @@ limitations under the License.
 package immudb
 
 import (
+	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immudb/command/service"
@@ -27,6 +31,22 @@ import (
 
 func Execute() {
 	version.App = "immudb"
+
+	// set the version fields so that they are available to the monitoring HTTP server
+	server.Version = server.VersionResponse{
+		Component: "immudb",
+		Version:   fmt.Sprintf("%s-%s", version.Version, version.Commit),
+		BuildTime: version.BuiltAt,
+		BuiltBy:   version.BuiltBy,
+		Static:    version.Static == "static",
+	}
+	if version.BuiltAt != "" {
+		i, err := strconv.ParseInt(version.BuiltAt, 10, 64)
+		if err == nil {
+			server.Version.BuildTime = time.Unix(i, 0).Format(time.RFC1123)
+		}
+	}
+
 	cmd, err := newCommand(server.DefaultServer())
 	if err != nil {
 		c.QuitWithUserError(err)

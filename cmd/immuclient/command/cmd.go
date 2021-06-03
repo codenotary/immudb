@@ -20,11 +20,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
+	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +42,22 @@ func Execute(cmd *cobra.Command) error {
 
 func NewCommand() *cobra.Command {
 	version.App = "immuclient"
+
+	// set the version fields so that they are available to the auditor monitoring HTTP server
+	auditor.Version = auditor.VersionResponse{
+		Component: "immuclient-auditor",
+		Version:   fmt.Sprintf("%s-%s", version.Version, version.Commit),
+		BuildTime: version.BuiltAt,
+		BuiltBy:   version.BuiltBy,
+		Static:    version.Static == "static",
+	}
+	if version.BuiltAt != "" {
+		i, err := strconv.ParseInt(version.BuiltAt, 10, 64)
+		if err == nil {
+			auditor.Version.BuildTime = time.Unix(i, 0).Format(time.RFC1123)
+		}
+	}
+
 	cl := NewCommandLine()
 	cmd, err := cl.NewCmd()
 	if err != nil {
