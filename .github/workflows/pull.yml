@@ -27,8 +27,7 @@ jobs:
         run: make all
       - name: Build with webconsole
         run: |
-          sudo apt update && sudo apt install wget -y
-          make dist/webconsole
+          sudo apt update && sudo apt install curl -y
           WEBCONSOLE=1 make all
         if: runner.os == 'Linux'
       - name: Upload webconsole artifact
