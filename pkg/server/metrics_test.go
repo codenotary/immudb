@@ -18,12 +18,16 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/peer"
 )
 
@@ -114,4 +118,40 @@ func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
 	mc.UpdateDBMetrics()
 
 	assert.IsType(t, MetricsCollection{}, mc)
+}
+
+func TestImmudbHealthHandlerFunc(t *testing.T) {
+	req, err := http.NewRequest("GET", "/initz", nil)
+	require.NoError(t, err)
+	rr := httptest.NewRecorder()
+	handler := corsHandlerFunc(ImmudbHealthHandlerFunc())
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestImmudbVersionHandlerFunc(t *testing.T) {
+	// test OPTIONS /version
+	req, err := http.NewRequest("OPTIONS", "/version", nil)
+	require.NoError(t, err)
+	rr := httptest.NewRecorder()
+	handler := corsHandlerFunc(ImmudbVersionHandlerFunc)
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusNoContent, rr.Code)
+
+	// test GET /version
+	Version = VersionResponse{
+		Component: "immudb",
+		Version:   "1.2.3",
+		BuildTime: time.Now().Format(time.RFC3339),
+		BuiltBy:   "SomeBuilder",
+		Static:    true,
+	}
+	req, err = http.NewRequest("GET", "/version", nil)
+	require.NoError(t, err)
+	rr = httptest.NewRecorder()
+	handler = corsHandlerFunc(ImmudbVersionHandlerFunc)
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	expectedBody, _ := json.Marshal(&Version)
+	require.Equal(t, string(expectedBody)+"\n", rr.Body.String())
 }
