@@ -811,10 +811,10 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 }
 
 func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, error) {
-	return s.commitAt(entries, waitForIndexing, time.Now().Unix(), s.aht.Size())
+	return s.commitUsing(entries, nil, waitForIndexing)
 }
 
-func (s *ImmuStore) commitAt(entries []*KV, waitForIndexing bool, ts int64, blTxID uint64) (*TxMetadata, error) {
+func (s *ImmuStore) commitUsing(entries []*KV, md *TxMetadata, waitForIndexing bool) (*TxMetadata, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
@@ -825,6 +825,34 @@ func (s *ImmuStore) commitAt(entries []*KV, waitForIndexing bool, ts int64, blTx
 	err := s.validateEntries(entries)
 	if err != nil {
 		return nil, err
+	}
+
+	var ts int64
+	var blTxID uint64
+
+	if md == nil {
+		ts = time.Now().Unix()
+		blTxID = s.aht.Size()
+	} else {
+		ts = md.Ts
+		blTxID = md.BlTxID
+
+		// TxMedatada is validated against current store
+
+		currTxID, currAlh := s.Alh()
+
+		blRoot, err := s.aht.RootAt(blTxID)
+		if err != nil && err != ahtree.ErrEmptyTree {
+			return nil, err
+		}
+
+		if currTxID != md.ID-1 ||
+			currAlh != md.PrevAlh ||
+			blRoot != md.BlRoot ||
+			len(entries) != md.NEntries {
+			return nil, ErrIllegalArguments
+		}
+
 	}
 
 	appendableCh := make(chan appendableResult)
@@ -847,7 +875,16 @@ func (s *ImmuStore) commitAt(entries []*KV, waitForIndexing bool, ts int64, blTx
 		txe.unique = e.Unique
 	}
 
-	tx.BuildHashTree()
+	err = tx.BuildHashTree()
+	if err != nil {
+		<-appendableCh // wait for data to be written
+		return nil, err
+	}
+
+	// TxMedatada is validated against current store
+	if md != nil && tx.Eh() != md.Eh {
+		return nil, ErrIllegalArguments
+	}
 
 	r := <-appendableCh // wait for data to be written
 	err = r.err
@@ -1368,7 +1405,7 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *ImmuStore) ReplicateTx(exportedTx []byte) (*TxMetadata, error) {
+func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxMetadata, error) {
 	if len(exportedTx) < 4 {
 		return nil, ErrIllegalArguments
 	}
@@ -1418,13 +1455,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte) (*TxMetadata, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	return s.replicateCommit(md, entries)
-}
-
-func (s *ImmuStore) replicateCommit(md *TxMetadata, entries []*KV) (*TxMetadata, error) {
-	//TODO: validate metadata and entry hashes against metadata ...
-
-	return s.commitAt(entries, false, md.Ts, md.BlTxID)
+	return s.commitUsing(entries, md, waitForIndexing)
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
