@@ -135,7 +135,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 	err = a.Close()
 	require.Equal(t, singleapp.ErrAlreadyClosed, err)
 
-	fname := filepath.Join(a.path, appendableName(0, a.fileExt))
+	fname := filepath.Join(a.Path, AppendableName(0, a.fileExt))
 	os.Remove(fname)
 
 	a, err = Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))

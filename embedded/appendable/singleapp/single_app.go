@@ -58,7 +58,7 @@ type AppendableFile struct {
 
 	w *bufio.Writer
 
-	baseOffset int64
+	BaseOffset int64
 	offset     int64
 
 	mutex sync.Mutex
@@ -181,7 +181,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		readOnly:          opts.readOnly,
 		synced:            opts.synced,
 		w:                 w,
-		baseOffset:        baseOffset,
+		BaseOffset:        baseOffset,
 		offset:            off - baseOffset,
 		closed:            false,
 	}, nil
@@ -243,7 +243,7 @@ func (aof *AppendableFile) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Size() - aof.baseOffset, nil
+	return stat.Size() - aof.BaseOffset, nil
 }
 
 func (aof *AppendableFile) Offset() int64 {
@@ -261,7 +261,7 @@ func (aof *AppendableFile) SetOffset(off int64) error {
 		return ErrAlreadyClosed
 	}
 
-	_, err := aof.f.Seek(off+aof.baseOffset, io.SeekStart)
+	_, err := aof.f.Seek(off+aof.BaseOffset, io.SeekStart)
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	}
 
 	if aof.compressionFormat == appendable.NoCompression {
-		return aof.f.ReadAt(bs, off+aof.baseOffset)
+		return aof.f.ReadAt(bs, off+aof.BaseOffset)
 	}
 
 	cOff, err := aof.f.Seek(0, io.SeekCurrent)
@@ -379,7 +379,7 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	}
 	defer aof.f.Seek(cOff, io.SeekStart)
 
-	_, err = aof.f.Seek(off+aof.baseOffset, io.SeekStart)
+	_, err = aof.f.Seek(off+aof.BaseOffset, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}

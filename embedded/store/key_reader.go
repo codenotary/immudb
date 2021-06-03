@@ -47,7 +47,7 @@ func (s *Snapshot) Get(key []byte) (val []byte, tx uint64, hc uint64, err error)
 		return nil, 0, 0, err
 	}
 
-	valRef, err := s.st.valueRefFrom(indexedVal)
+	valRef, err := s.st.ValueRefFrom(indexedVal)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -95,13 +95,13 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 }
 
 type ValueRef struct {
-	hVal   [32]byte
-	vOff   int64
-	valLen uint32
-	st     *ImmuStore
+	HVal   [32]byte
+	VOff   int64
+	ValLen uint32
+	St     *ImmuStore
 }
 
-func (st *ImmuStore) valueRefFrom(indexedVal []byte) (*ValueRef, error) {
+func (st *ImmuStore) ValueRefFrom(indexedVal []byte) (*ValueRef, error) {
 	if len(indexedVal) != 4+8+32 {
 		return nil, ErrCorruptedData
 	}
@@ -113,17 +113,17 @@ func (st *ImmuStore) valueRefFrom(indexedVal []byte) (*ValueRef, error) {
 	copy(hVal[:], indexedVal[4+8:])
 
 	return &ValueRef{
-		hVal:   hVal,
-		vOff:   int64(vOff),
-		valLen: valLen,
-		st:     st,
+		HVal:   hVal,
+		VOff:   int64(vOff),
+		ValLen: valLen,
+		St:     st,
 	}, nil
 }
 
 // Resolve ...
 func (v *ValueRef) Resolve() ([]byte, error) {
-	refVal := make([]byte, v.valLen)
-	_, err := v.st.ReadValueAt(refVal, v.vOff, v.hVal)
+	refVal := make([]byte, v.ValLen)
+	_, err := v.St.ReadValueAt(refVal, v.VOff, v.HVal)
 	return refVal, err
 }
 
@@ -141,10 +141,10 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val *ValueRef, tx uin
 	for _, e := range r._tx.Entries() {
 		if bytes.Equal(e.key(), key) {
 			val = &ValueRef{
-				hVal:   e.hVal,
-				vOff:   int64(e.vOff),
-				valLen: uint32(e.vLen),
-				st:     r.store,
+				HVal:   e.hVal,
+				VOff:   int64(e.vOff),
+				ValLen: uint32(e.vLen),
+				St:     r.store,
 			}
 
 			return key, val, ktxID, nil
@@ -160,7 +160,7 @@ func (r *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err
 		return nil, nil, 0, 0, err
 	}
 
-	val, err = r.store.valueRefFrom(indexedVal)
+	val, err = r.store.ValueRefFrom(indexedVal)
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}

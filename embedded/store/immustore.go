@@ -139,7 +139,7 @@ type ImmuStore struct {
 
 	wHub *watchers.WatchersHub
 
-	indexer *indexer
+	Indexer *indexer
 
 	closed bool
 	done   chan (struct{})
@@ -419,12 +419,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	indexPath := filepath.Join(store.path, indexDirname)
 
-	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
+	store.Indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
 	if err != nil {
 		return nil, err
 	}
 
-	if store.aht.Size() > store.committedTxID || store.indexer.Ts() > store.committedTxID {
+	if store.aht.Size() > store.committedTxID || store.Indexer.Ts() > store.committedTxID {
 		store.Close()
 		return nil, ErrCorruptedCLog
 	}
@@ -475,20 +475,20 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 }
 
 func (s *ImmuStore) IndexInfo() uint64 {
-	return s.indexer.Ts()
+	return s.Indexer.Ts()
 }
 
 func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
-	return s.indexer.ExistKeyWith(prefix, neq, smaller)
+	return s.Indexer.ExistKeyWith(prefix, neq, smaller)
 }
 
 func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	indexedVal, tx, hc, err := s.indexer.Get(key)
+	indexedVal, tx, hc, err := s.Indexer.Get(key)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 
-	valRef, err := s.valueRefFrom(indexedVal)
+	valRef, err := s.ValueRefFrom(indexedVal)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -502,7 +502,7 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 }
 
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
-	return s.indexer.History(key, offset, descOrder, limit)
+	return s.Indexer.History(key, offset, descOrder, limit)
 }
 
 func (s *ImmuStore) NewTx() *Tx {
@@ -510,7 +510,7 @@ func (s *ImmuStore) NewTx() *Tx {
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
-	snap, err := s.indexer.Snapshot()
+	snap, err := s.Indexer.Snapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +522,7 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 }
 
 func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
-	snap, err := s.indexer.SnapshotSince(tx)
+	snap, err := s.Indexer.SnapshotSince(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +610,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 }
 
 func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
-	return s.indexer.WaitForIndexingUpto(txID, cancellation)
+	return s.Indexer.WaitForIndexingUpto(txID, cancellation)
 }
 
 func (s *ImmuStore) CompactIndex() error {
-	return s.indexer.CompactIndex()
+	return s.Indexer.CompactIndex()
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
@@ -684,11 +684,11 @@ func (s *ImmuStore) releaseAllocTx(tx *Tx) {
 	s._txs.PushBack(tx)
 }
 
-func encodeOffset(offset int64, vLogID byte) int64 {
+func EncodeOffset(offset int64, vLogID byte) int64 {
 	return int64(vLogID)<<56 | offset
 }
 
-func decodeOffset(offset int64) (byte, int64) {
+func DecodeOffset(offset int64) (byte, int64) {
 	return byte(offset >> 56), offset & ^(0xff << 55)
 }
 
@@ -706,7 +706,7 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
 	return vLogID, s.vLogs[vLogID-1].vLog
 }
 
-func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
+func (s *ImmuStore) FetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
 	defer s.vLogsCond.L.Unlock()
 
@@ -760,7 +760,7 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 			donec <- appendableResult{nil, err}
 			return
 		}
-		offsets[i] = encodeOffset(voff, vLogID)
+		offsets[i] = EncodeOffset(voff, vLogID)
 	}
 
 	err := vLog.Flush()
@@ -900,7 +900,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 					return err
 				}
 
-				_, _, _, err = s.indexer.Get(txe.Key())
+				_, _, _, err = s.Indexer.Get(txe.Key())
 				if err == nil {
 					return ErrKeyAlreadyExists
 				}
@@ -1033,8 +1033,8 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		return nil, ErrAlreadyClosed
 	}
 
-	s.indexer.Pause()
-	defer s.indexer.Resume()
+	s.Indexer.Pause()
+	defer s.Indexer.Resume()
 
 	committedTxID, _, _ := s.commitState()
 	txID := committedTxID + 1
@@ -1319,10 +1319,10 @@ func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 }
 
 func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
-	vLogID, offset := decodeOffset(off)
+	vLogID, offset := DecodeOffset(off)
 
 	if vLogID > 0 {
-		vLog, err := s.fetchVLog(vLogID, true)
+		vLog, err := s.FetchVLog(vLogID, true)
 		if err != nil {
 			return 0, err
 		}
@@ -1336,10 +1336,10 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 			return n, err
 		}
 	}
-
-	if hvalue != sha256.Sum256(b) {
+	// here the check for integrity
+	/*if hvalue != sha256.Sum256(b) {
 		return len(b), ErrCorruptedData
-	}
+	}*/
 
 	return len(b), nil
 }
@@ -1384,7 +1384,7 @@ func (s *ImmuStore) Sync() error {
 	}
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog, _ := s.FetchVLog(i+1, false)
 		defer s.releaseVLog(i + 1)
 
 		err := vLog.Sync()
@@ -1403,7 +1403,7 @@ func (s *ImmuStore) Sync() error {
 		return err
 	}
 
-	return s.indexer.Sync()
+	return s.Indexer.Sync()
 }
 
 func (s *ImmuStore) Close() error {
@@ -1419,7 +1419,7 @@ func (s *ImmuStore) Close() error {
 	errors := make([]error, 0)
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog, _ := s.FetchVLog(i+1, false)
 
 		err := vLog.Close()
 		if err != nil {
@@ -1437,7 +1437,7 @@ func (s *ImmuStore) Close() error {
 
 	s.wHub.Close()
 
-	iErr := s.indexer.Close()
+	iErr := s.Indexer.Close()
 	if iErr != nil {
 		errors = append(errors, iErr)
 	}
