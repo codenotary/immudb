@@ -841,9 +841,13 @@ func (s *ImmuStore) commitUsing(entries []*KV, md *TxMetadata, waitForIndexing b
 
 		currTxID, currAlh := s.Alh()
 
-		blRoot, err := s.aht.RootAt(blTxID)
-		if err != nil && err != ahtree.ErrEmptyTree {
-			return nil, err
+		var blRoot [sha256.Size]byte
+
+		if blTxID > 0 {
+			blRoot, err = s.aht.RootAt(blTxID)
+			if err != nil && err != ahtree.ErrEmptyTree {
+				return nil, err
+			}
 		}
 
 		if currTxID != md.ID-1 ||
