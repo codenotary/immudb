@@ -58,7 +58,7 @@ type DB interface {
 	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(req *schema.TxRequest) ([]byte, error)
-	ReplicateTx([]byte) (*schema.TxMetadata, error)
+	ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 	History(req *schema.HistoryRequest) (*schema.Entries, error)
@@ -625,7 +625,7 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
 		return nil, ErrNotReplica
 	}
 
-	md, err := d.st.ReplicateTx(exportedTx)
+	md, err := d.st.ReplicateTx(exportedTx, false)
 	if err != nil {
 		return nil, err
 	}
