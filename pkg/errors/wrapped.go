@@ -40,8 +40,24 @@ func (w *wrappedError) Error() string {
 	return w.msg + ": " + w.cause.Error()
 }
 
+func (w *wrappedError) Message() string {
+	return w.msg
+}
+
 func (w *wrappedError) Cause() error {
 	return w.cause
+}
+
+func (w *wrappedError) Code() Code {
+	return w.cause.(*immuError).code
+}
+
+func (w *wrappedError) Stack() string {
+	return w.cause.(*immuError).stack
+}
+
+func (w *wrappedError) RetryDelay() int32 {
+	return w.cause.(*immuError).retryDelay
 }
 
 func (w *wrappedError) WithCode(code Code) *wrappedError {
@@ -53,4 +69,15 @@ func (w *wrappedError) WithCode(code Code) *wrappedError {
 func (w *wrappedError) WithRetryDelay(delay int32) *wrappedError {
 	w.cause.(*immuError).retryDelay = delay
 	return w
+}
+
+func (e *wrappedError) Is(target error) bool {
+	switch t := target.(type) {
+	case *immuError:
+		return compare(e, t)
+	case *wrappedError:
+		return compare(e, t)
+	default:
+		return e.Cause().Error() == target.Error()
+	}
 }

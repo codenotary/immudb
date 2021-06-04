@@ -24,7 +24,7 @@ func mapGRPcErrorCode(code Code) codes.Code {
 	switch code {
 	case SuccessCompletion:
 		return codes.OK
-	case InvalidCredentials:
+	case SqlclientUnableToEstablishSqlConnection:
 		return codes.PermissionDenied
 	default:
 		return codes.Unknown

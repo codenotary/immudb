@@ -21,7 +21,6 @@ import (
 )
 
 var (
-	ErrUnexpectedNotStructuredValue     = status.New(codes.FailedPrecondition, "unexpected not structured value encountered").Err()
 	ErrEmptySet                         = status.New(codes.InvalidArgument, "empty set").Err()
 	ErrDuplicatedKeysNotSupported       = status.New(codes.InvalidArgument, "duplicated keys are not supported in single batch transaction").Err()
 	ErrDuplicatedZAddNotSupported       = status.New(codes.InvalidArgument, "duplicated index inside zAdd insertions are not supported in single batch transaction").Err()

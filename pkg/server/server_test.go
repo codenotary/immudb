@@ -1476,7 +1476,7 @@ func TestServerErrors(t *testing.T) {
 	// Login errors
 	s.Options.auth = false
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{})
-	require.Equal(t, errors.New("server is running with authentication disabled, please enable authentication to login"), err)
+	require.Equal(t, "server is running with authentication disabled, please enable authentication to login", err.Error())
 	s.Options.auth = true
 
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: []byte("nonexistent")})
@@ -1486,7 +1486,7 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
-	require.Equal(t, errors.New("user is not active"), err)
+	require.Equal(t, "user is not active", err.Error())
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
@@ -1550,15 +1550,15 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 
 	_, err = s.getValidatedUser([]byte(username), []byte("wrongpass"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid user or password")
+	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 
 	_, err = s.getValidatedUser([]byte(username), nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid user or password")
+	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 
 	_, err = s.getValidatedUser([]byte(username), []byte{})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid user or password")
+	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 }
 
 func TestServerIsAllowedDbName(t *testing.T) {

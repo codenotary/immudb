@@ -18,16 +18,16 @@ import (
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	if !s.Options.auth {
-		return nil, errors.New("server is running with authentication disabled, please enable authentication to login")
+		return nil, errors.New("server is running with authentication disabled, please enable authentication to login").WithCode(errors.ProtocolViolation)
 	}
 
 	u, err := s.getValidatedUser(r.User, r.Password)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.InvalidCredentials).WithRetryDelay(500)
+		return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.SqlserverRejectedEstablishmentOfSqlconnection)
 	}
 
 	if !u.Active {
-		return nil, errors.New("user is not active").WithCode(errors.InvalidCredentials)
+		return nil, errors.New("user is not active").WithCode(errors.SqlserverRejectedEstablishmentOfSqlconnection)
 	}
 
 	//-1 no database yet, must exec the "use" (UseDatabase) command first
@@ -63,7 +63,7 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 	}
 
 	if !loggedOut {
-		return new(empty.Empty), status.Error(codes.Unauthenticated, "not logged in")
+		return new(empty.Empty), errors.New("not logged in").WithCode(errors.ProtocolViolation)
 	}
 
 	return new(empty.Empty), nil

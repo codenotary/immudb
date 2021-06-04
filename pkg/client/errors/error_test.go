@@ -19,6 +19,7 @@ package errors_test
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -44,10 +45,9 @@ func TestGRPCError(t *testing.T) {
 
 	_, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
 
-	require.Equal(t, err.Error(), "invalid user name or password")
-	require.Equal(t, err.Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
-	require.Equal(t, err.Code(), "101010")
-	require.Equal(t, int32(0), err.RetryDelay())
-	require.NotNil(t, err.Stack())
-
+	require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
+	require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+	require.Equal(t, err.(errors.ImmuError).Code(), string(errors.SqlserverRejectedEstablishmentOfSqlconnection))
+	require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
+	require.NotNil(t, err.(errors.ImmuError).Stack())
 }
