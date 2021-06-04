@@ -20,10 +20,19 @@ import (
 	"runtime/debug"
 )
 
+type Error interface {
+	Error() string
+	Message() string
+	Cause() error
+	Code() Code
+	RetryDelay() int32
+	Stack() string
+}
+
 func New(message string) *immuError {
 
 	e := &immuError{
-		code:  Unknown,
+		code:  InternalError,
 		msg:   message,
 		stack: string(debug.Stack()),
 	}
@@ -42,6 +51,26 @@ func (f *immuError) Error() string {
 	return f.msg
 }
 
+func (f *immuError) Message() string {
+	return f.msg
+}
+
+func (f *immuError) Cause() error {
+	return f
+}
+
+func (f *immuError) Code() Code {
+	return f.code
+}
+
+func (f *immuError) RetryDelay() int32 {
+	return f.retryDelay
+}
+
+func (f *immuError) Stack() string {
+	return f.stack
+}
+
 func (e *immuError) WithCode(code Code) *immuError {
 	e.code = code
 	return e
@@ -50,4 +79,22 @@ func (e *immuError) WithCode(code Code) *immuError {
 func (e *immuError) WithRetryDelay(delay int32) *immuError {
 	e.retryDelay = delay
 	return e
+}
+
+func (e *immuError) Is(target error) bool {
+	switch t := target.(type) {
+	case *immuError:
+		return compare(e, t)
+	case *wrappedError:
+		return compare(e, t)
+	default:
+		return e.Cause().Error() == target.Error()
+	}
+}
+
+func compare(e Error, t Error) bool {
+	if e.Code() != InternalError || t.Code() != InternalError {
+		return e.Code() == t.Code()
+	}
+	return e.Message() == t.Message() && e.Cause().Error() == t.Cause().Error()
 }

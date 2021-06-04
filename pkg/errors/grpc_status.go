@@ -18,6 +18,7 @@ package errors
 
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/status"
 	"os"
 	"strings"
@@ -45,7 +46,13 @@ func setupStatus(cause *immuError, message string, retryDelay int32) *status.Sta
 
 	retryInfo := &schema.RetryInfo{RetryDelay: retryDelay}
 
-	st, err := st.WithDetails(errorInfo, debugInfo(cause.stack), retryInfo)
+	details := make([]proto.Message, 0)
+	details = append(details, errorInfo, retryInfo)
+
+	if di := debugInfo(cause.stack); di != nil {
+		details = append(details, di)
+	}
+	st, err := st.WithDetails(details...)
 	if err != nil {
 		return nil
 	}

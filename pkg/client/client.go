@@ -60,7 +60,7 @@ type ImmuClient interface {
 	HealthCheck(ctx context.Context) error
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
-	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, *errors.ImmuError)
+	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	Logout(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
@@ -456,7 +456,7 @@ func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 }
 
 // Login ...
-func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, *errors.ImmuError) {
+func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
