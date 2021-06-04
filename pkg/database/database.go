@@ -139,7 +139,9 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 		}
 		log.Infof("Database '%s' successfully registered", dbDir)
 
-	} else if err != nil {
+		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
+	}
+	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
@@ -193,9 +195,6 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	}
 
 	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err == sql.ErrDatabaseDoesNotExist {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-	}
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
