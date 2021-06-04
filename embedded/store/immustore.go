@@ -408,7 +408,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithFileMode(opts.FileMode).
 		WithLog(opts.log).
 		WithFileSize(fileSize).
-		WithSynced(opts.Synced). // built from derived data, but temporarily to reduce chances of data inconsistencies
+		WithSynced(opts.Synced). // built from derived data, but temporarily modified to reduce chances of data inconsistencies until a better solution is implemented
 		WithCacheSize(opts.IndexOpts.CacheSize).
 		WithFlushThld(opts.IndexOpts.FlushThld).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
