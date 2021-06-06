@@ -62,7 +62,7 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(msg, "Successfully logged in.") {
+	if !strings.Contains(msg, "Successfully logged in") {
 		t.Fatal("Login error")
 	}
 }

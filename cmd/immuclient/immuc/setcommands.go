@@ -243,7 +243,7 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 		if i.options.CurrentDatabase == val.DatabaseName {
 			dbList += "*"
 		}
-		dbList += fmt.Sprintf("%s\n", val.DatabaseName)
+		dbList += fmt.Sprintf("%s", val.DatabaseName)
 	}
 
 	return dbList, nil

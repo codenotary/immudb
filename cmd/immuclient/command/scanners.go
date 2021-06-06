@@ -17,8 +17,6 @@ limitations under the License.
 package immuclient
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +32,7 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -54,7 +52,7 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -74,7 +72,7 @@ func (cl *commandline) count(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

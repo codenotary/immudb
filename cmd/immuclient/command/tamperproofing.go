@@ -35,7 +35,7 @@ func (cl *commandline) consistency(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil*/
 		},
 		Args: cobra.MinimumNArgs(2),
