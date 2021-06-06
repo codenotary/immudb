@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -75,4 +76,13 @@ func commandNames(cms []*cobra.Command) []string {
 		args = append(args, arg)
 	}
 	return args
+}
+
+// fprintln is equivalent to fmt.Fprintln but appends newline only if one doesn't exist.
+func fprintln(w io.Writer, msg string) {
+	if strings.HasSuffix(msg, "\n") {
+		_, _ = fmt.Fprint(w, msg)
+	} else {
+		_, _ = fmt.Fprintln(w, msg)
+	}
 }

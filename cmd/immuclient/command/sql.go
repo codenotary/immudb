@@ -17,8 +17,6 @@ limitations under the License.
 package immuclient
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +32,7 @@ func (cl *commandline) sqlExec(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
@@ -54,8 +52,8 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
-			return err
+			fprintln(cmd.OutOrStdout(), resp)
+			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -74,8 +72,8 @@ func (cl *commandline) listTables(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
-			return err
+			fprintln(cmd.OutOrStdout(), resp)
+			return nil
 		},
 		Args: cobra.ExactArgs(0),
 	}
@@ -94,8 +92,8 @@ func (cl *commandline) describeTable(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			_, err = fmt.Fprint(cmd.OutOrStdout(), resp)
-			return err
+			fprintln(cmd.OutOrStdout(), resp)
+			return nil
 
 		},
 		Args: cobra.ExactArgs(1),

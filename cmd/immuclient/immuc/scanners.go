@@ -50,9 +50,11 @@ func (i *immuc) ZScan(args []string) (string, error) {
 		return str.String(), nil
 	}
 
-	for _, entry := range zEntries.Entries {
+	for j, entry := range zEntries.Entries {
+		if j > 0 {
+			str.WriteString("\n")
+		}
 		str.WriteString(PrintKV(entry.Entry.Key, entry.Entry.Value, entry.Entry.Tx, false, i.valueOnly))
-		str.WriteString("\n")
 	}
 
 	return str.String(), nil
@@ -82,9 +84,11 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 		return str.String(), nil
 	}
 
-	for _, entry := range entries.Entries {
+	for j, entry := range entries.Entries {
+		if j > 0 {
+			str.WriteString("\n")
+		}
 		str.WriteString(PrintKV(entry.Key, entry.Value, entry.Tx, false, i.valueOnly))
-		str.WriteString("\n")
 	}
 
 	return str.String(), nil

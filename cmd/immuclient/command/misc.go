@@ -17,8 +17,6 @@ limitations under the License.
 package immuclient
 
 import (
-	"fmt"
-
 	"github.com/codenotary/immudb/cmd/immuclient/audit"
 	"github.com/codenotary/immudb/cmd/immuclient/cli"
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
@@ -37,7 +35,7 @@ func (cl *commandline) history(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -57,7 +55,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.NoArgs,
@@ -110,7 +108,7 @@ func (cl *commandline) use(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+			fprintln(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

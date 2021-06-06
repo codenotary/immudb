@@ -66,9 +66,9 @@ func (i *immuc) Login(args []string) (string, error) {
 		return "", err
 	}
 	i.isLoggedin = true
-	successMsg := "Successfully logged in."
+	successMsg := "Successfully logged in\n"
 	if len(response.Warning) != 0 {
-		successMsg += fmt.Sprintf("\n%s", string(response.Warning))
+		successMsg += string(response.Warning)
 	}
 	return successMsg, nil
 }
@@ -76,7 +76,7 @@ func (i *immuc) Login(args []string) (string, error) {
 func (i *immuc) Logout(args []string) (string, error) {
 	ok, err := i.ts.IsTokenPresent()
 	if err != nil || !ok {
-		return "User not logged in.", nil
+		return "User not logged in", nil
 	}
 	if err := i.ts.DeleteToken(); err != nil {
 		return "", err
@@ -90,6 +90,7 @@ func (i *immuc) Logout(args []string) (string, error) {
 	}
 	return "Successfully logged out", nil
 }
+
 func (i *immuc) UserCreate(args []string) (string, error) {
 	if len(args) < 3 {
 		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil

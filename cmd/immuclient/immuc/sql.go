@@ -19,10 +19,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/olekukonko/tablewriter"
-	"strings"
 )
 
 func (i *immuc) SQLExec(args []string) (string, error) {
