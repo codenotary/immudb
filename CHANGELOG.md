@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.0.1"></a>
+## [v1.0.1] - 2021-06-02
+### Bug Fixes
+- go mod tidy/vendor with statik module ([#796](https://github.com/vchain-us/immudb/issues/796))
+- **cmd/immuclient:** remove warnings on sql commands in interactive mode
+- **cmd/immuclient:** improve immuclient tx and safetx error message
+- **embedded/sql:** interprete binary prefix if followed by a quote
+- **pkg/server:** always create system db (even when auth is off)
+
+### Changes
+- enable webconsole in docker image
+- remove mtls evironments var from dockerfile
+- enhance Makefile so to automatically download latest webconsole if not already present
+- README/doc updates ([#791](https://github.com/vchain-us/immudb/issues/791))
+- **embedded/store:** apply synced settings to indexing data
+- **embedded/store:** sync values once all entries are written
+- **pkg/database:** retry database selection after registration
+- **pkg/database:** auto-registration when not present in the catalog
+
+### Features
+- **embedded/sql:** support <column> <type> NULL syntax
+- **pkg/database:** enhace table description by adding nullable constraint
+- **webconsole:** default web console page ([#786](https://github.com/vchain-us/immudb/issues/786))
+
+
 <a name="v1.0.0"></a>
 ## [v1.0.0] - 2021-05-20
 ### Bug Fixes
