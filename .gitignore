@@ -40,9 +40,6 @@ coverage.txt
 immudb.pid
 /data
 
-# Vendor
-vendor
-
 # immudb auth
 immudb_pwd
 token

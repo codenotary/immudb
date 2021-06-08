@@ -1,0 +1,10 @@
+init:
+  - set PATH=%PATH%;C:\MinGW\bin;%GOPATH%\bin
+  - go version
+  - go env
+
+# clones and cd's to path
+clone_folder: C:\GOPATH\src\github.com\jaschweder\faker
+
+build_script:
+  - go test -v -cover

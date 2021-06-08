@@ -1,0 +1,41 @@
+language: go
+
+env:
+  - GOMAXPROCS=4 GORACE=halt_on_error=1 GO111MODULE=on
+
+before_install:
+    - export PATH=$PATH:$GOPATH/bin
+    - go get github.com/mattn/goveralls
+    - go get golang.org/x/tools/cmd/cover
+    - go get golang.org/x/lint/golint
+    - go get golang.org/x/tools/cmd/goimports
+
+install: true
+
+matrix:
+  include:
+    - go: "1.9.x"
+      install:
+      - go get -t -v ./...
+      script:
+      - go test -v -race
+    - go: "1.10.x"
+      install:
+        - go get -t -v ./...
+      script:
+        - go test -v -race
+    - go: "1.11.x"
+      script:
+        - diff -u <(echo -n) <(goimports -d -s $(find . -type f -name '*.go' -not -path "./vendor/*"))
+        - go vet $(go list ./... | grep -v /vendor/)
+        - golint -set_exit_status
+        - go test -v -race -coverprofile=paseto.coverprofile
+        - goveralls -coverprofile=paseto.coverprofile -service=travis-ci
+    - go: "tip"
+      script:
+        - diff -u <(echo -n) <(gofmt -d -s $(find . -type f -name '*.go' -not -path "./vendor/*"))
+        - go vet $(go list ./... | grep -v /vendor/)
+        - golint -set_exit_status
+        - go test -v -race
+  allow_failures:
+    - go: tip

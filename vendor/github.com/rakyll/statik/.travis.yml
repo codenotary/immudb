@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.9.x
+  - 1.10.3
+  - 1.11.x
+  - 1.12.x
+
+go_import_path: github.com/rakyll/statik
+
+install:
+  - go build -v
+  - ./statik -f -src=./example/public -dest=./example/ -include=*.jpg,*.txt,*.html,*.css,*.js -ns=web
+
+script:
+  - go test -v -bench=. ./...
