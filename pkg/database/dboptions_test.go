@@ -31,7 +31,7 @@ func TestDefaultOptions(t *testing.T) {
 	if op.GetDbRootPath() != DefaultOption().dbRootPath {
 		t.Errorf("default db rootpath not what expected")
 	}
-	if !op.GetCorruptionChecker() {
+	if op.GetCorruptionChecker() {
 		t.Errorf("default corruption checker not what expected")
 	}
 
@@ -42,7 +42,7 @@ func TestDefaultOptions(t *testing.T) {
 	op = DefaultOption().
 		WithDbName(DbName).
 		WithDbRootPath(rootpath).
-		WithCorruptionChecker(false).
+		WithCorruptionChecker(true).
 		WithStoreOptions(storeOpts)
 
 	if op.GetDbName() != DbName {
@@ -52,8 +52,8 @@ func TestDefaultOptions(t *testing.T) {
 		t.Errorf("rootpath not set correctly , expected %s got %s", rootpath, op.GetDbRootPath())
 	}
 
-	if op.GetCorruptionChecker() {
-		t.Errorf("coruuption checker not set correctly , expected %v got %v", false, op.GetCorruptionChecker())
+	if !op.GetCorruptionChecker() {
+		t.Errorf("corruption checker not set correctly , expected %v got %v", true, op.GetCorruptionChecker())
 	}
 
 	require.Equal(t, storeOpts, op.storeOpts)

@@ -71,7 +71,9 @@ func TestCurrentState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "is empty") {
+	rsp := string(msg)
+
+	if !strings.Contains(rsp, "txID:") {
 		t.Fatal(err)
 	}
 }

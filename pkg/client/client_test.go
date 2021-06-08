@@ -1091,14 +1091,15 @@ func TestImmuClient_TxScan(t *testing.T) {
 	_, _ = client.Set(ctx, []byte(`key3`), []byte(`val3`))
 
 	txls, err := client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 1,
+		InitialTx: 2,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
 	require.Nil(t, err)
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 3,
+		InitialTx: 4,
+		Limit:     3,
 		Desc:      true,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
@@ -1106,7 +1107,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 2,
+		InitialTx: 3,
 		Limit:     1,
 		Desc:      true,
 	})

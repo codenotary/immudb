@@ -113,7 +113,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
-		ProveSinceTx:  2,
+		ProveSinceTx:  4,
 	})
 	require.Equal(t, store.ErrIllegalState, err)
 

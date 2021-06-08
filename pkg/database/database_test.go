@@ -221,12 +221,12 @@ func TestDbSetGet(t *testing.T) {
 	for i, kv := range kvs {
 		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), txMetadata.Id)
+		require.Equal(t, uint64(i+2), txMetadata.Id)
 
 		if i == 0 {
 			alh := schema.TxMetadataFrom(txMetadata).Alh()
 			copy(trustedAlh[:], alh[:])
-			trustedIndex = 1
+			trustedIndex = 2
 		}
 
 		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id}
@@ -296,13 +296,13 @@ func TestCurrentState(t *testing.T) {
 	for ind, val := range kvs {
 		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+1), txMetadata.Id)
+		require.Equal(t, uint64(ind+2), txMetadata.Id)
 
 		time.Sleep(1 * time.Second)
 
 		state, err := db.CurrentState()
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+1), state.TxId)
+		require.Equal(t, uint64(ind+2), state.TxId)
 	}
 }
 
@@ -377,7 +377,7 @@ func TestSafeSetGet(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+1), vit.Entry.Tx)
+		require.Equal(t, uint64(ind+2), vit.Entry.Tx)
 	}
 }
 
@@ -402,7 +402,7 @@ func TestSetGetAll(t *testing.T) {
 
 	txMetadata, err := db.Set(&schema.SetRequest{KVs: kvs})
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), txMetadata.Id)
+	require.Equal(t, uint64(2), txMetadata.Id)
 
 	err = db.CompactIndex()
 	require.NoError(t, err)
@@ -432,7 +432,7 @@ func TestTxByID(t *testing.T) {
 	for ind, val := range kvs {
 		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+1), txMetadata.Id)
+		require.Equal(t, uint64(ind+2), txMetadata.Id)
 	}
 
 	_, err = db.TxByID(&schema.TxRequest{Tx: uint64(1)})
@@ -485,10 +485,10 @@ func TestTxScan(t *testing.T) {
 		InitialTx: 1,
 	})
 	require.NoError(t, err)
-	require.Len(t, txList.Txs, len(kvs))
+	require.Len(t, txList.Txs, len(kvs)+1)
 
 	for i := 0; i < len(kvs); i++ {
-		require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i].Entries[0].Key))
+		require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
 	}
 }
 
