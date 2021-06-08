@@ -138,6 +138,11 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	if err == sql.ErrDatabaseDoesNotExist {
 		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
+		err = dbi.sqlEngine.Close()
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
+
 		systemDBI, _ := systemDB.(*db)
 		sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
 		if err != nil {
