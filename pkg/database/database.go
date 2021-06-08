@@ -87,8 +87,7 @@ type DB interface {
 
 //IDB database instance
 type db struct {
-	st      *store.ImmuStore
-	ctlogSt *store.ImmuStore
+	st *store.ImmuStore
 
 	sqlEngine *sql.Engine
 
@@ -126,64 +125,48 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	if systemDB == nil {
-		dbi.ctlogSt = dbi.st
-	} else {
-		catalogDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), "catalog")
-
-		_, dbErr := os.Stat(catalogDir)
-		migrateCatalog := os.IsNotExist(dbErr)
-
-		dbi.ctlogSt, err = store.Open(catalogDir, op.GetStoreOptions().WithLog(log))
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-		}
-
-		if migrateCatalog {
-			dbi.Logger.Infof("Migrating catalog from systemdb to %s...", catalogDir)
-
-			systemDBI, _ := systemDB.(*db)
-			sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
-			if err != nil {
-				sqlEngine.Close()
-				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-			}
-
-			err = sqlEngine.DumpCatalogTo(op.dbName, dbi.ctlogSt)
-			if err != nil {
-				sqlEngine.Close()
-				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-			}
-
-			err = sqlEngine.Close()
-			if err != nil {
-				return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-			}
-
-			dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", catalogDir)
-		}
-	}
-
-	dbi.sqlEngine, err = sql.NewEngine(dbi.ctlogSt, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
 	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err == sql.ErrDatabaseDoesNotExist {
-		// Database registration may be needed when opening a database created with an older version of immudb (older than v1.0.0)
+	if err != nil && (err != sql.ErrDatabaseDoesNotExist || systemDB == nil) {
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	}
 
-		log.Infof("Registering database '%s' in the catalog...", dbDir)
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+	if err == sql.ErrDatabaseDoesNotExist {
+		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
+
+		systemDBI, _ := systemDB.(*db)
+		sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
+		if err != nil {
+			sqlEngine.Close()
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
+
+		err = sqlEngine.DumpCatalogTo(op.dbName, dbi.st)
+		if err != nil {
+			sqlEngine.Close()
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
+
+		err = sqlEngine.Close()
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 		}
-		log.Infof("Database '%s' successfully registered", dbDir)
+
+		dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
+
+		dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 
 		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	}
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 	}
 
 	return dbi, nil
@@ -217,18 +200,7 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	if systemDB == nil {
-		dbi.ctlogSt = dbi.st
-	} else {
-		catalogDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), "catalog")
-
-		dbi.ctlogSt, err = store.Open(catalogDir, op.GetStoreOptions().WithLog(log))
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-		}
-	}
-
-	dbi.sqlEngine, err = sql.NewEngine(dbi.ctlogSt, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
