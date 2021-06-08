@@ -131,11 +131,11 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err != nil && (err != sql.ErrDatabaseDoesNotExist || systemDB == nil) {
+	if err != nil && (err != sql.ErrDatabaseDoesNotExist || (systemDB == nil && !op.replica)) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	if err == sql.ErrDatabaseDoesNotExist {
+	if err == sql.ErrDatabaseDoesNotExist && !op.replica {
 		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
 		err = dbi.sqlEngine.Close()
@@ -210,14 +210,16 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-	}
+	if !op.replica {
+		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 
-	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 	}
 
 	return dbi, nil

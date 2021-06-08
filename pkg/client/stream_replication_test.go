@@ -71,46 +71,37 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	txmd, err := client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
-	require.NoError(t, err)
+	rmd := metadata.Pairs("authorization", replicatedMD.Token)
+	rctx := metadata.NewOutgoingContext(context.Background(), rmd)
 
-	md = metadata.Pairs("authorization", replicatedMD.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
+	for i := uint64(1); i <= 2; i++ {
+		exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: i})
+		require.NoError(t, err)
 
-	replicateTxStream, err := client.ReplicateTx(ctx)
-	require.NoError(t, err)
+		replicateTxStream, err := client.ReplicateTx(rctx)
+		require.NoError(t, err)
 
-	for {
-		md = metadata.Pairs("authorization", defaultMD.Token)
-		ctx = metadata.NewOutgoingContext(context.Background(), md)
+		for {
+			txChunk, err := exportTxStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
 
-		txChunk, err := exportTxStream.Recv()
-		if err == io.EOF {
-			break
+			err = replicateTxStream.Send(txChunk)
+			require.NoError(t, err)
 		}
-		require.NoError(t, err)
 
-		md = metadata.Pairs("authorization", replicatedMD.Token)
-		ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-		err = replicateTxStream.Send(txChunk)
+		rtxmd, err := replicateTxStream.CloseAndRecv()
 		require.NoError(t, err)
+		require.Equal(t, i, rtxmd.Id)
 	}
 
-	md = metadata.Pairs("authorization", replicatedMD.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	rtxmd, err := replicateTxStream.CloseAndRecv()
-	require.NoError(t, err)
-	require.Equal(t, txmd.Id, rtxmd.Id)
-
-	md = metadata.Pairs("authorization", replicatedMD.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	replicatedEntry, err := client.Get(ctx, []byte("key1"))
+	replicatedEntry, err := client.Get(rctx, []byte("key1"))
 	require.NoError(t, err)
 	require.Equal(t, []byte("value1"), replicatedEntry.Value)
+	require.Equal(t, txmd.Id, replicatedEntry.Tx)
 
-	err = client.Logout(ctx)
+	err = client.Logout(rctx)
 	require.NoError(t, err)
 }
