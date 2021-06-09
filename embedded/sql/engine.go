@@ -311,7 +311,7 @@ func (e *Engine) CloseSnapshot() error {
 	return nil
 }
 
-func (e *Engine) DumpCatalogTo(dbName string, targetStore *store.ImmuStore) error {
+func (e *Engine) DumpCatalogTo(srcName, dstName string, targetStore *store.ImmuStore) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -319,7 +319,7 @@ func (e *Engine) DumpCatalogTo(dbName string, targetStore *store.ImmuStore) erro
 		return ErrAlreadyClosed
 	}
 
-	db, err := e.catalog.GetDatabaseByName(dbName)
+	db, err := e.catalog.GetDatabaseByName(srcName)
 	if err != nil {
 		return err
 	}
@@ -334,12 +334,7 @@ func (e *Engine) DumpCatalogTo(dbName string, targetStore *store.ImmuStore) erro
 
 	dbKey := e.mapKey(catalogDatabasePrefix, EncodeID(db.ID()))
 
-	v, _, _, err := snap.Get(dbKey)
-	if err != nil {
-		return err
-	}
-
-	entries = append(entries, &store.KV{Key: dbKey, Value: v})
+	entries = append(entries, &store.KV{Key: dbKey, Value: []byte(dstName)})
 
 	tableEntries, err := e.entriesWithPrefix(e.mapKey(catalogTablePrefix, EncodeID(db.ID())), snap)
 	if err != nil {
