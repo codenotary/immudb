@@ -128,12 +128,16 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
+	if op.replica {
+		return dbi, nil
+	}
+
 	err = dbi.loadSQLEngine()
-	if err != nil && (err != ErrSQLNotReady || (systemDB == nil && !op.replica)) {
+	if err != nil && (err != ErrSQLNotReady || systemDB == nil) {
 		return nil, err
 	}
 
-	if err == sql.ErrDatabaseDoesNotExist && !op.replica {
+	if err == ErrSQLNotReady {
 		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
 		err = dbi.sqlEngine.Close()
@@ -144,17 +148,11 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		systemDBI, _ := systemDB.(*db)
 		sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
 		if err != nil {
-			sqlEngine.Close()
 			return nil, err
 		}
+		defer sqlEngine.Close()
 
 		err = sqlEngine.DumpCatalogTo(op.dbName, dbInstanceName, dbi.st)
-		if err != nil {
-			sqlEngine.Close()
-			return nil, err
-		}
-
-		err = sqlEngine.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -171,8 +169,15 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 }
 
 func (d *db) loadSQLEngine() (err error) {
-	if d.sqlEngineLoaded {
+	if d.sqlEngineLoaded && !d.options.replica {
 		return nil
+	}
+
+	if d.sqlEngine != nil {
+		err := d.sqlEngine.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	d.sqlEngine, err = sql.NewEngine(d.st, d.st, []byte{SQLPrefix})
