@@ -35,6 +35,8 @@ import (
 const MaxKeyResolutionLimit = 1
 const MaxKeyScanLimit = 1000
 
+const dbInstanceName = "dbinstance"
+
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 var ErrIllegalArguments = store.ErrIllegalArguments
@@ -89,8 +91,8 @@ type DB interface {
 type db struct {
 	st *store.ImmuStore
 
-	sqlEngine  *sql.Engine
-	dbSelected bool
+	sqlEngine       *sql.Engine
+	sqlEngineLoaded bool
 
 	tx1, tx2 *store.Tx
 	mutex    sync.RWMutex
@@ -126,60 +128,69 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	err = dbi.loadSQLEngine()
+	if err != nil && (err != ErrSQLNotReady || (systemDB == nil && !op.replica)) {
+		return nil, err
 	}
-
-	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err != nil && (err != sql.ErrDatabaseDoesNotExist || (systemDB == nil && !op.replica)) {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-	}
-
-	dbi.dbSelected = err == nil
 
 	if err == sql.ErrDatabaseDoesNotExist && !op.replica {
 		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
 		err = dbi.sqlEngine.Close()
 		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			return nil, err
 		}
 
 		systemDBI, _ := systemDB.(*db)
 		sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
 		if err != nil {
 			sqlEngine.Close()
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			return nil, err
 		}
 
-		err = sqlEngine.DumpCatalogTo(op.dbName, dbi.st)
+		err = sqlEngine.DumpCatalogTo(op.dbName, dbInstanceName, dbi.st)
 		if err != nil {
 			sqlEngine.Close()
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			return nil, err
 		}
 
 		err = sqlEngine.Close()
 		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			return nil, err
 		}
 
 		dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
 
-		dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
+		err = dbi.loadSQLEngine()
 		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+			return nil, err
 		}
-
-		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-		}
-
-		dbi.dbSelected = true
 	}
 
 	return dbi, nil
+}
+
+func (d *db) loadSQLEngine() (err error) {
+	if d.sqlEngineLoaded {
+		return nil
+	}
+
+	d.sqlEngine, err = sql.NewEngine(d.st, d.st, []byte{SQLPrefix})
+	if err != nil {
+		return err
+	}
+
+	err = d.sqlEngine.UseDatabase(dbInstanceName)
+	if err == sql.ErrDatabaseDoesNotExist {
+		return ErrSQLNotReady
+	}
+	if err != nil {
+		return err
+	}
+
+	d.sqlEngineLoaded = true
+
+	return nil
 }
 
 // NewDb Creates a new Database along with it's directories and files
@@ -216,15 +227,17 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	if !op.replica {
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 		}
 
-		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
+		err = dbi.sqlEngine.UseDatabase(dbInstanceName)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 		}
+
+		dbi.sqlEngineLoaded = true
 	}
 
 	return dbi, nil
