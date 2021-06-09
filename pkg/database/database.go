@@ -91,8 +91,7 @@ type DB interface {
 type db struct {
 	st *store.ImmuStore
 
-	sqlEngine       *sql.Engine
-	sqlEngineLoaded bool
+	sqlEngine *sql.Engine
 
 	tx1, tx2 *store.Tx
 	mutex    sync.RWMutex
@@ -133,20 +132,22 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	err = dbi.loadSQLEngine()
-	if err != nil && (err != ErrSQLNotReady || systemDB == nil) {
+	if err != nil && err != ErrSQLNotReady {
 		return nil, err
 	}
 
 	if err == ErrSQLNotReady {
 		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
-		err = dbi.sqlEngine.Close()
-		if err != nil {
-			return nil, err
+		var catalogSt *store.ImmuStore
+		if systemDB == nil {
+			catalogSt = dbi.st
+		} else {
+			systemDBI, _ := systemDB.(*db)
+			catalogSt = systemDBI.st
 		}
 
-		systemDBI, _ := systemDB.(*db)
-		sqlEngine, err := sql.NewEngine(systemDBI.st, dbi.st, []byte{SQLPrefix})
+		sqlEngine, err := sql.NewEngine(catalogSt, dbi.st, []byte{SQLPrefix})
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +170,7 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 }
 
 func (d *db) loadSQLEngine() (err error) {
-	if d.sqlEngineLoaded && !d.options.replica {
+	if d.sqlEngine != nil && !d.options.replica {
 		return nil
 	}
 
@@ -180,20 +181,20 @@ func (d *db) loadSQLEngine() (err error) {
 		}
 	}
 
-	d.sqlEngine, err = sql.NewEngine(d.st, d.st, []byte{SQLPrefix})
+	sqlEngine, err := sql.NewEngine(d.st, d.st, []byte{SQLPrefix})
 	if err != nil {
 		return err
 	}
 
-	err = d.sqlEngine.UseDatabase(dbInstanceName)
+	err = sqlEngine.UseDatabase(dbInstanceName)
 	if err == sql.ErrDatabaseDoesNotExist {
 		return ErrSQLNotReady
 	}
 	if err != nil {
-		return err
+		return nil
 	}
 
-	d.sqlEngineLoaded = true
+	d.sqlEngine = sqlEngine
 
 	return nil
 }
@@ -241,8 +242,6 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 		}
-
-		dbi.sqlEngineLoaded = true
 	}
 
 	return dbi, nil
