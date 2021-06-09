@@ -24,6 +24,8 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
+var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
+
 func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -40,6 +42,14 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
+	}
+
+	if !d.dbSelected {
+		err := d.sqlEngine.UseDatabase(d.options.dbName)
+		if err != nil {
+			return nil, ErrSQLNotReady
+		}
+		d.dbSelected = true
 	}
 
 	txEntry := d.tx1
@@ -158,6 +168,14 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 		return nil, err
 	}
 
+	if !d.dbSelected {
+		err := d.sqlEngine.UseDatabase(d.options.dbName)
+		if err != nil {
+			return nil, ErrSQLNotReady
+		}
+		d.dbSelected = true
+	}
+
 	db, err := d.sqlEngine.Catalog().GetDatabaseByName(d.options.dbName)
 	if err != nil {
 		return nil, err
@@ -179,6 +197,14 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
+	}
+
+	if !d.dbSelected {
+		err := d.sqlEngine.UseDatabase(d.options.dbName)
+		if err != nil {
+			return nil, ErrSQLNotReady
+		}
+		d.dbSelected = true
 	}
 
 	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, tableName)
@@ -255,6 +281,14 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
+	if !d.dbSelected {
+		err := d.sqlEngine.UseDatabase(d.options.dbName)
+		if err != nil {
+			return nil, ErrSQLNotReady
+		}
+		d.dbSelected = true
+	}
+
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
@@ -319,6 +353,14 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		return nil, err
 	}
 	defer r.Close()
+
+	if !d.dbSelected {
+		err := d.sqlEngine.UseDatabase(d.options.dbName)
+		if err != nil {
+			return nil, ErrSQLNotReady
+		}
+		d.dbSelected = true
+	}
 
 	params := make(map[string]interface{})
 
