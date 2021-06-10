@@ -22,10 +22,18 @@ import (
 
 func mapGRPcErrorCode(code Code) codes.Code {
 	switch code {
-	case SuccessCompletion:
+	case CodSuccessCompletion:
 		return codes.OK
-	case SqlclientUnableToEstablishSqlConnection:
+	case CodSqlclientUnableToEstablishSqlConnection:
 		return codes.PermissionDenied
+	case CodDataException:
+		return codes.FailedPrecondition
+	case CodInvalidParameterValue:
+		return codes.InvalidArgument
+	case CodInternalError:
+		return codes.Internal
+	case CodUndefinedFunction:
+		return codes.Unimplemented
 	default:
 		return codes.Unknown
 	}
