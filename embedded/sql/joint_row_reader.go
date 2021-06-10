@@ -100,8 +100,13 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 
 		for _, c := range table.ColsByID() {
-			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
-			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: c.colType}
+			des := &ColDescriptor{
+				Database: table.db.name,
+				Table:    tableRef.Alias(),
+				Column:   c.colName,
+				Type:     c.colType,
+			}
+			colDescriptors[des.Selector()] = des
 		}
 	}
 
