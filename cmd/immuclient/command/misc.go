@@ -90,6 +90,9 @@ func (cl *commandline) interactiveCli(cmd *cobra.Command) {
 		Aliases: []string{"cli-mode"},
 		Example: cli.Init(cl.immucl).HelpMessage(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cl.immucl.Connect(args); err != nil {
+				cl.quit(err)
+			}
 			cli.Init(cl.immucl).Run()
 			return nil
 		},
