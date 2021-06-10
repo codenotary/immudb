@@ -94,8 +94,16 @@ func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 			}
 		}
 
-		encSel := EncodeSelector(aggFn, db, table, col)
-		colsByPos[i] = &ColDescriptor{Selector: encSel, Type: colsBySel[encSel].Type}
+		colsByPos[i] = &ColDescriptor{
+			AggFn:    aggFn,
+			Database: db,
+			Table:    table,
+			Column:   col,
+		}
+
+		encSel := colsByPos[i].Selector()
+
+		colsByPos[i].Type = colsBySel[encSel].Type
 	}
 
 	return colsByPos, nil
@@ -141,8 +149,15 @@ func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error
 			}
 		}
 
-		encSel = EncodeSelector(aggFn, db, table, col)
-		colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: colDesc.Type}
+		des := &ColDescriptor{
+			AggFn:    aggFn,
+			Database: db,
+			Table:    table,
+			Column:   col,
+			Type:     colDesc.Type,
+		}
+
+		colDescriptors[des.Selector()] = des
 	}
 
 	return colDescriptors, nil
