@@ -196,5 +196,5 @@ func TestExecAllStreamSender_SendRefError(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Equal(t, ErrRefOptNotImplemented, err)
+	require.Equal(t, ErrRefOptNotImplemented, err.Error())
 }

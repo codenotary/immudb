@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"io"
 	"time"
 
@@ -31,64 +31,50 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 )
 
-func (c *immuClient) streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamSet(ctx)
+// StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
+func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+	txMeta, err := c._streamSet(ctx, kvs)
+	return txMeta, errors.FromError(err)
 }
 
-func (c *immuClient) streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamGet(ctx, in)
+// StreamGet get an *schema.Entry from immudb with a stream
+func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
+	entry, err := c._streamGet(ctx, k)
+	return entry, errors.FromError(err)
 }
 
-func (c *immuClient) streamVerifiableSet(ctx context.Context) (schema.ImmuService_StreamVerifiableSetClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamVerifiableSet(ctx)
+func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+	txMeta, err := c._streamVerifiedSet(ctx, kvs)
+	return txMeta, errors.FromError(err)
 }
 
-func (c *immuClient) streamVerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest) (schema.ImmuService_StreamVerifiableGetClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamVerifiableGet(ctx, in)
+func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
+	entry, err := c._streamVerifiedGet(ctx, req)
+	return entry, errors.FromError(err)
 }
 
-func (c *immuClient) streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamScan(ctx, in)
+func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
+	entries, err := c._streamScan(ctx, req)
+	return entries, errors.FromError(err)
 }
 
-func (c *immuClient) streamZScan(ctx context.Context, in *schema.ZScanRequest) (schema.ImmuService_StreamZScanClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamZScan(ctx, in)
+func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
+	entries, err := c._streamZScan(ctx, req)
+	return entries, errors.FromError(err)
 }
 
-func (c *immuClient) streamHistory(ctx context.Context, in *schema.HistoryRequest) (schema.ImmuService_StreamHistoryClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamHistory(ctx, in)
+func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
+	entries, err := c._streamHistory(ctx, req)
+	return entries, errors.FromError(err)
 }
 
-func (c *immuClient) streamExecAll(ctx context.Context) (schema.ImmuService_StreamExecAllClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.StreamExecAll(ctx)
+func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
+	txMeta, err := c._streamExecAll(ctx, req)
+	return txMeta, errors.FromError(err)
 }
 
 // StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
-func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	s, err := c.streamSet(ctx)
 	if err != nil {
 		return nil, err
@@ -107,7 +93,7 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 }
 
 // StreamGet get an *schema.Entry from immudb with a stream
-func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
+func (c *immuClient) _streamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
 	gs, err := c.streamGet(ctx, k)
 	if err != nil {
 		return nil, err
@@ -123,7 +109,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 	value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 	if err != nil {
 		if err == io.EOF {
-			return nil, stream.ErrMissingExpectedData
+			return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
 		}
 		return nil, err
 	}
@@ -134,13 +120,13 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 	}, nil
 }
 
-func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	if len(kvs) == 0 {
 		return nil, errors.New("no key-values specified")
 	}
 
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	err := c.StateService.CacheLock()
@@ -281,9 +267,9 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 	return verifiableTx.Tx.Metadata, nil
 }
 
-func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
+func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	err := c.StateService.CacheLock()
@@ -388,9 +374,9 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 	return vEntry.Entry, nil
 }
 
-func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
+func (c *immuClient) _streamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	gs, err := c.streamScan(ctx, req)
@@ -410,7 +396,7 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
 			if err == io.EOF {
-				return nil, stream.ErrMissingExpectedData
+				return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
 			}
 			return nil, err
 		}
@@ -425,7 +411,7 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 	return &schema.Entries{Entries: entries}, nil
 }
 
-func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
+func (c *immuClient) _streamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	gs, err := c.streamZScan(ctx, req)
 	if err != nil {
 		return nil, err
@@ -449,7 +435,7 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 	return &schema.ZEntries{Entries: entries}, nil
 }
 
-func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
+func (c *immuClient) _streamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	gs, err := c.streamHistory(ctx, req)
 	if err != nil {
 		return nil, err
@@ -467,7 +453,7 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
 			if err == io.EOF {
-				return nil, stream.ErrMissingExpectedData
+				return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
 			}
 			return nil, err
 		}
@@ -481,7 +467,7 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 	return &schema.Entries{Entries: entries}, nil
 }
 
-func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
 	s, err := c.streamExecAll(ctx)
 	if err != nil {
 		return nil, err
@@ -495,4 +481,60 @@ func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllReque
 	}
 
 	return s.CloseAndRecv()
+}
+
+func (c *immuClient) streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamSet(ctx)
+}
+
+func (c *immuClient) streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamGet(ctx, in)
+}
+
+func (c *immuClient) streamVerifiableSet(ctx context.Context) (schema.ImmuService_StreamVerifiableSetClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamVerifiableSet(ctx)
+}
+
+func (c *immuClient) streamVerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest) (schema.ImmuService_StreamVerifiableGetClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamVerifiableGet(ctx, in)
+}
+
+func (c *immuClient) streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamScan(ctx, in)
+}
+
+func (c *immuClient) streamZScan(ctx context.Context, in *schema.ZScanRequest) (schema.ImmuService_StreamZScanClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamZScan(ctx, in)
+}
+
+func (c *immuClient) streamHistory(ctx context.Context, in *schema.HistoryRequest) (schema.ImmuService_StreamHistoryClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamHistory(ctx, in)
+}
+
+func (c *immuClient) streamExecAll(ctx context.Context) (schema.ImmuService_StreamExecAllClient, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+	return c.ServiceClient.StreamExecAll(ctx)
 }

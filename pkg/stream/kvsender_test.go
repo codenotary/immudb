@@ -59,7 +59,7 @@ func TestKvStreamSender_SendEOF(t *testing.T) {
 		return io.EOF
 	}
 	s.RecvMsgF = func(m interface{}) error {
-		return ErrNotEnoughDataOnStream
+		return errors.New(ErrNotEnoughDataOnStream)
 	}
 	kvss := NewKvStreamSender(s)
 	kv := &KeyValue{
@@ -75,7 +75,7 @@ func TestKvStreamSender_SendEOF(t *testing.T) {
 
 	err := kvss.Send(kv)
 
-	require.Equal(t, ErrNotEnoughDataOnStream, err)
+	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
 }
 
 func TestKvStreamSender_SendErr(t *testing.T) {

@@ -77,7 +77,7 @@ func TestExecAllStreamReceiver_NextZAddUnmarshalError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, op)
 	op, err = esr.Next()
-	require.Equal(t, ErrUnableToReassembleExecAllMessage, err)
+	require.Equal(t, ErrUnableToReassembleExecAllMessage, err.Error())
 	require.Nil(t, op)
 }
 
@@ -89,7 +89,7 @@ func TestExecAllStreamReceiver_NextRefError(t *testing.T) {
 	r := streamtest.DefaultMsgReceiverMock(me)
 	esr := NewExecAllStreamReceiver(r, 4096)
 	op, err := esr.Next()
-	require.Equal(t, ErrRefOptNotImplemented, err)
+	require.Equal(t, ErrRefOptNotImplemented, err.Error())
 	require.Nil(t, op)
 }
 

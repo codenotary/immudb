@@ -19,6 +19,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"github.com/codenotary/immudb/pkg/errors"
 	"io"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -88,7 +89,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 		vlength += len(value)
 		if vlength > stream.MaxTxValueLen {
-			return stream.ErrMaxTxValuesLenExceeded
+			return errors.New(stream.ErrMaxTxValuesLenExceeded).WithCode(errors.CodDataException)
 		}
 
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
@@ -96,7 +97,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
-		return stream.ErrMaxValueLenExceeded
+		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
 	if err != nil {
 		return status.Errorf(codes.Unknown, "StreamSet receives following error: %s", err.Error())
@@ -211,7 +212,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 
 	vlength += len(proveSinceTxBs)
 	if vlength > stream.MaxTxValueLen {
-		return stream.ErrMaxTxValuesLenExceeded
+		return errors.New(stream.ErrMaxTxValuesLenExceeded).WithCode(errors.CodDataException)
 	}
 
 	var kvs = make([]*schema.KeyValue, 0)
@@ -235,7 +236,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 
 		vlength += len(value)
 		if vlength > stream.MaxTxValueLen {
-			return stream.ErrMaxTxValuesLenExceeded
+			return errors.New(stream.ErrMaxTxValuesLenExceeded).WithCode(errors.CodDataException)
 		}
 
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
@@ -247,7 +248,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 	}
 	verifiableTx, err := s.dbList.GetByIndex(ind).VerifiableSet(&vSetReq)
 	if err == store.ErrorMaxValueLenExceeded {
-		return stream.ErrMaxValueLenExceeded
+		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
 	if err != nil {
 		return status.Errorf(
