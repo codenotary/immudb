@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
@@ -30,7 +31,7 @@ const SQLPrefix byte = 2
 
 func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	namedParams, err := encodeParams(params)
@@ -52,7 +53,7 @@ func (c *immuClient) UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64
 
 func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
 	namedParams, err := encodeParams(params)
@@ -65,14 +66,14 @@ func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string
 
 func (c *immuClient) ListTables(ctx context.Context) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 	return c.ServiceClient.ListTables(ctx, &emptypb.Empty{})
 }
 
 func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, errors.FromError(ErrNotConnected)
 	}
 	return c.ServiceClient.DescribeTable(ctx, &schema.Table{TableName: tableName})
 }

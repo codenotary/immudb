@@ -19,6 +19,7 @@ package stream
 import (
 	"bytes"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -66,13 +67,13 @@ func (eas *execAllStreamReceiver) Next() (IsOp_Operation, error) {
 			zaddm, err := ReadValue(eas.s, eas.StreamChunkSize)
 			err = proto.Unmarshal(zaddm, zr)
 			if err != nil {
-				return nil, ErrUnableToReassembleExecAllMessage
+				return nil, errors.New(ErrUnableToReassembleExecAllMessage).WithCode(errors.CodInternalError)
 			}
 			return &Op_ZAdd{
 				ZAdd: zr,
 			}, nil
 		case TOp_Ref:
-			return nil, ErrRefOptNotImplemented
+			return nil, errors.New(ErrRefOptNotImplemented).WithCode(errors.CodUndefinedFunction)
 		}
 	}
 }

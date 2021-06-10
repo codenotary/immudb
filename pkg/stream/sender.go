@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/errors"
 	"io"
 )
 
@@ -48,7 +49,7 @@ func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 // It continues until it reach the payloadsize. At that point it sends the last content of the buffer.
 func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 	if payloadSize == 0 {
-		return ErrMessageLengthIsZero
+		return errors.New(ErrMessageLengthIsZero).WithCode(errors.CodInvalidParameterValue)
 	}
 	var read = 0
 	var run = true
@@ -69,11 +70,11 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 			}
 		}
 		if read == 0 && err == io.EOF {
-			return ErrReaderIsEmpty
+			return errors.New(ErrReaderIsEmpty).WithCode(errors.CodInvalidParameterValue)
 		}
 		read += r
 		if read < payloadSize && err == io.EOF {
-			return ErrNotEnoughDataOnStream
+			return errors.New(ErrNotEnoughDataOnStream).WithCode(errors.CodInvalidParameterValue)
 		}
 
 		// append read data in the buffer

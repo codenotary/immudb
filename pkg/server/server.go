@@ -17,8 +17,8 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -148,7 +148,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	if s.Options.StreamChunkSize < stream.MinChunkSize {
-		return stream.ErrChunkTooSmall
+		return errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
 	}
 
 	//===> !NOTE: See Histograms section here:

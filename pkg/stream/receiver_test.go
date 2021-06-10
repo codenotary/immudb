@@ -115,7 +115,7 @@ func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
 	n, err := mr.Read(message)
 
 	require.Equal(t, 0, n)
-	require.Equal(t, ErrNotEnoughDataOnStream, err)
+	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
 }
 
 func TestMsgReceiver_StreamRecvError(t *testing.T) {

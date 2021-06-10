@@ -19,6 +19,7 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/errors"
 	"io"
 )
 
@@ -83,7 +84,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 
 		// no more data in stream but buffer is not enough large to contains the expected value
 		if r.eof && r.b.Len() < r.tl-r.s {
-			return 0, ErrNotEnoughDataOnStream
+			return 0, errors.New(ErrNotEnoughDataOnStream).WithCode(errors.CodInvalidParameterValue)
 		}
 
 		// message send edge cases

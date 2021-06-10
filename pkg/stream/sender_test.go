@@ -47,7 +47,7 @@ func TestMsgSender_SendPayloadSizeZero(t *testing.T) {
 	s := NewMsgSender(sm, 4096)
 	b := bytes.NewBuffer(nil)
 	err := s.Send(b, 0)
-	assert.Equal(t, ErrMessageLengthIsZero, err)
+	assert.Equal(t, ErrMessageLengthIsZero, err.Error())
 }
 
 func TestMsgSender_SendErrReader(t *testing.T) {
@@ -71,7 +71,7 @@ func TestMsgSender_SendEmptyReader(t *testing.T) {
 		},
 	}
 	err := s.Send(r, 5000)
-	assert.Equal(t, ErrReaderIsEmpty, err)
+	assert.Equal(t, ErrReaderIsEmpty, err.Error())
 }
 
 func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
@@ -82,7 +82,7 @@ func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
 	message := streamtest.GetTrailer(len(content))
 	b := bytes.NewBuffer(message)
 	err := s.Send(b, 5000)
-	assert.Equal(t, ErrNotEnoughDataOnStream, err)
+	assert.Equal(t, ErrNotEnoughDataOnStream, err.Error())
 }
 
 func TestMsgSender_SendLastChunk(t *testing.T) {

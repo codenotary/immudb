@@ -22,7 +22,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
+	"github.com/codenotary/immudb/pkg/client/errors"
+
 	"fmt"
 	"io"
 	"os"
@@ -158,7 +159,8 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	}
 
 	_, err = client.StreamSet(ctx, kvs)
-	require.Equal(t, stream.ErrMaxValueLenExceeded, err)
+	require.Equal(t, stream.ErrMaxValueLenExceeded, err.Error())
+	require.Equal(t, errors.CodDataException, err.(errors.ImmuError).Code())
 }
 
 func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
@@ -200,7 +202,8 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	}
 
 	_, err = client.StreamSet(ctx, kvs)
-	require.Equal(t, stream.ErrMaxTxValuesLenExceeded, err)
+	require.Equal(t, stream.ErrMaxTxValuesLenExceeded, err.(errors.ImmuError).Error())
+	require.Equal(t, errors.CodDataException, err.(errors.ImmuError).Code())
 }
 
 func TestImmuClient_SetGetSmallMessage(t *testing.T) {
@@ -510,7 +513,8 @@ func TestImmuClient_SetEmptyReader(t *testing.T) {
 	}
 	kvs := []*stream.KeyValue{kv1, kv2}
 	meta, err := client.StreamSet(ctx, kvs)
-	require.Equal(t, stream.ErrReaderIsEmpty, err)
+	require.Equal(t, stream.ErrReaderIsEmpty, err.Error())
+	require.Equal(t, errors.CodInvalidParameterValue, err.(errors.ImmuError).Code())
 	require.Nil(t, meta)
 
 	client.Disconnect()
@@ -547,7 +551,7 @@ func TestImmuClient_SetSizeTooLarge(t *testing.T) {
 
 	kvs := []*stream.KeyValue{kv1}
 	meta, err := client.StreamSet(ctx, kvs)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, meta)
 
 	client.Disconnect()
@@ -579,7 +583,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs1[0].Value.Size = 22_000_000
 
 	meta, err := client.StreamSet(ctx, kvs1)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, meta)
 
 	f1, _ := streamtest.GenerateDummyFile("myFile1", 10_000_000)
@@ -593,7 +597,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs2[1].Value.Size = 12_000_000
 
 	meta, err = client.StreamSet(ctx, kvs2)
-	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, meta)
 
 	client.Disconnect()
@@ -722,7 +726,7 @@ func TestImmuClient_Errors(t *testing.T) {
 	}
 	for _, f := range fs {
 		fn, err := f()
-		require.Equal(t, ErrNotConnected, err, fn)
+		require.Equal(t, ErrNotConnected.Error(), err.Error(), fn)
 	}
 }
 

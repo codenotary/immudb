@@ -20,8 +20,11 @@ type Code string
 
 const (
 	SuccessCompletion                             Code = "00000"
-	InternalError                                 Code = "XX000"
+	CodInternalError                              Code = "XX000"
 	SqlclientUnableToEstablishSqlConnection       Code = "08001"
 	SqlserverRejectedEstablishmentOfSqlconnection Code = "08004"
 	ProtocolViolation                             Code = "08P01"
+	CodDataException                              Code = "22000"
+	CodInvalidParameterValue                      Code = "22023"
+	CodUndefinedFunction                          Code = "42883"
 )

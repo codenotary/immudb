@@ -18,6 +18,7 @@ package stream
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -58,7 +59,7 @@ func (st *execAllStreamSender) Send(req *ExecAllRequest) error {
 				return err
 			}
 		case *Op_Ref:
-			return ErrRefOptNotImplemented
+			return errors.New(ErrRefOptNotImplemented).WithCode(errors.CodUndefinedFunction)
 		}
 	}
 	return nil

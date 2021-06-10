@@ -510,101 +510,101 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 	require.False(t, client.IsConnected())
 
-	require.Equal(t, ErrNotConnected, client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db"))
-	require.Equal(t, ErrNotConnected, client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
-	require.Equal(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
-	require.Equal(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
-	require.Equal(t, ErrNotConnected, client.CleanIndex(ctx, &emptypb.Empty{}))
+	require.True(t, errors.Is(client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db"), ErrNotConnected))
+	require.True(t, errors.Is(client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")), ErrNotConnected))
+	require.True(t, errors.Is(client.UpdateAuthConfig(ctx, auth.KindPassword), ErrNotConnected))
+	require.True(t, errors.Is(client.UpdateMTLSConfig(ctx, false), ErrNotConnected))
+	require.True(t, errors.Is(client.CleanIndex(ctx, &emptypb.Empty{}), ErrNotConnected))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
-	require.Equal(t, ErrNotConnected.Error(), err.(immuErrors.ImmuError).Error())
+	require.True(t, errors.Is(err.(immuErrors.ImmuError), ErrNotConnected))
 
-	require.Equal(t, ErrNotConnected, client.Logout(context.TODO()))
+	require.True(t, errors.Is(client.Logout(context.TODO()), ErrNotConnected))
 
 	_, err = client.Get(context.TODO(), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.CurrentState(context.TODO())
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.GetAll(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
-	require.Error(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.Count(context.TODO(), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.CountAll(context.TODO())
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.VerifiedSet(context.TODO(), []byte("key"), []byte("value"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.Set(context.TODO(), nil, nil)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.TxByID(context.TODO(), 1)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.TxScan(context.TODO(), nil)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.VerifiedSetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.VerifiedZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	//_, err = client.Dump(context.TODO(), nil)
 	//require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	_, err = client.GetAt(context.TODO(), []byte("key"), 0)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
-	require.Equal(t, ErrNotConnected, client.HealthCheck(context.TODO()))
+	require.True(t, errors.Is(client.HealthCheck(context.TODO()), ErrNotConnected))
 
-	require.Equal(t, ErrNotConnected, client.CreateDatabase(context.TODO(), nil))
+	require.True(t, errors.Is(client.CreateDatabase(context.TODO(), nil), ErrNotConnected))
 
 	_, err = client.UseDatabase(context.TODO(), nil)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
 	err = client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 
-	require.Equal(t, ErrNotConnected, client.SetActiveUser(context.TODO(), nil))
+	require.True(t, errors.Is(client.SetActiveUser(context.TODO(), nil), ErrNotConnected))
 
 	_, err = client.DatabaseList(context.TODO())
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
@@ -898,7 +898,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.SetAll(ctx, setRequest)
-	require.Equal(t, ErrNotConnected, err)
+	require.True(t, errors.Is(err, ErrNotConnected))
 }
 
 func TestImmuClient_GetAll(t *testing.T) {

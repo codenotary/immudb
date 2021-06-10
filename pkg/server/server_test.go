@@ -185,7 +185,7 @@ func TestServerErrChunkSizeTooSmall(t *testing.T) {
 	defer os.RemoveAll(s.Options.Dir)
 
 	err := s.Initialize()
-	assert.Equal(t, stream.ErrChunkTooSmall, err)
+	assert.Equal(t, stream.ErrChunkTooSmall, err.Error())
 }
 
 func TestServerCreateDatabase(t *testing.T) {

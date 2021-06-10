@@ -25,19 +25,20 @@ type ImmuError interface {
 	Error() string
 	Cause() string
 	Stack() string
-	Code() string
+	Code() Code
 	RetryDelay() int32
 }
 
 func New(message string) *immuError {
 	return &immuError{
-		msg: message,
+		msg:  message,
+		code: CodInternalError,
 	}
 }
 
 type immuError struct {
 	cause      string
-	code       string
+	code       Code
 	msg        string
 	retryDelay int32
 	stack      string
@@ -54,7 +55,7 @@ func FromError(err error) ImmuError {
 		for _, det := range st.Details() {
 			switch ele := det.(type) {
 			case *schema.ErrorInfo:
-				ie.WithCode(ele.Code).WithCause(ele.Cause)
+				ie.WithCode(Code(ele.Code)).WithCause(ele.Cause)
 			case *schema.DebugInfo:
 				ie.WithStack(ele.Stack)
 			case *schema.RetryInfo:
@@ -78,7 +79,7 @@ func (f *immuError) Stack() string {
 	return f.stack
 }
 
-func (f *immuError) Code() string {
+func (f *immuError) Code() Code {
 	return f.code
 }
 
@@ -96,7 +97,7 @@ func (e *immuError) WithCause(cause string) *immuError {
 	return e
 }
 
-func (e *immuError) WithCode(code string) *immuError {
+func (e *immuError) WithCode(code Code) *immuError {
 	e.code = code
 	return e
 }
@@ -109,4 +110,22 @@ func (e *immuError) WithStack(stack string) *immuError {
 func (e *immuError) WithRetryDelay(retry int32) *immuError {
 	e.retryDelay = retry
 	return e
+}
+
+func (e *immuError) Is(target error) bool {
+	if target == nil {
+		return false
+	}
+	t, ok := target.(ImmuError)
+	if !ok {
+		return e.Error() == target.Error()
+	}
+	return compare(e, t)
+}
+
+func compare(e ImmuError, t ImmuError) bool {
+	if e.Code() != CodInternalError || t.Code() != CodInternalError {
+		return e.Code() == t.Code()
+	}
+	return e.Cause() == t.Cause() && e.Error() == t.Error()
 }
