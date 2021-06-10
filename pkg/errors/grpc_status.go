@@ -24,6 +24,7 @@ import (
 	"strings"
 )
 
+// GRPCStatus return the gRPC status from a wrapped error.
 func (f *wrappedError) GRPCStatus() *status.Status {
 	err, ok := f.cause.(*immuError)
 	if !ok {

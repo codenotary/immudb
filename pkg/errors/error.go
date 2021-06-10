@@ -32,7 +32,7 @@ type Error interface {
 func New(message string) *immuError {
 
 	e := &immuError{
-		code:  InternalError,
+		code:  CodInternalError,
 		msg:   message,
 		stack: string(debug.Stack()),
 	}
@@ -93,7 +93,7 @@ func (e *immuError) Is(target error) bool {
 }
 
 func compare(e Error, t Error) bool {
-	if e.Code() != InternalError || t.Code() != InternalError {
+	if e.Code() != CodInternalError || t.Code() != CodInternalError {
 		return e.Code() == t.Code()
 	}
 	return e.Message() == t.Message() && e.Cause().Error() == t.Cause().Error()
