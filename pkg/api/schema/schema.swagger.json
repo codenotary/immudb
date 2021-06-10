@@ -2145,7 +2145,7 @@
         "PKName": {
           "type": "string"
         },
-        "ColIdsById": {
+        "ColNamesById": {
           "type": "object",
           "additionalProperties": {
             "type": "string"

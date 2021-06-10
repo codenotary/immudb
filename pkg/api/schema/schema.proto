@@ -364,7 +364,7 @@ message VerifiableSQLEntry {
 	uint64 DatabaseId = 4;
 	uint64 TableId = 5;
 	string PKName = 6;
-	map<uint64, string> ColIdsById = 8;
+	map<uint64, string> ColNamesById = 8;
 	map<string, uint64> ColIdsByName = 9;
 	map<uint64, string> ColTypesById = 10;
 }
