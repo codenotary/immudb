@@ -113,7 +113,7 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine
 
 	copy(e.prefix, prefix)
 
-	err := e.loadCatalog()
+	err := e.LoadCatalog()
 	if err != nil {
 		return nil, err
 	}
@@ -130,10 +130,10 @@ func (e *Engine) EnsureCatalogReady() error {
 		return nil
 	}
 
-	return e.loadCatalog()
+	return e.LoadCatalog()
 }
 
-func (e *Engine) loadCatalog() error {
+func (e *Engine) LoadCatalog() error {
 	lastTxID, _ := e.catalogStore.Alh()
 	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
@@ -1109,6 +1109,13 @@ func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForInde
 }
 
 func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+	if e.catalog == nil {
+		err := e.LoadCatalog()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, nil, err
