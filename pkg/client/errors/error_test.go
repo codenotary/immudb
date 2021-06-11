@@ -47,7 +47,7 @@ func TestGRPCError(t *testing.T) {
 
 	require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
 	require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
-	require.Equal(t, err.(errors.ImmuError).Code(), errors.SqlserverRejectedEstablishmentOfSqlconnection)
+	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
 	require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
 	require.NotNil(t, err.(errors.ImmuError).Stack())
 }
