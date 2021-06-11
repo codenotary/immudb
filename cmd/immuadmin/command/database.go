@@ -77,7 +77,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			if err := cl.immuClient.CreateDatabase(cl.context, &schema.Database{
+			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
 				DatabaseName: args[0],
 				Replica:      isReplica,
 			}); err != nil {
