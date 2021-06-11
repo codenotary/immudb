@@ -450,16 +450,20 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return err
 		}
 
+		replicationOpts := &database.ReplicationOptions{
+			Replica:     settings.Replica,
+			SrcDatabase: settings.Database,
+			SrcAddress:  settings.SrcAddress,
+			SrcPort:     settings.SrcPort,
+			FollowerUsr: settings.FollowerUsr,
+			FollowerPwd: settings.FollowerPwd,
+		}
+
 		op := database.DefaultOption().
 			WithDbName(dbname).
 			WithDbRootPath(dataDir).
 			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage)).
-			AsReplica(settings.Replica).
-			WithSrcDatabase(settings.SrcDatabase).
-			WithSrcAddress(settings.SrcAddress).
-			WithSrcPort(settings.SrcPort).
-			WithFollowerUsr(settings.FollowerUsr).
-			WithFollowerPwd(settings.FollowerPwd)
+			WithReplicationOptions(replicationOpts)
 
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
 		if err != nil {
@@ -929,7 +933,7 @@ func (s *ImmuServer) installShutdownHandler() {
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
+func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if !s.Options.GetAuth() {
@@ -963,8 +967,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		return nil, fmt.Errorf("database %s already exists", req.GetDatabaseName())
 	}
 
-	createdAt := time.Now()
-
 	settings := &dbSettings{
 		Database:    req.DatabaseName,
 		Replica:     req.Replica,
@@ -974,13 +976,21 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		FollowerUsr: req.FollowerUsr,
 		FollowerPwd: req.FollowerPwd,
 		CreatedBy:   user.Username,
-		CreatedAt:   createdAt,
-		UpdatedAt:   createdAt,
+		CreatedAt:   time.Now(),
 	}
 
 	err = s.saveSettings(settings)
 	if err != nil {
 		return nil, err
+	}
+
+	replicationOpts := &database.ReplicationOptions{
+		Replica:     settings.Replica,
+		SrcDatabase: settings.Database,
+		SrcAddress:  settings.SrcAddress,
+		SrcPort:     settings.SrcPort,
+		FollowerUsr: settings.FollowerUsr,
+		FollowerPwd: settings.FollowerPwd,
 	}
 
 	dataDir := s.Options.Dir
@@ -989,12 +999,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		WithDbName(req.DatabaseName).
 		WithDbRootPath(dataDir).
 		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage)).
-		AsReplica(settings.Replica).
-		WithSrcDatabase(settings.SrcDatabase).
-		WithSrcAddress(settings.SrcAddress).
-		WithSrcPort(settings.SrcPort).
-		WithFollowerUsr(settings.FollowerUsr).
-		WithFollowerPwd(settings.FollowerPwd)
+		WithReplicationOptions(replicationOpts)
 
 	db, err := database.NewDb(op, s.sysDB, s.Logger)
 	if err != nil {
@@ -1004,6 +1009,65 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 
 	s.dbList.Append(db)
 	s.multidbmode = true
+
+	return &empty.Empty{}, nil
+}
+
+// UpdateDatabase Updates database settings
+func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+	s.Logger.Debugf("updatedatabase")
+
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
+
+	if req.DatabaseName == DefaultdbName {
+		return nil, fmt.Errorf("this database name is reserved")
+	}
+
+	db, err := s.dbList.GetByName(req.DatabaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("you do not have permission on this database")
+	}
+
+	settings, err := s.loadSettings(req.DatabaseName)
+	if err != nil {
+		return nil, ErrEmptyAdminPassword
+	}
+
+	settings.Replica = req.Replica
+	settings.SrcDatabase = req.SrcDatabase
+	settings.SrcAddress = req.SrcAddress
+	settings.SrcPort = int(req.SrcPort)
+	settings.FollowerUsr = req.FollowerUsr
+	settings.FollowerPwd = req.FollowerPwd
+	settings.UpdatedBy = user.Username
+	settings.UpdatedAt = time.Now()
+
+	err = s.saveSettings(settings)
+	if err != nil {
+		return nil, err
+	}
+
+	db.WithReplicationOptions(&database.ReplicationOptions{
+		Replica:     settings.Replica,
+		SrcDatabase: settings.Database,
+		SrcAddress:  settings.SrcAddress,
+		SrcPort:     settings.SrcPort,
+		FollowerUsr: settings.FollowerUsr,
+		FollowerPwd: settings.FollowerPwd,
+	})
 
 	return &empty.Empty{}, nil
 }
@@ -1452,6 +1516,7 @@ type dbSettings struct {
 	FollowerPwd string    `json:"followerPwd"`
 	CreatedBy   string    `json:"createdBy"`
 	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedBy   string    `json:"updatedBy"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 

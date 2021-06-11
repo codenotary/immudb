@@ -224,7 +224,7 @@ func (s *ServerMock) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 	return s.Srv.ZScan(ctx, req)
 }
 
-func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
+func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	return s.Srv.CreateDatabase(ctx, req)
 }
 
@@ -234,6 +234,10 @@ func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 
 func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*schema.UseDatabaseReply, error) {
 	return s.Srv.UseDatabase(ctx, req)
+}
+
+func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+	return s.Srv.UpdateDatabase(ctx, req)
 }
 
 func (s *ServerMock) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
