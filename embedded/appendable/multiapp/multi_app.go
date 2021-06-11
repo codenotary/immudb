@@ -367,6 +367,10 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (*singleapp.AppendableFi
 
 	appID := appendableID(off, mf.fileSize)
 
+	if appID == mf.currAppID {
+		return mf.currApp, nil
+	}
+
 	app, err := mf.appendables.Get(appID)
 
 	if err != nil {

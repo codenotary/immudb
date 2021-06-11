@@ -286,3 +286,20 @@ func TestMultiAppCompression(t *testing.T) {
 	err = a.Close()
 	require.NoError(t, err)
 }
+
+func TestMultiAppAppendableForCurrentChunk(t *testing.T) {
+	a, err := Open("testdata", DefaultOptions().WithFileSize(10))
+	defer os.RemoveAll("testdata")
+	require.NoError(t, err)
+
+	testData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+
+	off, n, err := a.Append(testData)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, off)
+	require.EqualValues(t, n, 12)
+
+	app, err := a.appendableFor(11)
+	require.NoError(t, err)
+	require.Equal(t, a.currApp, app)
+}
