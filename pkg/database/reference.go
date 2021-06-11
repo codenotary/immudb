@@ -39,7 +39,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if d.options.replica {
+	if d.isReplica() {
 		return nil, ErrIsReplica
 	}
 
