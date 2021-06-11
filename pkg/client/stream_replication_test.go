@@ -50,7 +50,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err = client.CreateDatabase(ctx, &schema.Database{
+	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
 		DatabaseName: "replicateddb",
 		Replica:      true,
 	})

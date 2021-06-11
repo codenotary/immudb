@@ -176,6 +176,11 @@ func (icm *ImmuClientMock) UseDatabase(ctx context.Context, d *schema.Database) 
 	return icm.UseDatabaseF(ctx, d)
 }
 
+// UpdateDatabase ...
+func (icm *ImmuClientMock) UpdateDatabase(ctx context.Context, s *schema.DatabaseSettings) error {
+	return icm.UpdateDatabase(ctx, s)
+}
+
 // Dump ...
 func (icm *ImmuClientMock) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	return icm.DumpF(ctx, writer)
