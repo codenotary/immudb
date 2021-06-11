@@ -110,7 +110,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDatabase"
+              "$ref": "#/definitions/schemaDatabaseSettings"
             }
           }
         ],
@@ -592,6 +592,38 @@
         ]
       }
     },
+    "/db/update": {
+      "post": {
+        "operationId": "ImmuService_UpdateDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettings"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/use/{databaseName}": {
       "get": {
         "operationId": "ImmuService_UseDatabase",
@@ -614,43 +646,6 @@
             "name": "databaseName",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "replica",
-            "in": "query",
-            "required": false,
-            "type": "boolean"
-          },
-          {
-            "name": "srcDatabase",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "srcAddress",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "srcPort",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "followerUsr",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "followerPwd",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -1349,6 +1344,25 @@
       "properties": {
         "databaseName": {
           "type": "string"
+        }
+      }
+    },
+    "schemaDatabaseListResponse": {
+      "type": "object",
+      "properties": {
+        "databases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaDatabase"
+          }
+        }
+      }
+    },
+    "schemaDatabaseSettings": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
         },
         "replica": {
           "type": "boolean"
@@ -1368,17 +1382,6 @@
         },
         "followerPwd": {
           "type": "string"
-        }
-      }
-    },
-    "schemaDatabaseListResponse": {
-      "type": "object",
-      "properties": {
-        "databases": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaDatabase"
-          }
         }
       }
     },

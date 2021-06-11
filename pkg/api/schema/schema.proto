@@ -327,6 +327,10 @@ message TxList {
 
 message Database {
 	string databaseName = 1;
+}
+
+message DatabaseSettings {
+	string databaseName = 1;
 	bool replica = 2;
 	string srcDatabase = 3;
 	string srcAddress = 4;
@@ -668,7 +672,7 @@ service ImmuService {
 		};
 	};
 
-	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
+	rpc CreateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/create"
 			body: "*"
@@ -685,6 +689,13 @@ service ImmuService {
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
 			get: "/db/use/{databaseName}"
+		};
+	}
+
+	rpc UpdateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			post: "/db/update"
+			body: "*"
 		};
 	}
 
