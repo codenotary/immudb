@@ -72,6 +72,7 @@ type DB interface {
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
 	GetOptions() *DbOptions
+	WithReplicationOptions(replicationOpts *ReplicationOptions)
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
@@ -132,7 +133,7 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, err
 	}
 
-	if op.replica {
+	if op.replicationOpts.Replica {
 		return dbi, nil
 	}
 
@@ -226,7 +227,7 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	if !op.replica {
+	if !op.replicationOpts.Replica {
 		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
@@ -239,6 +240,10 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	return dbi, nil
+}
+
+func (d *db) isReplica() bool {
+	return d.options.replicationOpts.Replica
 }
 
 // CompactIndex ...
@@ -264,7 +269,7 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.options.replica {
+	if d.isReplica() {
 		return nil, ErrIsReplica
 	}
 
@@ -616,7 +621,7 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if !d.options.replica {
+	if !d.isReplica() {
 		return nil, ErrNotReplica
 	}
 
@@ -798,6 +803,13 @@ func (d *db) GetName() string {
 //GetOptions ...
 func (d *db) GetOptions() *DbOptions {
 	return d.options
+}
+
+func (d *db) WithReplicationOptions(replicationOpts *ReplicationOptions) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	d.options.WithReplicationOptions(replicationOpts)
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

@@ -26,20 +26,25 @@ type DbOptions struct {
 
 	corruptionChecker bool
 
-	replica     bool
-	srcDatabase string
-	srcAddress  string
-	srcPort     int
-	followerUsr string
-	followerPwd string
+	replicationOpts *ReplicationOptions
+}
+
+type ReplicationOptions struct {
+	Replica     bool
+	SrcDatabase string
+	SrcAddress  string
+	SrcPort     int
+	FollowerUsr string
+	FollowerPwd string
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	return &DbOptions{
-		dbRootPath: "./data",
-		dbName:     "db_name",
-		storeOpts:  store.DefaultOptions(),
+		dbRootPath:      "./data",
+		dbName:          "db_name",
+		storeOpts:       store.DefaultOptions(),
+		replicationOpts: &ReplicationOptions{},
 	}
 }
 
@@ -87,38 +92,49 @@ func (o *DbOptions) GetStoreOptions() *store.Options {
 	return o.storeOpts
 }
 
+// GetReplicationOptions returns replication options
+func (o *DbOptions) GetReplicationOptions() *ReplicationOptions {
+	return o.replicationOpts
+}
+
+// WithReplicationOptions sets replication options
+func (o *DbOptions) WithReplicationOptions(replicationOpts *ReplicationOptions) *DbOptions {
+	o.replicationOpts = replicationOpts
+	return o
+}
+
 // AsReplica sets if the database is a replica
-func (o *DbOptions) AsReplica(replica bool) *DbOptions {
-	o.replica = replica
+func (o *ReplicationOptions) AsReplica(replica bool) *ReplicationOptions {
+	o.Replica = replica
 	return o
 }
 
 // WithSrcDatabase sets the source database name
-func (o *DbOptions) WithSrcDatabase(srcDatabase string) *DbOptions {
-	o.srcDatabase = srcDatabase
+func (o *ReplicationOptions) WithSrcDatabase(srcDatabase string) *ReplicationOptions {
+	o.SrcDatabase = srcDatabase
 	return o
 }
 
 // WithSrcAddress sets the source database address
-func (o *DbOptions) WithSrcAddress(srcAddress string) *DbOptions {
-	o.srcAddress = srcAddress
+func (o *ReplicationOptions) WithSrcAddress(srcAddress string) *ReplicationOptions {
+	o.SrcAddress = srcAddress
 	return o
 }
 
 // WithSrcPort sets the source database port
-func (o *DbOptions) WithSrcPort(srcPort int) *DbOptions {
-	o.srcPort = srcPort
+func (o *ReplicationOptions) WithSrcPort(srcPort int) *ReplicationOptions {
+	o.SrcPort = srcPort
 	return o
 }
 
 // WithFollowerUsr sets follower username
-func (o *DbOptions) WithFollowerUsr(followerUsr string) *DbOptions {
-	o.followerUsr = followerUsr
+func (o *ReplicationOptions) WithFollowerUsr(followerUsr string) *ReplicationOptions {
+	o.FollowerUsr = followerUsr
 	return o
 }
 
 // WithFollowerPwd sets follower password
-func (o *DbOptions) WithFollowerPwd(followerPwd string) *DbOptions {
-	o.followerPwd = followerPwd
+func (o *ReplicationOptions) WithFollowerPwd(followerPwd string) *ReplicationOptions {
+	o.FollowerPwd = followerPwd
 	return o
 }
