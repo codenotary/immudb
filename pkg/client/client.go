@@ -84,8 +84,10 @@ type ImmuClient interface {
 	SetupDialOptions(options *Options) *[]grpc.DialOption
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
-	CreateDatabase(ctx context.Context, d *schema.Database) error
+	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
+
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
 	CleanIndex(ctx context.Context, req *emptypb.Empty) error
@@ -1346,14 +1348,14 @@ func (c *immuClient) currentDatabase() string {
 }
 
 // CreateDatabase create a new database by making a grpc call
-func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) error {
+func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
 
-	_, err := c.ServiceClient.CreateDatabase(ctx, db)
+	_, err := c.ServiceClient.CreateDatabase(ctx, settings)
 
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
 
@@ -1375,6 +1377,21 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))
 
 	return result, err
+}
+
+// UpdateDatabase updates database settings
+func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+
+	_, err := c.ServiceClient.UpdateDatabase(ctx, settings)
+
+	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
+
+	return err
 }
 
 func (c *immuClient) CleanIndex(ctx context.Context, req *empty.Empty) error {

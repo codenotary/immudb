@@ -59,8 +59,9 @@ type ImmuServiceClientMock struct {
 	ZAddF                   func(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
 	VerifiableZAddF         func(ctx context.Context, in *schema.VerifiableZAddRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	ZScanF                  func(ctx context.Context, in *schema.ZScanRequest, opts ...grpc.CallOption) (*schema.ZEntries, error)
-	CreateDatabaseF         func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error)
+	CreateDatabaseF         func(ctx context.Context, in *schema.DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error)
 	UseDatabaseF            func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error)
+	UpdateDatabaseF         func(ctx context.Context, in *schema.DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error)
 	ChangePermissionF       func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetActiveUserF          func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DatabaseListF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
@@ -178,12 +179,16 @@ func (icm *ImmuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanReq
 	return icm.ZScanF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (icm *ImmuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return icm.CreateDatabaseF(ctx, in, opts...)
 }
 
 func (icm *ImmuServiceClientMock) UseDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
 	return icm.UseDatabaseF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) UpdateDatabase(ctx context.Context, in *schema.DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.UpdateDatabaseF(ctx, in, opts...)
 }
 
 func (icm *ImmuServiceClientMock) ChangePermission(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
