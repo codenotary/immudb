@@ -89,7 +89,33 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(1),
 	}
-	cc.Flags().BoolP("replica", "r", false, "create database as a replica")
+	cc.Flags().BoolP("replica", "r", false, "set database as a replica")
+
+	cu := &cobra.Command{
+		Use:               "update",
+		Short:             "Update database",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		Example:           "update {database_name}",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isReplica, err := cmd.Flags().GetBool("replica")
+			if err != nil {
+				return err
+			}
+
+			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{
+				DatabaseName: args[0],
+				Replica:      isReplica,
+			}); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully updated\n", args[0], isReplica)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	cu.Flags().BoolP("replica", "r", false, "set database as a replica")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
@@ -145,5 +171,6 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd.AddCommand(ccu)
 	ccmd.AddCommand(ccd)
 	ccmd.AddCommand(cc)
+	ccmd.AddCommand(cu)
 	cmd.AddCommand(ccmd)
 }
