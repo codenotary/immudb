@@ -53,7 +53,11 @@ func makeDb() (DB, func()) {
 	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
 
-	db, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	return makeDbWith(options)
+}
+
+func makeDbWith(opts *DbOptions) (DB, func()) {
+	db, err := NewDb(opts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -63,7 +67,7 @@ func makeDb() (DB, func()) {
 			log.Fatal(err)
 		}
 
-		if err := os.RemoveAll(rootPath); err != nil {
+		if err := os.RemoveAll(db.GetOptions().dbRootPath); err != nil {
 			log.Fatal(err)
 		}
 	}
