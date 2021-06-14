@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"math"
-	"strings"
-	"time"
 )
 
 // Login ...
@@ -154,7 +155,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 	}
 
-	itemList, err := s.sysDb.Scan(&schema.ScanRequest{
+	itemList, err := s.sysDB.Scan(&schema.ScanRequest{
 		Prefix:  []byte{KeyPrefixUser},
 		SinceTx: math.MaxUint64,
 		NoWait:  true,
@@ -505,7 +506,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key[0] = KeyPrefixUser
 	copy(key[1:], username)
 
-	item, err := s.sysDb.Get(&schema.KeyRequest{Key: key})
+	item, err := s.sysDB.Get(&schema.KeyRequest{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +538,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := &schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.sysDb.Set(&schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	_, err = s.sysDB.Set(&schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
 
 	time.Sleep(time.Duration(10) * time.Millisecond)
 

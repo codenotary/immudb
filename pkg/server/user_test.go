@@ -102,7 +102,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.Database{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
@@ -114,7 +114,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	s.dbList = database.NewDatabaseList()
-	s.sysDb = nil
+	s.sysDB = nil
 
 	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword)
 	require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestServerUsermanagement(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.Database{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
