@@ -50,18 +50,10 @@ var kvs = []*schema.KeyValue{
 func makeDb() (DB, func()) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	catalogOptions := DefaultOption().WithDbRootPath(rootPath).WithDbName("catalog").WithCorruptionChecker(false)
-	catalogOptions.storeOpts.WithIndexOptions(catalogOptions.storeOpts.IndexOpts.WithCompactionThld(0))
-
-	catalogDB, err := NewDb(catalogOptions, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
-	if err != nil {
-		log.Fatalf("Error creating Db instance %s", err)
-	}
-
 	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
 
-	db, err := NewDb(options, catalogDB, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -69,9 +61,6 @@ func makeDb() (DB, func()) {
 	return db, func() {
 		if err := db.Close(); err != nil {
 			log.Fatal(err)
-		}
-		if err := catalogDB.Close(); err != nil {
-			log.Fatalf("error closing catalog: %v", err)
 		}
 
 		if err := os.RemoveAll(rootPath); err != nil {
