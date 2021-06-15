@@ -72,7 +72,7 @@ type DB interface {
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
 	GetOptions() *DbOptions
-	WithReplicationOptions(replicationOpts *ReplicationOptions)
+	UpdateReplicationOptions(replicationOpts *ReplicationOptions)
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
@@ -805,7 +805,7 @@ func (d *db) GetOptions() *DbOptions {
 	return d.options
 }
 
-func (d *db) WithReplicationOptions(replicationOpts *ReplicationOptions) {
+func (d *db) UpdateReplicationOptions(replicationOpts *ReplicationOptions) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 

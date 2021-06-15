@@ -1059,7 +1059,7 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, err
 	}
 
-	db.WithReplicationOptions(&database.ReplicationOptions{
+	db.UpdateReplicationOptions(&database.ReplicationOptions{
 		Replica:     settings.Replica,
 		SrcDatabase: settings.Database,
 		SrcAddress:  settings.SrcAddress,
