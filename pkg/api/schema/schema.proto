@@ -729,7 +729,7 @@ service ImmuService {
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
-	// Replicarion
+	// Replication
 	rpc exportTx(TxRequest) returns (stream Chunk) {};
 	rpc replicateTx(stream Chunk) returns (TxMetadata) {};
 

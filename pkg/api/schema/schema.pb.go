@@ -6692,7 +6692,7 @@ type ImmuServiceClient interface {
 	StreamZScan(ctx context.Context, in *ZScanRequest, opts ...grpc.CallOption) (ImmuService_StreamZScanClient, error)
 	StreamHistory(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (ImmuService_StreamHistoryClient, error)
 	StreamExecAll(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExecAllClient, error)
-	// Replicarion
+	// Replication
 	ExportTx(ctx context.Context, in *TxRequest, opts ...grpc.CallOption) (ImmuService_ExportTxClient, error)
 	ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error)
 	// SQL
@@ -7445,7 +7445,7 @@ type ImmuServiceServer interface {
 	StreamZScan(*ZScanRequest, ImmuService_StreamZScanServer) error
 	StreamHistory(*HistoryRequest, ImmuService_StreamHistoryServer) error
 	StreamExecAll(ImmuService_StreamExecAllServer) error
-	// Replicarion
+	// Replication
 	ExportTx(*TxRequest, ImmuService_ExportTxServer) error
 	ReplicateTx(ImmuService_ReplicateTxServer) error
 	// SQL

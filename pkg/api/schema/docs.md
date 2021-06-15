@@ -1438,7 +1438,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | streamZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamHistory | [HistoryRequest](#immudb.schema.HistoryRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
-| exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replicarion |
+| exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
 | replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | UseSnapshot | [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) | SQL |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
