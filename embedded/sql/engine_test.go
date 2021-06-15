@@ -140,6 +140,56 @@ func TestCreateTable(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDumpCatalogTo(t *testing.T) {
+	catalogStore, err := store.Open("dump_catalog_catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("dump_catalog_catalog")
+
+	dataStore, err := store.Open("dump_catalog_data", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("dump_catalog_data")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	dumpedCatalogStore, err := store.Open("dumped_catalog_catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("dumped_catalog_catalog")
+
+	err = engine.DumpCatalogTo("", "", nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	err = engine.DumpCatalogTo("db1", "db2", dumpedCatalogStore)
+	require.NoError(t, err)
+
+	err = engine.DumpCatalogTo("db2", "db2", dumpedCatalogStore)
+	require.Equal(t, ErrDatabaseDoesNotExist, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
+
+	err = engine.DumpCatalogTo("db1", "db2", dumpedCatalogStore)
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	engine, err = NewEngine(dumpedCatalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	require.False(t, engine.catalog.ExistDatabase("db1"))
+	require.True(t, engine.catalog.ExistDatabase("db2"))
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
 func TestAddColumn(t *testing.T) {
 	catalogStore, err := store.Open("catalog_add_column", store.DefaultOptions())
 	require.NoError(t, err)

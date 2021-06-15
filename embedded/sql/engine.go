@@ -312,6 +312,10 @@ func (e *Engine) CloseSnapshot() error {
 }
 
 func (e *Engine) DumpCatalogTo(srcName, dstName string, targetStore *store.ImmuStore) error {
+	if len(srcName) == 0 || len(dstName) == 0 || targetStore == nil {
+		return ErrIllegalArguments
+	}
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
