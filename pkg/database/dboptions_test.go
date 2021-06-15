@@ -39,11 +39,20 @@ func TestDefaultOptions(t *testing.T) {
 	rootpath := "rootpath"
 	storeOpts := store.DefaultOptions()
 
+	replicaOpts := &ReplicationOptions{}
+	replicaOpts.AsReplica(true).
+		WithSrcDatabase("defaultdb").
+		WithSrcAddress("127.0.0.1").
+		WithSrcPort(3322).
+		WithFollowerUsr("immudb").
+		WithFollowerPwd("immdub")
+
 	op = DefaultOption().
 		WithDbName(DbName).
 		WithDbRootPath(rootpath).
 		WithCorruptionChecker(true).
-		WithStoreOptions(storeOpts)
+		WithStoreOptions(storeOpts).
+		WithReplicationOptions(replicaOpts)
 
 	if op.GetDbName() != DbName {
 		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDbName())
@@ -57,4 +66,5 @@ func TestDefaultOptions(t *testing.T) {
 	}
 
 	require.Equal(t, storeOpts, op.storeOpts)
+	require.Equal(t, replicaOpts, op.GetReplicationOptions())
 }
