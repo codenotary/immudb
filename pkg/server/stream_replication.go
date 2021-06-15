@@ -23,7 +23,7 @@ import (
 )
 
 func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
-	if req == nil || req.Tx == 0 {
+	if req == nil || req.Tx == 0 || txsServer == nil {
 		return ErrIllegalArguments
 	}
 
@@ -55,6 +55,10 @@ func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuServic
 }
 
 func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateTxServer) error {
+	if replicateTxServer == nil {
+		return ErrIllegalArguments
+	}
+
 	ind, err := s.getDbIndexFromCtx(replicateTxServer.Context(), "ReplicateTx")
 	if err != nil {
 		return err
