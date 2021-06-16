@@ -25,7 +25,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 Don't forget to ⭐ this repo if you like immudb!
 ```
 
-[:tada: 3M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
+[:tada: 5M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -35,36 +35,41 @@ immudb is a database with built-in cryptographic proof and verification. It can 
 
 Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being changed silently.
 
-Data stored in immudb is cryptographically coherent and verifiable, just like blockchains, but without all the complexity. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library.
+Data stored in immudb is cryptographically coherent and verifiable, just like blockchains, but without all the complexity. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library. immudb runs everywhere, on an IoT device, your notebook, a server, on-premises or cloud-based.
 
-Companies use immudb to protect credit card transactions and to secure processes by storing digital certificates and checksums.
+
+immudb is already used by hundreds of projects to store data in a tamper-proof way and to keep the data history immutable. 
+Since immudb is used as a key-value store or relational data structure and supports both transactions and blobs, there are no limits to the use cases.
+ 
+Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts or media streams.
 
 <div align="center">
-  <a href="https://play.codenotary.com">
-    <img alt="immudb playground to start using immudb in an online demo environment" src="img/playground2.png"/>
+  <a href="https://demo.immudb.io">
+    <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
   </a>
 </div>
 
 
 ### Tech specs
 
-| Topic                   | Description                                      |
-| ----------------------- | ------------------------------------------------ |
-| DB Model                | Key-Value store with 3D access (key-value-index) |
-| Data scheme             | schema-free                                      |
-| Implementation design   | LSM tree with value log and parallel Merkle Tree |
-| Implementation language | Go                                               |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows and more      |
-| Embeddable              | Yes, optionally                                  |
-| Server APIs             | gRPC                                             |
-| Partition methods       | Sharding                                         |
-| Consistency concepts    | Eventual Consistency Immediate Consistency       |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)               |
-| Durability              | Yes                                              |
-| Snapshots               | Yes                                              |
-| High Read throughput    | Yes                                              |
-| High Write throughput   | Yes                                              |
-| Optimized for SSD       | Yes                                              |
+| Topic                   | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| DB Model                | Key-Value store with 3D access (tx-key-value)      |
+| Data scheme             | schema-free                                        |
+| Implementation design   | Cryptographic commit log with parallel Merkle Tree,| 
+|                         | (sync/async) indexing with extended B-tree         |
+| Implementation language | Go                                                 |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows and more        |
+| Embeddable              | Yes, optionally                                    |
+| Server APIs             | gRPC                                               |
+| Partition methods       | Sharding                                           |
+| Consistency concepts    | Immediate Consistency                              |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                 |
+| Durability              | Yes                                                |
+| Snapshots               | Yes                                                |
+| High Read throughput    | Yes                                                |
+| High Write throughput   | Yes                                                |
+| Optimized for SSD       | Yes                                                |
 
 
 ## Quickstart
@@ -117,7 +122,6 @@ docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 ```
 
 
-
 ## Using immudb
 
 Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
@@ -146,6 +150,13 @@ To get started with development, there is a [quickstart in our documentation](ht
 
 Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
 
+<div align="center">
+  <a href="https://play.codenotary.com">
+    <img alt="immudb playground to start using immudb in an online demo environment" src="img/playground2.png"/>
+  </a>
+</div>
+
+
 We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
@@ -169,7 +180,7 @@ The following topics are important to us and are planned or already being worked
 * Relational model support (including SQL)
   * psql wire protocol compatibility (being able to connect with compatible clients)
   * Travel in time
-* Embedded web console
+* GDPR compliance
 * Replication (Follower)
 * Other storage backends (eg. Cloud)
 * Hot backups
