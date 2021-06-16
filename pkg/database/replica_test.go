@@ -63,4 +63,7 @@ func TestReadOnlyReplica(t *testing.T) {
 		Key:   []byte("key"),
 	})
 	require.Equal(t, ErrIsReplica, err)
+
+	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
+	require.Equal(t, ErrIsReplica, err)
 }
