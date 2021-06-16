@@ -104,7 +104,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		}
 	}
 
-	auditMonitoringHTTPPort := viper.GetInt("audit-monitoring-port")
+	auditMonitoringHTTPAddr := fmt.Sprintf(
+		"%s:%d",
+		viper.GetString("audit-monitoring-host"), viper.GetInt("audit-monitoring-port"))
 
 	var pk *ecdsa.PublicKey
 	if cliOpts.ServerSigningPubKey != "" {
@@ -132,7 +134,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
 		cAgent.metrics.updateMetrics,
 		cAgent.logger,
-		&auditMonitoringHTTPPort)
+		&auditMonitoringHTTPAddr)
 	if err != nil {
 		return nil, err
 	}

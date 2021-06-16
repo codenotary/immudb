@@ -275,6 +275,7 @@ func (s *ImmuServer) setupPidFile() error {
 
 func (s *ImmuServer) setUpMetricsServer() error {
 	s.metricsServer = StartMetrics(
+		1*time.Minute,
 		s.Options.MetricsBind(),
 		s.Logger,
 		s.metricFuncServerUptimeCounter,

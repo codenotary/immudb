@@ -18,16 +18,12 @@ package audit
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type prometheusMetrics struct {
-	port           string
-	address        string
 	server_address string
 	server_id      string
 }
@@ -62,18 +58,6 @@ func (p *prometheusMetrics) init(serverid string, immudbAddress, immudbPort stri
 	AuditCurrRootPerServer.WithLabelValues(p.server_id, p.server_address).Set(-1)
 	AuditRunAtPerServer.WithLabelValues(p.server_id, p.server_address).SetToCurrentTime()
 	AuditPrevRootPerServer.WithLabelValues(p.server_id, p.server_address).Set(-1)
-}
-
-func (p *prometheusMetrics) startServer() error {
-
-	http.Handle("/", promhttp.Handler())
-	fmt.Printf("Beginning to serve on port %s:%s \n", p.address, p.port)
-	err := http.ListenAndServe(fmt.Sprintf("%s:%s", p.address, p.port), nil)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Prometheus exporter has successfully started.")
-	return nil
 }
 
 func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {

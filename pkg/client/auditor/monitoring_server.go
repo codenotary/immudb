@@ -36,7 +36,9 @@ func StartHTTPServerForMonitoring(
 ) *http.Server {
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", corsHandler(promhttp.Handler()))
+	promhttpHander := corsHandler(promhttp.Handler())
+	mux.Handle("/", promhttpHander)
+	mux.Handle("/metrics", promhttpHander)
 	mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
 	mux.HandleFunc("/initz", corsHandlerFunc(AuditorHealthHandlerFunc(immuServiceClient)))
 	mux.HandleFunc("/readyz", corsHandlerFunc(AuditorHealthHandlerFunc(immuServiceClient)))

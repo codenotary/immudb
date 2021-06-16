@@ -168,8 +168,6 @@ func options() *client.Options {
 	pkey := viper.GetString("pkey")
 	clientcas := viper.GetString("clientcas")
 	pidpath := viper.GetString("pidfile")
-	prometheusPort := viper.GetString("prometheus-port")
-	prometheusHost := viper.GetString("prometheus-host")
 	logfilename := viper.GetString("logfile")
 	serverSigningPubKey := viper.GetString("server-signing-pub-key")
 	options := client.DefaultOptions().
@@ -177,8 +175,6 @@ func options() *client.Options {
 		WithAddress(address).
 		WithTokenFileName(tokenFileName).
 		WithMTLs(mtls).WithPidPath(pidpath).
-		WithPrometheusPort(prometheusPort).
-		WithPrometheusHost(prometheusHost).
 		WithLogFileName(logfilename).
 		WithServerSigningPubKey(serverSigningPubKey)
 	if mtls {

@@ -31,6 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -119,4 +120,13 @@ func TestAuditorVersionHandlerFunc(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	expectedBody, _ := json.Marshal(&Version)
 	require.Equal(t, string(expectedBody)+"\n", rr.Body.String())
+}
+
+func TestCORSHandler(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/metrics", nil)
+	require.NoError(t, err)
+	handler := corsHandler(promhttp.Handler())
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
 }
