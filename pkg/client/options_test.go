@@ -28,8 +28,6 @@ func TestOptions(t *testing.T) {
 		WithPkey("no-pkey")
 
 	op := DefaultOptions().WithLogFileName("logfilename").
-		WithPrometheusHost("localhost").
-		WithPrometheusPort("1234").
 		WithPidPath("pidpath").
 		WithMetrics(true).
 		WithDir("clientdir").
@@ -48,8 +46,6 @@ func TestOptions(t *testing.T) {
 		WithStreamChunkSize(4096)
 
 	if op.LogFileName != "logfilename" ||
-		op.PrometheusHost != "localhost" ||
-		op.PrometheusPort != "1234" ||
 		op.PidPath != "pidpath" ||
 		!op.Metrics ||
 		op.Dir != "clientdir" ||

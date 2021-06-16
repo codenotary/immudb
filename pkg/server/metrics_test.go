@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/peer"
@@ -33,16 +34,17 @@ import (
 
 func TestStartMetrics(t *testing.T) {
 	server := StartMetrics(
+		100*time.Millisecond,
 		"0.0.0.0:9999",
 		&mockLogger{},
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
 		func() map[string]float64 { return make(map[string]float64) },
 	)
+	time.Sleep(200 * time.Millisecond)
 	defer server.Close()
 
 	assert.IsType(t, &http.Server{}, server)
-
 }
 
 func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
@@ -154,4 +156,13 @@ func TestImmudbVersionHandlerFunc(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	expectedBody, _ := json.Marshal(&Version)
 	require.Equal(t, string(expectedBody)+"\n", rr.Body.String())
+}
+
+func TestCORSHandler(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/metrics", nil)
+	require.NoError(t, err)
+	handler := corsHandler(promhttp.Handler())
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
 }

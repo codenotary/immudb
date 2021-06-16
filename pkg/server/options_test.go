@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -49,7 +49,9 @@ func TestOptions(t *testing.T) {
 		op.WebServer != true ||
 		op.WebServerPort != 8080 ||
 		op.WebBind() != "0.0.0.0:8080" ||
-		op.MetricsBind() != "0.0.0.0:9497" {
+		op.MetricsBind() != "0.0.0.0:9497" ||
+		op.PgsqlServer ||
+		op.PgsqlServerPort != 5432 {
 		t.Errorf("database default options mismatch")
 	}
 }
@@ -68,7 +70,9 @@ func TestSetOptions(t *testing.T) {
 		WithTokenExpiryTime(52).
 		WithWebServer(false).
 		WithStoreOptions(storeOptions).
-		WithTLS(tlsConfig)
+		WithTLS(tlsConfig).
+		WithPgsqlServer(true).
+		WithPgsqlServerPort(123456)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -92,7 +96,9 @@ func TestSetOptions(t *testing.T) {
 		op.WebServer != false ||
 		op.StoreOptions != storeOptions ||
 		op.TLSConfig != tlsConfig ||
-		op.TokenExpiryTimeMin != 52 {
+		op.TokenExpiryTimeMin != 52 ||
+		!op.PgsqlServer ||
+		op.PgsqlServerPort != 123456 {
 		t.Errorf("database default options mismatch")
 	}
 }

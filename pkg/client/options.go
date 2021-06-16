@@ -18,8 +18,9 @@ package client
 
 import (
 	"encoding/json"
-	"github.com/codenotary/immudb/pkg/stream"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"google.golang.org/grpc"
@@ -51,8 +52,6 @@ type Options struct {
 	Tkns                TokenService
 	Metrics             bool
 	PidPath             string
-	PrometheusHost      string
-	PrometheusPort      string
 	LogFileName         string
 	ServerSigningPubKey string
 	StreamChunkSize     int
@@ -75,8 +74,6 @@ func DefaultOptions() *Options {
 		Tkns:                NewTokenService().WithTokenFileName("token").WithHds(NewHomedirService()),
 		Metrics:             true,
 		PidPath:             "",
-		PrometheusHost:      "",
-		PrometheusPort:      "",
 		LogFileName:         "",
 		ServerSigningPubKey: "",
 		StreamChunkSize:     stream.DefaultChunkSize,
@@ -86,18 +83,6 @@ func DefaultOptions() *Options {
 // WithLogFileName set log file name
 func (o *Options) WithLogFileName(filename string) *Options {
 	o.LogFileName = filename
-	return o
-}
-
-// WithPrometheusHost set prometheus host
-func (o *Options) WithPrometheusHost(host string) *Options {
-	o.PrometheusHost = host
-	return o
-}
-
-// WithPrometheusPort set prometheus port
-func (o *Options) WithPrometheusPort(port string) *Options {
-	o.PrometheusPort = port
 	return o
 }
 

@@ -14,34 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package audit
+package server
 
 import (
-	"fmt"
-	"time"
+	"errors"
+	"testing"
+
+	"github.com/codenotary/immudb/embedded/store"
+	"github.com/stretchr/testify/assert"
 )
 
-type executable struct {
-	a    *auditAgent
-	stop chan struct{}
-}
+func TestMapServerError(t *testing.T) {
+	err := mapServerError(store.ErrIllegalState)
+	assert.Equal(t, ErrIllegalState, err)
 
-func newExecutable(a *auditAgent) *executable {
-	exec := new(executable)
-	exec.a = a
-	exec.stop = make(chan struct{}, 1)
-	return exec
-}
+	err = mapServerError(store.ErrIllegalArguments)
+	assert.Equal(t, ErrIllegalArguments, err)
 
-func (e *executable) Start() {
-	go e.Run()
-}
-
-func (e *executable) Stop() {
-	e.stop <- struct{}{}
-}
-
-func (e *executable) Run() {
-	fmt.Println(time.Duration(e.a.cycleFrequency) * time.Second)
-	e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, false, e.stop, e.stop)
+	someError := errors.New("some error")
+	err = mapServerError(someError)
+	assert.Equal(t, someError, err)
 }

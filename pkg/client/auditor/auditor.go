@@ -79,7 +79,7 @@ type defaultAuditor struct {
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState)
 
-	monitoringHTTPPort *int
+	monitoringHTTPAddr *string
 }
 
 // DefaultAuditor creates initializes a default auditor implementation
@@ -97,7 +97,7 @@ func DefaultAuditor(
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState),
 	log logger.Logger,
-	monitoringHTTPPort *int) (Auditor, error) {
+	monitoringHTTPAddr *string) (Auditor, error) {
 
 	password, err := auth.DecodeBase64Password(passwordBase64)
 	if err != nil {
@@ -129,7 +129,7 @@ func DefaultAuditor(
 		uuidProvider,
 		slugifyRegExp,
 		updateMetrics,
-		monitoringHTTPPort,
+		monitoringHTTPAddr,
 	}, nil
 }
 
@@ -147,11 +147,11 @@ func (a *defaultAuditor) Run(
 	} else {
 		// start monitoring HTTP server
 		var monitoringServer *http.Server
-		if a.monitoringHTTPPort != nil {
-			a.logger.Infof("auditor monitoring HTTP server starting on port %d ...", *a.monitoringHTTPPort)
+		if a.monitoringHTTPAddr != nil {
+			a.logger.Infof("auditor monitoring HTTP server starting on %s ...", *a.monitoringHTTPAddr)
 			go func() {
 				monitoringServer = StartHTTPServerForMonitoring(
-					fmt.Sprintf("0.0.0.0:%d", *a.monitoringHTTPPort),
+					*a.monitoringHTTPAddr,
 					func(httpServer *http.Server) error { return httpServer.ListenAndServe() },
 					a.logger,
 					a.serviceClient)

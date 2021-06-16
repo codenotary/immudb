@@ -146,6 +146,7 @@ var Metrics = MetricsCollection{
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
 func StartMetrics(
+	updateInterval time.Duration,
 	addr string,
 	l logger.Logger,
 	uptimeCounter func() float64,
@@ -159,7 +160,7 @@ func StartMetrics(
 
 	go func() {
 		Metrics.UpdateDBMetrics()
-		for range time.Tick(1 * time.Minute) {
+		for range time.Tick(updateInterval) {
 			Metrics.UpdateDBMetrics()
 		}
 	}()
