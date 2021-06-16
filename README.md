@@ -43,6 +43,10 @@ Since immudb is used as a key-value store or relational data structure and suppo
  
 Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts or media streams.
 
+### Online demo environment
+
+Your own temporary immudb web console access to start using immudb in an [online demo environment](https://demo.immudb.io) (username: immudb; password: immudb)
+
 <div align="center">
   <a href="https://demo.immudb.io">
     <img alt="Your own temporary immudb web console access to start using immudb in an online demo environment" src="img/demoimmudb.png"/>
