@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -181,6 +182,26 @@ func TestOpenDb(t *testing.T) {
 	db.Close()
 	time.Sleep(1 * time.Second)
 	os.RemoveAll(options.GetDbRootPath())
+}
+
+func TestOpenV1_0_1_DB(t *testing.T) {
+	copier := fs.NewStandardCopier()
+	require.NoError(t, copier.CopyDir("../../test/data_v1.0.1", "data_v1.0.1"))
+
+	defer os.RemoveAll("data_v1.0.1")
+
+	sysOpts := DefaultOption().WithDbName("systemdb").WithDbRootPath("./data_v1.0.1")
+	sysDB, err := OpenDb(sysOpts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.NoError(t, err)
+
+	defer sysDB.Close()
+
+	dbOpts := DefaultOption().WithDbName("defaultdb").WithDbRootPath("./data_v1.0.1")
+	db, err := OpenDb(dbOpts, sysDB, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.NoError(t, err)
+
+	err = db.Close()
+	require.NoError(t, err)
 }
 
 func TestDbSynchronousSet(t *testing.T) {
