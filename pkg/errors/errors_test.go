@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors
+package errors_test
 
 import (
-	"errors"
+	stdErrors "errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -29,12 +31,12 @@ func Test_Immuerror(t *testing.T) {
 	defer os.Unsetenv("LOG_LEVEL")
 
 	cause := "cause error"
-	err := New(cause)
+	err := errors.New(cause)
 
 	require.Error(t, err)
 	require.Equal(t, err.Error(), cause)
 	require.Equal(t, err.Message(), cause)
-	require.Equal(t, err.Code(), CodInternalError)
+	require.Equal(t, err.Code(), errors.CodInternalError)
 	require.Equal(t, err.Cause(), err)
 	require.Equal(t, err.RetryDelay(), int32(0))
 	require.NotNil(t, err.Stack())
@@ -48,15 +50,15 @@ func Test_WrappingError(t *testing.T) {
 	cause := "std error"
 	err := errors.New(cause)
 	wrappedMessage := "this is the message I want to show"
-	wrappedError := Wrap(err, wrappedMessage)
-	wrappedNilError := Wrap(nil, "msg")
+	wrappedError := errors.Wrap(err, wrappedMessage)
+	wrappedNilError := errors.Wrap(nil, "msg")
 
 	require.Nil(t, wrappedNilError)
 
 	require.Error(t, wrappedError)
 	require.Equal(t, wrappedError.Error(), fmt.Sprintf("%s: %s", wrappedMessage, cause))
 	require.Equal(t, wrappedError.Message(), wrappedMessage)
-	require.Equal(t, wrappedError.Code(), CodInternalError)
+	require.Equal(t, wrappedError.Code(), errors.CodInternalError)
 	require.Equal(t, wrappedError.RetryDelay(), int32(0))
 	require.NotNil(t, wrappedError.Stack())
 }
@@ -66,14 +68,14 @@ func Test_WrappingImmuerror(t *testing.T) {
 	defer os.Unsetenv("LOG_LEVEL")
 
 	cause := "cause error"
-	err := New(cause)
+	err := errors.New(cause)
 	wrappedMessage := "this is the message I want to show"
-	wrappedError := Wrap(err, wrappedMessage)
+	wrappedError := errors.Wrap(err, wrappedMessage)
 
 	require.Error(t, wrappedError)
 	require.Equal(t, wrappedError.Error(), fmt.Sprintf("%s: %s", wrappedMessage, cause))
 	require.Equal(t, wrappedError.Message(), wrappedMessage)
-	require.Equal(t, wrappedError.Code(), CodInternalError)
+	require.Equal(t, wrappedError.Code(), errors.CodInternalError)
 	require.Equal(t, wrappedError.Cause(), err)
 	require.Equal(t, wrappedError.RetryDelay(), int32(0))
 	require.NotNil(t, wrappedError.Stack())
@@ -84,20 +86,20 @@ func Test_ImmuerrorIs(t *testing.T) {
 	defer os.Unsetenv("LOG_LEVEL")
 
 	cause := "cause error"
-	err := New(cause).WithCode(CodInternalError)
+	err := errors.New(cause).WithCode(errors.CodInternalError)
 	wrappedMessage := "this is the message I want to show"
-	wrappedError := Wrap(err, wrappedMessage)
+	wrappedError := errors.Wrap(err, wrappedMessage)
 
-	err2 := New(cause).WithCode(CodInternalError)
-	wrappedError2 := Wrap(err2, wrappedMessage)
+	err2 := errors.New(cause).WithCode(errors.CodInternalError)
+	wrappedError2 := errors.Wrap(err2, wrappedMessage)
 
 	errStd := errors.New("stdError")
 
-	require.True(t, errors.Is(wrappedError, wrappedError2))
-	require.False(t, errors.Is(wrappedError, err2))
-	require.False(t, errors.Is(wrappedError, err))
-	require.False(t, errors.Is(wrappedError, errStd))
-	require.False(t, errors.Is(errStd, wrappedError))
+	require.True(t, stdErrors.Is(wrappedError, wrappedError2))
+	require.False(t, stdErrors.Is(wrappedError, err2))
+	require.False(t, stdErrors.Is(wrappedError, err))
+	require.False(t, stdErrors.Is(wrappedError, errStd))
+	require.False(t, stdErrors.Is(errStd, wrappedError))
 }
 
 func Test_CauseComparisonWrappedError(t *testing.T) {
@@ -108,15 +110,15 @@ func Test_CauseComparisonWrappedError(t *testing.T) {
 	err := errors.New(cause)
 	wrappedMessage := "this is the message I want to show"
 	wrappedWrappedMessage := "change idea"
-	wrappedError := Wrap(err, wrappedMessage).WithCode(CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(123)
-	wrappedWrappedError := Wrap(wrappedError, wrappedWrappedMessage).WithCode(CodSqlclientUnableToEstablishSqlConnection)
-	immuError := New("immu error")
-	immuErrorWithCode := New("immu error").WithCode(CodSqlclientUnableToEstablishSqlConnection)
+	wrappedError := errors.Wrap(err, wrappedMessage).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(123)
+	wrappedWrappedError := errors.Wrap(wrappedError, wrappedWrappedMessage).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection)
+	immuError := errors.New("immu error")
+	immuErrorWithCode := errors.New("immu error").WithCode(errors.CodSqlclientUnableToEstablishSqlConnection)
 
-	require.True(t, errors.Is(wrappedError.Cause(), err))
-	require.True(t, errors.Is(wrappedError, wrappedWrappedError))
-	require.False(t, errors.Is(wrappedError, immuError))
-	require.True(t, errors.Is(wrappedWrappedError, immuErrorWithCode))
+	require.True(t, stdErrors.Is(wrappedError.Cause(), err))
+	require.True(t, stdErrors.Is(wrappedError, wrappedWrappedError))
+	require.False(t, stdErrors.Is(wrappedError, immuError))
+	require.True(t, stdErrors.Is(wrappedWrappedError, immuErrorWithCode))
 }
 
 func Test_CauseComparisonError(t *testing.T) {
@@ -124,15 +126,32 @@ func Test_CauseComparisonError(t *testing.T) {
 	defer os.Unsetenv("LOG_LEVEL")
 
 	cause := "std error"
+	err := errors.New(cause).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection)
+
+	err2 := errors.New(cause).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(123)
+	wrappedError := errors.Wrap(err2, "msg").WithCode(errors.CodSqlclientUnableToEstablishSqlConnection)
+	err3 := errors.New(cause).WithCode(errors.CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(321)
+
+	require.True(t, stdErrors.Is(err2.Cause(), err))
+	require.True(t, stdErrors.Is(err2, err))
+	require.True(t, stdErrors.Is(err2, wrappedError))
+	require.True(t, stdErrors.Is(err2, err))
+	require.True(t, stdErrors.Is(err2, err3))
+}
+
+func Test_WrappingImmuerrorWithKnowCode(t *testing.T) {
+	os.Setenv("LOG_LEVEL", "debug")
+	defer os.Unsetenv("LOG_LEVEL")
+
+	cause := "cause error"
 	err := errors.New(cause)
+	wrappedError := errors.Wrap(err, server.ErrUserNotActive)
 
-	err2 := New(cause).WithCode(CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(123)
-	wrappedError := Wrap(err2, "msg").WithCode(CodSqlclientUnableToEstablishSqlConnection)
-	err3 := New(cause).WithCode(CodSqlclientUnableToEstablishSqlConnection).WithRetryDelay(321)
-
-	require.True(t, errors.Is(err2.Cause(), err))
-	require.True(t, errors.Is(err2, err))
-	require.True(t, errors.Is(err2, wrappedError))
-	require.True(t, errors.Is(err2, err))
-	require.True(t, errors.Is(err2, err3))
+	require.Error(t, wrappedError)
+	require.Equal(t, wrappedError.Error(), fmt.Sprintf("%s: %s", server.ErrUserNotActive, cause))
+	require.Equal(t, wrappedError.Message(), server.ErrUserNotActive)
+	require.Equal(t, wrappedError.Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
+	require.Equal(t, wrappedError.Cause(), err)
+	require.Equal(t, wrappedError.RetryDelay(), int32(0))
+	require.NotNil(t, wrappedError.Stack())
 }

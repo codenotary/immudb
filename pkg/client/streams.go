@@ -109,7 +109,7 @@ func (c *immuClient) _streamGet(ctx context.Context, k *schema.KeyRequest) (*sch
 	value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 	if err != nil {
 		if err == io.EOF {
-			return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
+			return nil, errors.New(stream.ErrMissingExpectedData)
 		}
 		return nil, err
 	}
@@ -396,7 +396,7 @@ func (c *immuClient) _streamScan(ctx context.Context, req *schema.ScanRequest) (
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
 			if err == io.EOF {
-				return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
+				return nil, errors.New(stream.ErrMissingExpectedData)
 			}
 			return nil, err
 		}
@@ -453,7 +453,7 @@ func (c *immuClient) _streamHistory(ctx context.Context, req *schema.HistoryRequ
 		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
 			if err == io.EOF {
-				return nil, errors.New(stream.ErrMissingExpectedData).WithCode(errors.CodInternalError)
+				return nil, errors.New(stream.ErrMissingExpectedData)
 			}
 			return nil, err
 		}

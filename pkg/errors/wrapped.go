@@ -26,12 +26,16 @@ func Wrap(err error, message string) *wrappedError {
 		return nil
 	}
 
-	_, ok := err.(*immuError)
+	e, ok := err.(*immuError)
 	if !ok {
-		err = New(err.Error())
+		e = New(err.Error())
+	}
+	c, ok := CodeMap[message]
+	if ok {
+		e.code = c
 	}
 	return &wrappedError{
-		cause: err,
+		cause: e,
 		msg:   message,
 	}
 }
