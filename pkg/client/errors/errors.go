@@ -21,11 +21,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ImmuError SDK immudb error interface.
+// _, err = client.StreamSet(ctx, kvs)
+// code := err.(errors.ImmuError).Code()) //errors.CodDataException
 type ImmuError interface {
+	//Error return the message.
 	Error() string
+	//Cause is the inner error cause.
 	Cause() string
+	//Stack is present if immudb is running with LEVEL_INFO=debug
 	Stack() string
+	//Code is the immudb error code
 	Code() Code
+	//RetryDelay if present the error is retryable after N milliseconds
 	RetryDelay() int32
 }
 
