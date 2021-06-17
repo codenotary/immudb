@@ -28,3 +28,7 @@ const (
 	CodInvalidParameterValue                         Code = "22023"
 	CodUndefinedFunction                             Code = "42883"
 )
+
+var (
+	CodeMap = make(map[string]Code)
+)

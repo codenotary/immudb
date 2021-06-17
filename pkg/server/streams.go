@@ -89,7 +89,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 		vlength += len(value)
 		if vlength > stream.MaxTxValueLen {
-			return errors.New(stream.ErrMaxTxValuesLenExceeded).WithCode(errors.CodDataException)
+			return errors.New(stream.ErrMaxTxValuesLenExceeded)
 		}
 
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
@@ -97,7 +97,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
-		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
+		return errors.Wrap(err, stream.ErrMaxValueLenExceeded)
 	}
 	if err != nil {
 		return status.Errorf(codes.Unknown, "StreamSet receives following error: %s", err.Error())

@@ -59,7 +59,7 @@ func (st *execAllStreamSender) Send(req *ExecAllRequest) error {
 				return err
 			}
 		case *Op_Ref:
-			return errors.New(ErrRefOptNotImplemented).WithCode(errors.CodUndefinedFunction)
+			return errors.New(ErrRefOptNotImplemented)
 		}
 	}
 	return nil

@@ -84,7 +84,7 @@ func (r *msgReceiver) Read(data []byte) (n int, err error) {
 
 		// no more data in stream but buffer is not enough large to contains the expected value
 		if r.eof && r.b.Len() < r.tl-r.s {
-			return 0, errors.New(ErrNotEnoughDataOnStream).WithCode(errors.CodInvalidParameterValue)
+			return 0, errors.New(ErrNotEnoughDataOnStream)
 		}
 
 		// message send edge cases

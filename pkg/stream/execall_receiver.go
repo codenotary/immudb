@@ -67,13 +67,13 @@ func (eas *execAllStreamReceiver) Next() (IsOp_Operation, error) {
 			zaddm, err := ReadValue(eas.s, eas.BufferSize)
 			err = proto.Unmarshal(zaddm, zr)
 			if err != nil {
-				return nil, errors.New(ErrUnableToReassembleExecAllMessage).WithCode(errors.CodInternalError)
+				return nil, errors.New(ErrUnableToReassembleExecAllMessage)
 			}
 			return &Op_ZAdd{
 				ZAdd: zr,
 			}, nil
 		case TOp_Ref:
-			return nil, errors.New(ErrRefOptNotImplemented).WithCode(errors.CodUndefinedFunction)
+			return nil, errors.New(ErrRefOptNotImplemented)
 		}
 	}
 }

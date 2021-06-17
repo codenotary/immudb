@@ -30,9 +30,12 @@ type Error interface {
 }
 
 func New(message string) *immuError {
-
+	c, ok := CodeMap[message]
+	if !ok {
+		c = CodInternalError
+	}
 	e := &immuError{
-		code:  CodInternalError,
+		code:  c,
 		msg:   message,
 		stack: string(debug.Stack()),
 	}

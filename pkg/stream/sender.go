@@ -49,7 +49,7 @@ func NewMsgSender(s ImmuServiceSender_Stream, bs int) *msgSender {
 // It continues until it reach the payloadsize. At that point it sends the last content of the buffer.
 func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 	if payloadSize == 0 {
-		return errors.New(ErrMessageLengthIsZero).WithCode(errors.CodInvalidParameterValue)
+		return errors.New(ErrMessageLengthIsZero)
 	}
 	var read = 0
 	var run = true
@@ -70,11 +70,11 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 			}
 		}
 		if read == 0 && err == io.EOF {
-			return errors.New(ErrReaderIsEmpty).WithCode(errors.CodInvalidParameterValue)
+			return errors.New(ErrReaderIsEmpty)
 		}
 		read += r
 		if read < payloadSize && err == io.EOF {
-			return errors.New(ErrNotEnoughDataOnStream).WithCode(errors.CodInvalidParameterValue)
+			return errors.New(ErrNotEnoughDataOnStream)
 		}
 
 		// append read data in the buffer
