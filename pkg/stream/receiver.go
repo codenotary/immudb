@@ -19,8 +19,9 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/codenotary/immudb/pkg/errors"
 	"io"
+
+	"github.com/codenotary/immudb/pkg/errors"
 )
 
 // NewMsgReceiver returns a NewMsgReceiver reader
@@ -51,7 +52,7 @@ func (r *msgReceiver) ReadFully() ([]byte, error) {
 		return nil, err
 	}
 	if len(firstChunk.Content) < 8 {
-		return nil, ErrChunkTooSmall
+		return nil, errors.New(ErrChunkTooSmall)
 	}
 
 	messageLen := int(binary.BigEndian.Uint64(firstChunk.Content))
@@ -76,7 +77,7 @@ func (r *msgReceiver) ReadFully() ([]byte, error) {
 	}
 
 	if messageLen > i {
-		return nil, ErrNotEnoughDataOnStream
+		return nil, errors.New(ErrNotEnoughDataOnStream)
 	}
 
 	return b, nil
