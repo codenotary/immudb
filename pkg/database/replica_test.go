@@ -66,4 +66,62 @@ func TestReadOnlyReplica(t *testing.T) {
 
 	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
 	require.Equal(t, ErrIsReplica, err)
+
+	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	require.Equal(t, ErrSQLNotReady, err)
+
+	_, err = replica.ListTables()
+	require.Equal(t, ErrSQLNotReady, err)
+
+	_, err = replica.DescribeTable("mytable")
+	require.Equal(t, ErrSQLNotReady, err)
+
+	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
+	require.Equal(t, ErrSQLNotReady, err)
+
+	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:   "mytable",
+			PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}},
+		},
+	})
+	require.Equal(t, ErrSQLNotReady, err)
+}
+
+func TestSwitchToReplica(t *testing.T) {
+	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	ropts := &ReplicationOptions{Replica: false}
+	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithReplicationOptions(ropts)
+
+	replica, rcloser := makeDbWith(options)
+	defer rcloser()
+
+	_, err := replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
+	require.NoError(t, err)
+
+	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable(id, title) VALUES (1, 'TITLE1')"})
+	require.NoError(t, err)
+
+	replica.UpdateReplicationOptions(ropts.AsReplica(true))
+
+	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
+	require.NoError(t, err)
+
+	_, err = replica.ListTables()
+	require.NoError(t, err)
+
+	_, err = replica.DescribeTable("mytable")
+	require.NoError(t, err)
+
+	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	require.NoError(t, err)
+
+	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:   "mytable",
+			PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}},
+		},
+	})
+	require.NoError(t, err)
 }
