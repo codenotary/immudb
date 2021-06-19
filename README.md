@@ -31,17 +31,17 @@ Don't forget to ⭐ this repo if you like immudb!
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-immudb is a database with built-in cryptographic proof and verification. It can track changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server. It can operate as a key-value store or as relational database (SQL).
+immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server. It can operate as a key-value store or as relational database (SQL).
 
-Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being changed silently.
+Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being tampered.
 
-Data stored in immudb is cryptographically coherent and verifiable, just like blockchains, but without all the complexity. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library. immudb runs everywhere, on an IoT device, your notebook, a server, on-premises or cloud-based.
+Data stored in immudb is cryptographically coherent and verifiable, just like with blockchains, but without all the complexity. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library. immudb runs everywhere, on an IoT device, your notebook, a server, on-premise or in the cloud.
 
 
-immudb is already used by hundreds of projects to store data in a tamper-proof way and to keep the data history immutable. 
-Since immudb is used as a key-value store or relational data structure and supports both transactions and blobs, there are no limits to the use cases.
+immudb is already used by hundreds of projects to store tamper-proof data and to keep the data change history immutable. 
+immudb can be used as a key-value store or relational data structure and supports both transactions and blobs, so there are no limits to the use cases.
  
-Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts or media streams.
+Companies use immudb to secure and tamper-evident log data, sensor data, sensitive data, transactions, software build recipes, rule-base data, even artifacts or even video streams.
 
 ### Online demo environment
 
@@ -58,12 +58,12 @@ Your own temporary immudb web console access to start using immudb in an [online
 
 | Topic                   | Description                                        |
 | ----------------------- | -------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (tx-key-value)      |
+| DB Model                | Key-Value store with 3D access (tx-key-value), SQL |
 | Data scheme             | schema-free                                        |
 | Implementation design   | Cryptographic commit log with parallel Merkle Tree,| 
 |                         | (sync/async) indexing with extended B-tree         |
 | Implementation language | Go                                                 |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows and more        |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/O        |
 | Embeddable              | Yes, optionally                                    |
 | Server APIs             | gRPC                                               |
 | Partition methods       | Sharding                                           |
@@ -95,7 +95,7 @@ chmod +x immudb
 ./immudb -d
 ```
 
-Alternatively, you may use Docker to run immudb in a ready-to-use container:
+Or just use Docker to run immudb in a ready-to-use container:
 
 ```bash
 docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
@@ -119,7 +119,7 @@ chmod +x immuclient
 ./immuclient help
 ```
 
-Alternatively, you may use Docker to run immuclient in a ready-to-use container:
+Or just use Docker to run immuclient in a ready-to-use container. Nice and simple.
 
 ```bash
 docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
@@ -139,6 +139,8 @@ We already learned about the following use cases from users:
 - store public certificates in immudb
 - use immudb as an additional hash storage for digital objects checksums
 - store log streams (i. e. audit logs) tamperproof
+- store the last known positions of submarines
+- record the location where fish was found aboard fishing trawlers
 
 ### How to integrate immudb in your application
 
@@ -167,7 +169,7 @@ programming language you're using, for experimentation, or just because you pref
 
 # Performance figures
 
-immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a 4-core E3-1275v6 CPU and SSD disk with 20-100 parallel workers:
+immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a machine with 4-core E3-1275v6 CPU and SSD disk:
 
 | Entries | Workers | Batch | Batches | time (s) | Entries/s |
 | ------ | ------ | ------ | ------ | ------ | ------ |
@@ -181,9 +183,7 @@ You can generate your own benchmarks using the `stress_tool` under `embedded/too
 
 The following topics are important to us and are planned or already being worked on:
 
-* Relational model support (including SQL)
-  * psql wire protocol compatibility (being able to connect with compatible clients)
-  * Travel in time
+
 * GDPR compliance
 * Replication (Follower)
 * Other storage backends (eg. Cloud)
@@ -191,10 +191,12 @@ The following topics are important to us and are planned or already being worked
 * Data pruning
 * Compression
 * Improving SDK API and errors
+* time and date support in SQL 
+
 
 ## Contributing
 
-We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
+We welcome [contributors](CONTRIBUTING.md). Feel free to join the team!
 
 Learn how to [build](BUILD.md) immudb components in both binary and Docker image form.
 
