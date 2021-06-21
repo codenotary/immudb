@@ -100,3 +100,71 @@ func TestApply(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestPop(t *testing.T) {
+	cacheSize := 10
+	cache, err := NewLRUCache(cacheSize)
+	require.NoError(t, err)
+
+	for i := 0; i < cacheSize; i++ {
+		_, _, err = cache.Put(i, 10*i)
+		require.NoError(t, err)
+	}
+
+	poppedKey := 5
+	val, err := cache.Pop(poppedKey)
+	require.NoError(t, err)
+	require.Equal(t, 10*poppedKey, val)
+
+	c := 0
+	err = cache.Apply(func(k, v interface{}) error {
+		require.NotEqual(t, 10*poppedKey, v)
+		c++
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, cacheSize-1, c)
+
+	val, err = cache.Pop(-1)
+	require.Equal(t, ErrKeyNotFound, err)
+	require.Nil(t, val)
+
+	val, err = cache.Pop(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+	require.Nil(t, val)
+}
+
+func TestReplace(t *testing.T) {
+	cacheSize := 10
+	cache, err := NewLRUCache(cacheSize)
+	require.NoError(t, err)
+
+	for i := 0; i < cacheSize; i++ {
+		_, _, err = cache.Put(i, 10*i)
+		require.NoError(t, err)
+	}
+
+	replacedKey := 5
+	val, err := cache.Replace(replacedKey, 9999)
+	require.NoError(t, err)
+	require.Equal(t, 10*replacedKey, val)
+
+	c := 0
+	err = cache.Apply(func(k, v interface{}) error {
+		if k == replacedKey {
+			require.Equal(t, 9999, v)
+		}
+		c++
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, cacheSize, c)
+
+	val, err = cache.Replace(-1, 9998)
+	require.Equal(t, ErrKeyNotFound, err)
+	require.Nil(t, val)
+
+	val, err = cache.Replace(nil, 9997)
+	require.Equal(t, ErrIllegalArguments, err)
+	require.Nil(t, val)
+}

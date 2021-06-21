@@ -74,7 +74,7 @@ func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rv
 	if c.lruList.Len() > c.size {
 		lruEntry := c.lruList.Front()
 		rkey = lruEntry.Value
-		re, _ := c.data[rkey]
+		re := c.data[rkey]
 		rvalue = re.value
 		delete(c.data, rkey)
 		c.lruList.Remove(lruEntry)
@@ -99,6 +99,41 @@ func (c *LRUCache) Get(key interface{}) (interface{}, error) {
 	c.lruList.MoveToBack(e.order)
 
 	return e.value, nil
+}
+
+func (c *LRUCache) Pop(key interface{}) (interface{}, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if key == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	e, ok := c.data[key]
+	if !ok {
+		return nil, ErrKeyNotFound
+	}
+
+	c.lruList.Remove(e.order)
+	delete(c.data, key)
+	return e.value, nil
+}
+
+func (c *LRUCache) Replace(k interface{}, v interface{}) (interface{}, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if k == nil {
+		return nil, ErrIllegalArguments
+	}
+	e, ok := c.data[k]
+	if !ok {
+		return nil, ErrKeyNotFound
+	}
+	oldV := e.value
+	e.value = v
+
+	return oldV, nil
 }
 
 func (c *LRUCache) Size() int {

@@ -53,8 +53,33 @@ func TestAppendableLRUCache(t *testing.T) {
 		require.Nil(t, app)
 	}
 
-	id, app, err = c.Put(7, &mocked.MockedAppendable{})
+	m2 := &mocked.MockedAppendable{}
+	id, app, err = c.Put(7, m2)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, id)
 	require.Equal(t, m1, app)
+
+	m3 := &mocked.MockedAppendable{}
+	app, err = c.Replace(7, m3)
+	require.NoError(t, err)
+	require.Equal(t, m2, app)
+
+	err = c.Apply(func(k int64, v appendable.Appendable) error {
+		if k == 7 {
+			require.Equal(t, m3, v)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	app, err = c.Pop(7)
+	require.NoError(t, err)
+	require.Equal(t, m3, app)
+
+	err = c.Apply(func(k int64, v appendable.Appendable) error {
+		require.NotEqualValues(t, 7, k)
+		return nil
+	})
+	require.NoError(t, err)
+
 }

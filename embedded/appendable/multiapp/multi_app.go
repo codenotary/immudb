@@ -353,21 +353,27 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 	appID := appendableID(off, mf.fileSize)
 
 	if mf.currAppID != appID {
-		app, err := mf.openAppendable(appendableName(appID, mf.fileExt), true)
-		if err != nil {
-			return err
-		}
 
-		_, ejectedApp, err := mf.appendables.Put(appID, app)
-		if err != nil {
-			return err
-		}
-
-		if ejectedApp != nil {
-			err = ejectedApp.Close()
+		// Head might have moved back, this means that all
+		// chunks that follow are no longer valid (will be overwritten anyway).
+		// We also must flush / close current chunk since it will be reopened.
+		for id := mf.currAppID; id <= appID; id++ {
+			app, err := mf.appendables.Pop(id)
+			if err == cache.ErrKeyNotFound {
+				continue
+			}
 			if err != nil {
 				return err
 			}
+			err = app.Close()
+			if err != nil {
+				return err
+			}
+		}
+
+		app, err := mf.openAppendable(appendableName(appID, mf.fileExt), true)
+		if err != nil {
+			return err
 		}
 
 		mf.currAppID = appID

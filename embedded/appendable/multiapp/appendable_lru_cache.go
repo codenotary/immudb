@@ -37,6 +37,18 @@ func (c appendableLRUCache) Get(key int64) (appendable.Appendable, error) {
 	return rvalue, err
 }
 
+func (c appendableLRUCache) Pop(key int64) (appendable.Appendable, error) {
+	v, err := c.cache.Pop(key)
+	rvalue, _ := v.(appendable.Appendable)
+	return rvalue, err
+}
+
+func (c appendableLRUCache) Replace(key int64, value appendable.Appendable) (appendable.Appendable, error) {
+	v, err := c.cache.Replace(key, value)
+	rvalue, _ := v.(appendable.Appendable)
+	return rvalue, err
+}
+
 func (c appendableLRUCache) Apply(fun func(k int64, v appendable.Appendable) error) error {
 	return c.cache.Apply(func(k, v interface{}) error {
 		return fun(k.(int64), v.(appendable.Appendable))
