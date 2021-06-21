@@ -127,8 +127,8 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 	_, n, err := a.Append([]byte{0, 1, 2, 3, 4, 5, 6, 7})
 	require.NoError(t, err)
 
-	err = a.appendables.Apply(func(k interface{}, v interface{}) error {
-		return v.(*singleapp.AppendableFile).Close()
+	err = a.appendables.Apply(func(k int64, v appendable.Appendable) error {
+		return v.Close()
 	})
 	require.NoError(t, err)
 
@@ -154,8 +154,8 @@ func TestMultiAppClosedFiles(t *testing.T) {
 	_, _, err = a.Append([]byte{0, 1, 2})
 	require.NoError(t, err)
 
-	err = a.appendables.Apply(func(k interface{}, v interface{}) error {
-		return v.(*singleapp.AppendableFile).Close()
+	err = a.appendables.Apply(func(k int64, v appendable.Appendable) error {
+		return v.Close()
 	})
 	require.NoError(t, err)
 

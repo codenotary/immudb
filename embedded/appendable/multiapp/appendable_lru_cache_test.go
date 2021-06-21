@@ -1,0 +1,60 @@
+/*
+Copyright 2021 CodeNotary, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package multiapp
+
+import (
+	"testing"
+
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/stretchr/testify/require"
+)
+
+func TestAppendableLRUCache(t *testing.T) {
+	genericCache, err := cache.NewLRUCache(5)
+	require.NoError(t, err)
+	c := appendableLRUCache{cache: genericCache}
+
+	m1 := &mocked.MockedAppendable{}
+	id, app, err := c.Put(1, m1)
+	require.NoError(t, err)
+	require.Nil(t, app)
+	require.Zero(t, id)
+
+	app, err = c.Get(1)
+	require.NoError(t, err)
+	require.Equal(t, m1, app)
+
+	err = c.Apply(func(k int64, v appendable.Appendable) error {
+		require.EqualValues(t, 1, k)
+		require.Equal(t, m1, v)
+		return nil
+	})
+	require.NoError(t, err)
+
+	for i := 2; i < 6; i++ {
+		id, app, err = c.Put(int64(i), &mocked.MockedAppendable{})
+		require.NoError(t, err)
+		require.Zero(t, id)
+		require.Nil(t, app)
+	}
+
+	id, app, err = c.Put(7, &mocked.MockedAppendable{})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, id)
+	require.Equal(t, m1, app)
+}
