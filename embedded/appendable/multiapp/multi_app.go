@@ -61,7 +61,7 @@ type MultiFileAppendable struct {
 }
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
-	if !validOptions(opts) {
+	if !opts.Valid() {
 		return nil, ErrIllegalArguments
 	}
 

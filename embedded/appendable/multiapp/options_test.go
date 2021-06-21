@@ -22,12 +22,12 @@ import (
 )
 
 func TestInvalidOptions(t *testing.T) {
-	require.False(t, validOptions(nil))
-	require.False(t, validOptions(&Options{}))
+	require.False(t, (*Options)(nil).Valid())
+	require.False(t, (&Options{}).Valid())
 }
 
 func TestDefaultOptions(t *testing.T) {
-	require.True(t, validOptions(DefaultOptions()))
+	require.True(t, DefaultOptions().Valid())
 }
 
 func TestValidOptions(t *testing.T) {
@@ -44,8 +44,8 @@ func TestValidOptions(t *testing.T) {
 	require.True(t, opts.WithSynced(true).synced)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
-	require.True(t, validOptions(opts))
+	require.True(t, opts.Valid())
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
-	require.True(t, validOptions(opts))
+	require.True(t, opts.Valid())
 }

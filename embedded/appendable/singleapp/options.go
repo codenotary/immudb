@@ -46,7 +46,7 @@ func DefaultOptions() *Options {
 	}
 }
 
-func validOptions(opts *Options) bool {
+func (opts *Options) Valid() bool {
 	return opts != nil
 }
 

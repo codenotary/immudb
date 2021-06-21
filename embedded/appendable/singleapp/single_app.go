@@ -65,7 +65,7 @@ type AppendableFile struct {
 }
 
 func Open(fileName string, opts *Options) (*AppendableFile, error) {
-	if !validOptions(opts) {
+	if !opts.Valid() {
 		return nil, ErrIllegalArguments
 	}
 
