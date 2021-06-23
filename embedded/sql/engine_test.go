@@ -580,7 +580,10 @@ func TestQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	r, err := engine.QueryStmt("SELECT id FROM db1.table1", nil, true)
+	params := make(map[string]interface{})
+	params["id"] = 0
+
+	r, err := engine.QueryStmt("SELECT id FROM db1.table1 WHERE id >= @id", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
