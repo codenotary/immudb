@@ -29,7 +29,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/golang/protobuf/ptypes/empty"
 )
 
 const MaxKeyResolutionLimit = 1
@@ -45,7 +44,6 @@ var ErrIsReplica = errors.New("database is read-only because it's a replica")
 var ErrNotReplica = errors.New("database is NOT a replica")
 
 type DB interface {
-	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentState() (*schema.ImmutableState, error)
 	WaitForTx(txID uint64, cancellation <-chan struct{}) error
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
@@ -73,6 +71,7 @@ type DB interface {
 	Close() error
 	GetOptions() *DbOptions
 	UpdateReplicationOptions(replicationOpts *ReplicationOptions)
+	IsReplica() bool
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
@@ -375,11 +374,6 @@ func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
 	}
 
 	return d.st.ReadValue(tx, key)
-}
-
-//Health ...
-func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
-	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
 }
 
 // CurrentState ...
@@ -810,6 +804,13 @@ func (d *db) UpdateReplicationOptions(replicationOpts *ReplicationOptions) {
 	defer d.mutex.RUnlock()
 
 	d.options.WithReplicationOptions(replicationOpts)
+}
+
+func (d *db) IsReplica() bool {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.options.replicationOpts.Replica
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

@@ -40,26 +40,33 @@ func NewDatabaseList() DatabaseList {
 		databases:           make([]DB, 0),
 	}
 }
+
 func (d *databaseList) Append(database DB) {
 	d.Lock()
 	defer d.Unlock()
+
 	d.databasenameToIndex[database.GetName()] = int64(len(d.databases))
 	d.databases = append(d.databases, database)
 }
+
 func (d *databaseList) GetByIndex(index int64) DB {
 	d.RLock()
 	defer d.RUnlock()
 
 	return d.databases[index]
 }
+
 func (d *databaseList) GetByName(dbname string) (DB, error) {
 	d.RLock()
 	defer d.RUnlock()
+
 	if _, ok := d.databasenameToIndex[dbname]; !ok {
 		return nil, ErrDatabaseNotExists
 	}
+
 	return d.databases[d.databasenameToIndex[dbname]], nil
 }
+
 func (d *databaseList) Length() int {
 	d.RLock()
 	defer d.RUnlock()
@@ -70,8 +77,10 @@ func (d *databaseList) Length() int {
 func (d *databaseList) GetId(dbname string) int64 {
 	d.RLock()
 	defer d.RUnlock()
+
 	if id, ok := d.databasenameToIndex[dbname]; ok {
 		return id
 	}
+
 	return -1
 }
