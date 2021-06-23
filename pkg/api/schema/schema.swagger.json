@@ -14,7 +14,30 @@
   "paths": {
     "/db/cleanindex": {
       "get": {
+        "summary": "DEPRECATED: use CompactIndex",
         "operationId": "ImmuService_CleanIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/compactindex": {
+      "get": {
+        "operationId": "ImmuService_CompactIndex",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -36,6 +59,7 @@
     },
     "/db/count/{prefix}": {
       "get": {
+        "summary": "NOT YET SUPPORTED",
         "operationId": "ImmuService_Count",
         "responses": {
           "200": {
@@ -67,6 +91,7 @@
     },
     "/db/countall": {
       "get": {
+        "summary": "NOT YET SUPPORTED",
         "operationId": "ImmuService_CountAll",
         "responses": {
           "200": {

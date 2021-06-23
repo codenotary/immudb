@@ -1392,7 +1392,6 @@
 
 ### ImmuService
 immudb gRPC &amp; REST service
-IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
@@ -1410,8 +1409,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | GetAll | [KeyListRequest](#immudb.schema.KeyListRequest) | [Entries](#immudb.schema.Entries) |  |
 | ExecAll | [ExecAllRequest](#immudb.schema.ExecAllRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | Scan | [ScanRequest](#immudb.schema.ScanRequest) | [Entries](#immudb.schema.Entries) |  |
-| Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [EntryCount](#immudb.schema.EntryCount) |  |
-| CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [EntryCount](#immudb.schema.EntryCount) |  |
+| Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [EntryCount](#immudb.schema.EntryCount) | NOT YET SUPPORTED |
+| CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [EntryCount](#immudb.schema.EntryCount) | NOT YET SUPPORTED |
 | TxById | [TxRequest](#immudb.schema.TxRequest) | [Tx](#immudb.schema.Tx) |  |
 | VerifiableTxById | [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
@@ -1427,7 +1426,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: use CompactIndex |
+| CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | streamGet | [KeyRequest](#immudb.schema.KeyRequest) | [Chunk](#immudb.schema.Chunk) stream | Streams |
