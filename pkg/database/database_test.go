@@ -30,7 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var kvs = []*schema.KeyValue{
@@ -549,18 +548,6 @@ func TestHistory(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, inc.Entries)
-}
-
-func TestHealth(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	h, err := db.Health(&emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("health error %s", err)
-	}
-	if !h.GetStatus() {
-		t.Fatalf("Health, expected %v, got %v", true, h.GetStatus())
-	}
 }
 
 /*
