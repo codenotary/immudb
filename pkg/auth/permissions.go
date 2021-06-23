@@ -16,6 +16,40 @@ limitations under the License.
 
 package auth
 
+var maintenanceMethods = map[string]struct{}{
+	"Get":                 {},
+	"VerifiableGet":       {},
+	"StreamGet":           {},
+	"StreamVerifiableGet": {},
+	"GetAll":              {},
+	"ZScan":               {},
+	"StreamZScan":         {},
+	"VerifiableTxByID":    {},
+	"IScan":               {},
+	"Scan":                {},
+	"StreamScan":          {},
+	"History":             {},
+	"StreamHistory":       {},
+	"TxByID":              {},
+	"TxScan":              {},
+	"ExportTx":            {},
+	"ReplicateTx":         {},
+	"Count":               {},
+	"CountAll":            {},
+	"DatabaseList":        {},
+	"CurrentState":        {},
+	"UseSnapshot":         {},
+	"SQLQuery":            {},
+	"ListTables":          {},
+	"DescribeTable":       {},
+	"VerifiableSQLGet":    {},
+
+	// admin methods
+	"ListUsers":    {},
+	"Dump":         {},
+	"CompactIndex": {},
+}
+
 // PermissionSysAdmin the admin permission byte
 const PermissionSysAdmin = 255
 
@@ -80,7 +114,7 @@ var methodsPermissions = map[string][]uint32{
 	"UpdateMTLSConfig": {PermissionSysAdmin},
 	"CreateDatabase":   {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
-	"CleanIndex":       {PermissionSysAdmin, PermissionAdmin},
+	"CompactIndex":     {PermissionSysAdmin, PermissionAdmin},
 }
 
 //HasPermissionForMethod checks if userPermission can access method name
@@ -95,4 +129,9 @@ func HasPermissionForMethod(userPermission uint32, method string) bool {
 		}
 	}
 	return false
+}
+
+func IsMaintenanceMethod(method string) bool {
+	_, maintenanceMethod := maintenanceMethods[method]
+	return maintenanceMethod
 }
