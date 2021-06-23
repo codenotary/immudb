@@ -187,9 +187,6 @@ func (o *Options) WithMaxRecvMsgSize(maxRecvMsgSize int) *Options {
 
 // GetAuth gets auth
 func (o *Options) GetAuth() bool {
-	if o.maintenance {
-		return false
-	}
 	return o.auth
 }
 

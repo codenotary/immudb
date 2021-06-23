@@ -19,8 +19,9 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"github.com/codenotary/immudb/pkg/errors"
 	"io"
+
+	"github.com/codenotary/immudb/pkg/errors"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -32,14 +33,14 @@ import (
 
 // StreamGet return a stream of key-values to the client
 func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamGet")
+	db, err := s.getDBFromCtx(str.Context(), "StreamGet")
 	if err != nil {
 		return err
 	}
 
 	kvsr := s.StreamServiceFactory.NewKvStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
-	entry, err := s.dbList.GetByIndex(ind).Get(kr)
+	entry, err := db.Get(kr)
 	if err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 
 // StreamSet set a stream of key-values in the internal store
 func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSet")
+	db, err := s.getDBFromCtx(str.Context(), "StreamSet")
 	if err != nil {
 		return err
 	}
@@ -95,7 +96,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
 	}
 
-	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: kvs})
+	txMeta, err := db.Set(&schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded)
 	}
@@ -113,14 +114,14 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 // StreamVerifiableGet ...
 func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str schema.ImmuService_StreamVerifiableGetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamVerifiableGet")
+	db, err := s.getDBFromCtx(str.Context(), "StreamVerifiableGet")
 	if err != nil {
 		return err
 	}
 
 	vess := s.StreamServiceFactory.NewVEntryStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
-	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
+	vEntry, err := db.VerifiableGet(req)
 	if err != nil {
 		return err
 	}
@@ -130,7 +131,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -190,7 +191,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 
 // StreamVerifiableSet ...
 func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiableSetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamVerifiableSet")
+	db, err := s.getDBFromCtx(str.Context(), "StreamVerifiableSet")
 	if err != nil {
 		return err
 	}
@@ -246,7 +247,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		SetRequest:   &schema.SetRequest{KVs: kvs},
 		ProveSinceTx: proveSinceTx,
 	}
-	verifiableTx, err := s.dbList.GetByIndex(ind).VerifiableSet(&vSetReq)
+	verifiableTx, err := db.VerifiableSet(&vSetReq)
 	if err == store.ErrorMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
@@ -261,7 +262,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -283,12 +284,12 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 }
 
 func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_StreamScanServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "Scan")
+	db, err := s.getDBFromCtx(str.Context(), "Scan")
 	if err != nil {
 		return err
 	}
 
-	r, err := s.dbList.GetByIndex(ind).Scan(req)
+	r, err := db.Scan(req)
 	if err != nil {
 		return err
 	}
@@ -318,12 +319,12 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 
 // StreamZScan ...
 func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.ImmuService_StreamZScanServer) error {
-	ind, err := s.getDbIndexFromCtx(server.Context(), "ZScan")
+	db, err := s.getDBFromCtx(server.Context(), "ZScan")
 	if err != nil {
 		return err
 	}
 
-	r, err := s.dbList.GetByIndex(ind).ZScan(request)
+	r, err := db.ZScan(request)
 	if err != nil {
 		return err
 	}
@@ -375,12 +376,12 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 }
 
 func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema.ImmuService_StreamHistoryServer) error {
-	ind, err := s.getDbIndexFromCtx(server.Context(), "History")
+	db, err := s.getDBFromCtx(server.Context(), "History")
 	if err != nil {
 		return err
 	}
 
-	r, err := s.dbList.GetByIndex(ind).History(request)
+	r, err := db.History(request)
 	if err != nil {
 		return err
 	}
@@ -409,7 +410,7 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 }
 
 func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSet")
+	db, err := s.getDBFromCtx(str.Context(), "StreamSet")
 	if err != nil {
 		return err
 	}
@@ -454,7 +455,7 @@ func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) e
 		}
 	}
 
-	txMeta, err := s.dbList.GetByIndex(ind).ExecAll(&schema.ExecAllRequest{Operations: sops})
+	txMeta, err := db.ExecAll(&schema.ExecAllRequest{Operations: sops})
 	if err != nil {
 		return err
 	}

@@ -244,6 +244,10 @@ func (s *ServerMock) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.E
 	return s.Srv.CleanIndex(ctx, req)
 }
 
+func (s *ServerMock) CompactIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+	return s.Srv.CompactIndex(ctx, req)
+}
+
 func (s *ServerMock) ChangePermission(ctx context.Context, req *schema.ChangePermissionRequest) (*empty.Empty, error) {
 	return s.Srv.ChangePermission(ctx, req)
 }
