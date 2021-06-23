@@ -25,13 +25,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 	"unicode"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/errors"
 
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
@@ -112,12 +112,23 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to load system database: %v", err)
 	}
 
-	if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
-		return logErr(s.Logger, "Unable to load default database: %v", err)
+	if s.sysDB.IsReplica() {
+		s.Logger.Infof("Started in maintenance mode - systemdb in recovery mode")
 	}
 
-	if err = s.loadUserDatabases(dataDir, remoteStorage); err != nil {
-		return logErr(s.Logger, "Unable to load databases: %v", err)
+	if !s.sysDB.IsReplica() {
+		if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
+			return logErr(s.Logger, "Unable to load default database: %v", err)
+		}
+
+		dbSize, _ := s.dbList.GetByIndex(defaultDbIndex).Size()
+		if dbSize <= 0 {
+			s.Logger.Infof("Started with an empty database")
+		}
+
+		if err = s.loadUserDatabases(dataDir, remoteStorage); err != nil {
+			return logErr(s.Logger, "Unable load databases: %v", err)
+		}
 	}
 
 	s.multidbmode = s.mandatoryAuth()
@@ -163,11 +174,6 @@ func (s *ImmuServer) Initialize() error {
 	auth.AuthEnabled = s.Options.GetAuth()
 	auth.DevMode = s.Options.DevMode
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
-
-	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Size()
-	if dbSize <= 0 {
-		s.Logger.Infof("Started with an empty database")
-	}
 
 	if err = s.setupPidFile(); err != nil {
 		return err
@@ -230,6 +236,8 @@ func (s *ImmuServer) Start() (err error) {
 	s.mux.Lock()
 	s.pgsqlMux.Lock()
 
+	startedAt = time.Now()
+
 	if s.Options.MetricsServer {
 		if err := s.setUpMetricsServer(); err != nil {
 			return err
@@ -242,10 +250,6 @@ func (s *ImmuServer) Start() (err error) {
 	}
 
 	s.installShutdownHandler()
-
-	go s.printUsageCallToAction()
-
-	startedAt = time.Now()
 
 	go func() {
 		if err := s.GrpcServer.Serve(s.listener); err != nil {
@@ -274,6 +278,8 @@ func (s *ImmuServer) Start() (err error) {
 			}
 		}()
 	}
+
+	go s.printUsageCallToAction()
 
 	s.mux.Unlock()
 	s.pgsqlMux.Unlock()
@@ -358,14 +364,41 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		WithDbRootPath(dataDir).
 		WithStoreOptions(storeOpts)
 
-	_, sysDbErr := s.OS.Stat(systemDbRootDir)
-	if s.OS.IsNotExist(sysDbErr) {
-		db, err := database.NewDb(op, nil, s.Logger)
+	_, err := s.OS.Stat(systemDbRootDir)
+	if err == nil {
+		s.sysDB, err = database.OpenDb(op, nil, s.Logger)
+		if err == sql.ErrDatabaseDoesNotExist && s.Options.GetMaintenance() {
+			// Handling case where systemdb was in recovery mode but immudb was restarted before initiating replication
+			op.GetReplicationOptions().AsReplica(true)
+			s.sysDB, err = database.OpenDb(op, nil, s.Logger)
+			if err != nil {
+				return err
+			}
+		}
 		if err != nil {
+			s.Logger.Errorf("systemdb was not correctly initialized.\n" +
+				"Use maintenance mode to recover from external source or start without data folder.")
 			return err
 		}
 
-		s.sysDB = db
+		return nil
+	}
+
+	if !s.OS.IsNotExist(err) {
+		return err
+	}
+
+	if s.Options.GetMaintenance() && s.Options.GetAuth() {
+		return ErrAuthMustBeDisabled
+	}
+
+	op.GetReplicationOptions().AsReplica(s.Options.GetMaintenance())
+	s.sysDB, err = database.NewDb(op, nil, s.Logger)
+	if err != nil {
+		return err
+	}
+
+	if !s.Options.GetMaintenance() {
 		//sys admin can have an empty array of databases as it has full access
 		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 		if err != nil {
@@ -373,13 +406,6 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		}
 
 		s.Logger.Infof("Admin user %s successfully created", adminUsername)
-	} else {
-		db, err := database.OpenDb(op, nil, s.Logger)
-		if err != nil {
-			return err
-		}
-
-		s.sysDB = db
 	}
 
 	return nil
@@ -398,15 +424,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		WithDbRootPath(dataDir).
 		WithStoreOptions(s.storeOptionsForDb(s.Options.GetDefaultDbName(), remoteStorage))
 
-	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
-	if s.OS.IsNotExist(defaultDbErr) {
-		db, err := database.NewDb(op, s.sysDB, s.Logger)
-		if err != nil {
-			return err
-		}
-
-		s.dbList.Append(db)
-	} else {
+	_, err := s.OS.Stat(defaultDbRootDir)
+	if err == nil {
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
 		if err != nil {
 			return err
@@ -414,6 +433,18 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 		s.dbList.Append(db)
 	}
+
+	if !s.OS.IsNotExist(err) {
+		return err
+	}
+
+	op.GetReplicationOptions().AsReplica(s.Options.GetMaintenance())
+	db, err := database.NewDb(op, s.sysDB, s.Logger)
+	if err != nil {
+		return err
+	}
+
+	s.dbList.Append(db)
 
 	return nil
 }
@@ -545,376 +576,19 @@ func (s *ImmuServer) updateConfigItem(key string, newOrUpdatedLine string, uncha
 	return nil
 }
 
-// UpdateAuthConfig ...
+// UpdateAuthConfig is DEPRECATED
 func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
-	_, err := s.getDbIndexFromCtx(ctx, "UpdateAuthConfig")
-	if err != nil {
-		return nil, err
-	}
-
-	e := new(empty.Empty)
-
-	s.Options.WithAuth(req.GetKind() > 0)
-
-	auth.AuthEnabled = s.Options.GetAuth()
-
-	if err := s.updateConfigItem(
-		"auth",
-		fmt.Sprintf("auth = %t", auth.AuthEnabled),
-		func(currValue string) bool {
-			b, err := strconv.ParseBool(currValue)
-			return err == nil && b == auth.AuthEnabled
-		},
-	); err != nil {
-		return e, fmt.Errorf(
-			"auth set to %t, but config file could not be updated: %v",
-			auth.AuthEnabled, err)
-	}
-
-	return e, nil
+	return nil, ErrNotSupported
 }
 
-// UpdateMTLSConfig ...
+// UpdateMTLSConfig is DEPRECATED
 func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfig) (*empty.Empty, error) {
-	_, err := s.getDbIndexFromCtx(ctx, "UpdateMTLSConfig")
-	if err != nil {
-		return nil, err
-	}
-
-	e := new(empty.Empty)
-
-	if err := s.updateConfigItem(
-		"mtls",
-		fmt.Sprintf("mtls = %t", req.GetEnabled()),
-		func(currValue string) bool {
-			b, err := strconv.ParseBool(currValue)
-			return err == nil && b == req.GetEnabled()
-		},
-	); err != nil {
-		return e, fmt.Errorf("MTLS could not be set to %t: %v", req.GetEnabled(), err)
-	}
-
-	return e, status.Errorf(
-		codes.OK,
-		"MTLS set to %t in server config, but server restart is required for it to take effect.",
-		req.GetEnabled())
+	return nil, ErrNotSupported
 }
 
 // Health ...
-func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.HealthResponse, error) {
-	ind, _ := s.getDbIndexFromCtx(ctx, "Health")
-
-	if ind < 0 { //probably immuclient hasn't logged in yet
-		return s.dbList.GetByIndex(DefaultDbIndex).Health(e)
-	}
-
-	return s.dbList.GetByIndex(ind).Health(e)
-}
-
-// CurrentState ...
-func (s *ImmuServer) CurrentState(ctx context.Context, e *empty.Empty) (*schema.ImmutableState, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "CurrentState")
-	if err != nil {
-		return nil, err
-	}
-
-	state, err := s.dbList.GetByIndex(ind).CurrentState()
-	if err != nil {
-		return nil, err
-	}
-
-	state.Db = s.dbList.GetByIndex(ind).GetOptions().GetDbName()
-
-	if s.Options.SigningKey != "" {
-		err = s.StateSigner.Sign(state)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return state, nil
-}
-
-// Set ...
-func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.TxMetadata, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "Set")
-
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).Set(kv)
-}
-
-// VerifiableSet ...
-func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableSet")
-	if err != nil {
-		return nil, err
-	}
-
-	vtx, err := s.dbList.GetByIndex(ind).VerifiableSet(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Options.SigningKey != "" {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
-			TxId:   md.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		vtx.Signature = newState.Signature
-	}
-
-	return vtx, nil
-}
-
-// Get ...
-func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Entry, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "Get")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).Get(req)
-}
-
-// VerifiableGet ...
-func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableGet")
-	if err != nil {
-		return nil, err
-	}
-
-	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Options.SigningKey != "" {
-		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
-			TxId:   md.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		vEntry.VerifiableTx.Signature = newState.Signature
-	}
-
-	return vEntry, nil
-}
-
-// Scan ...
-func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "Scan")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).Scan(req)
-}
-
-// Count ...
-func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
-	/*s.Logger.Debugf("count %s", prefix.Prefix)
-	ind, err := s.getDbIndexFromCtx(ctx, "Count")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).Count(prefix)
-	*/
-	return nil, errors.New("Functionality not yet supported")
-}
-
-// CountAll ...
-func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.EntryCount, error) {
-	/*ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
-	s.Logger.Debugf("count all for db index %d", ind)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).CountAll()
-	*/
-	return nil, errors.New("Functionality not yet supported")
-}
-
-// TxByID ...
-func (s *ImmuServer) TxById(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "TxByID")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).TxByID(req)
-}
-
-// VerifiableTxByID ...
-func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableTxByID")
-	if err != nil {
-		return nil, err
-	}
-
-	vtx, err := s.dbList.GetByIndex(ind).VerifiableTxByID(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Options.SigningKey != "" {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
-			TxId:   md.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		vtx.Signature = newState.Signature
-	}
-
-	return vtx, nil
-}
-
-// TxScan ...
-func (s *ImmuServer) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "TxScan")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).TxScan(req)
-}
-
-// History ...
-func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "History")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).History(req)
-}
-
-// SetReference ...
-func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "SetReference")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).SetReference(req)
-}
-
-// VerifibleSetReference ...
-func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableSetReference")
-	if err != nil {
-		return nil, err
-	}
-
-	vtx, err := s.dbList.GetByIndex(ind).VerifiableSetReference(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Options.SigningKey != "" {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
-			TxId:   md.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		vtx.Signature = newState.Signature
-	}
-
-	return vtx, nil
-}
-
-// ZAdd ...
-func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxMetadata, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "ZAdd")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).ZAdd(req)
-}
-
-// ZScan ...
-func (s *ImmuServer) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "ZScan")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).ZScan(req)
-}
-
-// VerifiableZAdd ...
-func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableZAdd")
-	if err != nil {
-		return nil, err
-	}
-
-	vtx, err := s.dbList.GetByIndex(ind).VerifiableZAdd(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Options.SigningKey != "" {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
-
-		newState := &schema.ImmutableState{
-			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
-			TxId:   md.ID,
-			TxHash: alh[:],
-		}
-
-		err = s.StateSigner.Sign(newState)
-		if err != nil {
-			return nil, err
-		}
-
-		vtx.Signature = newState.Signature
-	}
-
-	return vtx, nil
+func (s *ImmuServer) Health(ctx context.Context, _ *empty.Empty) (*schema.HealthResponse, error) {
+	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%s", Version.Version)}, nil
 }
 
 func (s *ImmuServer) installShutdownHandler() {
@@ -934,6 +608,14 @@ func (s *ImmuServer) installShutdownHandler() {
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
+
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
 
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -957,7 +639,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSet
 	}
 
 	req.DatabaseName = strings.ToLower(req.DatabaseName)
-	if err = IsAllowedDbName(req.DatabaseName); err != nil {
+	if err = isValidDBName(req.DatabaseName); err != nil {
 		return nil, err
 	}
 
@@ -1016,6 +698,14 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSet
 func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("updatedatabase")
 
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
@@ -1072,7 +762,7 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 }
 
 //DatabaseList returns a list of databases based on the requesting user permissins
-func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
+func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.DatabaseListResponse, error) {
 	s.Logger.Debugf("DatabaseList")
 	loggedInuser := &auth.User{}
 	var err error
@@ -1113,50 +803,52 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 }
 
 // UseDatabase ...
-func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
-	s.Logger.Debugf("UseDatabase %+v", db)
-	user := &auth.User{}
+func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*schema.UseDatabaseReply, error) {
+	s.Logger.Debugf("UseDatabase %+v", req)
 
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	user := &auth.User{}
 	var err error
 
-	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
-
+	if s.Options.GetAuth() {
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
-				return nil, status.Error(
-					codes.PermissionDenied, err.Error())
+				return nil, status.Error(codes.PermissionDenied, err.Error())
 			}
 			return nil, status.Errorf(codes.Unauthenticated, "Please login")
 		}
-
-		if db.DatabaseName == SystemdbName {
-			return nil, fmt.Errorf("this database can not be selected")
-		}
-
-		//check if this user has permission on this database
-		//if sysadmin allow to continue
-		if (!user.IsSysAdmin) &&
-			(!user.HasPermission(db.DatabaseName, auth.PermissionAdmin)) &&
-			(!user.HasPermission(db.DatabaseName, auth.PermissionR)) &&
-			(!user.HasPermission(db.DatabaseName, auth.PermissionRW)) {
-
-			return nil, status.Errorf(codes.PermissionDenied,
-				"Logged in user does not have permission on this database")
-		}
 	} else {
+		if !s.Options.GetMaintenance() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+
 		user.IsSysAdmin = true
 		user.Username = ""
 		s.addUserToLoginList(user)
 	}
 
-	//check if database exists
-	dbid := s.dbList.GetId(db.DatabaseName)
-	if dbid < 0 {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.DatabaseName))
+	//check if this user has permission on this database
+	//if sysadmin allow to continue
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionR)) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionRW)) {
+
+		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
+	}
+
+	dbid := sysDBIndex
+
+	if req.DatabaseName != SystemdbName {
+		//check if database exists
+		dbid = s.dbList.GetId(req.DatabaseName)
+		if dbid < 0 {
+			return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", req.DatabaseName))
+		}
 	}
 
 	token, err := auth.GenerateToken(*user, dbid, s.Options.TokenExpiryTimeMin)
@@ -1169,55 +861,55 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	}, nil
 }
 
-func (s *ImmuServer) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
+// getDBFromCtx checks if user (loggedin from context) has access to methodName.
+// returns selected database
+func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (database.DB, error) {
+	//if auth is disabled and there is not user created databases returns defaultdb
+	if !s.Options.auth && !s.multidbmode && !s.Options.GetMaintenance() {
+		return s.dbList.GetByIndex(defaultDbIndex), nil
 	}
 
-	ind, err := s.getDbIndexFromCtx(ctx, "CleanIndex")
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.dbList.GetByIndex(ind).CompactIndex()
-
-	return &empty.Empty{}, err
-}
-
-// getDbIndexFromCtx checks if user (loggedin from context) has access to methodname.
-// returns index of database
-func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
-	//if auth is disabled return index zero (defaultdb) as it is the first database created/loaded
-	if !s.Options.auth {
-		if !s.multidbmode {
-			return DefaultDbIndex, nil
-		}
+	if s.Options.GetMaintenance() && !auth.IsMaintenanceMethod(methodName) {
+		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
-			return 0, status.Error(codes.PermissionDenied, err.Error())
+			return nil, status.Error(codes.PermissionDenied, err.Error())
 		}
-		if s.Options.GetMaintenance() {
-			return 0, fmt.Errorf("please select database first")
+		if s.Options.GetMaintenance() && !s.Options.auth {
+			return nil, fmt.Errorf("please select database first")
 		}
-		return 0, fmt.Errorf("please login first")
+		return nil, fmt.Errorf("please login first")
 	}
 
 	if ind < 0 {
-		return 0, fmt.Errorf("please select a database first")
+		return nil, fmt.Errorf("please select a database first")
+	}
+
+	// systemdb is always read-only from external access
+	if ind == sysDBIndex && !auth.IsMaintenanceMethod(methodName) {
+		return nil, ErrPermissionDenied
+	}
+
+	var db database.DB
+
+	if ind == sysDBIndex {
+		db = s.sysDB
+	} else {
+		db = s.dbList.GetByIndex(ind)
 	}
 
 	if usr.IsSysAdmin {
-		return ind, nil
+		return db, nil
 	}
 
-	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetOptions().GetDbName()), methodname); !ok {
-		return 0, fmt.Errorf("you do not have permission for this operation")
+	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetOptions().GetDbName()), methodName); !ok {
+		return nil, ErrPermissionDenied
 	}
 
-	return ind, nil
+	return db, nil
 }
 
 type dbSettings struct {
@@ -1270,8 +962,8 @@ func (s *ImmuServer) saveSettings(settings *dbSettings) error {
 	return err
 }
 
-// IsAllowedDbName checks if the provided database name meets the requirements
-func IsAllowedDbName(dbName string) error {
+// isValidDBName checks if the provided database name meets the requirements
+func isValidDBName(dbName string) error {
 	if len(dbName) < 1 || len(dbName) > 128 {
 		return fmt.Errorf("database name length outside of limits")
 	}
@@ -1312,7 +1004,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	}
 
 	//check if there is only default database
-	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).GetOptions().GetDbName() == s.Options.defaultDbName) {
+	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(defaultDbIndex).GetOptions().GetDbName() == s.Options.defaultDbName) {
 		return false
 	}
 

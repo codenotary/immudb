@@ -27,12 +27,10 @@ func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuServic
 		return ErrIllegalArguments
 	}
 
-	ind, err := s.getDbIndexFromCtx(txsServer.Context(), "ExportTx")
+	db, err := s.getDBFromCtx(txsServer.Context(), "ExportTx")
 	if err != nil {
 		return err
 	}
-
-	db := s.dbList.GetByIndex(ind)
 
 	err = db.WaitForTx(req.Tx, nil)
 	if err != nil {
@@ -59,7 +57,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return ErrIllegalArguments
 	}
 
-	ind, err := s.getDbIndexFromCtx(replicateTxServer.Context(), "ReplicateTx")
+	db, err := s.getDBFromCtx(replicateTxServer.Context(), "ReplicateTx")
 	if err != nil {
 		return err
 	}
@@ -70,8 +68,6 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 	if err != nil {
 		return err
 	}
-
-	db := s.dbList.GetByIndex(ind)
 
 	md, err := db.ReplicateTx(bs)
 	if err != nil {

@@ -25,12 +25,17 @@ import (
 )
 
 var (
-	ErrIllegalArguments          = status.Error(codes.InvalidArgument, database.ErrIllegalArguments.Error())
-	ErrIllegalState              = status.Error(codes.InvalidArgument, database.ErrIllegalState.Error())
-	ErrEmptyAdminPassword        = status.Error(codes.InvalidArgument, "Admin password cannot be empty")
-	ErrUserNotActive             = "user is not active"
-	ErrInvalidUsernameOrPassword = "invalid user name or password"
-	ErrAuthDisabled              = "server is running with authentication disabled, please enable authentication to login"
+	ErrIllegalArguments            = status.Error(codes.InvalidArgument, database.ErrIllegalArguments.Error())
+	ErrIllegalState                = status.Error(codes.InvalidArgument, database.ErrIllegalState.Error())
+	ErrEmptyAdminPassword          = status.Error(codes.InvalidArgument, "Admin password cannot be empty")
+	ErrUserNotActive               = "user is not active"
+	ErrInvalidUsernameOrPassword   = "invalid user name or password"
+	ErrAuthDisabled                = "server is running with authentication disabled, please enable authentication to login"
+	ErrAuthMustBeDisabled          = status.Error(codes.InvalidArgument, "authentication must be disabled when retoring systemdb")
+	ErrNotAllowedInMaintenanceMode = status.Error(codes.InvalidArgument, "operation not allowed in maintenance mode")
+	ErrPermissionDenied            = errors.New("permission denied")
+	ErrNotSupported                = status.Error(codes.InvalidArgument, "operation not supported")
+	ErrNotLoggedIn                 = errors.New("not logged in")
 )
 
 func mapServerError(err error) error {

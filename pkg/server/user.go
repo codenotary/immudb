@@ -19,7 +19,7 @@ import (
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	if !s.Options.auth {
-		return nil, errors.New(ErrAuthDisabled)
+		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
 
 	u, err := s.getValidatedUser(r.User, r.Password)
@@ -31,12 +31,13 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		return nil, errors.New(ErrUserNotActive)
 	}
 
-	//-1 no database yet, must exec the "use" (UseDatabase) command first
 	var token string
+
 	if s.multidbmode {
+		//-1 no database yet, must exec the "use" (UseDatabase) command first
 		token, err = auth.GenerateToken(*u, -1, s.Options.TokenExpiryTimeMin)
 	} else {
-		token, err = auth.GenerateToken(*u, DefaultDbIndex, s.Options.TokenExpiryTimeMin)
+		token, err = auth.GenerateToken(*u, defaultDbIndex, s.Options.TokenExpiryTimeMin)
 	}
 	if err != nil {
 		return nil, err
@@ -53,11 +54,25 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 
 	//add user to loggedin list
 	s.addUserToLoginList(u)
+
 	return loginResponse, nil
 }
 
 // Logout ...
 func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, error) {
+	if !s.Options.auth {
+		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	//remove user from loggedin users
+	s.removeUserFromLoginList(user.Username)
+
+	// invalidate the token for this user
 	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
 	if err != nil {
 		return new(empty.Empty), err
@@ -84,7 +99,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 
 		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login")
+			return nil, err
 		}
 
 		if len(r.User) == 0 {
@@ -149,9 +164,10 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
+
 		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login")
+			return nil, err
 		}
 	}
 
@@ -169,18 +185,23 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		// return all users, including the deactivated ones
 		for i := 0; i < len(itemList.Entries); i++ {
 			itemList.Entries[i].Key = itemList.Entries[i].Key[1:]
+
 			var user auth.User
+
 			err = json.Unmarshal(itemList.Entries[i].Value, &user)
 			if err != nil {
 				return nil, err
 			}
+
 			permissions := []*schema.Permission{}
+
 			for _, val := range user.Permissions {
 				permissions = append(permissions, &schema.Permission{
 					Database:   val.Database,
 					Permission: val.Permission,
 				})
 			}
+
 			u := schema.User{
 				User:        []byte(user.Username),
 				Createdat:   user.CreatedAt.String(),
@@ -188,33 +209,43 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 				Permissions: permissions,
 				Active:      user.Active,
 			}
+
 			userlist.Users = append(userlist.Users, &u)
 		}
+
 		return userlist, nil
+
 	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()) == auth.PermissionAdmin {
 		// for admin users return only users for the database that is has selected
 		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()
 		userlist := &schema.UserList{}
+
 		for i := 0; i < len(itemList.Entries); i++ {
 			include := false
 			itemList.Entries[i].Key = itemList.Entries[i].Key[1:]
+
 			var user auth.User
+
 			err = json.Unmarshal(itemList.Entries[i].Value, &user)
 			if err != nil {
 				return nil, err
 			}
+
 			permissions := []*schema.Permission{}
+
 			for _, val := range user.Permissions {
 				//check if this user has any permission for this database
 				//include in the reply only if it has any permission for the currently selected database
 				if val.Database == selectedDbname {
 					include = true
 				}
+
 				permissions = append(permissions, &schema.Permission{
 					Database:   val.Database,
 					Permission: val.Permission,
 				})
 			}
+
 			if include {
 				u := schema.User{
 					User:        []byte(user.Username),
@@ -223,20 +254,25 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 					Permissions: permissions,
 					Active:      user.Active,
 				}
+
 				userlist.Users = append(userlist.Users, &u)
 			}
 		}
+
 		return userlist, nil
+
 	} else {
 		// any other permission return only its data
 		userlist := &schema.UserList{}
 		permissions := []*schema.Permission{}
+
 		for _, val := range loggedInuser.Permissions {
 			permissions = append(permissions, &schema.Permission{
 				Database:   val.Database,
 				Permission: val.Permission,
 			})
 		}
+
 		u := schema.User{
 			User:        []byte(loggedInuser.Username),
 			Createdat:   loggedInuser.CreatedAt.String(),
@@ -244,7 +280,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			Permissions: permissions,
 			Active:      loggedInuser.Active,
 		}
+
 		userlist.Users = append(userlist.Users, &u)
+
 		return userlist, nil
 	}
 }
@@ -259,7 +297,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("please login first")
+		return nil, err
 	}
 
 	if string(r.User) == auth.SysAdminUsername {
@@ -313,21 +351,6 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
 
-	if r.Database == SystemdbName {
-		return nil, fmt.Errorf("this database can not be assigned")
-	}
-
-	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
-	}
-
-	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "Please login")
-	}
-
 	//sanitize input
 	{
 		if len(r.Username) == 0 {
@@ -347,9 +370,22 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		}
 	}
 
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	//do not allow to change own permissions, user can lock itsself out
 	if r.Username == user.Username {
 		return nil, status.Errorf(codes.InvalidArgument, "changing you own permissions is not allowed")
+	}
+
+	if r.Username == auth.SysAdminUsername {
+		return nil, status.Errorf(codes.InvalidArgument, "changing sysadmin permisions is not allowed")
+	}
+
+	if r.Database == SystemdbName && r.Permission == auth.PermissionRW {
+		return nil, ErrPermissionDenied
 	}
 
 	//check if user exists
@@ -392,6 +428,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 //SetActiveUser activate or deactivate a user
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("SetActiveUser")
+
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
@@ -403,15 +440,18 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
+
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login first")
+			return nil, err
 		}
+
 		if !user.IsSysAdmin {
 			if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
 				return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
 			}
 		}
+
 		if r.Username == user.Username {
 			return nil, fmt.Errorf("changing your own status is not allowed")
 		}
@@ -424,22 +464,22 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 
 	if !s.Options.GetMaintenance() {
 		//if the user is not sys admin then let's make sure the target was created from this admin
-		if !user.IsSysAdmin {
-			if user.Username != targetUser.CreatedBy {
-				return nil, fmt.Errorf("%s was not created by you", r.Username)
-			}
+		if !user.IsSysAdmin && user.Username != targetUser.CreatedBy {
+			return nil, fmt.Errorf("%s was not created by you", r.Username)
 		}
 	}
 
 	targetUser.Active = r.Active
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
+
 	if err := s.saveUser(targetUser); err != nil {
 		return nil, err
 	}
 
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
+
 	return new(empty.Empty), nil
 }
 
@@ -565,7 +605,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
 			return -1, nil, err
 		}
-		return -1, nil, fmt.Errorf("could not get userdata from token")
+		return -1, nil, ErrNotLoggedIn
 	}
 
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
@@ -575,9 +615,10 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
+
 	userdata, ok := s.userdata.Userdata[username]
 	if !ok {
-		return nil, fmt.Errorf("logged in user data not found")
+		return nil, ErrNotLoggedIn
 	}
 
 	return userdata, nil
