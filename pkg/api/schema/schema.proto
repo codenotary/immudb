@@ -29,7 +29,7 @@ message Key {
 	bytes key = 1;
 }
 
-message Permission{
+message Permission {
 	string database = 1;
 	uint32 permission = 2;
 }
@@ -491,7 +491,6 @@ message RetryInfo {
 }
 
 // immudb gRPC & REST service
-// IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (UserList){
 		option (google.api.http) = {
@@ -513,8 +512,8 @@ service ImmuService {
 		};
 	};
 
-	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
-	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){} // DEPRECATED
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){} // DEPRECATED
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
@@ -581,12 +580,14 @@ service ImmuService {
 		};
 	};
 
+	// NOT YET SUPPORTED
 	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/db/count/{prefix}"
 		};
 	};
 
+	// NOT YET SUPPORTED
 	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/db/countall"
@@ -699,9 +700,16 @@ service ImmuService {
 		};
 	}
 
+	// DEPRECATED: use CompactIndex
 	rpc CleanIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			get: "/db/cleanindex"
+		};
+	}
+
+	rpc CompactIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/db/compactindex"
 		};
 	}
 
