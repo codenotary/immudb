@@ -23,12 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -1394,16 +1395,21 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
+// DEPREACATED: use CompactIndex
 func (c *immuClient) CleanIndex(ctx context.Context, req *empty.Empty) error {
+	return c.CompactIndex(ctx, req)
+}
+
+func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
 
-	_, err := c.ServiceClient.CleanIndex(ctx, req)
+	_, err := c.ServiceClient.CompactIndex(ctx, req)
 
-	c.Logger.Debugf("CleanIndex finished in %s", time.Since(start))
+	c.Logger.Debugf("CompactIndex finished in %s", time.Since(start))
 
 	return err
 }
