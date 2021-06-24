@@ -133,6 +133,7 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	if op.replicationOpts.Replica {
+		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
 		return dbi, nil
 	}
 
@@ -175,6 +176,8 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 			return nil, err
 		}
 	}
+
+	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
 
 	return dbi, nil
 }
@@ -237,6 +240,8 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 		}
 	}
+
+	dbi.Logger.Infof("Database '%s' successfully created (replica = %v)", op.dbName, op.replicationOpts.Replica)
 
 	return dbi, nil
 }
