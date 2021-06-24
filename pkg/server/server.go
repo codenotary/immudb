@@ -112,16 +112,18 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to load system database: %v", err)
 	}
 
-	if s.sysDB.IsReplica() {
-		s.Logger.Infof("Started in maintenance mode - systemdb in recovery mode")
-	}
-
 	if !s.sysDB.IsReplica() {
 		if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
 			return logErr(s.Logger, "Unable to load default database: %v", err)
 		}
+	}
 
-		dbSize, _ := s.dbList.GetByIndex(defaultDbIndex).Size()
+	if s.sysDB.IsReplica() {
+		s.Logger.Infof("In recovery mode only '%s' and '%s' databases are loaded", SystemdbName, DefaultdbName)
+	} else {
+		defaultDB := s.dbList.GetByIndex(defaultDbIndex)
+
+		dbSize, _ := defaultDB.Size()
 		if dbSize <= 0 {
 			s.Logger.Infof("Started with an empty database")
 		}
@@ -371,13 +373,10 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 			// Handling case where systemdb was in recovery mode but immudb was restarted before initiating replication
 			op.GetReplicationOptions().AsReplica(true)
 			s.sysDB, err = database.OpenDb(op, nil, s.Logger)
-			if err != nil {
-				return err
-			}
 		}
 		if err != nil {
-			s.Logger.Errorf("systemdb was not correctly initialized.\n" +
-				"Use maintenance mode to recover from external source or start without data folder.")
+			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
+				"Use maintenance mode to recover from external source or start without data folder.", op.GetDbName())
 			return err
 		}
 
@@ -427,7 +426,14 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
+		if err == sql.ErrDatabaseDoesNotExist && s.Options.GetMaintenance() {
+			// Handling case where defaultdb was in recovery mode but immudb was restarted before initiating replication
+			op.GetReplicationOptions().AsReplica(true)
+			db, err = database.OpenDb(op, s.sysDB, s.Logger)
+		}
 		if err != nil {
+			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
+				"Use maintenance mode to recover from external source or start without data folder.", op.GetDbName())
 			return err
 		}
 
