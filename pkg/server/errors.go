@@ -34,7 +34,7 @@ var (
 	ErrAuthMustBeDisabled          = status.Error(codes.InvalidArgument, "authentication must be disabled when retoring systemdb")
 	ErrNotAllowedInMaintenanceMode = status.Error(codes.InvalidArgument, "operation not allowed in maintenance mode")
 	ErrPermissionDenied            = errors.New("permission denied")
-	ErrNotSupported                = status.Error(codes.InvalidArgument, "operation not supported")
+	ErrNotSupported                = errors.New("operation not supported")
 	ErrNotLoggedIn                 = errors.New("not logged in")
 )
 
