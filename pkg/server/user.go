@@ -377,7 +377,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 
 	//do not allow to change own permissions, user can lock itsself out
 	if r.Username == user.Username {
-		return nil, status.Errorf(codes.InvalidArgument, "changing you own permissions is not allowed")
+		return nil, status.Errorf(codes.InvalidArgument, "changing your own permissions is not allowed")
 	}
 
 	if r.Username == auth.SysAdminUsername {
