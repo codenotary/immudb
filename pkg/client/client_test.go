@@ -19,12 +19,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
 	"log"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/pkg/fs"
 
@@ -756,10 +757,10 @@ func TestUserManagement(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.UpdateAuthConfig(ctx, auth.KindPassword)
-	require.NoError(t, err)
+	require.Contains(t, err.Error(), "operation not supported")
 
 	err = client.UpdateMTLSConfig(ctx, false)
-	require.Nil(t, err)
+	require.Contains(t, err.Error(), "operation not supported")
 
 	err = client.CreateUser(
 		ctx,
