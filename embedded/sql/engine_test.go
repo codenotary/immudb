@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1516,6 +1517,57 @@ func TestSubQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
+func TestInferParameters(t *testing.T) {
+	catalogStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params")
+
+	dataStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+
+	params, err := stmts[0].InferParameters(engine)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	stmts, err = Parse(strings.NewReader("INSERT INTO mytable(id, title) VALUES (1, 'title1')"))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+
+	params, err = stmts[0].InferParameters(engine)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	stmts, err = Parse(strings.NewReader("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)"))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+
+	params, err = stmts[0].InferParameters(engine)
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, params["id2"], IntegerType)
+	require.Equal(t, params["title2"], VarcharType)
+
+	stmts, err = Parse(strings.NewReader("SELECT * FROM mytable WHERE id > @id"))
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+
+	params, err = stmts[0].InferParameters(engine)
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, params["id"], IntegerType)
 
 	err = engine.Close()
 	require.NoError(t, err)
