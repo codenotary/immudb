@@ -89,53 +89,54 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("CreateUser")
 
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	loggedInuser := &auth.User{}
 	var err error
 
-	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 
-		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
-		if err != nil {
-			return nil, err
-		}
+	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-		if len(r.User) == 0 {
-			return nil, fmt.Errorf("username can not be empty")
-		}
+	if len(r.User) == 0 {
+		return nil, fmt.Errorf("username can not be empty")
+	}
 
-		if (len(r.Database) == 0) && s.multidbmode {
-			return nil, fmt.Errorf("database name can not be empty when there are multiple databases")
-		}
+	if (len(r.Database) == 0) && s.multidbmode {
+		return nil, fmt.Errorf("database name can not be empty when there are multiple databases")
+	}
 
-		if (len(r.Database) == 0) && !s.multidbmode {
-			r.Database = DefaultdbName
-		}
+	if (len(r.Database) == 0) && !s.multidbmode {
+		r.Database = DefaultdbName
+	}
 
-		//check if database exists
-		if s.dbList.GetId(r.Database) < 0 {
-			return nil, fmt.Errorf("database %s does not exist", r.Database)
-		}
+	//check if database exists
+	if s.dbList.GetId(r.Database) < 0 {
+		return nil, fmt.Errorf("database %s does not exist", r.Database)
+	}
 
-		//check permission is a known value
-		if (r.Permission == auth.PermissionNone) ||
-			((r.Permission > auth.PermissionRW) &&
-				(r.Permission < auth.PermissionAdmin)) {
-			return nil, fmt.Errorf("unrecognized permission")
-		}
+	//check permission is a known value
+	if (r.Permission == auth.PermissionNone) ||
+		(r.Permission > auth.PermissionRW && r.Permission < auth.PermissionAdmin) {
+		return nil, fmt.Errorf("unrecognized permission")
+	}
 
-		//if the requesting user has admin permission on this database
-		if (!loggedInuser.IsSysAdmin) &&
-			(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
-			return nil, fmt.Errorf("you do not have permission on this database")
-		}
+	//if the requesting user has admin permission on this database
+	if (!loggedInuser.IsSysAdmin) &&
+		(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("you do not have permission on this database")
+	}
 
-		//do not allow to create another system admin
-		if r.Permission == auth.PermissionSysAdmin {
-			return nil, fmt.Errorf("can not create another system admin")
-		}
+	//do not allow to create another system admin
+	if r.Permission == auth.PermissionSysAdmin {
+		return nil, fmt.Errorf("can not create another system admin")
 	}
 
 	_, err = s.getUser(r.User, true)
@@ -291,6 +292,10 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePassword")
 
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
@@ -350,6 +355,10 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 //ChangePermission grant or revoke user permissions on databases
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
+
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
 
 	//sanitize input
 	{
@@ -429,6 +438,14 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("SetActiveUser")
 
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
+
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
@@ -436,25 +453,19 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	user := &auth.User{}
 	var err error
 
-	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
+	_, user, err = s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
-		if err != nil {
-			return nil, err
+	if !user.IsSysAdmin {
+		if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
+			return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
 		}
+	}
 
-		if !user.IsSysAdmin {
-			if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
-				return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
-			}
-		}
-
-		if r.Username == user.Username {
-			return nil, fmt.Errorf("changing your own status is not allowed")
-		}
+	if r.Username == user.Username {
+		return nil, fmt.Errorf("changing your own status is not allowed")
 	}
 
 	targetUser, err := s.getUser([]byte(r.Username), true)
@@ -462,11 +473,9 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
 
-	if !s.Options.GetMaintenance() {
-		//if the user is not sys admin then let's make sure the target was created from this admin
-		if !user.IsSysAdmin && user.Username != targetUser.CreatedBy {
-			return nil, fmt.Errorf("%s was not created by you", r.Username)
-		}
+	//if the user is not sys admin then let's make sure the target was created from this admin
+	if !user.IsSysAdmin && user.Username != targetUser.CreatedBy {
+		return nil, fmt.Errorf("%s was not created by you", r.Username)
 	}
 
 	targetUser.Active = r.Active
