@@ -103,16 +103,6 @@ func TestSetOptions(t *testing.T) {
 	}
 }
 
-func TestOptionsMaintenance(t *testing.T) {
-	op := DefaultOptions().
-		WithAuth(true).
-		WithMaintenance(true)
-
-	if op.GetAuth() != false {
-		t.Errorf("Auth should be disabled in maintenance mode")
-	}
-}
-
 func TestOptionsString(t *testing.T) {
 	expected := `================ Config ================
 Data dir         : ./data

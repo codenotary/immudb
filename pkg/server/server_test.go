@@ -1025,18 +1025,15 @@ func TestServerErrors(t *testing.T) {
 
 	err := s.Initialize()
 
-	r := &schema.LoginRequest{
+	adminCtx := context.Background()
+	lr, err := s.Login(adminCtx, &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
 		Password: []byte(auth.SysAdminPassword),
-	}
-	ctx := context.Background()
-	lr, err := s.Login(ctx, r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	})
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewIncomingContext(context.Background(), md)
+	adminCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
 	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultdbName, true, auth.SysAdminUsername)
@@ -1069,29 +1066,29 @@ func TestServerErrors(t *testing.T) {
 	adminUserdata := s.userdata.Userdata[auth.SysAdminUsername]
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
 	s.Options.maintenance = true
-	_, err = s.getDBFromCtx(ctx, "ListUsers")
-	require.Equal(t, errors.New("please login first"), err)
+	_, err = s.getDBFromCtx(adminCtx, "ListUsers")
+	require.Equal(t, ErrNotLoggedIn, err)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 	s.Options.maintenance = false
 
 	// SetActiveUser errors
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: "", Active: false})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "", Active: false})
 	require.Equal(t, errors.New("username can not be empty"), err)
 
 	s.Options.auth = false
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: username, Active: false})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: username, Active: false})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: username, Active: false})
 	require.Equal(t, ErrNotLoggedIn, err)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
 	require.Equal(t, errors.New("changing your own status is not allowed"), err)
 
-	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
+	_, err = s.CreateUser(adminCtx, &schema.CreateUserRequest{
 		User:       usernameBytes,
 		Password:   passwordBytes,
 		Permission: 1,
@@ -1099,16 +1096,18 @@ func TestServerErrors(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	userCtx := context.Background()
+
+	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx2 := metadata.NewIncomingContext(context.Background(), md)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
-	_, err = s.SetActiveUser(ctx2, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
+	_, err = s.SetActiveUser(userCtx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
 	require.Equal(t, errors.New("user is not system admin nor admin in any of the databases"), err)
 
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: "nonexistentuser", Active: false})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Username: "nonexistentuser", Active: false})
 	require.Equal(t, errors.New("user nonexistentuser not found"), err)
 
 	// ChangePermission errors
@@ -1118,137 +1117,142 @@ func TestServerErrors(t *testing.T) {
 		Database:   SystemdbName,
 		Permission: 2,
 	}
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(adminCtx, cpr)
 	require.Equal(t, ErrPermissionDenied, err)
 
-	_, err = s.Logout(ctx, &emptypb.Empty{})
+	_, err = s.Logout(userCtx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	cpr.Database = DefaultdbName
 	s.Options.auth = false
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 	s.Options.auth = true
 
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	require.Equal(t, ErrNotLoggedIn, err)
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 
 	cpr.Username = ""
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	require.Contains(t, err.Error(), "username can not be empty")
 
 	cpr.Username = username
 	cpr.Database = ""
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ := status.FromError(err)
 	require.Equal(t, codes.InvalidArgument, errStatus.Code())
 	require.Equal(t, "database can not be empty", errStatus.Message())
 
 	cpr.Database = DefaultdbName
 	cpr.Action = 99
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.InvalidArgument, errStatus.Code())
 	require.Equal(t, "action not recognized", errStatus.Message())
 	cpr.Action = schema.PermissionAction_GRANT
 
 	cpr.Permission = 99
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.InvalidArgument, errStatus.Code())
 	require.Equal(t, "unrecognized permission", errStatus.Message())
 
 	cpr.Permission = auth.PermissionRW
 
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	userCtx = context.Background()
+	lr, err = s.Login(userCtx, &schema.LoginRequest{
+		User:     []byte(username),
+		Password: []byte(password),
+	})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewIncomingContext(context.Background(), md)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
-	cpr.Username = auth.SysAdminUsername
-	_, err = s.ChangePermission(ctx, cpr)
+	cpr.Username = username
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
-	require.Equal(t, "changing sysadmin permisions is not allowed", errStatus.Message())
+	require.Equal(t, "changing your own permissions is not allowed", errStatus.Message())
 
 	cpr.Username = "nonexistentuser"
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.NotFound, errStatus.Code())
 	require.Equal(t, fmt.Sprintf("user %s not found", cpr.Username), errStatus.Message())
 
-	cpr.Username = username
-
 	cpr.Username = auth.SysAdminUsername
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, "changing sysadmin permisions is not allowed", errStatus.Message())
 
 	cpr.Username = username
 
 	cpr.Action = schema.PermissionAction_REVOKE
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(adminCtx, cpr)
 	require.NoError(t, err)
 
 	cpr.Action = schema.PermissionAction_GRANT
 
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: false, Username: username})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
-	_, err = s.ChangePermission(ctx, cpr)
+
+	_, err = s.ChangePermission(adminCtx, cpr)
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.FailedPrecondition, errStatus.Code())
 	require.Equal(t, fmt.Sprintf("user %s is not active", username), errStatus.Message())
 
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
 
 	// UseDatabase errors
 	s.Options.auth = false
-	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
+	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: DefaultdbName})
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
-	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
-
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultdbName})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.Unauthenticated, errStatus.Code())
 	require.Equal(t, "Please login", errStatus.Message())
 
-	_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: SystemdbName})
-	require.Equal(t, errors.New("this database can not be selected"), err)
+	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: SystemdbName})
+	require.NoError(t, err)
 
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
-	require.NoError(t, err)
-	someDb1 := "somedatabase1"
-	_, err = s.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: someDb1})
-	require.NoError(t, err)
-	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: someDb1})
-
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: SystemdbName})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
-	require.Equal(t, "Logged in user does not have permission on this database", errStatus.Message())
+
+	someDb1 := "somedatabase1"
+	_, err = s.CreateDatabase(adminCtx, &schema.DatabaseSettings{DatabaseName: someDb1})
+	require.NoError(t, err)
+
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: someDb1})
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
 	s.Options.maintenance = true
-	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
-	require.NoError(t, err)
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultdbName})
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.PermissionDenied, errStatus.Code())
+
 	s.Options.maintenance = false
 
-	_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: "nonexistentdb"})
-
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: "nonexistentdb"})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.NotFound, errStatus.Code())
 	require.Equal(t, "nonexistentdb does not exist", errStatus.Message())
 
 	// DatabaseList errors
 	s.Options.auth = false
-	_, err = s.DatabaseList(ctx, new(emptypb.Empty))
+	_, err = s.DatabaseList(userCtx, new(emptypb.Empty))
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
@@ -1261,26 +1265,27 @@ func TestServerErrors(t *testing.T) {
 		Database:   DefaultdbName,
 		Permission: 2,
 	}
-	_, err = s.ChangePermission(ctx, cpr)
+	_, err = s.ChangePermission(adminCtx, cpr)
 	require.NoError(t, err)
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+
+	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	require.NoError(t, err)
-	_, err = s.DatabaseList(ctx2, new(emptypb.Empty))
+	_, err = s.DatabaseList(userCtx, new(emptypb.Empty))
 	require.NoError(t, err)
 
 	// ListUsers errors
 	s.Options.auth = false
-	_, err = s.ListUsers(ctx, new(emptypb.Empty))
+	_, err = s.ListUsers(userCtx, new(emptypb.Empty))
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
 	_, err = s.ListUsers(context.Background(), new(emptypb.Empty))
-	require.Equal(t, errors.New("please login"), err)
+	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 
 	// CreateUser errors
 	username2 := "someusername2"
@@ -1295,68 +1300,68 @@ func TestServerErrors(t *testing.T) {
 	}
 
 	s.Options.auth = false
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
 	_, err = s.CreateUser(context.Background(), createUser2Req)
-	require.Equal(t, errors.New("please login"), err)
+	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("username can not be empty"), err)
 
 	createUser2Req.User = username2Bytes
 	createUser2Req.Database = ""
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("database name can not be empty when there are multiple databases"), err)
 
 	createUser2Req.Database = "nonexistentdb"
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("database nonexistentdb does not exist"), err)
 
 	createUser2Req.Database = someDb1
 	createUser2Req.Permission = auth.PermissionNone
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("unrecognized permission"), err)
 
 	createUser2Req.Permission = auth.PermissionRW
-	_, err = s.CreateUser(ctx2, createUser2Req)
+	_, err = s.CreateUser(userCtx, createUser2Req)
 	require.Equal(t, errors.New("you do not have permission on this database"), err)
 
 	createUser2Req.Permission = auth.PermissionSysAdmin
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("can not create another system admin"), err)
 
 	createUser2Req.Permission = auth.PermissionRW
 	createUser2Req.User = usernameBytes
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.Equal(t, errors.New("user already exists"), err)
 
 	// CreateDatabase errors
 	someDb2 := "somedatabase2"
 	createDbReq := &schema.DatabaseSettings{DatabaseName: someDb2}
 	s.Options.auth = false
-	_, err = s.CreateDatabase(ctx, createDbReq)
+	_, err = s.CreateDatabase(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
 	_, err = s.CreateDatabase(context.Background(), createDbReq)
 	require.Equal(t, errors.New("could not get loggedin user data"), err)
 
-	_, err = s.CreateDatabase(ctx2, createDbReq)
+	_, err = s.CreateDatabase(userCtx, createDbReq)
 	require.Equal(t, errors.New("Logged In user does not have permissions for this operation"), err)
 
 	createDbReq.DatabaseName = SystemdbName
-	_, err = s.CreateDatabase(ctx, createDbReq)
+	_, err = s.CreateDatabase(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this database name is reserved"), err)
 	createDbReq.DatabaseName = someDb2
 
 	createDbReq.DatabaseName = ""
-	_, err = s.CreateDatabase(ctx, createDbReq)
+	_, err = s.CreateDatabase(adminCtx, createDbReq)
 	require.Equal(t, errors.New("database name length outside of limits"), err)
 
 	createDbReq.DatabaseName = someDb1
-	_, err = s.CreateDatabase(ctx, createDbReq)
+	_, err = s.CreateDatabase(adminCtx, createDbReq)
 	require.Equal(t, fmt.Errorf("database %s already exists", someDb1), err)
 
 	// ChangePassword errors
@@ -1366,44 +1371,45 @@ func TestServerErrors(t *testing.T) {
 		OldPassword: passwordBytes,
 		NewPassword: password2Bytes,
 	}
-	_, err = s.ChangePassword(ctx, changePassReq)
+	_, err = s.ChangePassword(adminCtx, changePassReq)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
 	_, err = s.ChangePassword(context.Background(), changePassReq)
-	require.Equal(t, errors.New("please login first"), err)
+	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 
 	changePassReq.User = []byte(auth.SysAdminUsername)
 	changePassReq.OldPassword = []byte("incorrect")
-	_, err = s.ChangePassword(ctx, changePassReq)
+	_, err = s.ChangePassword(adminCtx, changePassReq)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "old password is incorrect")
 
 	changePassReq.User = usernameBytes
 	changePassReq.OldPassword = passwordBytes
-	_, err = s.ChangePassword(ctx2, changePassReq)
+	_, err = s.ChangePassword(userCtx, changePassReq)
 	require.Equal(t, errors.New("user is not system admin nor admin in any of the databases"), err)
 
 	changePassReq.User = nil
-	_, err = s.ChangePassword(ctx, changePassReq)
+	_, err = s.ChangePassword(adminCtx, changePassReq)
 	require.Equal(t, errors.New("username can not be empty"), err)
 
 	changePassReq.User = []byte("nonexistent")
-	_, err = s.ChangePassword(ctx, changePassReq)
+	_, err = s.ChangePassword(adminCtx, changePassReq)
 	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
 
-	_, err = s.ChangePermission(ctx, &schema.ChangePermissionRequest{
+	_, err = s.ChangePermission(adminCtx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Username:   username,
 		Database:   someDb1,
 		Permission: auth.PermissionAdmin,
 	})
 	require.NoError(t, err)
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+
+	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	require.NoError(t, err)
 	createUser2Req = &schema.CreateUserRequest{
@@ -1412,27 +1418,27 @@ func TestServerErrors(t *testing.T) {
 		Permission: auth.PermissionAdmin,
 		Database:   someDb1,
 	}
-	_, err = s.CreateUser(ctx, createUser2Req)
+	_, err = s.CreateUser(adminCtx, createUser2Req)
 	require.NoError(t, err)
+
 	changePassReq.User = username2Bytes
 	changePassReq.OldPassword = password2Bytes
 	password2New := []byte("$omePassword2New")
 	password2NewBytes := []byte(password2New)
 	changePassReq.NewPassword = password2NewBytes
-	_, err = s.ChangePassword(ctx2, changePassReq)
+	_, err = s.ChangePassword(userCtx, changePassReq)
 	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
 
 	// Not logged in errors on DB operations
 	emptyCtx := context.Background()
-	plsLoginErr := errors.New("please login first")
 	_, err = s.VerifiableZAdd(emptyCtx, &schema.VerifiableZAddRequest{})
-	require.Equal(t, plsLoginErr, err)
+	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 	_, err = s.SetReference(emptyCtx, &schema.ReferenceRequest{})
-	require.Equal(t, plsLoginErr, err)
+	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
 	_, err = s.UpdateMTLSConfig(emptyCtx, &schema.MTLSConfig{})
-	require.Equal(t, plsLoginErr, err)
+	require.Equal(t, ErrNotSupported.Error(), err.Error())
 	_, err = s.UpdateAuthConfig(emptyCtx, &schema.AuthConfig{})
-	require.Equal(t, plsLoginErr, err)
+	require.Equal(t, ErrNotSupported.Error(), err.Error())
 
 	// Login errors
 	s.Options.auth = false
@@ -1444,19 +1450,20 @@ func TestServerErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid user name or password")
 
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: false, Username: username})
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
+
 	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.Equal(t, "user is not active", err.Error())
-	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
+
+	_, err = s.SetActiveUser(adminCtx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
-	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+
+	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", lr.Token)
-	ctx2 = metadata.NewIncomingContext(context.Background(), md)
-
-	require.NoError(t, err)
+	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// setup PID
 	OS := s.OS.(*immuos.StandardOS)

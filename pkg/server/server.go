@@ -837,16 +837,6 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		s.addUserToLoginList(user)
 	}
 
-	//check if this user has permission on this database
-	//if sysadmin allow to continue
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) &&
-		(!user.HasPermission(req.DatabaseName, auth.PermissionR)) &&
-		(!user.HasPermission(req.DatabaseName, auth.PermissionRW)) {
-
-		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
-	}
-
 	dbid := sysDBIndex
 
 	if req.DatabaseName != SystemdbName {
@@ -855,6 +845,16 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		if dbid < 0 {
 			return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", req.DatabaseName))
 		}
+	}
+
+	//check if this user has permission on this database
+	//if sysadmin allow to continue
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionR)) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionRW)) {
+
+		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
 	token, err := auth.GenerateToken(*user, dbid, s.Options.TokenExpiryTimeMin)
@@ -887,7 +887,7 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 		if s.Options.GetMaintenance() && !s.Options.auth {
 			return nil, fmt.Errorf("please select database first")
 		}
-		return nil, fmt.Errorf("please login first")
+		return nil, ErrNotLoggedIn
 	}
 
 	if ind < 0 {

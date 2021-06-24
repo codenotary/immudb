@@ -60,7 +60,7 @@ func TestServerLogout(t *testing.T) {
 	err := s.Initialize()
 
 	_, err = s.Logout(context.Background(), &emptypb.Empty{})
-	if err == nil || err.Error() != "rpc error: code = Internal desc = no headers found on request" {
+	if err == nil || err.Error() != ErrNotLoggedIn.Message() {
 		t.Fatalf("Logout expected error, got %v", err)
 	}
 
