@@ -93,6 +93,8 @@ const (
 type SQLStmt interface {
 	isDDL() bool
 	CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error)
+	InferParameters(e *Engine) (map[string]SQLValueType, error)
+	inferParameters(e *Engine, params map[string]SQLValueType) error
 }
 
 type TxStmt struct {
@@ -106,6 +108,23 @@ func (stmt *TxStmt) isDDL() bool {
 		}
 	}
 	return false
+}
+
+func (stmt *TxStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	params := make(map[string]SQLValueType, 0)
+
+	for _, stmt := range stmt.stmts {
+		err := stmt.inferParameters(e, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return params, nil
+}
+
+func (stmt *TxStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
 }
 
 func (stmt *TxStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
@@ -136,6 +155,14 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 	return true
 }
 
+func (stmt *CreateDatabaseStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
+}
+
 func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.newDatabase(stmt.DB)
 	if err != nil {
@@ -160,6 +187,14 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 	return false
 }
 
+func (stmt *UseDatabaseStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *UseDatabaseStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
+}
+
 func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.GetDatabaseByName(stmt.DB)
 	if err != nil {
@@ -178,6 +213,14 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 	return false
 }
 
+func (stmt *UseSnapshotStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *UseSnapshotStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
+}
+
 func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	return nil, nil, nil, ErrNoSupported
 }
@@ -191,6 +234,14 @@ type CreateTableStmt struct {
 
 func (stmt *CreateTableStmt) isDDL() bool {
 	return true
+}
+
+func (stmt *CreateTableStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *CreateTableStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
 }
 
 func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
@@ -243,6 +294,14 @@ type CreateIndexStmt struct {
 
 func (stmt *CreateIndexStmt) isDDL() bool {
 	return true
+}
+
+func (stmt *CreateIndexStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *CreateIndexStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
 }
 
 func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
@@ -303,6 +362,14 @@ type AddColumnStmt struct {
 
 func (stmt *AddColumnStmt) isDDL() bool {
 	return true
+}
+
+func (stmt *AddColumnStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	return nil, nil
+}
+
+func (stmt *AddColumnStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	return nil
 }
 
 func (stmt *AddColumnStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
@@ -391,6 +458,22 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 
 func (stmt *UpsertIntoStmt) isDDL() bool {
 	return false
+}
+
+func (stmt *UpsertIntoStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	params := make(map[string]SQLValueType, 0)
+
+	err := stmt.inferParameters(e, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return params, nil
+}
+
+func (stmt *UpsertIntoStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	// TODO (jeroiraz): infer parameters from row values
+	return nil
 }
 
 func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
@@ -843,6 +926,22 @@ func (stmt *SelectStmt) isDDL() bool {
 
 func (stmt *SelectStmt) Limit() uint64 {
 	return stmt.limit
+}
+
+func (stmt *SelectStmt) InferParameters(e *Engine) (map[string]SQLValueType, error) {
+	params := make(map[string]SQLValueType, 0)
+
+	err := stmt.inferParameters(e, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return params, nil
+}
+
+func (stmt *SelectStmt) inferParameters(e *Engine, params map[string]SQLValueType) error {
+	// TODO (jeroiraz): infer parameters from where clause
+	return nil
 }
 
 func (stmt *SelectStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
