@@ -63,7 +63,7 @@ Your own temporary immudb web console access to start using immudb in an [online
 | Implementation design   | Cryptographic commit log with parallel Merkle Tree,| 
 |                         | (sync/async) indexing with extended B-tree         |
 | Implementation language | Go                                                 |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/O        |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
 | Embeddable              | Yes, optionally                                    |
 | Server APIs             | gRPC                                               |
 | Partition methods       | Sharding                                           |
