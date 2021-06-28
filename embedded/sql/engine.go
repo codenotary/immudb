@@ -55,6 +55,7 @@ var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrLimitedJoins = errors.New("joins limited to tables")
 var ErrInvalidJointColumn = errors.New("invalid joint column")
 var ErrJointColumnNotFound = errors.New("joint column not found")
+var ErrInvalidTypes = errors.New("invalid types")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
 var ErrHavingClauseRequiresGroupClause = errors.New("having clause requires group clause")
