@@ -1534,6 +1534,12 @@ func TestInferParameters(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
 	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
@@ -1541,6 +1547,9 @@ func TestInferParameters(t *testing.T) {
 	params, err := stmts[0].InferParameters(engine)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
+
+	_, _, err = engine.ExecPreparedStmts(stmts, nil, true)
+	require.NoError(t, err)
 
 	stmts, err = Parse(strings.NewReader("INSERT INTO mytable(id, title) VALUES (1, 'title1')"))
 	require.NoError(t, err)
