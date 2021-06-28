@@ -148,6 +148,10 @@ func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	return colDescriptors, nil
 }
 
+func (pr *projectedRowReader) inferParameters(params map[string]SQLValueType) error {
+	return pr.rowReader.inferParameters(params)
+}
+
 func (pr *projectedRowReader) Read() (*Row, error) {
 	if pr.limit > 0 && pr.read == pr.limit {
 		return nil, ErrNoMoreRows

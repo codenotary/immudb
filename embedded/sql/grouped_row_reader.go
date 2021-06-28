@@ -139,6 +139,10 @@ func zeroForType(t SQLValueType) TypedValue {
 	return nil
 }
 
+func (gr *groupedRowReader) inferParameters(params map[string]SQLValueType) error {
+	return gr.rowReader.inferParameters(params)
+}
+
 func (gr *groupedRowReader) Read() (*Row, error) {
 	for {
 		row, err := gr.rowReader.Read()
