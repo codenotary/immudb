@@ -108,6 +108,32 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	return colDescriptors, nil
 }
 
+func (jointr *jointRowReader) inferParameters(params map[string]SQLValueType) error {
+	err := jointr.rowReader.inferParameters(params)
+	if err != nil {
+		return err
+	}
+
+	for _, join := range jointr.joins {
+		err = join.ds.inferParameters(jointr.e, jointr.implicitDB, params)
+		if err != nil {
+			return err
+		}
+
+		cols, err := jointr.colsBySelector()
+		if err != nil {
+			return err
+		}
+
+		_, err = join.cond.inferType(cols, jointr.ImplicitDB(), jointr.ImplicitTable(), params)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
 func (jointr *jointRowReader) Read() (*Row, error) {
 	for {
 		row, err := jointr.rowReader.Read()

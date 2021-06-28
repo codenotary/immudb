@@ -28,6 +28,7 @@ type RowReader interface {
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
+	inferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]*ColDescriptor, error)
 }
 
@@ -176,6 +177,10 @@ func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
 
 func (r *rawRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	return r.colsBySel, nil
+}
+
+func (r *rawRowReader) inferParameters(params map[string]SQLValueType) error {
+	return nil
 }
 
 func (r *rawRowReader) Read() (row *Row, err error) {

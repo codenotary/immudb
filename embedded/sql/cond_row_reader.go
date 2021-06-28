@@ -50,6 +50,22 @@ func (cr *conditionalRowReader) colsBySelector() (map[string]*ColDescriptor, err
 	return cr.rowReader.colsBySelector()
 }
 
+func (cr *conditionalRowReader) inferParameters(params map[string]SQLValueType) error {
+	err := cr.rowReader.inferParameters(params)
+	if err != nil {
+		return err
+	}
+
+	cols, err := cr.colsBySelector()
+	if err != nil {
+		return err
+	}
+
+	_, err = cr.condition.inferType(cols, cr.ImplicitDB(), cr.ImplicitTable(), params)
+
+	return err
+}
+
 func (cr *conditionalRowReader) Read() (*Row, error) {
 	for {
 		row, err := cr.rowReader.Read()
