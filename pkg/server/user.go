@@ -559,6 +559,8 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
+	s.userdata.Lock()
+	defer s.userdata.Unlock()
 	jsUser, err := auth.GetLoggedInUser(ctx)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
