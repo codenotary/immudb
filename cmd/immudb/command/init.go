@@ -48,6 +48,12 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Int("web-server-port", options.WebServerPort, "web/console server port")
 	cmd.Flags().Bool("pgsql-server", true, "enable or disable pgsql server")
 	cmd.Flags().Int("pgsql-server-port", 5432, "pgsql server port")
+	cmd.Flags().Bool("s3-storage", false, "enable or disable s3 storage")
+	cmd.Flags().String("s3-endpoint", "", "s3 endpoint")
+	cmd.Flags().String("s3-access-key-id", "", "s3 access key id")
+	cmd.Flags().String("s3-secret-key", "", "s3 secret access key")
+	cmd.Flags().String("s3-bucket-name", "", "s3 bucket name")
+	cmd.Flags().String("s3-path-prefix", "", "s3 path prefix (multiple immudb instances can share the same bucket if they have different prefixes)")
 }
 
 func setupDefaults(options *server.Options) {
@@ -73,4 +79,10 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("web-server-port", options.WebServerPort)
 	viper.SetDefault("pgsql-server", true)
 	viper.SetDefault("pgsql-server-port", 5432)
+	viper.SetDefault("s3-storage", false)
+	viper.SetDefault("s3-endpoint", "")
+	viper.SetDefault("s3-access-key-id", "")
+	viper.SetDefault("s3-secret-key", "")
+	viper.SetDefault("s3-bucket-name", "")
+	viper.SetDefault("s3-path-prefix", "")
 }

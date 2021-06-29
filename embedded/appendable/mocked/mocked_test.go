@@ -64,6 +64,13 @@ func TestMocked(t *testing.T) {
 		return nil
 	}
 
+	mocked.CompressionFormatFn = func() int {
+		return 999
+	}
+	mocked.CompressionLevelFn = func() int {
+		return 998
+	}
+
 	md := mocked.Metadata()
 	require.Nil(t, md)
 
@@ -97,4 +104,7 @@ func TestMocked(t *testing.T) {
 
 	err = mocked.Close()
 	require.NoError(t, err)
+
+	require.Equal(t, 999, mocked.CompressionFormat())
+	require.Equal(t, 998, mocked.CompressionLevel())
 }

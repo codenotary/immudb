@@ -196,23 +196,28 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		WithFileMode(opts.fileMode).
 		WithMetadata(metadata.Bytes())
 
+	appFactory := opts.appFactory
+	if appFactory == nil {
+		appFactory = func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			path := filepath.Join(rootPath, subPath)
+			return multiapp.Open(path, opts)
+		}
+	}
+
 	appendableOpts.WithFileExt("n")
-	nLogPath := filepath.Join(path, "nodes")
-	nLog, err := multiapp.Open(nLogPath, appendableOpts)
+	nLog, err := appFactory(path, "nodes", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("hx")
-	hLogPath := filepath.Join(path, "history")
-	hLog, err := multiapp.Open(hLogPath, appendableOpts)
+	hLog, err := appFactory(path, "history", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("ri")
-	cLogPath := filepath.Join(path, "commit")
-	cLog, err := multiapp.Open(cLogPath, appendableOpts)
+	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
 		return nil, err
 	}

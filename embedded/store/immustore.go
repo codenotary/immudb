@@ -68,6 +68,8 @@ var ErrUnexpectedError = errors.New("unexpected error")
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
+var ErrCompactionUnsupported = errors.New("comapction is unsupported when remote storage is used")
+
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 
 const MaxParallelIO = 127
@@ -145,6 +147,8 @@ type ImmuStore struct {
 	done   chan (struct{})
 
 	mutex sync.Mutex
+
+	compactionDisabled bool
 }
 
 type refVLog struct {
@@ -202,11 +206,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		WithFileMode(opts.FileMode).
 		WithMetadata(metadata.Bytes())
 
+	appFactory := opts.appFactory
+	if appFactory == nil {
+		appFactory = func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			path := filepath.Join(rootPath, subPath)
+			return multiapp.Open(path, opts)
+		}
+	}
+
 	appendableOpts.WithFileExt("tx")
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
-	txLogPath := filepath.Join(path, "tx")
-	txLog, err := multiapp.Open(txLogPath, appendableOpts)
+	txLog, err := appFactory(path, "tx", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -214,8 +225,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.WithFileExt("txi")
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
-	cLogPath := filepath.Join(path, "commit")
-	cLog, err := multiapp.Open(cLogPath, appendableOpts)
+	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +237,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
 		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
 		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
-		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
-		vLog, err := multiapp.Open(vLogPath, appendableOpts)
+		vLog, err := appFactory(path, fmt.Sprintf("val_%d", i), appendableOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -342,6 +351,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithFileSize(fileSize).
 		WithSynced(opts.Synced) // built from derived data, but temporarily to reduce chances of data inconsistencies
 
+	if opts.appFactory != nil {
+		ahtOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
+			return opts.appFactory(path, filepath.Join(ahtDirname, subPath), appOpts)
+		})
+	}
+
 	aht, err := ahtree.Open(ahtPath, ahtOpts)
 	if err != nil {
 		return nil, err
@@ -396,6 +411,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		_txbs: txbs,
 
 		done: make(chan struct{}),
+
+		compactionDisabled: opts.CompactionDisabled,
 	}
 
 	err = store.wHub.DoneUpto(committedTxID)
@@ -416,6 +433,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+
+	if opts.appFactory != nil {
+		opts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
+			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
+		})
+	}
 
 	indexPath := filepath.Join(store.path, indexDirname)
 
@@ -614,6 +637,9 @@ func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{
 }
 
 func (s *ImmuStore) CompactIndex() error {
+	if s.compactionDisabled {
+		return ErrCompactionUnsupported
+	}
 	return s.indexer.CompactIndex()
 }
 

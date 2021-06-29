@@ -16,16 +16,18 @@ limitations under the License.
 package mocked
 
 type MockedAppendable struct {
-	MetadataFn  func() []byte
-	SizeFn      func() (int64, error)
-	OffsetFn    func() int64
-	SetOffsetFn func(off int64) error
-	AppendFn    func(bs []byte) (off int64, n int, err error)
-	FlushFn     func() error
-	SyncFn      func() error
-	ReadAtFn    func(bs []byte, off int64) (int, error)
-	CopyFn      func(dstPath string) error
-	CloseFn     func() error
+	MetadataFn          func() []byte
+	SizeFn              func() (int64, error)
+	OffsetFn            func() int64
+	SetOffsetFn         func(off int64) error
+	AppendFn            func(bs []byte) (off int64, n int, err error)
+	FlushFn             func() error
+	SyncFn              func() error
+	ReadAtFn            func(bs []byte, off int64) (int, error)
+	CopyFn              func(dstPath string) error
+	CloseFn             func() error
+	CompressionFormatFn func() int
+	CompressionLevelFn  func() int
 }
 
 func (a *MockedAppendable) Metadata() []byte {
@@ -66,4 +68,12 @@ func (a *MockedAppendable) ReadAt(bs []byte, off int64) (int, error) {
 
 func (a *MockedAppendable) Close() error {
 	return a.CloseFn()
+}
+
+func (a *MockedAppendable) CompressionFormat() int {
+	return a.CompressionFormatFn()
+}
+
+func (a MockedAppendable) CompressionLevel() int {
+	return a.CompressionLevelFn()
 }

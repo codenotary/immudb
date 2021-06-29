@@ -733,6 +733,15 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
+	opts := DefaultOptions().WithCompactionDisabled(true)
+	immuStore, err := Open("data_historical", opts)
+	require.NoError(t, err)
+
+	err = immuStore.CompactIndex()
+	require.Equal(t, ErrCompactionUnsupported, err)
+}
+
 func TestImmudbStoreInclusionProof(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_inclusion_proof", opts)

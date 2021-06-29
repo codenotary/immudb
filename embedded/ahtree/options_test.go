@@ -18,6 +18,8 @@ package ahtree
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,6 +35,10 @@ func TestDefaultOptions(t *testing.T) {
 func TestValidOptions(t *testing.T) {
 	opts := &Options{}
 
+	dummyAppFactory := func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		return nil, nil
+	}
+
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).fileSize)
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).fileMode)
 	require.Equal(t, DefaultCompressionFormat, opts.WithCompressionFormat(DefaultCompressionFormat).compressionFormat)
@@ -40,6 +46,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultDataCacheSlots, opts.WithDataCacheSlots(DefaultDataCacheSlots).dataCacheSlots)
 	require.Equal(t, DefaultDigestsCacheSlots, opts.WithDigestsCacheSlots(DefaultDigestsCacheSlots).digestsCacheSlots)
 	require.True(t, opts.WithSynced(true).synced)
+	require.NotNil(t, opts.WithAppFactory(dummyAppFactory).appFactory)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.True(t, validOptions(opts))

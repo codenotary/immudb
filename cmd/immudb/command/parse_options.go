@@ -51,7 +51,23 @@ func parseOptions() (options *server.Options, err error) {
 	pgsqlServer := viper.GetBool("pgsql-server")
 	pgsqlServerPort := viper.GetInt("pgsql-server-port")
 
-	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
+	s3Storage := viper.GetBool("s3-storage")
+	s3Endpoint := viper.GetString("s3-endpoint")
+	s3AccessKeyID := viper.GetString("s3-access-key-id")
+	s3SecretKey := viper.GetString("s3-secret-key")
+	s3BucketName := viper.GetString("s3-bucket-name")
+	s3PathPrefix := viper.GetString("s3-path-prefix")
+
+	remoteStorageOptions := server.DefaultRemoteStorageOptions().
+		WithS3Storage(s3Storage).
+		WithS3Endpoint(s3Endpoint).
+		WithS3AccessKeyID(s3AccessKeyID).
+		WithS3SecretKey(s3SecretKey).
+		WithS3BucketName(s3BucketName).
+		WithS3PathPrefix(s3PathPrefix)
+
+	storeOpts := server.DefaultStoreOptions().
+		WithSynced(synced)
 
 	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
 	if err != nil {
@@ -75,6 +91,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithMaintenance(maintenance).
 		WithSigningKey(signingKey).
 		WithStoreOptions(storeOpts).
+		WithRemoteStorageOptions(remoteStorageOptions).
 		WithTokenExpiryTime(tokenExpTime).
 		WithWebServer(webServer).
 		WithWebServerPort(webServerPort).

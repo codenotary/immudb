@@ -46,4 +46,6 @@ type Appendable interface {
 	ReadAt(bs []byte, off int64) (int, error)
 	Close() error
 	Copy(dstPath string) error
+	CompressionFormat() int
+	CompressionLevel() int
 }

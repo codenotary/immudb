@@ -40,11 +40,20 @@ const DefaultMaxWaitees = 1000
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
+type AppFactoryFunc func(
+	rootPath string,
+	subPath string,
+	opts *multiapp.Options,
+) (appendable.Appendable, error)
+
 type Options struct {
 	ReadOnly bool
 	Synced   bool
 	FileMode os.FileMode
 	log      logger.Logger
+
+	appFactory         AppFactoryFunc
+	CompactionDisabled bool
 
 	MaxConcurrency    int
 	MaxIOConcurrency  int
@@ -175,6 +184,16 @@ func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 
 func (opts *Options) WithLog(log logger.Logger) *Options {
 	opts.log = log
+	return opts
+}
+
+func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
+	opts.appFactory = appFactory
+	return opts
+}
+
+func (opts *Options) WithCompactionDisabled(disabled bool) *Options {
+	opts.CompactionDisabled = disabled
 	return opts
 }
 

@@ -79,7 +79,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	options := database.DefaultOption()
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer()
-	err := s.loadDefaultDatabase(dbRootpath)
+	err := s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
@@ -103,12 +103,12 @@ func TestServerReOpen(t *testing.T) {
 		os.RemoveAll(dbRootpath)
 	}()
 
-	err := s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
 
-	err = s.loadDefaultDatabase(dbRootpath)
+	err = s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
@@ -120,12 +120,12 @@ func TestServerReOpen(t *testing.T) {
 
 	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
-	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
 
-	err = s.loadDefaultDatabase(dbRootpath)
+	err = s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
@@ -142,12 +142,12 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
-	err := s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
 
-	err = s.loadDefaultDatabase(dbRootpath)
+	err = s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}

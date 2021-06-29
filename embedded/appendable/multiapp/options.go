@@ -103,3 +103,11 @@ func (opt *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opt.compressionLevel = compressionLevel
 	return opt
 }
+
+func (opt *Options) GetFileExt() string {
+	return opt.fileExt
+}
+
+func (opt *Options) GetFileMode() os.FileMode {
+	return opt.fileMode
+}

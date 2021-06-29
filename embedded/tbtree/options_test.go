@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,4 +53,19 @@ func TestValidOptions(t *testing.T) {
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
 	require.True(t, validOptions(opts))
+	require.Nil(t, opts.WithAppFactory(nil).appFactory)
+	require.True(t, validOptions(opts))
+
+	appFactoryCalled := false
+	appFactory := func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		appFactoryCalled = true
+		return nil, nil
+	}
+
+	require.NotNil(t, opts.WithAppFactory(appFactory).appFactory)
+	require.True(t, validOptions(opts))
+
+	opts.appFactory("", "", nil)
+	require.True(t, appFactoryCalled)
+
 }

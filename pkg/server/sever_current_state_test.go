@@ -41,12 +41,12 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	stSig := NewStateSigner(sig)
 	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
 
-	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = s.loadDefaultDatabase(dbRootpath)
+	err = s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -34,67 +34,78 @@ const DefaultdbName = "defaultdb"
 
 // Options server options list
 type Options struct {
-	Dir                 string
-	Network             string
-	Address             string
-	Port                int
-	MetricsPort         int
-	Config              string
-	Pidfile             string
-	Logfile             string
-	TLSConfig           *tls.Config
-	auth                bool
-	MaxRecvMsgSize      int
-	NoHistograms        bool
-	Detached            bool
-	MetricsServer       bool
-	WebServer           bool
-	WebServerPort       int
-	DevMode             bool
-	AdminPassword       string `json:"-"`
-	systemAdminDbName   string
-	defaultDbName       string
-	listener            net.Listener
-	usingCustomListener bool
-	maintenance         bool
-	SigningKey          string
-	StoreOptions        *store.Options
-	StreamChunkSize     int
-	TokenExpiryTimeMin  int
-	PgsqlServer         bool
-	PgsqlServerPort     int
+	Dir                  string
+	Network              string
+	Address              string
+	Port                 int
+	MetricsPort          int
+	Config               string
+	Pidfile              string
+	Logfile              string
+	TLSConfig            *tls.Config
+	auth                 bool
+	MaxRecvMsgSize       int
+	NoHistograms         bool
+	Detached             bool
+	MetricsServer        bool
+	WebServer            bool
+	WebServerPort        int
+	DevMode              bool
+	AdminPassword        string `json:"-"`
+	systemAdminDbName    string
+	defaultDbName        string
+	listener             net.Listener
+	usingCustomListener  bool
+	maintenance          bool
+	SigningKey           string
+	StoreOptions         *store.Options
+	RemoteStorageOptions *RemoteStorageOptions
+	StreamChunkSize      int
+	TokenExpiryTimeMin   int
+	PgsqlServer          bool
+	PgsqlServerPort      int
+}
+
+type RemoteStorageOptions struct {
+	S3Storage     bool
+	S3Endpoint    string
+	S3AccessKeyID string
+	S3SecretKey   string `json:"-"`
+	S3BucketName  string
+	S3PathPrefix  string
 }
 
 // DefaultOptions returns default server options
 func DefaultOptions() *Options {
 	return &Options{
-		Dir:                 "./data",
-		Network:             "tcp",
-		Address:             "0.0.0.0",
-		Port:                3322,
-		MetricsPort:         9497,
-		WebServerPort:       8080,
-		Config:              "configs/immudb.toml",
-		Pidfile:             "",
-		Logfile:             "",
-		TLSConfig:           &tls.Config{},
-		auth:                true,
-		MaxRecvMsgSize:      1024 * 1024 * 32, // 32Mb
-		NoHistograms:        false,
-		Detached:            false,
-		MetricsServer:       true,
-		WebServer:           true,
-		DevMode:             false,
-		AdminPassword:       auth.SysAdminPassword,
-		systemAdminDbName:   SystemdbName,
-		defaultDbName:       DefaultdbName,
-		usingCustomListener: false,
-		maintenance:         false,
-		StoreOptions:        DefaultStoreOptions(),
-		StreamChunkSize:     stream.DefaultChunkSize,
-		TokenExpiryTimeMin:  1440,
-		PgsqlServer:         false,
-		PgsqlServerPort:     5432,
+		Dir:                  "./data",
+		Network:              "tcp",
+		Address:              "0.0.0.0",
+		Port:                 3322,
+		MetricsPort:          9497,
+		WebServerPort:        8080,
+		Config:               "configs/immudb.toml",
+		Pidfile:              "",
+		Logfile:              "",
+		TLSConfig:            &tls.Config{},
+		auth:                 true,
+		MaxRecvMsgSize:       1024 * 1024 * 32, // 32Mb
+		NoHistograms:         false,
+		Detached:             false,
+		MetricsServer:        true,
+		WebServer:            true,
+		DevMode:              false,
+		AdminPassword:        auth.SysAdminPassword,
+		systemAdminDbName:    SystemdbName,
+		defaultDbName:        DefaultdbName,
+		usingCustomListener:  false,
+		maintenance:          false,
+		StoreOptions:         DefaultStoreOptions(),
+		RemoteStorageOptions: DefaultRemoteStorageOptions(),
+		StreamChunkSize:      stream.DefaultChunkSize,
+		TokenExpiryTimeMin:   1440,
+		PgsqlServer:          false,
+		PgsqlServerPort:      5432,
 	}
 }
 
@@ -105,6 +116,12 @@ func DefaultStoreOptions() *store.Options {
 		WithMaxLinearProofLen(0).
 		WithMaxConcurrency(10).
 		WithMaxValueLen(32 << 20)
+}
+
+func DefaultRemoteStorageOptions() *RemoteStorageOptions {
+	return &RemoteStorageOptions{
+		S3Storage: false,
+	}
 }
 
 // WithDir sets dir
@@ -235,6 +252,12 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Default database", o.defaultDbName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
 	opts = append(opts, rightPad("Synced mode", o.StoreOptions.Synced))
+	if o.RemoteStorageOptions.S3Storage {
+		opts = append(opts, "S3 storage")
+		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
+		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
+		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
+	}
 	opts = append(opts, "----------------------------------------")
 	opts = append(opts, "Superadmin default credentials")
 	opts = append(opts, rightPad("   Username", auth.SysAdminUsername))
@@ -331,4 +354,41 @@ func (o *Options) WithPgsqlServer(enable bool) *Options {
 func (o *Options) WithPgsqlServerPort(port int) *Options {
 	o.PgsqlServerPort = port
 	return o
+}
+
+func (o *Options) WithRemoteStorageOptions(remoteStorageOptions *RemoteStorageOptions) *Options {
+	o.RemoteStorageOptions = remoteStorageOptions
+	return o
+}
+
+// RemoteStorageOptions
+
+func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOptions {
+	opts.S3Storage = S3Storage
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3Endpoint(s3Endpoint string) *RemoteStorageOptions {
+	opts.S3Endpoint = s3Endpoint
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3AccessKeyID(s3AccessKeyID string) *RemoteStorageOptions {
+	opts.S3AccessKeyID = s3AccessKeyID
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3SecretKey(s3SecretKey string) *RemoteStorageOptions {
+	opts.S3SecretKey = s3SecretKey
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3BucketName(s3BucketName string) *RemoteStorageOptions {
+	opts.S3BucketName = s3BucketName
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteStorageOptions {
+	opts.S3PathPrefix = s3PathPrefix
+	return opts
 }

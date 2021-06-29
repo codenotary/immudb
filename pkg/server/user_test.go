@@ -18,14 +18,15 @@ package server
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"os"
-	"testing"
 )
 
 func TestServerLogin(t *testing.T) {
@@ -115,13 +116,13 @@ func TestServerListUsersAdmin(t *testing.T) {
 	s.dbList = database.NewDatabaseList()
 	s.sysDb = nil
 
-	err = s.loadSystemDatabase(s.Options.Dir, auth.SysAdminPassword)
+	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword)
 	require.NoError(t, err)
 
-	err = s.loadDefaultDatabase(s.Options.Dir)
+	err = s.loadDefaultDatabase(s.Options.Dir, nil)
 	require.NoError(t, err)
 
-	err = s.loadUserDatabases(s.Options.Dir)
+	err = s.loadUserDatabases(s.Options.Dir, nil)
 	require.NoError(t, err)
 
 	users1, err := s.ListUsers(ctx, &emptypb.Empty{})

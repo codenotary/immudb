@@ -19,6 +19,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -34,6 +36,12 @@ const DefaultCompactionThld = 2
 
 const MinNodeSize = 128
 const MinCacheSize = 1
+
+type AppFactoryFunc func(
+	rootPath string,
+	subPath string,
+	opts *multiapp.Options,
+) (appendable.Appendable, error)
 
 type Options struct {
 	log logger.Logger
@@ -54,6 +62,8 @@ type Options struct {
 	// options below are only set during initialization and stored as metadata
 	maxNodeSize int
 	fileSize    int
+
+	appFactory AppFactoryFunc
 }
 
 func DefaultOptions() *Options {
@@ -90,6 +100,11 @@ func validOptions(opts *Options) bool {
 
 func (opts *Options) WithLog(log logger.Logger) *Options {
 	opts.log = log
+	return opts
+}
+
+func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
+	opts.appFactory = appFactory
 	return opts
 }
 

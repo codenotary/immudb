@@ -103,23 +103,28 @@ func Open(path string, opts *Options) (*AHtree, error) {
 		WithFileMode(opts.fileMode).
 		WithMetadata(metadata.Bytes())
 
+	appFactory := opts.appFactory
+	if appFactory == nil {
+		appFactory = func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			path := filepath.Join(rootPath, subPath)
+			return multiapp.Open(path, opts)
+		}
+	}
+
 	appendableOpts.WithFileExt("dat")
-	pLogPath := filepath.Join(path, "data")
-	pLog, err := multiapp.Open(pLogPath, appendableOpts)
+	pLog, err := appFactory(path, "data", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("sha")
-	dLogPath := filepath.Join(path, "tree")
-	dLog, err := multiapp.Open(dLogPath, appendableOpts)
+	dLog, err := appFactory(path, "tree", appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("di")
-	cLogPath := filepath.Join(path, "commit")
-	cLog, err := multiapp.Open(cLogPath, appendableOpts)
+	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
 		return nil, err
 	}

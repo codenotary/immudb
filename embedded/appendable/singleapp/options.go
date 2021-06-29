@@ -70,6 +70,14 @@ func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 	return opts
 }
 
+func (opts *Options) GetCompressionFormat() int {
+	return opts.compressionFormat
+}
+
+func (opts *Options) GetCompressionLevel() int {
+	return opts.compressionLevel
+}
+
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
 	return opts

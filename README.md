@@ -103,6 +103,46 @@ docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 
 If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
 
+### Enabling S3 storage
+
+immudb can store its data in the Amazon S3 service (or a compatible alternative).
+The following example shows how to run immudb with the S3 storage enabled:
+
+```bash
+export IMMUDB_S3_STORAGE=true
+export IMMUDB_S3_ACCESS_KEY_ID=<S3 ACCESS KEY ID>
+export IMMUDB_S3_SECRET_KEY=<SECRET KEY>
+export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
+export IMMUDB_S3_PATH_PREFIX=testing-001
+export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.amazonaws.com"
+
+./immudb
+```
+
+You can also easily use immudb with compatible s3 alternatives
+such as the [minio](https://github.com/minio/minio) server:
+
+```bash
+export IMMUDB_S3_ACCESS_KEY_ID=minioadmin
+export IMMUDB_S3_SECRET_KEY=minioadmin
+export IMMUDB_S3_STORAGE=true
+export IMMUDB_S3_BUCKET_NAME=immudb-bucket
+export IMMUDB_S3_PATH_PREFIX=testing-001
+export IMMUDB_S3_ENDPOINT="http://localhost:9000"
+
+# Note: This spawns a temporary minio server without data persistence
+docker run -d -p 9000:9000 minio/minio server /data
+
+# Create the bucket - this can also be done through web console at http://localhost:9000
+docker run --net=host -it --entrypoint /bin/sh minio/mc -c "
+  mc alias set local http://localhost:9000 minioadmin minioadmin &&
+  mc mb local/${IMMUDB_S3_BUCKET_NAME}
+"
+
+# Run immudb instance
+./immudb
+```
+
 ### Connecting with immuclient
 
 You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:

@@ -18,7 +18,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -30,6 +29,9 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/pkg/errors"
 
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 
@@ -87,17 +89,31 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	dataDir := s.Options.Dir
-
-	if err = s.loadSystemDatabase(dataDir, adminPassword); err != nil {
-		return logErr(s.Logger, "Unable load system database: %v", err)
+	err = os.MkdirAll(dataDir, s.Options.StoreOptions.FileMode)
+	if err != nil {
+		return logErr(s.Logger, "Unable to create data dir: %v", err)
 	}
 
-	if err = s.loadDefaultDatabase(dataDir); err != nil {
-		return logErr(s.Logger, "Unable load default database: %v", err)
+	remoteStorage, err := s.createRemoteStorageInstance()
+	if err != nil {
+		return logErr(s.Logger, "Unable to open remote storage: %v", err)
 	}
 
-	if err = s.loadUserDatabases(dataDir); err != nil {
-		return logErr(s.Logger, "Unable load databases: %v", err)
+	err = s.initializeRemoteStorage(remoteStorage)
+	if err != nil {
+		return logErr(s.Logger, "Unable to initialize remote storage: %v", err)
+	}
+
+	if err = s.loadSystemDatabase(dataDir, remoteStorage, adminPassword); err != nil {
+		return logErr(s.Logger, "Unable to load system database: %v", err)
+	}
+
+	if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
+		return logErr(s.Logger, "Unable to load default database: %v", err)
+	}
+
+	if err = s.loadUserDatabases(dataDir, remoteStorage); err != nil {
+		return logErr(s.Logger, "Unable to load databases: %v", err)
 	}
 
 	s.multidbmode = s.mandatoryAuth()
@@ -132,6 +148,12 @@ func (s *ImmuServer) Initialize() error {
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
 	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
+	}
+	if remoteStorage != nil {
+		err := s.updateRemoteUUID(remoteStorage)
+		if err != nil {
+			return logErr(s.Logger, "Unable to persist uuid on the remote storage: %v", err)
+		}
 	}
 
 	auth.AuthEnabled = s.Options.GetAuth()
@@ -316,14 +338,16 @@ func (s *ImmuServer) printUsageCallToAction() {
 	}
 }
 
-func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) error {
+func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestorage.Storage, adminPassword string) error {
 	if s.dbList.Length() != 0 {
 		panic("loadSystemDatabase should be called before any other database loading")
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDbName())
 
-	storeOpts := DefaultStoreOptions().WithSynced(true)
+	// Do a copy of storeOpts to avoid modification of the original ones
+	storeOpts := s.storeOptionsForDb(s.Options.GetSystemAdminDbName(), remoteStorage).
+		WithSynced(true)
 
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetSystemAdminDbName()).
@@ -359,7 +383,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 }
 
 //loadDefaultDatabase
-func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
+func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotestorage.Storage) error {
 	if s.dbList.Length() != 0 {
 		panic("loadDefaultDatabase should be called right after loading systemDatabase")
 	}
@@ -370,7 +394,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		WithDbName(s.Options.GetDefaultDbName()).
 		WithDbRootPath(dataDir).
 		WithDbRootPath(s.Options.Dir).
-		WithStoreOptions(s.Options.StoreOptions)
+		WithStoreOptions(s.storeOptionsForDb(s.Options.GetDefaultDbName(), remoteStorage))
 
 	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
 	if s.OS.IsNotExist(defaultDbErr) {
@@ -392,7 +416,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 	return nil
 }
 
-func (s *ImmuServer) loadUserDatabases(dataDir string) error {
+func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestorage.Storage) error {
 	var dirs []string
 
 	//get first level sub directories of data dir
@@ -422,7 +446,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			WithDbName(dbname).
 			WithDbRootPath(dataDir).
 			WithDbRootPath(s.Options.Dir).
-			WithStoreOptions(s.Options.StoreOptions)
+			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage))
 
 		db, err := database.OpenDb(op, s.sysDb, s.Logger)
 		if err != nil {

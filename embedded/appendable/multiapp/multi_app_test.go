@@ -17,6 +17,7 @@ package multiapp
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -302,4 +303,23 @@ func TestMultiAppAppendableForCurrentChunk(t *testing.T) {
 	app, err := a.appendableFor(11)
 	require.NoError(t, err)
 	require.Equal(t, a.currApp, app)
+}
+
+func TestMultiappOpenIncorrectPath(t *testing.T) {
+	require.NoError(t, ioutil.WriteFile("testfile", []byte{}, 0777))
+	defer os.Remove("testfile")
+
+	a, err := Open("testfile", DefaultOptions())
+	require.Error(t, err)
+	require.Nil(t, a)
+}
+
+func TestMultiappOpenFolderWithBogusFiles(t *testing.T) {
+	require.NoError(t, os.MkdirAll("test_bogus_dir", 0777))
+	defer os.RemoveAll("test_bogus_dir")
+	require.NoError(t, ioutil.WriteFile("test_bogus_dir/bogus_file", []byte{}, 0777))
+
+	a, err := Open("test_bogus_dir", DefaultOptions())
+	require.Error(t, err)
+	require.Nil(t, a)
 }

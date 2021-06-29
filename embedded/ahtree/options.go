@@ -29,10 +29,18 @@ const DefaultDigestsCacheSlots = 100_000
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
+type AppFactoryFunc func(
+	rootPath string,
+	subPath string,
+	opts *multiapp.Options,
+) (appendable.Appendable, error)
+
 type Options struct {
 	readOnly bool
 	synced   bool
 	fileMode os.FileMode
+
+	appFactory AppFactoryFunc
 
 	dataCacheSlots    int
 	digestsCacheSlots int
@@ -102,5 +110,10 @@ func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
+	return opts
+}
+
+func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
+	opts.appFactory = appFactory
 	return opts
 }
