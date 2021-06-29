@@ -42,6 +42,18 @@ const (
 	metaWrappedMeta = "WRAPPED_METADATA"
 )
 
+type MultiFileAppendableHooks interface {
+	OpenAppendable(options *singleapp.Options, appname string, needsWriteAccess bool) (appendable.Appendable, error)
+}
+
+type DefaultMultiFileAppendableHooks struct {
+	path string
+}
+
+func (d *DefaultMultiFileAppendableHooks) OpenAppendable(options *singleapp.Options, appname string, needsWriteAccess bool) (appendable.Appendable, error) {
+	return singleapp.Open(filepath.Join(d.path, appname), options)
+}
+
 type MultiFileAppendable struct {
 	appendables appendableLRUCache
 
@@ -56,6 +68,8 @@ type MultiFileAppendable struct {
 	fileExt  string
 
 	closed bool
+
+	hooks MultiFileAppendableHooks
 
 	mutex sync.Mutex
 }
@@ -123,6 +137,10 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
+	hooks := &DefaultMultiFileAppendableHooks{
+		path: path,
+	}
+
 	return &MultiFileAppendable{
 		appendables: appendableLRUCache{cache: cache},
 		currAppID:   currAppID,
@@ -134,6 +152,7 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		fileSize:    fileSize,
 		fileExt:     opts.fileExt,
 		closed:      false,
+		hooks:       hooks,
 	}, nil
 }
 
@@ -266,16 +285,17 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 				if err != nil {
 					return off, n, err
 				}
+
 			}
 
 			mf.currAppID++
-			currApp, err := mf.openAppendable(appendableName(mf.currAppID, mf.fileExt))
+			currApp, err := mf.openAppendable(appendableName(mf.currAppID, mf.fileExt), true)
 			if err != nil {
 				return off, n, err
 			}
 			currApp.SetOffset(0)
 
-			mf.currApp = currApp
+			mf.currApp = currApp.(*singleapp.AppendableFile)
 
 			available = mf.fileSize
 		}
@@ -303,7 +323,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return
 }
 
-func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.AppendableFile, error) {
+func (mf *MultiFileAppendable) openAppendable(appname string, needsWriteAccess bool) (appendable.Appendable, error) {
 	appendableOpts := singleapp.DefaultOptions().
 		WithReadOnly(mf.readOnly).
 		WithSynced(mf.synced).
@@ -312,7 +332,7 @@ func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.Append
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
 		WithMetadata(mf.currApp.Metadata())
 
-	return singleapp.Open(filepath.Join(mf.path, appname), appendableOpts)
+	return mf.hooks.OpenAppendable(appendableOpts, appname, needsWriteAccess)
 }
 
 func (mf *MultiFileAppendable) Offset() int64 {
@@ -333,7 +353,7 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 	appID := appendableID(off, mf.fileSize)
 
 	if mf.currAppID != appID {
-		app, err := mf.openAppendable(appendableName(appID, mf.fileExt))
+		app, err := mf.openAppendable(appendableName(appID, mf.fileExt), true)
 		if err != nil {
 			return err
 		}
@@ -351,7 +371,7 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 		}
 
 		mf.currAppID = appID
-		mf.currApp = app
+		mf.currApp = app.(*singleapp.AppendableFile)
 	}
 
 	return mf.currApp.SetOffset(off % int64(mf.fileSize))
@@ -378,7 +398,7 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 			return nil, err
 		}
 
-		app, err = mf.openAppendable(appendableName(appID, mf.fileExt))
+		app, err = mf.openAppendable(appendableName(appID, mf.fileExt), false)
 		if err != nil {
 			return nil, err
 		}
