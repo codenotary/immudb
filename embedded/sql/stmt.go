@@ -1008,7 +1008,18 @@ func (v *Param) inferType(cols map[string]*ColDescriptor, implicitDB, implicitTa
 }
 
 func (v *Param) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	currT, ok := params[v.id]
+	if !ok {
+		return ErrUnexpected
+	}
 
+	if currT != t && currT != Any {
+		return ErrIllegalArguments
+	}
+
+	params[v.id] = t
+
+	return nil
 }
 
 func (p *Param) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
@@ -1118,6 +1129,7 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 	if err != nil {
 		return err
 	}
+	defer rowReader.Close()
 
 	return rowReader.inferParameters(params)
 }
@@ -1407,6 +1419,10 @@ func (sel *ColSelector) inferType(cols map[string]*ColDescriptor, implicitDB, im
 	return desc.Type, nil
 }
 
+func (sel *ColSelector) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	return nil
+}
+
 func (sel *ColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	if sel.db != "" && sel.db != col.table.db.name {
 		return nil, ErrJointColumnNotFound
@@ -1491,6 +1507,10 @@ func (sel *AggColSelector) inferType(cols map[string]*ColDescriptor, implicitDB,
 	return t, nil
 }
 
+func (sel *AggColSelector) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	return nil
+}
+
 func (sel *AggColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
@@ -1518,6 +1538,14 @@ func (bexp *NumExp) inferParameter(col *Column, params map[string]SQLValueType) 
 
 func (bexp *NumExp) inferType(cols map[string]*ColDescriptor, implicitDB, implicitTable string, params map[string]SQLValueType) (SQLValueType, error) {
 	return IntegerType, nil
+}
+
+func (bexp *NumExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != IntegerType {
+		return ErrInvalidTypes
+	}
+
+	return nil
 }
 
 func (bexp *NumExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
@@ -1600,6 +1628,14 @@ func (bexp *NotBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 	return bexp.exp.inferType(cols, implicitDB, implicitTable, params)
 }
 
+func (bexp *NotBoolExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != BooleanType {
+		return ErrInvalidTypes
+	}
+
+	return nil
+}
+
 func (bexp *NotBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return bexp.exp.jointColumnTo(col, tableAlias)
 }
@@ -1640,6 +1676,14 @@ func (bexp *LikeBoolExp) inferParameter(col *Column, params map[string]SQLValueT
 
 func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, implicitTable string, params map[string]SQLValueType) (SQLValueType, error) {
 	return BooleanType, nil
+}
+
+func (bexp *LikeBoolExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != BooleanType {
+		return ErrInvalidTypes
+	}
+
+	return nil
 }
 
 func (bexp *LikeBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
@@ -1707,14 +1751,22 @@ func (bexp *CmpBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 	}
 
 	if tleft == Any {
-		err = tleft.requiresType(tright, cols, implicitDB, implicitTable, params)
+		err = bexp.left.requiresType(tright, params)
 	}
 
 	if tright == Any {
-		err = tright.requiresType(tleft, cols, implicitDB, implicitTable, params)
+		err = bexp.right.requiresType(tleft, params)
 	}
 
 	return BooleanType, nil
+}
+
+func (bexp *CmpBoolExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != BooleanType {
+		return ErrInvalidTypes
+	}
+
+	return nil
 }
 
 func (bexp *CmpBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
@@ -1842,6 +1894,14 @@ func (bexp *BinBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 	return BooleanType, nil
 }
 
+func (bexp *BinBoolExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != BooleanType {
+		return ErrInvalidTypes
+	}
+
+	return nil
+}
+
 func (bexp *BinBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
@@ -1908,6 +1968,14 @@ func (bexp *ExistsBoolExp) inferParameter(col *Column, params map[string]SQLValu
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, implicitTable string, params map[string]SQLValueType) (SQLValueType, error) {
 	return BooleanType, nil
+}
+
+func (bexp *ExistsBoolExp) requiresType(t SQLValueType, params map[string]SQLValueType) error {
+	if t != BooleanType {
+		return ErrInvalidTypes
+	}
+
+	return nil
 }
 
 func (bexp *ExistsBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
