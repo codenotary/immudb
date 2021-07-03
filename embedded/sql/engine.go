@@ -902,17 +902,45 @@ func (e *Engine) Catalog() *Catalog {
 	return e.catalog
 }
 
+func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
+	return e.inferParametersFrom(strings.NewReader(sql))
+}
+
+func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, error) {
+	err := e.ensureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
+	stmts, err := Parse(r)
+	if err != nil {
+		return nil, err
+	}
+
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
+	params := make(map[string]SQLValueType, 0)
+
+	for _, stmt := range stmts {
+		err = stmt.inferParameters(e, e.implicitDB, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return params, nil
+}
+
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
 func (e *Engine) QueryStmt(sql string, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
 	return e.Query(strings.NewReader(sql), params, renewSnapshot)
 }
 
 func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
-	if e.catalog == nil {
-		err := e.loadCatalog()
-		if err != nil {
-			return nil, err
-		}
+	err := e.ensureCatalogReady()
+	if err != nil {
+		return nil, err
 	}
 
 	stmts, err := Parse(sql)
@@ -935,6 +963,9 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
 
 	if renewSnapshot {
 		err := e.RenewSnapshot()
@@ -965,12 +996,24 @@ func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForInde
 	return e.Exec(strings.NewReader(sql), params, waitForIndexing)
 }
 
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+func (e *Engine) ensureCatalogReady() error {
+	e.catalogRWMux.Lock()
+	defer e.catalogRWMux.Unlock()
+
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
+	}
+
+	return nil
+}
+
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+	err = e.ensureCatalogReady()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	stmts, err := Parse(sql)
