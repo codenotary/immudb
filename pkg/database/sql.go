@@ -363,6 +363,13 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	return res, nil
 }
 
+func (d *db) InferParameters(sql string) (map[string]sql.SQLValueType, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.sqlEngine.InferParameters(sql)
+}
+
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	switch tv.Type() {
 	case sql.IntegerType:

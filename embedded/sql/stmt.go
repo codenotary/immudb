@@ -1743,7 +1743,7 @@ func (bexp *CmpBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 	}
 
 	if tleft == tright {
-		return tleft, nil
+		return BooleanType, nil
 	}
 
 	if tleft != Any && tright != Any {

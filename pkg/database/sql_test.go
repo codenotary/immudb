@@ -89,9 +89,15 @@ func TestSQLExecAndQuery(t *testing.T) {
 	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
 	require.Equal(t, ErrIllegalArguments, err)
 
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id, t.id as id2, title, active, payload FROM (table1 as t) WHERE id <= 3 AND active != @active", Params: params})
+	q := "SELECT t.id, t.id as id2, title, active, payload FROM (table1 as t) WHERE id <= 3 AND active != @active"
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
+
+	inferredParams, err := db.InferParameters(q)
+	require.NoError(t, err)
+	require.Len(t, inferredParams, 1)
+	require.Equal(t, sql.BooleanType, inferredParams["active"])
 
 	_, err = db.VerifiableSQLGet(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
