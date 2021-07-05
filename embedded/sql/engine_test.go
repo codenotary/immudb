@@ -1544,36 +1544,33 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
-	params, err := stmts[0].InferParameters(engine)
+	params, err := engine.InferParametersPreparedStmt(stmts[0])
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
 	_, _, err = engine.ExecPreparedStmts(stmts, nil, true)
 	require.NoError(t, err)
 
-	stmts, err = Parse(strings.NewReader("INSERT INTO mytable(id, title) VALUES (1, 'title1')"))
-	require.NoError(t, err)
-	require.Len(t, stmts, 1)
-
-	params, err = stmts[0].InferParameters(engine)
+	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1')")
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	stmts, err = Parse(strings.NewReader("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)"))
-	require.NoError(t, err)
-	require.Len(t, stmts, 1)
-
-	params, err = stmts[0].InferParameters(engine)
+	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)")
 	require.NoError(t, err)
 	require.Len(t, params, 2)
 	require.Equal(t, params["id2"], IntegerType)
 	require.Equal(t, params["title2"], VarcharType)
 
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @id")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, params["id"], IntegerType)
+
 	stmts, err = Parse(strings.NewReader("SELECT * FROM mytable WHERE id > @id"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
-	params, err = stmts[0].InferParameters(engine)
+	params, err = engine.InferParametersPreparedStmt(stmts[0])
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, params["id"], IntegerType)
