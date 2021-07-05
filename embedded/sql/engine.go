@@ -51,6 +51,7 @@ var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected"
 var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
+var ErrCatalogNotReady = errors.New("catalog not ready")
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrLimitedJoins = errors.New("joins limited to tables")
 var ErrInvalidJointColumn = errors.New("invalid joint column")
@@ -119,9 +120,19 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine
 	return e, nil
 }
 
-func (e *Engine) loadCatalog() error {
-	e.catalog = nil
+// TODO (jeroiraz); this operation won't be needed with a transactional in-memory catalog
+func (e *Engine) EnsureCatalogReady() error {
+	e.catalogRWMux.Lock()
+	defer e.catalogRWMux.Unlock()
 
+	if e.catalog != nil {
+		return nil
+	}
+
+	return e.loadCatalog()
+}
+
+func (e *Engine) loadCatalog() error {
 	lastTxID, _ := e.catalogStore.Alh()
 	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
@@ -173,6 +184,11 @@ func (e *Engine) UseDatabase(dbName string) error {
 
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
+		return ErrCatalogNotReady
+	}
 
 	db, err := e.catalog.GetDatabaseByName(dbName)
 	if err != nil {
@@ -899,6 +915,9 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 }
 
 func (e *Engine) Catalog() *Catalog {
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
 	return e.catalog
 }
 
@@ -907,11 +926,6 @@ func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
 }
 
 func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, error) {
-	err := e.ensureCatalogReady()
-	if err != nil {
-		return nil, err
-	}
-
 	stmts, err := Parse(r)
 	if err != nil {
 		return nil, err
@@ -919,6 +933,11 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
+		return nil, ErrCatalogNotReady
+	}
 
 	params := make(map[string]SQLValueType, 0)
 
@@ -932,17 +951,28 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 	return params, nil
 }
 
+func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
+		return nil, ErrCatalogNotReady
+	}
+
+	params := make(map[string]SQLValueType, 0)
+
+	err := stmt.inferParameters(e, e.implicitDB, params)
+
+	return params, err
+}
+
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
 func (e *Engine) QueryStmt(sql string, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
 	return e.Query(strings.NewReader(sql), params, renewSnapshot)
 }
 
 func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
-	err := e.ensureCatalogReady()
-	if err != nil {
-		return nil, err
-	}
-
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, err
@@ -966,6 +996,11 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
+		return nil, ErrCatalogNotReady
+	}
 
 	if renewSnapshot {
 		err := e.RenewSnapshot()
@@ -996,26 +1031,7 @@ func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForInde
 	return e.Exec(strings.NewReader(sql), params, waitForIndexing)
 }
 
-func (e *Engine) ensureCatalogReady() error {
-	e.catalogRWMux.Lock()
-	defer e.catalogRWMux.Unlock()
-
-	if e.catalog == nil {
-		err := e.loadCatalog()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
-	err = e.ensureCatalogReady()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, nil, err
@@ -1025,12 +1041,12 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForI
 }
 
 func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
-	if includesDDL(stmts) {
-		e.catalogRWMux.Lock()
-		defer e.catalogRWMux.Unlock()
-	} else {
-		e.catalogRWMux.RLock()
-		defer e.catalogRWMux.RUnlock()
+	e.catalogRWMux.Lock()
+	defer e.catalogRWMux.Unlock()
+
+	if e.catalog == nil {
+		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
+		return nil, nil, ErrCatalogNotReady
 	}
 
 	implicitDB, err := e.DatabaseInUse()
@@ -1053,7 +1069,9 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		if len(centries) > 0 {
 			txmd, err := e.catalogStore.Commit(centries, waitForIndexing)
 			if err != nil {
-				return ddTxs, dmTxs, e.loadCatalog()
+				// TODO (jeroiraz): implement transactional in-memory catalog
+				e.catalog = nil // in-memory catalog changes needs to be reverted
+				return ddTxs, dmTxs, err
 			}
 
 			ddTxs = append(ddTxs, txmd)
@@ -1070,13 +1088,4 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	return ddTxs, dmTxs, nil
-}
-
-func includesDDL(stmts []SQLStmt) bool {
-	for _, stmt := range stmts {
-		if stmt.isDDL() {
-			return true
-		}
-	}
-	return false
 }
