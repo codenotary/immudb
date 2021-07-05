@@ -69,6 +69,7 @@ type DB interface {
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
 	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error)
 	InferParameters(sql string) (map[string]sql.SQLValueType, error)
+	InferParametersPrepared(stmt sql.SQLStmt) (map[string]sql.SQLValueType, error)
 	UseSnapshot(req *schema.UseSnapshotRequest) error
 	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error)

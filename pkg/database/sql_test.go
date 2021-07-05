@@ -99,6 +99,15 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
 
+	stmts, err := sql.ParseString(q)
+	require.NoError(t, err)
+	require.Len(t, stmts, 1)
+
+	inferredParams, err = db.InferParametersPrepared(stmts[0])
+	require.NoError(t, err)
+	require.Len(t, inferredParams, 1)
+	require.Equal(t, sql.BooleanType, inferredParams["active"])
+
 	_, err = db.VerifiableSQLGet(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
