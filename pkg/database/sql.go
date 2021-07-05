@@ -37,6 +37,11 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
 	txEntry := d.tx1
 
 	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, req.SqlGetRequest.Table)
@@ -148,6 +153,11 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
 	db, err := d.sqlEngine.Catalog().GetDatabaseByName(d.options.dbName)
 	if err != nil {
 		return nil, err
@@ -165,6 +175,11 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
 
 	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, tableName)
 	if err != nil {
@@ -246,6 +261,11 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
 	ddTxs, dmTxs, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
 	if err != nil {
 		return nil, err
@@ -311,6 +331,11 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
 	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params, renewSnapshot)
 	if err != nil {
 		return nil, err
@@ -367,7 +392,24 @@ func (d *db) InferParameters(sql string) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
 	return d.sqlEngine.InferParameters(sql)
+}
+
+func (d *db) InferParametersPrepared(stmt sql.SQLStmt) (map[string]sql.SQLValueType, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
+	return d.sqlEngine.InferParametersPreparedStmt(stmt)
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
