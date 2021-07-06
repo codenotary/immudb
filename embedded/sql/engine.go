@@ -1020,7 +1020,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	_, _, _, err = stmt.CompileUsing(e, implicitDB, params)
+	_, _, _, err = stmt.compileUsing(e, implicitDB, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1056,7 +1056,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	for _, stmt := range stmts {
-		centries, dentries, db, err := stmt.CompileUsing(e, implicitDB, params)
+		centries, dentries, db, err := stmt.compileUsing(e, implicitDB, params)
 		if err != nil {
 			return ddTxs, dmTxs, err
 		}

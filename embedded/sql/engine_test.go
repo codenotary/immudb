@@ -80,6 +80,9 @@ func TestUseDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady()
+	require.NoError(t, err)
+
 	err = engine.UseDatabase("db1")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
@@ -1534,6 +1537,91 @@ func TestInferParameters(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	stmt := "CREATE DATABASE db1"
+
+	params, err := engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	_, _, err = engine.ExecStmt(stmt, nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	stmt = "CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"
+
+	params, err = engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	_, _, err = engine.ExecStmt(stmt, nil, true)
+	require.NoError(t, err)
+
+	params, err = engine.InferParameters("CREATE INDEX ON mytable(title)")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	params, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@id, @title); COMMIT")
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, IntegerType, params["id"])
+	require.Equal(t, VarcharType, params["title"])
+
+	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1')")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)")
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, IntegerType, params["id2"])
+	require.Equal(t, VarcharType, params["title2"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @id")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, IntegerType, params["id"])
+
+	stmt = "SELECT * FROM mytable WHERE id > @id AND (NOT @active OR active)"
+
+	params, err = engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, IntegerType, params["id"])
+	require.Equal(t, BooleanType, params["active"])
+
+	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING COUNT() > @param1")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, IntegerType, params["param1"])
+
+	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING MIN(id) > @param1")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, IntegerType, params["param1"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @active AND title LIKE 't+'")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, BooleanType, params["active"])
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
+func TestInferParametersPrepared(t *testing.T) {
+	catalogStore, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params_prepared")
+
+	dataStore, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params_prepared")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1551,53 +1639,18 @@ func TestInferParameters(t *testing.T) {
 	_, _, err = engine.ExecPreparedStmts(stmts, nil, true)
 	require.NoError(t, err)
 
-	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1')")
-	require.NoError(t, err)
-	require.Len(t, params, 0)
-
-	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)")
-	require.NoError(t, err)
-	require.Len(t, params, 2)
-	require.Equal(t, params["id2"], IntegerType)
-	require.Equal(t, params["title2"], VarcharType)
-
-	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @id")
-	require.NoError(t, err)
-	require.Len(t, params, 1)
-	require.Equal(t, params["id"], IntegerType)
-
-	stmts, err = Parse(strings.NewReader("SELECT * FROM mytable WHERE id > @id AND (@active OR active)"))
-	require.NoError(t, err)
-	require.Len(t, stmts, 1)
-
-	params, err = engine.InferParametersPreparedStmt(stmts[0])
-	require.NoError(t, err)
-	require.Len(t, params, 2)
-	require.Equal(t, params["id"], IntegerType)
-	require.Equal(t, params["active"], BooleanType)
-
-	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING COUNT() > @param1")
-	require.NoError(t, err)
-	require.Len(t, params, 1)
-	require.Equal(t, params["param1"], IntegerType)
-
-	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING MIN(id) > @param1")
-	require.NoError(t, err)
-	require.Len(t, params, 1)
-	require.Equal(t, params["param1"], IntegerType)
-
 	err = engine.Close()
 	require.NoError(t, err)
 }
 
 func TestInferParametersInvalidCases(t *testing.T) {
-	catalogStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params")
+	defer os.RemoveAll("catalog_infer_params_invalid")
 
-	dataStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	dataStore, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params")
+	defer os.RemoveAll("catalog_infer_params_invalid")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
