@@ -1540,7 +1540,7 @@ func TestInferParameters(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"))
+	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
@@ -1566,14 +1566,56 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, params["id"], IntegerType)
 
-	stmts, err = Parse(strings.NewReader("SELECT * FROM mytable WHERE id > @id"))
+	stmts, err = Parse(strings.NewReader("SELECT * FROM mytable WHERE id > @id AND (@active OR active)"))
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
 	params, err = engine.InferParametersPreparedStmt(stmts[0])
 	require.NoError(t, err)
-	require.Len(t, params, 1)
+	require.Len(t, params, 2)
 	require.Equal(t, params["id"], IntegerType)
+	require.Equal(t, params["active"], BooleanType)
+
+	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING COUNT() > @param1")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, params["param1"], IntegerType)
+
+	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING MIN(id) > @param1")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, params["param1"], IntegerType)
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
+func TestInferParametersInvalidCases(t *testing.T) {
+	catalogStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params")
+
+	dataStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)")
+	require.Equal(t, ErrInferredMultipleTypes, err)
+
+	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
+	require.Equal(t, ErrInvalidCondition, err)
 
 	err = engine.Close()
 	require.NoError(t, err)

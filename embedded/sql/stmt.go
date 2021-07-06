@@ -938,7 +938,7 @@ type Param struct {
 func (v *Param) inferParameter(col *Column, params map[string]SQLValueType) error {
 	p, ok := params[v.id]
 	if ok && p != col.colType {
-		return ErrIllegalArguments
+		return ErrInferredMultipleTypes
 	}
 
 	if !ok {
@@ -1433,6 +1433,10 @@ func (sel *AggColSelector) inferParameter(col *Column, params map[string]SQLValu
 }
 
 func (sel *AggColSelector) inferType(cols map[string]*ColDescriptor, implicitDB, implicitTable string, params map[string]SQLValueType) (SQLValueType, error) {
+	if sel.aggFn == COUNT {
+		return IntegerType, nil
+	}
+
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}
 
 	t, err := colSelector.inferType(cols, implicitDB, implicitTable, params)
@@ -1440,7 +1444,7 @@ func (sel *AggColSelector) inferType(cols map[string]*ColDescriptor, implicitDB,
 		return Any, ErrIllegalArguments
 	}
 
-	if sel.aggFn == COUNT || sel.aggFn == SUM || sel.aggFn == AVG {
+	if sel.aggFn == SUM || sel.aggFn == AVG {
 		return IntegerType, nil
 	}
 
@@ -1692,10 +1696,16 @@ func (bexp *CmpBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 
 	if tleft == Any {
 		err = bexp.left.requiresType(tright, params)
+		if err != nil {
+			return Any, err
+		}
 	}
 
 	if tright == Any {
 		err = bexp.right.requiresType(tleft, params)
+		if err != nil {
+			return Any, err
+		}
 	}
 
 	return BooleanType, nil
@@ -1827,8 +1837,26 @@ func (bexp *BinBoolExp) inferType(cols map[string]*ColDescriptor, implicitDB, im
 		return Any, err
 	}
 
-	if tleft != BooleanType || tright != BooleanType {
+	if tleft == tright {
+		return BooleanType, nil
+	}
+
+	if tleft != Any && tright != Any {
 		return Any, ErrInvalidCondition
+	}
+
+	if tleft == Any {
+		err = bexp.left.requiresType(tright, params)
+		if err != nil {
+			return Any, err
+		}
+	}
+
+	if tright == Any {
+		err = bexp.right.requiresType(tleft, params)
+		if err != nil {
+			return Any, err
+		}
 	}
 
 	return BooleanType, nil
