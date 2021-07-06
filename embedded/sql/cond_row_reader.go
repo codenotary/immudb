@@ -61,7 +61,7 @@ func (cr *conditionalRowReader) inferParameters(params map[string]SQLValueType) 
 		return err
 	}
 
-	_, err = cr.condition.inferType(cols, cr.ImplicitDB(), cr.ImplicitTable(), params)
+	_, err = cr.condition.inferType(cols, params, cr.ImplicitDB(), cr.ImplicitTable())
 
 	return err
 }

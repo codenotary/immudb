@@ -125,7 +125,7 @@ func (jointr *jointRowReader) inferParameters(params map[string]SQLValueType) er
 			return err
 		}
 
-		_, err = join.cond.inferType(cols, jointr.ImplicitDB(), jointr.ImplicitTable(), params)
+		_, err = join.cond.inferType(cols, params, jointr.ImplicitDB(), jointr.ImplicitTable())
 		if err != nil {
 			return err
 		}

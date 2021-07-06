@@ -1643,6 +1643,43 @@ func TestInferParametersPrepared(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInferParametersUnbounded(t *testing.T) {
+	catalogStore, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params_unbounded")
+
+	dataStore, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_infer_params_unbounded")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	params, err := engine.InferParameters("SELECT * FROM mytable WHERE @param1 = @param2")
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, AnyType, params["param1"])
+	require.Equal(t, AnyType, params["param2"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 AND @param2")
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, BooleanType, params["param1"])
+	require.Equal(t, BooleanType, params["param2"])
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
 func TestInferParametersInvalidCases(t *testing.T) {
 	catalogStore, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
 	require.NoError(t, err)
@@ -1668,7 +1705,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.Equal(t, ErrInferredMultipleTypes, err)
 
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
-	require.Equal(t, ErrInvalidCondition, err)
+	require.Equal(t, ErrInvalidTypes, err)
 
 	err = engine.Close()
 	require.NoError(t, err)
