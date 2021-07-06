@@ -92,8 +92,7 @@ const (
 )
 
 type SQLStmt interface {
-	isDDL() bool
-	CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error)
+	compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error)
 	inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error
 }
 
@@ -101,22 +100,20 @@ type TxStmt struct {
 	stmts []SQLStmt
 }
 
-func (stmt *TxStmt) isDDL() bool {
+func (stmt *TxStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	for _, stmt := range stmt.stmts {
-		if stmt.isDDL() {
-			return true
+		err := stmt.inferParameters(e, e.implicitDB, params)
+		if err != nil {
+			return err
 		}
 	}
-	return false
-}
 
-func (stmt *TxStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *TxStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *TxStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	for _, stmt := range stmt.stmts {
-		cs, ds, db, err := stmt.CompileUsing(e, implicitDB, params)
+		cs, ds, db, err := stmt.compileUsing(e, implicitDB, params)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -134,19 +131,11 @@ type CreateDatabaseStmt struct {
 	DB string
 }
 
-// for writes, always needs to be up the date, doesn't matter the snapshot...
-// for reading, a snapshot is created. It will wait until such tx is indexed.
-// still writing to the catalog will wait the index to be up to date and locked
-// conditional lock on writeLocked
-func (stmt *CreateDatabaseStmt) isDDL() bool {
-	return true
-}
-
 func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.newDatabase(stmt.DB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -166,15 +155,11 @@ type UseDatabaseStmt struct {
 	DB string
 }
 
-func (stmt *UseDatabaseStmt) isDDL() bool {
-	return false
-}
-
 func (stmt *UseDatabaseStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *UseDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.GetDatabaseByName(stmt.DB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -188,15 +173,11 @@ type UseSnapshotStmt struct {
 	asBefore uint64
 }
 
-func (stmt *UseSnapshotStmt) isDDL() bool {
-	return false
-}
-
 func (stmt *UseSnapshotStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *UseSnapshotStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	return nil, nil, nil, ErrNoSupported
 }
 
@@ -207,15 +188,11 @@ type CreateTableStmt struct {
 	pk          string
 }
 
-func (stmt *CreateTableStmt) isDDL() bool {
-	return true
-}
-
 func (stmt *CreateTableStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if implicitDB == nil {
 		return nil, nil, nil, ErrNoDatabaseSelected
 	}
@@ -263,15 +240,11 @@ type CreateIndexStmt struct {
 	col   string
 }
 
-func (stmt *CreateIndexStmt) isDDL() bool {
-	return true
-}
-
 func (stmt *CreateIndexStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if implicitDB == nil {
 		return nil, nil, nil, ErrNoDatabaseSelected
 	}
@@ -327,15 +300,11 @@ type AddColumnStmt struct {
 	colSpec *ColSpec
 }
 
-func (stmt *AddColumnStmt) isDDL() bool {
-	return true
-}
-
 func (stmt *AddColumnStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *AddColumnStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *AddColumnStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	return nil, nil, nil, ErrNoSupported
 }
 
@@ -419,10 +388,6 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 	return b, nil
 }
 
-func (stmt *UpsertIntoStmt) isDDL() bool {
-	return false
-}
-
 func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
@@ -450,7 +415,7 @@ func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, par
 	return nil
 }
 
-func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
+func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
 	pkIncluded := false
 	selByColID := make(map[uint64]int, len(stmt.cols))
 
@@ -479,13 +444,13 @@ func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	return selByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	cs, err := stmt.Validate(table)
+	cs, err := stmt.validate(table)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1046,16 +1011,12 @@ type SelectStmt struct {
 	as        string
 }
 
-func (stmt *SelectStmt) isDDL() bool {
-	return false
-}
-
 func (stmt *SelectStmt) Limit() uint64 {
 	return stmt.limit
 }
 
 func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
-	_, _, _, err := stmt.CompileUsing(e, implicitDB, nil)
+	_, _, _, err := stmt.compileUsing(e, implicitDB, nil)
 	if err != nil {
 		return err
 	}
@@ -1074,7 +1035,7 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 	return rowReader.inferParameters(params)
 }
 
-func (stmt *SelectStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if stmt.distinct {
 		return nil, nil, nil, ErrNoSupported
 	}
@@ -1577,7 +1538,7 @@ func (bexp *NotBoolExp) requiresType(t SQLValueType, params map[string]SQLValueT
 		return ErrInvalidTypes
 	}
 
-	return nil
+	return bexp.exp.requiresType(t, params)
 }
 
 func (bexp *NotBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
