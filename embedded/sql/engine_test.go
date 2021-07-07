@@ -1595,6 +1595,11 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["id"])
 
+	params, err = engine.InferParameters("SELECT * FROM mytable INNER JOIN mytable ON id = id WHERE id > @id")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, IntegerType, params["id"])
+
 	stmt = "SELECT * FROM mytable WHERE id > @id AND (NOT @active OR active)"
 
 	params, err = engine.InferParameters(stmt)
