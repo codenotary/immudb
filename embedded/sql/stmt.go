@@ -1371,8 +1371,11 @@ func (sel *AggColSelector) inferType(cols map[string]*ColDescriptor, params map[
 }
 
 func (sel *AggColSelector) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if sel.aggFn == COUNT && t != IntegerType {
-		return ErrInvalidTypes
+	if sel.aggFn == COUNT {
+		if t != IntegerType {
+			return ErrInvalidTypes
+		}
+		return nil
 	}
 
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}

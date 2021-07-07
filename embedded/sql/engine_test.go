@@ -1590,7 +1590,7 @@ func TestInferParameters(t *testing.T) {
 	require.Equal(t, IntegerType, params["id2"])
 	require.Equal(t, VarcharType, params["title2"])
 
-	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @id")
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE (id - 1) > (@id + (@id+1))")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["id"])
@@ -1608,12 +1608,12 @@ func TestInferParameters(t *testing.T) {
 	require.Equal(t, IntegerType, params["id"])
 	require.Equal(t, BooleanType, params["active"])
 
-	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING COUNT() > @param1")
+	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT()")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])
 
-	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING MIN(id) > @param1")
+	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING @param1 < MIN(id)")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])
@@ -1698,6 +1698,11 @@ func TestInferParametersUnbounded(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, AnyType, params["param1"])
 
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 != NOT NULL")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, BooleanType, params["param1"])
+
 	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 != NULL AND (@param1 AND active)")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
@@ -1745,6 +1750,9 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	_, err = engine.InferParameters("INSERT INTO mytable(id, note) VALUES (@param1, @param2)")
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
+	_, err = engine.InferParameters("SELECT DISTINCT title FROM mytable")
+	require.Error(t, err)
+
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
 	require.Equal(t, ErrInferredMultipleTypes, err)
 
@@ -1753,4 +1761,175 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	err = engine.Close()
 	require.NoError(t, err)
+}
+
+func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
+	cols := make(map[string]*ColDescriptor)
+	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+
+	params := make(map[string]SQLValueType)
+
+	testCases := []struct {
+		exp           ValueExp
+		cols          map[string]*ColDescriptor
+		params        map[string]SQLValueType
+		implicitDB    string
+		implicitTable string
+		requiredType  SQLValueType
+		expectedError error
+	}{
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "id"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: nil,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "id1"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidColumn,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "id"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "COUNT", db: "db1", table: "mytable", col: "*"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: nil,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "COUNT", db: "db1", table: "mytable", col: "*"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "MIN", db: "db1", table: "mytable", col: "title"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: nil,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "MIN", db: "db1", table: "mytable", col: "title1"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: ErrInvalidColumn,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "id"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: nil,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "title"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+	}
+
+	for i, tc := range testCases {
+		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+	}
+}
+
+func TestRequiresTypeNumExpValueExp(t *testing.T) {
+	cols := make(map[string]*ColDescriptor)
+	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+
+	params := make(map[string]SQLValueType)
+
+	testCases := []struct {
+		exp           ValueExp
+		cols          map[string]*ColDescriptor
+		params        map[string]SQLValueType
+		implicitDB    string
+		implicitTable string
+		requiredType  SQLValueType
+		expectedError error
+	}{
+		{
+			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: nil,
+		},
+		{
+			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &NumExp{op: ADDOP, left: &Bool{val: true}, right: &Number{val: 0}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Bool{val: true}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+	}
+
+	for i, tc := range testCases {
+		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+	}
 }
