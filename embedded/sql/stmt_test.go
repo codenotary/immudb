@@ -127,6 +127,12 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
+			require.NoError(t, err)
+			require.Equal(t, tc.requiredType, it)
+		}
 	}
 }
 
@@ -190,6 +196,12 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
+			require.NoError(t, err)
+			require.Equal(t, tc.requiredType, it)
+		}
 	}
 }
 
@@ -361,6 +373,12 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
+			require.NoError(t, err)
+			require.Equal(t, tc.requiredType, it)
+		}
 	}
 }
 
@@ -415,6 +433,12 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
+			require.NoError(t, err)
+			require.Equal(t, tc.requiredType, it)
+		}
 	}
 }
 
@@ -514,6 +538,12 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
+			require.NoError(t, err)
+			require.Equal(t, tc.requiredType, it)
+		}
 	}
 }
 
