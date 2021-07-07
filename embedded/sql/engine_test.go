@@ -1688,6 +1688,21 @@ func TestInferParametersUnbounded(t *testing.T) {
 	require.Equal(t, BooleanType, params["param1"])
 	require.Equal(t, BooleanType, params["param2"])
 
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 != NULL")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, AnyType, params["param1"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 != NULL AND (@param1 AND active)")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, BooleanType, params["param1"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE @param1 != NULL AND (@param1 <= mytable.id)")
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, IntegerType, params["param1"])
+
 	err = engine.Close()
 	require.NoError(t, err)
 }
@@ -1726,7 +1741,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
-	require.Equal(t, ErrInvalidTypes, err)
+	require.Equal(t, ErrInferredMultipleTypes, err)
 
 	_, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@param1, @param1) COMMIT")
 	require.Equal(t, ErrInferredMultipleTypes, err)

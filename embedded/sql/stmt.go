@@ -405,7 +405,7 @@ func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, par
 				return err
 			}
 
-			err = val.inferParameter(col, params)
+			err = val.requiresType(col.colType, make(map[string]*ColDescriptor, 0), params, implicitDB.name, table.name)
 			if err != nil {
 				return err
 			}
@@ -543,7 +543,6 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 }
 
 type ValueExp interface {
-	inferParameter(col *Column, params map[string]SQLValueType) error
 	inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error)
 	requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error
 	jointColumnTo(col *Column, tableAlias string) (*ColSelector, error)
@@ -582,10 +581,6 @@ func (n *NullValue) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *NullValue) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (v *NullValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return v.t, nil
 }
@@ -622,10 +617,6 @@ type Number struct {
 
 func (v *Number) Type() SQLValueType {
 	return IntegerType
-}
-
-func (v *Number) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
 }
 
 func (v *Number) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -687,10 +678,6 @@ func (v *Varchar) Type() SQLValueType {
 	return VarcharType
 }
 
-func (v *Varchar) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (v *Varchar) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return VarcharType, nil
 }
@@ -740,10 +727,6 @@ type Bool struct {
 
 func (v *Bool) Type() SQLValueType {
 	return BooleanType
-}
-
-func (v *Bool) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
 }
 
 func (v *Bool) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -805,10 +788,6 @@ func (v *Blob) Type() SQLValueType {
 	return BLOBType
 }
 
-func (v *Blob) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (v *Blob) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return BLOBType, nil
 }
@@ -856,10 +835,6 @@ type SysFn struct {
 	fn string
 }
 
-func (v *SysFn) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (v *SysFn) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	if strings.ToUpper(v.fn) == "NOW" {
 		return IntegerType, nil
@@ -900,19 +875,6 @@ type Param struct {
 	id string
 }
 
-func (v *Param) inferParameter(col *Column, params map[string]SQLValueType) error {
-	p, ok := params[v.id]
-	if ok && p != col.colType {
-		return ErrInferredMultipleTypes
-	}
-
-	if !ok {
-		params[v.id] = col.colType
-	}
-
-	return nil
-}
-
 func (v *Param) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	t, ok := params[v.id]
 	if !ok {
@@ -926,7 +888,7 @@ func (v *Param) inferType(cols map[string]*ColDescriptor, params map[string]SQLV
 func (v *Param) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	currT, ok := params[v.id]
 	if ok && currT != t && currT != AnyType {
-		return ErrInvalidTypes
+		return ErrInferredMultipleTypes
 	}
 
 	params[v.id] = t
@@ -1296,10 +1258,6 @@ func (sel *ColSelector) setAlias(alias string) {
 	sel.as = alias
 }
 
-func (sel *ColSelector) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (sel *ColSelector) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	_, db, table, col := sel.resolve(implicitDB, implicitTable)
 	encSel := EncodeSelector("", db, table, col)
@@ -1393,10 +1351,6 @@ func (sel *AggColSelector) setAlias(alias string) {
 	sel.as = alias
 }
 
-func (sel *AggColSelector) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (sel *AggColSelector) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	if sel.aggFn == COUNT {
 		return IntegerType, nil
@@ -1449,20 +1403,6 @@ func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implic
 type NumExp struct {
 	op          NumOperator
 	left, right ValueExp
-}
-
-func (bexp *NumExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	err := bexp.left.inferParameter(col, params)
-	if err != nil {
-		return err
-	}
-
-	err = bexp.right.inferParameter(col, params)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (bexp *NumExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1569,10 +1509,6 @@ type NotBoolExp struct {
 	exp ValueExp
 }
 
-func (bexp *NotBoolExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return bexp.exp.inferParameter(col, params)
-}
-
 func (bexp *NotBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	err := bexp.exp.requiresType(BooleanType, cols, params, implicitDB, implicitTable)
 	if err != nil {
@@ -1624,10 +1560,6 @@ type LikeBoolExp struct {
 	pattern string
 }
 
-func (bexp *LikeBoolExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
-}
-
 func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return BooleanType, nil
 }
@@ -1669,20 +1601,6 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 type CmpBoolExp struct {
 	op          CmpOperator
 	left, right ValueExp
-}
-
-func (bexp *CmpBoolExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	err := bexp.left.inferParameter(col, params)
-	if err != nil {
-		return err
-	}
-
-	err = bexp.right.inferParameter(col, params)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (bexp *CmpBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1826,20 +1744,6 @@ type BinBoolExp struct {
 	left, right ValueExp
 }
 
-func (bexp *BinBoolExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	err := bexp.left.inferParameter(col, params)
-	if err != nil {
-		return nil
-	}
-
-	err = bexp.right.inferParameter(col, params)
-	if err != nil {
-		return nil
-	}
-
-	return nil
-}
-
 func (bexp *BinBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	err := bexp.left.requiresType(BooleanType, cols, params, implicitDB, implicitTable)
 	if err != nil {
@@ -1930,10 +1834,6 @@ func (bexp *BinBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 type ExistsBoolExp struct {
 	q *SelectStmt
-}
-
-func (bexp *ExistsBoolExp) inferParameter(col *Column, params map[string]SQLValueType) error {
-	return nil
 }
 
 func (bexp *ExistsBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
