@@ -861,7 +861,7 @@ yydefault:
 	case 40:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.value = &NullValue{}
+			yyVAL.value = &NullValue{t: AnyType}
 		}
 	case 41:
 		yyDollar = yyS[yypt-1 : yypt+1]

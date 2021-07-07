@@ -1549,6 +1549,14 @@ func TestInferParameters(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
+	params, err = engine.InferParameters("USE DATABASE db1")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	params, err = engine.InferParameters("USE SNAPSHOT BEFORE TX 10")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
 	stmt = "CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"
 
 	params, err = engine.InferParameters(stmt)
@@ -1557,6 +1565,10 @@ func TestInferParameters(t *testing.T) {
 
 	_, _, err = engine.ExecStmt(stmt, nil, true)
 	require.NoError(t, err)
+
+	params, err = engine.InferParameters("ALTER TABLE mytableSE ADD COLUMN note VARCHAR")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
 
 	params, err = engine.InferParameters("CREATE INDEX ON mytable(title)")
 	require.NoError(t, err)
@@ -1704,8 +1716,20 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)")
 	require.Equal(t, ErrInferredMultipleTypes, err)
 
+	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1)")
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable1(id, title) VALUES (@param1, @param2)")
+	require.Equal(t, ErrTableDoesNotExist, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, note) VALUES (@param1, @param2)")
+	require.Equal(t, ErrColumnDoesNotExist, err)
+
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
 	require.Equal(t, ErrInvalidTypes, err)
+
+	_, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@param1, @param1) COMMIT")
+	require.Equal(t, ErrInferredMultipleTypes, err)
 
 	err = engine.Close()
 	require.NoError(t, err)

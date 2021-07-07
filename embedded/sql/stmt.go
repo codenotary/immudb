@@ -570,7 +570,7 @@ func (n *NullValue) Value() interface{} {
 }
 
 func (n *NullValue) Compare(val TypedValue) (int, error) {
-	if n.t != "" && val.Type() != "" && n.t != val.Type() {
+	if n.t != AnyType && val.Type() != AnyType && n.t != val.Type() {
 		return 0, ErrNotComparableValues
 	}
 
