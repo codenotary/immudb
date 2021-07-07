@@ -313,7 +313,7 @@ val:
 |
     NULL
     {
-        $$ = &NullValue{}
+        $$ = &NullValue{t: AnyType}
     }
 
 colsSpec:
