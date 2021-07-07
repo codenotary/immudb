@@ -1624,7 +1624,7 @@ func (bexp *CmpBoolExp) inferType(cols map[string]*ColDescriptor, params map[str
 	}
 
 	if tleft != AnyType && tright != AnyType {
-		return AnyType, ErrInvalidCondition
+		return AnyType, ErrInvalidTypes
 	}
 
 	if tleft == AnyType {

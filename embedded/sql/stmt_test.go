@@ -417,3 +417,122 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
 	}
 }
+
+func TestRequiresTypeBinValueExp(t *testing.T) {
+	cols := make(map[string]*ColDescriptor)
+	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+
+	params := make(map[string]SQLValueType)
+
+	testCases := []struct {
+		exp           ValueExp
+		cols          map[string]*ColDescriptor
+		params        map[string]SQLValueType
+		implicitDB    string
+		implicitTable string
+		requiredType  SQLValueType
+		expectedError error
+	}{
+		{
+			exp:           &BinBoolExp{op: AND, left: &Bool{val: true}, right: &Bool{val: false}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: nil,
+		},
+		{
+			exp:           &BinBoolExp{op: AND, left: &Bool{val: true}, right: &Bool{val: false}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &BinBoolExp{op: AND, left: &Number{val: 1}, right: &Bool{val: false}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Number{val: 1}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: nil,
+		},
+		{
+			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Bool{val: false}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &CmpBoolExp{op: LE, left: &Bool{val: false}, right: &Number{val: 1}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+	}
+
+	for i, tc := range testCases {
+		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+	}
+}
+
+func TestYetUnsupportedExistsBoolExp(t *testing.T) {
+	exp := &ExistsBoolExp{}
+
+	_, err := exp.inferType(nil, nil, "", "")
+	require.Error(t, err)
+
+	err = exp.requiresType(BooleanType, nil, nil, "", "")
+	require.Error(t, err)
+
+	_, err = exp.jointColumnTo(nil, "")
+	require.Error(t, err)
+
+	rexp, err := exp.substitute(nil)
+	require.NoError(t, err)
+	require.Equal(t, exp, rexp)
+
+	_, err = exp.reduce(nil, nil, "", "")
+	require.Error(t, err)
+}
