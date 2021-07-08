@@ -574,3 +574,47 @@ func TestAliasing(t *testing.T) {
 	stmt.as = "t1"
 	require.Equal(t, "t1", stmt.Alias())
 }
+
+func TestJointColumnEdgeCases(t *testing.T) {
+	_, err := (&NullValue{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&Number{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&Varchar{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&Bool{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&Blob{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&SysFn{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&Param{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&ColSelector{db: "mydb"}).jointColumnTo(&Column{table: &Table{db: &Database{name: "db1"}}}, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&ColSelector{db: "db1", col: "c1"}).jointColumnTo(&Column{colName: "col1", table: &Table{db: &Database{name: "db1"}}}, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&AggColSelector{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&NumExp{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&NotBoolExp{exp: &NullValue{}}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&LikeBoolExp{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+
+	_, err = (&BinBoolExp{}).jointColumnTo(nil, "")
+	require.Equal(t, ErrJointColumnNotFound, err)
+}

@@ -1251,6 +1251,10 @@ func (sel *ColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, ta
 }
 
 func (sel *ColSelector) alias() string {
+	if sel.as == "" {
+		return sel.col
+	}
+
 	return sel.as
 }
 
