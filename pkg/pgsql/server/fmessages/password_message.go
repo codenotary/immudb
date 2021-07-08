@@ -20,9 +20,9 @@ type PasswordMsg struct {
 	secret string
 }
 
-func ParsePasswordMsg(payload []byte) PasswordMsg {
+func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
 	password := payload[:len(payload)-1] //-1 A null-terminated string
-	return PasswordMsg{secret: string(password)}
+	return PasswordMsg{secret: string(password)}, nil
 }
 
 func (pw *PasswordMsg) GetSecret() string {

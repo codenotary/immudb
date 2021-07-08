@@ -22,7 +22,8 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
+// DataRow if ResultColumnFormatCodes is nil default text format is used
+func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) []byte {
 	rowsB := make([]byte, 0)
 	for _, row := range rows {
 		rowB := make([]byte, 0)
@@ -35,7 +36,7 @@ func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
 		columnNumb := make([]byte, 2)
 		binary.BigEndian.PutUint16(columnNumb, uint16(colNumb))
 
-		for _, val := range row.Values {
+		for i, val := range row.Values {
 			if val == nil {
 				return nil
 			}
@@ -43,9 +44,13 @@ func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
 			valueLength := make([]byte, 4)
 			value := make([]byte, 0)
 
-			// only text format is allowed in simple query
-			value = schema.RenderValueAsByte(val.Value)
-
+			if ResultColumnFormatCodes != nil && len(ResultColumnFormatCodes) >= i && ResultColumnFormatCodes[i] == 1 {
+				// only text format is allowed in simple query
+				value = schema.RenderValueAsByte(val.Value)
+			} else {
+				// only text format is allowed in simple query
+				value = schema.RenderValueAsByte(val.Value)
+			}
 			binary.BigEndian.PutUint32(valueLength, uint32(len(value)))
 			//  As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
 			if value == nil {

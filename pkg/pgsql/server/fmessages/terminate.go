@@ -18,6 +18,6 @@ package fmessages
 
 type TerminateMsg struct{}
 
-func ParseTerminateMsg(payload []byte) TerminateMsg {
-	return TerminateMsg{}
+func ParseTerminateMsg(payload []byte) (TerminateMsg, error) {
+	return TerminateMsg{}, nil
 }

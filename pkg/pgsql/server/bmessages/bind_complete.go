@@ -14,30 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package bmessages
 
 import (
-	"net"
+	"bytes"
+	"encoding/binary"
 )
 
-func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb, s.tlsConfig)
-
-	// initialize session
-	err = ss.InitializeSession()
-	if err != nil {
-		return err
-	}
-	// authentication
-	err = ss.HandleStartup(s.dbList)
-	if err != nil {
-		return err
-	}
-	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.QueryMachine()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func BindComplete() []byte {
+	messageType := []byte(`2`)
+	message := make([]byte, 4)
+	binary.BigEndian.PutUint32(message, uint32(4))
+	return bytes.Join([][]byte{messageType, message}, nil)
 }

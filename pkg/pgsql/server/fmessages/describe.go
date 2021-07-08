@@ -14,30 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package fmessages
 
-import (
-	"net"
-)
+type DescribeMsg struct {
+	// 'S' to describe a prepared statement; or 'P' to describe a portal.
+	DescType string
+	// The name of the prepared statement or portal to describe (an empty string selects the unnamed prepared statement or portal).
+	Name string
+}
 
-func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb, s.tlsConfig)
-
-	// initialize session
-	err = ss.InitializeSession()
-	if err != nil {
-		return err
-	}
-	// authentication
-	err = ss.HandleStartup(s.dbList)
-	if err != nil {
-		return err
-	}
-	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.QueryMachine()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func ParseDescribeMsg(msg []byte) (DescribeMsg, error) {
+	descType := msg[0]
+	name := make([]byte, len(msg)-2)
+	copy(name, msg[1:len(msg)-1])
+	return DescribeMsg{
+		DescType: string(descType),
+		Name:     string(name),
+	}, nil
 }

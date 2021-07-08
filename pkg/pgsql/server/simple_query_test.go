@@ -16,6 +16,7 @@ limitations under the License.
 
 package server
 
+/*
 import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
@@ -56,4 +57,4 @@ func TestSession_HandleSimpleQueriesUnsupportedMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-}
+}*/

@@ -14,30 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package fmessages
 
 import (
-	"net"
+	"bufio"
+	"encoding/binary"
 )
 
-func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb, s.tlsConfig)
+func getNextString(r *bufio.Reader) (string, error) {
+	s, err := r.ReadBytes(0)
+	if err != nil {
+		return "", err
+	}
+	return string(s[:len(s)-1]), nil
+}
 
-	// initialize session
-	err = ss.InitializeSession()
+func getNextInt16(r *bufio.Reader) (int16, error) {
+	pcb := make([]byte, 2)
+	_, err := r.Read(pcb)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	// authentication
-	err = ss.HandleStartup(s.dbList)
-	if err != nil {
-		return err
-	}
-	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.QueryMachine()
-	if err != nil {
-		return err
-	}
+	return int16(binary.BigEndian.Uint16(pcb)), nil
+}
 
-	return nil
+func getNextInt32(r *bufio.Reader) (int32, error) {
+	pcb := make([]byte, 4)
+	_, err := r.Read(pcb)
+	if err != nil {
+		return 0, err
+	}
+	return int32(binary.BigEndian.Uint32(pcb)), nil
 }
