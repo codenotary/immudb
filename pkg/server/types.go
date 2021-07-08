@@ -17,12 +17,14 @@ limitations under the License.
 package server
 
 import (
-	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
-	"github.com/codenotary/immudb/pkg/stream"
 	"net"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/embedded/remotestorage"
+	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/rs/xid"
@@ -65,6 +67,8 @@ type ImmuServer struct {
 	StateSigner          StateSigner
 	StreamServiceFactory stream.ServiceFactory
 	PgsqlSrv             pgsqlsrv.Server
+
+	remoteStorage remotestorage.Storage
 }
 
 // DefaultServer ...

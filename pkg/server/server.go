@@ -98,6 +98,7 @@ func (s *ImmuServer) Initialize() error {
 	if err != nil {
 		return logErr(s.Logger, "Unable to open remote storage: %v", err)
 	}
+	s.remoteStorage = remoteStorage
 
 	err = s.initializeRemoteStorage(remoteStorage)
 	if err != nil {
@@ -956,7 +957,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		WithDbName(newdb.DatabaseName).
 		WithDbRootPath(dataDir).
 		WithDbRootPath(s.Options.Dir).
-		WithStoreOptions(s.Options.StoreOptions)
+		WithStoreOptions(s.storeOptionsForDb(newdb.DatabaseName, s.remoteStorage))
 
 	db, err := database.NewDb(op, s.sysDb, s.Logger)
 	if err != nil {

@@ -12,7 +12,10 @@ import (
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/codenotary/immudb/embedded/remotestorage/s3"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/metadata"
 )
 
 type remoteStorageMockingWrapper struct {
@@ -308,6 +311,43 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 
 	// Ensure the data was written to the remote storage
 	exists, err := m.Exists(context.Background(), "testdb/tx/00000000.tx")
+	require.NoError(t, err)
+	require.True(t, exists)
+}
+
+func TestRemoteStorageUsedForNewDB(t *testing.T) {
+	require.NoError(t, os.RemoveAll("data"))
+	require.NoError(t, os.MkdirAll("data", 0777))
+	defer os.RemoveAll("data")
+
+	s := DefaultServer()
+	err := s.Initialize()
+	require.NoError(t, err)
+
+	m := memory.Open()
+	s.remoteStorage = m
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	newdb := &schema.Database{
+		DatabaseName: "newdb",
+	}
+
+	_, err = s.CreateDatabase(ctx, newdb)
+	require.NoError(t, err)
+	err = s.CloseDatabases()
+	require.NoError(t, err)
+
+	exists, err := m.Exists(context.Background(), "newdb/tx/00000000.tx")
 	require.NoError(t, err)
 	require.True(t, exists)
 }
