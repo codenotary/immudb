@@ -314,16 +314,11 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 }
 
 func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error) {
-	if stmt == nil {
-		return nil, ErrIllegalArguments
+	r, err := d.SQLQueryRowReader(stmt, renewSnapshot)
+	if err != nil {
+		return nil, err
 	}
-
-	if stmt.Limit() > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
-	}
-
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
+	defer r.Close()
 
 	params := make(map[string]interface{})
 
@@ -331,16 +326,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady()
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params, renewSnapshot)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
+	r.SetParameters(params)
 
 	colDescriptors, err := r.Columns()
 	if err != nil {
@@ -386,6 +372,26 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	}
 
 	return res, nil
+}
+
+func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.RowReader, error) {
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if stmt.Limit() > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return nil, err
+	}
+
+	return d.sqlEngine.QueryPreparedStmt(stmt, nil, renewSnapshot)
 }
 
 func (d *db) InferParameters(sql string) (map[string]sql.SQLValueType, error) {
