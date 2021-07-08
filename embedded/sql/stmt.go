@@ -991,7 +991,7 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 	}
 	defer rowReader.Close()
 
-	return rowReader.inferParameters(params)
+	return rowReader.InferParameters(params)
 }
 
 func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {

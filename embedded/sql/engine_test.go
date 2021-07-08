@@ -637,16 +637,25 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
+	params := make(map[string]interface{})
+	params["some_param1"] = true
+
 	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrMissingParameter, err)
 
+	r.SetParameters(params)
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+
 	err = r.Close()
 	require.NoError(t, err)
 
-	params := make(map[string]interface{})
+	params = make(map[string]interface{})
 	params["some_param"] = true
 
 	encPayloadPrefix := hex.EncodeToString([]byte("blob"))
@@ -1170,6 +1179,8 @@ func TestGroupByHaving(t *testing.T) {
 	r, err := engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null GROUP BY active HAVING AVG(age) >= MIN(age)", nil, true)
 	require.NoError(t, err)
 
+	r.SetParameters(nil)
+
 	_, err = r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
@@ -1274,6 +1285,8 @@ func TestJoins(t *testing.T) {
 
 	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.fkid1 = table1.fkid1", nil, true)
 	require.NoError(t, err)
+
+	r.SetParameters(nil)
 
 	_, err = r.Read()
 	require.Equal(t, ErrJointColumnNotFound, err)

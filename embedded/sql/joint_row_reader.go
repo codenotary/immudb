@@ -108,8 +108,8 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	return colDescriptors, nil
 }
 
-func (jointr *jointRowReader) inferParameters(params map[string]SQLValueType) error {
-	err := jointr.rowReader.inferParameters(params)
+func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) error {
+	err := jointr.rowReader.InferParameters(params)
 	if err != nil {
 		return err
 	}
@@ -132,6 +132,11 @@ func (jointr *jointRowReader) inferParameters(params map[string]SQLValueType) er
 	}
 
 	return err
+}
+
+func (jointr *jointRowReader) SetParameters(params map[string]interface{}) {
+	jointr.rowReader.SetParameters(params)
+	jointr.params = params
 }
 
 func (jointr *jointRowReader) Read() (*Row, error) {

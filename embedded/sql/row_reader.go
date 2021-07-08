@@ -25,10 +25,11 @@ import (
 type RowReader interface {
 	ImplicitDB() string
 	ImplicitTable() string
+	SetParameters(params map[string]interface{})
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
-	inferParameters(params map[string]SQLValueType) error
+	InferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]*ColDescriptor, error)
 }
 
@@ -179,8 +180,11 @@ func (r *rawRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	return r.colsBySel, nil
 }
 
-func (r *rawRowReader) inferParameters(params map[string]SQLValueType) error {
+func (r *rawRowReader) InferParameters(params map[string]SQLValueType) error {
 	return nil
+}
+
+func (r *rawRowReader) SetParameters(params map[string]interface{}) {
 }
 
 func (r *rawRowReader) Read() (row *Row, err error) {
