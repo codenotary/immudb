@@ -73,6 +73,7 @@ type DB interface {
 	UseSnapshot(req *schema.UseSnapshotRequest) error
 	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error)
+	SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.RowReader, error)
 	ListTables() (*schema.SQLQueryResult, error)
 	DescribeTable(table string) (*schema.SQLQueryResult, error)
 	GetName() string
