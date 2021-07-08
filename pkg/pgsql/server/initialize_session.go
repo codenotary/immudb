@@ -151,7 +151,7 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 	if _, err = s.writeMessage(bm.AuthenticationCleartextPassword()); err != nil {
 		return err
 	}
-	msg, err := s.nextMessage()
+	msg, _, err := s.nextMessage()
 	if err != nil {
 		return err
 	}
