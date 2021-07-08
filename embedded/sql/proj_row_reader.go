@@ -148,8 +148,12 @@ func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	return colDescriptors, nil
 }
 
-func (pr *projectedRowReader) inferParameters(params map[string]SQLValueType) error {
-	return pr.rowReader.inferParameters(params)
+func (pr *projectedRowReader) InferParameters(params map[string]SQLValueType) error {
+	return pr.rowReader.InferParameters(params)
+}
+
+func (pr *projectedRowReader) SetParameters(params map[string]interface{}) {
+	pr.rowReader.SetParameters(params)
 }
 
 func (pr *projectedRowReader) Read() (*Row, error) {

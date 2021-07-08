@@ -44,12 +44,12 @@ func TestConditionalRowReader(t *testing.T) {
 	_, err = rowReader.Columns()
 	require.Equal(t, dummyError, err)
 
-	err = rowReader.inferParameters(nil)
+	err = rowReader.InferParameters(nil)
 	require.Equal(t, dummyError, err)
 
-	dummyr.failInferringParams = false
+	dummyr.failInferringParams = true
 
-	err = rowReader.inferParameters(nil)
+	err = rowReader.InferParameters(nil)
 	require.Equal(t, dummyError, err)
 }
 
@@ -79,7 +79,10 @@ func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
 	return nil, dummyError
 }
 
-func (r *dummyRowReader) inferParameters(params map[string]SQLValueType) error {
+func (r *dummyRowReader) SetParameters(params map[string]interface{}) {
+}
+
+func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
 	if r.failInferringParams {
 		return dummyError
 	}

@@ -42,6 +42,11 @@ func (cr *conditionalRowReader) ImplicitTable() string {
 	return cr.rowReader.ImplicitTable()
 }
 
+func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) {
+	cr.rowReader.SetParameters(params)
+	cr.params = params
+}
+
 func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }
@@ -50,8 +55,8 @@ func (cr *conditionalRowReader) colsBySelector() (map[string]*ColDescriptor, err
 	return cr.rowReader.colsBySelector()
 }
 
-func (cr *conditionalRowReader) inferParameters(params map[string]SQLValueType) error {
-	err := cr.rowReader.inferParameters(params)
+func (cr *conditionalRowReader) InferParameters(params map[string]SQLValueType) error {
+	err := cr.rowReader.InferParameters(params)
 	if err != nil {
 		return err
 	}
