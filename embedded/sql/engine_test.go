@@ -1493,7 +1493,7 @@ func TestSubQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0", nil, true)
+	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0 AS t2", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1506,8 +1506,8 @@ func TestSubQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table2", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table2", "t")].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "t2", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "t2", "t")].Value())
 	}
 
 	err = r.Close()
