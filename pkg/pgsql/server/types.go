@@ -39,6 +39,10 @@ func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*
 				pMap[param.Name] = int64(int)
 			case "VARCHAR":
 				pMap[param.Name] = p
+			case "BOOLEAN":
+				pMap[param.Name] = p
+			case "BLOB":
+				pMap[param.Name] = p
 			}
 		}
 		// binary param
@@ -52,6 +56,14 @@ func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*
 				pMap[param.Name] = i
 			case "VARCHAR":
 				pMap[param.Name] = string(p)
+			case "BOOLEAN":
+				v := false
+				if p[0] == byte(1) {
+					v = true
+				}
+				pMap[param.Name] = v
+			case "BLOB":
+				pMap[param.Name] = p
 			}
 		}
 	}

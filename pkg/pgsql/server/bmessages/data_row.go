@@ -74,9 +74,9 @@ func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) [
 					{
 						binary.BigEndian.PutUint32(valueLength, uint32(1))
 						value = make([]byte, 1)
-						value = []byte(`0`)
+						value = []byte{0}
 						if tv.B {
-							value = []byte(`1`)
+							value = []byte{1}
 						}
 					}
 				case *schema.SQLValue_Bs:
