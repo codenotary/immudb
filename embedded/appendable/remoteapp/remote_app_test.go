@@ -107,14 +107,16 @@ func TestRemoteStorageOpenAppendableInvalidName(t *testing.T) {
 	require.Nil(t, subApp)
 }
 
-func waitForObject(mem *memory.Storage, objectName string, maxWait time.Duration) bool {
+const testWaitTimeout = 10 * time.Second
+
+func waitForObject(mem *memory.Storage, objectName string) bool {
 	startWait := time.Now()
 	for {
 		if exists, _ := mem.Exists(context.Background(), objectName); exists {
 			return true
 		}
 
-		if time.Since(startWait) > maxWait {
+		if time.Since(startWait) > testWaitTimeout {
 			return false
 		}
 
@@ -122,14 +124,14 @@ func waitForObject(mem *memory.Storage, objectName string, maxWait time.Duration
 	}
 }
 
-func waitForRemoval(fileName string, maxWait time.Duration) bool {
+func waitForRemoval(fileName string) bool {
 	startWait := time.Now()
 	for {
 		if _, err := os.Stat(fileName); errors.Is(err, os.ErrNotExist) {
 			return true
 		}
 
-		if time.Since(startWait) > maxWait {
+		if time.Since(startWait) > testWaitTimeout {
 			return false
 		}
 
@@ -137,7 +139,7 @@ func waitForRemoval(fileName string, maxWait time.Duration) bool {
 	}
 }
 
-func waitForChunkState(app *RemoteStorageAppendable, chunkID int, state chunkState, maxWait time.Duration) bool {
+func waitForChunkState(app *RemoteStorageAppendable, chunkID int, state chunkState) bool {
 	startWait := time.Now()
 	for {
 		app.mutex.Lock()
@@ -148,7 +150,7 @@ func waitForChunkState(app *RemoteStorageAppendable, chunkID int, state chunkSta
 		}
 		app.mutex.Unlock()
 
-		if time.Since(startWait) > maxWait {
+		if time.Since(startWait) > testWaitTimeout {
 			return false
 		}
 
@@ -194,7 +196,7 @@ func TestWritePastFirstChunk(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the chunk is uploaded to a remote storage
-	assert.True(t, waitForObject(mem, "00000000.aof", time.Second))
+	assert.True(t, waitForObject(mem, "00000000.aof"))
 
 	readData := make([]byte, 12)
 	n, err = app.ReadAt(readData, 0)
@@ -212,12 +214,12 @@ func TestWritePastFirstChunk(t *testing.T) {
 	err = app.Flush() // Needs an explicit flush, it's managed on the immustore layer
 	require.NoError(t, err)
 
-	assert.True(t, waitForObject(mem, "00000005.aof", time.Second))
+	assert.True(t, waitForObject(mem, "00000005.aof"))
 
 	// LRU cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
-	assert.True(t, waitForRemoval("testdata/00000000.aof", time.Second))
-	assert.True(t, waitForRemoval("testdata/00000001.aof", time.Second))
-	assert.True(t, waitForRemoval("testdata/00000002.aof", time.Second))
+	assert.True(t, waitForRemoval("testdata/00000000.aof"))
+	assert.True(t, waitForRemoval("testdata/00000001.aof"))
+	assert.True(t, waitForRemoval("testdata/00000002.aof"))
 
 	readData = make([]byte, 12+49)
 	n, err = app.ReadAt(readData, 0)
@@ -255,8 +257,8 @@ func TestRemoteAppUploadOnStartup(t *testing.T) {
 	app, err := Open("testdata", "", mem, opts)
 	require.NoError(t, err)
 	for i := 0; i < 4; i++ {
-		require.True(t, waitForObject(mem, fmt.Sprintf("%08d.tst", i), time.Second))
-		require.True(t, waitForRemoval(fmt.Sprintf("testdata/%08d.tst", i), time.Second))
+		require.True(t, waitForObject(mem, fmt.Sprintf("%08d.tst", i)))
+		require.True(t, waitForRemoval(fmt.Sprintf("testdata/%08d.tst", i)))
 	}
 	err = app.Close()
 	require.NoError(t, err)
@@ -311,7 +313,7 @@ func TestReopenFromRemoteStorageOnCleanShutdown(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 0, offs)
 	require.EqualValues(t, len(dataWritten), n)
-	require.True(t, waitForRemoval("testdata/00000003.tst", time.Second))
+	require.True(t, waitForRemoval("testdata/00000003.tst"))
 
 	err = app.Close()
 	require.NoError(t, err)
@@ -358,7 +360,7 @@ func TestRemoteStorageMetrics(t *testing.T) {
 	require.EqualValues(t, 0, offs)
 	require.EqualValues(t, len(dataWritten), n)
 	for i := 0; i < 4; i++ {
-		require.True(t, waitForChunkState(app, i, chunkState_Remote, time.Second))
+		require.True(t, waitForChunkState(app, i, chunkState_Remote))
 	}
 
 	err = app.Flush()
@@ -552,7 +554,7 @@ func TestRemoteStorageUploadCancel(t *testing.T) {
 
 			app.mainCancelFunc()
 
-			require.True(t, waitForChunkState(app, 0, chunkState_Local, time.Second))
+			require.True(t, waitForChunkState(app, 0, chunkState_Local))
 		})
 	}
 }
@@ -579,17 +581,17 @@ func TestRemoteStorageUploadCancelWhenThrottled(t *testing.T) {
 	// Write past 0th chunk, upload that starts should occupy the slot
 	_, _, err = app.Append(make([]byte, 11))
 	require.NoError(t, err)
-	require.True(t, waitForChunkState(app, 0, chunkState_Uploading, time.Second))
+	require.True(t, waitForChunkState(app, 0, chunkState_Uploading))
 
 	// Write some more data to spawn more upload goroutines - those should stop on the throttler
 	_, _, err = app.Append(make([]byte, 40))
 	require.NoError(t, err)
-	require.True(t, waitForChunkState(app, 1, chunkState_Uploading, time.Second))
+	require.True(t, waitForChunkState(app, 1, chunkState_Uploading))
 
 	// After cancellation, chunks should get back to the local state
 	app.mainCancelFunc()
-	require.True(t, waitForChunkState(app, 0, chunkState_Local, time.Second))
-	require.True(t, waitForChunkState(app, 1, chunkState_Local, time.Second))
+	require.True(t, waitForChunkState(app, 0, chunkState_Local))
+	require.True(t, waitForChunkState(app, 1, chunkState_Local))
 }
 
 func TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
@@ -626,7 +628,7 @@ func TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
 
 	// Wait for all chunks but the first one to finish uploading
 	for i := 1; i < 4; i++ {
-		require.True(t, waitForChunkState(app, i, chunkState_Remote, time.Second))
+		require.True(t, waitForChunkState(app, i, chunkState_Remote))
 	}
 
 	// Remove the folder during `exists` check - that way
@@ -636,7 +638,7 @@ func TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
 	require.NoError(t, err)
 	existContinue.Done()
 
-	require.True(t, waitForChunkState(app, 0, chunkState_UploadError, time.Second))
+	require.True(t, waitForChunkState(app, 0, chunkState_UploadError))
 	require.EqualValues(t, 1, testutil.ToFloat64(metricsUploadFailed)-mUploadFailed)
 }
 
@@ -847,11 +849,11 @@ func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 	app, err := Open("testdata", "", mem, opts)
 	require.NoError(t, err)
 
-	require.True(t, waitForChunkState(app, 0, chunkState_Remote, time.Second))
-	require.True(t, waitForChunkState(app, 1, chunkState_Remote, time.Second))
-	require.True(t, waitForChunkState(app, 2, chunkState_Remote, time.Second))
-	require.True(t, waitForChunkState(app, 3, chunkState_Uploading, time.Second))
-	require.True(t, waitForChunkState(app, 4, chunkState_Active, time.Second))
+	require.True(t, waitForChunkState(app, 0, chunkState_Remote))
+	require.True(t, waitForChunkState(app, 1, chunkState_Remote))
+	require.True(t, waitForChunkState(app, 2, chunkState_Remote))
+	require.True(t, waitForChunkState(app, 3, chunkState_Uploading))
+	require.True(t, waitForChunkState(app, 4, chunkState_Active))
 
 	// Read chunk while it's being uploaded
 	readBytes := make([]byte, 8)
@@ -864,8 +866,8 @@ func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 	err = app.SetOffset(35)
 	require.NoError(t, err)
 
-	require.True(t, waitForChunkState(app, 3, chunkState_Active, time.Second))
-	require.True(t, waitForChunkState(app, 4, chunkState_Local, time.Second))
+	require.True(t, waitForChunkState(app, 3, chunkState_Active))
+	require.True(t, waitForChunkState(app, 4, chunkState_Local))
 
 }
 
@@ -882,7 +884,7 @@ func TestRemoteStorageOpenInitialAppendableMissingRemoteChunk(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
 	require.NoError(t, err)
-	require.True(t, waitForRemoval("testdata/00000000.tst", time.Second))
+	require.True(t, waitForRemoval("testdata/00000000.tst"))
 	err = app.Close()
 	require.NoError(t, err)
 
@@ -924,7 +926,7 @@ func TestRemoteStorageOpenInitialAppendableCorruptedLocalFile(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
 	require.NoError(t, err)
-	require.True(t, waitForRemoval("testdata/00000000.tst", time.Second))
+	require.True(t, waitForRemoval("testdata/00000000.tst"))
 	err = app.Close()
 	require.NoError(t, err)
 
