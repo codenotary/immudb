@@ -44,7 +44,7 @@ type BindMsg struct {
 	// The number of parameter values that follow (possibly zero). This must match the number of parameters needed by the query.
 	ParametersValueCount int16
 	// Array of the values of the parameters, in the format indicated by the associated format code. n is the above length.
-	Parameters []interface{}
+	ParamVals []interface{}
 	// The number of result-column format codes that follow (denoted R below). This can be zero to indicate that there are no result columns or that the result columns should all use the default format (text); or one, in which case the specified format code is applied to all result columns (if any); or it can equal the actual number of result columns of the query.
 	ResultColumnFormatCodesNumber int16
 	// The result-column format codes. Each must presently be zero (text) or one (binary).
@@ -144,7 +144,7 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 		PreparedStatementName: preparedStatement,
 		ParametersCountNumber: pCount,
 		//ParameterFormatCodes:          parameterFormatCodes,
-		Parameters:                    params,
+		ParamVals:                     params,
 		ResultColumnFormatCodesNumber: resultColumnFormatCodesNumber,
 		ResultColumnFormatCodes:       resultColumnFormatCodes,
 	}, nil

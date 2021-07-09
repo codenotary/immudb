@@ -19,6 +19,7 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
@@ -35,7 +36,31 @@ import (
 //
 //Int32
 //Specifies the object ID of the parameter data type.
-func ParameterDescriptiom(paramsNumber int) []byte {
+// ParameterDescription send a parameter description message. Cols need to be lexicographically ordered by selector
+func ParameterDescription(cols []*schema.Column) []byte {
+	// Identifies the message as a run-time parameter status report.
+	messageType := []byte(`t`)
+	selfMessageLength := make([]byte, 4)
+
+	paramsNumberB := make([]byte, 2)
+	binary.BigEndian.PutUint16(paramsNumberB, uint16(len(cols)))
+
+	params := make([][]byte, 0)
+	for _, c := range cols {
+		p := pgmeta.PgTypeMap[c.Type][pgmeta.PgTypeMapOid]
+		paramB := make([]byte, 4)
+		binary.BigEndian.PutUint32(paramB, uint32(p))
+		params = append(params, paramB)
+	}
+
+	binary.BigEndian.PutUint32(selfMessageLength, uint32(len(paramsNumberB)+len(params)*4+4))
+
+	return bytes.Join([][]byte{messageType, selfMessageLength, paramsNumberB, bytes.Join(params, nil)}, nil)
+}
+
+/*
+
+func ParameterDescription(paramsNumber int) []byte {
 	// Identifies the message as a run-time parameter status report.
 	messageType := []byte(`t`)
 	selfMessageLength := make([]byte, 4)
@@ -60,3 +85,6 @@ func ParameterDescriptiom(paramsNumber int) []byte {
 
 	return bytes.Join([][]byte{messageType, selfMessageLength, paramsNumberB, param1B, param2B, param3B}, nil)
 }
+
+
+*/

@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -110,42 +111,80 @@ func (s *session) QueryMachine() (err error) {
 			}
 		case fm.ParseMsg:
 			var set = regexp.MustCompile(`(?i)set\s+.+`)
-			var cols []*schema.Column
-			var parameters []string
+			var paramCols []*schema.Column
+			var resCols []*schema.Column
+			var stmt sql.SQLStmt
 			if !set.MatchString(v.Statements) {
-				r, err := s.database.QueryStmt(v.Statements, nil, true)
+				// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
+				// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
+				// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
+				// multiple commands would complicate the protocol unduly.
+				stmts, err := sql.Parse(strings.NewReader(v.Statements))
+				if err != nil {
+					s.ErrorHandle(err)
+					waitForSync = true
+					continue
+				}
+				if len(stmts) > 1 {
+					s.ErrorHandle(ErrMaxStmtNumberExceeded)
+					continue
+				}
+				stmt = stmts[0]
+
+				sel, ok := stmt.(*sql.SelectStmt)
+				if ok != true {
+					s.ErrorHandle(errors.New("not a select statement"))
+					waitForSync = true
+					continue
+				}
+				rr, err := s.database.SQLQueryRowReader(sel, true)
+				if err != nil {
+					s.ErrorHandle(err)
+					waitForSync = true
+					continue
+				}
+				cols, err := rr.Columns()
+				if err != nil {
+					s.ErrorHandle(err)
+					waitForSync = true
+					continue
+				}
+				resCols = make([]*schema.Column, 0)
+				for _, c := range cols {
+					resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
+				}
+
+				r, err := s.database.InferParametersPrepared(stmt)
 				if err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
 				}
 
-				/**TEMP**/
-				columns, err := r.Columns()
-				if err != nil {
-					return err
+				paramsNameList := []string{}
+				for n, _ := range r {
+					paramsNameList = append(paramsNameList, n)
 				}
-				cols = make([]*schema.Column, len(columns))
+				sort.Strings(paramsNameList)
 
-				for i, c := range columns {
-					cols[i] = &schema.Column{Name: c.Selector, Type: c.Type}
+				paramCols = make([]*schema.Column, 0)
+				for _, n := range paramsNameList {
+					paramCols = append(paramCols, &schema.Column{Name: n, Type: r[n]})
 				}
-				/**TEMP**/
-				_, ok := statements[v.DestPreparedStatementName]
-				// unnamed prepared statement overrides previous
-				if ok && v.DestPreparedStatementName != "" {
-					return errors.New("statement already present")
-				}
-
-				parameters = []string{"INTEGER", "INTEGER", "VARCHAR"}
+			}
+			_, ok := statements[v.DestPreparedStatementName]
+			// unnamed prepared statement overrides previous
+			if ok && v.DestPreparedStatementName != "" {
+				return errors.New("statement already present")
 			}
 
 			newStatement := &statement{
 				// if no name is provided empty string marks the unnamed prepared statement
-				Name:       v.DestPreparedStatementName,
-				Columns:    cols,
-				Statements: v.Statements,
-				ParamsType: parameters,
+				Name:         v.DestPreparedStatementName,
+				Params:       paramCols,
+				SQLStatement: v.Statements,
+				PreparedStmt: stmt,
+				Results:      resCols,
 			}
 
 			statements[v.DestPreparedStatementName] = newStatement
@@ -166,18 +205,18 @@ func (s *session) QueryMachine() (err error) {
 			// are not yet known to the backend; the format code fields in the RowDescription message will be zeroes
 			// in this case.
 			if v.DescType == "S" {
-
 				st, ok := statements[v.Name]
 				if !ok {
-					return errors.New("not match")
+					s.ErrorHandle(errors.New("statement not found"))
+					waitForSync = true
+					continue
 				}
-				cols := st.Columns
-				if _, err = s.writeMessage(bm.ParameterDescriptiom(len(st.ParamsType))); err != nil {
+				if _, err = s.writeMessage(bm.ParameterDescription(st.Params)); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
 				}
-				if _, err := s.writeMessage(bm.RowDescription(cols)); err != nil {
+				if _, err := s.writeMessage(bm.RowDescription(st.Results, nil)); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
@@ -188,12 +227,13 @@ func (s *session) QueryMachine() (err error) {
 			// returned by executing the portal; or a NoData message if the portal does not contain a query that
 			// will return rows; or ErrorResponse if there is no such portal.
 			if v.DescType == "P" {
-				p, ok := portals[v.Name]
+				st, ok := portals[v.Name]
 				if !ok {
-					return errors.New("not match")
+					s.ErrorHandle(errors.New("portal not found"))
+					waitForSync = true
+					continue
 				}
-				cols := p.Statement.Columns
-				if _, err := s.writeMessage(bm.RowDescription(cols)); err != nil {
+				if _, err := s.writeMessage(bm.RowDescription(st.Statement.Results, st.ResultColumnFormatCodes)); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
@@ -209,72 +249,43 @@ func (s *session) QueryMachine() (err error) {
 			_, ok := portals[v.DestPortalName]
 			// unnamed portal overrides previous
 			if ok && v.DestPortalName != "" {
-				return errors.New("portal already present")
+				s.ErrorHandle(errors.New("portal already present"))
+				waitForSync = true
+				continue
 			}
 
-			/** TEMP **/
-			pMap := make(map[string]interface{})
+			st, ok := statements[v.PreparedStatementName]
+			if !ok {
+				s.ErrorHandle(errors.New("statement not found"))
+				waitForSync = true
+				continue
+			}
 
-			if len(v.Parameters) > 0 {
-				params := v.Parameters
-				if p, ok := params[0].(string); ok {
-					switch statements[v.PreparedStatementName].ParamsType[0] {
+			pMap := make(map[string]interface{})
+			for index, param := range st.Params {
+				val := v.ParamVals[index]
+				// text param
+				if p, ok := val.(string); ok {
+					switch param.Type {
 					case "INTEGER":
 						int, err := strconv.Atoi(p)
 						if err != nil {
-							return err
+							s.ErrorHandle(err)
+							waitForSync = true
+							continue
 						}
-						pMap["total"] = int64(int)
+						pMap[param.Name] = int64(int)
 					case "VARCHAR":
-						pMap["total"] = p
+						pMap[param.Name] = p
 					}
 				}
-				if p, ok := params[0].([]byte); ok {
-					switch statements[v.PreparedStatementName].ParamsType[0] {
+				// binary param
+				if p, ok := val.([]byte); ok {
+					switch param.Type {
 					case "INTEGER":
-						pMap["total"] = int64(binary.BigEndian.Uint64(p))
+						pMap[param.Name] = int64(binary.BigEndian.Uint64(p))
 					case "VARCHAR":
-						pMap["total"] = string(p)
-					}
-				}
-				if p, ok := params[1].(string); ok {
-					switch statements[v.PreparedStatementName].ParamsType[1] {
-					case "INTEGER":
-						int, err := strconv.Atoi(p)
-						if err != nil {
-							return err
-						}
-						pMap["amount"] = int64(int)
-					case "VARCHAR":
-						pMap["amount"] = p
-					}
-				}
-				if p, ok := params[1].([]byte); ok {
-					switch statements[v.PreparedStatementName].ParamsType[1] {
-					case "INTEGER":
-						pMap["amount"] = int64(binary.BigEndian.Uint64(p))
-					case "VARCHAR":
-						pMap["amount"] = string(p)
-					}
-				}
-				if p, ok := params[2].(string); ok {
-					switch statements[v.PreparedStatementName].ParamsType[2] {
-					case "INTEGER":
-						int, err := strconv.Atoi(p)
-						if err != nil {
-							return err
-						}
-						pMap["title"] = int
-					case "VARCHAR":
-						pMap["title"] = p
-					}
-				}
-				if p, ok := params[2].([]byte); ok {
-					switch statements[v.PreparedStatementName].ParamsType[2] {
-					case "INTEGER":
-						pMap["title"] = int64(binary.BigEndian.Uint64(p))
-					case "VARCHAR":
-						pMap["title"] = string(p)
+						pMap[param.Name] = string(p)
 					}
 				}
 
@@ -282,10 +293,11 @@ func (s *session) QueryMachine() (err error) {
 
 			encodedParams, err := encodeParams(pMap)
 			if err != nil {
-				return err
+				s.ErrorHandle(err)
+				waitForSync = true
+				continue
 			}
 
-			st, ok := statements[v.PreparedStatementName]
 			newPortal := &portal{
 				Name:                    v.DestPortalName,
 				Statement:               st,
@@ -301,7 +313,7 @@ func (s *session) QueryMachine() (err error) {
 			}
 		case fm.Execute:
 			var set = regexp.MustCompile(`(?i)set\s+.+`)
-			if set.MatchString(portals[v.PortalName].Statement.Statements) {
+			if set.MatchString(portals[v.PortalName].Statement.SQLStatement) {
 				if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
@@ -310,9 +322,11 @@ func (s *session) QueryMachine() (err error) {
 				continue
 			}
 			//query execution
-			stmts, err := sql.Parse(strings.NewReader(portals[v.PortalName].Statement.Statements))
+			stmts, err := sql.Parse(strings.NewReader(portals[v.PortalName].Statement.SQLStatement))
 			if err != nil {
-				return err
+				s.ErrorHandle(err)
+				waitForSync = true
+				continue
 			}
 
 			for _, stmt := range stmts {
@@ -320,16 +334,22 @@ func (s *session) QueryMachine() (err error) {
 				case *sql.SelectStmt:
 					res, err := s.database.SQLQueryPrepared(st, portals[v.PortalName].Parameters, true)
 					if err != nil {
-						return err
+						s.ErrorHandle(err)
+						waitForSync = true
+						continue
 					}
 					if res != nil && len(res.Rows) > 0 {
 						if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), portals[v.PortalName].ResultColumnFormatCodes)); err != nil {
-							return err
+							s.ErrorHandle(err)
+							waitForSync = true
+							continue
 						}
 						break
 					}
 					if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
-						return err
+						s.ErrorHandle(err)
+						waitForSync = true
+						continue
 					}
 				}
 			}
@@ -382,7 +402,7 @@ func (s *session) selectStatement(st *sql.SelectStmt) error {
 		return err
 	}
 	if res != nil && len(res.Rows) > 0 {
-		if _, err = s.writeMessage(bm.RowDescription(res.Columns)); err != nil {
+		if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
 			return err
 		}
 		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), nil)); err != nil {
@@ -398,7 +418,7 @@ func (s *session) selectStatement(st *sql.SelectStmt) error {
 
 func (s *session) writeVersionInfo() error {
 	cols := []*schema.Column{{Name: "version", Type: "VARCHAR"}}
-	if _, err := s.writeMessage(bm.RowDescription(cols)); err != nil {
+	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
 		return err
 	}
 	rows := []*schema.Row{{
@@ -485,8 +505,9 @@ type portal struct {
 }
 
 type statement struct {
-	Name       string
-	Statements string
-	Columns    []*schema.Column
-	ParamsType []string
+	Name         string
+	SQLStatement string
+	PreparedStmt sql.SQLStmt
+	Params       []*schema.Column
+	Results      []*schema.Column
 }

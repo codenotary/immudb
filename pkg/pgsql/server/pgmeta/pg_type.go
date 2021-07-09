@@ -49,6 +49,7 @@ const PgServerErrRejectedEstablishmentOfSqlconnection = "08004"
 const PgServerErrSyntaxError = "42601"
 const PgServerErrProtocolViolation = "08P01"
 const PgServerErrConnectionFailure = "08006"
+const ProgramLimitExceeded = "54000"
 
 var MTypes = map[byte]string{
 	'Q': "query",
