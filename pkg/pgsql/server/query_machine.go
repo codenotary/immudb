@@ -18,6 +18,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
@@ -73,10 +74,10 @@ func (s *session) QueryMachine() (err error) {
 		case fm.QueryMsg:
 			var set = regexp.MustCompile(`(?i)set\s+.+`)
 			if set.MatchString(v.GetStatements()) {
-				if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+				if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 					s.ErrorHandle(err)
 				}
-				if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 					s.ErrorHandle(err)
 					continue
 				}
@@ -88,17 +89,17 @@ func (s *session) QueryMachine() (err error) {
 					s.ErrorHandle(err)
 					continue
 				}
-				if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 					s.ErrorHandle(err)
 					continue
 				}
 				continue
 			}
 			if v.GetStatements() == ";" {
-				if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+				if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 					s.ErrorHandle(err)
 				}
-				if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 					s.ErrorHandle(err)
 					continue
 				}
@@ -109,75 +110,23 @@ func (s *session) QueryMachine() (err error) {
 				s.ErrorHandle(err)
 				continue
 			}
-			if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+			if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
-			if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
 		case fm.ParseMsg:
-			var set = regexp.MustCompile(`(?i)set\s+.+`)
 			var paramCols []*schema.Column
 			var resCols []*schema.Column
 			var stmt sql.SQLStmt
-			if !set.MatchString(v.Statements) {
-				// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
-				// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
-				// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
-				// multiple commands would complicate the protocol unduly.
-				stmts, err := sql.Parse(strings.NewReader(v.Statements))
-				if err != nil {
+			if !regexp.MustCompile(`(?i)set\s+.+`).MatchString(v.Statements) {
+				if paramCols, resCols, err = s.inferParamsAndResultCols(v.Statements); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
-				}
-				if len(stmts) > 1 {
-					s.ErrorHandle(ErrMaxStmtNumberExceeded)
-					continue
-				}
-				stmt = stmts[0]
-
-				sel, ok := stmt.(*sql.SelectStmt)
-				if ok != true {
-					s.ErrorHandle(errors.New("not a select statement"))
-					waitForSync = true
-					continue
-				}
-				rr, err := s.database.SQLQueryRowReader(sel, true)
-				if err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
-					continue
-				}
-				cols, err := rr.Columns()
-				if err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
-					continue
-				}
-				resCols = make([]*schema.Column, 0)
-				for _, c := range cols {
-					resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
-				}
-
-				r, err := s.database.InferParametersPrepared(stmt)
-				if err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
-					continue
-				}
-
-				paramsNameList := []string{}
-				for n, _ := range r {
-					paramsNameList = append(paramsNameList, n)
-				}
-				sort.Strings(paramsNameList)
-
-				paramCols = make([]*schema.Column, 0)
-				for _, n := range paramsNameList {
-					paramCols = append(paramCols, &schema.Column{Name: n, Type: r[n]})
 				}
 			}
 			_, ok := statements[v.DestPreparedStatementName]
@@ -203,7 +152,6 @@ func (s *session) QueryMachine() (err error) {
 				continue
 			}
 		case fm.DescribeMsg:
-
 			// The Describe message (statement variant) specifies the name of an existing prepared statement
 			// (or an empty string for the unnamed prepared statement). The response is a ParameterDescription
 			// message describing the parameters needed by the statement, followed by a RowDescription message
@@ -237,11 +185,11 @@ func (s *session) QueryMachine() (err error) {
 			if v.DescType == "P" {
 				st, ok := portals[v.Name]
 				if !ok {
-					s.ErrorHandle(errors.New("portal not found"))
+					s.ErrorHandle(fmt.Errorf("portal %s not found", v.Name))
 					waitForSync = true
 					continue
 				}
-				if _, err := s.writeMessage(bm.RowDescription(st.Statement.Results, st.ResultColumnFormatCodes)); err != nil {
+				if _, err = s.writeMessage(bm.RowDescription(st.Statement.Results, st.ResultColumnFormatCodes)); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
@@ -250,21 +198,21 @@ func (s *session) QueryMachine() (err error) {
 
 		// sync
 		case fm.SyncMsg:
-			if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 				s.ErrorHandle(err)
 			}
 		case fm.BindMsg:
 			_, ok := portals[v.DestPortalName]
 			// unnamed portal overrides previous
 			if ok && v.DestPortalName != "" {
-				s.ErrorHandle(errors.New("portal already present"))
+				s.ErrorHandle(fmt.Errorf("portal %s already present", v.DestPortalName))
 				waitForSync = true
 				continue
 			}
 
 			st, ok := statements[v.PreparedStatementName]
 			if !ok {
-				s.ErrorHandle(errors.New("statement not found"))
+				s.ErrorHandle(fmt.Errorf("statement %s not found", v.PreparedStatementName))
 				waitForSync = true
 				continue
 			}
@@ -284,7 +232,7 @@ func (s *session) QueryMachine() (err error) {
 			}
 			portals[v.DestPortalName] = newPortal
 
-			if _, err := s.writeMessage(bm.BindComplete()); err != nil {
+			if _, err = s.writeMessage(bm.BindComplete()); err != nil {
 				s.ErrorHandle(err)
 				waitForSync = true
 				continue
@@ -428,4 +376,56 @@ type statement struct {
 	PreparedStmt sql.SQLStmt
 	Params       []*schema.Column
 	Results      []*schema.Column
+}
+
+func (s *session) inferParamsAndResultCols(statement string) ([]*schema.Column, []*schema.Column, error) {
+	// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
+	// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
+	// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
+	// multiple commands would complicate the protocol unduly.
+	stmts, err := sql.Parse(strings.NewReader(statement))
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(stmts) > 1 {
+		return nil, nil, ErrMaxStmtNumberExceeded
+	}
+
+	stmt := stmts[0]
+
+	sel, ok := stmt.(*sql.SelectStmt)
+	if ok != true {
+		return nil, nil, fmt.Errorf("extended query support only query statement")
+
+	}
+	rr, err := s.database.SQLQueryRowReader(sel, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	cols, err := rr.Columns()
+	if err != nil {
+		return nil, nil, err
+	}
+	resCols := make([]*schema.Column, 0)
+	for _, c := range cols {
+		resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
+	}
+
+	r, err := s.database.InferParametersPrepared(stmt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	paramsNameList := []string{}
+	for n, _ := range r {
+		paramsNameList = append(paramsNameList, n)
+	}
+	sort.Strings(paramsNameList)
+
+	paramCols := make([]*schema.Column, 0)
+	for _, n := range paramsNameList {
+		paramCols = append(paramCols, &schema.Column{Name: n, Type: r[n]})
+	}
+
+	return paramCols, resCols, nil
 }
