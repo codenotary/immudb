@@ -112,10 +112,8 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to load system database: %v", err)
 	}
 
-	if !s.sysDB.IsReplica() {
-		if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
-			return logErr(s.Logger, "Unable to load default database: %v", err)
-		}
+	if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
+		return logErr(s.Logger, "Unable to load default database: %v", err)
 	}
 
 	if s.sysDB.IsReplica() {
