@@ -57,34 +57,3 @@ func ParameterDescription(cols []*schema.Column) []byte {
 
 	return bytes.Join([][]byte{messageType, selfMessageLength, paramsNumberB, bytes.Join(params, nil)}, nil)
 }
-
-/*
-
-func ParameterDescription(paramsNumber int) []byte {
-	// Identifies the message as a run-time parameter status report.
-	messageType := []byte(`t`)
-	selfMessageLength := make([]byte, 4)
-
-	paramsNumberB := make([]byte, 2)
-	binary.BigEndian.PutUint16(paramsNumberB, uint16(paramsNumber))
-
-	p1 := pgmeta.PgTypeMap["INTEGER"][pgmeta.PgTypeMapOid]
-	p2 := pgmeta.PgTypeMap["INTEGER"][pgmeta.PgTypeMapOid]
-	p3 := pgmeta.PgTypeMap["VARCHAR"][pgmeta.PgTypeMapOid]
-
-	param1B := make([]byte, 4)
-	binary.BigEndian.PutUint32(param1B, uint32(p1))
-
-	param2B := make([]byte, 4)
-	binary.BigEndian.PutUint32(param2B, uint32(p2))
-
-	param3B := make([]byte, 4)
-	binary.BigEndian.PutUint32(param3B, uint32(p3))
-
-	binary.BigEndian.PutUint32(selfMessageLength, uint32(len(paramsNumberB)+len(param1B)+len(param2B)+len(param3B)+4))
-
-	return bytes.Join([][]byte{messageType, selfMessageLength, paramsNumberB, param1B, param2B, param3B}, nil)
-}
-
-
-*/
