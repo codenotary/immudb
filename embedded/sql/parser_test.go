@@ -310,9 +310,9 @@ func TestInsertIntoStmt(t *testing.T) {
 							&SysFn{fn: "now"},
 							&Varchar{val: "untitled row"},
 							&Bool{val: true},
-							&Param{id: "param0", positional: true},
+							&Param{id: "param1", pos: 1},
 							&Blob{val: decodedBLOB},
-							&Param{id: "param1", positional: true},
+							&Param{id: "param2", pos: 2},
 						},
 						},
 					},
@@ -321,12 +321,59 @@ func TestInsertIntoStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), $1, TRUE, $2, x'AED0393F', $1)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &TableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Param{id: "param1", pos: 1},
+							&Bool{val: true},
+							&Param{id: "param2", pos: 2},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1", pos: 1},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input:          "UPSERT INTO table1(id, title) VALUES ($0, $1)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ERROR"),
+		},
+		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, @title)",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected ERROR"),
 		},
 		{
-			input:          "UPSERT INTO table1(id, title) VALUES (@title, ?)",
+			input:          "UPSERT INTO table1(id, title) VALUES (@id, ?)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ERROR"),
+		},
+		{
+			input:          "UPSERT INTO table1(id, title) VALUES (@id, $1)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ERROR"),
+		},
+		{
+			input:          "UPSERT INTO table1(id, title) VALUES ($1, @title)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ERROR"),
+		},
+		{
+			input:          "UPSERT INTO table1(id, title) VALUES ($1, ?)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ERROR"),
+		},
+		{
+			input:          "UPSERT INTO table1(id, title) VALUES (?, $1)",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected ERROR"),
 		},
