@@ -576,7 +576,7 @@ func getRandomTableName() string {
 	return fmt.Sprintf("table%d", r)
 }
 
-func _TestPgsqlServer_ExtendedQuery(t *testing.T) {
+func TestPgsqlServer_ExtendedQuery(t *testing.T) {
 	td, _ := ioutil.TempDir("", "_pgsql")
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
@@ -603,7 +603,7 @@ func _TestPgsqlServer_ExtendedQuery(t *testing.T) {
 	var id int64
 	var amount int64
 	var title string
-	err = db.QueryRow(fmt.Sprintf("SELECT id FROM %s where amount=@amount and total=@total and title=@title", table), 1111, 1111, "title 1").Scan(&id, &amount, &title)
+	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title FROM %s where amount=? and total=? and title=?", table), 1111, 1111, "title 1").Scan(&id, &amount, &title)
 	require.NoError(t, err)
 }
 
@@ -637,6 +637,6 @@ func TestPgsqlServer_ExtendedQueryPGxNamedStatements(t *testing.T) {
 	var id int64
 	var amount int64
 	var title string
-	err = db.QueryRow(context.Background(), fmt.Sprintf("SELECT id, amount, title FROM %s where total=@total and amount=@amount and title=@title", table), 6666, 1111, "title 1").Scan(&id, &amount, &title)
+	err = db.QueryRow(context.Background(), fmt.Sprintf("SELECT id, amount, title FROM %s where total=? and amount=? and title=?", table), 6666, 1111, "title 1").Scan(&id, &amount, &title)
 	require.NoError(t, err)
 }
