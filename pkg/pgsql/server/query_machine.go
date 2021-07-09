@@ -96,6 +96,16 @@ func (s *session) QueryMachine() (err error) {
 				}
 				continue
 			}
+			if v.GetStatements() == ";" {
+				if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+					s.ErrorHandle(err)
+				}
+				if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
+				continue
+			}
 			// todo handle the result outside in order to avoid err suppression
 			if _, err = s.queryMsg(v.GetStatements()); err != nil {
 				s.ErrorHandle(err)
