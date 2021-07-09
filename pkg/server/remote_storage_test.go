@@ -310,9 +310,23 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the data was written to the remote storage
-	exists, err := m.Exists(context.Background(), "testdb/tx/00000000.tx")
-	require.NoError(t, err)
-	require.True(t, exists)
+	for _, name := range []string{
+		"testdb/aht/commit/00000000.di",
+		"testdb/aht/data/00000000.dat",
+		"testdb/aht/tree/00000000.sha",
+		"testdb/commit/00000000.txi",
+		"testdb/index/commit/00000000.ri",
+		"testdb/index/history/00000000.hx",
+		"testdb/index/nodes/00000000.n",
+		"testdb/tx/00000000.tx",
+		"testdb/val_0/00000000.val",
+	} {
+		t.Run(name, func(t *testing.T) {
+			exists, err := m.Exists(context.Background(), name)
+			require.NoError(t, err)
+			require.True(t, exists)
+		})
+	}
 }
 
 func TestRemoteStorageUsedForNewDB(t *testing.T) {

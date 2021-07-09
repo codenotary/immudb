@@ -435,7 +435,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
 
 	if opts.appFactory != nil {
-		opts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
+		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
 			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
 		})
 	}
