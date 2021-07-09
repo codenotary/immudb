@@ -66,7 +66,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS
-%token NULL
+%token NULL NPARAM
 %token <uparam> UPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -310,14 +310,14 @@ val:
         $$ = &SysFn{fn: $1}
     }
 |
-    '@' IDENTIFIER
+    NPARAM IDENTIFIER
     {
         $$ = &Param{id: $2}
     }
 |
     UPARAM
     {
-        $$ = &Param{id: fmt.Sprintf("param%d", $1)}
+        $$ = &Param{id: fmt.Sprintf("param%d", $1), positional: true}
     }
 |
     NULL
