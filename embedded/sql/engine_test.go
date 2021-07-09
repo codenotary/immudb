@@ -1622,8 +1622,8 @@ func TestInferParameters(t *testing.T) {
 	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > ? AND (NOT ? OR active)")
 	require.NoError(t, err)
 	require.Len(t, params, 2)
-	require.Equal(t, IntegerType, params["param1"])
-	require.Equal(t, BooleanType, params["param2"])
+	require.Equal(t, IntegerType, params["param0"])
+	require.Equal(t, BooleanType, params["param1"])
 
 	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT()")
 	require.NoError(t, err)

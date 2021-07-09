@@ -114,10 +114,14 @@ var logicOps = map[string]LogicOperator{
 	"OR":  OR,
 }
 
+var ErrEitherNamedOrUnnamedParams = errors.New("Either named or unnamed params")
+
 type lexer struct {
-	r      *aheadByteReader
-	err    error
-	result []SQLStmt
+	r             *aheadByteReader
+	err           error
+	namedParams   bool
+	unnamedParams int
+	result        []SQLStmt
 }
 
 type aheadByteReader struct {
@@ -347,8 +351,25 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return VARCHAR
 	}
 
+	if ch == '@' {
+		if l.unnamedParams > 0 {
+			lval.err = ErrEitherNamedOrUnnamedParams
+			return ERROR
+		}
+
+		l.namedParams = true
+		return NPARAM
+	}
+
 	if ch == '?' {
-		lval.uparam++
+		if l.namedParams {
+			lval.err = ErrEitherNamedOrUnnamedParams
+			return ERROR
+		}
+
+		lval.uparam = l.unnamedParams
+		l.unnamedParams++
+
 		return UPARAM
 	}
 
