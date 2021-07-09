@@ -1613,13 +1613,17 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["id"])
 
-	stmt = "SELECT * FROM mytable WHERE id > @id AND (NOT @active OR active)"
-
-	params, err = engine.InferParameters(stmt)
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @id AND (NOT @active OR active)")
 	require.NoError(t, err)
 	require.Len(t, params, 2)
 	require.Equal(t, IntegerType, params["id"])
 	require.Equal(t, BooleanType, params["active"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable WHERE id > ? AND (NOT ? OR active)")
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+	require.Equal(t, IntegerType, params["param1"])
+	require.Equal(t, BooleanType, params["param2"])
 
 	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT()")
 	require.NoError(t, err)

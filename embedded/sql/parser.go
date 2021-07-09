@@ -347,6 +347,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return VARCHAR
 	}
 
+	if ch == '?' {
+		lval.uparam++
+		return UPARAM
+	}
+
 	return int(ch)
 }
 

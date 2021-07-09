@@ -299,6 +299,28 @@ func TestInsertIntoStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'untitled row', TRUE, ?, x'AED0393F', ?)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &TableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Varchar{val: "untitled row"},
+							&Bool{val: true},
+							&Param{id: "param1"},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param2"},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
 			input: "UPSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{

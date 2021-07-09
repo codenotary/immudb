@@ -17,6 +17,8 @@ limitations under the License.
 %{
 package sql
 
+import "fmt"
+
 func setResult(l yyLexer, stmts []SQLStmt) {
     l.(*lexer).result = stmts
 }
@@ -56,6 +58,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     opt_ord Comparison
     logicOp LogicOperator
     cmpOp CmpOperator
+    uparam int
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
@@ -64,6 +67,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS
 %token NULL
+%token <uparam> UPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
@@ -309,6 +313,11 @@ val:
     '@' IDENTIFIER
     {
         $$ = &Param{id: $2}
+    }
+|
+    UPARAM
+    {
+        $$ = &Param{id: fmt.Sprintf("param%d", $1)}
     }
 |
     NULL
