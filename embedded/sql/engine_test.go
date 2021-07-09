@@ -690,7 +690,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	params := make(map[string]interface{})
+	params = make(map[string]interface{})
 	params["some_param1"] = true
 
 	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil, true)

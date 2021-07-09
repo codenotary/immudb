@@ -46,7 +46,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	err = d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
 	}
@@ -351,18 +351,18 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 }
 
 func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error) {
-	r, err := d.SQLQueryRowReader(stmt, renewSnapshot)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	r, err := d.SQLQueryRowReader(stmt, renewSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
 
 	params := make(map[string]interface{})
 
