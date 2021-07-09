@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"encoding/binary"
 	"errors"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -27,7 +26,6 @@ import (
 	"io"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -271,37 +269,7 @@ func (s *session) QueryMachine() (err error) {
 				continue
 			}
 
-			pMap := make(map[string]interface{})
-			for index, param := range st.Params {
-				val := v.ParamVals[index]
-				// text param
-				if p, ok := val.(string); ok {
-					switch param.Type {
-					case "INTEGER":
-						int, err := strconv.Atoi(p)
-						if err != nil {
-							s.ErrorHandle(err)
-							waitForSync = true
-							continue
-						}
-						pMap[param.Name] = int64(int)
-					case "VARCHAR":
-						pMap[param.Name] = p
-					}
-				}
-				// binary param
-				if p, ok := val.([]byte); ok {
-					switch param.Type {
-					case "INTEGER":
-						pMap[param.Name] = int64(binary.BigEndian.Uint64(p))
-					case "VARCHAR":
-						pMap[param.Name] = string(p)
-					}
-				}
-
-			}
-
-			encodedParams, err := encodeParams(pMap)
+			encodedParams, err := buildNamedParams(st.Params, v.ParamVals)
 			if err != nil {
 				s.ErrorHandle(err)
 				waitForSync = true
@@ -445,66 +413,6 @@ func (s *session) writeVersionInfo() error {
 		return err
 	}
 	return nil
-}
-
-func encodeParams(params map[string]interface{}) ([]*schema.NamedParam, error) {
-	if params == nil {
-		return nil, nil
-	}
-
-	namedParams := make([]*schema.NamedParam, len(params))
-
-	i := 0
-	for n, v := range params {
-		sqlVal, err := asSQLValue(v)
-		if err != nil {
-			return nil, err
-		}
-
-		namedParams[i] = &schema.NamedParam{Name: n, Value: sqlVal}
-		i++
-	}
-
-	return namedParams, nil
-}
-
-func asSQLValue(v interface{}) (*schema.SQLValue, error) {
-	if v == nil {
-		return &schema.SQLValue{Value: &schema.SQLValue_Null{}}, nil
-	}
-
-	switch tv := v.(type) {
-	case uint:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case int:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case int64:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case uint64:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case string:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv}}, nil
-		}
-	case bool:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv}}, nil
-		}
-	case []byte:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv}}, nil
-		}
-	}
-
-	return nil, sql.ErrInvalidValue
 }
 
 type portal struct {
