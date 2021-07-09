@@ -872,8 +872,8 @@ func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable str
 }
 
 type Param struct {
-	id         string
-	positional bool
+	id  string
+	pos int
 }
 
 func (v *Param) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {

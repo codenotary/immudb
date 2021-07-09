@@ -44,7 +44,7 @@ type yySymType struct {
 	opt_ord  Comparison
 	logicOp  LogicOperator
 	cmpOp    CmpOperator
-	uparam   int
+	pparam   int
 }
 
 const CREATE = 57346
@@ -90,7 +90,7 @@ const IF = 57385
 const EXISTS = 57386
 const NULL = 57387
 const NPARAM = 57388
-const UPARAM = 57389
+const PPARAM = 57389
 const JOINTYPE = 57390
 const LOP = 57391
 const CMPOP = 57392
@@ -151,7 +151,7 @@ var yyToknames = [...]string{
 	"EXISTS",
 	"NULL",
 	"NPARAM",
-	"UPARAM",
+	"PPARAM",
 	"JOINTYPE",
 	"LOP",
 	"CMPOP",
@@ -868,7 +868,7 @@ yydefault:
 	case 40:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.value = &Param{id: fmt.Sprintf("param%d", yyDollar[1].uparam), positional: true}
+			yyVAL.value = &Param{id: fmt.Sprintf("param%d", yyDollar[1].pparam), pos: yyDollar[1].pparam}
 		}
 	case 41:
 		yyDollar = yyS[yypt-1 : yypt+1]

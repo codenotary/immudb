@@ -114,14 +114,24 @@ var logicOps = map[string]LogicOperator{
 	"OR":  OR,
 }
 
-var ErrEitherNamedOrUnnamedParams = errors.New("Either named or unnamed params")
+var ErrEitherNamedOrUnnamedParams = errors.New("either named or unnamed params")
+var ErrEitherPosOrNonPosParams = errors.New("either positional or non-positional named params")
+var ErrInvalidPositionalParameter = errors.New("invalid positional parameter")
+
+type positionalParamType int
+
+const (
+	NamedNonPositionalParamType positionalParamType = iota + 1
+	NamedPositionalParamType
+	UnnamedParamType
+)
 
 type lexer struct {
-	r             *aheadByteReader
-	err           error
-	namedParams   bool
-	unnamedParams int
-	result        []SQLStmt
+	r               *aheadByteReader
+	err             error
+	namedParamsType positionalParamType
+	paramsCount     int
+	result          []SQLStmt
 }
 
 type aheadByteReader struct {
@@ -352,25 +362,68 @@ func (l *lexer) Lex(lval *yySymType) int {
 	}
 
 	if ch == '@' {
-		if l.unnamedParams > 0 {
+		if l.namedParamsType == UnnamedParamType {
 			lval.err = ErrEitherNamedOrUnnamedParams
 			return ERROR
 		}
 
-		l.namedParams = true
+		if l.namedParamsType == NamedPositionalParamType {
+			lval.err = ErrEitherPosOrNonPosParams
+			return ERROR
+		}
+
+		l.namedParamsType = NamedNonPositionalParamType
+
 		return NPARAM
 	}
 
-	if ch == '?' {
-		if l.namedParams {
+	if ch == '$' {
+		if l.namedParamsType == UnnamedParamType {
 			lval.err = ErrEitherNamedOrUnnamedParams
 			return ERROR
 		}
 
-		lval.uparam = l.unnamedParams
-		l.unnamedParams++
+		if l.namedParamsType == NamedNonPositionalParamType {
+			lval.err = ErrEitherPosOrNonPosParams
+			return ERROR
+		}
 
-		return UPARAM
+		id, err := l.readNumber()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		pid, err := strconv.Atoi(id)
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		if pid < 1 {
+			lval.err = ErrInvalidPositionalParameter
+			return ERROR
+		}
+
+		lval.pparam = pid
+
+		l.namedParamsType = NamedPositionalParamType
+
+		return PPARAM
+	}
+
+	if ch == '?' {
+		if l.namedParamsType == NamedNonPositionalParamType || l.namedParamsType == NamedPositionalParamType {
+			lval.err = ErrEitherNamedOrUnnamedParams
+			return ERROR
+		}
+
+		l.paramsCount++
+		lval.pparam = l.paramsCount
+
+		l.namedParamsType = UnnamedParamType
+
+		return PPARAM
 	}
 
 	return int(ch)
