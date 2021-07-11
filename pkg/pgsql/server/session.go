@@ -45,7 +45,7 @@ type session struct {
 type Session interface {
 	InitializeSession() error
 	HandleStartup(dbList database.DatabaseList) error
-	QueryMachine() (err error)
+	QueriesMachine() (err error)
 	ErrorHandle(err error)
 }
 

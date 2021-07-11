@@ -23,14 +23,13 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
-	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"io"
-	"regexp"
 	"sort"
 	"strings"
 )
 
-func (s *session) QueryMachine() (err error) {
+//QueriesMachine ...
+func (s *session) QueriesMachine() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -72,47 +71,12 @@ func (s *session) QueryMachine() (err error) {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			var set = regexp.MustCompile(`(?i)set\s+.+`)
-			if set.MatchString(v.GetStatements()) {
-				if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
-					s.ErrorHandle(err)
-				}
-				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				continue
-			}
-			var version = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
-			if version.MatchString(v.GetStatements()) {
-				if err = s.writeVersionInfo(); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				continue
-			}
-			if v.GetStatements() == ";" {
-				if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
-					s.ErrorHandle(err)
-				}
-				if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				continue
-			}
-			// todo handle the result outside in order to avoid err suppression
-			if _, err = s.queryMsg(v.GetStatements()); err != nil {
+			if err = s.fetchAndWriteResults(v.GetStatements(), nil, nil, false); err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
 			if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 				s.ErrorHandle(err)
-				continue
 			}
 			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 				s.ErrorHandle(err)
@@ -122,8 +86,8 @@ func (s *session) QueryMachine() (err error) {
 			var paramCols []*schema.Column
 			var resCols []*schema.Column
 			var stmt sql.SQLStmt
-			if !regexp.MustCompile(`(?i)set\s+.+`).MatchString(v.Statements) {
-				if paramCols, resCols, err = s.inferParamsAndResultCols(v.Statements); err != nil {
+			if s.isSupportedByCore(v.Statements) {
+				if paramCols, resCols, err = s.inferParamAndResultCols(v.Statements); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
@@ -132,7 +96,9 @@ func (s *session) QueryMachine() (err error) {
 			_, ok := statements[v.DestPreparedStatementName]
 			// unnamed prepared statement overrides previous
 			if ok && v.DestPreparedStatementName != "" {
-				return errors.New("statement already present")
+				s.ErrorHandle(errors.New("statement already present"))
+				waitForSync = true
+				continue
 			}
 
 			newStatement := &statement{
@@ -195,8 +161,6 @@ func (s *session) QueryMachine() (err error) {
 					continue
 				}
 			}
-
-		// sync
 		case fm.SyncMsg:
 			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 				s.ErrorHandle(err)
@@ -238,51 +202,18 @@ func (s *session) QueryMachine() (err error) {
 				continue
 			}
 		case fm.Execute:
-			var set = regexp.MustCompile(`(?i)set\s+.+`)
-			if set.MatchString(portals[v.PortalName].Statement.SQLStatement) {
-				if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
-					s.ErrorHandle(err)
-					waitForSync = true
-					continue
-				}
-				continue
-			}
 			//query execution
-			stmts, err := sql.Parse(strings.NewReader(portals[v.PortalName].Statement.SQLStatement))
-			if err != nil {
+			if err = s.fetchAndWriteResults(portals[v.PortalName].Statement.SQLStatement,
+				portals[v.PortalName].Parameters,
+				portals[v.PortalName].ResultColumnFormatCodes,
+				true); err != nil {
 				s.ErrorHandle(err)
 				waitForSync = true
 				continue
-			}
-
-			for _, stmt := range stmts {
-				switch st := stmt.(type) {
-				case *sql.SelectStmt:
-					res, err := s.database.SQLQueryPrepared(st, portals[v.PortalName].Parameters, true)
-					if err != nil {
-						s.ErrorHandle(err)
-						waitForSync = true
-						continue
-					}
-					if res != nil && len(res.Rows) > 0 {
-						if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), portals[v.PortalName].ResultColumnFormatCodes)); err != nil {
-							s.ErrorHandle(err)
-							waitForSync = true
-							continue
-						}
-						break
-					}
-					if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
-						s.ErrorHandle(err)
-						waitForSync = true
-						continue
-					}
-				}
 			}
 			if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 				s.ErrorHandle(err)
 				waitForSync = true
-				continue
 			}
 		default:
 			s.ErrorHandle(ErrUnknowMessageType)
@@ -291,47 +222,56 @@ func (s *session) QueryMachine() (err error) {
 	}
 }
 
-func (s *session) queryMsg(statements string) (*schema.SQLExecResult, error) {
-	var res *schema.SQLExecResult
+func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	if !s.isSupportedByCore(statements) {
+		return nil
+	}
+	if i := s.isEmulableInternally(statements); i != nil {
+		if err := s.tryToHandleInternally(i); err != nil && err != ErrMessageCannotBeHandledInternally {
+			return err
+		}
+		return nil
+	}
+
 	stmts, err := sql.Parse(strings.NewReader(statements))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, stmt := range stmts {
 		switch st := stmt.(type) {
 		case *sql.UseDatabaseStmt:
 			{
-				return nil, ErrUseDBStatementNotSupported
+				return ErrUseDBStatementNotSupported
 			}
 		case *sql.CreateDatabaseStmt:
 			{
-				return nil, ErrCreateDBStatementNotSupported
+				return ErrCreateDBStatementNotSupported
 			}
 		case *sql.SelectStmt:
-			err := s.selectStatement(st)
-			if err != nil {
-				return nil, err
+			if err = s.query(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+				return err
 			}
 		case sql.SQLStmt:
-			res, err = s.database.SQLExecPrepared([]sql.SQLStmt{st}, nil, true)
-			if err != nil {
-				return nil, err
+			if err = s.exec(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+				return err
 			}
 		}
 	}
-	return res, nil
+	return nil
 }
 
-func (s *session) selectStatement(st *sql.SelectStmt) error {
-	res, err := s.database.SQLQueryPrepared(st, nil, true)
+func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	res, err := s.database.SQLQueryPrepared(st, parameters, true)
 	if err != nil {
 		return err
 	}
 	if res != nil && len(res.Rows) > 0 {
-		if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
-			return err
+		if !skipRowDesc {
+			if _, err = s.writeMessage(bm.RowDescription(res.Columns, nil)); err != nil {
+				return err
+			}
 		}
-		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), nil)); err != nil {
+		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), resultColumnFormatCodes)); err != nil {
 			return err
 		}
 		return nil
@@ -342,22 +282,8 @@ func (s *session) selectStatement(st *sql.SelectStmt) error {
 	return nil
 }
 
-func (s *session) writeVersionInfo() error {
-	cols := []*schema.Column{{Name: "version", Type: "VARCHAR"}}
-	if _, err := s.writeMessage(bm.RowDescription(cols, nil)); err != nil {
-		return err
-	}
-	rows := []*schema.Row{{
-		Columns: []string{"version"},
-		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: pgmeta.PgsqlProtocolVersionMessage}}},
-	}}
-	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), nil)); err != nil {
-		return err
-	}
-	if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
-		return err
-	}
-	if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+func (s *session) exec(st sql.SQLStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	if _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, nil, true); err != nil {
 		return err
 	}
 	return nil
@@ -378,7 +304,7 @@ type statement struct {
 	Results      []*schema.Column
 }
 
-func (s *session) inferParamsAndResultCols(statement string) ([]*schema.Column, []*schema.Column, error) {
+func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, []*schema.Column, error) {
 	// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
 	// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
 	// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
@@ -390,7 +316,9 @@ func (s *session) inferParamsAndResultCols(statement string) ([]*schema.Column, 
 	if len(stmts) > 1 {
 		return nil, nil, ErrMaxStmtNumberExceeded
 	}
-
+	if len(stmts) == 0 {
+		return nil, nil, ErrNoStatementFound
+	}
 	stmt := stmts[0]
 
 	sel, ok := stmt.(*sql.SelectStmt)
@@ -416,7 +344,7 @@ func (s *session) inferParamsAndResultCols(statement string) ([]*schema.Column, 
 		return nil, nil, err
 	}
 
-	paramsNameList := []string{}
+	var paramsNameList []string
 	for n, _ := range r {
 		paramsNameList = append(paramsNameList, n)
 	}
