@@ -45,7 +45,7 @@ func (s *sessionMock) InitializeSession() error {
 	return s.InitializeSessionF()
 }
 
-func (s *sessionMock) QueryMachine() error {
+func (s *sessionMock) QueriesMachine() error {
 	return s.QueryMachineF()
 }
 
