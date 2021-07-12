@@ -38,15 +38,15 @@ type BindMsg struct {
 	// The name of the source prepared statement (an empty string selects the unnamed prepared statement).
 	PreparedStatementName string
 	// The number of parameter format codes that follow (denoted C below). This can be zero to indicate that there are no parameters or that the parameters all use the default format (text); or one, in which case the specified format code is applied to all parameters; or it can equal the actual number of parameters.
-	ParametersCountNumber int16
+	//ParametersCountNumber int16
 	// The parameter format codes. Each must presently be zero (text) or one (binary).
-	//ParameterFormatCodes []int16
+	ParameterFormatCodes []int16
 	// The number of parameter values that follow (possibly zero). This must match the number of parameters needed by the query.
-	ParametersValueCount int16
+	//ParametersValueCount int16
 	// Array of the values of the parameters, in the format indicated by the associated format code. n is the above length.
 	ParamVals []interface{}
 	// The number of result-column format codes that follow (denoted R below). This can be zero to indicate that there are no result columns or that the result columns should all use the default format (text); or one, in which case the specified format code is applied to all result columns (if any); or it can equal the actual number of result columns of the query.
-	ResultColumnFormatCodesNumber int16
+	//ResultColumnFormatCodesNumber int16
 	// The result-column format codes. Each must presently be zero (text) or one (binary).
 	ResultColumnFormatCodes []int16
 }
@@ -111,9 +111,11 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 		}
 		if forceTXT {
 			params = append(params, string(pVal))
+			continue
 		}
 		if forceBIN {
 			params = append(params, pVal)
+			continue
 		}
 		if f, ok := parameterFormatCodes[i]; ok {
 			switch f {
@@ -140,12 +142,9 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	}
 
 	return BindMsg{
-		DestPortalName:        destPortalName,
-		PreparedStatementName: preparedStatement,
-		ParametersCountNumber: pCount,
-		//ParameterFormatCodes:          parameterFormatCodes,
-		ParamVals:                     params,
-		ResultColumnFormatCodesNumber: resultColumnFormatCodesNumber,
-		ResultColumnFormatCodes:       resultColumnFormatCodes,
+		DestPortalName:          destPortalName,
+		PreparedStatementName:   preparedStatement,
+		ParamVals:               params,
+		ResultColumnFormatCodes: resultColumnFormatCodes,
 	}, nil
 }

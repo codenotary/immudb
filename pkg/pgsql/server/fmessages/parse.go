@@ -51,7 +51,7 @@ func ParseParseMsg(msg []byte) (ParseMsg, error) {
 
 	objectIDs := make([]int32, 0)
 
-	for k := pCount; k < 0; k-- {
+	for k := int16(0); k < pCount; k++ {
 		ID, err := getNextInt32(r)
 		if err != nil {
 			return ParseMsg{}, err
