@@ -27,7 +27,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -75,6 +77,34 @@ func TestOpenRemoteStorageAppendable(t *testing.T) {
 
 	err = app.Close()
 	require.NoError(t, err)
+
+	err = app.Close()
+	require.Equal(t, multiapp.ErrAlreadyClosed, err)
+}
+
+func TestOpenRemoteStorageAppendableCompression(t *testing.T) {
+	os.RemoveAll("testdata")
+	defer os.RemoveAll("testdata")
+
+	opts := DefaultOptions()
+	opts.WithCompressionFormat(appendable.FlateCompression).
+		WithCompresionLevel(appendable.BestCompression)
+
+	app, err := Open("testdata", "", memory.Open(), opts)
+	require.Equal(t, err, ErrCompressionNotSupported)
+	require.Nil(t, app)
+}
+
+func TestRemoteStorageOpenAppendableInvalidName(t *testing.T) {
+	os.RemoveAll("testdata")
+	defer os.RemoveAll("testdata")
+
+	app, err := Open("testdata", "", memory.Open(), DefaultOptions())
+	require.NoError(t, err)
+
+	subApp, err := app.OpenAppendable(singleapp.DefaultOptions(), "invalid-app-name", false)
+	require.Error(t, err)
+	require.Nil(t, subApp)
 }
 
 func waitForObject(mem *memory.Storage, objectName string, maxWait time.Duration) bool {
@@ -837,4 +867,73 @@ func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 	require.True(t, waitForChunkState(app, 3, chunkState_Active, time.Second))
 	require.True(t, waitForChunkState(app, 4, chunkState_Local, time.Second))
 
+}
+
+func TestRemoteStorageOpenInitialAppendableMissingRemoteChunk(t *testing.T) {
+	os.RemoveAll("testdata")
+	defer os.RemoveAll("testdata")
+
+	// Prepare test dataset
+	opts := DefaultOptions()
+	opts.WithFileSize(10)
+	opts.WithFileExt("tst")
+	m := &remoteStorageMockingWrapper{wrapped: memory.Open()}
+	app, err := Open("testdata", "", m, opts)
+	require.NoError(t, err)
+	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
+	require.NoError(t, err)
+	require.True(t, waitForRemoval("testdata/00000000.tst", time.Second))
+	err = app.Close()
+	require.NoError(t, err)
+
+	// Simulate missing file on a remote storage
+	m.fnExists = func(ctx context.Context, name string, next func() (bool, error)) (bool, error) {
+		if name == "00000000.tst" {
+			return false, nil
+		}
+		return next()
+	}
+	m.fnGet = func(ctx context.Context, name string, offs, size int64, next func() (io.ReadCloser, error)) (io.ReadCloser, error) {
+		if name == "00000000.tst" {
+			return nil, remotestorage.ErrNotFound
+		}
+		return next()
+	}
+	m.fnListEntries = func(ctx context.Context, path string, next func() (entries []remotestorage.EntryInfo, subPaths []string, err error)) (entries []remotestorage.EntryInfo, subPaths []string, err error) {
+		e, s, err := next()
+		require.True(t, e[0].Name == "00000000.tst")
+		return e[1:], s, err
+	}
+
+	// Opening should fail now
+	app, err = Open("testdata", "", m, opts)
+	require.Equal(t, ErrMissingRemoteChunk, err)
+	require.Nil(t, app)
+}
+
+func TestRemoteStorageOpenInitialAppendableCorruptedLocalFile(t *testing.T) {
+	os.RemoveAll("testdata")
+	defer os.RemoveAll("testdata")
+
+	// Prepare test dataset
+	opts := DefaultOptions()
+	opts.WithFileSize(10)
+	opts.WithFileExt("tst")
+	m := &remoteStorageMockingWrapper{wrapped: memory.Open()}
+	app, err := Open("testdata", "", m, opts)
+	require.NoError(t, err)
+	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
+	require.NoError(t, err)
+	require.True(t, waitForRemoval("testdata/00000000.tst", time.Second))
+	err = app.Close()
+	require.NoError(t, err)
+
+	// Local file smaller than a corresponding remote object indicates data corruption
+	err = ioutil.WriteFile("testdata/00000000.tst", []byte{}, 0777)
+	require.NoError(t, err)
+
+	// Opening should fail now
+	app, err = Open("testdata", "", m, opts)
+	require.Equal(t, ErrInvalidRemoteStorage, err)
+	require.Nil(t, app)
 }
