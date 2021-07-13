@@ -38,7 +38,7 @@ func (s *session) QueriesMachine() (err error) {
 
 	var waitForSync = false
 
-	if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+	if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 		return err
 	}
 
@@ -50,9 +50,6 @@ func (s *session) QueriesMachine() (err error) {
 				return nil
 			}
 			s.ErrorHandle(err)
-			if extQueryMode {
-				waitForSync = true
-			}
 			continue
 		}
 		// When an error is detected while processing any extended-query message, the backend issues ErrorResponse,
@@ -63,8 +60,6 @@ func (s *session) QueriesMachine() (err error) {
 			if _, ok := msg.(fm.SyncMsg); !ok {
 				continue
 			}
-			waitForSync = false
-			extQueryMode = false
 		}
 
 		switch v := msg.(type) {
@@ -86,7 +81,7 @@ func (s *session) QueriesMachine() (err error) {
 			var paramCols []*schema.Column
 			var resCols []*schema.Column
 			var stmt sql.SQLStmt
-			if s.isSupportedByCore(v.Statements) {
+			if !s.isInBlackList(v.Statements) {
 				if paramCols, resCols, err = s.inferParamAndResultCols(v.Statements); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
@@ -223,7 +218,7 @@ func (s *session) QueriesMachine() (err error) {
 }
 
 func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	if !s.isSupportedByCore(statements) {
+	if s.isInBlackList(statements) {
 		return nil
 	}
 	if i := s.isEmulableInternally(statements); i != nil {
