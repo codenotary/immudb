@@ -33,9 +33,6 @@ func (s *session) QueriesMachine() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	var portals = make(map[string]*portal)
-	var statements = make(map[string]*statement)
-
 	var waitForSync = false
 
 	if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
@@ -72,6 +69,7 @@ func (s *session) QueriesMachine() (err error) {
 			}
 			if _, err = s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 				s.ErrorHandle(err)
+				continue
 			}
 			if _, err = s.writeMessage(bm.ReadyForQuery()); err != nil {
 				s.ErrorHandle(err)
@@ -88,7 +86,7 @@ func (s *session) QueriesMachine() (err error) {
 					continue
 				}
 			}
-			_, ok := statements[v.DestPreparedStatementName]
+			_, ok := s.statements[v.DestPreparedStatementName]
 			// unnamed prepared statement overrides previous
 			if ok && v.DestPreparedStatementName != "" {
 				s.ErrorHandle(errors.New("statement already present"))
@@ -105,7 +103,7 @@ func (s *session) QueriesMachine() (err error) {
 				Results:      resCols,
 			}
 
-			statements[v.DestPreparedStatementName] = newStatement
+			s.statements[v.DestPreparedStatementName] = newStatement
 
 			if _, err = s.writeMessage(bm.ParseComplete()); err != nil {
 				s.ErrorHandle(err)
@@ -122,7 +120,7 @@ func (s *session) QueriesMachine() (err error) {
 			// are not yet known to the backend; the format code fields in the RowDescription message will be zeroes
 			// in this case.
 			if v.DescType == "S" {
-				st, ok := statements[v.Name]
+				st, ok := s.statements[v.Name]
 				if !ok {
 					s.ErrorHandle(errors.New("statement not found"))
 					waitForSync = true
@@ -144,7 +142,7 @@ func (s *session) QueriesMachine() (err error) {
 			// returned by executing the portal; or a NoData message if the portal does not contain a query that
 			// will return rows; or ErrorResponse if there is no such portal.
 			if v.DescType == "P" {
-				st, ok := portals[v.Name]
+				st, ok := s.portals[v.Name]
 				if !ok {
 					s.ErrorHandle(fmt.Errorf("portal %s not found", v.Name))
 					waitForSync = true
@@ -161,7 +159,7 @@ func (s *session) QueriesMachine() (err error) {
 				s.ErrorHandle(err)
 			}
 		case fm.BindMsg:
-			_, ok := portals[v.DestPortalName]
+			_, ok := s.portals[v.DestPortalName]
 			// unnamed portal overrides previous
 			if ok && v.DestPortalName != "" {
 				s.ErrorHandle(fmt.Errorf("portal %s already present", v.DestPortalName))
@@ -169,7 +167,7 @@ func (s *session) QueriesMachine() (err error) {
 				continue
 			}
 
-			st, ok := statements[v.PreparedStatementName]
+			st, ok := s.statements[v.PreparedStatementName]
 			if !ok {
 				s.ErrorHandle(fmt.Errorf("statement %s not found", v.PreparedStatementName))
 				waitForSync = true
@@ -189,7 +187,7 @@ func (s *session) QueriesMachine() (err error) {
 				Parameters:              encodedParams,
 				ResultColumnFormatCodes: v.ResultColumnFormatCodes,
 			}
-			portals[v.DestPortalName] = newPortal
+			s.portals[v.DestPortalName] = newPortal
 
 			if _, err = s.writeMessage(bm.BindComplete()); err != nil {
 				s.ErrorHandle(err)
@@ -198,9 +196,9 @@ func (s *session) QueriesMachine() (err error) {
 			}
 		case fm.Execute:
 			//query execution
-			if err = s.fetchAndWriteResults(portals[v.PortalName].Statement.SQLStatement,
-				portals[v.PortalName].Parameters,
-				portals[v.PortalName].ResultColumnFormatCodes,
+			if err = s.fetchAndWriteResults(s.portals[v.PortalName].Statement.SQLStatement,
+				s.portals[v.PortalName].Parameters,
+				s.portals[v.PortalName].ResultColumnFormatCodes,
 				true); err != nil {
 				s.ErrorHandle(err)
 				waitForSync = true

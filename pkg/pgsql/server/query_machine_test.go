@@ -19,6 +19,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
@@ -31,9 +32,11 @@ import (
 
 func TestSession_QueriesMachine(t *testing.T) {
 	var tests = []struct {
-		name string
-		in   func(conn net.Conn)
-		out  error
+		name       string
+		in         func(conn net.Conn)
+		out        error
+		portals    map[string]*portal
+		statements map[string]*statement
 	}{
 		{
 			name: "unsupported message",
@@ -198,7 +201,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
 				c2.Read(ready4Query)
 				//parse message
-				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S(";"), h.I16(1), h.I32(0)})))
 				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
 				c2.Read(ready4Query)
 				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
@@ -212,21 +215,184 @@ func TestSession_QueriesMachine(t *testing.T) {
 			},
 			out: nil,
 		},
+		{
+			name: "sync error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('S', []byte{0}))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "query results error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S("_wrong_")))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "query command complete error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S("set test")))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "query command ready for query error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('Q', h.S("set test")))
+				cc := make([]byte, len(bmessages.CommandComplete([]byte(`ok`))))
+				c2.Read(cc)
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "bind portal already present error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				//parse message
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set test"), h.I16(1), h.I32(0)})))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				bindComplete := make([]byte, len(bmessages.BindComplete()))
+				c2.Read(bindComplete)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				bindComplete = make([]byte, len(bmessages.BindComplete()))
+				c2.Read(bindComplete)
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "bind named param error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				c2.Close()
+			},
+			out: nil,
+			statements: map[string]*statement{
+				"st": {
+					Name:         "st",
+					SQLStatement: "test",
+					PreparedStmt: nil,
+					Params: []*schema.Column{{
+						Name: "test",
+						Type: "INTEGER",
+					}},
+					Results: nil,
+				},
+			},
+		},
+		{
+			name: "bind complete error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				//parse message
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "execute write result error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('E', h.Join([][]byte{h.S("port"), h.I32(1)})))
+				c2.Close()
+			},
+			out: nil,
+			portals: map[string]*portal{
+				"port": &portal{
+					Statement: &statement{
+						SQLStatement: "test",
+					},
+					Parameters: []*schema.NamedParam{
+						{
+							Name: "test",
+						},
+					},
+					ResultColumnFormatCodes: []int16{1},
+				},
+			},
+		},
+		{
+			name: "execute command complete error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				//parse message
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				bindComplete := make([]byte, len(bmessages.BindComplete()))
+				c2.Read(bindComplete)
+				c2.Write(h.Msg('E', h.Join([][]byte{h.S("port"), h.I32(1)})))
+				c2.Close()
+			},
+			out: nil,
+		},
+		{
+			name: "execute command complete error",
+			in: func(c2 net.Conn) {
+				ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				//parse message
+				c2.Write(h.Msg('P', h.Join([][]byte{h.S("st"), h.S("set set"), h.I16(1), h.I32(0)})))
+				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
+				c2.Read(ready4Query)
+				c2.Write(h.Msg('B', h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)})))
+				bindComplete := make([]byte, len(bmessages.BindComplete()))
+				c2.Read(bindComplete)
+				c2.Write(h.Msg('E', h.Join([][]byte{h.S("port"), h.I32(1)})))
+				c2.Close()
+			},
+			out: nil,
+		},
 	}
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("qm scenario %d: %s", i, tt.name), func(t *testing.T) {
 			c1, c2 := net.Pipe()
+
 			mr := &messageReader{
 				conn: c1,
 			}
 
 			s := session{
-				mr:    mr,
-				Mutex: sync.Mutex{},
-				log:   logger.NewSimpleLogger("test", os.Stdout),
+				log:        logger.NewSimpleLogger("test", os.Stdout),
+				mr:         mr,
+				Mutex:      sync.Mutex{},
+				statements: make(map[string]*statement),
+				portals:    make(map[string]*portal),
 			}
 
+			if tt.statements != nil {
+				s.statements = tt.statements
+			}
+			if tt.portals != nil {
+				s.portals = tt.portals
+			}
 			go tt.in(c2)
 
 			err := s.QueriesMachine()

@@ -39,6 +39,8 @@ type session struct {
 	sysDb           database.DB
 	connParams      map[string]string
 	protocolVersion string
+	portals         map[string]*portal
+	statements      map[string]*statement
 	sync.Mutex
 }
 
@@ -51,10 +53,12 @@ type Session interface {
 
 func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) *session {
 	s := &session{
-		tlsConfig: tlsConfig,
-		log:       log,
-		mr:        NewMessageReader(c),
-		sysDb:     sysDb,
+		tlsConfig:  tlsConfig,
+		log:        log,
+		mr:         NewMessageReader(c),
+		sysDb:      sysDb,
+		portals:    make(map[string]*portal),
+		statements: make(map[string]*statement),
 	}
 	return s
 }
