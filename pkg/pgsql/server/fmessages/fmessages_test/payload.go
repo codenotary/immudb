@@ -23,3 +23,9 @@ func I32(i int) []byte {
 	binary.BigEndian.PutUint32(ib, uint32(i))
 	return ib
 }
+
+func Msg(t byte, payload []byte) []byte {
+	ml := make([]byte, 4)
+	binary.BigEndian.PutUint32(ml, uint32(len(payload)+4))
+	return bytes.Join([][]byte{{t}, ml, payload}, nil)
+}

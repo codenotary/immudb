@@ -4,15 +4,15 @@ import (
 	"regexp"
 )
 
-func (s *session) isSupportedByCore(statement string) bool {
+func (s *session) isInBlackList(statement string) bool {
 	var set = regexp.MustCompile(`(?i)set\s+.+`)
 	if set.MatchString(statement) {
-		return false
+		return true
 	}
 	if statement == ";" {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 func (s *session) isEmulableInternally(statement string) interface{} {
