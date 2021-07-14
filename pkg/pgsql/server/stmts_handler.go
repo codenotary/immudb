@@ -4,8 +4,10 @@ import (
 	"regexp"
 )
 
+var set = regexp.MustCompile(`(?i)set\s+.+`)
+var selectVersion = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
+
 func (s *session) isInBlackList(statement string) bool {
-	var set = regexp.MustCompile(`(?i)set\s+.+`)
 	if set.MatchString(statement) {
 		return true
 	}
@@ -16,7 +18,7 @@ func (s *session) isInBlackList(statement string) bool {
 }
 
 func (s *session) isEmulableInternally(statement string) interface{} {
-	if regexp.MustCompile(`(?i)select\s+version\(\s*\)`).MatchString(statement) {
+	if selectVersion.MatchString(statement) {
 		return &version{}
 	}
 	return nil

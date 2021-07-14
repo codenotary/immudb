@@ -1,6 +1,7 @@
 package fmessages
 
 import (
+	"errors"
 	"fmt"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"
@@ -85,6 +86,14 @@ func TestParseBindMsg(t *testing.T) {
 		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1)}),
 			BindMsg{},
 			io.EOF,
+		},
+		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(1), h.I16(5), h.I16(1), h.I32(2), h.I16(1), h.I16(1)}),
+			BindMsg{},
+			errors.New("malformed bind message. Allowed format codes are 1 or 0"),
+		},
+		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(2), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1)}),
+			BindMsg{},
+			errors.New("malformed bind message. Parameters format codes didn't match parameters count"),
 		},
 	}
 
