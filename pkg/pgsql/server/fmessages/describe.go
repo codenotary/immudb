@@ -25,10 +25,8 @@ type DescribeMsg struct {
 
 func ParseDescribeMsg(msg []byte) (DescribeMsg, error) {
 	descType := msg[0]
-	name := make([]byte, len(msg)-2)
-	copy(name, msg[1:len(msg)-1])
 	return DescribeMsg{
 		DescType: string(descType),
-		Name:     string(name),
+		Name:     string(msg[1 : len(msg)-1]),
 	}, nil
 }

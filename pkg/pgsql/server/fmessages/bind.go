@@ -19,9 +19,10 @@ package fmessages
 import (
 	"bufio"
 	"bytes"
+	"errors"
 )
 
-// Once a prepared statement exists, it can be readied for execution using a Bind message. The Bind message gives the
+// BindMsg Once a prepared statement exists, it can be readied for execution using a Bind message. The Bind message gives the
 // name of the source prepared statement (empty string denotes the unnamed prepared statement), the name of the destination
 // portal (empty string denotes the unnamed portal), and the values to use for any parameter placeholders present in the
 // prepared statement. The supplied parameter set must match those needed by the prepared statement. (If you declared
@@ -37,16 +38,10 @@ type BindMsg struct {
 	DestPortalName string
 	// The name of the source prepared statement (an empty string selects the unnamed prepared statement).
 	PreparedStatementName string
-	// The number of parameter format codes that follow (denoted C below). This can be zero to indicate that there are no parameters or that the parameters all use the default format (text); or one, in which case the specified format code is applied to all parameters; or it can equal the actual number of parameters.
-	//ParametersCountNumber int16
 	// The parameter format codes. Each must presently be zero (text) or one (binary).
 	ParameterFormatCodes []int16
-	// The number of parameter values that follow (possibly zero). This must match the number of parameters needed by the query.
-	//ParametersValueCount int16
 	// Array of the values of the parameters, in the format indicated by the associated format code. n is the above length.
 	ParamVals []interface{}
-	// The number of result-column format codes that follow (denoted R below). This can be zero to indicate that there are no result columns or that the result columns should all use the default format (text); or one, in which case the specified format code is applied to all result columns (if any); or it can equal the actual number of result columns of the query.
-	//ResultColumnFormatCodesNumber int16
 	// The result-column format codes. Each must presently be zero (text) or one (binary).
 	ResultColumnFormatCodes []int16
 }
@@ -62,12 +57,15 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	if err != nil {
 		return BindMsg{}, err
 	}
-
+	// The number of parameter format codes that follow (denoted C below).
+	// This can be zero to indicate that there are no parameters or that the parameters all use the default format (text);
+	// or one, in which case the specified format code is applied to all parameters; or it can equal the actual number
+	// of parameters.
 	parameterFormatCodeNumber, err := getNextInt16(r)
 	if err != nil {
 		return BindMsg{}, err
 	}
-	parameterFormatCodes := make(map[int]int16, 0)
+	parameterFormatCodes := make([]int16, parameterFormatCodeNumber)
 	for k := 0; k < int(parameterFormatCodeNumber); k++ {
 		p, err := getNextInt16(r)
 		if err != nil {
@@ -75,27 +73,31 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 		}
 		parameterFormatCodes[k] = p
 	}
-
+	// The number of parameter values that follow (possibly zero). This must match the number of parameters needed by the query.
 	pCount, err := getNextInt16(r)
 	if err != nil {
 		return BindMsg{}, err
 	}
 
-	// Handling format codes: see ResultColumnFormatCodesNumber property comment
+	// Handling format codes: see resultColumnFormatCodesNumber property comment
 	forceTXT := false
 	forceBIN := false
 	if len(parameterFormatCodes) == 0 {
 		forceTXT = true
 	}
 	if len(parameterFormatCodes) == 1 {
-		if f, ok := parameterFormatCodes[0]; ok {
-			switch f {
-			case 0:
-				forceTXT = true
-			case 1:
-				forceBIN = true
-			}
+		switch parameterFormatCodes[0] {
+		case 0:
+			forceTXT = true
+		case 1:
+			forceBIN = true
+		default:
+			return BindMsg{}, errors.New("malformed bind message. Allowed format codes are 1 or 0")
 		}
+	}
+
+	if len(parameterFormatCodes) > 1 && len(parameterFormatCodes) != int(pCount) {
+		return BindMsg{}, errors.New("malformed bind message. Parameters format codes didn't match parameters count")
 	}
 
 	params := make([]interface{}, 0)
@@ -117,22 +119,24 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 			params = append(params, pVal)
 			continue
 		}
-		if f, ok := parameterFormatCodes[i]; ok {
-			switch f {
-			case 0:
-				params = append(params, string(pVal))
-			case 1:
-				params = append(params, pVal)
-			}
+
+		switch parameterFormatCodes[i] {
+		case 0:
+			params = append(params, string(pVal))
+		case 1:
+			params = append(params, pVal)
 		}
 	}
-
+	// The number of result-column format codes that follow (denoted R below).
+	// This can be zero to indicate that there are no result columns or that the result columns should all use the
+	// default format (text); or one, in which case the specified format code is applied to all result columns (if any);
+	// or it can equal the actual number of result columns of the query.
 	resultColumnFormatCodesNumber, err := getNextInt16(r)
 	if err != nil {
 		return BindMsg{}, err
 	}
 
-	resultColumnFormatCodes := make([]int16, 0)
+	resultColumnFormatCodes := make([]int16, 0, resultColumnFormatCodesNumber)
 	for k := resultColumnFormatCodesNumber; k > 0; k-- {
 		p, err := getNextInt16(r)
 		if err != nil {
