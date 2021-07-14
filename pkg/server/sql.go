@@ -23,48 +23,48 @@ import (
 )
 
 func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableSQLGet")
+	db, err := s.getDBFromCtx(ctx, "VerifiableSQLGet")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableSQLGet(req)
+	return db.VerifiableSQLGet(req)
 }
 
 func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "SQLExec")
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).SQLExec(req)
+	return db.SQLExec(req)
 }
 
 func (s *ImmuServer) UseSnapshot(ctx context.Context, req *schema.UseSnapshotRequest) (*empty.Empty, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "UseSnapshot")
+	db, err := s.getDBFromCtx(ctx, "UseSnapshot")
 	if err != nil {
 		return nil, err
 	}
 
-	return new(empty.Empty), s.dbList.GetByIndex(ind).UseSnapshot(req)
+	return new(empty.Empty), db.UseSnapshot(req)
 }
 
 func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "SQLQuery")
+	db, err := s.getDBFromCtx(ctx, "SQLQuery")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).SQLQuery(req)
+	return db.SQLQuery(req)
 }
 
 func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQLQueryResult, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "ListTables")
+	db, err := s.getDBFromCtx(ctx, "ListTables")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).ListTables()
+	return db.ListTables()
 }
 
 func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
@@ -72,10 +72,10 @@ func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*sch
 		return nil, ErrIllegalArguments
 	}
 
-	ind, err := s.getDbIndexFromCtx(ctx, "DescribeTable")
+	db, err := s.getDBFromCtx(ctx, "DescribeTable")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).DescribeTable(req.TableName)
+	return db.DescribeTable(req.TableName)
 }

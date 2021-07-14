@@ -20,21 +20,31 @@ import "github.com/codenotary/immudb/embedded/store"
 
 //DbOptions database instance options
 type DbOptions struct {
-	//	dbDir             string
-	dbName            string
-	dbRootPath        string
+	dbName     string
+	dbRootPath string
+	storeOpts  *store.Options
+
 	corruptionChecker bool
-	storeOpts         *store.Options
+
+	replicationOpts *ReplicationOptions
+}
+
+type ReplicationOptions struct {
+	Replica     bool
+	SrcDatabase string
+	SrcAddress  string
+	SrcPort     int
+	FollowerUsr string
+	FollowerPwd string
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	return &DbOptions{
-		//		dbDir:             "immudb",
-		dbName:            "db_name",
-		dbRootPath:        "./data",
-		corruptionChecker: true,
-		storeOpts:         store.DefaultOptions(),
+		dbRootPath:      "./data",
+		dbName:          "db_name",
+		storeOpts:       store.DefaultOptions(),
+		replicationOpts: &ReplicationOptions{},
 	}
 }
 
@@ -80,4 +90,51 @@ func (o *DbOptions) WithStoreOptions(storeOpts *store.Options) *DbOptions {
 // GetStoreOptions returns backing store options
 func (o *DbOptions) GetStoreOptions() *store.Options {
 	return o.storeOpts
+}
+
+// GetReplicationOptions returns replication options
+func (o *DbOptions) GetReplicationOptions() *ReplicationOptions {
+	return o.replicationOpts
+}
+
+// WithReplicationOptions sets replication options
+func (o *DbOptions) WithReplicationOptions(replicationOpts *ReplicationOptions) *DbOptions {
+	o.replicationOpts = replicationOpts
+	return o
+}
+
+// AsReplica sets if the database is a replica
+func (o *ReplicationOptions) AsReplica(replica bool) *ReplicationOptions {
+	o.Replica = replica
+	return o
+}
+
+// WithSrcDatabase sets the source database name
+func (o *ReplicationOptions) WithSrcDatabase(srcDatabase string) *ReplicationOptions {
+	o.SrcDatabase = srcDatabase
+	return o
+}
+
+// WithSrcAddress sets the source database address
+func (o *ReplicationOptions) WithSrcAddress(srcAddress string) *ReplicationOptions {
+	o.SrcAddress = srcAddress
+	return o
+}
+
+// WithSrcPort sets the source database port
+func (o *ReplicationOptions) WithSrcPort(srcPort int) *ReplicationOptions {
+	o.SrcPort = srcPort
+	return o
+}
+
+// WithFollowerUsr sets follower username
+func (o *ReplicationOptions) WithFollowerUsr(followerUsr string) *ReplicationOptions {
+	o.FollowerUsr = followerUsr
+	return o
+}
+
+// WithFollowerPwd sets follower password
+func (o *ReplicationOptions) WithFollowerPwd(followerPwd string) *ReplicationOptions {
+	o.FollowerPwd = followerPwd
+	return o
 }

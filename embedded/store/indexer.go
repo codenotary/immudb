@@ -295,7 +295,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
 
-		err := idx.store.wHub.WaitFor(lastIndexedTx+1, cancellation)
+		err := idx.store.WaitForTx(lastIndexedTx+1, cancellation)
 		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
 			return
 		}

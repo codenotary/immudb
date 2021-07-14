@@ -113,7 +113,7 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine
 
 	copy(e.prefix, prefix)
 
-	err := e.loadCatalog()
+	err := e.LoadCatalog()
 	if err != nil {
 		return nil, err
 	}
@@ -130,10 +130,10 @@ func (e *Engine) EnsureCatalogReady() error {
 		return nil
 	}
 
-	return e.loadCatalog()
+	return e.LoadCatalog()
 }
 
-func (e *Engine) loadCatalog() error {
+func (e *Engine) LoadCatalog() error {
 	lastTxID, _ := e.catalogStore.Alh()
 	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
@@ -311,6 +311,90 @@ func (e *Engine) CloseSnapshot() error {
 	return nil
 }
 
+func (e *Engine) DumpCatalogTo(srcName, dstName string, targetStore *store.ImmuStore) error {
+	if len(srcName) == 0 || len(dstName) == 0 || targetStore == nil {
+		return ErrIllegalArguments
+	}
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	db, err := e.catalog.GetDatabaseByName(srcName)
+	if err != nil {
+		return err
+	}
+
+	snap, err := e.catalogStore.SnapshotSince(math.MaxUint64)
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+
+	var entries []*store.KV
+
+	dbKey := e.mapKey(catalogDatabasePrefix, EncodeID(db.ID()))
+
+	entries = append(entries, &store.KV{Key: dbKey, Value: []byte(dstName)})
+
+	tableEntries, err := e.entriesWithPrefix(e.mapKey(catalogTablePrefix, EncodeID(db.ID())), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, tableEntries...)
+
+	colEntries, err := e.entriesWithPrefix(e.mapKey(catalogColumnPrefix, EncodeID(db.ID())), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, colEntries...)
+
+	idxEntries, err := e.entriesWithPrefix(e.mapKey(catalogIndexPrefix), snap)
+	if err != nil {
+		return err
+	}
+
+	entries = append(entries, idxEntries...)
+
+	_, err = targetStore.Commit(entries, true)
+
+	return err
+}
+
+func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*store.KV, error) {
+	var entries []*store.KV
+
+	dbReader, err := snap.NewKeyReader(&store.KeyReaderSpec{Prefix: prefix})
+	if err != nil {
+		return nil, err
+	}
+	defer dbReader.Close()
+
+	for {
+		mkey, vref, _, _, err := dbReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+
+		entries = append(entries, &store.KV{Key: mkey, Value: v})
+	}
+
+	return entries, nil
+}
+
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
@@ -345,13 +429,9 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 			return nil, err
 		}
 
-		db, err := catalog.newDatabase(string(v))
+		db, err := catalog.newDatabase(id, string(v))
 		if err != nil {
 			return nil, err
-		}
-
-		if id != db.id {
-			return nil, ErrCorruptedData
 		}
 
 		err = e.loadTables(db, snap)
@@ -1033,6 +1113,13 @@ func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForInde
 }
 
 func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+	if e.catalog == nil {
+		err := e.LoadCatalog()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, nil, err

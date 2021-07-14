@@ -34,6 +34,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"list", "create", "use", "clean"},
 	}
+
 	ccd := &cobra.Command{
 		Use:               "list",
 		Short:             "List all databases",
@@ -63,6 +64,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(0),
 	}
+
 	cc := &cobra.Command{
 		Use:               "create",
 		Short:             "Create a new database",
@@ -70,16 +72,50 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		Example:           "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := cl.immuClient.CreateDatabase(cl.context, &schema.Database{
+			isReplica, err := cmd.Flags().GetBool("replica")
+			if err != nil {
+				return err
+			}
+
+			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
 				DatabaseName: args[0],
+				Replica:      isReplica,
 			}); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "database successfully created\n")
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully created\n", args[0], isReplica)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
+	cc.Flags().BoolP("replica", "r", false, "set database as a replica")
+
+	cu := &cobra.Command{
+		Use:               "update",
+		Short:             "Update database",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		Example:           "update {database_name}",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isReplica, err := cmd.Flags().GetBool("replica")
+			if err != nil {
+				return err
+			}
+
+			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{
+				DatabaseName: args[0],
+				Replica:      isReplica,
+			}); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully updated\n", args[0], isReplica)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	cu.Flags().BoolP("replica", "r", false, "set database as a replica")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
@@ -135,5 +171,6 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd.AddCommand(ccu)
 	ccmd.AddCommand(ccd)
 	ccmd.AddCommand(cc)
+	ccmd.AddCommand(cu)
 	cmd.AddCommand(ccmd)
 }

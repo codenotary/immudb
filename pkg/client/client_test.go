@@ -19,12 +19,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
 	"log"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/pkg/fs"
 
@@ -424,6 +425,53 @@ func TestImmuClientTampering(t *testing.T) {
 	require.Equal(t, store.ErrCorruptedData, err)
 }
 
+func TestReplica(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+		DatabaseName: "db1",
+		Replica:      true,
+	})
+	require.NoError(t, err)
+
+	resp, err := client.UseDatabase(ctx, &schema.Database{
+		DatabaseName: "db1",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Token)
+
+	err = client.UpdateDatabase(ctx, &schema.DatabaseSettings{
+		DatabaseName: "db1",
+		Replica:      true,
+	})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", resp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`db1-key1`), []byte(`db1-value1`))
+	require.Error(t, err)
+}
+
 func TestDatabasesSwitching(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -446,7 +494,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err = client.CreateDatabase(ctx, &schema.Database{
+	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
@@ -457,10 +505,13 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Token)
 
+	md = metadata.Pairs("authorization", resp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
 	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
 	require.NoError(t, err)
 
-	err = client.CreateDatabase(ctx, &schema.Database{
+	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
 		DatabaseName: "db2",
 	})
 	require.NoError(t, err)
@@ -674,7 +725,7 @@ func TestUserManagement(t *testing.T) {
 		userPassword    = "1Password!*"
 		userNewPassword = "2Password!*"
 		testDBName      = "test"
-		testDB          = &schema.Database{DatabaseName: testDBName}
+		testDB          = &schema.DatabaseSettings{DatabaseName: testDBName}
 		err             error
 		usrList         *schema.UserList
 		immudbUser      *schema.User
@@ -706,10 +757,10 @@ func TestUserManagement(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.UpdateAuthConfig(ctx, auth.KindPassword)
-	require.NoError(t, err)
+	require.Contains(t, err.Error(), "operation not supported")
 
 	err = client.UpdateMTLSConfig(ctx, false)
-	require.Nil(t, err)
+	require.Contains(t, err.Error(), "operation not supported")
 
 	err = client.CreateUser(
 		ctx,
@@ -796,7 +847,7 @@ func TestDatabaseManagement(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err1 := client.CreateDatabase(ctx, &schema.Database{DatabaseName: "test"})
+	err1 := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: "test"})
 	require.Nil(t, err1)
 
 	resp2, err2 := client.DatabaseList(ctx)
@@ -1047,14 +1098,15 @@ func TestImmuClient_TxScan(t *testing.T) {
 	_, _ = client.Set(ctx, []byte(`key3`), []byte(`val3`))
 
 	txls, err := client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 1,
+		InitialTx: 2,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
 	require.Nil(t, err)
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 3,
+		InitialTx: 4,
+		Limit:     3,
 		Desc:      true,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
@@ -1062,7 +1114,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: 2,
+		InitialTx: 3,
 		Limit:     1,
 		Desc:      true,
 	})
@@ -1383,7 +1435,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		testUserContext = context.TODO()
 	)
 	// step 1: create test database
-	err = client.CreateDatabase(ctx, testDB)
+	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
 	require.Nil(t, err)
 
 	// step 2: create test user with read write permissions to the test db

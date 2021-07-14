@@ -815,7 +815,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			require.Equal(t, j, ki)
 
 			value := make([]byte, txEntries[j].vLen)
-			_, err = immuStore.ReadValueAt(value, txEntries[j].vOff, txEntries[j].hVal)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff(), txEntries[j].HVal())
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -872,7 +872,11 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txMetadata.ID)
 
-		immuStore.WaitForIndexingUpto(txMetadata.ID, nil)
+		err = immuStore.WaitForTx(txMetadata.ID, nil)
+		require.NoError(t, err)
+
+		err = immuStore.WaitForIndexingUpto(txMetadata.ID, nil)
+		require.NoError(t, err)
 
 		exists, err := immuStore.ExistKeyWith(kvs[0].Key, nil, false)
 		require.NoError(t, err)
@@ -1374,6 +1378,34 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 	err = immuStore.Close()
 	require.NoError(t, err)
+}
+
+func TestExportAndReplicateTx(t *testing.T) {
+	masterStore, err := Open("data_master_export_replicate", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("data_master_export_replicate")
+
+	replicaStore, err := Open("data_replica_export_replicate", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("data_replica_export_replicate")
+
+	md, err := masterStore.Commit([]*KV{{Key: []byte("key1"), Value: []byte("value1")}}, false)
+	require.NoError(t, err)
+	require.NotNil(t, md)
+
+	tx := masterStore.NewTx()
+	etx, err := masterStore.ExportTx(1, tx)
+	require.NoError(t, err)
+
+	rmd, err := replicaStore.ReplicateTx(etx, false)
+	require.NoError(t, err)
+	require.NotNil(t, rmd)
+
+	require.Equal(t, md.ID, rmd.ID)
+	require.Equal(t, md.Alh(), rmd.Alh())
+
+	_, err = replicaStore.ReplicateTx(nil, false)
+	require.Equal(t, ErrIllegalArguments, err)
 }
 
 var errEmulatedAppendableError = errors.New("emulated appendable error")

@@ -52,8 +52,8 @@ func (i *immuc) Login(args []string) (string, error) {
 	ctx := context.Background()
 	response, err := i.ImmuClient.Login(ctx, user, pass)
 	if err != nil {
-		if strings.Contains(err.Error(), "authentication is disabled on server") {
-			return "authentication is disabled on server", nil
+		if strings.Contains(err.Error(), "authentication disabled") {
+			return "", errors.New("authentication is disabled on server")
 		}
 		return "", errors.New("username or password is not valid")
 	}

@@ -23,12 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -84,8 +85,10 @@ type ImmuClient interface {
 	SetupDialOptions(options *Options) *[]grpc.DialOption
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
-	CreateDatabase(ctx context.Context, d *schema.Database) error
+	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
+
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
 	CleanIndex(ctx context.Context, req *emptypb.Empty) error
@@ -142,6 +145,9 @@ type ImmuClient interface {
 	StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error)
+
+	ExportTx(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_ExportTxClient, error)
+	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
 	UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error
@@ -1343,14 +1349,14 @@ func (c *immuClient) currentDatabase() string {
 }
 
 // CreateDatabase create a new database by making a grpc call
-func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) error {
+func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
 
-	_, err := c.ServiceClient.CreateDatabase(ctx, db)
+	_, err := c.ServiceClient.CreateDatabase(ctx, settings)
 
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
 
@@ -1374,16 +1380,36 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	return result, err
 }
 
+// UpdateDatabase updates database settings
+func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+
+	_, err := c.ServiceClient.UpdateDatabase(ctx, settings)
+
+	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
+
+	return err
+}
+
+// DEPREACATED: use CompactIndex
 func (c *immuClient) CleanIndex(ctx context.Context, req *empty.Empty) error {
+	return c.CompactIndex(ctx, req)
+}
+
+func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
 
-	_, err := c.ServiceClient.CleanIndex(ctx, req)
+	_, err := c.ServiceClient.CompactIndex(ctx, req)
 
-	c.Logger.Debugf("CleanIndex finished in %s", time.Since(start))
+	c.Logger.Debugf("CompactIndex finished in %s", time.Since(start))
 
 	return err
 }

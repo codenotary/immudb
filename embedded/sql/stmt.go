@@ -136,7 +136,9 @@ func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, implicitDB *Database,
 }
 
 func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
-	db, err = e.catalog.newDatabase(stmt.DB)
+	id := uint64(len(e.catalog.dbsByID) + 1)
+
+	db, err = e.catalog.newDatabase(id, stmt.DB)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -31,7 +31,6 @@ func TxTo(tx *store.Tx) *Tx {
 		entries[i] = &TxEntry{
 			Key:    e.Key(),
 			HValue: hValue[:],
-			VOff:   e.VOff(),
 			VLen:   int32(e.VLen()),
 		}
 	}
@@ -46,7 +45,7 @@ func TxFrom(stx *Tx) *store.Tx {
 	entries := make([]*store.TxEntry, len(stx.Entries))
 
 	for i, e := range stx.Entries {
-		entries[i] = store.NewTxEntry(e.Key, int(e.VLen), DigestFrom(e.HValue), e.VOff)
+		entries[i] = store.NewTxEntry(e.Key, int(e.VLen), DigestFrom(e.HValue), 0)
 	}
 
 	tx := store.NewTxWithEntries(entries)

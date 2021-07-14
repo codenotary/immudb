@@ -73,6 +73,14 @@ func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer
 	return s.Srv.StreamHistory(request, historyServer)
 }
 
+func (s *ServerMock) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
+	return s.Srv.ExportTx(req, txsServer)
+}
+
+func (s *ServerMock) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateTxServer) error {
+	return s.Srv.ReplicateTx(replicateTxServer)
+}
+
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	return s.Srv.ListUsers(ctx, req)
 }
@@ -216,7 +224,7 @@ func (s *ServerMock) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 	return s.Srv.ZScan(ctx, req)
 }
 
-func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
+func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	return s.Srv.CreateDatabase(ctx, req)
 }
 
@@ -228,8 +236,16 @@ func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 	return s.Srv.UseDatabase(ctx, req)
 }
 
+func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+	return s.Srv.UpdateDatabase(ctx, req)
+}
+
 func (s *ServerMock) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return s.Srv.CleanIndex(ctx, req)
+}
+
+func (s *ServerMock) CompactIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+	return s.Srv.CompactIndex(ctx, req)
 }
 
 func (s *ServerMock) ChangePermission(ctx context.Context, req *schema.ChangePermissionRequest) (*empty.Empty, error) {

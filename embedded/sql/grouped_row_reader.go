@@ -80,10 +80,18 @@ func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) 
 			continue
 		}
 
-		encSel := EncodeSelector(aggFn, db, table, col)
+		des := &ColDescriptor{
+			AggFn:    aggFn,
+			Database: db,
+			Table:    table,
+			Column:   col,
+			Type:     IntegerType,
+		}
+
+		encSel := des.Selector()
 
 		if aggFn == COUNT {
-			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: IntegerType}
+			colDescriptors[encSel] = des
 			continue
 		}
 
@@ -96,7 +104,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) 
 			colDescriptors[encSel] = colDesc
 		} else {
 			// SUM, AVG
-			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: IntegerType}
+			colDescriptors[encSel] = des
 		}
 	}
 

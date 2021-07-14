@@ -78,20 +78,20 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 		},
 	})
 
-	currentStateCounterSysDB := 0
+	currentStateCountersysDB := 0
 	sysDB := dbMock{
 		getOptionsF: func() *database.DbOptions {
 			return database.DefaultOption().WithDbName(SystemdbName)
 		},
 		currentStateF: func() (*schema.ImmutableState, error) {
-			return currentStateSuccessfulOnce(&currentStateCounterSysDB)
+			return currentStateSuccessfulOnce(&currentStateCountersysDB)
 		},
 	}
 
 	var sw strings.Builder
 	s := ImmuServer{
 		dbList: dbList,
-		sysDb:  sysDB,
+		sysDB:  sysDB,
 		Logger: logger.NewSimpleLoggerWithLevel(
 			"TestMetricFuncComputeDBSizes",
 			&sw,
@@ -104,9 +104,9 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 	// call once again catch the currentState error paths
 	s.metricFuncComputeDBEntries()
 
-	// test warning paths (when dbList and sysDb are nil)
+	// test warning paths (when dbList and sysDB are nil)
 	s.dbList = nil
-	s.sysDb = nil
+	s.sysDB = nil
 	s.metricFuncComputeDBEntries()
 }
 
@@ -145,7 +145,7 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 			defaultDbName: defaultDBName,
 		},
 		dbList: dbList,
-		sysDb: dbMock{
+		sysDB: dbMock{
 			getOptionsF: func() *database.DbOptions {
 				return database.DefaultOption().WithDbName(SystemdbName)
 			},
@@ -164,8 +164,8 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	s.Options.Dir = fmt.Sprintf("%d", time.Now().UnixNano())
 	s.metricFuncComputeDBSizes()
 
-	// test warning paths (when dbList and sysDb are nil)
+	// test warning paths (when dbList and sysDB are nil)
 	s.dbList = nil
-	s.sysDb = nil
+	s.sysDB = nil
 	s.metricFuncComputeDBSizes()
 }

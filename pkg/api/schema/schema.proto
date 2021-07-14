@@ -29,7 +29,7 @@ message Key {
 	bytes key = 1;
 }
 
-message Permission{
+message Permission {
 	string database = 1;
 	uint32 permission = 2;
 }
@@ -192,7 +192,6 @@ message Tx {
 message TxEntry {
 	bytes key = 1;
 	bytes hValue = 2;
-	int64 vOff = 3;
 	int32 vLen = 4;
 }
 
@@ -330,6 +329,16 @@ message Database {
 	string databaseName = 1;
 }
 
+message DatabaseSettings {
+	string databaseName = 1;
+	bool replica = 2;
+	string srcDatabase = 3;
+	string srcAddress = 4;
+	uint32 srcPort = 5;
+	string followerUsr = 6;
+	string followerPwd = 7;
+}
+
 message Table {
 	string tableName = 1;
 }
@@ -359,7 +368,7 @@ message VerifiableSQLEntry {
 	uint64 DatabaseId = 4;
 	uint64 TableId = 5;
 	string PKName = 6;
-	map<uint64, string> ColIdsById = 8;
+	map<uint64, string> ColNamesById = 8;
 	map<string, uint64> ColIdsByName = 9;
 	map<uint64, string> ColTypesById = 10;
 }
@@ -482,7 +491,6 @@ message RetryInfo {
 }
 
 // immudb gRPC & REST service
-// IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (UserList){
 		option (google.api.http) = {
@@ -504,8 +512,8 @@ service ImmuService {
 		};
 	};
 
-	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
-	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){} // DEPRECATED
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){} // DEPRECATED
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
@@ -572,12 +580,14 @@ service ImmuService {
 		};
 	};
 
+	// NOT YET SUPPORTED
 	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/db/count/{prefix}"
 		};
 	};
 
+	// NOT YET SUPPORTED
 	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/db/countall"
@@ -663,7 +673,7 @@ service ImmuService {
 		};
 	};
 
-	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
+	rpc CreateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/create"
 			body: "*"
@@ -683,9 +693,23 @@ service ImmuService {
 		};
 	}
 
+	rpc UpdateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			post: "/db/update"
+			body: "*"
+		};
+	}
+
+	// DEPRECATED: use CompactIndex
 	rpc CleanIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			get: "/db/cleanindex"
+		};
+	}
+
+	rpc CompactIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/db/compactindex"
 		};
 	}
 
@@ -712,6 +736,10 @@ service ImmuService {
 	rpc streamZScan(ZScanRequest) returns (stream Chunk) {};
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
+
+	// Replication
+	rpc exportTx(TxRequest) returns (stream Chunk) {};
+	rpc replicateTx(stream Chunk) returns (TxMetadata) {};
 
 	// SQL
 	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {

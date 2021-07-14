@@ -60,7 +60,7 @@ func TestServerLogout(t *testing.T) {
 	err := s.Initialize()
 
 	_, err = s.Logout(context.Background(), &emptypb.Empty{})
-	if err == nil || err.Error() != "rpc error: code = Internal desc = no headers found on request" {
+	if err == nil || err.Error() != ErrNotLoggedIn.Message() {
 		t.Fatalf("Logout expected error, got %v", err)
 	}
 
@@ -102,7 +102,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.Database{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
@@ -114,7 +114,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	s.dbList = database.NewDatabaseList()
-	s.sysDb = nil
+	s.sysDB = nil
 
 	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword)
 	require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestServerUsermanagement(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.Database{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)

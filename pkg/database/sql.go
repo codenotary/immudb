@@ -24,6 +24,8 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
+var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
+
 func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -37,6 +39,13 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
@@ -44,7 +53,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	txEntry := d.tx1
 
-	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, req.SqlGetRequest.Table)
+	table, err := d.sqlEngine.Catalog().GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +115,13 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	colIdsById := make(map[uint64]string, len(table.ColsByID()))
+	colNamesById := make(map[uint64]string, len(table.ColsByID()))
 	colIdsByName := make(map[string]uint64, len(table.ColsByName()))
 	colTypesById := make(map[uint64]string, len(table.ColsByID()))
 
 	for _, col := range table.ColsByID() {
-		colIdsById[col.ID()] = col.Name()
-		colIdsByName[sql.EncodeSelector("", table.Database().Name(), table.Name(), col.Name())] = col.ID()
+		colNamesById[col.ID()] = col.Name()
+		colIdsByName[sql.EncodeSelector("", d.options.dbName, table.Name(), col.Name())] = col.ID()
 		colTypesById[col.ID()] = col.Type()
 	}
 
@@ -123,7 +132,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DatabaseId:     table.Database().ID(),
 		TableId:        table.ID(),
 		PKName:         table.PrimaryKey().Name(),
-		ColIdsById:     colIdsById,
+		ColNamesById:   colNamesById,
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesById,
 	}, nil
@@ -153,12 +162,19 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
 	}
 
-	db, err := d.sqlEngine.Catalog().GetDatabaseByName(d.options.dbName)
+	db, err := d.sqlEngine.Catalog().GetDatabaseByName(dbInstanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -176,12 +192,19 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err := d.sqlEngine.EnsureCatalogReady()
 	if err != nil {
 		return nil, err
 	}
 
-	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, tableName)
+	table, err := d.sqlEngine.Catalog().GetTableByName(dbInstanceName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +278,10 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
+
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
@@ -292,6 +319,16 @@ func (d *db) UseSnapshot(req *schema.UseSnapshotRequest) error {
 		return ErrIllegalArguments
 	}
 
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return err
+		}
+	}
+
 	return d.sqlEngine.UseSnapshot(req.SinceTx, req.AsBeforeTx)
 }
 
@@ -314,6 +351,13 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 }
 
 func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error) {
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	r, err := d.SQLQueryRowReader(stmt, renewSnapshot)
 	if err != nil {
 		return nil, err
@@ -336,7 +380,14 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	cols := make([]*schema.Column, len(colDescriptors))
 
 	for i, c := range colDescriptors {
-		cols[i] = &schema.Column{Name: c.Selector, Type: c.Type}
+		des := &sql.ColDescriptor{
+			AggFn:    c.AggFn,
+			Database: d.options.dbName,
+			Table:    c.Table,
+			Column:   c.Column,
+			Type:     c.Type,
+		}
+		cols[i] = &schema.Column{Name: des.Selector(), Type: des.Type}
 	}
 
 	res := &schema.SQLQueryResult{Columns: cols}
@@ -355,10 +406,10 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 			Values:  make([]*schema.SQLValue, len(res.Columns)),
 		}
 
-		for i, c := range res.Columns {
-			rrow.Columns[i] = c.Name
+		for i, c := range colDescriptors {
+			rrow.Columns[i] = cols[i].Name
 
-			v := row.Values[c.Name]
+			v := row.Values[c.Selector()]
 
 			_, isNull := v.(*sql.NullValue)
 			if isNull {

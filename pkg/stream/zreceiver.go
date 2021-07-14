@@ -21,12 +21,12 @@ import (
 )
 
 type zStreamReceiver struct {
-	s          MsgReceiver
+	s          io.Reader
 	BufferSize int
 }
 
 // NewZStreamReceiver ...
-func NewZStreamReceiver(s MsgReceiver, bs int) *zStreamReceiver {
+func NewZStreamReceiver(s io.Reader, bs int) *zStreamReceiver {
 	return &zStreamReceiver{
 		s:          s,
 		BufferSize: bs,

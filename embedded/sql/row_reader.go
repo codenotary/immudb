@@ -80,8 +80,15 @@ type rawRowReader struct {
 }
 
 type ColDescriptor struct {
-	Selector string
+	AggFn    string
+	Database string
+	Table    string
+	Column   string
 	Type     SQLValueType
+}
+
+func (d *ColDescriptor) Selector() string {
+	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
 func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
@@ -138,10 +145,15 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 	colsBySel := make(map[string]*ColDescriptor, len(table.ColsByID()))
 
 	for i, c := range table.ColsByID() {
-		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
-		colDescriptor := &ColDescriptor{Selector: encSel, Type: c.colType}
+		colDescriptor := &ColDescriptor{
+			Database: table.db.name,
+			Table:    tableAlias,
+			Column:   c.colName,
+			Type:     c.colType,
+		}
+
 		colsByPos[i-1] = colDescriptor
-		colsBySel[encSel] = colDescriptor
+		colsBySel[colDescriptor.Selector()] = colDescriptor
 	}
 
 	implicitDB := ""

@@ -29,20 +29,24 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/golang/protobuf/ptypes/empty"
 )
 
 const MaxKeyResolutionLimit = 1
 const MaxKeyScanLimit = 1000
 
+const dbInstanceName = "dbinstance"
+
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
+var ErrIsReplica = errors.New("database is read-only because it's a replica")
+var ErrNotReplica = errors.New("database is NOT a replica")
 
 type DB interface {
-	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentState() (*schema.ImmutableState, error)
+	WaitForTx(txID uint64, cancellation <-chan struct{}) error
+	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
 	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
@@ -53,6 +57,8 @@ type DB interface {
 	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
 	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
+	ExportTxByID(req *schema.TxRequest) ([]byte, error)
+	ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 	History(req *schema.HistoryRequest) (*schema.Entries, error)
@@ -64,6 +70,8 @@ type DB interface {
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
 	GetOptions() *DbOptions
+	UpdateReplicationOptions(replicationOpts *ReplicationOptions)
+	IsReplica() bool
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
@@ -95,7 +103,7 @@ type db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
+func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -119,41 +127,77 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	var catalogStore *store.ImmuStore
-
-	if catalogDB == nil {
-		catalogStore = dbi.st
-	} else {
-		catalogStore = catalogDB.(*db).st
-	}
-
-	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
 	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		return nil, err
 	}
 
-	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
+	if op.replicationOpts.Replica {
+		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
+		return dbi, nil
+	}
+
+	err = dbi.sqlEngine.UseDatabase(dbInstanceName)
+	if err != nil && err != sql.ErrDatabaseDoesNotExist {
+		return nil, err
+	}
+
 	if err == sql.ErrDatabaseDoesNotExist {
-		// Database registration may be needed when opening a database created with an older version of immudb (older than v1.0.0)
+		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
 
-		log.Infof("Registering database '%s' in the catalog...", dbDir)
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
-		if err != nil {
-			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		var catalogSt *store.ImmuStore
+		if systemDB == nil {
+			catalogSt = dbi.st
+		} else {
+			systemDBI, _ := systemDB.(*db)
+			catalogSt = systemDBI.st
 		}
-		log.Infof("Database '%s' successfully registered", dbDir)
 
-		err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
+		sqlEngine, err := sql.NewEngine(catalogSt, dbi.st, []byte{SQLPrefix})
+		if err != nil {
+			return nil, err
+		}
+		defer sqlEngine.Close()
+
+		err = sqlEngine.DumpCatalogTo(op.dbName, dbInstanceName, dbi.st)
+		if err != nil {
+			return nil, err
+		}
+
+		dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
+
+		err = dbi.sqlEngine.LoadCatalog()
+		if err != nil {
+			return nil, err
+		}
+
+		err = dbi.sqlEngine.UseDatabase(dbInstanceName)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-	}
+
+	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
 
 	return dbi, nil
 }
 
+func (d *db) reloadSQLCatalog() error {
+	err := d.sqlEngine.LoadCatalog()
+	if err != nil {
+		return err
+	}
+
+	err = d.sqlEngine.UseDatabase(dbInstanceName)
+	if err == sql.ErrDatabaseDoesNotExist {
+		return ErrSQLNotReady
+	}
+
+	return err
+}
+
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
+func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -180,30 +224,30 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	var catalogStore *store.ImmuStore
-
-	if catalogDB == nil {
-		catalogStore = dbi.st
-	} else {
-		catalogStore = catalogDB.(*db).st
-	}
-
-	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	if !op.replicationOpts.Replica {
+		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
+
+		err = dbi.sqlEngine.UseDatabase(dbInstanceName)
+		if err != nil {
+			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+		}
 	}
 
-	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
-	}
+	dbi.Logger.Infof("Database '%s' successfully created (replica = %v)", op.dbName, op.replicationOpts.Replica)
 
 	return dbi, nil
+}
+
+func (d *db) isReplica() bool {
+	return d.options.replicationOpts.Replica
 }
 
 // CompactIndex ...
@@ -228,6 +272,10 @@ func (d *db) CompactIndex() error {
 func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
+	}
 
 	return d.set(req)
 }
@@ -265,7 +313,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -333,11 +381,6 @@ func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
 	return d.st.ReadValue(tx, key)
 }
 
-//Health ...
-func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
-	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
-}
-
 // CurrentState ...
 func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	d.mutex.Lock()
@@ -349,6 +392,16 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 		TxId:   lastTxID,
 		TxHash: lastTxAlh[:],
 	}, nil
+}
+
+// WaitForTx blocks caller until specified tx gets committed
+func (d *db) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForTx(txID, cancellation)
+}
+
+// WaitForIndexingUpto blocks caller until specified tx gets indexed
+func (d *db) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForIndexingUpto(txID, cancellation)
 }
 
 //VerifiableSet ...
@@ -486,7 +539,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -550,6 +603,33 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	}
 
 	return schema.TxTo(d.tx1), nil
+}
+
+func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	return d.st.ExportTx(req.Tx, d.tx1)
+}
+
+func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if !d.isReplica() {
+		return nil, ErrNotReplica
+	}
+
+	md, err := d.st.ReplicateTx(exportedTx, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxMetatadaTo(md), nil
 }
 
 //VerifiableTxByID ...
@@ -662,7 +742,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -722,6 +802,20 @@ func (d *db) GetName() string {
 //GetOptions ...
 func (d *db) GetOptions() *DbOptions {
 	return d.options
+}
+
+func (d *db) UpdateReplicationOptions(replicationOpts *ReplicationOptions) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	d.options.WithReplicationOptions(replicationOpts)
+}
+
+func (d *db) IsReplica() bool {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.options.replicationOpts.Replica
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

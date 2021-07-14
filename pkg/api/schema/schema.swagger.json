@@ -14,7 +14,30 @@
   "paths": {
     "/db/cleanindex": {
       "get": {
+        "summary": "DEPRECATED: use CompactIndex",
         "operationId": "ImmuService_CleanIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/compactindex": {
+      "get": {
+        "operationId": "ImmuService_CompactIndex",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -36,6 +59,7 @@
     },
     "/db/count/{prefix}": {
       "get": {
+        "summary": "NOT YET SUPPORTED",
         "operationId": "ImmuService_Count",
         "responses": {
           "200": {
@@ -67,6 +91,7 @@
     },
     "/db/countall": {
       "get": {
+        "summary": "NOT YET SUPPORTED",
         "operationId": "ImmuService_CountAll",
         "responses": {
           "200": {
@@ -110,7 +135,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDatabase"
+              "$ref": "#/definitions/schemaDatabaseSettings"
             }
           }
         ],
@@ -585,6 +610,38 @@
             "required": true,
             "type": "string",
             "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/update": {
+      "post": {
+        "operationId": "ImmuService_UpdateDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettings"
+            }
           }
         ],
         "tags": [
@@ -1326,6 +1383,33 @@
         }
       }
     },
+    "schemaDatabaseSettings": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
+        },
+        "replica": {
+          "type": "boolean"
+        },
+        "srcDatabase": {
+          "type": "string"
+        },
+        "srcAddress": {
+          "type": "string"
+        },
+        "srcPort": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "followerUsr": {
+          "type": "string"
+        },
+        "followerPwd": {
+          "type": "string"
+        }
+      }
+    },
     "schemaDualProof": {
       "type": "object",
       "properties": {
@@ -1919,10 +2003,6 @@
           "type": "string",
           "format": "byte"
         },
-        "vOff": {
-          "type": "string",
-          "format": "int64"
-        },
         "vLen": {
           "type": "integer",
           "format": "int32"
@@ -2093,7 +2173,7 @@
         "PKName": {
           "type": "string"
         },
-        "ColIdsById": {
+        "ColNamesById": {
           "type": "object",
           "additionalProperties": {
             "type": "string"

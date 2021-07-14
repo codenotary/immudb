@@ -39,21 +39,21 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = catalog.GetTableByName("db1", "table1")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
-	db, err := catalog.newDatabase("db1")
+	db, err := catalog.newDatabase(2, "db1")
 	require.NoError(t, err)
 	require.NotNil(t, db)
-	require.Equal(t, uint64(1), db.id)
+	require.Equal(t, uint64(2), db.id)
 	require.Equal(t, "db1", db.name)
 	require.Empty(t, db.GetTables())
 
-	db1, err := catalog.GetDatabaseByID(1)
+	db1, err := catalog.GetDatabaseByID(2)
 	require.NoError(t, err)
 	require.Equal(t, db.name, db1.name)
 
 	_, err = catalog.GetDatabaseByName("db1")
 	require.NoError(t, err)
 
-	_, err = catalog.newDatabase("db1")
+	_, err = catalog.newDatabase(2, "db1")
 	require.Equal(t, ErrDatabaseAlreadyExists, err)
 
 	exists = db.ExistTable("table1")

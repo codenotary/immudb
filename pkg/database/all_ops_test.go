@@ -79,8 +79,8 @@ func TestConcurrentCompactIndex(t *testing.T) {
 	ack := make(chan struct{})
 
 	cleanUpFreq := 2 * time.Second
-	cleanUpTimeout := 2 * time.Second
-	execAllTimeout := 3 * time.Second
+	cleanUpTimeout := 3 * time.Second
+	execAllTimeout := 5 * time.Second
 
 	go func(ticker *time.Ticker, done <-chan struct{}, ack chan<- struct{}) {
 		for {
@@ -153,7 +153,7 @@ func TestSetBatch(t *testing.T) {
 
 		md, err := db.Set(&schema.SetRequest{KVs: kvList})
 		require.NoError(t, err)
-		require.Equal(t, uint64(b+1), md.Id)
+		require.Equal(t, uint64(b+2), md.Id)
 
 		for i := 0; i < batchSize; i++ {
 			key := []byte(strconv.FormatUint(uint64(i), 10))
@@ -161,7 +161,7 @@ func TestSetBatch(t *testing.T) {
 			entry, err := db.Get(&schema.KeyRequest{Key: key, SinceTx: md.Id})
 			require.NoError(t, err)
 			require.Equal(t, value, entry.Value)
-			require.Equal(t, uint64(b+1), entry.Tx)
+			require.Equal(t, uint64(b+2), entry.Tx)
 
 			vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: key}}) //no prev root
 			require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestExecAllOps(t *testing.T) {
 
 		idx, err := db.ExecAll(&schema.ExecAllRequest{Operations: atomicOps})
 		require.NoError(t, err)
-		require.Equal(t, uint64(b+1), idx.Id)
+		require.Equal(t, uint64(b+2), idx.Id)
 	}
 
 	zScanOpt := &schema.ZScanRequest{
@@ -329,7 +329,7 @@ func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 
 	index, err := db.ExecAll(aOps)
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), index.Id)
+	require.Equal(t, uint64(3), index.Id)
 
 	list, err := db.ZScan(&schema.ZScanRequest{
 		Set:     []byte(`mySet`),

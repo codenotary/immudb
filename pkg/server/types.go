@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -42,8 +43,9 @@ type usernameToUserdataMap struct {
 	sync.RWMutex
 }
 
-//DefaultDbIndex systemdb should always be in index 0
-const DefaultDbIndex = 0
+//defaultDbIndex systemdb should always be in index 0
+const defaultDbIndex = 0
+const sysDBIndex = int64(math.MaxInt64)
 
 // ImmuServer ...
 type ImmuServer struct {
@@ -59,7 +61,7 @@ type ImmuServer struct {
 	userdata    *usernameToUserdataMap
 	multidbmode bool
 	//Cc                  CorruptionChecker
-	sysDb                database.DB
+	sysDB                database.DB
 	metricsServer        *http.Server
 	webServer            *http.Server
 	mux                  sync.Mutex

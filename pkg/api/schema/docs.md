@@ -12,6 +12,7 @@
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
+    - [DatabaseSettings](#immudb.schema.DatabaseSettings)
     - [DebugInfo](#immudb.schema.DebugInfo)
     - [DualProof](#immudb.schema.DualProof)
     - [Entries](#immudb.schema.Entries)
@@ -67,8 +68,8 @@
     - [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest)
     - [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest)
     - [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry)
-    - [VerifiableSQLEntry.ColIdsByIdEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry)
     - [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry)
+    - [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry)
     - [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry)
     - [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest)
     - [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest)
@@ -79,11 +80,11 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -218,6 +219,27 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | databases | [Database](#immudb.schema.Database) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.DatabaseSettings"></a>
+
+### DatabaseSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| databaseName | [string](#string) |  |  |
+| replica | [bool](#bool) |  |  |
+| srcDatabase | [string](#string) |  |  |
+| srcAddress | [string](#string) |  |  |
+| srcPort | [uint32](#uint32) |  |  |
+| followerUsr | [string](#string) |  |  |
+| followerPwd | [string](#string) |  |  |
 
 
 
@@ -913,7 +935,6 @@
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
 | hValue | [bytes](#bytes) |  |  |
-| vOff | [int64](#int64) |  |  |
 | vLen | [int32](#int32) |  |  |
 
 
@@ -1132,25 +1153,9 @@
 | DatabaseId | [uint64](#uint64) |  |  |
 | TableId | [uint64](#uint64) |  |  |
 | PKName | [string](#string) |  |  |
-| ColIdsById | [VerifiableSQLEntry.ColIdsByIdEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry) | repeated |  |
+| ColNamesById | [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry) | repeated |  |
 | ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated |  |
 | ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry"></a>
-
-### VerifiableSQLEntry.ColIdsByIdEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [uint64](#uint64) |  |  |
-| value | [string](#string) |  |  |
 
 
 
@@ -1167,6 +1172,22 @@
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
 | value | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry"></a>
+
+### VerifiableSQLEntry.ColNamesByIdEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [uint64](#uint64) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -1348,7 +1369,7 @@
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1362,16 +1383,15 @@
 | REVOKE | 1 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
 
 ### ImmuService
 immudb gRPC &amp; REST service
-IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
@@ -1389,8 +1409,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | GetAll | [KeyListRequest](#immudb.schema.KeyListRequest) | [Entries](#immudb.schema.Entries) |  |
 | ExecAll | [ExecAllRequest](#immudb.schema.ExecAllRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | Scan | [ScanRequest](#immudb.schema.ScanRequest) | [Entries](#immudb.schema.Entries) |  |
-| Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [EntryCount](#immudb.schema.EntryCount) |  |
-| CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [EntryCount](#immudb.schema.EntryCount) |  |
+| Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [EntryCount](#immudb.schema.EntryCount) | NOT YET SUPPORTED |
+| CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [EntryCount](#immudb.schema.EntryCount) | NOT YET SUPPORTED |
 | TxById | [TxRequest](#immudb.schema.TxRequest) | [Tx](#immudb.schema.Tx) |  |
 | VerifiableTxById | [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
@@ -1402,10 +1422,12 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZEntries](#immudb.schema.ZEntries) |  |
-| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CreateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
-| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: use CompactIndex |
+| CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | streamGet | [KeyRequest](#immudb.schema.KeyRequest) | [Chunk](#immudb.schema.Chunk) stream | Streams |
@@ -1416,6 +1438,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | streamZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamHistory | [HistoryRequest](#immudb.schema.HistoryRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
+| replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | UseSnapshot | [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) | SQL |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
@@ -1423,7 +1447,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
-
+ 
 
 
 
@@ -1446,3 +1470,4 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+
