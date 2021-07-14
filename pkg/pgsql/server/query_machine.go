@@ -24,6 +24,7 @@ import (
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"io"
+	"math"
 	"sort"
 	"strings"
 )
@@ -335,6 +336,10 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 	r, err := s.database.InferParametersPrepared(stmt)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(r) > math.MaxInt16 {
+		return nil, nil, ErrMaxParamsNumberExceeded
 	}
 
 	var paramsNameList []string

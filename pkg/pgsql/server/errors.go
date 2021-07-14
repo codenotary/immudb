@@ -36,6 +36,7 @@ var ErrSSLNotSupported = errors.New("SSL not supported")
 var ErrMaxStmtNumberExceeded = errors.New("maximum number of statements in a single query exceeded")
 var ErrNoStatementFound = errors.New("no statement found")
 var ErrMessageCannotBeHandledInternally = errors.New("message cannot be handled internally")
+var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the maximum limit")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
