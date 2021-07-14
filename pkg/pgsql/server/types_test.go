@@ -18,6 +18,7 @@ package server
 
 import (
 	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -41,5 +42,51 @@ func Test_getInt64(t *testing.T) {
 
 	bxxx := make([]byte, 64)
 	i, err = getInt64(bxxx)
+	require.Error(t, err)
+}
+
+func Test_buildNamedParams(t *testing.T) {
+	// integer error
+	cols := []*schema.Column{
+		{
+			Name: "p1",
+			Type: "INTEGER",
+		},
+	}
+	pt := []interface{}{[]byte(`1`)}
+	_, err := buildNamedParams(cols, pt)
+	require.Error(t, err)
+
+	// varchar error
+	cols = []*schema.Column{
+		{
+			Name: "p1",
+			Type: "VARCHAR",
+		},
+	}
+	pt = []interface{}{[]byte(`1`)}
+	_, err = buildNamedParams(cols, pt)
+	require.NoError(t, err)
+
+	// blob
+	cols = []*schema.Column{
+		{
+			Name: "p1",
+			Type: "BLOB",
+		},
+	}
+	pt = []interface{}{[]byte(`1`)}
+	_, err = buildNamedParams(cols, pt)
+	require.NoError(t, err)
+
+	// blob text error
+	cols = []*schema.Column{
+		{
+			Name: "p1",
+			Type: "BLOB",
+		},
+	}
+	pt = []interface{}{"blob"}
+	_, err = buildNamedParams(cols, pt)
 	require.Error(t, err)
 }

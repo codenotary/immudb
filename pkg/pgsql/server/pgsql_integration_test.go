@@ -576,7 +576,7 @@ func getRandomTableName() string {
 	return fmt.Sprintf("table%d", r)
 }
 
-func TestPgsqlServer_ExtendedQuery(t *testing.T) {
+func TestPgsqlServer_ExtendedQueryPG(t *testing.T) {
 	td, _ := ioutil.TempDir("", "_pgsql")
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
@@ -677,7 +677,49 @@ func TestPgsqlServer_ExtendedQueryPGxMultiFieldsPreparedStatements(t *testing.T)
 	var title string
 	var isPresent bool
 	var content []byte
-	err = db.QueryRow(context.Background(), fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), true, 1, 1000, 6000, "title 1").Scan(&id, &amount, &title, &content, &isPresent)
+	err = db.QueryRow(context.Background(), fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=? and content=?", table), true, 1, 1000, 6000, "title 1", blobContent).Scan(&id, &amount, &title, &content, &isPresent)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), id)
+	require.Equal(t, int64(1000), amount)
+	require.Equal(t, "title 1", title)
+	require.Equal(t, binaryContent, content)
+	require.Equal(t, true, isPresent)
+}
+
+func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedStatements(t *testing.T) {
+	td, _ := ioutil.TempDir("", "_pgsql")
+	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(td)
+	defer os.Remove(".state-")
+
+	bs.WaitForPgsqlListener()
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+
+	table := getRandomTableName()
+	result, err := db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	binaryContent := []byte("my blob content1")
+	blobContent := hex.EncodeToString(binaryContent)
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
+	require.NoError(t, err)
+	blobContent2 := hex.EncodeToString([]byte("my blob content2"))
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (2, 2000, 3000, 'title 2', x'%s', false)", table, blobContent2))
+	require.NoError(t, err)
+
+	var id int64
+	var amount int64
+	var title string
+	var isPresent bool
+	var content []byte
+	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), true, 1, 1000, 6000, "title 1").Scan(&id, &amount, &title, &content, &isPresent)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), id)
 	require.Equal(t, int64(1000), amount)

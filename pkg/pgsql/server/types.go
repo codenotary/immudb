@@ -18,6 +18,7 @@ package server
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/codenotary/immudb/embedded/sqlutils"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -40,9 +41,13 @@ func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*
 			case "VARCHAR":
 				pMap[param.Name] = p
 			case "BOOLEAN":
-				pMap[param.Name] = p
+				pMap[param.Name] = p == "true"
 			case "BLOB":
-				pMap[param.Name] = p
+				d, err := hex.DecodeString(p)
+				if err != nil {
+					return nil, err
+				}
+				pMap[param.Name] = d
 			}
 		}
 		// binary param
