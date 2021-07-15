@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/codenotary/immudb/embedded/sqlutils"
 	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -35,7 +34,7 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	namedParams, err := sqlutils.EncodeParams(params)
+	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +56,7 @@ func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	namedParams, err := sqlutils.EncodeParams(params)
+	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, err
 	}
