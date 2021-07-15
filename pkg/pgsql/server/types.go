@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/codenotary/immudb/embedded/sqlutils"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"strconv"
 )
@@ -73,7 +72,7 @@ func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*
 		}
 	}
 
-	return sqlutils.EncodeParams(pMap)
+	return schema.EncodeParams(pMap)
 }
 
 func getInt64(p []byte) (int64, error) {
