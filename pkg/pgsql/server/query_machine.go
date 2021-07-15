@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"io"
@@ -210,7 +211,7 @@ func (s *session) QueriesMachine() (err error) {
 				waitForSync = true
 			}
 		default:
-			s.ErrorHandle(ErrUnknowMessageType)
+			s.ErrorHandle(pserr.ErrUnknowMessageType)
 			continue
 		}
 	}
@@ -221,7 +222,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		return nil
 	}
 	if i := s.isEmulableInternally(statements); i != nil {
-		if err := s.tryToHandleInternally(i); err != nil && err != ErrMessageCannotBeHandledInternally {
+		if err := s.tryToHandleInternally(i); err != nil && err != pserr.ErrMessageCannotBeHandledInternally {
 			return err
 		}
 		return nil
@@ -235,11 +236,11 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 		switch st := stmt.(type) {
 		case *sql.UseDatabaseStmt:
 			{
-				return ErrUseDBStatementNotSupported
+				return pserr.ErrUseDBStatementNotSupported
 			}
 		case *sql.CreateDatabaseStmt:
 			{
-				return ErrCreateDBStatementNotSupported
+				return pserr.ErrCreateDBStatementNotSupported
 			}
 		case *sql.SelectStmt:
 			if err = s.query(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
@@ -277,7 +278,7 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 }
 
 func (s *session) exec(st sql.SQLStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	if _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, nil, true); err != nil {
+	if _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, parameters, true); err != nil {
 		return err
 	}
 	return nil
@@ -307,30 +308,33 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 	if err != nil {
 		return nil, nil, err
 	}
+	// The query string contained in a Parse message cannot include more than one SQL statement;
+	// else a syntax error is reported. This restriction does not exist in the simple-query protocol, but it does exist
+	// in the extended protocol, because allowing prepared statements or portals to contain multiple commands would
+	// complicate the protocol unduly.
 	if len(stmts) > 1 {
-		return nil, nil, ErrMaxStmtNumberExceeded
+		return nil, nil, pserr.ErrMaxStmtNumberExceeded
 	}
 	if len(stmts) == 0 {
-		return nil, nil, ErrNoStatementFound
+		return nil, nil, pserr.ErrNoStatementFound
 	}
 	stmt := stmts[0]
 
-	sel, ok := stmt.(*sql.SelectStmt)
-	if ok != true {
-		return nil, nil, fmt.Errorf("extended query support only query statement")
-
-	}
-	rr, err := s.database.SQLQueryRowReader(sel, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	cols, err := rr.Columns()
-	if err != nil {
-		return nil, nil, err
-	}
 	resCols := make([]*schema.Column, 0)
-	for _, c := range cols {
-		resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
+
+	sel, ok := stmt.(*sql.SelectStmt)
+	if ok {
+		rr, err := s.database.SQLQueryRowReader(sel, true)
+		if err != nil {
+			return nil, nil, err
+		}
+		cols, err := rr.Columns()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, c := range cols {
+			resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
+		}
 	}
 
 	r, err := s.database.InferParametersPrepared(stmt)
@@ -339,7 +343,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 	}
 
 	if len(r) > math.MaxInt16 {
-		return nil, nil, ErrMaxParamsNumberExceeded
+		return nil, nil, pserr.ErrMaxParamsNumberExceeded
 	}
 
 	var paramsNameList []string

@@ -3,9 +3,11 @@ package fmessages
 import (
 	"errors"
 	"fmt"
+	pgserror "github.com/codenotary/immudb/pkg/pgsql/errors"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
 	"github.com/stretchr/testify/require"
 	"io"
+	"math"
 	"testing"
 )
 
@@ -94,6 +96,10 @@ func TestParseBindMsg(t *testing.T) {
 		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(2), h.I16(0), h.I16(1), h.I32(2), h.I16(1), h.I16(1)}),
 			BindMsg{},
 			errors.New("malformed bind message. Parameters format codes didn't match parameters count"),
+		},
+		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(2), h.I16(1), h.I16(0), h.I16(2), h.I32(math.MaxInt32), h.B(make([]byte, math.MaxInt32)), h.I32(2), h.I16(1), h.I16(1), h.I16(1)}),
+			BindMsg{},
+			pgserror.ErrParametersValueSizeTooLarge,
 		},
 	}
 

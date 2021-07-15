@@ -20,6 +20,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
+	"math"
 )
 
 // BindMsg Once a prepared statement exists, it can be readied for execution using a Bind message. The Bind message gives the
@@ -99,12 +101,16 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	if len(parameterFormatCodes) > 1 && len(parameterFormatCodes) != int(pCount) {
 		return BindMsg{}, errors.New("malformed bind message. Parameters format codes didn't match parameters count")
 	}
-
+	totalParamLen := 0
 	params := make([]interface{}, 0)
 	for i := 0; i < int(pCount); i++ {
 		pLen, err := getNextInt32(r)
 		if err != nil {
 			return BindMsg{}, err
+		}
+		totalParamLen += int(pLen)
+		if totalParamLen > math.MaxInt32 {
+			return BindMsg{}, pgserrors.ErrParametersValueSizeTooLarge
 		}
 		pVal := make([]byte, pLen)
 		_, err = r.Read(pVal)

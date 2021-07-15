@@ -1,6 +1,7 @@
 package server
 
 import (
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	"regexp"
 )
 
@@ -30,7 +31,7 @@ func (s *session) tryToHandleInternally(command interface{}) error {
 			return err
 		}
 	default:
-		return ErrMessageCannotBeHandledInternally
+		return pserr.ErrMessageCannotBeHandledInternally
 	}
 	return nil
 }
