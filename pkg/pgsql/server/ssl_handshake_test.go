@@ -19,6 +19,7 @@ package server
 import (
 	"crypto/tls"
 	"github.com/codenotary/immudb/pkg/logger"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/stretchr/testify/require"
 	"net"
 	"os"
@@ -32,7 +33,7 @@ func TestSession_handshakeNotSupported(t *testing.T) {
 	}
 	err := s.handshake()
 
-	require.Equal(t, ErrSSLNotSupported, err)
+	require.Equal(t, pserr.ErrSSLNotSupported, err)
 }
 
 func TestSession_handshakeErr(t *testing.T) {

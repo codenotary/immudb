@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
@@ -65,7 +66,7 @@ func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls
 
 func (s *session) ErrorHandle(e error) {
 	if e != nil {
-		er := MapPgError(e)
+		er := errors.MapPgError(e)
 		_, err := s.writeMessage(er.Encode())
 		if err != nil {
 			s.log.Errorf("unable to write error on wire: %v", err)
@@ -113,7 +114,7 @@ func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 	case 'E':
 		return fm.ParseExecuteMsg(msg.payload)
 	default:
-		return nil, ErrUnknowMessageType
+		return nil, errors.ErrUnknowMessageType
 	}
 }
 

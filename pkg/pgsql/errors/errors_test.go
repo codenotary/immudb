@@ -1,4 +1,4 @@
-package server
+package errors
 
 import (
 	"github.com/stretchr/testify/require"

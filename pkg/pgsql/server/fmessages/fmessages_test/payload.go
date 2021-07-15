@@ -12,6 +12,9 @@ func Join(chunk [][]byte) []byte {
 func S(str string) []byte {
 	return bytes.Join([][]byte{[]byte(str), {0}}, nil)
 }
+func B(b []byte) []byte {
+	return b
+}
 
 func I16(i int) []byte {
 	ib := make([]byte, 2)

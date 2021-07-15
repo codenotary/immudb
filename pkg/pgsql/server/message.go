@@ -19,6 +19,7 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"net"
 )
@@ -52,7 +53,7 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	}
 
 	if _, ok := pgmeta.MTypes[t[0]]; !ok {
-		return nil, fmt.Errorf(ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0]))
+		return nil, fmt.Errorf(errors.ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0]))
 	}
 
 	lb := make([]byte, 4)

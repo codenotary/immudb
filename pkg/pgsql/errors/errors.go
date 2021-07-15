@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package errors
 
 import (
 	"errors"
@@ -37,6 +37,7 @@ var ErrMaxStmtNumberExceeded = errors.New("maximum number of statements in a sin
 var ErrNoStatementFound = errors.New("no statement found")
 var ErrMessageCannotBeHandledInternally = errors.New("message cannot be handled internally")
 var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the maximum limit")
+var ErrParametersValueSizeTooLarge = errors.New("provided parameters exceeded the maximum allowed size limit")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
@@ -71,7 +72,7 @@ func MapPgError(err error) (er bm.ErrorResp) {
 		)
 	case errors.Is(err, ErrMaxStmtNumberExceeded):
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
-			bm.Code(pgmeta.ProgramLimitExceeded),
+			bm.Code(pgmeta.PgServerErrSyntaxError),
 			bm.Message(err.Error()),
 			bm.Hint("at the moment is possible to receive only 1 statement. Please split query or use a single statement"),
 		)
@@ -80,6 +81,11 @@ func MapPgError(err error) (er bm.ErrorResp) {
 			bm.Code(pgmeta.ProgramLimitExceeded),
 			bm.Message(err.Error()),
 			bm.Hint("provide at least one statement"),
+		)
+	case errors.Is(err, ErrParametersValueSizeTooLarge):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.DataException),
+			bm.Message(err.Error()),
 		)
 	default:
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
