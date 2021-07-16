@@ -50,7 +50,7 @@ type BindMsg struct {
 
 func ParseBindMsg(payload []byte) (BindMsg, error) {
 	b := bytes.NewBuffer(payload)
-	r := bufio.NewReader(b)
+	r := bufio.NewReaderSize(b, len(payload))
 	destPortalName, err := getNextString(r)
 	if err != nil {
 		return BindMsg{}, err

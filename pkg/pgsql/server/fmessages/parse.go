@@ -32,9 +32,9 @@ type ParseMsg struct {
 	ObjectIDs []int32
 }
 
-func ParseParseMsg(msg []byte) (ParseMsg, error) {
-	b := bytes.NewBuffer(msg)
-	r := bufio.NewReader(b)
+func ParseParseMsg(payload []byte) (ParseMsg, error) {
+	b := bytes.NewBuffer(payload)
+	r := bufio.NewReaderSize(b, len(payload))
 	destPreparedStatementName, err := getNextString(r)
 	if err != nil {
 		return ParseMsg{}, err
