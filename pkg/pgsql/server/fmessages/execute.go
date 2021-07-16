@@ -41,9 +41,9 @@ type Execute struct {
 	MaxRows int32
 }
 
-func ParseExecuteMsg(msg []byte) (Execute, error) {
-	b := bytes.NewBuffer(msg)
-	r := bufio.NewReader(b)
+func ParseExecuteMsg(payload []byte) (Execute, error) {
+	b := bytes.NewBuffer(payload)
+	r := bufio.NewReaderSize(b, len(payload))
 	portalName, err := getNextString(r)
 	if err != nil {
 		return Execute{}, err
