@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
@@ -55,7 +56,7 @@ func (s *session) InitializeSession() (err error) {
 			if _, err = s.writeMessage([]byte(`N`)); err != nil {
 				return err
 			}
-			return ErrSSLNotSupported
+			return pserr.ErrSSLNotSupported
 		}
 
 		if _, err = s.writeMessage([]byte(`S`)); err != nil {
@@ -132,17 +133,17 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 
 	user, ok := s.connParams["user"]
 	if !ok || user == "" {
-		return ErrUsernameNotprovided
+		return pserr.ErrUsernameNotprovided
 	}
 	s.username = user
 	db, ok := s.connParams["database"]
 	if !ok {
-		return ErrDBNotprovided
+		return pserr.ErrDBNotprovided
 	}
 	s.database, err = dbList.GetByName(db)
 	if err != nil {
 		if errors.Is(err, database.ErrDatabaseNotExists) {
-			return ErrDBNotExists
+			return pserr.ErrDBNotExists
 		}
 		return err
 	}
@@ -151,18 +152,18 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 	if _, err = s.writeMessage(bm.AuthenticationCleartextPassword()); err != nil {
 		return err
 	}
-	msg, err := s.nextMessage()
+	msg, _, err := s.nextMessage()
 	if err != nil {
 		return err
 	}
 	if pw, ok := msg.(fm.PasswordMsg); ok {
 		if !ok || pw.GetSecret() == "" {
-			return ErrPwNotprovided
+			return pserr.ErrPwNotprovided
 		}
 		usr, err := s.getUser([]byte(s.username))
 		if err != nil {
 			if strings.Contains(err.Error(), "key not found") {
-				return ErrUsernameNotFound
+				return pserr.ErrUsernameNotFound
 			}
 		}
 		if err := usr.ComparePasswords([]byte(pw.GetSecret())); err != nil {

@@ -16,15 +16,33 @@ limitations under the License.
 
 package fmessages
 
-type PasswordMsg struct {
-	secret string
+import (
+	"bufio"
+	"encoding/binary"
+)
+
+func getNextString(r *bufio.Reader) (string, error) {
+	s, err := r.ReadBytes(0)
+	if err != nil {
+		return "", err
+	}
+	return string(s[:len(s)-1]), nil
 }
 
-func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
-	password := payload[:len(payload)-1] //-1 A null-terminated string
-	return PasswordMsg{secret: string(password)}, nil
+func getNextInt16(r *bufio.Reader) (int16, error) {
+	pcb := make([]byte, 2)
+	_, err := r.Read(pcb)
+	if err != nil {
+		return 0, err
+	}
+	return int16(binary.BigEndian.Uint16(pcb)), nil
 }
 
-func (pw *PasswordMsg) GetSecret() string {
-	return pw.secret
+func getNextInt32(r *bufio.Reader) (int32, error) {
+	pcb := make([]byte, 4)
+	_, err := r.Read(pcb)
+	if err != nil {
+		return 0, err
+	}
+	return int32(binary.BigEndian.Uint32(pcb)), nil
 }

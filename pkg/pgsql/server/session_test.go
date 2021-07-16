@@ -21,9 +21,9 @@ import (
 )
 
 type sessionMock struct {
-	InitializeSessionF   func() error
-	HandleSimpleQueriesF func() error
-	HandleStartupF       func() error
+	InitializeSessionF func() error
+	QueryMachineF      func() error
+	HandleStartupF     func() error
 }
 
 func NewSessionMock() *sessionMock {
@@ -31,7 +31,7 @@ func NewSessionMock() *sessionMock {
 		InitializeSessionF: func() error {
 			return nil
 		},
-		HandleSimpleQueriesF: func() error {
+		QueryMachineF: func() error {
 			return nil
 		},
 		HandleStartupF: func() error {
@@ -45,8 +45,8 @@ func (s *sessionMock) InitializeSession() error {
 	return s.InitializeSessionF()
 }
 
-func (s *sessionMock) HandleSimpleQueries() error {
-	return s.HandleSimpleQueriesF()
+func (s *sessionMock) QueriesMachine() error {
+	return s.QueryMachineF()
 }
 
 func (s *sessionMock) HandleStartup(dbList database.DatabaseList) error {

@@ -20,9 +20,9 @@ type QueryMsg struct {
 	statements string
 }
 
-func ParseQueryMsg(payload []byte) QueryMsg {
+func ParseQueryMsg(payload []byte) (QueryMsg, error) {
 	msg := payload[:len(payload)-1] //-1 A null-terminated string
-	return QueryMsg{statements: string(msg)}
+	return QueryMsg{statements: string(msg)}, nil
 }
 
 func (q *QueryMsg) GetStatements() string {

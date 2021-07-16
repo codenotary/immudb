@@ -34,7 +34,7 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	namedParams, err := encodeParams(params)
+	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	namedParams, err := encodeParams(params)
+	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, err
 	}
@@ -76,27 +76,6 @@ func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*sche
 		return nil, errors.FromError(ErrNotConnected)
 	}
 	return c.ServiceClient.DescribeTable(ctx, &schema.Table{TableName: tableName})
-}
-
-func encodeParams(params map[string]interface{}) ([]*schema.NamedParam, error) {
-	if params == nil {
-		return nil, nil
-	}
-
-	namedParams := make([]*schema.NamedParam, len(params))
-
-	i := 0
-	for n, v := range params {
-		sqlVal, err := asSQLValue(v)
-		if err != nil {
-			return nil, err
-		}
-
-		namedParams[i] = &schema.NamedParam{Name: n, Value: sqlVal}
-		i++
-	}
-
-	return namedParams, nil
 }
 
 func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table string, pkVal *schema.SQLValue) error {
@@ -306,45 +285,6 @@ func decodeRow(encodedRow []byte, colTypes map[uint64]sql.SQLValueType) (map[uin
 	}
 
 	return values, nil
-}
-
-func asSQLValue(v interface{}) (*schema.SQLValue, error) {
-	if v == nil {
-		return &schema.SQLValue{Value: &schema.SQLValue_Null{}}, nil
-	}
-
-	switch tv := v.(type) {
-	case uint:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case int:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case int64:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case uint64:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
-		}
-	case string:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv}}, nil
-		}
-	case bool:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv}}, nil
-		}
-	case []byte:
-		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv}}, nil
-		}
-	}
-
-	return nil, sql.ErrInvalidValue
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {

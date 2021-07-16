@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package errors
 
 import (
 	"errors"
@@ -33,6 +33,13 @@ var ErrExpectedQueryMessage = errors.New("expected query message")
 var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
 var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
 var ErrSSLNotSupported = errors.New("SSL not supported")
+var ErrMaxStmtNumberExceeded = errors.New("maximum number of statements in a single query exceeded")
+var ErrNoStatementFound = errors.New("no statement found")
+var ErrMessageCannotBeHandledInternally = errors.New("message cannot be handled internally")
+var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the maximum limit")
+var ErrParametersValueSizeTooLarge = errors.New("provided parameters exceeded the maximum allowed size limit")
+var ErrNegativeParameterValueLen = errors.New("negative parameter length detected")
+var ErrMalformedMessage = errors.New("malformed message detected")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
@@ -64,6 +71,33 @@ func MapPgError(err error) (er bm.ErrorResp) {
 			bm.Code(pgmeta.PgServerErrConnectionFailure),
 			bm.Message(err.Error()),
 			bm.Hint("launch immudb with a certificate and a private key"),
+		)
+	case errors.Is(err, ErrMaxStmtNumberExceeded):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrSyntaxError),
+			bm.Message(err.Error()),
+			bm.Hint("at the moment is possible to receive only 1 statement. Please split query or use a single statement"),
+		)
+	case errors.Is(err, ErrNoStatementFound):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.ProgramLimitExceeded),
+			bm.Message(err.Error()),
+			bm.Hint("provide at least one statement"),
+		)
+	case errors.Is(err, ErrParametersValueSizeTooLarge):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.DataException),
+			bm.Message(err.Error()),
+		)
+	case errors.Is(err, ErrNegativeParameterValueLen):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.DataException),
+			bm.Message(err.Error()),
+		)
+	case errors.Is(err, ErrMalformedMessage):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrProtocolViolation),
+			bm.Message(err.Error()),
 		)
 	default:
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),

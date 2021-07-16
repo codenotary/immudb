@@ -18,11 +18,12 @@ package server
 
 import (
 	"crypto/tls"
+	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 )
 
 func (s *session) handshake() error {
 	if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
-		return ErrSSLNotSupported
+		return pserr.ErrSSLNotSupported
 	}
 	tlsConn := tls.Server(s.mr.Connection(), s.tlsConfig)
 	err := tlsConn.Handshake()

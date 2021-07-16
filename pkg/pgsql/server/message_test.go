@@ -17,43 +17,42 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	"github.com/stretchr/testify/require"
 	"net"
-	"os"
-	"sync"
 	"testing"
 )
 
-func TestSession_HandleSimpleQueriesUnsupportedMessage(t *testing.T) {
-
+func TestSession_MessageReader(t *testing.T) {
 	c1, c2 := net.Pipe()
 	mr := &messageReader{
 		conn: c1,
 	}
 
-	s := session{
-		mr:    mr,
-		Mutex: sync.Mutex{},
-		log:   logger.NewSimpleLogger("test", os.Stdout),
-	}
-
 	go func() {
-		ready4Query := make([]byte, len(bmessages.ReadyForQuery()))
-		c2.Read(ready4Query)
-		//unsupported message
-		c2.Write([]byte("_"))
-		unsupported := make([]byte, 500)
-		c2.Read(unsupported)
-		ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
-		c2.Read(ready4Query)
-		// Terminate message
-		c2.Write([]byte{'X', 0, 0, 0, 0, 0, 0, 0, 4})
+		c2.Write([]byte{'E'})
+		c2.Close()
 	}()
 
-	err := s.HandleSimpleQueries()
+	_, err := mr.ReadRawMessage()
+
+	require.Error(t, err)
+
+	c1, c2 = net.Pipe()
+	mr = &messageReader{
+		conn: c1,
+	}
+	go func() {
+		c2.Write([]byte{'E'})
+		c2.Write([]byte{0, 0, 0, 4})
+		c2.Close()
+	}()
+
+	_, err = mr.ReadRawMessage()
+
+	require.Error(t, err)
+
+	mr = &messageReader{}
+	err = mr.CloseConnection()
 
 	require.NoError(t, err)
-
 }

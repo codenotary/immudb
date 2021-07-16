@@ -211,7 +211,7 @@ func (s *ImmuServer) Initialize() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
-	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDb), pgsqlsrv.TlsConfig(s.Options.TLSConfig))
+	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDb), pgsqlsrv.TlsConfig(s.Options.TLSConfig), pgsqlsrv.Logger(s.Logger))
 	if s.Options.PgsqlServer {
 		if err = s.PgsqlSrv.Initialize(); err != nil {
 			return err

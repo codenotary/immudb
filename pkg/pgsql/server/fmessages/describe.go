@@ -16,15 +16,17 @@ limitations under the License.
 
 package fmessages
 
-type PasswordMsg struct {
-	secret string
+type DescribeMsg struct {
+	// 'S' to describe a prepared statement; or 'P' to describe a portal.
+	DescType string
+	// The name of the prepared statement or portal to describe (an empty string selects the unnamed prepared statement or portal).
+	Name string
 }
 
-func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
-	password := payload[:len(payload)-1] //-1 A null-terminated string
-	return PasswordMsg{secret: string(password)}, nil
-}
-
-func (pw *PasswordMsg) GetSecret() string {
-	return pw.secret
+func ParseDescribeMsg(msg []byte) (DescribeMsg, error) {
+	descType := msg[0]
+	return DescribeMsg{
+		DescType: string(descType),
+		Name:     string(msg[1 : len(msg)-1]),
+	}, nil
 }

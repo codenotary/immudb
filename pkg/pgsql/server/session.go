@@ -23,6 +23,8 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/pgsql/errors"
+	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"net"
@@ -38,47 +40,62 @@ type session struct {
 	sysDb           database.DB
 	connParams      map[string]string
 	protocolVersion string
+	portals         map[string]*portal
+	statements      map[string]*statement
 	sync.Mutex
 }
 
 type Session interface {
 	InitializeSession() error
 	HandleStartup(dbList database.DatabaseList) error
-	HandleSimpleQueries() error
+	QueriesMachine() (err error)
 	ErrorHandle(err error)
 }
 
 func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) *session {
 	s := &session{
-		tlsConfig: tlsConfig,
-		log:       log,
-		mr:        NewMessageReader(c),
-		sysDb:     sysDb,
+		tlsConfig:  tlsConfig,
+		log:        log,
+		mr:         NewMessageReader(c),
+		sysDb:      sysDb,
+		portals:    make(map[string]*portal),
+		statements: make(map[string]*statement),
 	}
 	return s
 }
 
 func (s *session) ErrorHandle(e error) {
 	if e != nil {
-		er := MapPgError(e)
+		er := errors.MapPgError(e)
 		_, err := s.writeMessage(er.Encode())
 		if err != nil {
-			s.log.Errorf("unable to write error on wire %v", err)
+			s.log.Errorf("unable to write error on wire: %v", err)
 		}
 		s.log.Debugf("%s", er.ToString())
+		if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
+			s.log.Errorf("unable to complete error handling: %v", err)
+		}
 	}
 }
 
-func (s *session) nextMessage() (interface{}, error) {
+func (s *session) nextMessage() (interface{}, bool, error) {
 	msg, err := s.mr.ReadRawMessage()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	s.log.Debugf("received %s - %s message", string(msg.t), pgmeta.MTypes[msg.t])
-	return s.parseRawMessage(msg), nil
+	extQueryMode := false
+	i, err := s.parseRawMessage(msg)
+	if msg.t == 'P' ||
+		msg.t == 'B' ||
+		msg.t == 'D' ||
+		msg.t == 'E' {
+		extQueryMode = true
+	}
+	return i, extQueryMode, err
 }
 
-func (s *session) parseRawMessage(msg *rawMessage) interface{} {
+func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 	switch msg.t {
 	case 'p':
 		return fm.ParsePasswordMsg(msg.payload)
@@ -86,8 +103,19 @@ func (s *session) parseRawMessage(msg *rawMessage) interface{} {
 		return fm.ParseQueryMsg(msg.payload)
 	case 'X':
 		return fm.ParseTerminateMsg(msg.payload)
+	case 'P':
+		return fm.ParseParseMsg(msg.payload)
+	case 'B':
+		return fm.ParseBindMsg(msg.payload)
+	case 'D':
+		return fm.ParseDescribeMsg(msg.payload)
+	case 'S':
+		return fm.ParseSyncMsg(msg.payload)
+	case 'E':
+		return fm.ParseExecuteMsg(msg.payload)
+	default:
+		return nil, errors.ErrUnknowMessageType
 	}
-	return nil
 }
 
 func (s *session) writeMessage(msg []byte) (int, error) {

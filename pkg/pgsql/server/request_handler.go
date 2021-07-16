@@ -34,7 +34,7 @@ func (s *srv) handleRequest(conn net.Conn) (err error) {
 		return err
 	}
 	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.HandleSimpleQueries()
+	err = ss.QueriesMachine()
 	if err != nil {
 		return err
 	}

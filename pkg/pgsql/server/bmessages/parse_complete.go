@@ -14,17 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fmessages
+package bmessages
 
-type PasswordMsg struct {
-	secret string
-}
+import (
+	"bytes"
+	"encoding/binary"
+)
 
-func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
-	password := payload[:len(payload)-1] //-1 A null-terminated string
-	return PasswordMsg{secret: string(password)}, nil
-}
-
-func (pw *PasswordMsg) GetSecret() string {
-	return pw.secret
+func ParseComplete() []byte {
+	messageType := []byte(`1`)
+	message := make([]byte, 4)
+	binary.BigEndian.PutUint32(message, uint32(4))
+	return bytes.Join([][]byte{messageType, message}, nil)
 }

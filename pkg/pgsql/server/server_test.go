@@ -14,17 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fmessages
+package server
 
-type PasswordMsg struct {
-	secret string
+import (
+	"github.com/stretchr/testify/require"
+	"testing"
+)
+
+func TestSrv_Initialize(t *testing.T) {
+	s := srv{
+		Port: 99999999999999999,
+	}
+	err := s.Initialize()
+	require.Error(t, err)
 }
 
-func ParsePasswordMsg(payload []byte) (PasswordMsg, error) {
-	password := payload[:len(payload)-1] //-1 A null-terminated string
-	return PasswordMsg{secret: string(password)}, nil
+func TestSrv_GetPort(t *testing.T) {
+	s := srv{}
+	err := s.GetPort()
+	require.Equal(t, 0, err)
 }
 
-func (pw *PasswordMsg) GetSecret() string {
-	return pw.secret
+func TestSrv_Stop(t *testing.T) {
+	s := srv{}
+	res := s.Stop()
+	require.Nil(t, res)
+}
+
+func TestSrv_Serve(t *testing.T) {
+	s := srv{}
+	err := s.Serve()
+	require.Error(t, err)
 }
