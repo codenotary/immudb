@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 
 	"github.com/stretchr/testify/require"
 )
@@ -338,6 +339,33 @@ func TestIntegrity(t *testing.T) {
 			require.True(t, verifies)
 		}
 	}
+}
+
+func TestOpenFail(t *testing.T) {
+	_, err := Open("/dev/null", DefaultOptions().WithSynced(false))
+	require.Error(t, err)
+	os.Mkdir("ro_dir1", 0500)
+	defer os.RemoveAll("ro_dir1")
+	_, err = Open("ro_dir/bla", DefaultOptions().WithSynced(false))
+	require.Error(t, err)
+	_, err = Open("wrongdir\000", DefaultOptions().WithSynced(false))
+	require.Error(t, err)
+	defer os.RemoveAll("tt1")
+	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
+			func (rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
+				if subPath=="tree" {
+					e = errors.New("simulated error")
+				}
+				return
+			} ))
+	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
+			func (rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
+				if subPath=="commit" {
+					e = errors.New("simulated error")
+				}
+				return
+			} ))
+	require.Error(t, err)
 }
 
 func TestInclusionAndConsistencyProofs(t *testing.T) {
