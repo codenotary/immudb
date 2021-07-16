@@ -15,4 +15,13 @@ func TestMapPgError(t *testing.T) {
 	err = ErrNoStatementFound
 	be = MapPgError(err)
 	require.NotNil(t, be)
+	err = ErrParametersValueSizeTooLarge
+	be = MapPgError(err)
+	require.NotNil(t, be)
+	err = ErrNegativeParameterValueLen
+	be = MapPgError(err)
+	require.NotNil(t, be)
+	err = ErrMalformedMessage
+	be = MapPgError(err)
+	require.NotNil(t, be)
 }
