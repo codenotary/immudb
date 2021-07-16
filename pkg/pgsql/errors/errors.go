@@ -38,6 +38,8 @@ var ErrNoStatementFound = errors.New("no statement found")
 var ErrMessageCannotBeHandledInternally = errors.New("message cannot be handled internally")
 var ErrMaxParamsNumberExceeded = errors.New("number of parameters exceeded the maximum limit")
 var ErrParametersValueSizeTooLarge = errors.New("provided parameters exceeded the maximum allowed size limit")
+var ErrNegativeParameterValueLen = errors.New("negative parameter length detected")
+var ErrMalformedMessage = errors.New("malformed message detected")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
@@ -85,6 +87,16 @@ func MapPgError(err error) (er bm.ErrorResp) {
 	case errors.Is(err, ErrParametersValueSizeTooLarge):
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Code(pgmeta.DataException),
+			bm.Message(err.Error()),
+		)
+	case errors.Is(err, ErrNegativeParameterValueLen):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.DataException),
+			bm.Message(err.Error()),
+		)
+	case errors.Is(err, ErrMalformedMessage):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrProtocolViolation),
 			bm.Message(err.Error()),
 		)
 	default:

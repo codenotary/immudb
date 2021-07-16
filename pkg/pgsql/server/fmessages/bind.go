@@ -67,6 +67,9 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	if err != nil {
 		return BindMsg{}, err
 	}
+	if parameterFormatCodeNumber < 0 {
+		return BindMsg{}, pgserrors.ErrMalformedMessage
+	}
 	parameterFormatCodes := make([]int16, parameterFormatCodeNumber)
 	for k := 0; k < int(parameterFormatCodeNumber); k++ {
 		p, err := getNextInt16(r)
@@ -105,6 +108,9 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	params := make([]interface{}, 0)
 	for i := 0; i < int(pCount); i++ {
 		pLen, err := getNextInt32(r)
+		if pLen < 0 {
+			return BindMsg{}, pgserrors.ErrNegativeParameterValueLen
+		}
 		if err != nil {
 			return BindMsg{}, err
 		}
@@ -140,6 +146,9 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 	resultColumnFormatCodesNumber, err := getNextInt16(r)
 	if err != nil {
 		return BindMsg{}, err
+	}
+	if resultColumnFormatCodesNumber < 0 {
+		return BindMsg{}, pgserrors.ErrMalformedMessage
 	}
 
 	resultColumnFormatCodes := make([]int16, 0, resultColumnFormatCodesNumber)
