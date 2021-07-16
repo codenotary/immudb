@@ -19,7 +19,6 @@ package fmessages
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
 	"math"
 )
@@ -97,12 +96,12 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 		case 1:
 			forceBIN = true
 		default:
-			return BindMsg{}, errors.New("malformed bind message. Allowed format codes are 1 or 0")
+			return BindMsg{}, pgserrors.ErrMalformedMessage
 		}
 	}
 
 	if len(parameterFormatCodes) > 1 && len(parameterFormatCodes) != int(pCount) {
-		return BindMsg{}, errors.New("malformed bind message. Parameters format codes didn't match parameters count")
+		return BindMsg{}, pgserrors.ErrMalformedMessage
 	}
 	totalParamLen := 0
 	params := make([]interface{}, 0)
