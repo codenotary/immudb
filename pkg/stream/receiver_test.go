@@ -90,9 +90,7 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 		{C: secondChunk, E: nil},
 		{C: nil, E: io.EOF},
 	})
-
 	mr := NewMsgReceiver(sm)
-
 	_, err := mr.ReadFully()
 	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
 
@@ -100,11 +98,26 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 		{C: &schema.Chunk{Content: []byte{1}}, E: nil},
 		{C: nil, E: io.EOF},
 	})
-
 	mr = NewMsgReceiver(sm)
-
 	_, err = mr.ReadFully()
 	require.Equal(t, ErrChunkTooSmall, err.Error())
+
+	expectedErr := errors.New("unexpected error")
+
+	sm = streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
+		{C: nil, E: expectedErr},
+	})
+	mr = NewMsgReceiver(sm)
+	_, err = mr.ReadFully()
+	require.Equal(t, expectedErr.Error(), err.Error())
+
+	sm = streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
+		{C: firstChunk, E: nil},
+		{C: nil, E: expectedErr},
+	})
+	mr = NewMsgReceiver(sm)
+	_, err = mr.ReadFully()
+	require.Equal(t, expectedErr.Error(), err.Error())
 }
 
 func TestMsgReceiver_EmptyStream(t *testing.T) {
