@@ -928,6 +928,12 @@ func TestServerDbOperations(t *testing.T) {
 		log.Fatal(err)
 	}
 
+	_, err = s.Count(ctx, nil)
+	require.Equal(t, ErrNotSupported, err)
+
+	_, err = s.CountAll(ctx, nil)
+	require.Equal(t, ErrNotSupported, err)
+
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
 	testServerCurrentRoot(ctx, s, t)
@@ -1595,4 +1601,63 @@ func TestServerLoginAttempWithEmptyPassword(t *testing.T) {
 	_, err = s.Login(ctx, r)
 
 	require.Contains(t, err.Error(), "invalid user name or password")
+}
+
+func TestServerMaintenanceMode(t *testing.T) {
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithMaintenance(true)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	s.Initialize()
+
+	_, err := s.CreateUser(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.ChangePassword(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.ChangePermission(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.SetActiveUser(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.CreateDatabase(context.Background(), &schema.DatabaseSettings{})
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.UpdateDatabase(context.Background(), &schema.DatabaseSettings{})
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.Set(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.VerifiableSet(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.SetReference(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.VerifiableSetReference(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.ZAdd(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.VerifiableZAdd(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.ExecAll(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	_, err = s.SQLExec(context.Background(), nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	err = s.StreamSet(nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	err = s.StreamVerifiableSet(nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
+	err = s.StreamExecAll(nil)
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 }

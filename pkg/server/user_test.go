@@ -82,6 +82,18 @@ func TestServerLogout(t *testing.T) {
 	}
 }
 
+func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAuth(false)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	s.Initialize()
+
+	_, err := s.Logout(context.Background(), &emptypb.Empty{})
+	require.NotNil(t, err)
+	require.Equal(t, ErrAuthDisabled, err.Error())
+}
+
 func TestServerListUsersAdmin(t *testing.T) {
 	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)

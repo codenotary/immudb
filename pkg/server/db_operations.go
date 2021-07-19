@@ -5,7 +5,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -35,6 +34,10 @@ func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.
 
 // Set ...
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.TxMetadata, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "Set")
 	if err != nil {
 		return nil, err
@@ -45,6 +48,10 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.Tx
 
 // VerifiableSet ...
 func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "VerifiableSet")
 	if err != nil {
 		return nil, err
@@ -131,12 +138,12 @@ func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 
 // Count ...
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
-	return nil, errors.New("Functionality not yet supported")
+	return nil, ErrNotSupported
 }
 
 // CountAll ...
 func (s *ImmuServer) CountAll(ctx context.Context, _ *empty.Empty) (*schema.EntryCount, error) {
-	return nil, errors.New("Functionality not yet supported")
+	return nil, ErrNotSupported
 }
 
 // TxByID ...
@@ -204,6 +211,10 @@ func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*
 
 // SetReference ...
 func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "SetReference")
 	if err != nil {
 		return nil, err
@@ -214,6 +225,10 @@ func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequ
 
 // VerifibleSetReference ...
 func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "VerifiableSetReference")
 	if err != nil {
 		return nil, err
@@ -247,6 +262,10 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 
 // ZAdd ...
 func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxMetadata, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "ZAdd")
 	if err != nil {
 		return nil, err
@@ -267,6 +286,10 @@ func (s *ImmuServer) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 
 // VerifiableZAdd ...
 func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "VerifiableZAdd")
 	if err != nil {
 		return nil, err
@@ -338,6 +361,10 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 }
 
 func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "ExecAll")
 	if err != nil {
 		return nil, err
