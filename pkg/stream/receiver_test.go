@@ -73,13 +73,38 @@ func TestMsgReceiver_ReadMessInFirstChunk(t *testing.T) {
 	})
 
 	mr := NewMsgReceiver(sm)
-
 	message := make([]byte, 4096)
 
 	n, err := mr.Read(message)
-
 	require.NoError(t, err)
 	require.Equal(t, 9, n)
+}
+
+func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
+	content := []byte(`mycontent`)
+	firstChunk := &schema.Chunk{Content: bytes.Join([][]byte{streamtest.GetTrailer(len(content)*2 + 1), content}, nil)}
+	secondChunk := &schema.Chunk{Content: content}
+
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
+		{C: firstChunk, E: nil},
+		{C: secondChunk, E: nil},
+		{C: nil, E: io.EOF},
+	})
+
+	mr := NewMsgReceiver(sm)
+
+	_, err := mr.ReadFully()
+	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+
+	sm = streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
+		{C: &schema.Chunk{Content: []byte{1}}, E: nil},
+		{C: nil, E: io.EOF},
+	})
+
+	mr = NewMsgReceiver(sm)
+
+	_, err = mr.ReadFully()
+	require.Equal(t, ErrChunkTooSmall, err.Error())
 }
 
 func TestMsgReceiver_EmptyStream(t *testing.T) {
