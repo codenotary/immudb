@@ -312,6 +312,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 		idx.stateCond.L.Lock()
 		for {
 			if idx.state == stopped {
+				idx.stateCond.L.Unlock()
 				return
 			}
 			if idx.state == running {
