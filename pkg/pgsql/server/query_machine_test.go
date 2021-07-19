@@ -49,8 +49,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 				c2.Read(unsupported)
 				ready4Query = make([]byte, len(bmessages.ReadyForQuery()))
 				c2.Read(ready4Query)
-				// Terminate message
-				c2.Write([]byte{'X', 0, 0, 0, 0, 0, 0, 0, 4})
+				c2.Close()
 			},
 			out: nil,
 		},

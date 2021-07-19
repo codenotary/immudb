@@ -136,6 +136,8 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 			params = append(params, string(pVal))
 		case 1:
 			params = append(params, pVal)
+		default:
+			return BindMsg{}, pgserrors.ErrMalformedMessage
 		}
 	}
 	// The number of result-column format codes that follow (denoted R below).

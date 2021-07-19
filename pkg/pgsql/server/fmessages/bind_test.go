@@ -112,6 +112,10 @@ func TestParseBindMsg(t *testing.T) {
 			BindMsg{},
 			pgserror.ErrMalformedMessage,
 		},
+		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(3), h.I16(1), h.I16(1), h.I16(3), h.I16(3), h.I32(2), h.I16(1), h.I32(2), h.I16(1), h.I32(2), h.I16(1), h.I16(1), h.I16(1)}),
+			BindMsg{},
+			pgserror.ErrMalformedMessage,
+		},
 	}
 
 	for i, tt := range tests {
