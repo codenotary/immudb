@@ -31,6 +31,7 @@ var (
 	ErrUserNotActive               = "user is not active"
 	ErrInvalidUsernameOrPassword   = "invalid user name or password"
 	ErrAuthDisabled                = "server is running with authentication disabled, please enable authentication to login"
+	ErrAuthMustBeEnabled           = status.Error(codes.InvalidArgument, "authentication must be on")
 	ErrAuthMustBeDisabled          = status.Error(codes.InvalidArgument, "authentication must be disabled when retoring systemdb")
 	ErrNotAllowedInMaintenanceMode = status.Error(codes.InvalidArgument, "operation not allowed in maintenance mode")
 	ErrPermissionDenied            = errors.New("permission denied")
