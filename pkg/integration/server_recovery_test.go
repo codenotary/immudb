@@ -10,14 +10,21 @@ import (
 )
 
 func TestServerRecovertMode(t *testing.T) {
-	serverOptions := server.DefaultOptions().WithMetricsServer(false).WithMaintenance(true).WithAuth(true)
+	serverOptions := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithMaintenance(true).
+		WithAuth(true)
 	s := server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
 	err := s.Initialize()
 	require.Equal(t, server.ErrAuthMustBeDisabled, err)
 
-	serverOptions = server.DefaultOptions().WithMetricsServer(true).WithMaintenance(true).WithAuth(false)
+	serverOptions = server.DefaultOptions().
+		WithMetricsServer(true).
+		WithPgsqlServer(true).
+		WithMaintenance(true).
+		WithAuth(false)
 	s = server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 
 	err = s.Initialize()

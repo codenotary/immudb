@@ -201,20 +201,19 @@ func TestServerCreateDatabase(t *testing.T) {
 	}
 	ctx := context.Background()
 	lr, err := s.Login(ctx, r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.Nil(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.CreateDatabase(ctx, nil)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: "lisbon",
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
-	if err != nil {
-		t.Fatalf("Createdatabase error %v", err)
-	}
+	require.Nil(t, err)
 }
 
 func TestServerCreateDatabaseCaseError(t *testing.T) {
@@ -299,6 +298,68 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("closedatabases error %v", err)
 	}
+}
+
+func TestServerUpdateDatabase(t *testing.T) {
+	ctx := context.Background()
+
+	serverOptions := DefaultOptions().
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithAuth(false)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	s.Initialize()
+
+	_, err := s.UpdateDatabase(ctx, &schema.DatabaseSettings{})
+	require.Equal(t, ErrAuthMustBeEnabled, err)
+
+	s = DefaultServer().WithOptions(serverOptions.WithAuth(true)).(*ImmuServer)
+
+	s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.UpdateDatabase(ctx, nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	dbSettings := &schema.DatabaseSettings{
+		DatabaseName: serverOptions.defaultDbName,
+	}
+	_, err = s.UpdateDatabase(ctx, dbSettings)
+	require.Equal(t, ErrReservedDatabase, err)
+
+	dbSettings = &schema.DatabaseSettings{
+		DatabaseName: fmt.Sprintf("nodb%v", time.Now()),
+	}
+	_, err = s.UpdateDatabase(ctx, dbSettings)
+	require.Equal(t, database.ErrDatabaseNotExists, err)
+
+	newdb := &schema.DatabaseSettings{
+		DatabaseName: "lisbon",
+		Replica:      true,
+	}
+	_, err = s.CreateDatabase(ctx, newdb)
+	require.NoError(t, err)
+
+	newdb.Replica = false
+	_, err = s.UpdateDatabase(ctx, newdb)
+	require.NoError(t, err)
+
+	settings, err := s.loadSettings("lisbon")
+	require.NoError(t, err)
+	require.Equal(t, false, settings.Replica)
 }
 
 func TestServerLoaduserDatabase(t *testing.T) {

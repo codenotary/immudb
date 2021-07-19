@@ -133,8 +133,7 @@ func (s *ImmuServer) Initialize() error {
 
 	s.multidbmode = s.mandatoryAuth()
 	if !s.Options.GetAuth() && s.multidbmode {
-		s.Logger.Infof("Authentication must be on.")
-		return fmt.Errorf("auth should be on")
+		return ErrAuthMustBeEnabled
 	}
 
 	grpcSrvOpts := []grpc.ServerOption{}
@@ -367,11 +366,13 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	_, err := s.OS.Stat(systemDbRootDir)
 	if err == nil {
 		s.sysDB, err = database.OpenDb(op, nil, s.Logger)
+
+		// Handling case where systemdb was in recovery mode but immudb was restarted before initiating replication
 		if err == sql.ErrDatabaseDoesNotExist && s.Options.GetMaintenance() {
-			// Handling case where systemdb was in recovery mode but immudb was restarted before initiating replication
 			op.GetReplicationOptions().AsReplica(true)
 			s.sysDB, err = database.OpenDb(op, nil, s.Logger)
 		}
+
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use maintenance mode to recover from external source or start without data folder.", op.GetDbName())
@@ -395,8 +396,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		return err
 	}
 
+	//sys admin can have an empty array of databases as it has full access
 	if !s.Options.GetMaintenance() {
-		//sys admin can have an empty array of databases as it has full access
 		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 		if err != nil {
 			return logErr(s.Logger, "%v", err)
@@ -424,11 +425,13 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
+
+		// Handling case where defaultdb was in recovery mode but immudb was restarted before initiating replication
 		if err == sql.ErrDatabaseDoesNotExist && s.Options.GetMaintenance() {
-			// Handling case where defaultdb was in recovery mode but immudb was restarted before initiating replication
 			op.GetReplicationOptions().AsReplica(true)
 			db, err = database.OpenDb(op, s.sysDB, s.Logger)
 		}
+
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use maintenance mode to recover from external source or start without data folder.", op.GetDbName())
@@ -688,7 +691,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSet
 
 	db, err := database.NewDb(op, s.sysDB, s.Logger)
 	if err != nil {
-		s.Logger.Errorf(err.Error())
 		return nil, err
 	}
 
@@ -711,11 +713,11 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	}
 
 	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
+		return nil, ErrAuthMustBeEnabled
 	}
 
 	if req.DatabaseName == DefaultdbName {
-		return nil, fmt.Errorf("this database name is reserved")
+		return nil, ErrReservedDatabase
 	}
 
 	db, err := s.dbList.GetByName(req.DatabaseName)
