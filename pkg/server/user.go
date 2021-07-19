@@ -69,20 +69,13 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 		return nil, err
 	}
 
-	//remove user from loggedin users
+	// remove user from loggedin users
 	s.removeUserFromLoginList(user.Username)
 
 	// invalidate the token for this user
-	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
-	if err != nil {
-		return new(empty.Empty), err
-	}
+	_, err = auth.DropTokenKeysForCtx(ctx)
 
-	if !loggedOut {
-		return new(empty.Empty), errors.New("not logged in").WithCode(errors.CodProtocolViolation)
-	}
-
-	return new(empty.Empty), nil
+	return new(empty.Empty), err
 }
 
 // CreateUser Creates a new user

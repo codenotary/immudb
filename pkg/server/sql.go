@@ -32,6 +32,10 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 }
 
 func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	db, err := s.getDBFromCtx(ctx, "SQLExec")
 	if err != nil {
 		return nil, err
