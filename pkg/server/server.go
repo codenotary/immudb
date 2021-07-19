@@ -122,7 +122,7 @@ func (s *ImmuServer) Initialize() error {
 		defaultDB := s.dbList.GetByIndex(defaultDbIndex)
 
 		dbSize, _ := defaultDB.Size()
-		if dbSize <= 0 {
+		if dbSize <= 1 {
 			s.Logger.Infof("Started with an empty database")
 		}
 
