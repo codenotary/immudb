@@ -19,15 +19,16 @@ package server
 import (
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"sort"
+	"strings"
+
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
-	"io"
-	"math"
-	"sort"
-	"strings"
 )
 
 //QueriesMachine ...
@@ -333,7 +334,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 			return nil, nil, err
 		}
 		for _, c := range cols {
-			resCols = append(resCols, &schema.Column{Name: c.Selector, Type: c.Type})
+			resCols = append(resCols, &schema.Column{Name: c.Selector(), Type: c.Type})
 		}
 	}
 
