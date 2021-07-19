@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"math"
 	"net"
 )
 
@@ -51,7 +52,6 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	if _, err := r.conn.Read(t); err != nil {
 		return nil, err
 	}
-
 	if _, ok := pgmeta.MTypes[t[0]]; !ok {
 		return nil, fmt.Errorf(errors.ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0]))
 	}
@@ -60,8 +60,12 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	if _, err := r.conn.Read(lb); err != nil {
 		return nil, err
 	}
-	l := binary.BigEndian.Uint32(lb)
-	payload := make([]byte, l-4)
+	pLen := binary.BigEndian.Uint32(lb) - 4
+	// unsigned integer operations discard high bits upon overflow, and programs may rely on "wrap around"
+	if pLen > math.MaxInt32 {
+		return nil, errors.ErrMalformedMessage
+	}
+	payload := make([]byte, pLen)
 	if _, err := r.conn.Read(payload); err != nil {
 		return nil, err
 	}

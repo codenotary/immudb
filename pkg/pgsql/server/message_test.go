@@ -17,7 +17,10 @@ limitations under the License.
 package server
 
 import (
+	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/stretchr/testify/require"
+	"math"
 	"net"
 	"testing"
 )
@@ -55,4 +58,25 @@ func TestSession_MessageReader(t *testing.T) {
 	err = mr.CloseConnection()
 
 	require.NoError(t, err)
+
+	c1, c2 = net.Pipe()
+	mr = &messageReader{
+		conn: c1,
+	}
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, math.MaxUint32)
+	go func() {
+		c2.Write([]byte{'E'})
+		c2.Write(b)
+		c2.Close()
+	}()
+
+	_, err = mr.ReadRawMessage()
+
+	require.Error(t, err)
+
+	mr = &messageReader{}
+	err = mr.CloseConnection()
+
+	require.Error(t, errors.ErrMalformedMessage)
 }
