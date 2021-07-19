@@ -18,6 +18,7 @@ package store
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -118,4 +119,60 @@ func TestMaxIndexWaitees(t *testing.T) {
 	case <-time.After(time.Second):
 		require.Fail(t, "Did not get successful wait confirmation")
 	}
+}
+
+func TestReplaceIndexCornerCases(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		fn   func(t *testing.T, dir string, s *ImmuStore)
+	}{
+		{
+			"Closed store",
+			func(t *testing.T, dir string, s *ImmuStore) {
+				s.Close()
+				err := s.indexer.replaceIndex(1)
+				require.Equal(t, tbtree.ErrAlreadyClosed, err)
+			},
+		},
+		{
+			"No nodes folder",
+			func(t *testing.T, dir string, s *ImmuStore) {
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit_1"), 0777))
+				err := s.indexer.replaceIndex(1)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "nodes_1")
+			},
+		},
+		{
+			"No commit folder",
+			func(t *testing.T, dir string, s *ImmuStore) {
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
+				err := s.indexer.replaceIndex(1)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "commit_1")
+			},
+		},
+		{
+			"Invalid index structure",
+			func(t *testing.T, dir string, s *ImmuStore) {
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
+				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit_1"), []byte{}, 0777))
+				err := s.indexer.replaceIndex(1)
+				require.Equal(t, tbtree.ErrorPathIsNotADirectory, err)
+			},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d, err := ioutil.TempDir("", "indexertest")
+			require.NoError(t, err)
+			defer os.RemoveAll(d)
+
+			store, err := Open(d, DefaultOptions())
+			require.NoError(t, err)
+			defer store.Close()
+
+			c.fn(t, d, store)
+		})
+	}
+
 }
