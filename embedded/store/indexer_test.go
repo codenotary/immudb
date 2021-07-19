@@ -19,8 +19,10 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/embedded/watchers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,4 +77,45 @@ func TestClosedIndexerFailures(t *testing.T) {
 
 	err = indexer.CompactIndex()
 	require.Equal(t, ErrAlreadyClosed, err)
+}
+
+func TestMaxIndexWaitees(t *testing.T) {
+	d, err := ioutil.TempDir("", "indexertest")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	store, err := Open(d, DefaultOptions().WithMaxWaitees(1))
+	require.NoError(t, err)
+
+	// Grab errors from waiters
+	errCh := make(chan error)
+	for i := 0; i < 2; i++ {
+		go func() {
+			errCh <- store.WaitForIndexingUpto(1, make(<-chan struct{}))
+		}()
+	}
+
+	// One goroutine should fail
+	select {
+	case err := <-errCh:
+		require.Equal(t, watchers.ErrMaxWaitessLimitExceeded, err)
+	case <-time.After(time.Second):
+		require.Fail(t, "Did not get waiter error")
+	}
+
+	// Store one transaction
+	txm, err := store.Commit([]*KV{{
+		Key:   []byte{1},
+		Value: []byte{2},
+	}}, false)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, txm.ID)
+
+	// Other goroutine should succeed
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		require.Fail(t, "Did not get successful wait confirmation")
+	}
 }
