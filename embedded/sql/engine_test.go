@@ -64,6 +64,9 @@ func TestCreateDatabase(t *testing.T) {
 	err = engine.RenewSnapshot()
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	err = engine.UseSnapshot(0, 0)
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	err = engine.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
 }
@@ -80,11 +83,18 @@ func TestUseDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	engine.catalog = nil
+
+	err = engine.UseDatabase("db1")
+	require.Equal(t, ErrCatalogNotReady, err)
+
 	err = engine.EnsureCatalogReady()
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
+
+	engine.catalog = nil
 
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
@@ -560,6 +570,14 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	engine.catalog = nil
+
+	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
+	require.Equal(t, ErrCatalogNotReady, err)
+
+	err = engine.EnsureCatalogReady()
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
