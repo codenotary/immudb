@@ -11,7 +11,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/jackc/pgx/v4 v4.12.0 // indirect
+	github.com/jackc/pgx/v4 v4.12.0
 	github.com/jaswdr/faker v1.0.2
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.10.2
