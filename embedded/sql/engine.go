@@ -186,8 +186,8 @@ func (e *Engine) UseDatabase(dbName string) error {
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
 
+	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 	if e.catalog == nil {
-		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 		return ErrCatalogNotReady
 	}
 
@@ -1015,8 +1015,8 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
 
+	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 	if e.catalog == nil {
-		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 		return nil, ErrCatalogNotReady
 	}
 
@@ -1036,8 +1036,8 @@ func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueT
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
 
+	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 	if e.catalog == nil {
-		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 		return nil, ErrCatalogNotReady
 	}
 
@@ -1078,8 +1078,8 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
 
+	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 	if e.catalog == nil {
-		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
 		return nil, ErrCatalogNotReady
 	}
 
@@ -1113,13 +1113,6 @@ func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForInde
 }
 
 func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
-	if e.catalog == nil {
-		err := e.LoadCatalog()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, nil, err
@@ -1133,8 +1126,10 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	defer e.catalogRWMux.Unlock()
 
 	if e.catalog == nil {
-		// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-		return nil, nil, ErrCatalogNotReady
+		err := e.LoadCatalog()
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	implicitDB, err := e.DatabaseInUse()
@@ -1156,8 +1151,8 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 		if len(centries) > 0 {
 			txmd, err := e.catalogStore.Commit(centries, waitForIndexing)
+			// TODO (jeroiraz): implement transactional in-memory catalog
 			if err != nil {
-				// TODO (jeroiraz): implement transactional in-memory catalog
 				e.catalog = nil // in-memory catalog changes needs to be reverted
 				return ddTxs, dmTxs, err
 			}
