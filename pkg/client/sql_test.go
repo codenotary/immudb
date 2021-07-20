@@ -17,6 +17,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -28,24 +29,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
-
-func TestDisconnectedImmuClient(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	client.Disconnect()
-	_,err = client.SQLExec(context.Background(), "SELECT 1", nil)
-	require.Error(t, err)
-	_,err = client.SQLQuery(context.Background(), "SELECT 1", nil, true)
-	require.Error(t, err)
-}
 
 func TestImmuClient_SQL(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
@@ -126,4 +109,107 @@ func TestImmuClient_SQL(t *testing.T) {
 		err := client.VerifyRow(ctx, row, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
 		require.NoError(t, err)
 	}
+
+	res, err = client.ListTables(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	require.Len(t, res.Rows, 1)
+	require.Len(t, res.Columns, 1)
+	require.Equal(t, "VARCHAR", res.Columns[0].Type)
+	require.Equal(t, "TABLE", res.Columns[0].Name)
+	require.Equal(t, "table1", res.Rows[0].Values[0].GetS())
+
+	res, err = client.DescribeTable(ctx, "table1")
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	require.Equal(t, "COLUMN", res.Columns[0].Name)
+	require.Equal(t, "VARCHAR", res.Columns[0].Type)
+
+	colsCheck := map[string]bool{
+		"id": false, "title": false, "active": false, "payload": false,
+	}
+	require.Len(t, res.Rows, len(colsCheck))
+	for _, row := range res.Rows {
+		colsCheck[row.Values[0].GetS()] = true
+	}
+	for c, found := range colsCheck {
+		require.True(t, found, c)
+	}
+
+	tx2, err := client.SQLExec(ctx, `
+		UPSERT INTO table1(id, title, active, payload)
+		VALUES (2, 'title2-updated', false, NULL)
+	`, nil)
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	res, err = client.SQLQuery(ctx, "SELECT title FROM table1 WHERE id=2", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, "title2-updated", res.Rows[0].Values[0].GetS())
+
+	err = client.UseSnapshot(ctx, 0, tx2.Dtxs[0].Id)
+	require.NoError(t, err)
+
+	res, err = client.SQLQuery(ctx, "SELECT title FROM table1 WHERE id=2", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, "title2", res.Rows[0].Values[0].GetS())
+}
+
+func TestImmuClient_SQL_Errors(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "", map[string]interface{}{
+		"param1": struct{}{},
+	})
+	require.True(t, errors.Is(err, sql.ErrInvalidValue))
+
+	_, err = client.SQLQuery(context.Background(), "", map[string]interface{}{
+		"param1": struct{}{},
+	}, false)
+	require.True(t, errors.Is(err, sql.ErrInvalidValue))
+
+	err = client.VerifyRow(context.Background(), &schema.Row{
+		Columns: []string{"col1"},
+		Values:  []*schema.SQLValue{},
+	}, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+
+	err = client.VerifyRow(context.Background(), nil, "", nil)
+	require.True(t, errors.Is(err, ErrIllegalArguments))
+
+	err = client.Disconnect()
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "", nil)
+	require.True(t, errors.Is(err, ErrNotConnected))
+
+	err = client.UseSnapshot(context.Background(), 1, 2)
+	require.True(t, errors.Is(err, ErrNotConnected))
+
+	_, err = client.SQLQuery(context.Background(), "", nil, false)
+	require.True(t, errors.Is(err, ErrNotConnected))
+
+	_, err = client.ListTables(context.Background())
+	require.True(t, errors.Is(err, ErrNotConnected))
+
+	_, err = client.DescribeTable(context.Background(), "")
+	require.True(t, errors.Is(err, ErrNotConnected))
+
+	err = client.VerifyRow(context.Background(), &schema.Row{
+		Columns: []string{"col1"},
+		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+	}, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+	require.True(t, errors.Is(err, ErrNotConnected))
 }
