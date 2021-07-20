@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/prometheus/common/log"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -55,7 +55,7 @@ var pwReaderMock = &clienttest.PasswordReaderMock{
 }
 
 func TestCommandLine_Connect(t *testing.T) {
-	log.Info("TestCommandLine_Connect")
+	log.Println("TestCommandLine_Connect")
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
@@ -80,7 +80,7 @@ func TestCommandLine_Connect(t *testing.T) {
 }
 
 func TestCommandLine_Disconnect(t *testing.T) {
-	log.Info("TestCommandLine_Disconnect")
+	log.Println("TestCommandLine_Disconnect")
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 

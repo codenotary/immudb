@@ -77,13 +77,14 @@ func TestLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	cmd, _ = cmdl.NewCmd()
 	cmdl.logout(cmd)
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"logout"})
 
 	// remove ConfigChain method to avoid options override
 	cmd.PersistentPreRunE = nil
-	innercmd = cmd.Commands()[2]
+	innercmd = cmd.Commands()[0]
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()

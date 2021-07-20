@@ -22,10 +22,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+
 	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"testing"
 
@@ -35,7 +37,6 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
-	"github.com/prometheus/common/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
