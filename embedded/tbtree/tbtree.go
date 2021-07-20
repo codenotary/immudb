@@ -801,6 +801,7 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 
 	err = t.hLog.Sync()
 	if err != nil {
+		t.mutex.Unlock()
 		return 0, err
 	}
 
@@ -825,7 +826,6 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, err
 	}
 	defer func() {
-		nLog.Sync()
 		nLog.Close()
 	}()
 
@@ -849,13 +849,22 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, err
 	}
 	defer func() {
-		cLog.Sync()
 		cLog.Close()
 	}()
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(offset))
 	_, _, err = cLog.Append(cb[:])
+	if err != nil {
+		return 0, err
+	}
+
+	err = nLog.Sync()
+	if err != nil {
+		return 0, err
+	}
+
+	err = cLog.Sync()
 	if err != nil {
 		return 0, err
 	}
