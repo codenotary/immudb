@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/codenotary/immudb/cmd/helper"
 )
 
 func DefaultTestOptions() (o *server.Options) {
@@ -65,6 +66,37 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, o.Logfile, options.Logfile)
 }
+
+func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
+	viper.Set("mtls", true)
+	o := DefaultTestOptions()
+
+	var err error
+	cmd := &cobra.Command{
+		Use: "immudb",
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			_, err = parseOptions()
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cl := Commandline{}
+	cl.setupFlags(cmd, server.DefaultOptions())
+
+	err = viper.BindPFlags(cmd.Flags())
+	assert.Nil(t, err)
+
+	setupDefaults(server.DefaultOptions())
+
+	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
+
+	assert.Error(t, err)
+	viper.Set("mtls", false)
+}
+
+
 
 //Priority:
 // 1. overrides
@@ -209,4 +241,14 @@ func (pl plauncherMock) Detached() error {
 func TestNewCommand(t *testing.T) {
 	_, err := newCommand(server.DefaultServer())
 	require.NoError(t, err)
+}
+
+func TestExecute(t * testing.T) {
+	quitCode := 0
+	os.Setenv("IMMUDB_ADDRESS","999.999.999.999")
+	helper.OverrideQuitter(func(q int) {
+		quitCode=q
+	})
+	Execute()
+	assert.Equal(t, quitCode,1)
 }

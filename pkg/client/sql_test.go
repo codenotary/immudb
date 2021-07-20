@@ -29,6 +29,24 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+func TestDisconnectedImmuClient(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	client.Disconnect()
+	_,err = client.SQLExec(context.Background(), "SELECT 1", nil)
+	require.Error(t, err)
+	_,err = client.SQLQuery(context.Background(), "SELECT 1", nil, true)
+	require.Error(t, err)
+}
+
 func TestImmuClient_SQL(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -48,10 +66,10 @@ func TestImmuClient_SQL(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.SQLExec(ctx, `CREATE TABLE table1(
-		id INTEGER, 
-		title VARCHAR, 
-		active BOOLEAN, 
-		payload BLOB, 
+		id INTEGER,
+		title VARCHAR,
+		active BOOLEAN,
+		payload BLOB,
 		PRIMARY KEY id
 		);`, nil)
 	require.NoError(t, err)

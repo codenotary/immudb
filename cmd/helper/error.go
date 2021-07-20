@@ -25,10 +25,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var osexit = os.Exit
+
 // QuitToStdErr prints an error on stderr and closes
 func QuitToStdErr(msg interface{}) {
 	_, _ = fmt.Fprintln(os.Stderr, msg)
-	os.Exit(1)
+	osexit(1)
 }
 
 // QuitWithUserError ...
@@ -41,4 +43,8 @@ func QuitWithUserError(err error) {
 		QuitToStdErr(errors.New("unauthenticated, please login"))
 	}
 	QuitToStdErr(err)
+}
+
+func OverrideQuitter(quitter func(int)) {
+	osexit=quitter
 }
