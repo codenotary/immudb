@@ -123,6 +123,9 @@ func TestEdgeCases(t *testing.T) {
 	err = tree.Close()
 	require.Equal(t, ErrSnapshotsNotClosed, err)
 
+	_, err = tree.CompactIndex()
+	require.Equal(t, ErrSnapshotsNotClosed, err)
+
 	err = s1.Close()
 	require.NoError(t, err)
 
@@ -436,6 +439,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	_, err = tbtree.Snapshot()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = tbtree.CompactIndex()
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	tbtree, err = Open("test_tree_iasc", DefaultOptions().WithMaxNodeSize(256))
