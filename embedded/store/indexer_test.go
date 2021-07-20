@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -174,5 +175,38 @@ func TestReplaceIndexCornerCases(t *testing.T) {
 			c.fn(t, d, store)
 		})
 	}
+}
 
+func TestClosedIndexer(t *testing.T) {
+	i := indexer{closed: true}
+	var err error
+	dummy := []byte("dummy")
+
+	_, _, _, err = i.Get(dummy)
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = i.History(dummy, 0, false, 0)
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = i.Snapshot()
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = i.SnapshotSince(0)
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = i.ExistKeyWith(dummy, dummy, false)
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	err = i.Sync()
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
+
+	err = i.Close()
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrAlreadyClosed)
 }
