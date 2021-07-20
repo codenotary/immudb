@@ -735,8 +735,10 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 	opts := DefaultOptions().WithCompactionDisabled(true)
-	immuStore, err := Open("data_historical", opts)
+	immuStore, err := Open("data_compaction_remote_storage", opts)
 	require.NoError(t, err)
+
+	defer os.RemoveAll("data_compaction_remote_storage")
 
 	err = immuStore.CompactIndex()
 	require.Equal(t, ErrCompactionUnsupported, err)
