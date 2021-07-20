@@ -781,18 +781,20 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	t.compacting = true
-
 	snapshot, err := t.currentSnapshot()
 	if err != nil {
 		return 0, err
 	}
+
+	t.compacting = true
 
 	indexID := snapshot.Ts()
 
 	t.mutex.Unlock()
 	err = t.compactIndex(snapshot)
 	t.mutex.Lock()
+
+	t.compacting = false
 
 	if err != nil {
 		return 0, err
@@ -802,12 +804,6 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 }
 
 func (t *TBtree) compactIndex(snapshot *Snapshot) error {
-	defer func() {
-		t.mutex.Lock()
-		t.compacting = false
-		t.mutex.Unlock()
-	}()
-
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
@@ -857,16 +853,6 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 		return err
 	}
 
-	err = t.nLog.Flush()
-	if err != nil {
-		return err
-	}
-
-	err = nLog.Sync()
-	if err != nil {
-		return err
-	}
-
 	err = t.hLog.Flush()
 	if err != nil {
 		return err
@@ -877,7 +863,17 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 		return err
 	}
 
-	err = t.cLog.Flush()
+	err = nLog.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = nLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = cLog.Flush()
 	if err != nil {
 		return err
 	}
