@@ -32,6 +32,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
 
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
@@ -484,7 +485,20 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 
 		settings, err := s.loadSettings(dbname)
 		if err != nil {
-			return err
+			if err != store.ErrKeyNotFound {
+				return err
+			}
+
+			settings = &dbSettings{
+				Database:  dbname,
+				Replica:   false,
+				UpdatedAt: time.Now(),
+			}
+
+			err = s.saveSettings(settings)
+			if err != nil {
+				return err
+			}
 		}
 
 		replicationOpts := &database.ReplicationOptions{
