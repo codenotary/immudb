@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -399,6 +400,21 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	if s.dbList.Length() != 2 {
 		t.Fatalf("LoadUserDatabase error %d", s.dbList.Length())
 	}
+}
+
+func TestServerLoadUserDatabases(t *testing.T) {
+	copier := fs.NewStandardCopier()
+	require.NoError(t, copier.CopyDir("../../test/data_v1.0.1", "data_v1.0.1"))
+
+	defer os.RemoveAll("data_v1.0.1")
+
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithDir("./data_v1.0.1")
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
+
+	err := s.loadUserDatabases(s.Options.Dir, nil)
+	require.NoError(t, err)
 }
 
 func testServerSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
