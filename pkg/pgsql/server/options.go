@@ -24,6 +24,12 @@ import (
 
 type Option func(s *srv)
 
+func Address(addr string) Option {
+	return func(args *srv) {
+		args.Address = addr
+	}
+}
+
 func Port(port int) Option {
 	return func(args *srv) {
 		args.Port = port
