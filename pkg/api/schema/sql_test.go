@@ -1,0 +1,89 @@
+/*
+Copyright 2021 CodeNotary, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package schema
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/stretchr/testify/require"
+)
+
+func TestEncodeParams(t *testing.T) {
+	p, err := EncodeParams(nil)
+	require.NoError(t, err)
+	require.Nil(t, p)
+
+	p, err = EncodeParams(map[string]interface{}{
+		"param1": 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, p, 1)
+	require.Equal(t, "param1", p[0].Name)
+	require.EqualValues(t, &SQLValue{Value: &SQLValue_N{N: 1}}, p[0].Value)
+
+	p, err = EncodeParams(map[string]interface{}{
+		"param1": struct{}{},
+	})
+	require.True(t, errors.Is(err, sql.ErrInvalidValue))
+	require.Nil(t, p)
+}
+
+func TestAsSQLValue(t *testing.T) {
+	for _, d := range []struct {
+		n      string
+		val    interface{}
+		sqlVal *SQLValue
+		isErr  bool
+	}{
+		{
+			"nil", nil, &SQLValue{Value: &SQLValue_Null{}}, false,
+		},
+		{
+			"uint", uint(10), &SQLValue{Value: &SQLValue_N{N: 10}}, false,
+		},
+		{
+			"int", int(11), &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+		},
+		{
+			"int64(", int64(12), &SQLValue{Value: &SQLValue_N{N: 12}}, false,
+		},
+		{
+			"uint64", uint64(13), &SQLValue{Value: &SQLValue_N{N: 13}}, false,
+		},
+		{
+			"string", string("14"), &SQLValue{Value: &SQLValue_S{S: "14"}}, false,
+		},
+		{
+			"bool", bool(true), &SQLValue{Value: &SQLValue_B{B: true}}, false,
+		},
+		{
+			"[]byte", []byte{1, 5}, &SQLValue{Value: &SQLValue_Bs{Bs: []byte{1, 5}}}, false,
+		},
+		{
+			"struct{}", struct{}{}, nil, true,
+		},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			sqlVal, err := asSQLValue(d.val)
+			require.EqualValues(t, d.sqlVal, sqlVal)
+			if d.isErr {
+				require.Error(t, err)
+			}
+		})
+	}
+}

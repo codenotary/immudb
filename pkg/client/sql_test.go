@@ -213,3 +213,130 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	}, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
 	require.True(t, errors.Is(err, ErrNotConnected))
 }
+
+func TestDecodeRowErrors(t *testing.T) {
+
+	type tMap map[uint64]sql.SQLValueType
+
+	for _, d := range []struct {
+		n        string
+		data     []byte
+		colTypes map[uint64]sql.SQLValueType
+	}{
+		{
+			"No data",
+			nil,
+			nil,
+		},
+		{
+			"Short buffer",
+			[]byte{1},
+			tMap{},
+		},
+		{
+			"Short buffer on type",
+			[]byte{0, 0, 0, 1, 0, 0, 1},
+			tMap{},
+		},
+		{
+			"Missing type",
+			[]byte{0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+			tMap{},
+		},
+		{
+			"Invalid value",
+			[]byte{0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+			tMap{
+				1: sql.VarcharType,
+			},
+		},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			row, err := decodeRow(d.data, d.colTypes)
+			require.True(t, errors.Is(err, sql.ErrCorruptedData))
+			require.Nil(t, row)
+		})
+	}
+}
+
+func TestVerifyAgainst(t *testing.T) {
+
+	// Missing column type
+	err := verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values:  []*schema.SQLValue{{Value: nil}},
+	}, map[uint64]*schema.SQLValue{}, map[string]uint64{})
+	require.True(t, errors.Is(err, sql.ErrColumnDoesNotExist))
+
+	// Nil value
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values:  []*schema.SQLValue{{Value: nil}},
+	}, map[uint64]*schema.SQLValue{}, map[string]uint64{
+		"c1": 0,
+	})
+	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+
+	// Missing decoded value
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values: []*schema.SQLValue{
+			{Value: &schema.SQLValue_N{N: 1}},
+		},
+	}, map[uint64]*schema.SQLValue{}, map[string]uint64{
+		"c1": 0,
+	})
+	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+
+	// Invalid decoded value
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values: []*schema.SQLValue{
+			{Value: &schema.SQLValue_N{N: 1}},
+		},
+	}, map[uint64]*schema.SQLValue{
+		0: {Value: nil},
+	}, map[string]uint64{
+		"c1": 0,
+	})
+	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+
+	// Not comparable types
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values: []*schema.SQLValue{
+			{Value: &schema.SQLValue_N{N: 1}},
+		},
+	}, map[uint64]*schema.SQLValue{
+		0: {Value: &schema.SQLValue_S{S: "1"}},
+	}, map[string]uint64{
+		"c1": 0,
+	})
+	require.True(t, errors.Is(err, sql.ErrNotComparableValues))
+
+	// Different values
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values: []*schema.SQLValue{
+			{Value: &schema.SQLValue_N{N: 1}},
+		},
+	}, map[uint64]*schema.SQLValue{
+		0: {Value: &schema.SQLValue_N{N: 2}},
+	}, map[string]uint64{
+		"c1": 0,
+	})
+	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+
+	// Successful verify
+	err = verifyRowAgainst(&schema.Row{
+		Columns: []string{"c1"},
+		Values: []*schema.SQLValue{
+			{Value: &schema.SQLValue_N{N: 1}},
+		},
+	}, map[uint64]*schema.SQLValue{
+		0: {Value: &schema.SQLValue_N{N: 1}},
+	}, map[string]uint64{
+		"c1": 0,
+	})
+	require.NoError(t, err)
+}
