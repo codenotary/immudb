@@ -957,7 +957,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	vlen := int(binary.BigEndian.Uint32(b[:]))
 	voff := EncLenLen
 
-	if len(b) < vlen {
+	if vlen < 0 || len(b) < voff+vlen {
 		return nil, 0, ErrCorruptedData
 	}
 
@@ -971,13 +971,23 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 		}
 	case IntegerType:
 		{
-			v := binary.BigEndian.Uint64(b[voff : voff+vlen])
+			if vlen > 8 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			buff := [8]byte{0}
+			copy(buff[8-vlen:], b[voff:voff+vlen])
+			v := binary.BigEndian.Uint64(buff[:])
 			voff += vlen
 
 			return &Number{val: v}, voff, nil
 		}
 	case BooleanType:
 		{
+			if vlen != 1 {
+				return nil, 0, ErrCorruptedData
+			}
+
 			v := b[voff] == 1
 			voff += 1
 

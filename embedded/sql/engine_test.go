@@ -17,6 +17,7 @@ package sql
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -1855,4 +1856,162 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	err = engine.Close()
 	require.NoError(t, err)
+}
+
+func TestDecodeValueFailures(t *testing.T) {
+	for _, d := range []struct {
+		n string
+		b []byte
+		t SQLValueType
+	}{
+		{
+			"Empty data", []byte{}, IntegerType,
+		},
+		{
+			"Not enough bytes for length", []byte{1, 2}, IntegerType,
+		},
+		{
+			"Not enough data", []byte{0, 0, 0, 3, 1, 2}, VarcharType,
+		},
+		{
+			"Negative length", []byte{0x80, 0, 0, 0, 0}, VarcharType,
+		},
+		{
+			"Too large integer", []byte{0, 0, 0, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9}, IntegerType,
+		},
+		{
+			"Zero-length boolean", []byte{0, 0, 0, 0}, BooleanType,
+		},
+		{
+			"Too large boolean", []byte{0, 0, 0, 2, 0, 0}, BooleanType,
+		},
+		{
+			"Any type", []byte{0, 0, 0, 1, 1}, AnyType,
+		},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			_, _, err := DecodeValue(d.b, d.t)
+			require.True(t, errors.Is(err, ErrCorruptedData))
+		})
+	}
+}
+
+func TestDecodeValueSuccess(t *testing.T) {
+	for _, d := range []struct {
+		n string
+		b []byte
+		t SQLValueType
+
+		v    TypedValue
+		offs int
+	}{
+		{
+			"varchar",
+			[]byte{0, 0, 0, 2, 'H', 'i'},
+			VarcharType,
+			&Varchar{val: "Hi"},
+			6,
+		},
+		{
+			"varchar padded",
+			[]byte{0, 0, 0, 2, 'H', 'i', 1, 2, 3},
+			VarcharType,
+			&Varchar{val: "Hi"},
+			6,
+		},
+		{
+			"empty varchar",
+			[]byte{0, 0, 0, 0},
+			VarcharType,
+			&Varchar{val: ""},
+			4,
+		},
+		{
+			"zero integer",
+			[]byte{0, 0, 0, 0},
+			IntegerType,
+			&Number{val: 0},
+			4,
+		},
+		{
+			"byte",
+			[]byte{0, 0, 0, 1, 123},
+			IntegerType,
+			&Number{val: 123},
+			5,
+		},
+		{
+			"byte padded",
+			[]byte{0, 0, 0, 1, 123, 45, 6},
+			IntegerType,
+			&Number{val: 123},
+			5,
+		},
+		{
+			"large integer",
+			[]byte{0, 0, 0, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+			IntegerType,
+			&Number{val: 0x102030405060708},
+			12,
+		},
+		{
+			"large integer padded",
+			[]byte{0, 0, 0, 8, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+			IntegerType,
+			&Number{val: 0x100000000000000},
+			12,
+		},
+		{
+			"boolean false",
+			[]byte{0, 0, 0, 1, 0},
+			BooleanType,
+			&Bool{val: false},
+			5,
+		},
+		{
+			"boolean true",
+			[]byte{0, 0, 0, 1, 1},
+			BooleanType,
+			&Bool{val: true},
+			5,
+		},
+		{
+			"boolean padded",
+			[]byte{0, 0, 0, 1, 0, 1},
+			BooleanType,
+			&Bool{val: false},
+			5,
+		},
+		{
+			"blob",
+			[]byte{0, 0, 0, 2, 'H', 'i'},
+			BLOBType,
+			&Blob{val: []byte{'H', 'i'}},
+			6,
+		},
+		{
+			"blob padded",
+			[]byte{0, 0, 0, 2, 'H', 'i', 1, 2, 3},
+			BLOBType,
+			&Blob{val: []byte{'H', 'i'}},
+			6,
+		},
+		{
+			"empty blob",
+			[]byte{0, 0, 0, 0},
+			BLOBType,
+			&Blob{val: []byte{}},
+			4,
+		},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			v, offs, err := DecodeValue(d.b, d.t)
+			require.NoError(t, err)
+			require.EqualValues(t, d.offs, offs)
+
+			cmp, err := d.v.Compare(v)
+			require.NoError(t, err)
+			require.Zero(t, cmp)
+		})
+	}
 }
