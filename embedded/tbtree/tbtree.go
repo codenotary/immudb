@@ -173,12 +173,11 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 	finfo, err := os.Stat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(path, opts.fileMode)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		err = os.Mkdir(path, opts.fileMode)
+		if err != nil {
 			return nil, err
 		}
 	} else if !finfo.IsDir() {

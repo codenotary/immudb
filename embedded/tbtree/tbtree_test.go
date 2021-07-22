@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"sync"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 
 	"github.com/stretchr/testify/require"
 )
@@ -35,10 +38,10 @@ func TestEdgeCases(t *testing.T) {
 	defer os.RemoveAll("edge_cases")
 
 	_, err := Open("edge_cases", nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	nLog := &mocked.MockedAppendable{}
 	hLog := &mocked.MockedAppendable{}
@@ -49,7 +52,7 @@ func TestEdgeCases(t *testing.T) {
 		return nil
 	}
 	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Should fail reading cLogSize
 	cLog.MetadataFn = func() []byte {
@@ -57,11 +60,12 @@ func TestEdgeCases(t *testing.T) {
 		md.PutInt(MetaMaxNodeSize, 1)
 		return md.Bytes()
 	}
+	injectedError := errors.New("error")
 	cLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
+		return 0, injectedError
 	}
 	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.Error(t, err)
+	require.ErrorIs(t, err, injectedError)
 
 	// Should fail validating cLogSize
 	cLog.MetadataFn = func() []byte {
@@ -73,7 +77,106 @@ func TestEdgeCases(t *testing.T) {
 		return cLogEntrySize + 1, nil
 	}
 	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
+
+	// Should fail validating hLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	hLog.SizeFn = func() (int64, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, injectedError)
+
+	// Should fail when unable to read from cLog
+	hLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, injectedError)
+
+	// Should fail when unable to read current root node type
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		require.EqualValues(t, 0, off)
+		require.Len(t, bs, cLogEntrySize)
+		for i := range bs {
+			bs[i] = 0
+		}
+		return len(bs), nil
+	}
+	nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, injectedError)
+
+	// Invalid root node type
+	nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		nLogBuffer := []byte{0xFF, 0, 0, 0, 0}
+		require.Less(t, off, int64(len(nLogBuffer)))
+		l := copy(bs, nLogBuffer[off:])
+		return l, nil
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, ErrReadingFileContent)
+
+	// Error while reading a single leaf node content
+	nLogBuffer := []byte{
+		LeafNodeType, // Node type
+		0, 0, 0, 0,   // Size, ignored
+		0, 0, 0, 1, // 1 child
+		0, 0, 0, 1, // key size
+		123,        // key
+		0, 0, 0, 1, // value size
+		23,                     // value
+		0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
+		0, 0, 0, 0, 0, 0, 0, 0, // history log offset
+		0, 0, 0, 0, 0, 0, 0, 0, // history log count
+	}
+	for i := 1; i < len(nLogBuffer); i++ {
+		injectedError := fmt.Errorf("Injected error %d", i)
+		buff := nLogBuffer[:i]
+		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			if off >= int64(len(buff)) {
+				return 0, injectedError
+			}
+
+			return copy(bs, buff[off:]), nil
+		}
+		_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	// Error while reading an inner node content
+	nLogBuffer = []byte{
+		InnerNodeType, // Node type
+		0, 0, 0, 0,    // Size, ignored
+		0, 0, 0, 1, // 1 child
+		0, 0, 0, 1, // min key size
+		0,          // min key
+		0, 0, 0, 1, // max key size
+		1,                      // max key
+		0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
+		0, 0, 0, 0, // size
+		0, 0, 0, 0, 0, 0, 0, 0, // offset
+	}
+	for i := 1; i < len(nLogBuffer); i++ {
+		injectedError := fmt.Errorf("Injected error %d", i)
+		buff := nLogBuffer[:i]
+		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			if off >= int64(len(buff)) {
+				return 0, injectedError
+			}
+
+			return copy(bs, buff[off:]), nil
+		}
+		_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, injectedError)
+	}
 
 	opts := DefaultOptions().
 		WithMaxActiveSnapshots(1).
@@ -349,6 +452,29 @@ func TestInvalidOpening(t *testing.T) {
 
 	_, err = OpenWith("tbtree_test", nil, nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = Open("invalid\x00_dir_name", DefaultOptions())
+	require.EqualError(t, err, "stat invalid\x00_dir_name: invalid argument")
+
+	require.NoError(t, os.MkdirAll("ro_path", 0500))
+	defer os.RemoveAll("ro_path")
+
+	_, err = Open("ro_path/subpath", DefaultOptions())
+	require.EqualError(t, err, "mkdir ro_path/subpath: permission denied")
+
+	for _, brokenPath := range []string{"nodes", "history", "commit"} {
+		t.Run("error opening "+brokenPath, func(t *testing.T) {
+			err = os.MkdirAll("test_broken_path", 0777)
+			require.NoError(t, err)
+			defer os.RemoveAll("test_broken_path")
+
+			err = ioutil.WriteFile("test_broken_path/"+brokenPath, []byte{}, 0666)
+			require.NoError(t, err)
+
+			_, err = Open("test_broken_path", DefaultOptions())
+			require.ErrorIs(t, err, multiapp.ErrorPathIsNotADirectory)
+		})
+	}
 }
 
 func TestTBTreeHistory(t *testing.T) {
