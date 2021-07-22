@@ -18,9 +18,6 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -194,22 +191,12 @@ func (idx *indexer) CompactIndex() (err error) {
 		}
 	}()
 
-	compactedIndexID, err := idx.index.CompactIndex()
+	_, err = idx.index.CompactIndex()
 	if err != nil {
 		return err
 	}
 
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
-
-	if idx.closed {
-		return ErrAlreadyClosed
-	}
-
-	idx.stop()
-	defer idx.resume()
-
-	return idx.replaceIndex(compactedIndexID)
+	return idx.restartIndex()
 }
 
 func (idx *indexer) stop() {
@@ -232,35 +219,20 @@ func (idx *indexer) resume() {
 	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
 }
 
-func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
+func (idx *indexer) restartIndex() error {
+	idx.mutex.Lock()
+	defer idx.mutex.Unlock()
+
+	if idx.closed {
+		return ErrAlreadyClosed
+	}
+
+	idx.stop()
+	defer idx.resume()
+
 	opts := idx.index.GetOptions()
 
 	err := idx.index.Close()
-	if err != nil {
-		return err
-	}
-
-	nLogPath := filepath.Join(idx.path, "nodes")
-	err = os.RemoveAll(nLogPath)
-	if err != nil {
-		return err
-	}
-
-	cLogPath := filepath.Join(idx.path, "commit")
-	err = os.RemoveAll(cLogPath)
-	if err != nil {
-		return err
-	}
-
-	cnLogPath := filepath.Join(idx.path, fmt.Sprintf("nodes_%d", compactedIndexID))
-	ccLogPath := filepath.Join(idx.path, fmt.Sprintf("commit_%d", compactedIndexID))
-
-	err = os.Rename(cnLogPath, nLogPath)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(ccLogPath, cLogPath)
 	if err != nil {
 		return err
 	}
@@ -271,6 +243,7 @@ func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
 	}
 
 	idx.index = index
+
 	return nil
 }
 

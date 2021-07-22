@@ -21,8 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +58,12 @@ const cLogEntrySize = 8 // root node offset
 const (
 	MetaVersion     = "VERSION"
 	MetaMaxNodeSize = "MAX_NODE_SIZE"
+)
+
+const (
+	nodesFolder   = "nodes"
+	historyFolder = "history"
+	commitFolder  = "commit"
 )
 
 // TBTree implements a timed-btree
@@ -203,25 +212,170 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		}
 	}
 
-	appendableOpts.WithFileExt("n")
-	nLog, err := appFactory(path, "nodes", appendableOpts)
+	appendableOpts.WithFileExt("hx")
+	hLog, err := appFactory(path, historyFolder, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	appendableOpts.WithFileExt("hx")
-	hLog, err := appFactory(path, "history", appendableOpts)
+	// If compaction was not fully completed, a valid or partially written full snapshot may be there
+	snapIDs, err := recoverFullSnapshots(path, commitFolder, opts.log)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try snapshots from newest to older
+	for i := len(snapIDs); i > 0; i-- {
+		snapID := snapIDs[i-1]
+
+		nFolder := snapFolder(nodesFolder, snapID)
+		cFolder := snapFolder(commitFolder, snapID)
+
+		snapPath := filepath.Join(path, cFolder)
+
+		opts.log.Infof("Reading snapshot at '%s'...", snapPath)
+
+		appendableOpts.WithFileExt("n")
+		nLog, err := appFactory(path, nFolder, appendableOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		appendableOpts.WithFileExt("ri")
+		cLog, err := appFactory(path, cFolder, appendableOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: semantic validation and further ammendment procedures may be done instead of a full initialization
+		t, err := OpenWith(path, nLog, hLog, cLog, opts)
+		if err != nil {
+			opts.log.Infof("Error reading snapshot at '%s'. %v", snapPath, err)
+
+			err = nLog.Close()
+			if err != nil {
+				return nil, err
+			}
+
+			err = cLog.Close()
+			if err != nil {
+				return nil, err
+			}
+
+			err = discardSnapshots(path, snapIDs[i-1:i], opts.log)
+			if err != nil {
+				return nil, err
+			}
+
+			continue
+		}
+
+		opts.log.Infof("Successfully read snapshot at '%s'", snapPath)
+
+		// Discard older snapshots upon sucessful validation
+		err = discardSnapshots(path, snapIDs[:i-1], opts.log)
+		if err != nil {
+			return nil, err
+		}
+
+		return t, nil
+	}
+
+	// No snapshot present or none was valid, fresh initialization
+	opts.log.Infof("Staring with an empty index...")
+
+	// Remove history data as it'd become garbage otherwise
+	if len(snapIDs) > 0 {
+		err = hLog.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		hPath := filepath.Join(path, historyFolder)
+		err = os.RemoveAll(hPath) // TODO: hLog.Remove()
+		if err != nil {
+			return nil, err
+		}
+
+		appendableOpts.WithFileExt("hx")
+		hLog, err = appFactory(path, historyFolder, appendableOpts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	appendableOpts.WithFileExt("n")
+	nLog, err := appFactory(path, nodesFolder, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("ri")
-	cLog, err := appFactory(path, "commit", appendableOpts)
+	cLog, err := appFactory(path, commitFolder, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	return OpenWith(path, nLog, hLog, cLog, opts)
+}
+
+func snapFolder(folder string, snapID int64) string {
+	if snapID == 0 {
+		return folder
+	}
+
+	return fmt.Sprintf("%s%d", folder, snapID)
+}
+
+func recoverFullSnapshots(path, prefix string, log logger.Logger) (snapIDs []int64, err error) {
+	fis, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range fis {
+		if f.IsDir() && strings.HasPrefix(f.Name(), prefix) {
+			if f.Name() == prefix {
+				snapIDs = append(snapIDs, 0)
+				continue
+			}
+
+			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			snapIDs = append(snapIDs, id)
+		}
+	}
+
+	return snapIDs, nil
+}
+
+func discardSnapshots(path string, snapIDs []int64, log logger.Logger) error {
+	for _, snapID := range snapIDs {
+		nFolder := snapFolder(nodesFolder, snapID)
+		cFolder := snapFolder(commitFolder, snapID)
+
+		nPath := filepath.Join(path, nFolder)
+		cPath := filepath.Join(path, cFolder)
+
+		log.Infof("Discarding snapshot at '%s'...", cPath)
+
+		err := os.RemoveAll(nPath) // TODO: nLog.Remove()
+		if err != nil {
+			return err
+		}
+
+		err = os.RemoveAll(cPath) // TODO: cLog.Remove()
+		if err != nil {
+			return err
+		}
+
+		log.Infof("Snapshot at '%s' has been discarded", cPath)
+	}
+
+	return nil
 }
 
 func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
@@ -787,8 +941,6 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 
 	t.compacting = true
 
-	indexID := snapshot.Ts()
-
 	t.mutex.Unlock()
 	err = t.compactIndex(snapshot)
 	t.mutex.Lock()
@@ -799,7 +951,7 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, err
 	}
 
-	return indexID, nil
+	return snapshot.Ts(), nil
 }
 
 func (t *TBtree) compactIndex(snapshot *Snapshot) error {
@@ -815,7 +967,7 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")
-	nLogPath := filepath.Join(t.path, fmt.Sprintf("nodes_%d", snapshot.Ts()))
+	nLogPath := filepath.Join(t.path, fmt.Sprintf("%s%d", nodesFolder, snapshot.Ts()))
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
 		return err
@@ -836,7 +988,7 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 	}
 
 	appendableOpts.WithFileExt("ri")
-	cLogPath := filepath.Join(t.path, fmt.Sprintf("commit_%d", snapshot.Ts()))
+	cLogPath := filepath.Join(t.path, fmt.Sprintf("%s%d", commitFolder, snapshot.Ts()))
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return err
