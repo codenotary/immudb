@@ -122,7 +122,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	}
 }
 
-func TestReplaceIndexCornerCases(t *testing.T) {
+func TestRestartIndexCornerCases(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		fn   func(t *testing.T, dir string, s *ImmuStore)
@@ -131,7 +131,7 @@ func TestReplaceIndexCornerCases(t *testing.T) {
 			"Closed store",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
-				err := s.indexer.replaceIndex(1)
+				err := s.indexer.restartIndex()
 				require.Equal(t, tbtree.ErrAlreadyClosed, err)
 			},
 		},
@@ -139,7 +139,7 @@ func TestReplaceIndexCornerCases(t *testing.T) {
 			"No nodes folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit_1"), 0777))
-				err := s.indexer.replaceIndex(1)
+				err := s.indexer.restartIndex()
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "nodes_1")
 			},
@@ -148,7 +148,7 @@ func TestReplaceIndexCornerCases(t *testing.T) {
 			"No commit folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
-				err := s.indexer.replaceIndex(1)
+				err := s.indexer.restartIndex()
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "commit_1")
 			},
@@ -158,7 +158,7 @@ func TestReplaceIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
 				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit_1"), []byte{}, 0777))
-				err := s.indexer.replaceIndex(1)
+				err := s.indexer.restartIndex()
 				require.Equal(t, tbtree.ErrorPathIsNotADirectory, err)
 			},
 		},
