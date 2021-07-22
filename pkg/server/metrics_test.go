@@ -47,6 +47,25 @@ func TestStartMetrics(t *testing.T) {
 	assert.IsType(t, &http.Server{}, server)
 }
 
+func TestStartMetricsFail(t *testing.T) {
+	save_metricsNamespace := metricsNamespace
+	metricsNamespace = "failimmudb"
+	defer func() { metricsNamespace = save_metricsNamespace }()
+
+	server := StartMetrics(
+		100*time.Millisecond,
+		"999.999.999.999:9999",
+		&mockLogger{},
+		func() float64 { return 0 },
+		func() map[string]float64 { return make(map[string]float64) },
+		func() map[string]float64 { return make(map[string]float64) },
+	)
+	time.Sleep(200 * time.Millisecond)
+	defer server.Close()
+
+	assert.IsType(t, &http.Server{}, server)
+}
+
 func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	mc := MetricsCollection{
 		UptimeCounter: prometheus.NewCounterFunc(prometheus.CounterOpts{}, func() float64 {
