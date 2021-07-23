@@ -23,14 +23,17 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/htree"
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/stretchr/testify/assert"
@@ -246,6 +249,26 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = OpenWith("edge_cases", nil, nil, nil, opts)
 	require.Equal(t, ErrIllegalArguments, err)
 
+	_, err = Open("invalid\x00_dir_name", DefaultOptions())
+	require.EqualError(t, err, "stat invalid\x00_dir_name: invalid argument")
+
+	require.NoError(t, os.MkdirAll("ro_path", 0500))
+	defer os.RemoveAll("ro_path")
+
+	_, err = Open("ro_path/subpath", DefaultOptions())
+	require.EqualError(t, err, "mkdir ro_path/subpath: permission denied")
+
+	for _, failedAppendable := range []string{"tx", "commit", "val_0"} {
+		injectedError := fmt.Errorf("Injected error for: %s", failedAppendable)
+		_, err = Open("edge_cases", DefaultOptions().WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			if subPath == failedAppendable {
+				return nil, injectedError
+			}
+			return &mocked.MockedAppendable{}, nil
+		}))
+		require.ErrorIs(t, err, injectedError)
+	}
+
 	vLog := &mocked.MockedAppendable{}
 	vLogs := []appendable.Appendable{vLog}
 	txLog := &mocked.MockedAppendable{}
@@ -256,7 +279,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		return nil
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Should fail reading maxTxEntries from metadata
 	cLog.MetadataFn = func() []byte {
@@ -265,7 +288,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		return md.Bytes()
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Should fail reading maxKeyLen from metadata
 	cLog.MetadataFn = func() []byte {
@@ -275,7 +298,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		return md.Bytes()
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Should fail reading maxKeyLen from metadata
 	cLog.MetadataFn = func() []byte {
@@ -286,7 +309,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		return md.Bytes()
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	cLog.MetadataFn = func() []byte {
 		md := appendable.NewMetadata(nil)
@@ -298,38 +321,39 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	}
 
 	// Should fail reading cLogSize
+	injectedError := errors.New("error")
 	cLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
+		return 0, injectedError
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, injectedError)
 
 	// Should fail validating cLogSize
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize + 1, nil
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Should fail reading cLog
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize, nil
 	}
 	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		return 0, errors.New("error")
+		return 0, injectedError
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, injectedError)
 
 	// Should fail reading txLogSize
 	cLog.SizeFn = func() (int64, error) {
 		return 0, nil
 	}
 	txLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
+		return 0, injectedError
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, injectedError)
 
 	// Should fail validating txLogSize
 	cLog.SizeFn = func() (int64, error) {
@@ -345,7 +369,146 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		return 0, nil
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrorCorruptedTxData)
+
+	// Fail to read last transaction
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		require.Less(t, off, int64(len(buff)))
+		return copy(bs, buff[off:]), nil
+	}
+	txLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+	require.ErrorIs(t, err, injectedError)
+
+	// Fail to initialize aht when opening appendable
+	cLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	optsCopy := *opts
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog,
+		optsCopy.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			if strings.HasPrefix(subPath, "aht/") {
+				return nil, injectedError
+			}
+			return &mocked.MockedAppendable{}, nil
+		}),
+	)
+	require.ErrorIs(t, err, injectedError)
+
+	// Fail to initialize indexer
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog,
+		optsCopy.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			if strings.HasPrefix(subPath, "index/") {
+				return nil, injectedError
+			}
+			return &mocked.MockedAppendable{
+				SizeFn: func() (int64, error) { return 0, nil },
+			}, nil
+		}),
+	)
+	require.ErrorIs(t, err, injectedError)
+
+	// Incorrect tx in indexer
+	vLog.CloseFn = func() error { return nil }
+	txLog.CloseFn = func() error { return nil }
+	cLog.CloseFn = func() error { return nil }
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog,
+		optsCopy.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			switch subPath {
+			case "index/nodes":
+				return &mocked.MockedAppendable{
+					ReadAtFn: func(bs []byte, off int64) (int, error) {
+						buff := []byte{
+							tbtree.LeafNodeType,
+							0, 0, 0, 0,
+							0, 0, 0, 1, // One node
+							0, 0, 0, 1, // Key size
+							'k',        // key
+							0, 0, 0, 1, // Value size
+							'v',                    // value
+							0, 0, 0, 0, 0, 0, 0, 1, // Timestamp
+							0, 0, 0, 0, 0, 0, 0, 0, // hOffs
+							0, 0, 0, 0, 0, 0, 0, 0, // hSize
+						}
+						require.Less(t, off, int64(len(buff)))
+						return copy(bs, buff[off:]), nil
+					},
+					CloseFn: func() error { return nil },
+				}, nil
+			case "index/commit":
+				return &mocked.MockedAppendable{
+					SizeFn: func() (int64, error) {
+						// One clog entry
+						return 8, nil
+					},
+					ReadAtFn: func(bs []byte, off int64) (int, error) {
+						buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+						require.Less(t, off, int64(len(buff)))
+						return copy(bs, buff[off:]), nil
+					},
+					MetadataFn: func() []byte {
+						md := appendable.NewMetadata(nil)
+						md.PutInt(tbtree.MetaMaxNodeSize, tbtree.DefaultMaxNodeSize)
+						return md.Bytes()
+					},
+					CloseFn: func() error { return nil },
+				}, nil
+			}
+			return &mocked.MockedAppendable{
+				SizeFn:  func() (int64, error) { return 0, nil },
+				CloseFn: func() error { return nil },
+			}, nil
+		}),
+	)
+	require.ErrorIs(t, err, ErrCorruptedCLog)
+
+	// Errors during sync
+	mockedApps := []*mocked.MockedAppendable{vLog, txLog, cLog}
+	for _, app := range mockedApps {
+		app.SyncFn = func() error { return nil }
+	}
+	for i, checkApp := range mockedApps {
+		injectedError = fmt.Errorf("Injected error %d", i)
+		checkApp.SyncFn = func() error { return injectedError }
+
+		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+		require.NoError(t, err)
+		err = store.Sync()
+		require.ErrorIs(t, err, injectedError)
+		err = store.Close()
+		require.NoError(t, err)
+
+		checkApp.SyncFn = func() error { return nil }
+	}
+
+	// Errors during close
+	store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+	require.NoError(t, err)
+	err = store.aht.Close()
+	require.NoError(t, err)
+	err = store.Close()
+	require.IsType(t, &multierr.MultiErr{}, err)
+	mErr := err.(*multierr.MultiErr)
+	require.Len(t, mErr.Errors, 1)
+	require.ErrorIs(t, mErr.Errors[0], ahtree.ErrAlreadyClosed)
+
+	for i, checkApp := range mockedApps {
+		injectedError = fmt.Errorf("Injected error %d", i)
+		checkApp.CloseFn = func() error { return injectedError }
+
+		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+		require.NoError(t, err)
+		err = store.Close()
+		require.IsType(t, &multierr.MultiErr{}, err)
+		mErr := err.(*multierr.MultiErr)
+		require.Len(t, mErr.Errors, 1)
+		require.ErrorIs(t, mErr.Errors[0], injectedError)
+
+		checkApp.CloseFn = func() error { return nil }
+	}
 
 	immuStore, err := Open("edge_cases", opts)
 	require.NoError(t, err)

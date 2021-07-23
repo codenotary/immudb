@@ -144,7 +144,7 @@ type ImmuStore struct {
 	indexer *indexer
 
 	closed bool
-	done   chan (struct{})
+	blDone chan (struct{})
 
 	mutex sync.Mutex
 
@@ -410,8 +410,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		_txs:  txs,
 		_txbs: txbs,
 
-		done: make(chan struct{}),
-
 		compactionDisabled: opts.CompactionDisabled,
 	}
 
@@ -459,6 +457,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.blBuffer != nil {
+		store.blDone = make(chan struct{})
 		go store.binaryLinking()
 	}
 
@@ -568,7 +567,7 @@ func (s *ImmuStore) binaryLinking() {
 					return
 				}
 			}
-		case <-s.done:
+		case <-s.blDone:
 			{
 				return
 			}
@@ -1620,9 +1619,9 @@ func (s *ImmuStore) Close() error {
 	}
 	s.vLogsCond.Broadcast()
 
-	if s.blBuffer != nil && s.blErr == nil {
+	if s.blBuffer != nil && s.blErr == nil && s.blDone != nil {
 		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
-		s.done <- struct{}{}
+		s.blDone <- struct{}{}
 		s.log.Infof("Binary linking gracefully stopped at '%s'", s.path)
 		close(s.blBuffer)
 	}
