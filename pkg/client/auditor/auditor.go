@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -269,14 +270,10 @@ func (a *defaultAuditor) audit() error {
 		return noErr
 	}
 
-	if a.serverSigningPubKey != nil {
-		if okSig, err := state.CheckSignature(a.serverSigningPubKey); err != nil || !okSig {
-			a.logger.Errorf(
-				"audit #%d aborted: could not verify signature on server state at %s @ %s",
-				a.index, serverID, a.serverAddress)
-			withError = true
-			return noErr
-		}
+	if err := a.verifyStateSignature(serverID, state); err != nil {
+		a.logger.Errorf("audit #%d aborted: %v", a.index, err)
+		withError = true
+		return noErr
 	}
 
 	isEmptyDB := state.TxId == 0
@@ -333,7 +330,7 @@ func (a *defaultAuditor) audit() error {
 				!verified,
 				&State{
 					Tx:   prevState.TxId,
-					Hash: fmt.Sprintf("%x", prevState.TxHash),
+					Hash: base64.StdEncoding.EncodeToString(prevState.TxHash),
 					Signature: Signature{
 						Signature: base64.StdEncoding.EncodeToString(prevState.GetSignature().GetSignature()),
 						PublicKey: base64.StdEncoding.EncodeToString(prevState.GetSignature().GetPublicKey()),
@@ -341,7 +338,7 @@ func (a *defaultAuditor) audit() error {
 				},
 				&State{
 					Tx:   state.TxId,
-					Hash: fmt.Sprintf("%x", state.TxHash),
+					Hash: base64.StdEncoding.EncodeToString(state.TxHash),
 					Signature: Signature{
 						Signature: base64.StdEncoding.EncodeToString(state.GetSignature().GetSignature()),
 						PublicKey: base64.StdEncoding.EncodeToString(state.GetSignature().GetPublicKey()),
@@ -378,6 +375,37 @@ func (a *defaultAuditor) audit() error {
 		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
 
 	return noErr
+}
+
+func (a *defaultAuditor) verifyStateSignature(
+	serverID string,
+	serverState *schema.ImmutableState,
+) error {
+
+	if a.serverSigningPubKey != nil && serverState.GetSignature() == nil {
+		return fmt.Errorf(
+			"a server signing public key has been specified for the auditor, "+
+				"but the state %s at TX %d received from server %s @ %s is not signed",
+			serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress)
+	}
+
+	if serverState.GetSignature() != nil {
+		pk := a.serverSigningPubKey
+		if pk == nil {
+			x, y := elliptic.Unmarshal(elliptic.P256(), serverState.GetSignature().GetPublicKey())
+			pk = &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+		}
+
+		if okSig, err := serverState.CheckSignature(pk); err != nil || !okSig {
+			return fmt.Errorf(
+				"failed to verify signature for state %s at TX %d received from server %s @ %s: "+
+					"verification result: %t, verification error: %v",
+				serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress,
+				okSig, err)
+		}
+	}
+
+	return nil
 }
 
 // Signature ...

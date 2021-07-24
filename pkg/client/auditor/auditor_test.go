@@ -18,6 +18,7 @@ package auditor
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -43,12 +44,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/test/bufconn"
 )
-
-const bufSize = 1024 * 1024
-
-var lis *bufconn.Listener
 
 var dirname = "./test"
 
@@ -490,6 +486,17 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 }
 
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
+	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec3.pub")
+	require.NoError(t, err)
+
+	testDefaultAuditorRunOnDbWithSignature(t, pk)
+}
+
+func TestDefaultAuditorRunOnDbWithSignatureFromState(t *testing.T) {
+	testDefaultAuditorRunOnDbWithSignature(t, nil)
+}
+
+func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	defer os.RemoveAll(dirname)
 
 	pKeyPath := "./../../../test/signer/ec3.key"
@@ -535,8 +542,6 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
-	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec3.pub")
-	require.NoError(t, err)
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -561,13 +566,36 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
+func TestDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T) {
+	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec1.pub")
+	require.NoError(t, err)
+
+	testDefaultAuditorRunOnDbWithInvalidSignature(t, pk, false)
+	testDefaultAuditorRunOnDbWithInvalidSignature(t, pk, true)
+}
+
+func TestDefaultAuditorRunOnDbWithInvalidSignatureFromState(t *testing.T) {
+	testDefaultAuditorRunOnDbWithInvalidSignature(t, nil, false)
+	testDefaultAuditorRunOnDbWithInvalidSignature(t, nil, true)
+}
+
+func testDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T, pk *ecdsa.PublicKey, withSignedState bool) {
 	defer os.RemoveAll(dirname)
 
 	serviceClient := &clienttest.ImmuServiceClientMock{}
 
+	serviceClient.HealthF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
+		return &schema.HealthResponse{Status: true, Version: "v1.0.0"}, nil
+	}
 	serviceClient.CurrentStateF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error) {
-		return &schema.ImmutableState{}, nil
+		currState := &schema.ImmutableState{}
+		if withSignedState {
+			currState.Signature = &schema.Signature{
+				Signature: []byte("invalid signature"),
+				PublicKey: []byte("invalid public key"),
+			}
+		}
+		return currState, nil
 	}
 	serviceClient.LoginF = func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
 		return &schema.LoginResponse{
@@ -587,9 +615,6 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	serviceClient.LogoutF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
 		return &empty.Empty{}, nil
 	}
-
-	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec1.pub")
-	require.NoError(t, err)
 
 	da, err := DefaultAuditor(
 		time.Duration(0),
