@@ -103,6 +103,7 @@ type TBtree struct {
 	lastSnapRoot   node
 	lastSnapRootAt time.Time
 
+	committedLogSize  int64
 	committedNLogSize int64
 	committedHLogSize int64
 
@@ -395,8 +396,13 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		return nil, err
 	}
 
-	if cLogSize%cLogEntrySize > 0 {
-		return nil, ErrCorruptedCLog
+	rem := cLogSize % cLogEntrySize
+	if rem > 0 {
+		cLogSize -= rem
+		err = cLog.SetOffset(cLogSize)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	hLogSize, err := hLog.Size()
@@ -415,6 +421,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		nLog:                  nLog,
 		hLog:                  hLog,
 		cLog:                  cLog,
+		committedLogSize:      cLogSize,
 		committedNLogSize:     0, // If garbage is accepted then t.committedNLogSize should be set to its size during initialization
 		committedHLogSize:     hLogSize,
 		cache:                 cache,
@@ -840,7 +847,8 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 
 	snapshot := t.newSnapshot(0, t.root)
 
-	// If garbage is accepted then t.committedNLogSize should be set to its size during initialization
+	// will overwrite partially written and uncommitted data
+	// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
 	err = t.nLog.SetOffset(t.committedNLogSize)
 	if err != nil {
 		return 0, 0, err
@@ -868,6 +876,12 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
+	// will overwrite partially written and uncommitted data
+	err = t.cLog.SetOffset(t.committedLogSize)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
 	_, _, err = t.cLog.Append(cb[:])
@@ -881,6 +895,7 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	}
 
 	t.insertionCount = 0
+	t.committedLogSize += cLogEntrySize
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
 

@@ -67,17 +67,40 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
 	require.ErrorIs(t, err, injectedError)
 
-	// Should fail validating cLogSize
+	// Should fail truncating clog
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	cLog.SetOffsetFn = func(off int64) error {
+		return injectedError
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, injectedError)
+
+	// Should succeed
 	cLog.MetadataFn = func() []byte {
 		md := appendable.NewMetadata(nil)
 		md.PutInt(MetaMaxNodeSize, 1)
 		return md.Bytes()
 	}
 	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize + 1, nil
+		return cLogEntrySize - 1, nil
+	}
+	cLog.SetOffsetFn = func(off int64) error {
+		return nil
+	}
+	hLog.SizeFn = func() (int64, error) {
+		return 0, nil
 	}
 	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, ErrCorruptedCLog)
+	require.NoError(t, err)
+
+	// Should fail validating cLogSize
+	hLog.SizeFn = func() (int64, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+	require.ErrorIs(t, err, injectedError)
 
 	// Should fail validating hLogSize
 	cLog.SizeFn = func() (int64, error) {
