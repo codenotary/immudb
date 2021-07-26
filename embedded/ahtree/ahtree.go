@@ -32,7 +32,6 @@ import (
 
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrorCorruptedData = errors.New("data log is corrupted")
 var ErrorCorruptedDigests = errors.New("hash log is corrupted")
 var ErrAlreadyClosed = errors.New("already closed")
@@ -142,13 +141,13 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		return nil, err
 	}
 
-	if cLogSize%cLogEntrySize > 0 {
-		return nil, ErrCorruptedCLog
-	}
-
-	dLogSize, err := dLog.Size()
-	if err != nil {
-		return nil, err
+	rem := cLogSize % cLogEntrySize
+	if rem > 0 {
+		cLogSize -= rem
+		err = cLog.SetOffset(cLogSize)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pCache, err := cache.NewLRUCache(opts.dataCacheSlots)
@@ -166,25 +165,27 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		dLog:     dLog,
 		cLog:     cLog,
 		pLogSize: 0,
-		dLogSize: dLogSize,
+		dLogSize: int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size),
 		cLogSize: cLogSize,
 		pCache:   pCache,
 		dCache:   dCache,
 		readOnly: opts.readOnly,
 	}
 
-	if cLogSize > 0 {
-		var b [cLogEntrySize]byte
-		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err != nil {
-			return nil, err
-		}
-
-		pOff := binary.BigEndian.Uint64(b[:])
-		pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-		t.pLogSize = int64(pOff) + int64(pSize)
+	if cLogSize == 0 {
+		return t, nil
 	}
+
+	var b [cLogEntrySize]byte
+	_, err = cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+	if err != nil {
+		return nil, err
+	}
+
+	pOff := binary.BigEndian.Uint64(b[:])
+	pSize := binary.BigEndian.Uint32(b[offsetSize:])
+
+	t.pLogSize = int64(pOff) + int64(pSize)
 
 	pLogFileSize, err := pLog.Size()
 	if err != nil {
@@ -195,7 +196,12 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		return nil, ErrorCorruptedData
 	}
 
-	if dLogSize < int64(nodesUpto(uint64(cLogSize/cLogEntrySize))*sha256.Size) {
+	dLogSize, err := dLog.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	if dLogSize < t.dLogSize {
 		return nil, ErrorCorruptedDigests
 	}
 
@@ -222,7 +228,10 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	// will overwrite partially written and uncommitted data
-	t.pLog.SetOffset(t.pLogSize)
+	err = t.pLog.SetOffset(t.pLogSize)
+	if err != nil {
+		return
+	}
 
 	var dLenBs [szSize]byte
 	binary.BigEndian.PutUint32(dLenBs[:], uint32(len(d)))
@@ -283,7 +292,10 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	// will overwrite partially written and uncommitted data
-	t.dLog.SetOffset(t.dLogSize)
+	err = t.dLog.SetOffset(t.dLogSize)
+	if err != nil {
+		return
+	}
 
 	_, _, err = t.dLog.Append(t._digests[:dCount*sha256.Size])
 	if err != nil {
@@ -291,6 +303,12 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	err = t.dLog.Flush()
+	if err != nil {
+		return
+	}
+
+	// will overwrite partially written and uncommitted data
+	err = t.cLog.SetOffset(t.cLogSize)
 	if err != nil {
 		return
 	}
