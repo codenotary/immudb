@@ -279,8 +279,13 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	if cLogSize%cLogEntrySize > 0 {
-		return nil, ErrCorruptedCLog
+	rem := cLogSize % cLogEntrySize
+	if rem > 0 {
+		cLogSize -= rem
+		err = cLog.SetOffset(cLogSize)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var committedTxLogSize int64
@@ -299,15 +304,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		committedTxSize = int(binary.BigEndian.Uint32(b[txIDSize:]))
 		committedTxLogSize = committedTxOffset + int64(committedTxSize)
 		committedTxID = uint64(cLogSize) / cLogEntrySize
-	}
 
-	txLogFileSize, err := txLog.Size()
-	if err != nil {
-		return nil, err
-	}
+		txLogFileSize, err := txLog.Size()
+		if err != nil {
+			return nil, err
+		}
 
-	if txLogFileSize < committedTxLogSize {
-		return nil, ErrorCorruptedTxData
+		if txLogFileSize < committedTxLogSize {
+			return nil, ErrorCorruptedTxData
+		}
 	}
 
 	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen)
@@ -1030,6 +1035,12 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 		}
 	} else {
 		s.blBuffer <- tx.Alh
+	}
+
+	// will overwrite partially written and uncommitted data
+	err = s.cLog.SetOffset(int64(committedTxID * cLogEntrySize))
+	if err != nil {
+		return err
 	}
 
 	var cb [cLogEntrySize]byte
