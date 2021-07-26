@@ -415,7 +415,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		nLog:                  nLog,
 		hLog:                  hLog,
 		cLog:                  cLog,
-		committedNLogSize:     0,
+		committedNLogSize:     0, // If garbage is accepted then t.committedNLogSize should be set to its size during initialization
 		committedHLogSize:     hLogSize,
 		cache:                 cache,
 		maxNodeSize:           maxNodeSize,
@@ -839,6 +839,12 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	}
 
 	snapshot := t.newSnapshot(0, t.root)
+
+	// If garbage is accepted then t.committedNLogSize should be set to its size during initialization
+	err = t.nLog.SetOffset(t.committedNLogSize)
+	if err != nil {
+		return 0, 0, err
+	}
 
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
