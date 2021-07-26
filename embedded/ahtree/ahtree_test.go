@@ -17,6 +17,7 @@ package ahtree
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"os"
 	"testing"
@@ -69,170 +70,274 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(nil, nil, nil, DefaultOptions())
 	require.Equal(t, ErrIllegalArguments, err)
 
-	pLog := &mocked.MockedAppendable{}
-	dLog := &mocked.MockedAppendable{}
-	cLog := &mocked.MockedAppendable{}
-
-	cLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
-	}
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, err)
-
-	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize + 1, nil
-	}
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Equal(t, ErrCorruptedCLog, err)
-
-	cLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	dLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
-	}
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, err)
-
-	cLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	dLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	pLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-
-	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetaVersion, Version)
-
-	pLog.MetadataFn = metadata.Bytes
-	dLog.MetadataFn = metadata.Bytes
-	cLog.MetadataFn = metadata.Bytes
-
-	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize, nil
-	}
-
-	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		return 0, errors.New("error")
-	}
-
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, err)
-
-	cLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	pLog.SizeFn = func() (int64, error) {
-		return 0, errors.New("error")
-	}
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, err)
-
-	pLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-
-	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, errors.New("error")
-	}
-	pLog.SetOffsetFn = func(off int64) error {
+	dummySetOffset := func(off int64) error {
 		return nil
 	}
-	_, _, err = tree.Append([]byte{})
-	require.Error(t, err)
 
-	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, nil
+	pLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
+	dLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
+	cLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
+
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return 0, errors.New("error")
+		}
+
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
 	}
-	dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, errors.New("error")
+
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize - 1, nil
+		}
+		cLog.SetOffsetFn = func(off int64) error {
+			return errors.New("error")
+		}
+
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
 	}
-	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-	_, _, err = tree.Append(nil)
-	require.Error(t, err)
 
-	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, errors.New("error")
+	{
+		cLog.SetOffsetFn = dummySetOffset
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize - 1, nil
+		}
+
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.NoError(t, err)
 	}
-	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-	_, _, err = tree.Append(nil)
-	require.Error(t, err)
 
-	dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, nil
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize + 1, nil
+		}
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			binary.BigEndian.PutUint64(bs[:], 0)
+			binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+			return cLogEntrySize, nil
+		}
+		pLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+		dLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Equal(t, ErrorCorruptedData, err)
 	}
-	cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-		return 0, 0, errors.New("error")
+
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize + 1, nil
+		}
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			binary.BigEndian.PutUint64(bs[:], 0)
+			binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+			return cLogEntrySize, nil
+		}
+		pLog.SizeFn = func() (int64, error) {
+			return 8, nil
+		}
+		dLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Equal(t, ErrorCorruptedDigests, err)
 	}
-	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-	_, _, err = tree.Append(nil)
-	require.Error(t, err)
 
-	_, err = Open("options.go", DefaultOptions())
-	require.Equal(t, ErrorPathIsNotADirectory, err)
+	{
+		dLog.SizeFn = func() (int64, error) {
+			return 0, errors.New("error")
+		}
 
-	_, err = Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
-	require.Equal(t, ErrIllegalArguments, err)
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
+	}
 
-	_, err = Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
-	require.Equal(t, ErrIllegalArguments, err)
+	{
+		pLog.SizeFn = func() (int64, error) {
+			return 0, errors.New("error")
+		}
 
-	tree, err = Open("ahtree_test", DefaultOptions().WithSynced(false))
-	require.NoError(t, err)
-	defer os.RemoveAll("ahtree_test")
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
+	}
 
-	_, _, err = tree.Root()
-	require.Equal(t, ErrEmptyTree, err)
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+		dLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+		pLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
 
-	_, err = tree.rootAt(1)
-	require.Equal(t, ErrEmptyTree, err)
+		metadata := appendable.NewMetadata(nil)
+		metadata.PutInt(MetaVersion, Version)
 
-	_, err = tree.rootAt(0)
-	require.Equal(t, ErrIllegalArguments, err)
+		pLog.MetadataFn = metadata.Bytes
+		dLog.MetadataFn = metadata.Bytes
+		cLog.MetadataFn = metadata.Bytes
 
-	_, err = tree.DataAt(0)
-	require.Equal(t, ErrIllegalArguments, err)
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize, nil
+		}
 
-	err = tree.Sync()
-	require.NoError(t, err)
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			return 0, errors.New("error")
+		}
 
-	_, _, err = tree.Append([]byte{1})
-	require.NoError(t, err)
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
+	}
 
-	err = tree.Close()
-	require.NoError(t, err)
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize, nil
+		}
+		pLog.SizeFn = func() (int64, error) {
+			return 0, errors.New("error")
+		}
 
-	_, _, err = tree.Append(nil)
-	require.Equal(t, ErrAlreadyClosed, err)
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.Error(t, err)
+	}
 
-	_, err = tree.InclusionProof(1, 2)
-	require.Equal(t, ErrAlreadyClosed, err)
+	{
+		cLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+		pLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
 
-	_, err = tree.ConsistencyProof(1, 2)
-	require.Equal(t, ErrAlreadyClosed, err)
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.NoError(t, err)
 
-	_, _, err = tree.Root()
-	require.Equal(t, ErrAlreadyClosed, err)
+		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, errors.New("error")
+		}
+		pLog.SetOffsetFn = func(off int64) error {
+			return nil
+		}
 
-	_, err = tree.rootAt(1)
-	require.Equal(t, ErrAlreadyClosed, err)
+		_, _, err = tree.Append([]byte{})
+		require.Error(t, err)
 
-	_, err = tree.DataAt(1)
-	require.Equal(t, ErrAlreadyClosed, err)
+		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, nil
+		}
+		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, errors.New("error")
+		}
+	}
 
-	err = tree.Sync()
-	require.Equal(t, ErrAlreadyClosed, err)
+	{
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.NoError(t, err)
 
-	err = tree.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+		_, _, err = tree.Append(nil)
+		require.Error(t, err)
+
+		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, errors.New("error")
+		}
+	}
+
+	{
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.NoError(t, err)
+
+		_, _, err = tree.Append(nil)
+		require.Error(t, err)
+
+		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, errors.New("error")
+		}
+	}
+
+	{
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		require.NoError(t, err)
+
+		_, _, err = tree.Append(nil)
+		require.Error(t, err)
+	}
+
+	{
+		_, err = Open("options.go", DefaultOptions())
+		require.Equal(t, ErrorPathIsNotADirectory, err)
+	}
+
+	{
+		_, err = Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
+		require.Equal(t, ErrIllegalArguments, err)
+	}
+
+	{
+		_, err = Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
+		require.Equal(t, ErrIllegalArguments, err)
+	}
+
+	{
+		tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+		require.NoError(t, err)
+		defer os.RemoveAll("ahtree_test")
+
+		_, _, err = tree.Root()
+		require.Equal(t, ErrEmptyTree, err)
+
+		_, err = tree.rootAt(1)
+		require.Equal(t, ErrEmptyTree, err)
+
+		_, err = tree.rootAt(0)
+		require.Equal(t, ErrIllegalArguments, err)
+
+		_, err = tree.DataAt(0)
+		require.Equal(t, ErrIllegalArguments, err)
+
+		err = tree.Sync()
+		require.NoError(t, err)
+
+		_, _, err = tree.Append([]byte{1})
+		require.NoError(t, err)
+
+		err = tree.Close()
+		require.NoError(t, err)
+
+		_, _, err = tree.Append(nil)
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		_, err = tree.InclusionProof(1, 2)
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		_, err = tree.ConsistencyProof(1, 2)
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		_, _, err = tree.Root()
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		_, err = tree.rootAt(1)
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		_, err = tree.DataAt(1)
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		err = tree.Sync()
+		require.Equal(t, ErrAlreadyClosed, err)
+
+		err = tree.Close()
+		require.Equal(t, ErrAlreadyClosed, err)
+	}
 }
 
 func TestReadOnly(t *testing.T) {
@@ -352,19 +457,19 @@ func TestOpenFail(t *testing.T) {
 	require.Error(t, err)
 	defer os.RemoveAll("tt1")
 	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
-			func (rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
-				if subPath=="tree" {
-					e = errors.New("simulated error")
-				}
-				return
-			} ))
+		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
+			if subPath == "tree" {
+				e = errors.New("simulated error")
+			}
+			return
+		}))
 	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
-			func (rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
-				if subPath=="commit" {
-					e = errors.New("simulated error")
-				}
-				return
-			} ))
+		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
+			if subPath == "commit" {
+				e = errors.New("simulated error")
+			}
+			return
+		}))
 	require.Error(t, err)
 }
 
