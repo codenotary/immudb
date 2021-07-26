@@ -237,14 +237,9 @@ func (idx *indexer) restartIndex() error {
 		return err
 	}
 
-	index, err := tbtree.Open(idx.path, opts)
-	if err != nil {
-		return err
-	}
+	idx.index, err = tbtree.Open(idx.path, opts)
 
-	idx.index = index
-
-	return nil
+	return err
 }
 
 func (idx *indexer) Resume() {
