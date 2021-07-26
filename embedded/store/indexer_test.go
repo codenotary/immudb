@@ -132,34 +132,32 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
 				err := s.indexer.restartIndex()
-				require.Equal(t, tbtree.ErrAlreadyClosed, err)
+				require.Equal(t, ErrAlreadyClosed, err)
 			},
 		},
 		{
 			"No nodes folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit_1"), 0777))
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/commit1"), 0777))
 				err := s.indexer.restartIndex()
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "nodes_1")
+				require.NoError(t, err)
 			},
 		},
 		{
 			"No commit folder",
 			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
 				err := s.indexer.restartIndex()
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "commit_1")
+				require.NoError(t, err)
 			},
 		},
 		{
 			"Invalid index structure",
 			func(t *testing.T, dir string, s *ImmuStore) {
-				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes_1"), 0777))
-				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit_1"), []byte{}, 0777))
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "index/nodes1"), 0777))
+				require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "index/commit1"), []byte{}, 0777))
 				err := s.indexer.restartIndex()
-				require.Equal(t, tbtree.ErrorPathIsNotADirectory, err)
+				require.NoError(t, err)
 			},
 		},
 	} {

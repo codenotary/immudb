@@ -330,10 +330,13 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Should fail validating cLogSize
 	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize + 1, nil
+		return cLogEntrySize - 1, nil
+	}
+	cLog.SetOffsetFn = func(off int64) error {
+		return nil
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-	require.ErrorIs(t, err, ErrCorruptedCLog)
+	require.NoError(t, err)
 
 	// Should fail reading cLog
 	cLog.SizeFn = func() (int64, error) {
@@ -347,7 +350,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Should fail reading txLogSize
 	cLog.SizeFn = func() (int64, error) {
-		return 0, nil
+		return cLogEntrySize + 1, nil
+	}
+	cLog.SetOffsetFn = func(off int64) error {
+		return nil
 	}
 	txLog.SizeFn = func() (int64, error) {
 		return 0, injectedError
