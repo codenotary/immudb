@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -517,6 +518,9 @@ func TestSnapshotRecovery(t *testing.T) {
 	err = happ.Close()
 	require.NoError(t, err)
 
+	// Starting with an invalid folder name
+	os.MkdirAll(filepath.Join(d, fmt.Sprintf("%s1z", commitFolder)), 0777)
+
 	tree, err := Open(d, DefaultOptions().WithCompactionThld(0))
 	require.NoError(t, err)
 
@@ -549,8 +553,40 @@ func TestSnapshotRecovery(t *testing.T) {
 
 	os.RemoveAll(filepath.Join(d, fmt.Sprintf("%s%d", nodesFolder, c)))
 
-	_, err = Open(d, DefaultOptions())
+	tree, err = Open(d, DefaultOptions())
 	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	injectedError := errors.New("factory error")
+
+	metaFaultyAppFactory := func(prefix string) AppFactoryFunc {
+		return func(
+			rootPath string,
+			subPath string,
+			opts *multiapp.Options,
+		) (appendable.Appendable, error) {
+			if strings.HasPrefix(subPath, prefix) {
+				return nil, injectedError
+			}
+
+			path := filepath.Join(rootPath, subPath)
+			return multiapp.Open(path, opts)
+		}
+	}
+
+	// Should fail opening hLog
+	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(historyFolder)))
+	require.ErrorIs(t, err, injectedError)
+
+	// Should fail opening nLog
+	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(nodesFolder)))
+	require.ErrorIs(t, err, injectedError)
+
+	// Should fail opening cLog
+	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(commitFolder)))
+	require.ErrorIs(t, err, injectedError)
 }
 
 func TestTBTreeHistory(t *testing.T) {
