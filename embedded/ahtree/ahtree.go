@@ -165,7 +165,7 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		dLog:     dLog,
 		cLog:     cLog,
 		pLogSize: 0,
-		dLogSize: int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size),
+		dLogSize: 0,
 		cLogSize: cLogSize,
 		pCache:   pCache,
 		dCache:   dCache,
@@ -195,6 +195,8 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 	if pLogFileSize < t.pLogSize {
 		return nil, ErrorCorruptedData
 	}
+
+	t.dLogSize = int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
 
 	dLogSize, err := dLog.Size()
 	if err != nil {
