@@ -891,6 +891,7 @@ func (s *ImmuStore) commitUsing(entries []*KV, md *TxMetadata, waitForIndexing b
 
 	// TxMedatada is validated against current store
 	if md != nil && tx.Eh() != md.Eh {
+		<-appendableCh // wait for data to be written
 		return nil, ErrIllegalArguments
 	}
 
@@ -1156,7 +1157,11 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		txe.unique = e.Unique
 	}
 
-	tx.BuildHashTree()
+	err = tx.BuildHashTree()
+	if err != nil {
+		<-appendableCh // wait for data to be writen
+		return nil, err
+	}
 
 	r := <-appendableCh // wait for data to be writen
 	err = r.err
