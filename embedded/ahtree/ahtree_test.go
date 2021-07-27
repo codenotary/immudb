@@ -78,13 +78,15 @@ func TestEdgeCases(t *testing.T) {
 	dLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
 	cLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
 
+	injectedErr := errors.New("error")
+
 	{
 		cLog.SizeFn = func() (int64, error) {
-			return 0, errors.New("error")
+			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -92,11 +94,11 @@ func TestEdgeCases(t *testing.T) {
 			return cLogEntrySize - 1, nil
 		}
 		cLog.SetOffsetFn = func(off int64) error {
-			return errors.New("error")
+			return injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -104,9 +106,15 @@ func TestEdgeCases(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize - 1, nil
 		}
+		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, injectedErr
+		}
 
-		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.NoError(t, err)
+
+		_, _, err = tree.Append([]byte{1, 2, 3})
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -151,20 +159,20 @@ func TestEdgeCases(t *testing.T) {
 
 	{
 		dLog.SizeFn = func() (int64, error) {
-			return 0, errors.New("error")
+			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
 		pLog.SizeFn = func() (int64, error) {
-			return 0, errors.New("error")
+			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -190,11 +198,11 @@ func TestEdgeCases(t *testing.T) {
 		}
 
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			return 0, errors.New("error")
+			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -202,11 +210,11 @@ func TestEdgeCases(t *testing.T) {
 			return cLogEntrySize, nil
 		}
 		pLog.SizeFn = func() (int64, error) {
-			return 0, errors.New("error")
+			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
@@ -221,56 +229,50 @@ func TestEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, errors.New("error")
+			return 0, 0, injectedErr
 		}
 		pLog.SetOffsetFn = func(off int64) error {
 			return nil
 		}
 
 		_, _, err = tree.Append([]byte{})
-		require.Error(t, err)
+		require.ErrorIs(t, err, injectedErr)
+	}
 
+	{
 		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, nil
 		}
-		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, errors.New("error")
+		pLog.FlushFn = func() error {
+			return injectedErr
 		}
-	}
 
-	{
 		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.NoError(t, err)
 
-		_, _, err = tree.Append(nil)
-		require.Error(t, err)
+		_, _, err = tree.Append([]byte{1, 2, 3})
+		require.ErrorIs(t, err, injectedErr)
+	}
 
+	{
 		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, errors.New("error")
-		}
-	}
-
-	{
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append(nil)
-		require.Error(t, err)
-
-		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, nil
 		}
-		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, errors.New("error")
+		pLog.FlushFn = func() error {
+			return nil
 		}
-	}
+		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, injectedErr
+		}
 
-	{
 		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.NoError(t, err)
 
 		_, _, err = tree.Append(nil)
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, err = tree.Append([]byte{1, 2, 3})
+		require.ErrorIs(t, err, injectedErr)
 	}
 
 	{
