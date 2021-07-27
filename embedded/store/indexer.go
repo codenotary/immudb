@@ -191,7 +191,7 @@ func (idx *indexer) CompactIndex() (err error) {
 		}
 	}()
 
-	_, err = idx.index.CompactIndex()
+	_, err = idx.index.Compact()
 	if err != nil {
 		return err
 	}

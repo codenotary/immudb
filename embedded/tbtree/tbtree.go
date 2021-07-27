@@ -928,15 +928,7 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 	return t.newSnapshot(0, t.root), nil
 }
 
-func (t *TBtree) storedSnapshotsCount() (int, error) {
-	sz, err := t.cLog.Size()
-	if err != nil {
-		return 0, err
-	}
-	return int(sz / cLogEntrySize), nil
-}
-
-func (t *TBtree) CompactIndex() (uint64, error) {
+func (t *TBtree) Compact() (uint64, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -952,12 +944,9 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, ErrSnapshotsNotClosed
 	}
 
-	snapCount, err := t.storedSnapshotsCount()
-	if err != nil {
-		return 0, err
-	}
+	snapCount := t.committedLogSize / cLogEntrySize
 
-	if snapCount < t.compactionThld {
+	if snapCount < int64(t.compactionThld) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
@@ -966,10 +955,15 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, err
 	}
 
+	err = t.hLog.Sync()
+	if err != nil {
+		return 0, err
+	}
+
 	t.compacting = true
 
 	t.mutex.Unlock()
-	err = t.compactIndex(snapshot)
+	err = t.fullDump(snapshot)
 	t.mutex.Lock()
 
 	t.compacting = false
@@ -981,7 +975,7 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 	return snapshot.Ts(), nil
 }
 
-func (t *TBtree) compactIndex(snapshot *Snapshot) error {
+func (t *TBtree) fullDump(snapshot *Snapshot) error {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
@@ -1003,6 +997,20 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 		nLog.Close()
 	}()
 
+	appendableOpts.WithFileExt("ri")
+	cLogPath := filepath.Join(t.path, fmt.Sprintf("%s%d", commitFolder, snapshot.Ts()))
+	cLog, err := multiapp.Open(cLogPath, appendableOpts)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		cLog.Close()
+	}()
+
+	return t.fullDumpTo(snapshot, nLog, cLog)
+}
+
+func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable) error {
 	wopts := &WriteOpts{
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
@@ -1014,29 +1022,9 @@ func (t *TBtree) compactIndex(snapshot *Snapshot) error {
 		return err
 	}
 
-	appendableOpts.WithFileExt("ri")
-	cLogPath := filepath.Join(t.path, fmt.Sprintf("%s%d", commitFolder, snapshot.Ts()))
-	cLog, err := multiapp.Open(cLogPath, appendableOpts)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		cLog.Close()
-	}()
-
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(offset))
 	_, _, err = cLog.Append(cb[:])
-	if err != nil {
-		return err
-	}
-
-	err = t.hLog.Flush()
-	if err != nil {
-		return err
-	}
-
-	err = t.hLog.Sync()
 	if err != nil {
 		return err
 	}
