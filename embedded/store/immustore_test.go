@@ -328,6 +328,16 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.ErrorIs(t, err, injectedError)
 
+	// Should fail setting cLog offset
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize - 1, nil
+	}
+	cLog.SetOffsetFn = func(off int64) error {
+		return injectedError
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+	require.ErrorIs(t, err, injectedError)
+
 	// Should fail validating cLogSize
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize - 1, nil
@@ -354,6 +364,22 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	}
 	cLog.SetOffsetFn = func(off int64) error {
 		return nil
+	}
+	txLog.SizeFn = func() (int64, error) {
+		return 0, injectedError
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
+	require.ErrorIs(t, err, injectedError)
+
+	// Should fail reading txLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		for i := 0; i < len(bs); i++ {
+			bs[i]++
+		}
+		return minInt(len(bs), 8+4+8+8), nil
 	}
 	txLog.SizeFn = func() (int64, error) {
 		return 0, injectedError
