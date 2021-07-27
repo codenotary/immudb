@@ -807,8 +807,10 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 		}, nil
 	}
 
-	md, err := immuStore.CommitWith(callback, false)
+	md, err := immuStore.CommitWith(callback, true)
 	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), immuStore.IndexInfo())
 
 	tx := immuStore.NewTx()
 	immuStore.ReadTx(md.ID, tx)
