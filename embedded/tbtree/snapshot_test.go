@@ -130,7 +130,7 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	done := make(chan struct{})
 
 	go func(done chan<- struct{}) {
-		tbtree.CompactIndex()
+		tbtree.Compact()
 		done <- struct{}{}
 	}(done)
 

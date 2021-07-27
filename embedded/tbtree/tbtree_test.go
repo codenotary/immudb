@@ -251,7 +251,7 @@ func TestEdgeCases(t *testing.T) {
 	err = tree.Close()
 	require.Equal(t, ErrSnapshotsNotClosed, err)
 
-	_, err = tree.CompactIndex()
+	_, err = tree.Compact()
 	require.Equal(t, ErrSnapshotsNotClosed, err)
 
 	err = s1.Close()
@@ -529,7 +529,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c, err := tree.CompactIndex()
+	c, err := tree.Compact()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), c)
 
@@ -544,7 +544,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c, err = tree.CompactIndex()
+	c, err = tree.Compact()
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), c)
 
@@ -576,17 +576,142 @@ func TestSnapshotRecovery(t *testing.T) {
 		}
 	}
 
-	// Should fail opening hLog
-	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(historyFolder)))
-	require.ErrorIs(t, err, injectedError)
+	{
+		// Should fail opening hLog
+		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(historyFolder)))
+		require.ErrorIs(t, err, injectedError)
+	}
 
-	// Should fail opening nLog
-	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(nodesFolder)))
-	require.ErrorIs(t, err, injectedError)
+	{
+		// Should fail opening nLog
+		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(nodesFolder)))
+		require.ErrorIs(t, err, injectedError)
+	}
 
-	// Should fail opening cLog
-	_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(commitFolder)))
-	require.ErrorIs(t, err, injectedError)
+	{
+		// Should fail opening cLog
+		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(commitFolder)))
+		require.ErrorIs(t, err, injectedError)
+	}
+}
+
+func TestTBTreeCompactionEdgeCases(t *testing.T) {
+	d, err := ioutil.TempDir("", "test_tree_compaction_edge_cases")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	tree, err := Open(d, DefaultOptions())
+	require.NoError(t, err)
+
+	err = tree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	require.NoError(t, err)
+
+	snap, err := tree.Snapshot()
+	require.NoError(t, err)
+
+	injectedError := errors.New("error")
+
+	nLog := &mocked.MockedAppendable{}
+	cLog := &mocked.MockedAppendable{}
+
+	{
+		// Should fail while dumping the snapshot
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	{
+		// Should fail while appending to cLog
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, 0, injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	{
+		// Should fail while flushing nLog
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		nLog.FlushFn = func() error {
+			return injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	{
+		// Should fail while syncing nLog
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		nLog.FlushFn = func() error {
+			return nil
+		}
+		nLog.SyncFn = func() error {
+			return injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	{
+		// Should fail while flushing cLog
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		nLog.FlushFn = func() error {
+			return nil
+		}
+		nLog.SyncFn = func() error {
+			return nil
+		}
+		cLog.FlushFn = func() error {
+			return injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
+
+	{
+		// Should fail while syncing cLog
+		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+			return 0, len(bs), nil
+		}
+		nLog.FlushFn = func() error {
+			return nil
+		}
+		nLog.SyncFn = func() error {
+			return nil
+		}
+		cLog.FlushFn = func() error {
+			return nil
+		}
+		cLog.SyncFn = func() error {
+			return injectedError
+		}
+		err = tree.fullDumpTo(snap, nLog, cLog)
+		require.ErrorIs(t, err, injectedError)
+	}
 }
 
 func TestTBTreeHistory(t *testing.T) {
@@ -679,7 +804,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, err = tbtree.Snapshot()
 	require.Equal(t, err, ErrAlreadyClosed)
 
-	_, err = tbtree.CompactIndex()
+	_, err = tbtree.Compact()
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	tbtree, err = Open("test_tree_iasc", DefaultOptions().WithMaxNodeSize(256))
