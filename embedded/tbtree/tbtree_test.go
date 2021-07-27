@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -498,6 +499,58 @@ func TestInvalidOpening(t *testing.T) {
 			require.ErrorIs(t, err, multiapp.ErrorPathIsNotADirectory)
 		})
 	}
+}
+
+func TestSnapshotRecovery(t *testing.T) {
+	d, err := ioutil.TempDir("", "test_tree_recovery")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	// Starting with some historical garbage
+	hpath := filepath.Join(d, historyFolder)
+	happ, err := multiapp.Open(hpath, multiapp.DefaultOptions())
+	require.NoError(t, err)
+
+	_, _, err = happ.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+
+	err = happ.Close()
+	require.NoError(t, err)
+
+	tree, err := Open(d, DefaultOptions().WithCompactionThld(0))
+	require.NoError(t, err)
+
+	err = tree.BulkInsert([]*KV{
+		{K: []byte("key1"), V: []byte("value1")},
+	})
+	require.NoError(t, err)
+
+	c, err := tree.CompactIndex()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), c)
+
+	err = tree.BulkInsert([]*KV{
+		{K: []byte("key2"), V: []byte("value2")},
+		{K: []byte("key3"), V: []byte("value3")},
+	})
+	require.NoError(t, err)
+
+	err = tree.BulkInsert([]*KV{
+		{K: []byte("key4"), V: []byte("value4")},
+	})
+	require.NoError(t, err)
+
+	c, err = tree.CompactIndex()
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), c)
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	os.RemoveAll(filepath.Join(d, fmt.Sprintf("%s%d", nodesFolder, c)))
+
+	_, err = Open(d, DefaultOptions())
+	require.NoError(t, err)
 }
 
 func TestTBTreeHistory(t *testing.T) {

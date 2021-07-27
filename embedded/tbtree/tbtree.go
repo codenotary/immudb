@@ -285,8 +285,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	// No snapshot present or none was valid, fresh initialization
 	opts.log.Infof("Staring with an empty index...")
 
+	hsz, err := hLog.Size()
+	if err != nil {
+		return nil, err
+	}
+
 	// Remove history data as it'd become garbage otherwise
-	if len(snapIDs) > 0 {
+	if hsz > 0 {
 		err = hLog.Close()
 		if err != nil {
 			return nil, err
@@ -343,7 +348,8 @@ func recoverFullSnapshots(path, prefix string, log logger.Logger) (snapIDs []int
 
 			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
 			if err != nil {
-				return nil, err
+				log.Warningf("invalid folder found '%s'", f.Name())
+				continue
 			}
 
 			snapIDs = append(snapIDs, id)
