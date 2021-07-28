@@ -490,35 +490,147 @@ func TestUseSnapshot(t *testing.T) {
 }
 
 func TestEncodeRawValue(t *testing.T) {
-	_, err := EncodeRawValue(uint64(1), IntegerType, true)
+	b, err := EncodeRawValue(uint64(1), IntegerType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
+
+	b, err = EncodeRawValue(true, IntegerType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeRawValue(true, BooleanType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
+
+	b, err = EncodeRawValue(uint64(1), BooleanType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeRawValue("title", VarcharType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
+
+	b, err = EncodeRawValue(uint64(1), VarcharType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeRawValue([]byte{}, BLOBType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
+
+	b, err = EncodeRawValue(nil, BLOBType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
+
+	b, err = EncodeRawValue(uint64(1), BLOBType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeRawValue(uint64(1), "invalid type", true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	// Max allowed key size is 32 bytes
+	b, err = EncodeRawValue("012345678901234567890123456789012", VarcharType, true)
+	require.ErrorIs(t, err, ErrInvalidPK)
+	require.Nil(t, b)
+
+	_, err = EncodeRawValue("01234567890123456789012345678902", VarcharType, true)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue(true, IntegerType, true)
-	require.Equal(t, ErrInvalidValue, err)
-
-	_, err = EncodeRawValue(true, BooleanType, true)
+	_, err = EncodeRawValue("012345678901234567890123456789012", VarcharType, false)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue(uint64(1), BooleanType, true)
-	require.Equal(t, ErrInvalidValue, err)
+	b, err = EncodeRawValue([]byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+	}, BLOBType, true)
+	require.ErrorIs(t, err, ErrInvalidPK)
+	require.Nil(t, b)
 
-	_, err = EncodeRawValue("title", VarcharType, true)
+	_, err = EncodeRawValue([]byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
+	}, BLOBType, true)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue(uint64(1), VarcharType, true)
-	require.Equal(t, ErrInvalidValue, err)
+	_, err = EncodeRawValue([]byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+	}, BLOBType, false)
+	require.NoError(t, err)
+}
 
-	_, err = EncodeRawValue([]byte{}, BLOBType, true)
+func TestEncodeValue(t *testing.T) {
+	b, err := EncodeValue(&Number{val: 1}, IntegerType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
+
+	b, err = EncodeValue(&Bool{val: true}, IntegerType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Bool{val: true}, BooleanType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
+
+	b, err = EncodeValue(&Number{val: 1}, BooleanType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Varchar{val: "title"}, VarcharType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
+
+	b, err = EncodeValue(&Number{val: 1}, VarcharType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Blob{val: []byte{}}, BLOBType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
+
+	b, err = EncodeValue(&Blob{val: nil}, BLOBType, true)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
+
+	b, err = EncodeValue(&Number{val: 1}, BLOBType, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	b, err = EncodeValue(&Number{val: 1}, "invalid type", true)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
+
+	// Max allowed key size is 32 bytes
+	b, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, true)
+	require.ErrorIs(t, err, ErrInvalidPK)
+	require.Nil(t, b)
+
+	_, err = EncodeValue(&Varchar{val: "01234567890123456789012345678902"}, VarcharType, true)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue(nil, BLOBType, true)
+	_, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, false)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue(uint64(1), BLOBType, true)
-	require.Equal(t, ErrInvalidValue, err)
+	b, err = EncodeValue(&Blob{val: []byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+	}}, BLOBType, true)
+	require.ErrorIs(t, err, ErrInvalidPK)
+	require.Nil(t, b)
 
-	_, err = EncodeRawValue(uint64(1), "invalid type", true)
-	require.Equal(t, ErrInvalidValue, err)
+	_, err = EncodeValue(&Blob{val: []byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
+	}}, BLOBType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeValue(&Blob{val: []byte{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
+	}}, BLOBType, false)
+	require.NoError(t, err)
 }
 
 func TestClosing(t *testing.T) {
