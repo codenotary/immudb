@@ -35,14 +35,16 @@ type Table struct {
 	colsByName map[string]*Column
 	pk         *Column
 	indexes    map[uint64]struct{}
+	maxPK      uint64
 }
 
 type Column struct {
-	table   *Table
-	id      uint64
-	colName string
-	colType SQLValueType
-	notNull bool
+	table         *Table
+	id            uint64
+	colName       string
+	colType       SQLValueType
+	autoIncrement bool
+	notNull       bool
 }
 
 func newCatalog() *Catalog {
@@ -233,11 +235,12 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 		id := len(table.colsByID) + 1
 
 		col := &Column{
-			id:      uint64(id),
-			table:   table,
-			colName: cs.colName,
-			colType: cs.colType,
-			notNull: cs.notNull || cs.colName == pk,
+			id:            uint64(id),
+			table:         table,
+			colName:       cs.colName,
+			colType:       cs.colType,
+			autoIncrement: cs.autoIncrement,
+			notNull:       cs.notNull || cs.colName == pk,
 		}
 
 		table.colsByID[col.id] = col

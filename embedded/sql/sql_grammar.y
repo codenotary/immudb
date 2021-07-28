@@ -66,7 +66,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS
-%token NULL NPARAM
+%token AUTO_INCREMENT NULL NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -118,7 +118,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
-%type <boolean> opt_if_not_exists opt_not_null
+%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null
 
 %start sql
     
@@ -337,9 +337,19 @@ colsSpec:
     }
 
 colSpec:
-    IDENTIFIER TYPE opt_not_null
+    IDENTIFIER TYPE opt_auto_increment opt_not_null
     {
-        $$ = &ColSpec{colName: $1, colType: $2, notNull: $3}
+        $$ = &ColSpec{colName: $1, colType: $2, autoIncrement: $3, notNull: $4}
+    }
+
+opt_auto_increment:
+    {
+        $$ = false
+    }
+|
+    AUTO_INCREMENT
+    {
+        $$ = true
     }
 
 opt_not_null:

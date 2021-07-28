@@ -30,9 +30,14 @@ import (
 const (
 	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
-	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={nullable}{colNAME})
+	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={auto_incremental | nullable}{colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
 	RowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
+)
+
+const (
+	nullableFlag      byte = 1 << iota
+	autoIncrementFlag byte = 1 << iota
 )
 
 type SQLValueType = string
@@ -210,8 +215,16 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 
 	for colID, col := range table.ColsByID() {
 		v := make([]byte, 1+len(col.colName))
+
+		if col.autoIncrement && (col.colName != table.pk.colName || table.pk.colType != IntegerType) {
+			return nil, nil, nil, ErrLimitedAutoIncrement
+		}
+
+		if col.autoIncrement {
+			v[0] = v[0] | autoIncrementFlag
+		}
 		if col.notNull {
-			v[0] = 1
+			v[0] = v[0] | nullableFlag
 		}
 		copy(v[1:], []byte(col.Name()))
 
@@ -232,9 +245,10 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 }
 
 type ColSpec struct {
-	colName string
-	colType SQLValueType
-	notNull bool
+	colName       string
+	colType       SQLValueType
+	autoIncrement bool
+	notNull       bool
 }
 
 type CreateIndexStmt struct {
@@ -439,8 +453,12 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
 		selByColID[col.id] = i
 	}
 
-	if !pkIncluded {
+	if !pkIncluded && (!stmt.isInsert || !table.pk.autoIncrement) {
 		return nil, ErrPKCanNotBeNull
+	}
+
+	if pkIncluded && stmt.isInsert && table.pk.autoIncrement {
+		return nil, ErrNoValueForAutoIncrementalColumn
 	}
 
 	return selByColID, nil
@@ -462,7 +480,19 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, nil, nil, ErrInvalidNumberOfValues
 		}
 
-		pkVal := row.Values[cs[table.pk.id]]
+		cols := stmt.cols
+
+		var pkVal ValueExp
+
+		// inject auto-incremental pk value
+		if stmt.isInsert && table.pk.autoIncrement {
+			pkVal = &Number{val: table.maxPK + 1}
+			cols = append(cols, table.pk.colName)
+			row.Values = append(row.Values, pkVal)
+			table.maxPK++
+		} else {
+			pkVal = row.Values[cs[table.pk.id]]
+		}
 
 		val, err := pkVal.substitute(params)
 		if err != nil {
@@ -484,7 +514,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, nil, nil, err
 		}
 
-		bs, err := row.bytes(e.catalog, table, stmt.cols, params)
+		bs, err := row.bytes(e.catalog, table, cols, params)
 		if err != nil {
 			return nil, nil, nil, err
 		}
