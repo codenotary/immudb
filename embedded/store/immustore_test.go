@@ -490,8 +490,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 				}, nil
 			}
 			return &mocked.MockedAppendable{
-				SizeFn:  func() (int64, error) { return 0, nil },
-				CloseFn: func() error { return nil },
+				SizeFn:   func() (int64, error) { return 0, nil },
+				OffsetFn: func() int64 { return 0 },
+				CloseFn:  func() error { return nil },
 			}, nil
 		}),
 	)
