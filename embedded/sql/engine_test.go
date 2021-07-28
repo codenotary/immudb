@@ -791,6 +791,7 @@ func TestQuery(t *testing.T) {
 
 	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY title", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
+	require.Nil(t, r)
 
 	r, err = engine.QueryStmt("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil, true)
 	require.NoError(t, err)
@@ -902,8 +903,32 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
+	r, err = engine.QueryStmt("INVALID QUERY", nil, false)
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+	require.Nil(t, r)
+
+	r, err = engine.QueryStmt("UPSERT INTO table1 (id) VALUES(1)", nil, false)
+	require.ErrorIs(t, err, ErrExpectingDQLStmt)
+	require.Nil(t, r)
+
+	r, err = engine.QueryStmt("UPSERT INTO table1 (id) VALUES(1); UPSERT INTO table1 (id) VALUES(1)", nil, false)
+	require.ErrorIs(t, err, ErrExpectingDQLStmt)
+	require.Nil(t, r)
+
+	r, err = engine.QueryPreparedStmt(nil, nil, false)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+	require.Nil(t, r)
+
 	err = engine.Close()
 	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT * FROM table1", nil, true)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+	require.Nil(t, r)
+
+	r, err = engine.QueryStmt("SELECT * FROM table1", nil, false)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+	require.Nil(t, r)
 }
 
 func TestQueryWithNullables(t *testing.T) {
@@ -1269,6 +1294,7 @@ func TestAggregations(t *testing.T) {
 
 	row, err := r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
+	require.Nil(t, row)
 
 	err = r.Close()
 	require.NoError(t, err)
