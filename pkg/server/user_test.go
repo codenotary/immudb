@@ -117,7 +117,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestServerUsermanagement(t *testing.T) {
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
 
 	testServerCreateUser(ctx, s, t)

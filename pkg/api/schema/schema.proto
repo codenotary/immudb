@@ -673,9 +673,17 @@ service ImmuService {
 		};
 	};
 
-	rpc CreateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
+	// DEPRECATED: kept for backward compatibility
+	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/create"
+			body: "*"
+		};
+	}
+
+	rpc CreateDatabaseWith(DatabaseSettings) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			post: "/db/createwith"
 			body: "*"
 		};
 	}

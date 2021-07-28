@@ -210,7 +210,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	_, err = s.CreateDatabase(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	newdb := &schema.DatabaseSettings{
+	newdb := &schema.Database{
 		DatabaseName: "lisbon",
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
@@ -239,7 +239,7 @@ func TestServerCreateDatabaseCaseError(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	assert.Equal(t, err.Error(), "provide a lowercase database name")
 }
 
@@ -269,7 +269,7 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 		db := &schema.DatabaseSettings{
 			DatabaseName: dbname,
 		}
-		_, err = s.CreateDatabase(ctx, db)
+		_, err = s.CreateDatabaseWith(ctx, db)
 		if err != nil {
 			t.Fatalf("Createdatabase error %v", err)
 		}
@@ -351,7 +351,7 @@ func TestServerUpdateDatabase(t *testing.T) {
 		DatabaseName: "lisbon",
 		Replica:      true,
 	}
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
 
 	newdb.Replica = false
@@ -386,7 +386,7 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	if err != nil {
 		t.Fatalf("Createdatabase error %v", err)
 	}
@@ -1000,7 +1000,7 @@ func TestServerDbOperations(t *testing.T) {
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1314,7 +1314,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
 	someDb1 := "somedatabase1"
-	_, err = s.CreateDatabase(adminCtx, &schema.DatabaseSettings{DatabaseName: someDb1})
+	_, err = s.CreateDatabaseWith(adminCtx, &schema.DatabaseSettings{DatabaseName: someDb1})
 	require.NoError(t, err)
 
 	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: someDb1})
@@ -1424,27 +1424,30 @@ func TestServerErrors(t *testing.T) {
 	someDb2 := "somedatabase2"
 	createDbReq := &schema.DatabaseSettings{DatabaseName: someDb2}
 	s.Options.auth = false
-	_, err = s.CreateDatabase(adminCtx, createDbReq)
+	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
-	_, err = s.CreateDatabase(context.Background(), createDbReq)
+	_, err = s.CreateDatabaseWith(context.Background(), nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = s.CreateDatabaseWith(context.Background(), createDbReq)
 	require.Equal(t, errors.New("could not get loggedin user data"), err)
 
-	_, err = s.CreateDatabase(userCtx, createDbReq)
+	_, err = s.CreateDatabaseWith(userCtx, createDbReq)
 	require.Equal(t, errors.New("Logged In user does not have permissions for this operation"), err)
 
 	createDbReq.DatabaseName = SystemdbName
-	_, err = s.CreateDatabase(adminCtx, createDbReq)
+	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this database name is reserved"), err)
 	createDbReq.DatabaseName = someDb2
 
 	createDbReq.DatabaseName = ""
-	_, err = s.CreateDatabase(adminCtx, createDbReq)
+	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, errors.New("database name length outside of limits"), err)
 
 	createDbReq.DatabaseName = someDb1
-	_, err = s.CreateDatabase(adminCtx, createDbReq)
+	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, fmt.Errorf("database %s already exists", someDb1), err)
 
 	// ChangePassword errors
@@ -1699,7 +1702,7 @@ func TestServerMaintenanceMode(t *testing.T) {
 	_, err = s.SetActiveUser(context.Background(), nil)
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
-	_, err = s.CreateDatabase(context.Background(), &schema.DatabaseSettings{})
+	_, err = s.CreateDatabaseWith(context.Background(), &schema.DatabaseSettings{})
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
 	_, err = s.UpdateDatabase(context.Background(), &schema.DatabaseSettings{})

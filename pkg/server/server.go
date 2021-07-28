@@ -627,7 +627,16 @@ func (s *ImmuServer) installShutdownHandler() {
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
+}
+
+// CreateDatabase Create a new database instance
+func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if req == nil {

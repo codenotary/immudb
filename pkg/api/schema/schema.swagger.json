@@ -114,7 +114,40 @@
     },
     "/db/create": {
       "post": {
+        "summary": "DEPRECATED: kept for backward compatibility",
         "operationId": "ImmuService_CreateDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabase"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/createwith": {
+      "post": {
+        "operationId": "ImmuService_CreateDatabaseWith",
         "responses": {
           "200": {
             "description": "A successful response.",
