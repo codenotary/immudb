@@ -931,6 +931,32 @@ func TestQuery(t *testing.T) {
 	require.Nil(t, r)
 }
 
+func TestExecCornerCases(t *testing.T) {
+	catalogStore, err := store.Open("catalog_q", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_q")
+
+	dataStore, err := store.Open("sqldata_q", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_q")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	ddTxs, dmTxs, err := engine.ExecStmt("INVALID STATEMENT", nil, false)
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+	require.Nil(t, ddTxs)
+	require.Nil(t, dmTxs)
+
+	err = engine.Close()
+	require.NoError(t, err)
+
+	ddTxs, dmTxs, err = engine.ExecStmt("CREATE TABLE t1(id INTEGER, primary key id)", nil, false)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+	require.Nil(t, ddTxs)
+	require.Nil(t, dmTxs)
+}
+
 func TestQueryWithNullables(t *testing.T) {
 	catalogStore, err := store.Open("catalog_nullable", store.DefaultOptions())
 	require.NoError(t, err)
