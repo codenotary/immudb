@@ -267,7 +267,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 			err = discardSnapshots(path, snapIDs[i-1:i], opts.log)
 			if err != nil {
-				return nil, err
+				opts.log.Warningf("Error discarding snapshots at '%s'. %v", path, err)
 			}
 
 			continue
@@ -278,7 +278,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		// Discard older snapshots upon sucessful validation
 		err = discardSnapshots(path, snapIDs[:i-1], opts.log)
 		if err != nil {
-			return nil, err
+			opts.log.Warningf("Error discarding snapshots at '%s'. %v", path, err)
 		}
 
 		return t, nil
