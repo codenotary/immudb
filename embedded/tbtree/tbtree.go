@@ -930,6 +930,23 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 	return t.newSnapshot(0, t.root), nil
 }
 
+// SnapshotCount returns the number of stored snapshots
+// Note: snapshotCount(compact(t)) = 1
+func (t *TBtree) SnapshotCount() (uint64, error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	return t.snapshotCount(), nil
+}
+
+func (t *TBtree) snapshotCount() uint64 {
+	return uint64(t.committedLogSize / cLogEntrySize)
+}
+
 func (t *TBtree) Compact() (uint64, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -946,9 +963,7 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrSnapshotsNotClosed
 	}
 
-	snapCount := t.committedLogSize / cLogEntrySize
-
-	if snapCount < int64(t.compactionThld) {
+	if t.snapshotCount() < uint64(t.compactionThld) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
