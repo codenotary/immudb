@@ -312,7 +312,7 @@ func snapFolder(folder string, snapID uint64) string {
 		return folder
 	}
 
-	return fmt.Sprintf("%s%d", folder, snapID)
+	return fmt.Sprintf("%s%016d", folder, snapID)
 }
 
 func recoverFullSnapshots(path, prefix string, log logger.Logger) (snapIDs []uint64, err error) {
