@@ -97,7 +97,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 		require.Equal(t, i, rtxmd.Id)
 	}
 
-	replicatedEntry, err := client.Get(rctx, []byte("key1"))
+	replicatedEntry, err := client.GetAt(rctx, []byte("key1"), txmd.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte("value1"), replicatedEntry.Value)
 	require.Equal(t, txmd.Id, replicatedEntry.Tx)
