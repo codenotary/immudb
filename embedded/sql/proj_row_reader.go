@@ -192,7 +192,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		for encSel, _ := range colsBySel {
+		for encSel := range colsBySel {
 			val, ok := row.Values[encSel]
 			if !ok {
 				return nil, ErrColumnDoesNotExist

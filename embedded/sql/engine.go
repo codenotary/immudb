@@ -1030,7 +1030,7 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 		return nil, ErrCatalogNotReady
 	}
 
-	params := make(map[string]SQLValueType, 0)
+	params := make(map[string]SQLValueType)
 
 	for _, stmt := range stmts {
 		err = stmt.inferParameters(e, e.implicitDB, params)
@@ -1051,7 +1051,7 @@ func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueT
 		return nil, ErrCatalogNotReady
 	}
 
-	params := make(map[string]SQLValueType, 0)
+	params := make(map[string]SQLValueType)
 
 	err := stmt.inferParameters(e, e.implicitDB, params)
 

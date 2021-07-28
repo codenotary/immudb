@@ -219,9 +219,9 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 		id:         uint64(id),
 		db:         db,
 		name:       name,
-		colsByID:   make(map[uint64]*Column, 0),
-		colsByName: make(map[string]*Column, 0),
-		indexes:    make(map[uint64]struct{}, 0),
+		colsByID:   make(map[uint64]*Column),
+		colsByName: make(map[string]*Column),
+		indexes:    make(map[uint64]struct{}),
 	}
 
 	for _, cs := range colsSpec {

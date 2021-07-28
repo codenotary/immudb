@@ -39,21 +39,21 @@ type SQLValueType = string
 
 const (
 	IntegerType   SQLValueType = "INTEGER"
-	BooleanType                = "BOOLEAN"
-	VarcharType                = "VARCHAR"
-	BLOBType                   = "BLOB"
-	TimestampType              = "TIMESTAMP"
-	AnyType                    = "ANY"
+	BooleanType   SQLValueType = "BOOLEAN"
+	VarcharType   SQLValueType = "VARCHAR"
+	BLOBType      SQLValueType = "BLOB"
+	TimestampType SQLValueType = "TIMESTAMP"
+	AnyType       SQLValueType = "ANY"
 )
 
 type AggregateFn = string
 
 const (
 	COUNT AggregateFn = "COUNT"
-	SUM               = "SUM"
-	MAX               = "MAX"
-	MIN               = "MIN"
-	AVG               = "AVG"
+	SUM   AggregateFn = "SUM"
+	MAX   AggregateFn = "MAX"
+	MIN   AggregateFn = "MIN"
+	AVG   AggregateFn = "AVG"
 )
 
 type CmpOperator = int
@@ -407,7 +407,7 @@ func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, par
 				return err
 			}
 
-			err = val.requiresType(col.colType, make(map[string]*ColDescriptor, 0), params, implicitDB.name, table.name)
+			err = val.requiresType(col.colType, make(map[string]*ColDescriptor), params, implicitDB.name, table.name)
 			if err != nil {
 				return err
 			}
@@ -1212,10 +1212,6 @@ type JoinSpec struct {
 	joinType JoinType
 	ds       DataSource
 	cond     ValueExp
-}
-
-type GroupBySpec struct {
-	cols []string
 }
 
 type OrdCol struct {
