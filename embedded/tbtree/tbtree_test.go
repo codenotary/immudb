@@ -519,7 +519,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	require.NoError(t, err)
 
 	// Starting with an invalid folder name
-	os.MkdirAll(filepath.Join(d, fmt.Sprintf("%s1z", commitFolder)), 0777)
+	os.MkdirAll(filepath.Join(d, fmt.Sprintf("%s1z", commitFolderPrefix)), 0777)
 
 	tree, err := Open(d, DefaultOptions().WithCompactionThld(0))
 	require.NoError(t, err)
@@ -551,7 +551,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	err = tree.Close()
 	require.NoError(t, err)
 
-	os.RemoveAll(filepath.Join(d, fmt.Sprintf("%s%d", nodesFolder, c)))
+	os.RemoveAll(filepath.Join(d, fmt.Sprintf("%s%d", nodesFolderPrefix, c)))
 
 	tree, err = Open(d, DefaultOptions())
 	require.NoError(t, err)
@@ -584,13 +584,13 @@ func TestSnapshotRecovery(t *testing.T) {
 
 	{
 		// Should fail opening nLog
-		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(nodesFolder)))
+		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(nodesFolderPrefix)))
 		require.ErrorIs(t, err, injectedError)
 	}
 
 	{
 		// Should fail opening cLog
-		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(commitFolder)))
+		_, err = Open(d, DefaultOptions().WithAppFactory(metaFaultyAppFactory(commitFolderPrefix)))
 		require.ErrorIs(t, err, injectedError)
 	}
 }
