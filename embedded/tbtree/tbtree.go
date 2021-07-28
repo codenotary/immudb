@@ -287,29 +287,9 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	// No snapshot present or none was valid, fresh initialization
 	opts.log.Infof("Staring with an empty index...")
 
-	hsz, err := hLog.Size()
+	err = hLog.SetOffset(0)
 	if err != nil {
 		return nil, err
-	}
-
-	// Remove history data as it'd become garbage otherwise
-	if hsz > 0 {
-		err = hLog.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		hPath := filepath.Join(path, historyFolder)
-		err = os.RemoveAll(hPath) // TODO: hLog.Remove()
-		if err != nil {
-			return nil, err
-		}
-
-		appendableOpts.WithFileExt("hx")
-		hLog, err = appFactory(path, historyFolder, appendableOpts)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	appendableOpts.WithFileExt("n")
@@ -413,11 +393,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 	}
 
-	hLogSize, err := hLog.Size()
-	if err != nil {
-		return nil, err
-	}
-
 	cache, err := cache.NewLRUCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
@@ -431,7 +406,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		cLog:                  cLog,
 		committedLogSize:      cLogSize,
 		committedNLogSize:     0, // If garbage is accepted then t.committedNLogSize should be set to its size during initialization
-		committedHLogSize:     hLogSize,
+		committedHLogSize:     hLog.Offset(),
 		cache:                 cache,
 		maxNodeSize:           maxNodeSize,
 		flushThld:             opts.flushThld,

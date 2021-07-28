@@ -37,177 +37,179 @@ import (
 )
 
 func TestEdgeCases(t *testing.T) {
-	defer os.RemoveAll("edge_cases")
+	path, err := ioutil.TempDir("", "test_tree_edge_cases")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
-	_, err := Open("edge_cases", nil)
+	_, err = Open(path, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
+	_, err = OpenWith(path, nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	nLog := &mocked.MockedAppendable{}
 	hLog := &mocked.MockedAppendable{}
 	cLog := &mocked.MockedAppendable{}
 
-	// Should fail reading maxNodeSize from metadata
-	cLog.MetadataFn = func() []byte {
-		return nil
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, ErrCorruptedCLog)
-
-	// Should fail reading cLogSize
-	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
-		md.PutInt(MetaMaxNodeSize, 1)
-		return md.Bytes()
-	}
 	injectedError := errors.New("error")
-	cLog.SizeFn = func() (int64, error) {
-		return 0, injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
 
-	// Should fail truncating clog
-	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize + 1, nil
-	}
-	cLog.SetOffsetFn = func(off int64) error {
-		return injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
-
-	// Should succeed
-	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
-		md.PutInt(MetaMaxNodeSize, 1)
-		return md.Bytes()
-	}
-	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize - 1, nil
-	}
-	cLog.SetOffsetFn = func(off int64) error {
-		return nil
-	}
-	hLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-
-	// Should fail validating cLogSize
-	hLog.SizeFn = func() (int64, error) {
-		return 0, injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
-
-	// Should fail validating hLogSize
-	cLog.SizeFn = func() (int64, error) {
-		return cLogEntrySize, nil
-	}
-	hLog.SizeFn = func() (int64, error) {
-		return 0, injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
-
-	// Should fail when unable to read from cLog
-	hLog.SizeFn = func() (int64, error) {
-		return 0, nil
-	}
-	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		return 0, injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
-
-	// Should fail when unable to read current root node type
-	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		require.EqualValues(t, 0, off)
-		require.Len(t, bs, cLogEntrySize)
-		for i := range bs {
-			bs[i] = 0
+	t.Run("Should fail reading maxNodeSize from metadata", func(t *testing.T) {
+		cLog.MetadataFn = func() []byte {
+			return nil
 		}
-		return len(bs), nil
-	}
-	nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		return 0, injectedError
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, injectedError)
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, ErrCorruptedCLog)
+	})
 
-	// Invalid root node type
-	nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		nLogBuffer := []byte{0xFF, 0, 0, 0, 0}
-		require.Less(t, off, int64(len(nLogBuffer)))
-		l := copy(bs, nLogBuffer[off:])
-		return l, nil
-	}
-	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
-	require.ErrorIs(t, err, ErrReadingFileContent)
-
-	// Error while reading a single leaf node content
-	nLogBuffer := []byte{
-		LeafNodeType, // Node type
-		0, 0, 0, 0,   // Size, ignored
-		0, 0, 0, 1, // 1 child
-		0, 0, 0, 1, // key size
-		123,        // key
-		0, 0, 0, 1, // value size
-		23,                     // value
-		0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
-		0, 0, 0, 0, 0, 0, 0, 0, // history log offset
-		0, 0, 0, 0, 0, 0, 0, 0, // history log count
-	}
-	for i := 1; i < len(nLogBuffer); i++ {
-		injectedError := fmt.Errorf("Injected error %d", i)
-		buff := nLogBuffer[:i]
-		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			if off >= int64(len(buff)) {
-				return 0, injectedError
-			}
-
-			return copy(bs, buff[off:]), nil
+	t.Run("Should fail reading cLogSize", func(t *testing.T) {
+		cLog.MetadataFn = func() []byte {
+			md := appendable.NewMetadata(nil)
+			md.PutInt(MetaMaxNodeSize, 1)
+			return md.Bytes()
 		}
-		_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+
+		cLog.SizeFn = func() (int64, error) {
+			return 0, injectedError
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
-	}
+	})
 
-	// Error while reading an inner node content
-	nLogBuffer = []byte{
-		InnerNodeType, // Node type
-		0, 0, 0, 0,    // Size, ignored
-		0, 0, 0, 1, // 1 child
-		0, 0, 0, 1, // min key size
-		0,          // min key
-		0, 0, 0, 1, // max key size
-		1,                      // max key
-		0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
-		0, 0, 0, 0, // size
-		0, 0, 0, 0, 0, 0, 0, 0, // offset
-	}
-	for i := 1; i < len(nLogBuffer); i++ {
-		injectedError := fmt.Errorf("Injected error %d", i)
-		buff := nLogBuffer[:i]
-		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			if off >= int64(len(buff)) {
-				return 0, injectedError
-			}
-
-			return copy(bs, buff[off:]), nil
+	t.Run("Should fail truncating clog", func(t *testing.T) {
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize + 1, nil
 		}
-		_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
+		cLog.SetOffsetFn = func(off int64) error {
+			return injectedError
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedError)
-	}
+	})
+
+	t.Run("Should succeed", func(t *testing.T) {
+		cLog.MetadataFn = func() []byte {
+			md := appendable.NewMetadata(nil)
+			md.PutInt(MetaMaxNodeSize, 1)
+			return md.Bytes()
+		}
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize - 1, nil
+		}
+		cLog.SetOffsetFn = func(off int64) error {
+			return nil
+		}
+		hLog.SetOffsetFn = func(off int64) error {
+			return nil
+		}
+		hLog.OffsetFn = func() int64 {
+			return 0
+		}
+		hLog.SizeFn = func() (int64, error) {
+			return 0, nil
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.NoError(t, err)
+	})
+
+	t.Run("Should fail when unable to read from cLog", func(t *testing.T) {
+		cLog.SizeFn = func() (int64, error) {
+			return cLogEntrySize, nil
+		}
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			return 0, injectedError
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, injectedError)
+	})
+
+	t.Run("Should fail when unable to read current root node type", func(t *testing.T) {
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			require.EqualValues(t, 0, off)
+			require.Len(t, bs, cLogEntrySize)
+			for i := range bs {
+				bs[i] = 0
+			}
+			return len(bs), nil
+		}
+		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			return 0, injectedError
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, injectedError)
+	})
+
+	t.Run("Invalid root node type", func(t *testing.T) {
+		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			nLogBuffer := []byte{0xFF, 0, 0, 0, 0}
+			require.Less(t, off, int64(len(nLogBuffer)))
+			l := copy(bs, nLogBuffer[off:])
+			return l, nil
+		}
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, ErrReadingFileContent)
+	})
+
+	t.Run("Error while reading a single leaf node content", func(t *testing.T) {
+		nLogBuffer := []byte{
+			LeafNodeType, // Node type
+			0, 0, 0, 0,   // Size, ignored
+			0, 0, 0, 1, // 1 child
+			0, 0, 0, 1, // key size
+			123,        // key
+			0, 0, 0, 1, // value size
+			23,                     // value
+			0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
+			0, 0, 0, 0, 0, 0, 0, 0, // history log offset
+			0, 0, 0, 0, 0, 0, 0, 0, // history log count
+		}
+		for i := 1; i < len(nLogBuffer); i++ {
+			injectedError := fmt.Errorf("Injected error %d", i)
+			buff := nLogBuffer[:i]
+			nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+				if off >= int64(len(buff)) {
+					return 0, injectedError
+				}
+
+				return copy(bs, buff[off:]), nil
+			}
+			_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+			require.ErrorIs(t, err, injectedError)
+		}
+	})
+
+	t.Run("Error while reading an inner node content", func(t *testing.T) {
+		nLogBuffer := []byte{
+			InnerNodeType, // Node type
+			0, 0, 0, 0,    // Size, ignored
+			0, 0, 0, 1, // 1 child
+			0, 0, 0, 1, // min key size
+			0,          // min key
+			0, 0, 0, 1, // max key size
+			1,                      // max key
+			0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
+			0, 0, 0, 0, // size
+			0, 0, 0, 0, 0, 0, 0, 0, // offset
+		}
+		for i := 1; i < len(nLogBuffer); i++ {
+			injectedError := fmt.Errorf("Injected error %d", i)
+			buff := nLogBuffer[:i]
+			nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+				if off >= int64(len(buff)) {
+					return 0, injectedError
+				}
+
+				return copy(bs, buff[off:]), nil
+			}
+			_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+			require.ErrorIs(t, err, injectedError)
+		}
+	})
 
 	opts := DefaultOptions().
 		WithMaxActiveSnapshots(1).
 		WithMaxNodeSize(MinNodeSize).
 		WithFlushThld(1000)
-	tree, err := Open("edge_cases", opts)
+	tree, err := Open(path, opts)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
 
