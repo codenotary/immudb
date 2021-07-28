@@ -80,16 +80,16 @@ func TestEdgeCases(t *testing.T) {
 
 	injectedErr := errors.New("error")
 
-	{
+	t.Run("should fail while querying cLog size", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail while setting cLog offset", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize - 1, nil
 		}
@@ -99,9 +99,9 @@ func TestEdgeCases(t *testing.T) {
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail while appending payload", func(t *testing.T) {
 		cLog.SetOffsetFn = dummySetOffset
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize - 1, nil
@@ -115,9 +115,9 @@ func TestEdgeCases(t *testing.T) {
 
 		_, _, err = tree.Append([]byte{1, 2, 3})
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail while validating plog size", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize + 1, nil
 		}
@@ -129,15 +129,12 @@ func TestEdgeCases(t *testing.T) {
 		pLog.SizeFn = func() (int64, error) {
 			return 0, nil
 		}
-		dLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.Equal(t, ErrorCorruptedData, err)
-	}
+	})
 
-	{
+	t.Run("should fail while validating dLog size", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize + 1, nil
 		}
@@ -155,27 +152,27 @@ func TestEdgeCases(t *testing.T) {
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.Equal(t, ErrorCorruptedDigests, err)
-	}
+	})
 
-	{
+	t.Run("should fail reading dLog size", func(t *testing.T) {
 		dLog.SizeFn = func() (int64, error) {
 			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail reading pLog size", func(t *testing.T) {
 		pLog.SizeFn = func() (int64, error) {
 			return 0, injectedErr
 		}
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail reading last cLog entry", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return 0, nil
 		}
@@ -203,9 +200,9 @@ func TestEdgeCases(t *testing.T) {
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail reading pLog size", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return cLogEntrySize, nil
 		}
@@ -215,31 +212,18 @@ func TestEdgeCases(t *testing.T) {
 
 		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail flushing pLog", func(t *testing.T) {
 		cLog.SizeFn = func() (int64, error) {
 			return 0, nil
 		}
 		pLog.SizeFn = func() (int64, error) {
 			return 0, nil
 		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, injectedErr
-		}
 		pLog.SetOffsetFn = func(off int64) error {
 			return nil
 		}
-
-		_, _, err = tree.Append([]byte{})
-		require.ErrorIs(t, err, injectedErr)
-	}
-
-	{
 		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, nil
 		}
@@ -252,9 +236,9 @@ func TestEdgeCases(t *testing.T) {
 
 		_, _, err = tree.Append([]byte{1, 2, 3})
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail appending to dLog", func(t *testing.T) {
 		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, nil
 		}
@@ -273,73 +257,71 @@ func TestEdgeCases(t *testing.T) {
 
 		_, _, err = tree.Append([]byte{1, 2, 3})
 		require.ErrorIs(t, err, injectedErr)
-	}
+	})
 
-	{
+	t.Run("should fail due to invalid path", func(t *testing.T) {
 		_, err = Open("options.go", DefaultOptions())
 		require.Equal(t, ErrorPathIsNotADirectory, err)
-	}
+	})
 
-	{
+	t.Run("should fail due to invalid cache size", func(t *testing.T) {
 		_, err = Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
 		require.Equal(t, ErrIllegalArguments, err)
-	}
+	})
 
-	{
+	t.Run("should fail due to invalid digests cache size", func(t *testing.T) {
 		_, err = Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
 		require.Equal(t, ErrIllegalArguments, err)
-	}
+	})
 
-	{
-		tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
-		require.NoError(t, err)
-		defer os.RemoveAll("ahtree_test")
+	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
 
-		_, _, err = tree.Root()
-		require.Equal(t, ErrEmptyTree, err)
+	_, _, err = tree.Root()
+	require.Equal(t, ErrEmptyTree, err)
 
-		_, err = tree.rootAt(1)
-		require.Equal(t, ErrEmptyTree, err)
+	_, err = tree.rootAt(1)
+	require.Equal(t, ErrEmptyTree, err)
 
-		_, err = tree.rootAt(0)
-		require.Equal(t, ErrIllegalArguments, err)
+	_, err = tree.rootAt(0)
+	require.Equal(t, ErrIllegalArguments, err)
 
-		_, err = tree.DataAt(0)
-		require.Equal(t, ErrIllegalArguments, err)
+	_, err = tree.DataAt(0)
+	require.Equal(t, ErrIllegalArguments, err)
 
-		err = tree.Sync()
-		require.NoError(t, err)
+	err = tree.Sync()
+	require.NoError(t, err)
 
-		_, _, err = tree.Append([]byte{1})
-		require.NoError(t, err)
+	_, _, err = tree.Append([]byte{1})
+	require.NoError(t, err)
 
-		err = tree.Close()
-		require.NoError(t, err)
+	err = tree.Close()
+	require.NoError(t, err)
 
-		_, _, err = tree.Append(nil)
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, _, err = tree.Append(nil)
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		_, err = tree.InclusionProof(1, 2)
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, err = tree.InclusionProof(1, 2)
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		_, err = tree.ConsistencyProof(1, 2)
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, err = tree.ConsistencyProof(1, 2)
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		_, _, err = tree.Root()
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, _, err = tree.Root()
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		_, err = tree.rootAt(1)
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, err = tree.rootAt(1)
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		_, err = tree.DataAt(1)
-		require.Equal(t, ErrAlreadyClosed, err)
+	_, err = tree.DataAt(1)
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		err = tree.Sync()
-		require.Equal(t, ErrAlreadyClosed, err)
+	err = tree.Sync()
+	require.Equal(t, ErrAlreadyClosed, err)
 
-		err = tree.Close()
-		require.Equal(t, ErrAlreadyClosed, err)
-	}
+	err = tree.Close()
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestReadOnly(t *testing.T) {
