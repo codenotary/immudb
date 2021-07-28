@@ -356,7 +356,7 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 		DatabaseName: "newdb",
 	}
 
-	_, err = s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
 	err = s.CloseDatabases()
 	require.NoError(t, err)

@@ -1356,7 +1356,7 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 		return ErrNotConnected
 	}
 
-	_, err := c.ServiceClient.CreateDatabase(ctx, settings)
+	_, err := c.ServiceClient.CreateDatabaseWith(ctx, settings)
 
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
 
