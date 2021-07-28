@@ -2015,3 +2015,237 @@ func TestDecodeValueSuccess(t *testing.T) {
 		})
 	}
 }
+
+func TestTrimPrefix(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix")}
+
+	for _, d := range []struct {
+		n string
+		k string
+	}{
+		{"empty key", ""},
+		{"no engine prefix", "no-e-prefix"},
+		{"no mapping prefix", "e-prefix-no-mapping-prefix"},
+		{"short mapping prefix", "e-prefix-mapping"},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			prefix, err := e.trimPrefix([]byte(d.k), []byte("-mapping-prefix"))
+			require.Nil(t, prefix)
+			require.ErrorIs(t, err, ErrIllegalMappedKey)
+		})
+	}
+
+	for _, d := range []struct {
+		n string
+		k string
+		p string
+	}{
+		{"correct prefix", "e-prefix-mapping-prefix-key", "-key"},
+		{"exact prefix", "e-prefix-mapping-prefix", ""},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			prefix, err := e.trimPrefix([]byte(d.k), []byte("-mapping-prefix"))
+			require.NoError(t, err)
+			require.NotNil(t, prefix)
+			require.EqualValues(t, prefix, []byte(d.p))
+		})
+	}
+}
+
+func TestUnmapDatabaseId(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix.")}
+
+	id, err := e.unmapDatabaseID(nil)
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, id)
+
+	id, err = e.unmapDatabaseID([]byte{})
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, id)
+
+	id, err = e.unmapDatabaseID([]byte("pref"))
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, id)
+
+	id, err = e.unmapDatabaseID([]byte("e-prefix.a"))
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, id)
+
+	id, err = e.unmapDatabaseID([]byte(
+		"e-prefix.CATALOG.DATABASE.a",
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, id)
+
+	id, err = e.unmapDatabaseID(append(
+		[]byte("e-prefix.CATALOG.DATABASE."),
+		1, 2, 3, 4, 5, 6, 7, 8,
+	))
+	require.NoError(t, err)
+	require.EqualValues(t, 0x0102030405060708, id)
+}
+
+func TestUnmapTableId(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix.")}
+
+	dbID, tableID, pkID, err := e.unmapTableID(nil)
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, pkID)
+
+	dbID, tableID, pkID, err = e.unmapTableID([]byte(
+		"e-prefix.CATALOG.TABLE.a",
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, pkID)
+
+	dbID, tableID, pkID, err = e.unmapTableID(append(
+		[]byte("e-prefix.CATALOG.TABLE."),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+	))
+	require.NoError(t, err)
+	require.EqualValues(t, 0x0102030405060708, dbID)
+	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, 0x2122232425262728, pkID)
+}
+
+func TestUnmapColSpec(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix.")}
+
+	dbID, tableID, colID, colType, err := e.unmapColSpec(nil)
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Zero(t, colType)
+
+	dbID, tableID, colID, colType, err = e.unmapColSpec([]byte(
+		"e-prefix.CATALOG.COLUMN.a",
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Zero(t, colType)
+
+	dbID, tableID, colID, colType, err = e.unmapColSpec(append(
+		[]byte("e-prefix.CATALOG.COLUMN."),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		0x00,
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Zero(t, colType)
+
+	dbID, tableID, colID, colType, err = e.unmapColSpec(append(
+		[]byte("e-prefix.CATALOG.COLUMN."),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		'I', 'N', 'T', 'E', 'G', 'E', 'R',
+	))
+
+	require.NoError(t, err)
+	require.EqualValues(t, 0x0102030405060708, dbID)
+	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, 0x2122232425262728, colID)
+	require.Equal(t, "INTEGER", colType)
+}
+
+func TestUnmapIndex(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix.")}
+
+	dbID, tableID, colID, err := e.unmapIndex(nil)
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+
+	dbID, tableID, colID, err = e.unmapIndex([]byte(
+		"e-prefix.CATALOG.INDEX.a",
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+
+	dbID, tableID, colID, err = e.unmapIndex(append(
+		[]byte("e-prefix.CATALOG.INDEX."),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+	))
+
+	require.NoError(t, err)
+	require.EqualValues(t, 0x0102030405060708, dbID)
+	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, 0x2122232425262728, colID)
+}
+
+func TestUnmapIndexedRow(t *testing.T) {
+	e := Engine{prefix: []byte("e-prefix.")}
+
+	dbID, tableID, colID, encVal, encPKVal, err := e.unmapIndexedRow(nil)
+	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Nil(t, encVal)
+	require.Nil(t, encPKVal)
+
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow([]byte(
+		"e-prefix.ROW.a",
+	))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Nil(t, encVal)
+	require.Nil(t, encPKVal)
+
+	fullValue := append(
+		[]byte("e-prefix.ROW."),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		0, 0, 0, 3,
+		'a', 'b', 'c',
+		0, 0, 0, 4,
+		'd', 'e', 'f', 'g',
+	)
+
+	for i := 13; i < len(fullValue); i++ {
+		dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(fullValue[:i])
+		require.ErrorIs(t, err, ErrCorruptedData)
+		require.Zero(t, dbID)
+		require.Zero(t, tableID)
+		require.Zero(t, colID)
+		require.Nil(t, encVal)
+		require.Nil(t, encPKVal)
+	}
+
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(append(fullValue, 0))
+	require.ErrorIs(t, err, ErrCorruptedData)
+	require.Zero(t, dbID)
+	require.Zero(t, tableID)
+	require.Zero(t, colID)
+	require.Nil(t, encVal)
+	require.Nil(t, encPKVal)
+
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(fullValue)
+	require.NoError(t, err)
+	require.EqualValues(t, 0x0102030405060708, dbID)
+	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, 0x2122232425262728, colID)
+	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encVal)
+	require.EqualValues(t, []byte{0, 0, 0, 4, 'd', 'e', 'f', 'g'}, encPKVal)
+}
