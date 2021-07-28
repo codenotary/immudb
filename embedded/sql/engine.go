@@ -39,6 +39,8 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrInvalidPK = errors.New("primary key of invalid type. Supported types are: INTEGER, STRING[256], TIMESTAMP OR BLOB[256]")
+var ErrLimitedAutoIncrement = errors.New("only INTEGER primary keys can be set as auto incremental")
+var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
@@ -446,11 +448,8 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 }
 
 func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
-	initialKey := e.mapKey(catalogTablePrefix, EncodeID(db.id))
-
 	dbReaderSpec := &store.KeyReaderSpec{
-		SeekKey: initialKey,
-		Prefix:  initialKey,
+		Prefix: e.mapKey(catalogTablePrefix, EncodeID(db.id)),
 	}
 
 	tableReader, err := snap.NewKeyReader(dbReaderSpec)
@@ -494,6 +493,31 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 
 		if tableID != table.id {
 			return ErrCorruptedData
+		}
+
+		if table.pk.autoIncrement {
+			pkReaderSpec := &store.KeyReaderSpec{
+				Prefix:    e.mapKey(RowPrefix, EncodeID(db.id), EncodeID(table.id), EncodeID(table.pk.id)),
+				DescOrder: true,
+			}
+
+			pkReader, err := snap.NewKeyReader(pkReaderSpec)
+			if err != nil {
+				return err
+			}
+			defer pkReader.Close()
+
+			encMaxPK, _, _, _, err := pkReader.Read()
+			if err != nil && err != store.ErrNoMoreEntries {
+				return err
+			}
+
+			val, _, err := DecodeValue(encMaxPK, IntegerType)
+			if err != nil {
+				return err
+			}
+
+			table.maxPK = val.Value().(uint64)
 		}
 
 		indexes, err := e.loadIndexes(db.id, tableID, snap)
@@ -549,7 +573,7 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 			return nil, "", ErrCorruptedData
 		}
 
-		spec := &ColSpec{colName: string(v[1:]), colType: colType, notNull: v[0] == 1}
+		spec := &ColSpec{colName: string(v[1:]), colType: colType, autoIncrement: v[0]&autoIncrementFlag != 0, notNull: v[0]&nullableFlag != 0}
 
 		specs = append(specs, spec)
 

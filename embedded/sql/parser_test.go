@@ -133,6 +133,17 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, PRIMARY KEY id)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:       "table1",
+					ifNotExists: false,
+					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType, autoIncrement: true}},
+					pk:          "id",
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "CREATE TABLE xtable1 (xid INTEGER, PRIMARY KEY xid)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
