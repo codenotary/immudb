@@ -53,7 +53,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	txEntry := d.tx1
 
-	table, err := d.sqlEngine.Catalog().GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
+	table, err := d.sqlEngine.GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 		return nil, err
 	}
 
-	db, err := d.sqlEngine.Catalog().GetDatabaseByName(dbInstanceName)
+	db, err := d.sqlEngine.GetDatabaseByName(dbInstanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		return nil, err
 	}
 
-	table, err := d.sqlEngine.Catalog().GetTableByName(dbInstanceName, tableName)
+	table, err := d.sqlEngine.GetTableByName(dbInstanceName, tableName)
 	if err != nil {
 		return nil, err
 	}

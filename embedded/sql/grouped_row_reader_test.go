@@ -35,6 +35,9 @@ func TestGroupedRowReader(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady()
+	require.NoError(t, err)
+
 	_, err = engine.newGroupedRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
