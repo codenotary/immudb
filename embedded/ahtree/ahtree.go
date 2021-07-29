@@ -38,6 +38,7 @@ var ErrAlreadyClosed = errors.New("already closed")
 var ErrEmptyTree = errors.New("empty tree")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrUnexistentData = errors.New("attempt to read unexistent data")
+var ErrCannotResetToLargerSize = errors.New("can not reset the tree to a larger size")
 
 const LeafPrefix = byte(0)
 const NodePrefix = byte(1)
@@ -354,6 +355,76 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	return
 }
 
+func (t *AHtree) ResetSize(newSize uint64) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	if t.readOnly {
+		return ErrReadOnly
+	}
+
+	currentSize := t.size()
+
+	if currentSize < newSize {
+		return ErrCannotResetToLargerSize
+	}
+
+	if currentSize == newSize {
+		return nil
+	}
+
+	cLogSize := int64(newSize * cLogEntrySize)
+
+	var b [cLogEntrySize]byte
+	_, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+	if err != nil {
+		return err
+	}
+
+	pOff := binary.BigEndian.Uint64(b[:])
+	pSize := binary.BigEndian.Uint32(b[offsetSize:])
+
+	pLogSize := int64(pOff) + int64(pSize)
+
+	pLogFileSize, err := t.pLog.Size()
+	if err != nil {
+		return err
+	}
+
+	if pLogFileSize < pLogSize {
+		return ErrorCorruptedData
+	}
+
+	dLogSize := int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
+
+	dLogFileSize, err := t.dLog.Size()
+	if err != nil {
+		return err
+	}
+
+	if dLogFileSize < dLogSize {
+		return ErrorCorruptedDigests
+	}
+
+	// Invalidate caches
+	for i := cLogSize; i < t.cLogSize; i += cLogEntrySize {
+		t.pCache.Pop(uint64(i / cLogEntrySize))
+	}
+	for i := dLogSize; i < t.dLogSize; i += sha256.Size {
+		t.dCache.Pop(uint64(i / sha256.Size))
+	}
+
+	t.cLogSize = cLogSize
+	t.pLogSize = pLogSize
+	t.dLogSize = dLogSize
+
+	return nil
+}
+
 func (t *AHtree) node(n uint64, l int) (h [sha256.Size]byte, err error) {
 	return t.nodeAt(nodesUntil(n) + uint64(l))
 }
@@ -561,6 +632,10 @@ func (t *AHtree) Size() uint64 {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	return t.size()
+}
+
+func (t *AHtree) size() uint64 {
 	return uint64(t.cLogSize / cLogEntrySize)
 }
 

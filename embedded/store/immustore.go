@@ -453,8 +453,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.aht.Size() > store.committedTxID {
-		store.Close()
-		return nil, fmt.Errorf("corrupted commit log: aht size is too large: %w", ErrCorruptedCLog)
+		err = store.aht.ResetSize(store.committedTxID)
+		if err != nil {
+			store.Close()
+			return nil, fmt.Errorf("corrupted commit log: can not truncate aht tree: %w", err)
+		}
 	}
 
 	if store.indexer.Ts() > store.committedTxID {
@@ -1041,6 +1044,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 	}
 
 	if s.blBuffer == nil {
+		err = s.aht.ResetSize(committedTxID)
+		if err != nil {
+			return err
+		}
 		_, _, err := s.aht.Append(tx.Alh[:])
 		if err != nil {
 			return err
