@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -565,6 +566,91 @@ func TestReOpenningImmudbStore(t *testing.T) {
 			require.True(t, verifies)
 		}
 	}
+
+	err = tree.Close()
+	require.NoError(t, err)
+}
+
+func TestReset(t *testing.T) {
+	path, err := ioutil.TempDir("", "ahtree_test_reset")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	tree, err := Open(path, DefaultOptions())
+	require.NoError(t, err)
+
+	N := 1024
+
+	for i := 1; i <= N; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		require.NoError(t, err)
+	}
+
+	err = tree.ResetSize(uint64(N + 1))
+	require.ErrorIs(t, err, ErrCannotResetToLargerSize)
+
+	err = tree.ResetSize(uint64(N))
+	require.NoError(t, err)
+	require.Equal(t, uint64(N), tree.Size())
+
+	N = 512
+
+	err = tree.ResetSize(uint64(N))
+	require.NoError(t, err)
+	require.Equal(t, uint64(N), tree.Size())
+
+	for i := 1; i <= N; i++ {
+		for j := i; j <= N; j++ {
+			iproof, err := tree.InclusionProof(uint64(i), uint64(j))
+			require.NoError(t, err)
+
+			jroot, err := tree.RootAt(uint64(j))
+			require.NoError(t, err)
+
+			h := sha256.Sum256([]byte{LeafPrefix, byte(i)})
+
+			verifies := VerifyInclusion(iproof, uint64(i), uint64(j), h, jroot)
+			require.True(t, verifies)
+
+			cproof, err := tree.ConsistencyProof(uint64(i), uint64(j))
+			require.NoError(t, err)
+
+			iroot, err := tree.RootAt(uint64(i))
+			require.NoError(t, err)
+
+			verifies = VerifyConsistency(cproof, uint64(i), uint64(j), iroot, jroot)
+			require.True(t, verifies)
+		}
+	}
+
+	for i := 1; i <= N; i++ {
+		iproof, err := tree.InclusionProof(uint64(i), uint64(N))
+		require.NoError(t, err)
+
+		h := sha256.Sum256([]byte{LeafPrefix, byte(i)})
+		root, err := tree.RootAt(uint64(i))
+		require.NoError(t, err)
+
+		verifies := VerifyLastInclusion(iproof, uint64(i), h, root)
+
+		if i < N {
+			require.False(t, verifies)
+		} else {
+			require.True(t, verifies)
+		}
+	}
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	err = tree.ResetSize(uint64(N))
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	tree, err = Open(path, DefaultOptions().WithReadOnly(true))
+	require.NoError(t, err)
+
+	err = tree.ResetSize(1)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = tree.Close()
 	require.NoError(t, err)
