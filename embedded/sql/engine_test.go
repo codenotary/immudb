@@ -84,24 +84,17 @@ func TestUseDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	engine.catalog = nil
-
 	err = engine.UseDatabase("db1")
 	require.Equal(t, ErrCatalogNotReady, err)
-
-	err = engine.EnsureCatalogReady()
-	require.NoError(t, err)
-
-	err = engine.UseDatabase("db1")
-	require.Equal(t, ErrDatabaseDoesNotExist, err)
-
-	engine.catalog = nil
 
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
+
+	err = engine.UseDatabase("db2")
+	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
 	db, err := engine.DatabaseInUse()
 	require.NoError(t, err)
@@ -194,8 +187,16 @@ func TestDumpCatalogTo(t *testing.T) {
 	engine, err = NewEngine(dumpedCatalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	require.False(t, engine.catalog.ExistDatabase("db1"))
-	require.True(t, engine.catalog.ExistDatabase("db2"))
+	err = engine.EnsureCatalogReady()
+	require.NoError(t, err)
+
+	exists, err := engine.ExistDatabase("db1")
+	require.NoError(t, err)
+	require.False(t, exists)
+
+	exists, err = engine.ExistDatabase("db2")
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	err = engine.Close()
 	require.NoError(t, err)
@@ -250,7 +251,9 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	db := engine.catalog.Databases()[0]
+	db, err := engine.GetDatabaseByName("db1")
+	require.NoError(t, err)
+	require.NotNil(t, db)
 
 	table, err := db.GetTableByName("table1")
 	require.NoError(t, err)
@@ -682,15 +685,10 @@ func TestQuery(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
-	require.NoError(t, err)
-
-	engine.catalog = nil
-
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrCatalogNotReady, err)
 
-	err = engine.EnsureCatalogReady()
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
@@ -1667,10 +1665,17 @@ func TestReOpening(t *testing.T) {
 	engine, err = NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	exists := engine.catalog.ExistDatabase("db1")
+	_, err = engine.ExistDatabase("db1")
+	require.ErrorIs(t, err, ErrCatalogNotReady)
+
+	err = engine.EnsureCatalogReady()
+	require.NoError(t, err)
+
+	exists, err := engine.ExistDatabase("db1")
+	require.NoError(t, err)
 	require.True(t, exists)
 
-	db, err := engine.catalog.GetDatabaseByName("db1")
+	db, err := engine.GetDatabaseByName("db1")
 	require.NoError(t, err)
 
 	exists = db.ExistTable("table1")
@@ -1784,6 +1789,9 @@ func TestInferParameters(t *testing.T) {
 	defer os.RemoveAll("catalog_infer_params")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady()
 	require.NoError(t, err)
 
 	stmt := "CREATE DATABASE db1"

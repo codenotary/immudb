@@ -112,7 +112,7 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		name:    op.dbName,
 	}
 
-	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
+	dbDir := dbi.path()
 
 	_, dbErr := os.Stat(dbDir)
 	if os.IsNotExist(dbErr) {
@@ -137,53 +137,85 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return dbi, nil
 	}
 
-	err = dbi.sqlEngine.UseDatabase(dbInstanceName)
-	if err != nil && err != sql.ErrDatabaseDoesNotExist {
-		return nil, err
-	}
+	go func() {
+		dbi.Logger.Infof("Loading SQL Engine for database '%s' (replica = %v)...", op.dbName, op.replicationOpts.Replica)
 
-	if err == sql.ErrDatabaseDoesNotExist {
-		dbi.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
-
-		var catalogSt *store.ImmuStore
-		if systemDB == nil {
-			catalogSt = dbi.st
-		} else {
-			systemDBI, _ := systemDB.(*db)
-			catalogSt = systemDBI.st
-		}
-
-		sqlEngine, err := sql.NewEngine(catalogSt, dbi.st, []byte{SQLPrefix})
+		err := dbi.initSQLEngine(systemDB)
 		if err != nil {
-			return nil, err
-		}
-		defer sqlEngine.Close()
-
-		err = sqlEngine.DumpCatalogTo(op.dbName, dbInstanceName, dbi.st)
-		if err != nil {
-			return nil, err
+			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' (replica = %v). %v", op.dbName, op.replicationOpts.Replica, err)
+			return
 		}
 
-		dbi.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
-
-		err = dbi.sqlEngine.LoadCatalog()
-		if err != nil {
-			return nil, err
-		}
-
-		err = dbi.sqlEngine.UseDatabase(dbInstanceName)
-		if err != nil {
-			return nil, err
-		}
-	}
+		dbi.Logger.Infof("SQL Engine ready for database '%s' (replica = %v)", op.dbName, op.replicationOpts.Replica)
+	}()
 
 	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
 
 	return dbi, nil
 }
 
+func (d *db) path() string {
+	return filepath.Join(d.options.GetDbRootPath(), d.options.GetDbName())
+}
+
+func (d *db) initSQLEngine(systemDB DB) error {
+	err := d.sqlEngine.EnsureCatalogReady()
+	if err != nil {
+		return err
+	}
+
+	err = d.sqlEngine.UseDatabase(dbInstanceName)
+	if err != nil && err != sql.ErrDatabaseDoesNotExist {
+		return err
+	}
+
+	dbDir := d.path()
+
+	if err == sql.ErrDatabaseDoesNotExist {
+		d.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
+
+		var catalogSt *store.ImmuStore
+		if systemDB == nil {
+			catalogSt = d.st
+		} else {
+			systemDBI, _ := systemDB.(*db)
+			catalogSt = systemDBI.st
+		}
+
+		sqlEngine, err := sql.NewEngine(catalogSt, d.st, []byte{SQLPrefix})
+		if err != nil {
+			return err
+		}
+		defer sqlEngine.Close()
+
+		err = sqlEngine.EnsureCatalogReady()
+		if err != nil {
+			return err
+		}
+
+		err = sqlEngine.DumpCatalogTo(d.options.dbName, dbInstanceName, d.st)
+		if err != nil {
+			return err
+		}
+
+		d.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
+
+		err = d.sqlEngine.EnsureCatalogReady()
+		if err != nil {
+			return err
+		}
+
+		err = d.sqlEngine.UseDatabase(dbInstanceName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *db) reloadSQLCatalog() error {
-	err := d.sqlEngine.LoadCatalog()
+	err := d.sqlEngine.ReloadCatalog()
 	if err != nil {
 		return err
 	}

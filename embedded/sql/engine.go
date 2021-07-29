@@ -113,11 +113,6 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine
 
 	copy(e.prefix, prefix)
 
-	err := e.LoadCatalog()
-	if err != nil {
-		return nil, err
-	}
-
 	return e, nil
 }
 
@@ -130,10 +125,17 @@ func (e *Engine) EnsureCatalogReady() error {
 		return nil
 	}
 
-	return e.LoadCatalog()
+	return e.loadCatalog()
 }
 
-func (e *Engine) LoadCatalog() error {
+func (e *Engine) ReloadCatalog() error {
+	e.catalogRWMux.Lock()
+	defer e.catalogRWMux.Unlock()
+
+	return e.loadCatalog()
+}
+
+func (e *Engine) loadCatalog() error {
 	lastTxID, _ := e.catalogStore.Alh()
 	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
@@ -1005,11 +1007,37 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	return nil, 0, ErrCorruptedData
 }
 
-func (e *Engine) Catalog() *Catalog {
+func (e *Engine) ExistDatabase(db string) (bool, error) {
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
 
-	return e.catalog
+	if e.catalog == nil {
+		return false, ErrCatalogNotReady
+	}
+
+	return e.catalog.ExistDatabase(db), nil
+}
+
+func (e *Engine) GetDatabaseByName(db string) (*Database, error) {
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		return nil, ErrCatalogNotReady
+	}
+
+	return e.catalog.GetDatabaseByName(db)
+}
+
+func (e *Engine) GetTableByName(dbName, tableName string) (*Table, error) {
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
+	if e.catalog == nil {
+		return nil, ErrCatalogNotReady
+	}
+
+	return e.catalog.GetTableByName(dbName, tableName)
 }
 
 func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
@@ -1136,7 +1164,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	defer e.catalogRWMux.Unlock()
 
 	if e.catalog == nil {
-		err := e.LoadCatalog()
+		err := e.loadCatalog()
 		if err != nil {
 			return nil, nil, err
 		}
