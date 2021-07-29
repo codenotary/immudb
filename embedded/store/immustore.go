@@ -219,7 +219,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
 	txLog, err := appFactory(path, "tx", appendableOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to open transaction log: %w", err)
 	}
 
 	appendableOpts.WithFileExt("txi")
@@ -227,7 +227,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, "commit", appendableOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to open commit log: %w", err)
+
 	}
 
 	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
@@ -256,27 +257,28 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
-		return nil, ErrCorruptedCLog
+		return nil, fmt.Errorf("corrupted commit log metadata (filesize): %w", ErrCorruptedCLog)
 	}
 
 	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
-		return nil, ErrCorruptedCLog
+		return nil, fmt.Errorf("corrupted commit log metadata (max tx entries): %w", ErrCorruptedCLog)
 	}
 
 	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
-		return nil, ErrCorruptedCLog
+		return nil, fmt.Errorf("corrupted commit log metadata (max key len): %w", ErrCorruptedCLog)
 	}
 
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
-		return nil, ErrCorruptedCLog
+		return nil, fmt.Errorf("corrupted commit log metadata (max value len): %w", ErrCorruptedCLog)
+
 	}
 
 	cLogSize, err := cLog.Size()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("corrupted commit log: could not get size: %w", err)
 	}
 
 	rem := cLogSize % cLogEntrySize
@@ -284,7 +286,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		cLogSize -= rem
 		err = cLog.SetOffset(cLogSize)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("corrupted commit log: could not set offset: %w", err)
 		}
 	}
 
@@ -298,7 +300,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		b := make([]byte, cLogEntrySize)
 		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("corrupted commit log: could not read the last commit: %w", err)
 		}
 		committedTxOffset = int64(binary.BigEndian.Uint64(b))
 		committedTxSize = int(binary.BigEndian.Uint32(b[txIDSize:]))
@@ -307,11 +309,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		txLogFileSize, err := txLog.Size()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("corrupted transaction log: could not get size: %w", err)
 		}
 
 		if txLogFileSize < committedTxLogSize {
-			return nil, ErrorCorruptedTxData
+			return nil, fmt.Errorf("corrupted transaction log: size is too small: %w", ErrorCorruptedTxData)
 		}
 	}
 
@@ -334,7 +336,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		tx := txs.Front().Value.(*Tx)
 		err = tx.readFrom(txReader)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
 		}
 
 		committedAlh = tx.Alh
@@ -364,7 +366,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	aht, err := ahtree.Open(ahtPath, ahtOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
 	kvs := make([]*tbtree.KV, maxTxEntries)
@@ -447,18 +449,23 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open indexer: %w", err)
 	}
 
-	if store.aht.Size() > store.committedTxID || store.indexer.Ts() > store.committedTxID {
+	if store.aht.Size() > store.committedTxID {
 		store.Close()
-		return nil, ErrCorruptedCLog
+		return nil, fmt.Errorf("corrupted commit log: aht size is too large: %w", ErrCorruptedCLog)
+	}
+
+	if store.indexer.Ts() > store.committedTxID {
+		store.Close()
+		return nil, fmt.Errorf("corrupted commit log: index size is too large: %w", ErrCorruptedCLog)
 	}
 
 	err = store.syncBinaryLinking()
 	if err != nil {
 		store.Close()
-		return nil, err
+		return nil, fmt.Errorf("binary linking failed: %w", err)
 	}
 
 	if store.blBuffer != nil {
@@ -629,6 +636,10 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 		alh := tx.Alh
 		s.aht.Append(alh[:])
+
+		if tx.ID%1000 == 0 {
+			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.ID)
+		}
 	}
 
 	s.log.Infof("Binary Linking up to date at '%s'", s.path)

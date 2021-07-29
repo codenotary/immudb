@@ -518,7 +518,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 
 		db, err := database.OpenDb(op, s.sysDB, s.Logger)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open database '%s': %w", dbname, err)
 		}
 
 		s.dbList.Append(db)
