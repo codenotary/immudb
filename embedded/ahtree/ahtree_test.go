@@ -579,7 +579,18 @@ func TestReset(t *testing.T) {
 	tree, err := Open(path, DefaultOptions())
 	require.NoError(t, err)
 
-	N := 1024
+	N := 32
+
+	for i := 1; i <= N; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		require.NoError(t, err)
+	}
+
+	err = tree.ResetSize(0)
+	require.NoError(t, err)
+	require.Equal(t, 0, tree.Size())
+
+	N = 1024
 
 	for i := 1; i <= N; i++ {
 		_, _, err := tree.Append([]byte{byte(i)})
