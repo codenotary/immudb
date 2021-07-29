@@ -378,36 +378,40 @@ func (t *AHtree) ResetSize(newSize uint64) error {
 	}
 
 	cLogSize := int64(newSize * cLogEntrySize)
+	pLogSize := int64(0)
+	dLogSize := int64(0)
 
-	var b [cLogEntrySize]byte
-	_, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-	if err != nil {
-		return err
-	}
+	if newSize > 0 {
+		var b [cLogEntrySize]byte
+		_, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+		if err != nil {
+			return err
+		}
 
-	pOff := binary.BigEndian.Uint64(b[:])
-	pSize := binary.BigEndian.Uint32(b[offsetSize:])
+		pOff := binary.BigEndian.Uint64(b[:])
+		pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
-	pLogSize := int64(pOff) + int64(pSize)
+		pLogSize = int64(pOff) + int64(pSize)
 
-	pLogFileSize, err := t.pLog.Size()
-	if err != nil {
-		return err
-	}
+		pLogFileSize, err := t.pLog.Size()
+		if err != nil {
+			return err
+		}
 
-	if pLogFileSize < pLogSize {
-		return ErrorCorruptedData
-	}
+		if pLogFileSize < pLogSize {
+			return ErrorCorruptedData
+		}
 
-	dLogSize := int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
+		dLogSize = int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
 
-	dLogFileSize, err := t.dLog.Size()
-	if err != nil {
-		return err
-	}
+		dLogFileSize, err := t.dLog.Size()
+		if err != nil {
+			return err
+		}
 
-	if dLogFileSize < dLogSize {
-		return ErrorCorruptedDigests
+		if dLogFileSize < dLogSize {
+			return ErrorCorruptedDigests
+		}
 	}
 
 	// Invalidate caches

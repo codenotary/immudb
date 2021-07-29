@@ -588,7 +588,7 @@ func TestReset(t *testing.T) {
 
 	err = tree.ResetSize(0)
 	require.NoError(t, err)
-	require.Equal(t, 0, tree.Size())
+	require.Zero(t, tree.Size())
 
 	N = 1024
 
