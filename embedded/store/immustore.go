@@ -1331,15 +1331,15 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 
 	var cb [cLogEntrySize]byte
 
-	n, err := s.cLog.ReadAt(cb[:], int64(off))
+	_, err := s.cLog.ReadAt(cb[:], int64(off))
 	if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
 		return 0, 0, ErrAlreadyClosed
 	}
-	if err == io.EOF && n == 0 {
+	if err == io.EOF {
+		// A partially readable commit record must be discarded -
+		// - it is a result of incomplete commit log write
+		// and will be overwritten on the next commit
 		return 0, 0, ErrTxNotFound
-	}
-	if err == io.EOF && n > 0 {
-		return 0, n, ErrCorruptedCLog
 	}
 	if err != nil {
 		return 0, 0, err

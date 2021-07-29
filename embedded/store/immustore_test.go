@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -1681,4 +1682,57 @@ func BenchmarkAppend(b *testing.B) {
 			}
 		}
 	}
+}
+
+func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_incomplete_commit_write")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	immuStore, err := Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	txMeta, err := immuStore.Commit([]*KV{
+		{Key: []byte("key1"), Value: []byte("val1")},
+	}, true)
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	// Append garbage at the end of files, immudb must be able to recover
+	// as long as the full commit log entry is not created
+
+	append := func(path string, bytes int) {
+		fl, err := os.OpenFile(filepath.Join(dir, path), os.O_APPEND|os.O_WRONLY, 0644)
+		require.NoError(t, err)
+		defer fl.Close()
+
+		buff := make([]byte, bytes)
+		_, err = rand.Read(buff)
+		require.NoError(t, err)
+
+		_, err = fl.Write(buff)
+		require.NoError(t, err)
+	}
+
+	append("commit/00000000.txi", 11) // Commit log entry is 12 bytes, must add less than that
+	append("tx/00000000.tx", 100)
+	append("val_0/00000000.val", 100)
+
+	// Force reindexing and rebuilding the aht tree
+	err = os.RemoveAll(filepath.Join(dir, "aht"))
+	require.NoError(t, err)
+
+	immuStore, err = Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	value, tx, _, err := immuStore.Get([]byte("key1"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val1"), value)
+	require.Equal(t, txMeta.ID, tx)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
 }
