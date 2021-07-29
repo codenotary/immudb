@@ -1736,3 +1736,79 @@ func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	require.NoError(t, err)
 
 }
+
+func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_truncated_commit_log")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	immuStore, err := Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	txMeta, err := immuStore.Commit([]*KV{
+		{Key: []byte("key1"), Value: []byte("val1")},
+	}, true)
+	require.NoError(t, err)
+
+	txMeta2, err := immuStore.Commit([]*KV{
+		{Key: []byte("key1"), Value: []byte("val2")},
+	}, true)
+	require.NoError(t, err)
+	require.NotEqual(t, txMeta.ID, txMeta2.ID)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	// Truncate the commit log - it must discard the last transaction but other than
+	// that the immudb should work correctly
+	// Note: This may change once the truthly appendable interface is implemented
+	//       (https://github.com/codenotary/immudb/issues/858)
+
+	txFile := filepath.Join(dir, "commit/00000000.txi")
+	stat, err := os.Stat(txFile)
+	require.NoError(t, err)
+
+	err = os.Truncate(txFile, stat.Size()-1)
+	require.NoError(t, err)
+
+	// Remove the index, it does not support truncation of commits now
+	err = os.RemoveAll(filepath.Join(dir, "index"))
+	require.NoError(t, err)
+
+	immuStore, err = Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	err = immuStore.WaitForIndexingUpto(txMeta.ID, make(<-chan struct{}))
+	require.NoError(t, err)
+
+	value, tx, _, err := immuStore.Get([]byte("key1"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val1"), value)
+	require.Equal(t, txMeta.ID, tx)
+
+	// ensure we can correctly write more data into the store
+	txMeta2, err = immuStore.Commit([]*KV{
+		{Key: []byte("key1"), Value: []byte("val2")},
+	}, true)
+	require.NoError(t, err)
+
+	value, tx, _, err = immuStore.Get([]byte("key1"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val2"), value)
+	require.Equal(t, txMeta2.ID, tx)
+
+	// test after reopening the store
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	immuStore, err = Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	value, tx, _, err = immuStore.Get([]byte("key1"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val2"), value)
+	require.Equal(t, txMeta2.ID, tx)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
