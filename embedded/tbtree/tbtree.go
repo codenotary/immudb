@@ -1193,10 +1193,6 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.compacting {
-		return nil, ErrCompactAlreadyInProgress
-	}
-
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 

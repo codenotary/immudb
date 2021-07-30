@@ -22,6 +22,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -110,7 +111,10 @@ func DefaultOptions() *Options {
 }
 
 func DefaultStoreOptions() *store.Options {
-	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+	indexOptions := store.DefaultIndexOptions().
+		WithRenewSnapRootAfter(0).
+		WithDelayDuringCompaction(10 * time.Millisecond)
+
 	return store.DefaultOptions().
 		WithIndexOptions(indexOptions).
 		WithMaxLinearProofLen(0).
