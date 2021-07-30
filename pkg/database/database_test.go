@@ -193,13 +193,14 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 	sysDB, err := OpenDb(sysOpts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	defer sysDB.Close()
-
 	dbOpts := DefaultOption().WithDbName("defaultdb").WithDbRootPath("./data_v1.0.1")
 	db, err := OpenDb(dbOpts, sysDB, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	err = db.Close()
+	require.NoError(t, err)
+
+	err = sysDB.Close()
 	require.NoError(t, err)
 }
 

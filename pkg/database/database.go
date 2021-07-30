@@ -92,6 +92,7 @@ type db struct {
 	st *store.ImmuStore
 
 	sqlEngine *sql.Engine
+	sqlInit   sync.WaitGroup
 
 	tx1, tx2 *store.Tx
 	mutex    sync.RWMutex
@@ -137,7 +138,11 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return dbi, nil
 	}
 
+	dbi.sqlInit.Add(1)
+
 	go func() {
+		defer dbi.sqlInit.Done()
+
 		dbi.Logger.Infof("Loading SQL Engine for database '%s' (replica = %v)...", op.dbName, op.replicationOpts.Replica)
 
 		err := dbi.initSQLEngine(systemDB)
@@ -817,6 +822,8 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 func (d *db) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
 
 	err := d.sqlEngine.Close()
 	if err != nil {
