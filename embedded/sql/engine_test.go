@@ -187,7 +187,7 @@ func TestDumpCatalogTo(t *testing.T) {
 	engine, err = NewEngine(dumpedCatalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	err = engine.EnsureCatalogReady()
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	exists, err := engine.ExistDatabase("db1")
@@ -1668,7 +1668,7 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExistDatabase("db1")
 	require.ErrorIs(t, err, ErrCatalogNotReady)
 
-	err = engine.EnsureCatalogReady()
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	exists, err := engine.ExistDatabase("db1")
@@ -1791,7 +1791,7 @@ func TestInferParameters(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	err = engine.EnsureCatalogReady()
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	stmt := "CREATE DATABASE db1"

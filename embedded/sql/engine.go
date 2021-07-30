@@ -117,7 +117,7 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine
 }
 
 // TODO (jeroiraz); this operation won't be needed with a transactional in-memory catalog
-func (e *Engine) EnsureCatalogReady() error {
+func (e *Engine) EnsureCatalogReady(cancellation <-chan struct{}) error {
 	e.catalogRWMux.Lock()
 	defer e.catalogRWMux.Unlock()
 
@@ -125,19 +125,19 @@ func (e *Engine) EnsureCatalogReady() error {
 		return nil
 	}
 
-	return e.loadCatalog()
+	return e.loadCatalog(cancellation)
 }
 
-func (e *Engine) ReloadCatalog() error {
+func (e *Engine) ReloadCatalog(cancellation <-chan struct{}) error {
 	e.catalogRWMux.Lock()
 	defer e.catalogRWMux.Unlock()
 
-	return e.loadCatalog()
+	return e.loadCatalog(cancellation)
 }
 
-func (e *Engine) loadCatalog() error {
+func (e *Engine) loadCatalog(cancellation <-chan struct{}) error {
 	lastTxID, _ := e.catalogStore.Alh()
-	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
+	err := e.catalogStore.WaitForIndexingUpto(lastTxID, cancellation)
 	if err != nil {
 		return err
 	}
@@ -1164,7 +1164,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	defer e.catalogRWMux.Unlock()
 
 	if e.catalog == nil {
-		err := e.loadCatalog()
+		err := e.loadCatalog(nil)
 		if err != nil {
 			return nil, nil, err
 		}

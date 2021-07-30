@@ -36,7 +36,7 @@ func TestJointRowReader(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	err = engine.EnsureCatalogReady()
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.newJointRowReader(nil, nil, nil, nil, nil)
