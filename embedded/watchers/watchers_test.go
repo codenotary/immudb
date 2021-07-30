@@ -34,10 +34,11 @@ func TestWatchersHub(t *testing.T) {
 
 	go func(cancel chan<- struct{}) {
 		time.Sleep(100 * time.Millisecond)
-		cancel <- struct{}{}
+		close(cancel)
 	}(cancellation)
 
-	wHub.WaitFor(1, cancellation)
+	err := wHub.WaitFor(1, cancellation)
+	require.ErrorIs(t, err, ErrCancellationRequested)
 
 	doneUpto, waiting, err := wHub.Status()
 	require.NoError(t, err)
