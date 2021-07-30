@@ -91,8 +91,9 @@ type DB interface {
 type db struct {
 	st *store.ImmuStore
 
-	sqlEngine *sql.Engine
-	sqlInit   sync.WaitGroup
+	sqlEngine     *sql.Engine
+	sqlInitCancel chan (struct{})
+	sqlInit       sync.WaitGroup
 
 	tx1, tx2 *store.Tx
 	mutex    sync.RWMutex
@@ -138,6 +139,7 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return dbi, nil
 	}
 
+	dbi.sqlInitCancel = make(chan struct{})
 	dbi.sqlInit.Add(1)
 
 	go func() {
@@ -164,7 +166,7 @@ func (d *db) path() string {
 }
 
 func (d *db) initSQLEngine(systemDB DB) error {
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
 	if err != nil {
 		return err
 	}
@@ -193,7 +195,7 @@ func (d *db) initSQLEngine(systemDB DB) error {
 		}
 		defer sqlEngine.Close()
 
-		err = sqlEngine.EnsureCatalogReady()
+		err = sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
 		if err != nil {
 			return err
 		}
@@ -205,7 +207,7 @@ func (d *db) initSQLEngine(systemDB DB) error {
 
 		d.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
 
-		err = d.sqlEngine.EnsureCatalogReady()
+		err = d.sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
 		if err != nil {
 			return err
 		}
@@ -220,7 +222,7 @@ func (d *db) initSQLEngine(systemDB DB) error {
 }
 
 func (d *db) reloadSQLCatalog() error {
-	err := d.sqlEngine.ReloadCatalog()
+	err := d.sqlEngine.ReloadCatalog(nil)
 	if err != nil {
 		return err
 	}
@@ -822,6 +824,10 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 func (d *db) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	if d.sqlInitCancel != nil {
+		close(d.sqlInitCancel)
+	}
 
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
 
