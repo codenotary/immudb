@@ -46,7 +46,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.Ro
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +449,7 @@ func (d *db) InferParameters(sql string) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func (d *db) InferParametersPrepared(stmt sql.SQLStmt) (map[string]sql.SQLValueT
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	err := d.sqlEngine.EnsureCatalogReady()
+	err := d.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, err
 	}
