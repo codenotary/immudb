@@ -77,6 +77,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
+			if isReplica {
+				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
+			}
+
 			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
 				DatabaseName: args[0],
 				Replica:      isReplica,
@@ -101,6 +105,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			isReplica, err := cmd.Flags().GetBool("replica")
 			if err != nil {
 				return err
+			}
+
+			if isReplica {
+				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
 			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{

@@ -40,31 +40,39 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				cl.quit(err)
 				return err
 			}
+
 			user := []byte(userStr)
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
 				cl.quit(err)
 				return err
 			}
+
 			responseWarning, err := cl.loginAndRenewClient(ctx, user, pass)
 			if err != nil {
 				cl.quit(err)
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "logged in\n")
+
+			c.PrintfColorW(cmd.OutOrStdout(), c.Green, "logged in\n")
+
 			if string(responseWarning) == auth.WarnDefaultAdminPassword {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
+
 				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass)
 				if err != nil {
 					cl.quit(err)
 					return err
 				}
+
 				if _, err := cl.loginAndRenewClient(ctx, user, newPass); err != nil {
 					cl.quit(err)
 					return err
 				}
+
 				fmt.Fprint(cmd.OutOrStdout(), changedPassMsg)
 			}
+
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
