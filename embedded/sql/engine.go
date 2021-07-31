@@ -507,8 +507,16 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			}
 			defer pkReader.Close()
 
-			encMaxPK, _, _, _, err := pkReader.Read()
-			if err != nil && err != store.ErrNoMoreEntries {
+			mkey, _, _, _, err := pkReader.Read()
+			if err == store.ErrNoMoreEntries {
+				break
+			}
+			if err != nil {
+				return err
+			}
+
+			_, _, _, _, encMaxPK, err := e.unmapRow(mkey)
+			if err != nil {
 				return err
 			}
 
@@ -721,13 +729,13 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, colID uint64, err error
 	return
 }
 
-func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encVal, encPKVal []byte, err error) {
+func (e *Engine) unmapRow(mkey []byte) (dbID, tableID, colID uint64, encVal, encPKVal []byte, err error) {
 	enc, err := e.trimPrefix(mkey, []byte(RowPrefix))
 	if err != nil {
 		return 0, 0, 0, nil, nil, err
 	}
 
-	if len(enc) < EncIDLen*3+2*EncLenLen {
+	if len(enc) < EncIDLen*3+EncLenLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
@@ -742,29 +750,36 @@ func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encV
 	colID = binary.BigEndian.Uint64(enc[off:])
 	off += EncIDLen
 
-	//read index value
+	//read optional index value followed by pk value
+
 	valLen := int(binary.BigEndian.Uint32(enc[off:]))
 	off += EncLenLen
 
-	if len(enc)-off < valLen+EncLenLen {
+	if len(enc)-off < valLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	encVal = make([]byte, EncLenLen+valLen)
-	binary.BigEndian.PutUint32(encVal, uint32(valLen))
-	copy(encVal[EncLenLen:], enc[off:off+valLen])
-	off += int(valLen)
+	if len(enc)-off > valLen {
+		encVal = make([]byte, EncLenLen+valLen)
+		binary.BigEndian.PutUint32(encVal, uint32(valLen))
+		copy(encVal[EncLenLen:], enc[off:off+valLen])
+		off += int(valLen)
+
+		if len(enc)-off < EncLenLen {
+			return 0, 0, 0, nil, nil, ErrCorruptedData
+		}
+
+		valLen = int(binary.BigEndian.Uint32(enc[off:]))
+		off += EncLenLen
+	}
 
 	// read encPKVal
-	pkValLen := int(binary.BigEndian.Uint32(enc[off:]))
-	off += EncLenLen
-
-	if len(enc)-off != pkValLen {
+	if len(enc)-off != valLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	encPKVal = make([]byte, EncLenLen+pkValLen)
-	binary.BigEndian.PutUint32(encPKVal, uint32(pkValLen))
+	encPKVal = make([]byte, EncLenLen+valLen)
+	binary.BigEndian.PutUint32(encPKVal, uint32(valLen))
 	copy(encPKVal[EncLenLen:], enc[off:])
 	off += len(encPKVal)
 
