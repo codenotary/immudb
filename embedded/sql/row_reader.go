@@ -221,7 +221,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, err
 		}
 	} else {
-		_, _, _, _, encPKVal, err := r.e.unmapIndexedRow(mkey)
+		_, _, _, _, encPKVal, err := r.e.unmapRow(mkey)
 		if err != nil {
 			return nil, err
 		}

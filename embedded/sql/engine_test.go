@@ -2363,10 +2363,10 @@ func TestUnmapIndex(t *testing.T) {
 	require.EqualValues(t, 0x2122232425262728, colID)
 }
 
-func TestUnmapIndexedRow(t *testing.T) {
+func TestUnmapRow(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, colID, encVal, encPKVal, err := e.unmapIndexedRow(nil)
+	dbID, tableID, colID, encVal, encPKVal, err := e.unmapRow(nil)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -2374,7 +2374,7 @@ func TestUnmapIndexedRow(t *testing.T) {
 	require.Nil(t, encVal)
 	require.Nil(t, encPKVal)
 
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow([]byte(
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow([]byte(
 		"e-prefix.ROW.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
@@ -2391,12 +2391,10 @@ func TestUnmapIndexedRow(t *testing.T) {
 		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 		0, 0, 0, 3,
 		'a', 'b', 'c',
-		0, 0, 0, 4,
-		'd', 'e', 'f', 'g',
 	)
 
 	for i := 13; i < len(fullValue); i++ {
-		dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(fullValue[:i])
+		dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullValue[:i])
 		require.ErrorIs(t, err, ErrCorruptedData)
 		require.Zero(t, dbID)
 		require.Zero(t, tableID)
@@ -2405,7 +2403,23 @@ func TestUnmapIndexedRow(t *testing.T) {
 		require.Nil(t, encPKVal)
 	}
 
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(append(fullValue, 0))
+	fullIndexedValue := append(
+		fullValue,
+		0, 0, 0, 4,
+		'd', 'e', 'f', 'g',
+	)
+
+	for i := len(fullValue) + 1; i < len(fullIndexedValue); i++ {
+		dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullIndexedValue[:i])
+		require.ErrorIs(t, err, ErrCorruptedData)
+		require.Zero(t, dbID)
+		require.Zero(t, tableID)
+		require.Zero(t, colID)
+		require.Nil(t, encVal)
+		require.Nil(t, encPKVal)
+	}
+
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(append(fullValue, 0))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
@@ -2413,7 +2427,7 @@ func TestUnmapIndexedRow(t *testing.T) {
 	require.Nil(t, encVal)
 	require.Nil(t, encPKVal)
 
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapIndexedRow(fullValue)
+	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullIndexedValue)
 	require.NoError(t, err)
 	require.EqualValues(t, 0x0102030405060708, dbID)
 	require.EqualValues(t, 0x1112131415161718, tableID)
