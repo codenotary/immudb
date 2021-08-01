@@ -107,7 +107,7 @@ type TxStmt struct {
 
 func (stmt *TxStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	for _, stmt := range stmt.stmts {
-		err := stmt.inferParameters(e, e.implicitDB, params)
+		err := stmt.inferParameters(e, implicitDB, params)
 		if err != nil {
 			return err
 		}
@@ -213,6 +213,8 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, nil, nil, err
 	}
 
+	e.catalog.mutated = true
+
 	for colID, col := range table.ColsByID() {
 		v := make([]byte, 1+len(col.colName))
 
@@ -301,6 +303,8 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 	}
 
 	table.indexes[col.id] = struct{}{}
+
+	e.catalog.mutated = true
 
 	te := &store.KV{
 		Key:   e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id)),
@@ -1012,7 +1016,7 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 		return err
 	}
 
-	snapshot, err := e.Snapshot()
+	snapshot, err := e.getSnapshot()
 	if err != nil {
 		return err
 	}

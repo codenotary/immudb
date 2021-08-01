@@ -48,7 +48,7 @@ func TestJointRowReader(t *testing.T) {
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}}, "id")
 	require.NoError(t, err)
 
-	snap, err := engine.Snapshot()
+	snap, err := engine.getSnapshot()
 	require.NoError(t, err)
 
 	r, err := engine.newRawRowReader(db, snap, table, 0, "", "id", EqualTo, nil)

@@ -295,6 +295,9 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.ExecStmt("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil, true)
 	require.NoError(t, err)
 
+	_, _, err = engine.ExecStmt("INSERT INTO table1(name, age) VALUES ('name2', 10)", nil, true)
+	require.ErrorIs(t, err, ErrPKCanNotBeNull)
+
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
 	require.Equal(t, ErrLimitedIndex, err)
 }
@@ -376,6 +379,37 @@ func TestUpsertInto(t *testing.T) {
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')", nil, true)
 	require.Equal(t, ErrPKCanNotBeNull, err)
+}
+
+func TestAutoIncrementPK(t *testing.T) {
+	catalogStore, err := store.Open("catalog_auto_inc", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_auto_inc")
+
+	dataStore, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_auto_inc")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
+	require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
+	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
 }
 
 func TestTransactions(t *testing.T) {
@@ -661,9 +695,6 @@ func TestClosing(t *testing.T) {
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = engine.DatabaseInUse()
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	_, err = engine.Snapshot()
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = engine.RenewSnapshot()
