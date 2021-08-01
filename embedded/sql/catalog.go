@@ -18,6 +18,8 @@ package sql
 type Catalog struct {
 	dbsByID   map[uint64]*Database
 	dbsByName map[string]*Database
+
+	mutated bool
 }
 
 type Database struct {
