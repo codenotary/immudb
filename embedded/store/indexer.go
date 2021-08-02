@@ -29,6 +29,7 @@ type indexer struct {
 	path string
 
 	store *ImmuStore
+	tx    *Tx
 
 	index *tbtree.TBtree
 
@@ -63,8 +64,14 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 		wHub = watchers.New(0, maxWaitees)
 	}
 
+	tx, err := store.fetchAllocTx()
+	if err != nil {
+		return nil, err
+	}
+
 	indexer := &indexer{
 		store:     store,
+		tx:        tx,
 		path:      path,
 		index:     index,
 		wHub:      wHub,
@@ -163,6 +170,7 @@ func (idx *indexer) Close() error {
 
 	idx.stop()
 	idx.wHub.Close()
+	idx.store.releaseAllocTx(idx.tx)
 
 	idx.closed = true
 
@@ -307,13 +315,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 }
 
 func (idx *indexer) indexSince(txID uint64, limit int) error {
-	tx, err := idx.store.fetchAllocTx()
-	if err != nil {
-		return err
-	}
-	defer idx.store.releaseAllocTx(tx)
-
-	txReader, err := idx.store.newTxReader(txID, false, tx)
+	txReader, err := idx.store.newTxReader(txID, false, idx.tx)
 	if err != nil {
 		return err
 	}
