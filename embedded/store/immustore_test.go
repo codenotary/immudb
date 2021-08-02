@@ -559,14 +559,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	tx1, err := immuStore.fetchAllocTx()
 	require.NoError(t, err)
 
-	tx2, err := immuStore.fetchAllocTx()
-	require.NoError(t, err)
-
 	_, err = immuStore.fetchAllocTx()
 	require.Equal(t, ErrMaxConcurrencyLimitExceeded, err)
 
 	immuStore.releaseAllocTx(tx1)
-	immuStore.releaseAllocTx(tx2)
 
 	_, err = immuStore.NewTxReader(1, false, nil)
 	require.Equal(t, ErrIllegalArguments, err)
