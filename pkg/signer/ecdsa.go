@@ -30,6 +30,8 @@ import (
 	"math/big"
 )
 
+var ErrInvalidPublicKey = errors.New("invalid public key")
+
 type signer struct {
 	rand       io.Reader
 	privateKey *ecdsa.PrivateKey
@@ -77,9 +79,12 @@ func (sig signer) Sign(payload []byte) ([]byte, []byte, error) {
 	return m, p, nil
 }
 
-func UnmarshalKey(publicKey []byte) *ecdsa.PublicKey {
+func UnmarshalKey(publicKey []byte) (*ecdsa.PublicKey, error) {
 	x, y := elliptic.Unmarshal(elliptic.P256(), publicKey)
-	return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+	if x == nil {
+		return nil, ErrInvalidPublicKey
+	}
+	return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}, nil
 }
 
 // verify verifies a signed payload

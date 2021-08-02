@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -38,6 +37,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -392,8 +392,17 @@ func (a *defaultAuditor) verifyStateSignature(
 	if serverState.GetSignature() != nil {
 		pk := a.serverSigningPubKey
 		if pk == nil {
-			x, y := elliptic.Unmarshal(elliptic.P256(), serverState.GetSignature().GetPublicKey())
-			pk = &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+			a.logger.Warningf(
+				"server signature will be verified using untrusted public key (embedded in the server state payload) " +
+					"- for better security please configure a public key for the auditor process")
+			var err error
+			pk, err = signer.UnmarshalKey(serverState.GetSignature().GetPublicKey())
+			if err != nil {
+				return fmt.Errorf(
+					"failed to verify signature for state %s at TX %d received from server %s @ %s: "+
+						"error unmarshaling the public key embedded in the server state payload: %w",
+					serverState.GetTxHash(), serverState.GetTxId(), serverID, a.serverAddress, err)
+			}
 		}
 
 		if okSig, err := serverState.CheckSignature(pk); err != nil || !okSig {
