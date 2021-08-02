@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -71,8 +72,10 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	assert.NotNil(t, state.Signature.Signature)
 	assert.NotNil(t, state.Signature.PublicKey)
 
-	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, signer.UnmarshalKey(state.Signature.PublicKey))
+	ecdsaPK, err := signer.UnmarshalKey(state.Signature.PublicKey)
+	require.NoError(t, err)
 
+	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, ecdsaPK)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 }
