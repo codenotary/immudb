@@ -4,6 +4,171 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.0.5"></a>
+## [v1.0.5] - 2021-08-02
+### Bug Fixes
+- bind psql port to the same IP address as grpc interface ([#867](https://github.com/vchain-us/immudb/issues/867))
+- Update crypto, sys dependencies
+- consistent reads of recently written data
+- **embedded/ahtree:** fix the full revert corner case
+- **embedded/store:** Truncate aht before commit
+- **embedded/store:** Don't fail to open on corrupted commit log
+- **embedded/store:** revert change so to prevent nil assigments
+- **embedded/store:** handle missing error case during commit phase
+- **embedded/store:** use reserved concurrency slot for indexing
+- **embedded/tbtree:** ensure clog is the last one being synced
+- **embedded/tbtree:** garbage-less nodes log
+- **embedded/tbtree:** use padding to ensure stored snapshots are named following lex order
+- **embedded/tbtree:** flush logs containing compacted index
+- **embedded/tbtree:** ensure proper data flushing and syncing
+- **pkg/client/auditor:** fix and enhance state signature verification
+- **pkg/pgsql/server:** fix boolean and blob extended query handling
+- **pkg/pgsql/server:** hardened bind message parsing and fix leftovers
+- **pkg/pgsql/server/fmessages:** use a variable size reader to parse fe messages
+- **pkg/server:** initialize db settings if not present
+- **pkg/server:** lock userdata map read
+- **s3:** Use remote storage for index
+- **s3:** Use remote storage for new databases
+- **sql/engine:** Harden DecodeValue
+- **store/indexer:** Ensure indexer state lock is always unlocked
+
+### Changes
+- Better logging when opening databases
+- increased coverage handling failure branches ([#861](https://github.com/vchain-us/immudb/issues/861))
+- remove unused interceptors and add missing error code prefixes
+- move sqlutils package to schema
+- group user methods in a dedicated file
+- Update dependencies
+- **appendable:** Expose validation functions of appendable options
+- **appendable/multiapp:** Introduce appendableLRUCache
+- **appendable/multiapp:** Add hooks to the MultiFileAppender implementation
+- **cmd/immuclient:** fix panic in immuclient cli mode
+- **cmd/immuclient:** update error comparisson
+- **embedded:** col descriptor with attributes
+- **embedded/ahtree:** minor changes towards code redabilitiy
+- **embedded/ahtree:** minor refactoring improving readability
+- **embedded/ahtree:** auto-truncate partially written commit log
+- **embedded/cache:** Add Pop and Replace methods to LRUCache.
+- **embedded/sql:** initial type specialization in place
+- **embedded/sql:** dump catalog with a different database name
+- **embedded/sql:** Remove linter warnings
+- **embedded/sql:** explicit catalog reloading upon failed operations
+- **embedded/sql:** parameters type inference working with aggregations
+- **embedded/sql:** towards non-blocking sql initialization
+- **embedded/sql:** remove public InferParameters operations from sql statements
+- **embedded/sql:** several adjustments and completion in type inference functions
+- **embedded/sql:** cancellable wait for catalog
+- **embedded/sql:** expose InferParameters function in RowReader interface
+- **embedded/sql:** type specialization
+- **embedded/sql:** validate either named or unnamed parameters are used within the same stmt
+- **embedded/store:** tx metatada serialization/deserialization
+- **embedded/store:** minor code simplification
+- **embedded/store:** validate replicated tx against current store
+- **embedded/store:** minor refactoring improving readability
+- **embedded/store:** edge-case validation with first tx
+- **embedded/store:** auto-truncate partially written commit log
+- **embedded/tbtree:** nodes and commit prefix renaming
+- **embedded/tbtree:** auto-truncate partially written commit log
+- **embedded/tbtree:** use setOffset for historical data overwriting
+- **embedded/tbtree:** enable snapshot generation while compaction is in progress
+- **embedded/tbtree:** expose current number of snapshots
+- **embedded/tbtree:** full snapshot recovery
+- **embedded/tbtree:** warn if an error is raised while discarding snapshots
+- **pkg/api:** kept simple db creation api to guarantee backward compatibility
+- **pkg/api:** kept same attribute id in TxEntry message
+- **pkg/api:** fix typo inside a comment
+- **pkg/api:** comment on deprecated and not yet supported operations
+- **pkg/api:** remove information not required to cryptographically prove entries
+- **pkg/auth:** list of supported operations in maintenance mode
+- **pkg/database:** support the case where database tx is not the initial one due to migration
+- **pkg/database:** sql operations after catalog is created
+- **pkg/database:** single-store databases
+- **pkg/database:** method to retrieve row cursor based on a sql query stament
+- **pkg/database:** no wait for indexing during tx replication
+- **pkg/database:** use fixed database name
+- **pkg/database:** sql catalog reloading on replica
+- **pkg/database:** migrate systemdb catalog to fixed database naming
+- **pkg/database:** internal method renaming
+- **pkg/database:** sql catalog per database. migration from shared catalog store when required
+- **pkg/database:** replace fixed naming with current database
+- **pkg/database:** replace fixing naming with current database
+- **pkg/database:** expose catalog loading operation
+- **pkg/database:** catalog reloading by replicas
+- **pkg/database:** parameter inference for parsed statements
+- **pkg/database:** re-construct sql engine once catalog is ready
+- **pkg/database:** wait for sql engine initialization before closing
+- **pkg/database:** add IsReplica method
+- **pkg/database:** gracefully stop by cancelling sql initialization
+- **pkg/database:** log when a database is sucessfully opened
+- **pkg/database:** log warning about WIP feature when using replication capabilities
+- **pkg/errors:** immuerrors use an internal map to determine code from the message
+- **pkg/errors:** add more error codes and add Cod prefix to codes var names
+- **pkg/errors:** fix user operations error codes with pgsql official ones, increase coverage
+- **pkg/errors:** add comments
+- **pkg/pgsql:** increase server coverage
+- **pkg/pgsql/server:** protect  parameters description message from int16 overflown
+- **pkg/pgsql/server:** increase code coverage
+- **pkg/pgsql/server:** handle positional parameters
+- **pkg/pgsql/server:** add max parameters value size guard and move error package in a higher level to avoid cycle deps
+- **pkg/pgsql/server:** add bind message negative value size guards
+- **pkg/pgsql/server:** handle empty statements
+- **pkg/pgsql/server:** hardened INTEGER parameters conversion
+- **pkg/pgsql/server:** increase multi inserts tests number in simple and extended query
+- **pkg/pgsql/server:** some polishments in the state machine
+- **pkg/pgsql/server:** simplify query machine
+- **pkg/pgsql/server:** add a guard to check max message size and handle default case in parsing format codes in bind messages
+- **pkg/pgsql/server/fmessages:** uniform malformed bind messages
+- **pkg/server:** systemdb renaming
+- **pkg/server:** disable user mgmt operations in maintenance mode
+- **pkg/server:** move userdata lock in the inner method getLoggedInUserDataFromUsername
+- **pkg/server:** minor updates after rebasing
+- **pkg/server:** remove duplicated property
+- **pkg/server:** minor adjustments after rebasing from master branch
+- **pkg/server:** fix typo in error message
+- **pkg/server:** remove methods moved to user file
+- **pkg/stream:** inject immu errors
+- **pkg/stream:** fix namings on stream api objects
+- **pkg/stream:** use io.Reader interface
+- **pkg/stream:** use wrapped errors
+
+### Features
+- immuclient running as auditor - replace "prometheus-port" and "prometheus-host" CLI flags with "audit-monitoring-host" and "audit-monitoring-port" (int) and start a single HTTP server which exposes all the needed endpoints (GET /metrics, /initz, /readyz, /livez and /version)
+- add /healthz and /version endpoints for immudb and immuclient auditor
+- add immudb error package
+- **appendable:** Add remote s3 backend
+- **cmd/immuadmin:** update database command
+- **cmd/immuadmin:** upgrade database creation with settings
+- **cmd/immuadmin:** add flag to create database as a replica
+- **cmd/immuclient:** upgrade database creation with settings
+- **embedded/sql:** support for named positional parameters
+- **embedded/sql:** towards leveraging readers for type inference
+- **embedded/sql:** catalog dumping
+- **embedded/sql:** adding method to infer typed parameters from sql statements
+- **embedded/sql:** support for unnamed parameters
+- **embedded/store:** WIP replicatedCommit
+- **embedded/store:** passive waiting for transaction commit
+- **embedded/store:** tx export and commit replicated
+- **pkg/api:** enhanced createDatabase endpoint to specify database replication
+- **pkg/api:** new endpoint to update database settings
+- **pkg/api:** endpoints for exporting and replicating txs
+- **pkg/client:** replica creation and replication API
+- **pkg/client:** implements update database settings operation
+- **pkg/client:** deprecate CleanIndex operation
+- **pkg/database:** suppport runtime replication settings changes
+- **pkg/database:** implement passive wait for committed tx
+- **pkg/database:** parameters type inference exposed in database package
+- **pkg/database:** db as replica and replication operations
+- **pkg/error:** add improved error handling
+- **pkg/pgsql/server:** add extended query messages and inner logic
+- **pkg/server:** initial handling of database replication settings
+- **pkg/server:** replicas and replication endpoints
+- **pkg/server:** implements update database settings endpoint
+- **pkg/server:** leverage maintenance mode to recover systemdb and defaultdb databases
+- **pkg/server:** stream of committed txs
+- **pkg/server:** enable simultaneous replication of systemdb and defaultdb
+- **pkg/stream:** readFully method to read complete payload transmitted into chunks
+
+
 <a name="v1.0.1"></a>
 ## [v1.0.1] - 2021-06-02
 ### Bug Fixes
