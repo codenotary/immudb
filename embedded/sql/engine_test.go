@@ -47,6 +47,12 @@ func TestCreateDatabase(t *testing.T) {
 	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
+	err = engine.ReloadCatalog(nil)
+	require.NoError(t, err)
+
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -71,6 +77,12 @@ func TestCreateDatabase(t *testing.T) {
 	err = engine.UseSnapshot(0, 0)
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.ReloadCatalog(nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	err = engine.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
 }
@@ -90,16 +102,26 @@ func TestUseDatabase(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.Equal(t, ErrCatalogNotReady, err)
 
+	_, err = engine.DatabaseInUse()
+	require.Equal(t, ErrCatalogNotReady, err)
+
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
+
+	_, err = engine.DatabaseInUse()
+	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
+	db, err := engine.DatabaseInUse()
+	require.NoError(t, err)
+	require.Equal(t, "db1", db.name)
+
 	err = engine.UseDatabase("db2")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
-	db, err := engine.DatabaseInUse()
+	db, err = engine.DatabaseInUse()
 	require.NoError(t, err)
 	require.Equal(t, "db1", db.name)
 
@@ -408,11 +430,23 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil, true)
+	ddTxs, dmTxs, err := engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil, true)
 	require.NoError(t, err)
+	require.Empty(t, ddTxs)
+	require.Len(t, dmTxs, 1)
+	require.Equal(t, uint64(1), dmTxs[0].ID)
 
 	_, _, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
 	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
+
+	err = engine.ReloadCatalog(nil)
+	require.NoError(t, err)
+
+	ddTxs, dmTxs, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name2')", nil, true)
+	require.NoError(t, err)
+	require.Empty(t, ddTxs)
+	require.Len(t, dmTxs, 1)
+	require.Equal(t, uint64(2), dmTxs[0].ID)
 }
 
 func TestTransactions(t *testing.T) {
@@ -517,6 +551,9 @@ func TestUseSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	err = engine.UseSnapshot(1, 0)
+	require.NoError(t, err)
+
+	err = engine.RenewSnapshot()
 	require.NoError(t, err)
 
 	err = engine.CloseSnapshot()
