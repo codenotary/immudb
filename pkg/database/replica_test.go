@@ -17,11 +17,13 @@ limitations under the License.
 package database
 
 import (
+	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,10 +33,18 @@ func TestReadOnlyReplica(t *testing.T) {
 	ropts := &ReplicationOptions{Replica: true}
 	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithReplicationOptions(ropts)
 
-	replica, rcloser := makeDbWith(options)
-	defer rcloser()
+	replica, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.NoError(t, err)
 
-	_, err := replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
+	defer os.RemoveAll(options.dbRootPath)
+
+	err = replica.Close()
+	require.NoError(t, err)
+
+	replica, err = OpenDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.NoError(t, err)
+
+	_, err = replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
 	require.Equal(t, ErrIsReplica, err)
 
 	_, err = replica.ExecAll(&schema.ExecAllRequest{

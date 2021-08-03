@@ -1000,6 +1000,18 @@ func TestQuery(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Nil(t, r)
 
+	params = make(map[string]interface{})
+	params["null_param"] = nil
+
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @null_param", params, true)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+
 	err = engine.Close()
 	require.NoError(t, err)
 
