@@ -615,8 +615,7 @@ func (n *NullValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.Value() == nil {
 		return 0, nil
 	}
 
@@ -950,7 +949,7 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	}
 
 	if val == nil {
-		return &NullValue{}, nil
+		return &NullValue{t: AnyType}, nil
 	}
 
 	switch v := val.(type) {
