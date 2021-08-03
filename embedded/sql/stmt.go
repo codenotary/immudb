@@ -1015,9 +1015,6 @@ func (stmt *SelectStmt) Limit() uint64 {
 }
 
 func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
-	if implicitDB == nil {
-		return ErrNoDatabaseSelected
-	}
 	_, _, _, err := stmt.compileUsing(e, implicitDB, nil)
 	if err != nil {
 		return err

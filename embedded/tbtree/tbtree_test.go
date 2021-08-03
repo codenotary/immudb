@@ -253,9 +253,6 @@ func TestEdgeCases(t *testing.T) {
 	err = tree.Close()
 	require.Equal(t, ErrSnapshotsNotClosed, err)
 
-	_, err = tree.Compact()
-	require.Equal(t, ErrSnapshotsNotClosed, err)
-
 	err = s1.Close()
 	require.NoError(t, err)
 

@@ -67,24 +67,6 @@ func TestCreateDatabase(t *testing.T) {
 
 	err = engine.Close()
 	require.NoError(t, err)
-
-	err = engine.CloseSnapshot()
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	err = engine.RenewSnapshot()
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	err = engine.UseSnapshot(0, 0)
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	err = engine.EnsureCatalogReady(nil)
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	err = engine.ReloadCatalog(nil)
-	require.Equal(t, ErrAlreadyClosed, err)
-
-	err = engine.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestUseDatabase(t *testing.T) {
@@ -280,7 +262,7 @@ func TestCreateIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, db)
 
-	table, err := db.GetTableByName("table1")
+	table, err := engine.GetTableByName("db1", "table1")
 	require.NoError(t, err)
 
 	require.Len(t, table.indexes, 0)
@@ -731,16 +713,40 @@ func TestClosing(t *testing.T) {
 	err = engine.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	_, err = engine.ExistDatabase("db1")
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	err = engine.UseDatabase("db1")
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	_, err = engine.GetDatabaseByName("db1")
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = engine.GetTableByName("db1", "table1")
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	_, err = engine.DatabaseInUse()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.UseSnapshot(0, 0)
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = engine.RenewSnapshot()
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = engine.CloseSnapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = engine.InferParameters("CREATE DATABASE db1")
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = engine.InferParametersPreparedStmt(&TxStmt{})
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.EnsureCatalogReady(nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.ReloadCatalog(nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 }
 
@@ -766,6 +772,9 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	_, err = engine.QueryStmt("SELECT * FROM table1", nil, true)
+	require.Equal(t, ErrNoDatabaseSelected, err)
+
+	_, _, err = engine.ExecStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	err = engine.UseDatabase("db1")
@@ -1739,6 +1748,12 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExistDatabase("db1")
 	require.ErrorIs(t, err, ErrCatalogNotReady)
 
+	_, err = engine.GetDatabaseByName("db1")
+	require.ErrorIs(t, err, ErrCatalogNotReady)
+
+	_, err = engine.GetTableByName("db1", "table1")
+	require.ErrorIs(t, err, ErrCatalogNotReady)
+
 	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
@@ -1754,9 +1769,7 @@ func TestReOpening(t *testing.T) {
 
 	table, err := db.GetTableByName("table1")
 	require.NoError(t, err)
-
 	require.Equal(t, "id", table.pk.colName)
-
 	require.Len(t, table.ColsByID(), 2)
 
 	col, err := table.GetColumnByName("id")
@@ -1766,7 +1779,6 @@ func TestReOpening(t *testing.T) {
 	col, err = table.GetColumnByName("name")
 	require.NoError(t, err)
 	require.Equal(t, VarcharType, col.colType)
-
 	require.Len(t, table.indexes, 1)
 
 	_, indexed := table.indexes[col.id]
@@ -1862,16 +1874,34 @@ func TestInferParameters(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	stmt := "CREATE DATABASE db1"
+
+	_, err = engine.InferParameters(stmt)
+	require.ErrorIs(t, err, ErrCatalogNotReady)
+
+	_, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
+	require.ErrorIs(t, err, ErrCatalogNotReady)
+
 	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
-	stmt := "CREATE DATABASE db1"
+	_, err = engine.InferParameters(stmt)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
+	_, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	_, _, err = engine.ExecStmt(stmt, nil, true)
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
+
+	_, err = engine.InferParameters("invalid sql stmt")
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+
+	_, err = engine.InferParametersPreparedStmt(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	params, err := engine.InferParameters(stmt)
 	require.NoError(t, err)
@@ -1890,6 +1920,13 @@ func TestInferParameters(t *testing.T) {
 	params, err = engine.InferParameters(stmt)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
+
+	pstmt, err := Parse(strings.NewReader(stmt))
+	require.NoError(t, err)
+	require.Len(t, pstmt, 1)
+
+	_, err = engine.InferParametersPreparedStmt(pstmt[0])
+	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt(stmt, nil, true)
 	require.NoError(t, err)

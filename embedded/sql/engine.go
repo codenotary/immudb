@@ -1160,6 +1160,10 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 }
 
 func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
