@@ -226,7 +226,7 @@ func (e *Engine) DatabaseInUse() (*Database, error) {
 
 func (e *Engine) databaseInUse() (*Database, error) {
 	if e.implicitDB == "" {
-		return nil, nil
+		return nil, ErrNoDatabaseSelected
 	}
 
 	return e.catalog.GetDatabaseByName(e.implicitDB)
@@ -1265,7 +1265,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	implicitDB, err := e.databaseInUse()
-	if err != nil && err != ErrDatabaseDoesNotExist {
+	if err != nil && err != ErrNoDatabaseSelected {
 		return nil, nil, err
 	}
 
