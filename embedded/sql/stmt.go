@@ -497,7 +497,9 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			pkVal = &Number{val: table.maxPK + 1}
 			cols = append(cols, table.pk.colName)
 			row.Values = append(row.Values, pkVal)
+
 			table.maxPK++
+			e.catalog.mutated = true // TODO: implement transactional in-memory catalog
 		} else {
 			pkVal = row.Values[cs[table.pk.id]]
 		}

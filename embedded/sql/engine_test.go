@@ -324,6 +324,9 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, true)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
