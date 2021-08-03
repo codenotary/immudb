@@ -150,13 +150,29 @@ func (e *Engine) loadCatalog(cancellation <-chan struct{}) error {
 		return err
 	}
 
-	latestSnapshot, err := e.catalogStore.SnapshotSince(math.MaxUint64)
+	latestCatalogSnap, err := e.catalogStore.SnapshotSince(math.MaxUint64)
 	if err != nil {
 		return err
 	}
-	defer latestSnapshot.Close()
+	defer latestCatalogSnap.Close()
 
-	c, err := e.catalogFrom(latestSnapshot)
+	latestDataSnap := latestCatalogSnap
+
+	if e.catalogStore != e.dataStore {
+		lastTxID, _ := e.dataStore.Alh()
+		err := e.dataStore.WaitForIndexingUpto(lastTxID, cancellation)
+		if err != nil {
+			return err
+		}
+
+		latestDataSnap, err = e.dataStore.SnapshotSince(math.MaxUint64)
+		if err != nil {
+			return err
+		}
+		defer latestDataSnap.Close()
+	}
+
+	c, err := e.catalogFrom(latestCatalogSnap, latestDataSnap)
 	if err != nil {
 		return err
 	}
@@ -412,7 +428,7 @@ func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*stor
 	return entries, nil
 }
 
-func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
+func (e *Engine) catalogFrom(catalogSnap, dataSnap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
 	initialKey := e.mapKey(catalogDatabasePrefix)
@@ -421,7 +437,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 		Prefix:  initialKey,
 	}
 
-	dbReader, err := snap.NewKeyReader(dbReaderSpec)
+	dbReader, err := catalogSnap.NewKeyReader(dbReaderSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +467,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 			return nil, err
 		}
 
-		err = e.loadTables(db, snap)
+		err = e.loadTables(db, catalogSnap, dataSnap)
 		if err != nil {
 			return nil, err
 		}
@@ -460,12 +476,12 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	return catalog, nil
 }
 
-func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
+func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot) error {
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: e.mapKey(catalogTablePrefix, EncodeID(db.id)),
 	}
 
-	tableReader, err := snap.NewKeyReader(dbReaderSpec)
+	tableReader, err := catalogSnap.NewKeyReader(dbReaderSpec)
 	if err != nil {
 		return err
 	}
@@ -485,7 +501,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			return err
 		}
 
-		colSpecs, pkName, err := e.loadColSpecs(db.id, tableID, pkID, snap)
+		colSpecs, pkName, err := e.loadColSpecs(db.id, tableID, pkID, catalogSnap)
 		if err != nil {
 			return err
 		}
@@ -514,7 +530,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 				DescOrder: true,
 			}
 
-			pkReader, err := snap.NewKeyReader(pkReaderSpec)
+			pkReader, err := dataSnap.NewKeyReader(pkReaderSpec)
 			if err != nil {
 				return err
 			}
@@ -541,7 +557,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			table.maxPK = val.Value().(uint64)
 		}
 
-		indexes, err := e.loadIndexes(db.id, tableID, snap)
+		indexes, err := e.loadIndexes(db.id, tableID, catalogSnap)
 		if err != nil {
 			return err
 		}
