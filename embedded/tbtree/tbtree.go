@@ -934,10 +934,6 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactAlreadyInProgress
 	}
 
-	if len(t.snapshots) > 0 {
-		return 0, ErrSnapshotsNotClosed
-	}
-
 	if t.snapshotCount() < uint64(t.compactionThld) {
 		return 0, ErrCompactionThresholdNotReached
 	}
