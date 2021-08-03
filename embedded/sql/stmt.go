@@ -155,7 +155,7 @@ func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, pa
 
 	ces = append(ces, kv)
 
-	return ces, nil, implicitDB, nil
+	return ces, nil, db, nil
 }
 
 type UseDatabaseStmt struct {
@@ -469,6 +469,10 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
 }
 
 func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+	if implicitDB == nil {
+		return nil, nil, nil, ErrNoDatabaseSelected
+	}
+
 	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1011,6 +1015,9 @@ func (stmt *SelectStmt) Limit() uint64 {
 }
 
 func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
+	if implicitDB == nil {
+		return ErrNoDatabaseSelected
+	}
 	_, _, _, err := stmt.compileUsing(e, implicitDB, nil)
 	if err != nil {
 		return err
@@ -1032,6 +1039,10 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 }
 
 func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+	if implicitDB == nil {
+		return nil, nil, nil, ErrNoDatabaseSelected
+	}
+
 	if stmt.distinct {
 		return nil, nil, nil, ErrNoSupported
 	}

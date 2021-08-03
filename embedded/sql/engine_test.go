@@ -44,6 +44,9 @@ func TestCreateDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1827,15 +1830,15 @@ func TestInferParameters(t *testing.T) {
 
 	stmt := "CREATE DATABASE db1"
 
-	params, err := engine.InferParameters(stmt)
-	require.NoError(t, err)
-	require.Len(t, params, 0)
-
 	_, _, err = engine.ExecStmt(stmt, nil, true)
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
+
+	params, err := engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
 
 	params, err = engine.InferParameters("USE DATABASE db1")
 	require.NoError(t, err)
