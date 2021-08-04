@@ -757,10 +757,10 @@ func TestImmudbStoreUniqueCommit(t *testing.T) {
 	immuStore, _ := Open("data_unique", opts)
 	defer os.RemoveAll("data_unique")
 
-	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Unique: false}}, false)
+	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Constraint: NoConstraint}}, false)
 	require.NoError(t, err)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Unique: true}}, false)
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, false)
 	require.Equal(t, ErrKeyAlreadyExists, err)
 
 	v, tx, _, err := immuStore.Get([]byte{1, 2, 3})
@@ -768,10 +768,10 @@ func TestImmudbStoreUniqueCommit(t *testing.T) {
 	require.Equal(t, []byte{3, 2, 1}, v)
 	require.Equal(t, uint64(1), tx)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Unique: true}}, false)
+	_, err = immuStore.Commit([]*KV{{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, false)
 	require.NoError(t, err)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 0, 0}, Value: []byte{0, 0, 1}, Unique: true}, {Key: []byte{1, 0, 0}, Value: []byte{0, 1, 1}, Unique: true}}, false)
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 0, 0}, Value: []byte{0, 0, 1}, Constraint: MustNotExist}, {Key: []byte{1, 0, 0}, Value: []byte{0, 1, 1}, Constraint: MustNotExist}}, false)
 	require.Equal(t, ErrDuplicatedKey, err)
 }
 
