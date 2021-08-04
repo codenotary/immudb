@@ -311,12 +311,12 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 }
 
 type TxEntry struct {
-	k      []byte
-	kLen   int
-	vLen   int
-	hVal   [sha256.Size]byte
-	vOff   int64
-	unique bool
+	k          []byte
+	kLen       int
+	vLen       int
+	hVal       [sha256.Size]byte
+	vOff       int64
+	constraint KVConstraint
 }
 
 func NewTxEntry(key []byte, vLen int, hVal [sha256.Size]byte, vOff int64) *TxEntry {

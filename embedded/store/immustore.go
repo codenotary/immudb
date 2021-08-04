@@ -156,10 +156,18 @@ type refVLog struct {
 	unlockedRef *list.Element // unlockedRef == nil <-> vLog is locked
 }
 
+type KVConstraint int
+
+const (
+	NoConstraint KVConstraint = iota
+	MustExist    KVConstraint = iota + 1
+	MustNotExist KVConstraint = iota + 1
+)
+
 type KV struct {
-	Key    []byte
-	Value  []byte
-	Unique bool
+	Key        []byte
+	Value      []byte
+	Constraint KVConstraint
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
@@ -894,7 +902,7 @@ func (s *ImmuStore) commitUsing(entries []*KV, md *TxMetadata, waitForIndexing b
 		txe.setKey(e.Key)
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-		txe.unique = e.Unique
+		txe.constraint = e.Constraint
 	}
 
 	err = tx.BuildHashTree()
@@ -989,20 +997,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 		txe := tx.entries[i]
 		txe.vOff = offsets[i]
 
-		if txe.unique {
+		if txe.constraint != NoConstraint {
 			if tx.ID > 1 {
 				err := s.WaitForIndexingUpto(tx.ID-1, nil)
 				if err != nil {
 					return err
 				}
+			}
 
-				_, _, _, err = s.indexer.Get(txe.Key())
-				if err == nil {
-					return ErrKeyAlreadyExists
-				}
-				if err != ErrKeyNotFound {
-					return err
-				}
+			_, _, _, err := s.indexer.Get(txe.Key())
+			if err == nil && txe.constraint == MustNotExist {
+				return ErrKeyAlreadyExists
+			}
+			if err == ErrKeyNotFound && txe.constraint == MustExist {
+				return ErrKeyNotFound
+			}
+			if err != ErrKeyNotFound {
+				return err
 			}
 		}
 
@@ -1172,7 +1183,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		txe.setKey(e.Key)
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-		txe.unique = e.Unique
+		txe.constraint = e.Constraint
 	}
 
 	err = tx.BuildHashTree()

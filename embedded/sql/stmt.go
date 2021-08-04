@@ -532,10 +532,18 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		// create entry for the column which is the pk
 		mkey := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id), pkEncVal)
 
+		constraint := store.NoConstraint
+
+		if stmt.isInsert {
+			constraint = store.MustNotExist
+		} else if table.pk.autoIncrement {
+			constraint = store.MustExist
+		}
+
 		pke := &store.KV{
-			Key:    mkey,
-			Value:  bs,
-			Unique: stmt.isInsert,
+			Key:        mkey,
+			Value:      bs,
+			Constraint: constraint,
 		}
 		des = append(des, pke)
 
