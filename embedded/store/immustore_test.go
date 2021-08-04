@@ -752,26 +752,37 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestImmudbStoreUniqueCommit(t *testing.T) {
+func TestImmudbStoreKVConstraints(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_unique", opts)
-	defer os.RemoveAll("data_unique")
+	immuStore, _ := Open("data_kv_constraints", opts)
+	defer os.RemoveAll("data_kv_constraints")
 
-	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Constraint: NoConstraint}}, false)
+	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Constraint: NoConstraint}}, true)
 	require.NoError(t, err)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, false)
-	require.Equal(t, ErrKeyAlreadyExists, err)
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, true)
+	require.ErrorIs(t, err, ErrKeyAlreadyExists)
 
 	v, tx, _, err := immuStore.Get([]byte{1, 2, 3})
 	require.NoError(t, err)
 	require.Equal(t, []byte{3, 2, 1}, v)
 	require.Equal(t, uint64(1), tx)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, false)
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1}, Value: []byte{1}, Constraint: MustExist}}, true)
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, _, _, err = immuStore.Get([]byte{1})
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	_, err = immuStore.Commit([]*KV{{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, true)
 	require.NoError(t, err)
 
-	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 0, 0}, Value: []byte{0, 0, 1}, Constraint: MustNotExist}, {Key: []byte{1, 0, 0}, Value: []byte{0, 1, 1}, Constraint: MustNotExist}}, false)
+	v, tx, _, err = immuStore.Get([]byte{0, 0, 0})
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 1, 1}, v)
+	require.Equal(t, uint64(2), tx)
+
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 0, 0}, Value: []byte{0, 0, 1}, Constraint: MustNotExist}, {Key: []byte{1, 0, 0}, Value: []byte{0, 1, 1}, Constraint: MustNotExist}}, true)
 	require.Equal(t, ErrDuplicatedKey, err)
 }
 
