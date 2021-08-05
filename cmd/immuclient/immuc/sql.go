@@ -38,7 +38,7 @@ func (i *immuc) SQLExec(args []string) (string, error) {
 
 	txMetas := response.(*schema.SQLExecResult)
 
-	return fmt.Sprintf("sql ok, Ctxs: %d Dtxs: %d", len(txMetas.Ctxs), len(txMetas.Dtxs)), nil
+	return fmt.Sprintf("Updated rows: %d", txMetas.UpdatedRows), nil
 }
 
 func (i *immuc) SQLQuery(args []string) (string, error) {
