@@ -293,21 +293,21 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		return nil, err
 	}
 
-	ddTxs, dmTxs, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
+	summary, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &schema.SQLExecResult{
-		Ctxs: make([]*schema.TxMetadata, len(ddTxs)),
-		Dtxs: make([]*schema.TxMetadata, len(dmTxs)),
+		Ctxs: make([]*schema.TxMetadata, len(summary.DDTxs)),
+		Dtxs: make([]*schema.TxMetadata, len(summary.DMTxs)),
 	}
 
-	for i, md := range ddTxs {
+	for i, md := range summary.DDTxs {
 		res.Ctxs[i] = schema.TxMetatadaTo(md)
 	}
 
-	for i, md := range dmTxs {
+	for i, md := range summary.DMTxs {
 		res.Dtxs[i] = schema.TxMetatadaTo(md)
 	}
 
