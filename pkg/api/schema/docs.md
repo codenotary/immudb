@@ -35,6 +35,7 @@
     - [MTLSConfig](#immudb.schema.MTLSConfig)
     - [NamedParam](#immudb.schema.NamedParam)
     - [Op](#immudb.schema.Op)
+    - [PKValue](#immudb.schema.PKValue)
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
@@ -608,6 +609,22 @@
 
 
 
+<a name="immudb.schema.PKValue"></a>
+
+### PKValue
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| table | [string](#string) |  |  |
+| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Permission"></a>
 
 ### Permission
@@ -735,6 +752,8 @@
 | ----- | ---- | ----- | ----------- |
 | ctxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
 | dtxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
+| updatedRows | [uint32](#uint32) |  |  |
+| lastInsertedPKs | [PKValue](#immudb.schema.PKValue) | repeated |  |
 
 
 
