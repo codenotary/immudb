@@ -14,18 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors_test
+package integration
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"os"
-	"testing"
 )
 
 func TestGRPCError(t *testing.T) {

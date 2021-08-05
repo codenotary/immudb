@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package integration
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
@@ -66,7 +67,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.ExportTx(ctx, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.Equal(t, ic.ErrIllegalArguments, err)
 
 	txmd, err := client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
@@ -109,8 +110,8 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
-	require.Equal(t, ErrNotConnected, err)
+	require.Equal(t, ic.ErrNotConnected, err)
 
 	_, err = client.ReplicateTx(rctx)
-	require.Equal(t, ErrNotConnected, err)
+	require.Equal(t, ic.ErrNotConnected, err)
 }
