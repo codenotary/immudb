@@ -166,7 +166,7 @@ func main() {
 		}
 	}()
 
-	_, _, err = engine.ExecStmt("CREATE DATABASE defaultdb;", map[string]interface{}{}, true)
+	_, err = engine.ExecStmt("CREATE DATABASE defaultdb;", map[string]interface{}{}, true)
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +177,7 @@ func main() {
 	}
 
 	log.Printf("Creating tables\r\n")
-	_, _, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, true)
+	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, true)
 	if err != nil {
 		panic(err)
 	}
@@ -217,7 +217,7 @@ func main() {
 			log.Printf("Committer %d is inserting data...\r\n", id)
 			for i := 0; i < c.kvCount; i++ {
 				entry := <-entries
-				_, _, err = engine.ExecStmt("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+				_, err = engine.ExecStmt("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
 					map[string]interface{}{"id": entry.id, "value": entry.value}, true)
 				if err != nil {
 					panic(err)
