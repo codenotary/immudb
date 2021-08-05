@@ -96,8 +96,43 @@ const (
 	RightJoin
 )
 
+type TxSummary struct {
+	db *Database
+
+	ces []*store.KV
+	des []*store.KV
+
+	updatedRows     int
+	lastInsertedPKs map[string]uint64
+}
+
+func newTxSummary() *TxSummary {
+	return &TxSummary{
+		lastInsertedPKs: make(map[string]uint64),
+	}
+}
+
+func (s *TxSummary) add(summary *TxSummary) error {
+	if summary == nil {
+		return ErrIllegalArguments
+	}
+
+	s.db = summary.db
+
+	s.updatedRows += summary.updatedRows
+
+	s.ces = append(s.ces, summary.ces...)
+	s.des = append(s.des, summary.des...)
+
+	for t, pk := range summary.lastInsertedPKs {
+		s.lastInsertedPKs[t] = pk
+	}
+
+	return nil
+}
+
 type SQLStmt interface {
-	compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error)
+	compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error)
 	inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error
 }
 
@@ -116,20 +151,23 @@ func (stmt *TxStmt) inferParameters(e *Engine, implicitDB *Database, params map[
 	return nil
 }
 
-func (stmt *TxStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *TxStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+	summary.db = implicitDB
+
 	for _, stmt := range stmt.stmts {
-		cs, ds, db, err := stmt.compileUsing(e, implicitDB, params)
+		stmtSummary, err := stmt.compileUsing(e, summary.db, params)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
-		ces = append(ces, cs...)
-		des = append(des, ds...)
-
-		implicitDB = db
+		err = summary.add(stmtSummary)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return ces, des, implicitDB, nil
+	return summary, nil
 }
 
 type CreateDatabaseStmt struct {
@@ -140,22 +178,26 @@ func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, implicitDB *Database,
 	return nil
 }
 
-func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+
 	id := uint64(len(e.catalog.dbsByID) + 1)
 
-	db, err = e.catalog.newDatabase(id, stmt.DB)
+	db, err := e.catalog.newDatabase(id, stmt.DB)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
+
+	summary.db = db
 
 	kv := &store.KV{
 		Key:   e.mapKey(catalogDatabasePrefix, EncodeID(db.id)),
 		Value: []byte(stmt.DB),
 	}
 
-	ces = append(ces, kv)
+	summary.ces = append(summary.ces, kv)
 
-	return ces, nil, db, nil
+	return summary, nil
 }
 
 type UseDatabaseStmt struct {
@@ -166,13 +208,17 @@ func (stmt *UseDatabaseStmt) inferParameters(e *Engine, implicitDB *Database, pa
 	return nil
 }
 
-func (stmt *UseDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
-	db, err = e.catalog.GetDatabaseByName(stmt.DB)
+func (stmt *UseDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+
+	db, err := e.catalog.GetDatabaseByName(stmt.DB)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return nil, nil, db, nil
+	summary.db = db
+
+	return summary, nil
 }
 
 type UseSnapshotStmt struct {
@@ -184,8 +230,8 @@ func (stmt *UseSnapshotStmt) inferParameters(e *Engine, implicitDB *Database, pa
 	return nil
 }
 
-func (stmt *UseSnapshotStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
-	return nil, nil, nil, ErrNoSupported
+func (stmt *UseSnapshotStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	return nil, ErrNoSupported
 }
 
 type CreateTableStmt struct {
@@ -199,18 +245,21 @@ func (stmt *CreateTableStmt) inferParameters(e *Engine, implicitDB *Database, pa
 	return nil
 }
 
-func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+	summary.db = implicitDB
+
 	if implicitDB == nil {
-		return nil, nil, nil, ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	if stmt.ifNotExists && implicitDB.ExistTable(stmt.table) {
-		return nil, nil, implicitDB, nil
+		return summary, nil
 	}
 
 	table, err := implicitDB.newTable(stmt.table, stmt.colsSpec, stmt.pk)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	e.catalog.mutated = true
@@ -219,7 +268,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		v := make([]byte, 1+len(col.colName))
 
 		if col.autoIncrement && (col.colName != table.pk.colName || table.pk.colType != IntegerType) {
-			return nil, nil, nil, ErrLimitedAutoIncrement
+			return nil, ErrLimitedAutoIncrement
 		}
 
 		if col.autoIncrement {
@@ -234,16 +283,16 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 			Key:   e.mapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(colID), []byte(col.colType)),
 			Value: v,
 		}
-		ces = append(ces, ce)
+		summary.ces = append(summary.ces, ce)
 	}
 
 	te := &store.KV{
 		Key:   e.mapKey(catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(table.pk.id)),
 		Value: []byte(table.name),
 	}
-	ces = append(ces, te)
+	summary.ces = append(summary.ces, te)
 
-	return ces, des, implicitDB, nil
+	return summary, nil
 }
 
 type ColSpec struct {
@@ -262,44 +311,47 @@ func (stmt *CreateIndexStmt) inferParameters(e *Engine, implicitDB *Database, pa
 	return nil
 }
 
-func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+	summary.db = implicitDB
+
 	if implicitDB == nil {
-		return nil, nil, nil, ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	table, err := implicitDB.GetTableByName(stmt.table)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	if table.pk.colName == stmt.col {
-		return nil, nil, nil, ErrIndexAlreadyExists
+		return nil, ErrIndexAlreadyExists
 	}
 
 	col, err := table.GetColumnByName(stmt.col)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	_, exists := table.indexes[col.id]
 	if exists {
-		return nil, nil, nil, ErrIndexAlreadyExists
+		return nil, ErrIndexAlreadyExists
 	}
 
 	// check table is empty
 	lastTxID, _ := e.dataStore.Alh()
 	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	pkPrefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id))
 	existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	if existKey {
-		return nil, nil, nil, ErrLimitedIndex
+		return nil, ErrLimitedIndex
 	}
 
 	table.indexes[col.id] = struct{}{}
@@ -310,9 +362,9 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		Key:   e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id)),
 		Value: []byte(table.name),
 	}
-	ces = append(ces, te)
+	summary.ces = append(summary.ces, te)
 
-	return ces, des, implicitDB, nil
+	return summary, nil
 }
 
 type AddColumnStmt struct {
@@ -324,8 +376,8 @@ func (stmt *AddColumnStmt) inferParameters(e *Engine, implicitDB *Database, para
 	return nil
 }
 
-func (stmt *AddColumnStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
-	return nil, nil, nil, ErrNoSupported
+func (stmt *AddColumnStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	return nil, ErrNoSupported
 }
 
 type UpsertIntoStmt struct {
@@ -468,24 +520,27 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
 	return selByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+	summary.db = implicitDB
+
 	if implicitDB == nil {
-		return nil, nil, nil, ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	cs, err := stmt.validate(table)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	for _, row := range stmt.rows {
 		if len(row.Values) != len(stmt.cols) {
-			return nil, nil, nil, ErrInvalidNumberOfValues
+			return nil, ErrInvalidNumberOfValues
 		}
 
 		cols := stmt.cols
@@ -494,39 +549,41 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		// inject auto-incremental pk value
 		if stmt.isInsert && table.pk.autoIncrement {
-			pkVal = &Number{val: table.maxPK + 1}
+			table.maxPK++
+			e.catalog.mutated = true // TODO: implement transactional in-memory catalog
+
+			pkVal = &Number{val: table.maxPK}
 			cols = append(cols, table.pk.colName)
 			row.Values = append(row.Values, pkVal)
 
-			table.maxPK++
-			e.catalog.mutated = true // TODO: implement transactional in-memory catalog
+			summary.lastInsertedPKs[table.name] = table.maxPK
 		} else {
 			pkVal = row.Values[cs[table.pk.id]]
 		}
 
 		val, err := pkVal.substitute(params)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		_, isNull := rval.(*NullValue)
 		if isNull {
-			return nil, nil, nil, ErrPKCanNotBeNull
+			return nil, ErrPKCanNotBeNull
 		}
 
 		pkEncVal, err := EncodeValue(rval, table.pk.colType, asKey)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		bs, err := row.bytes(e.catalog, table, cols, params)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		// create entry for the column which is the pk
@@ -545,51 +602,53 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			Value:      bs,
 			Constraint: constraint,
 		}
-		des = append(des, pke)
+		summary.des = append(summary.des, pke)
+
+		summary.updatedRows++
 
 		// create entries for each indexed column, with value as value for pk column
 		for colID := range table.indexes {
 			colPos, defined := cs[colID]
 			if !defined {
-				return nil, nil, nil, ErrIndexedColumnCanNotBeNull
+				return nil, ErrIndexedColumnCanNotBeNull
 			}
 
 			cVal := row.Values[colPos]
 
 			val, err := cVal.substitute(params)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 
 			rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 
 			_, isNull := rval.(*NullValue)
 			if isNull {
-				return nil, nil, nil, ErrIndexedColumnCanNotBeNull
+				return nil, ErrIndexedColumnCanNotBeNull
 			}
 
 			col, err := table.GetColumnByID(colID)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 
 			encVal, err := EncodeValue(rval, col.colType, asKey)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 
 			ie := &store.KV{
 				Key:   e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(colID), encVal, pkEncVal),
 				Value: nil,
 			}
-			des = append(des, ie)
+			summary.des = append(summary.des, ie)
 		}
 	}
 
-	return ces, des, implicitDB, nil
+	return summary, nil
 }
 
 type ValueExp interface {
@@ -1024,7 +1083,7 @@ func (stmt *SelectStmt) Limit() uint64 {
 }
 
 func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
-	_, _, _, err := stmt.compileUsing(e, implicitDB, nil)
+	_, err := stmt.compileUsing(e, implicitDB, nil)
 	if err != nil {
 		return err
 	}
@@ -1044,50 +1103,53 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 	return rowReader.InferParameters(params)
 }
 
-func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	summary = newTxSummary()
+	summary.db = implicitDB
+
 	if implicitDB == nil {
-		return nil, nil, nil, ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	if stmt.distinct {
-		return nil, nil, nil, ErrNoSupported
+		return nil, ErrNoSupported
 	}
 
 	if stmt.groupBy == nil && stmt.having != nil {
-		return nil, nil, nil, ErrHavingClauseRequiresGroupClause
+		return nil, ErrHavingClauseRequiresGroupClause
 	}
 
 	if len(stmt.orderBy) > 1 {
-		return nil, nil, nil, ErrLimitedOrderBy
+		return nil, ErrLimitedOrderBy
 	}
 
 	if len(stmt.orderBy) > 0 {
 		tableRef, ok := stmt.ds.(*TableRef)
 		if !ok {
-			return nil, nil, nil, ErrLimitedOrderBy
+			return nil, ErrLimitedOrderBy
 		}
 
 		table, err := tableRef.referencedTable(e, implicitDB)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		if table.pk.id == col.id {
-			return nil, nil, nil, nil
+			return nil, nil
 		}
 
 		_, indexed := table.indexes[col.id]
 		if !indexed {
-			return nil, nil, nil, ErrLimitedOrderBy
+			return nil, ErrLimitedOrderBy
 		}
 	}
 
-	return nil, nil, implicitDB, nil
+	return summary, nil
 }
 
 func (stmt *SelectStmt) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {

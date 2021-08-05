@@ -1244,7 +1244,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	_, _, _, err = stmt.compileUsing(e, implicitDB, params)
+	_, err = stmt.compileUsing(e, implicitDB, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1252,80 +1252,100 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	return stmt.Resolve(e, implicitDB, snapshot, params, nil)
 }
 
-func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
 	return e.Exec(strings.NewReader(sql), params, waitForIndexing)
 }
 
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
 	stmts, err := Parse(sql)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	return e.ExecPreparedStmts(stmts, params, waitForIndexing)
 }
 
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+type ExecSummary struct {
+	DDTxs []*store.TxMetadata
+	DMTxs []*store.TxMetadata
+
+	UpdatedRows     int
+	LastInsertedPKs map[string]uint64
+}
+
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
 	if len(stmts) == 0 {
-		return nil, nil, ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
 	if e.closed {
-		return nil, nil, ErrAlreadyClosed
+		return nil, ErrAlreadyClosed
 	}
 
 	if e.catalog == nil {
 		err := e.loadCatalog(nil)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	implicitDB, err := e.databaseInUse()
 	if err != nil && err != ErrNoDatabaseSelected {
-		return nil, nil, err
+		return nil, err
+	}
+
+	summary = &ExecSummary{
+		LastInsertedPKs: make(map[string]uint64),
 	}
 
 	for _, stmt := range stmts {
-		centries, dentries, db, err := stmt.compileUsing(e, implicitDB, params)
+		txSummary, err := stmt.compileUsing(e, implicitDB, params)
 		if err != nil {
 			e.resetCatalog() // in-memory catalog changes needs to be reverted
-			return ddTxs, dmTxs, err
+			return summary, err
 		}
 
-		implicitDB = db
+		implicitDB = txSummary.db
 
-		if len(centries) > 0 && len(dentries) > 0 {
-			return ddTxs, dmTxs, ErrDDLorDMLTxOnly
+		if len(txSummary.ces) > 0 && len(txSummary.des) > 0 {
+			e.resetCatalog() // in-memory catalog changes needs to be reverted
+			return summary, ErrDDLorDMLTxOnly
 		}
 
-		if len(centries) > 0 {
-			txmd, err := e.catalogStore.Commit(centries, waitForIndexing)
+		if len(txSummary.ces) > 0 {
+			txmd, err := e.catalogStore.Commit(txSummary.ces, waitForIndexing)
 			// TODO (jeroiraz): implement transactional in-memory catalog
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return ddTxs, dmTxs, err
+				return summary, err
 			}
 
-			ddTxs = append(ddTxs, txmd)
+			summary.DDTxs = append(summary.DDTxs, txmd)
 		}
 
-		if len(dentries) > 0 {
-			txmd, err := e.dataStore.Commit(dentries, waitForIndexing)
+		if len(txSummary.des) > 0 {
+			txmd, err := e.dataStore.Commit(txSummary.des, waitForIndexing)
 			if err != nil {
-				return ddTxs, dmTxs, err
+				e.resetCatalog() // in-memory catalog changes needs to be reverted
+				return summary, err
 			}
 
-			dmTxs = append(dmTxs, txmd)
+			summary.DMTxs = append(summary.DMTxs, txmd)
+		}
+
+		summary.UpdatedRows += txSummary.updatedRows
+
+		for t, pk := range txSummary.lastInsertedPKs {
+			summary.LastInsertedPKs[t] = pk
 		}
 	}
 
 	e.catalog.mutated = false
 
-	return ddTxs, dmTxs, nil
+	return summary, nil
 }
 
 func (e *Engine) resetCatalog() {
