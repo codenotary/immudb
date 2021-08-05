@@ -1726,6 +1726,17 @@
         }
       }
     },
+    "schemaPKValue": {
+      "type": "object",
+      "properties": {
+        "table": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/schemaSQLValue"
+        }
+      }
+    },
     "schemaPermission": {
       "type": "object",
       "properties": {
@@ -1850,6 +1861,16 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaTxMetadata"
+          }
+        },
+        "updatedRows": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastInsertedPKs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaPKValue"
           }
         }
       }

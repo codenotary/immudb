@@ -427,6 +427,13 @@ message NamedParam {
 message SQLExecResult {
 	repeated TxMetadata ctxs = 1;
 	repeated TxMetadata dtxs = 2;
+	uint32 updatedRows = 3;
+	repeated PKValue lastInsertedPKs = 4;
+}
+
+message PKValue {
+	string table = 1;
+	SQLValue value = 2; 
 }
 
 message SQLQueryResult {
