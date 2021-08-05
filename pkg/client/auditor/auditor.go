@@ -57,7 +57,7 @@ type AuditNotificationConfig struct {
 	Password       string
 	RequestTimeout time.Duration
 
-	publishFunc func(*http.Request) (*http.Response, error)
+	PublishFunc func(*http.Request) (*http.Response, error)
 }
 
 type defaultAuditor struct {
@@ -110,7 +110,7 @@ func DefaultAuditor(
 	slugifyRegExp, _ := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 
 	httpClient := &http.Client{Timeout: notificationConfig.RequestTimeout}
-	notificationConfig.publishFunc = httpClient.Do
+	notificationConfig.PublishFunc = httpClient.Do
 
 	return &defaultAuditor{
 		0,
@@ -470,7 +470,7 @@ func (a *defaultAuditor) publishAuditNotification(
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := a.notificationConfig.publishFunc(req)
+	resp, err := a.notificationConfig.PublishFunc(req)
 	if err != nil {
 		return err
 	}

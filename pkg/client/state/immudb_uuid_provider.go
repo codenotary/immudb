@@ -21,17 +21,19 @@ import (
 	"fmt"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 )
 
+// SERVER_UUID_HEADER ...
+const SERVER_UUID_HEADER = "immudb-uuid"
+
 // ErrNoServerUuid ...
 var ErrNoServerUuid = fmt.Errorf(
 	"!IMPORTANT WARNING: %s header is not published by the immudb server; "+
 		"this client MUST NOT be used to connect to different immudb servers!",
-	server.SERVER_UUID_HEADER)
+	SERVER_UUID_HEADER)
 
 type UUIDProvider interface {
 	CurrentUUID(ctx context.Context) (string, error)
@@ -57,8 +59,8 @@ func (r *uuidProvider) CurrentUUID(ctx context.Context) (string, error) {
 		return "", err
 	}
 	var serverUUID string
-	if len(metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)) > 0 {
-		serverUUID = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
+	if len(metadata.HeaderMD.Get(SERVER_UUID_HEADER)) > 0 {
+		serverUUID = metadata.HeaderMD.Get(SERVER_UUID_HEADER)[0]
 	}
 	if serverUUID == "" {
 		return "", ErrNoServerUuid
