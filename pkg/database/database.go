@@ -69,8 +69,8 @@ type DB interface {
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
-	GetOptions() *DbOptions
-	UpdateReplicationOptions(replicationOpts *ReplicationOptions)
+	GetOptions() *Options
+	UpdateReplication(asReplica bool, replicationOpts *ReplicationOptions)
 	IsReplica() bool
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
@@ -99,13 +99,13 @@ type db struct {
 	mutex    sync.RWMutex
 
 	Logger  logger.Logger
-	options *DbOptions
+	options *Options
 
 	name string
 }
 
-// OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
+// OpenDB Opens an existing Database from disk
+func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -134,8 +134,8 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, err
 	}
 
-	if op.replicationOpts.Replica {
-		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
+	if op.replica {
+		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replica)
 		return dbi, nil
 	}
 
@@ -145,24 +145,24 @@ func OpenDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 	go func() {
 		defer dbi.sqlInit.Done()
 
-		dbi.Logger.Infof("Loading SQL Engine for database '%s' (replica = %v)...", op.dbName, op.replicationOpts.Replica)
+		dbi.Logger.Infof("Loading SQL Engine for database '%s' (replica = %v)...", op.dbName, op.replica)
 
 		err := dbi.initSQLEngine(systemDB)
 		if err != nil {
-			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' (replica = %v). %v", op.dbName, op.replicationOpts.Replica, err)
+			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' (replica = %v). %v", op.dbName, op.replica, err)
 			return
 		}
 
-		dbi.Logger.Infof("SQL Engine ready for database '%s' (replica = %v)", op.dbName, op.replicationOpts.Replica)
+		dbi.Logger.Infof("SQL Engine ready for database '%s' (replica = %v)", op.dbName, op.replica)
 	}()
 
-	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replicationOpts.Replica)
+	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replica)
 
 	return dbi, nil
 }
 
 func (d *db) path() string {
-	return filepath.Join(d.options.GetDbRootPath(), d.options.GetDbName())
+	return filepath.Join(d.options.GetDBRootPath(), d.options.GetDBName())
 }
 
 func (d *db) initSQLEngine(systemDB DB) error {
@@ -235,8 +235,8 @@ func (d *db) reloadSQLCatalog() error {
 	return err
 }
 
-// NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
+// NewDB Creates a new Database along with it's directories and files
+func NewDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 	var err error
 
 	dbi := &db{
@@ -245,7 +245,7 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		name:    op.dbName,
 	}
 
-	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
+	dbDir := filepath.Join(op.GetDBRootPath(), op.GetDBName())
 
 	if _, dbErr := os.Stat(dbDir); dbErr == nil {
 		return nil, fmt.Errorf("Database directories already exist")
@@ -268,7 +268,7 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	if !op.replicationOpts.Replica {
+	if !op.replica {
 		_, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
@@ -282,13 +282,13 @@ func NewDb(op *DbOptions, systemDB DB, log logger.Logger) (DB, error) {
 		dbi.Logger.Warningf("Replication is a work-in-progress feature. Not ready for production use")
 	}
 
-	dbi.Logger.Infof("Database '%s' successfully created (replica = %v)", op.dbName, op.replicationOpts.Replica)
+	dbi.Logger.Infof("Database '%s' successfully created (replica = %v)", op.dbName, op.replica)
 
 	return dbi, nil
 }
 
 func (d *db) isReplica() bool {
-	return d.options.replicationOpts.Replica
+	return d.options.replica
 }
 
 // CompactIndex ...
@@ -847,18 +847,19 @@ func (d *db) GetName() string {
 }
 
 //GetOptions ...
-func (d *db) GetOptions() *DbOptions {
+func (d *db) GetOptions() *Options {
 	return d.options
 }
 
-func (d *db) UpdateReplicationOptions(replicationOpts *ReplicationOptions) {
+func (d *db) UpdateReplication(asReplica bool, replicationOpts *ReplicationOptions) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if replicationOpts.Replica {
+	if asReplica {
 		d.Logger.Warningf("Replication is a work-in-progress feature. Not ready for production use")
 	}
 
+	d.options.replica = asReplica
 	d.options.WithReplicationOptions(replicationOpts)
 }
 
@@ -866,7 +867,7 @@ func (d *db) IsReplica() bool {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	return d.options.replicationOpts.Replica
+	return d.options.replica
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

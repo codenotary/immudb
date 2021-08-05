@@ -50,14 +50,14 @@ var kvs = []*schema.KeyValue{
 func makeDb() (DB, func()) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithCorruptionChecker(false)
+	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
 
 	return makeDbWith(options)
 }
 
-func makeDbWith(opts *DbOptions) (DB, func()) {
-	db, err := NewDb(opts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+func makeDbWith(opts *Options) (DB, func()) {
+	db, err := NewDB(opts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -75,7 +75,7 @@ func makeDbWith(opts *DbOptions) (DB, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	db, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -85,7 +85,7 @@ func TestDefaultDbCreation(t *testing.T) {
 	defer func() {
 		db.Close()
 		time.Sleep(1 * time.Second)
-		os.RemoveAll(options.GetDbRootPath())
+		os.RemoveAll(options.GetDBRootPath())
 	}()
 
 	n, err := db.Size()
@@ -98,42 +98,42 @@ func TestDefaultDbCreation(t *testing.T) {
 	_, err = db.CountAll()
 	require.Error(t, err)
 
-	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
+	dbPath := path.Join(options.GetDBRootPath(), options.GetDBName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Fatalf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbRootPath()))
+	_, err = os.Stat(path.Join(options.GetDBRootPath()))
 	if os.IsNotExist(err) {
 		t.Fatalf("Data dir not created")
 	}
 }
 
 func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {
-	options := DefaultOption().WithDbRootPath("Paris").WithDbName("EdithPiaf")
-	defer os.RemoveAll(options.GetDbRootPath())
+	options := DefaultOption().WithDBRootPath("Paris").WithDBName("EdithPiaf")
+	defer os.RemoveAll(options.GetDBRootPath())
 
-	err := os.MkdirAll(options.GetDbRootPath(), os.ModePerm)
+	err := os.MkdirAll(options.GetDBRootPath(), os.ModePerm)
 	require.NoError(t, err)
 
-	err = os.MkdirAll(filepath.Join(options.GetDbRootPath(), options.GetDbName()), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(options.GetDBRootPath(), options.GetDBName()), os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err = NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreationInInvalidDirectory(t *testing.T) {
-	options := DefaultOption().WithDbRootPath("/?").WithDbName("EdithPiaf")
-	defer os.RemoveAll(options.GetDbRootPath())
+	options := DefaultOption().WithDBRootPath("/?").WithDBName("EdithPiaf")
+	defer os.RemoveAll(options.GetDBRootPath())
 
-	_, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreation(t *testing.T) {
-	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
+	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -141,29 +141,29 @@ func TestDbCreation(t *testing.T) {
 	defer func() {
 		db.Close()
 		time.Sleep(1 * time.Second)
-		os.RemoveAll(options.GetDbRootPath())
+		os.RemoveAll(options.GetDBRootPath())
 	}()
 
-	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
+	dbPath := path.Join(options.GetDBRootPath(), options.GetDBName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Fatalf("Db dir not created")
 	}
 
-	_, err = os.Stat(options.GetDbRootPath())
+	_, err = os.Stat(options.GetDBRootPath())
 	if os.IsNotExist(err) {
 		t.Fatalf("Data dir not created")
 	}
 }
 
 func TestOpenWithMissingDBDirectories(t *testing.T) {
-	options := DefaultOption().WithDbRootPath("Paris")
-	_, err := OpenDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := DefaultOption().WithDBRootPath("Paris")
+	_, err := OpenDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
-func TestOpenDb(t *testing.T) {
-	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+func TestOpenDB(t *testing.T) {
+	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
+	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -173,14 +173,14 @@ func TestOpenDb(t *testing.T) {
 		t.Fatalf("Error closing store %s", err)
 	}
 
-	db, err = OpenDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err = OpenDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error opening database %s", err)
 	}
 
 	db.Close()
 	time.Sleep(1 * time.Second)
-	os.RemoveAll(options.GetDbRootPath())
+	os.RemoveAll(options.GetDBRootPath())
 }
 
 func TestOpenV1_0_1_DB(t *testing.T) {
@@ -189,12 +189,12 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 
 	defer os.RemoveAll("data_v1.0.1")
 
-	sysOpts := DefaultOption().WithDbName("systemdb").WithDbRootPath("./data_v1.0.1")
-	sysDB, err := OpenDb(sysOpts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.0.1")
+	sysDB, err := OpenDB(sysOpts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	dbOpts := DefaultOption().WithDbName("defaultdb").WithDbRootPath("./data_v1.0.1")
-	db, err := OpenDb(dbOpts, sysDB, logger.NewSimpleLogger("immudb ", os.Stderr))
+	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.0.1")
+	db, err := OpenDB(dbOpts, sysDB, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	err = db.Close()

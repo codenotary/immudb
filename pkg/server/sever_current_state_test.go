@@ -31,7 +31,7 @@ import (
 )
 
 func TestServerCurrentStateSigned(t *testing.T) {
-	dbRootpath := database.DefaultOption().GetDbRootPath()
+	dbRootpath := database.DefaultOption().GetDBRootPath()
 	s := DefaultServer()
 
 	defer os.RemoveAll(s.Options.Dir)

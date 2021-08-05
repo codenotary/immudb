@@ -209,9 +209,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 
 		return userlist, nil
 
-	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()) == auth.PermissionAdmin {
+	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()) == auth.PermissionAdmin {
 		// for admin users return only users for the database that is has selected
-		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()
+		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()
 		userlist := &schema.UserList{}
 
 		for i := 0; i < len(itemList.Entries); i++ {

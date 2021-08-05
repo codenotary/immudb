@@ -34,7 +34,7 @@ type dbMock struct {
 	database.DB
 
 	currentStateF func() (*schema.ImmutableState, error)
-	getOptionsF   func() *database.DbOptions
+	getOptionsF   func() *database.Options
 	getNameF      func() string
 }
 
@@ -44,7 +44,7 @@ func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
 	}
 	return &schema.ImmutableState{TxId: 99}, nil
 }
-func (dbm dbMock) GetOptions() *database.DbOptions {
+func (dbm dbMock) GetOptions() *database.Options {
 	if dbm.getOptionsF != nil {
 		return dbm.getOptionsF()
 	}
@@ -80,8 +80,8 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	currentStateCountersysDB := 0
 	sysDB := dbMock{
-		getOptionsF: func() *database.DbOptions {
-			return database.DefaultOption().WithDbName(SystemdbName)
+		getOptionsF: func() *database.Options {
+			return database.DefaultOption().WithDBName(SystemdbName)
 		},
 		currentStateF: func() (*schema.ImmutableState, error) {
 			return currentStateSuccessfulOnce(&currentStateCountersysDB)
@@ -134,8 +134,8 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 
 	dbList := database.NewDatabaseList()
 	dbList.Append(dbMock{
-		getOptionsF: func() *database.DbOptions {
-			return database.DefaultOption().WithDbName(defaultDBName)
+		getOptionsF: func() *database.Options {
+			return database.DefaultOption().WithDBName(defaultDBName)
 		},
 	})
 
@@ -146,8 +146,8 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 		},
 		dbList: dbList,
 		sysDB: dbMock{
-			getOptionsF: func() *database.DbOptions {
-				return database.DefaultOption().WithDbName(SystemdbName)
+			getOptionsF: func() *database.Options {
+				return database.DefaultOption().WithDBName(SystemdbName)
 			},
 		},
 	}
