@@ -78,7 +78,7 @@ func TestLogErr(t *testing.T) {
 
 func TestServerDefaultDatabaseLoad(t *testing.T) {
 	options := database.DefaultOption()
-	dbRootpath := options.GetDbRootPath()
+	dbRootpath := options.GetDBRootPath()
 	s := DefaultServer()
 	err := s.loadDefaultDatabase(dbRootpath, nil)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
-	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultdbName))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultdbName))
 	if os.IsNotExist(err) {
 		t.Fatalf("default database directory not created")
 	}
@@ -95,8 +95,8 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 
 func TestServerReOpen(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("reopen")
-	options := database.DefaultOption().WithDbRootPath(serverOptions.Dir)
-	dbRootpath := options.GetDbRootPath()
+	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	dbRootpath := options.GetDBRootPath()
 
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
@@ -131,7 +131,7 @@ func TestServerReOpen(t *testing.T) {
 		t.Fatalf("error loading default database %v", err)
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().GetSystemAdminDbName()))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDbName()))
 	if os.IsNotExist(err) {
 		t.Fatalf("system database directory not created")
 	}
@@ -139,8 +139,8 @@ func TestServerReOpen(t *testing.T) {
 
 func TestServerSystemDatabaseLoad(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("Nice")
-	options := database.DefaultOption().WithDbRootPath(serverOptions.Dir)
-	dbRootpath := options.GetDbRootPath()
+	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	dbRootpath := options.GetDBRootPath()
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
 	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
@@ -156,7 +156,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
-	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().GetSystemAdminDbName()))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDbName()))
 	if os.IsNotExist(err) {
 		t.Fatalf("system database directory not created")
 	}

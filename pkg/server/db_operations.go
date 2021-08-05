@@ -20,7 +20,7 @@ func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.
 		return nil, err
 	}
 
-	state.Db = db.GetOptions().GetDbName()
+	state.Db = db.GetOptions().GetDBName()
 
 	if s.Options.SigningKey != "" {
 		err = s.StateSigner.Sign(state)
@@ -67,7 +67,7 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -110,7 +110,7 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -173,7 +173,7 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -244,7 +244,7 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -305,7 +305,7 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}

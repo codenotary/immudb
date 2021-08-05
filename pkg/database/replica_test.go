@@ -30,8 +30,7 @@ import (
 func TestReadOnlyReplica(t *testing.T) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	ropts := &ReplicationOptions{Replica: true}
-	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithReplicationOptions(ropts)
+	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").AsReplica(true)
 
 	replica, err := NewDb(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
@@ -101,8 +100,7 @@ func TestReadOnlyReplica(t *testing.T) {
 func TestSwitchToReplica(t *testing.T) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	ropts := &ReplicationOptions{Replica: false}
-	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithReplicationOptions(ropts)
+	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").AsReplica(false)
 
 	replica, rcloser := makeDbWith(options)
 	defer rcloser()
@@ -113,7 +111,7 @@ func TestSwitchToReplica(t *testing.T) {
 	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable(id, title) VALUES (1, 'TITLE1')"})
 	require.NoError(t, err)
 
-	replica.UpdateReplicationOptions(ropts.AsReplica(true))
+	replica.UpdateReplication(true, nil)
 
 	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
 	require.NoError(t, err)

@@ -135,7 +135,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -270,7 +270,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDbName(),
+			Db:     db.GetOptions().GetDBName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
