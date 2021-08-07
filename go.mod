@@ -37,6 +37,7 @@ require (
 	github.com/rogpeppe/go-internal v1.8.0
 	github.com/rs/xid v1.3.0
 	github.com/spf13/cobra v1.2.1
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/takama/daemon v0.12.0
