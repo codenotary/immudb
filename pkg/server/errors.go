@@ -38,6 +38,7 @@ var (
 	ErrPermissionDenied            = errors.New("permission denied")
 	ErrNotSupported                = errors.New("operation not supported")
 	ErrNotLoggedIn                 = errors.New("not logged in")
+	ErrReplicationInFollowerMode   = errors.New("replication already in follower mode")
 )
 
 func mapServerError(err error) error {
