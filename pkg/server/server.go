@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/follower"
 
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 
@@ -501,20 +502,11 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			}
 		}
 
-		replicationOpts := &database.ReplicationOptions{
-			SrcDatabase: settings.Database,
-			SrcAddress:  settings.SrcAddress,
-			SrcPort:     settings.SrcPort,
-			FollowerUsr: settings.FollowerUsr,
-			FollowerPwd: settings.FollowerPwd,
-		}
-
 		op := database.DefaultOption().
 			WithDBName(dbname).
 			WithDBRootPath(dataDir).
 			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage, s.Options.DefaultStoreOptions())).
-			AsReplica(settings.Replica).
-			WithReplicationOptions(replicationOpts)
+			AsReplica(settings.Replica)
 
 		if settings.ExcludeCommitTime {
 			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
@@ -527,10 +519,79 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return fmt.Errorf("could not open database '%s': %w", dbname, err)
 		}
 
+		if followerRequired(settings) {
+			err = s.startFollowing(db, settings)
+			if err != nil {
+				s.Logger.Errorf("Error starting follower for database '%s': %v", db.GetName(), err)
+			}
+		}
+
 		s.dbList.Append(db)
 	}
 
 	return nil
+}
+
+func (s *ImmuServer) following(db string) bool {
+	s.followersMutex.Lock()
+	defer s.followersMutex.Unlock()
+
+	_, ok := s.followers[db]
+	return ok
+}
+
+func (s *ImmuServer) startFollowing(db database.DB, settings *dbSettings) error {
+	s.followersMutex.Lock()
+	defer s.followersMutex.Unlock()
+
+	followerOpts := follower.DefaultOptions().
+		WithSrcDatabase(settings.SrcDatabase).
+		WithSrcAddress(settings.SrcAddress).
+		WithSrcPort(settings.SrcPort).
+		WithFollowerUsr(settings.FollowerUsr).
+		WithFollowerPwd(settings.FollowerPwd).
+		WithStreamChunkSize(s.Options.StreamChunkSize)
+
+	f, err := follower.NewFollower(db, followerOpts, s.Logger)
+	if err != nil {
+		return err
+	}
+
+	err = f.Start()
+	if err != nil {
+		return err
+	}
+
+	s.followers[db.GetName()] = f
+
+	return nil
+}
+
+func (s *ImmuServer) stopFollowing(db string) error {
+	s.followersMutex.Lock()
+	defer s.followersMutex.Unlock()
+
+	follower, ok := s.followers[db]
+	if ok {
+		err := follower.Stop()
+		if err != nil {
+			return err
+		}
+
+		delete(s.followers, db)
+	}
+
+	return nil
+}
+
+func (s *ImmuServer) stopFollowers() {
+	s.followersMutex.Lock()
+	defer s.followersMutex.Unlock()
+
+	for db, f := range s.followers {
+		err := f.Stop()
+		s.Logger.Warningf("Error stopping follower for '%s'. Reason:", db, err)
+	}
 }
 
 // Stop stops the immudb server
@@ -546,6 +607,8 @@ func (s *ImmuServer) Stop() error {
 		s.GrpcServer.Stop()
 		defer func() { s.GrpcServer = nil }()
 	}
+
+	s.stopFollowers()
 
 	return s.CloseDatabases()
 }
@@ -708,14 +771,6 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, err
 	}
 
-	replicationOpts := &database.ReplicationOptions{
-		SrcDatabase: settings.Database,
-		SrcAddress:  settings.SrcAddress,
-		SrcPort:     settings.SrcPort,
-		FollowerUsr: settings.FollowerUsr,
-		FollowerPwd: settings.FollowerPwd,
-	}
-
 	dataDir := s.Options.Dir
 
 	stOpts := s.Options.DefaultStoreOptions()
@@ -729,8 +784,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		WithDBName(req.DatabaseName).
 		WithDBRootPath(dataDir).
 		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage, stOpts)).
-		AsReplica(settings.Replica).
-		WithReplicationOptions(replicationOpts)
+		AsReplica(settings.Replica)
 
 	if req.ExcludeCommitTime {
 		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
@@ -745,6 +799,13 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 
 	s.dbList.Append(db)
 	s.multidbmode = true
+
+	if followerRequired(settings) {
+		err = s.startFollowing(db, settings)
+		if err != nil {
+			s.Logger.Errorf("Error starting follower for database '%s': %w", db.GetName(), err)
+		}
+	}
 
 	return &empty.Empty{}, nil
 }
@@ -785,6 +846,11 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, fmt.Errorf("you do not have permission on this database")
 	}
 
+	err = s.stopFollowing(req.DatabaseName)
+	if err != nil {
+		s.Logger.Errorf("Error stopping follower for database %s: %v", req.DatabaseName, err)
+	}
+
 	settings, err := s.loadSettings(req.DatabaseName)
 	if err != nil {
 		return nil, ErrEmptyAdminPassword
@@ -811,15 +877,24 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		db.UseTimeFunc(func() time.Time { return time.Now() })
 	}
 
-	db.UpdateReplication(settings.Replica, &database.ReplicationOptions{
-		SrcDatabase: settings.Database,
-		SrcAddress:  settings.SrcAddress,
-		SrcPort:     settings.SrcPort,
-		FollowerUsr: settings.FollowerUsr,
-		FollowerPwd: settings.FollowerPwd,
-	})
+	db.AsReplica(settings.Replica)
+
+	if followerRequired(settings) {
+		err = s.startFollowing(db, settings)
+		if err != nil {
+			s.Logger.Errorf("Error starting follower for database '%s': %w", db.GetName(), err)
+		}
+	}
 
 	return &empty.Empty{}, nil
+}
+
+func followerRequired(settings *dbSettings) bool {
+	return settings != nil &&
+		settings.Replica &&
+		settings.SrcDatabase != "" &&
+		settings.SrcAddress != "" &&
+		settings.SrcPort != 0
 }
 
 //DatabaseList returns a list of databases based on the requesting user permissins
