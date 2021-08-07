@@ -22,6 +22,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -72,12 +73,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		Example:           "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			isReplica, err := cmd.Flags().GetBool("replica")
+			settings, err := prepareDatabaseSettings(args[0], cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			if isReplica {
+			if settings.Replica {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
@@ -88,14 +89,14 @@ func (cl *commandline) database(cmd *cobra.Command) {
 
 			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
 				DatabaseName:      args[0],
-				Replica:           isReplica,
+				Replica:           settings.Replica,
 				ExcludeCommitTime: excludeCommitTime,
 			}); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], isReplica, excludeCommitTime)
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], settings.Replica, excludeCommitTime)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -103,6 +104,11 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cc.Flags().BoolP("replica", "r", false, "set database as a replica")
 	cc.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
+	cc.Flags().String("master-address", "127.0.0.1", "set master address")
+	cc.Flags().Uint32("master-port", 3322, "set master port")
+	cc.Flags().String("master-database", "", "set master database to be replicated")
+	cc.Flags().String("follower-username", "", "set username used for replication")
+	cc.Flags().String("follower-password", "", "set password used for replication")
 
 	cu := &cobra.Command{
 		Use:               "update",
@@ -111,12 +117,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		Example:           "update {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			isReplica, err := cmd.Flags().GetBool("replica")
+			settings, err := prepareDatabaseSettings(args[0], cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			if isReplica {
+			if settings.Replica {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
@@ -127,14 +133,14 @@ func (cl *commandline) database(cmd *cobra.Command) {
 
 			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{
 				DatabaseName:      args[0],
-				Replica:           isReplica,
+				Replica:           settings.Replica,
 				ExcludeCommitTime: excludeCommitTime,
 			}); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], isReplica, excludeCommitTime)
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], settings.Replica, excludeCommitTime)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -142,6 +148,11 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cu.Flags().BoolP("replica", "r", false, "set database as a replica")
 	cu.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
+	cu.Flags().String("master-address", "127.0.0.1", "set master address")
+	cu.Flags().Uint32("master-port", 3322, "set master port")
+	cu.Flags().String("master-database", "", "set master database to be replicated")
+	cu.Flags().String("follower-username", "", "set username used for replication")
+	cu.Flags().String("follower-password", "", "set password used for replication")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
@@ -199,4 +210,46 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd.AddCommand(cc)
 	ccmd.AddCommand(cu)
 	cmd.AddCommand(ccmd)
+}
+
+func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettings, error) {
+	isReplica, err := flags.GetBool("replica")
+	if err != nil {
+		return nil, err
+	}
+
+	masterAddress, err := flags.GetString("master-address")
+	if err != nil {
+		return nil, err
+	}
+
+	masterPort, err := flags.GetUint32("master-port")
+	if err != nil {
+		return nil, err
+	}
+
+	masterDatabase, err := flags.GetString("master-database")
+	if err != nil {
+		return nil, err
+	}
+
+	followerUsr, err := flags.GetString("follower-username")
+	if err != nil {
+		return nil, err
+	}
+
+	followerPwd, err := flags.GetString("follower-username")
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.DatabaseSettings{
+		DatabaseName: db,
+		Replica:      isReplica,
+		SrcAddress:   masterAddress,
+		SrcPort:      masterPort,
+		SrcDatabase:  masterDatabase,
+		FollowerUsr:  followerUsr,
+		FollowerPwd:  followerPwd,
+	}, nil
 }
