@@ -111,7 +111,7 @@ func TestSwitchToReplica(t *testing.T) {
 	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable(id, title) VALUES (1, 'TITLE1')"})
 	require.NoError(t, err)
 
-	replica.UpdateReplication(true, nil)
+	replica.AsReplica(true)
 
 	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
 	require.NoError(t, err)

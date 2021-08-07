@@ -26,25 +26,15 @@ type Options struct {
 
 	corruptionChecker bool
 
-	replica         bool
-	replicationOpts *ReplicationOptions
-}
-
-type ReplicationOptions struct {
-	SrcDatabase string
-	SrcAddress  string
-	SrcPort     int
-	FollowerUsr string
-	FollowerPwd string
+	replica bool
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *Options {
 	return &Options{
-		dbRootPath:      "./data",
-		dbName:          "db_name",
-		storeOpts:       store.DefaultOptions(),
-		replicationOpts: &ReplicationOptions{},
+		dbRootPath: "./data",
+		dbName:     "db_name",
+		storeOpts:  store.DefaultOptions(),
 	}
 }
 
@@ -92,51 +82,8 @@ func (o *Options) GetStoreOptions() *store.Options {
 	return o.storeOpts
 }
 
-// GetReplicationOptions returns replication options
-func (o *Options) GetReplicationOptions() *ReplicationOptions {
-	return o.replicationOpts
-}
-
-// WithReplicationOptions sets replication options
-func (o *Options) WithReplicationOptions(replicationOpts *ReplicationOptions) *Options {
-	o.replicationOpts = replicationOpts
-	return o
-}
-
 // AsReplica sets if the database is a replica
 func (o *Options) AsReplica(replica bool) *Options {
 	o.replica = replica
-	return o
-}
-
-// ReplicationOptions -------
-
-// WithSrcDatabase sets the source database name
-func (o *ReplicationOptions) WithSrcDatabase(srcDatabase string) *ReplicationOptions {
-	o.SrcDatabase = srcDatabase
-	return o
-}
-
-// WithSrcAddress sets the source database address
-func (o *ReplicationOptions) WithSrcAddress(srcAddress string) *ReplicationOptions {
-	o.SrcAddress = srcAddress
-	return o
-}
-
-// WithSrcPort sets the source database port
-func (o *ReplicationOptions) WithSrcPort(srcPort int) *ReplicationOptions {
-	o.SrcPort = srcPort
-	return o
-}
-
-// WithFollowerUsr sets follower username
-func (o *ReplicationOptions) WithFollowerUsr(followerUsr string) *ReplicationOptions {
-	o.FollowerUsr = followerUsr
-	return o
-}
-
-// WithFollowerPwd sets follower password
-func (o *ReplicationOptions) WithFollowerPwd(followerPwd string) *ReplicationOptions {
-	o.FollowerPwd = followerPwd
 	return o
 }
