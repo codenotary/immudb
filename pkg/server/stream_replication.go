@@ -62,7 +62,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return err
 	}
 
-	if s.following(db.GetName()) {
+	if s.replicationInProgressFor(db.GetName()) {
 		return ErrReplicationInFollowerMode
 	}
 
