@@ -34,7 +34,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/errors"
-	"github.com/codenotary/immudb/pkg/follower"
+	"github.com/codenotary/immudb/pkg/replication"
 
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 
@@ -441,6 +441,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		}
 
 		s.dbList.Append(db)
+
+		return nil
 	}
 
 	if !s.OS.IsNotExist(err) {
@@ -519,10 +521,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return fmt.Errorf("could not open database '%s': %w", dbname, err)
 		}
 
-		if followerRequired(settings) {
-			err = s.startFollowing(db, settings)
+		if replicatorRequired(settings) {
+			err = s.startReplicationFor(db, settings)
 			if err != nil {
-				s.Logger.Errorf("Error starting follower for database '%s': %v", db.GetName(), err)
+				s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 			}
 		}
 
@@ -532,19 +534,19 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 	return nil
 }
 
-func (s *ImmuServer) following(db string) bool {
-	s.followersMutex.Lock()
-	defer s.followersMutex.Unlock()
+func (s *ImmuServer) replicationInProgressFor(db string) bool {
+	s.replicationMutex.Lock()
+	defer s.replicationMutex.Unlock()
 
-	_, ok := s.followers[db]
+	_, ok := s.replicators[db]
 	return ok
 }
 
-func (s *ImmuServer) startFollowing(db database.DB, settings *dbSettings) error {
-	s.followersMutex.Lock()
-	defer s.followersMutex.Unlock()
+func (s *ImmuServer) startReplicationFor(db database.DB, settings *dbSettings) error {
+	s.replicationMutex.Lock()
+	defer s.replicationMutex.Unlock()
 
-	followerOpts := follower.DefaultOptions().
+	replicatorOpts := replication.DefaultOptions().
 		WithSrcDatabase(settings.SrcDatabase).
 		WithSrcAddress(settings.SrcAddress).
 		WithSrcPort(settings.SrcPort).
@@ -552,7 +554,7 @@ func (s *ImmuServer) startFollowing(db database.DB, settings *dbSettings) error 
 		WithFollowerPwd(settings.FollowerPwd).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
-	f, err := follower.NewFollower(db, followerOpts, s.Logger)
+	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
 	if err != nil {
 		return err
 	}
@@ -562,35 +564,39 @@ func (s *ImmuServer) startFollowing(db database.DB, settings *dbSettings) error 
 		return err
 	}
 
-	s.followers[db.GetName()] = f
+	s.replicators[db.GetName()] = f
 
 	return nil
 }
 
-func (s *ImmuServer) stopFollowing(db string) error {
-	s.followersMutex.Lock()
-	defer s.followersMutex.Unlock()
+func (s *ImmuServer) stopReplicationFor(db string) error {
+	s.replicationMutex.Lock()
+	defer s.replicationMutex.Unlock()
 
-	follower, ok := s.followers[db]
-	if ok {
-		err := follower.Stop()
-		if err != nil {
-			return err
-		}
-
-		delete(s.followers, db)
+	replicator, ok := s.replicators[db]
+	if !ok {
+		return ErrNoReplicationInProgress
 	}
 
+	err := replicator.Stop()
+	if err != nil {
+		return err
+	}
+
+	delete(s.replicators, db)
+
 	return nil
 }
 
-func (s *ImmuServer) stopFollowers() {
-	s.followersMutex.Lock()
-	defer s.followersMutex.Unlock()
+func (s *ImmuServer) stopReplication() {
+	s.replicationMutex.Lock()
+	defer s.replicationMutex.Unlock()
 
-	for db, f := range s.followers {
+	for db, f := range s.replicators {
 		err := f.Stop()
-		s.Logger.Warningf("Error stopping follower for '%s'. Reason:", db, err)
+		if err != nil {
+			s.Logger.Warningf("Error stopping replication for '%s'. Reason: %v", db, err)
+		}
 	}
 }
 
@@ -608,7 +614,7 @@ func (s *ImmuServer) Stop() error {
 		defer func() { s.GrpcServer = nil }()
 	}
 
-	s.stopFollowers()
+	s.stopReplication()
 
 	return s.CloseDatabases()
 }
@@ -800,10 +806,10 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	s.dbList.Append(db)
 	s.multidbmode = true
 
-	if followerRequired(settings) {
-		err = s.startFollowing(db, settings)
+	if replicatorRequired(settings) {
+		err = s.startReplicationFor(db, settings)
 		if err != nil {
-			s.Logger.Errorf("Error starting follower for database '%s': %w", db.GetName(), err)
+			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 		}
 	}
 
@@ -846,9 +852,11 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, fmt.Errorf("you do not have permission on this database")
 	}
 
-	err = s.stopFollowing(req.DatabaseName)
-	if err != nil {
-		s.Logger.Errorf("Error stopping follower for database %s: %v", req.DatabaseName, err)
+	s.Logger.Infof("Updating settings of database '%s'...", db.GetName())
+
+	err = s.stopReplicationFor(req.DatabaseName)
+	if err != nil && err != ErrNoReplicationInProgress {
+		s.Logger.Errorf("Error stopping replication for database %s. Reason: %v", req.DatabaseName, err)
 	}
 
 	settings, err := s.loadSettings(req.DatabaseName)
@@ -879,17 +887,19 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 
 	db.AsReplica(settings.Replica)
 
-	if followerRequired(settings) {
-		err = s.startFollowing(db, settings)
+	if replicatorRequired(settings) {
+		err = s.startReplicationFor(db, settings)
 		if err != nil {
-			s.Logger.Errorf("Error starting follower for database '%s': %w", db.GetName(), err)
+			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 		}
 	}
+
+	s.Logger.Infof("Database '%s' successfully updated", db.GetName())
 
 	return &empty.Empty{}, nil
 }
 
-func followerRequired(settings *dbSettings) bool {
+func replicatorRequired(settings *dbSettings) bool {
 	return settings != nil &&
 		settings.Replica &&
 		settings.SrcDatabase != "" &&
