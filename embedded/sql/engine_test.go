@@ -439,7 +439,12 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Equal(t, uint64(2), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 1, summary.UpdatedRows)
 
-	summary, err = engine.ExecStmt("BEGIN TRANSACTION INSERT INTO table1(title) VALUES ('name3'); INSERT INTO table1(title) VALUES ('name4') COMMIT", nil, true)
+	summary, err = engine.ExecStmt(`
+		BEGIN TRANSACTION
+			INSERT INTO table1(title) VALUES ('name3');
+			INSERT INTO table1(title) VALUES ('name4');
+		COMMIT
+	`, nil, true)
 	require.NoError(t, err)
 	require.Empty(t, summary.DDTxs)
 	require.Len(t, summary.DMTxs, 1)
