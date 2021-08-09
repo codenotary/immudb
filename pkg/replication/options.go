@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package follower
+package replication
 
 import "time"
+
+const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 
 type Options struct {
 	srcDatabase string
@@ -27,27 +29,27 @@ type Options struct {
 
 	streamChunkSize int
 
-	retryMinDelay    time.Duration
-	retryMaxDelay    time.Duration
-	retryDelayExp    float64
-	retryDelayJitter float64
+	delayer Delayer
 }
 
 func DefaultOptions() *Options {
+	delayer := &expBackoff{
+		retryMinDelay: time.Second,
+		retryMaxDelay: 2 * time.Minute,
+		retryDelayExp: 2,
+		retryJitter:   0.1,
+	}
+
 	return &Options{
-		retryMinDelay:    time.Second,
-		retryMaxDelay:    2 * time.Minute,
-		retryDelayExp:    2,
-		retryDelayJitter: 0.1,
+		delayer:         delayer,
+		streamChunkSize: DefaultChunkSize,
 	}
 }
 
 func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.streamChunkSize > 0 &&
-		opts.retryMinDelay > 0 &&
-		opts.retryMaxDelay > 0 &&
-		opts.retryDelayExp > 1
+		opts.delayer != nil
 }
 
 // WithSrcDatabase sets the source database name
@@ -83,5 +85,11 @@ func (o *Options) WithFollowerPwd(followerPwd string) *Options {
 // WithStreamChunkSize sets streaming chunk size
 func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 	o.streamChunkSize = streamChunkSize
+	return o
+}
+
+// WithDelayer sets delayer used to pause re-attempts
+func (o *Options) WithDelayer(delayer Delayer) *Options {
+	o.delayer = delayer
 	return o
 }
