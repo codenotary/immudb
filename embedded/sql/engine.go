@@ -431,10 +431,8 @@ func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*stor
 func (e *Engine) catalogFrom(catalogSnap, dataSnap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
-	initialKey := e.mapKey(catalogDatabasePrefix)
 	dbReaderSpec := &store.KeyReaderSpec{
-		SeekKey: initialKey,
-		Prefix:  initialKey,
+		Prefix: e.mapKey(catalogDatabasePrefix),
 	}
 
 	dbReader, err := catalogSnap.NewKeyReader(dbReaderSpec)
@@ -525,31 +523,10 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 		}
 
 		if table.pk.autoIncrement {
-			pkReaderSpec := &store.KeyReaderSpec{
-				Prefix:    e.mapKey(RowPrefix, EncodeID(db.id), EncodeID(table.id), EncodeID(table.pk.id)),
-				DescOrder: true,
-			}
-
-			pkReader, err := dataSnap.NewKeyReader(pkReaderSpec)
-			if err != nil {
-				return err
-			}
-			defer pkReader.Close()
-
-			mkey, _, _, _, err := pkReader.Read()
+			val, err := e.loadMaxPK(dataSnap, table)
 			if err == store.ErrNoMoreEntries {
 				break
 			}
-			if err != nil {
-				return err
-			}
-
-			_, _, _, _, encMaxPK, err := e.unmapRow(mkey)
-			if err != nil {
-				return err
-			}
-
-			val, _, err := DecodeValue(encMaxPK, IntegerType)
 			if err != nil {
 				return err
 			}
@@ -568,6 +545,36 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 	}
 
 	return nil
+}
+
+func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) (TypedValue, error) {
+	pkReaderSpec := &store.KeyReaderSpec{
+		Prefix:    e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id)),
+		DescOrder: true,
+	}
+
+	pkReader, err := dataSnap.NewKeyReader(pkReaderSpec)
+	if err != nil {
+		return nil, err
+	}
+	defer pkReader.Close()
+
+	mkey, _, _, _, err := pkReader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, _, _, encMaxPK, err := e.unmapRow(mkey)
+	if err != nil {
+		return nil, err
+	}
+
+	val, _, err := DecodeValue(encMaxPK, IntegerType)
+	if err != nil {
+		return nil, err
+	}
+
+	return val, err
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) (specs []*ColSpec, pkName string, err error) {
@@ -610,7 +617,12 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 			return nil, "", ErrCorruptedData
 		}
 
-		spec := &ColSpec{colName: string(v[1:]), colType: colType, autoIncrement: v[0]&autoIncrementFlag != 0, notNull: v[0]&nullableFlag != 0}
+		spec := &ColSpec{
+			colName:       string(v[1:]),
+			colType:       colType,
+			autoIncrement: v[0]&autoIncrementFlag != 0,
+			notNull:       v[0]&nullableFlag != 0,
+		}
 
 		specs = append(specs, spec)
 
