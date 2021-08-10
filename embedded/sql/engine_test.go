@@ -409,8 +409,16 @@ func TestAutoIncrementPK(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
-	require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+	t.Run("invalid use of auto-increment", func(t *testing.T) {
+		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
+		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+
+		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
+		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+
+		_, err = engine.ExecStmt("CREATE TABLE table1 (id VARCHAR AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
+		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+	})
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
