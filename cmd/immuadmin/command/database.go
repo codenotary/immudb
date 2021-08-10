@@ -33,7 +33,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Aliases: []string{"d"},
 		//PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "use", "clean"},
+		ValidArgs:         []string{"list", "create", "update", "use", "clean"},
 	}
 
 	ccd := &cobra.Command{
@@ -216,6 +216,10 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 	isReplica, err := flags.GetBool("replica")
 	if err != nil {
 		return nil, err
+	}
+
+	if !isReplica {
+		return &schema.DatabaseSettings{DatabaseName: db}, nil
 	}
 
 	masterAddress, err := flags.GetString("master-address")

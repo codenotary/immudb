@@ -107,7 +107,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	}
 
 	if (len(r.Database) == 0) && !s.multidbmode {
-		r.Database = DefaultdbName
+		r.Database = DefaultDBName
 	}
 
 	//check if database exists
@@ -386,7 +386,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		return nil, status.Errorf(codes.InvalidArgument, "changing sysadmin permisions is not allowed")
 	}
 
-	if r.Database == SystemdbName && r.Permission == auth.PermissionRW {
+	if r.Database == SystemDBName && r.Permission == auth.PermissionRW {
 		return nil, ErrPermissionDenied
 	}
 
