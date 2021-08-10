@@ -44,7 +44,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Error(t, err)
 
 	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
-		CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
+		CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 1)
@@ -62,7 +62,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, res.Rows, 4)
 
 	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
-		INSERT INTO table1(id, title, active, payload) VALUES (1, 'title1', null, null), (2, 'title2', true, null), (3, 'title3', false, x'AADD')
+		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD')
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 0)

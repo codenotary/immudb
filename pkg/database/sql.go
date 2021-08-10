@@ -302,7 +302,7 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		Ctxs:            make([]*schema.TxMetadata, len(summary.DDTxs)),
 		Dtxs:            make([]*schema.TxMetadata, len(summary.DMTxs)),
 		UpdatedRows:     uint32(summary.UpdatedRows),
-		LastInsertedPKs: make([]*schema.PKValue, len(summary.LastInsertedPKs)),
+		LastInsertedPKs: make(map[string]*schema.SQLValue),
 	}
 
 	for i, md := range summary.DDTxs {
@@ -313,10 +313,8 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		res.Dtxs[i] = schema.TxMetatadaTo(md)
 	}
 
-	i := 0
 	for t, pk := range summary.LastInsertedPKs {
-		res.LastInsertedPKs[i] = &schema.PKValue{Table: t, Value: &schema.SQLValue{Value: &schema.SQLValue_N{N: pk}}}
-		i++
+		res.LastInsertedPKs[t] = &schema.SQLValue{Value: &schema.SQLValue_N{N: pk}}
 	}
 
 	return res, nil
