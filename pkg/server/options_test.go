@@ -30,8 +30,8 @@ func TestOptions(t *testing.T) {
 	op := DefaultOptions()
 	if op.GetAuth() != true ||
 		op.GetMaintenance() != false ||
-		op.GetDefaultDbName() != DefaultdbName ||
-		op.GetSystemAdminDbName() != SystemdbName ||
+		op.GetDefaultDBName() != DefaultDBName ||
+		op.GetSystemAdminDBName() != SystemDBName ||
 		op.Detached != false ||
 		op.DevMode != false ||
 		op.MetricsServer != true ||

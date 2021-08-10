@@ -81,7 +81,7 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 	currentStateCountersysDB := 0
 	sysDB := dbMock{
 		getOptionsF: func() *database.Options {
-			return database.DefaultOption().WithDBName(SystemdbName)
+			return database.DefaultOption().WithDBName(SystemDBName)
 		},
 		currentStateF: func() (*schema.ImmutableState, error) {
 			return currentStateSuccessfulOnce(&currentStateCountersysDB)
@@ -125,8 +125,8 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	defer os.RemoveAll(dataDir)
 
 	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, defaultDBName), fullPermissions))
-	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemdbName), fullPermissions))
-	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemdbName, "some-dir"), fullPermissions))
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemDBName), fullPermissions))
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemDBName, "some-dir"), fullPermissions))
 	file, err := os.Create(filepath.Join(dataDir, defaultDBName, "some-file"))
 	require.NoError(t, err)
 	defer file.Close()
@@ -142,12 +142,12 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	s := ImmuServer{
 		Options: &Options{
 			Dir:           dataDir,
-			defaultDbName: defaultDBName,
+			defaultDBName: defaultDBName,
 		},
 		dbList: dbList,
 		sysDB: dbMock{
 			getOptionsF: func() *database.Options {
-				return database.DefaultOption().WithDBName(SystemdbName)
+				return database.DefaultOption().WithDBName(SystemDBName)
 			},
 		},
 	}

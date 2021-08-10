@@ -49,7 +49,7 @@ const defaultNbEntries = 100
 
 // Init initializes the command
 func Init(cmd *cobra.Command, cl *commandline) {
-	defaultDb := server.DefaultdbName
+	defaultDb := server.DefaultDBName
 	defaultUser := auth.SysAdminUsername
 	defaultPassword := auth.SysAdminPassword
 

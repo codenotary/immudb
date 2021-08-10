@@ -30,8 +30,8 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
-const SystemdbName = "systemdb"
-const DefaultdbName = "defaultdb"
+const SystemDBName = "systemdb"
+const DefaultDBName = "defaultdb"
 const DefaultMaxValueLen = 1 << 25   //32Mb
 const DefaultStoreFileSize = 1 << 29 //512Mb
 
@@ -55,8 +55,8 @@ type Options struct {
 	WebServerPort        int
 	DevMode              bool
 	AdminPassword        string `json:"-"`
-	systemAdminDbName    string
-	defaultDbName        string
+	systemAdminDBName    string
+	defaultDBName        string
 	listener             net.Listener
 	usingCustomListener  bool
 	maintenance          bool
@@ -67,6 +67,7 @@ type Options struct {
 	TokenExpiryTimeMin   int
 	PgsqlServer          bool
 	PgsqlServerPort      int
+	ReplicationOptions   *ReplicationOptions
 }
 
 type RemoteStorageOptions struct {
@@ -76,6 +77,14 @@ type RemoteStorageOptions struct {
 	S3SecretKey   string `json:"-"`
 	S3BucketName  string
 	S3PathPrefix  string
+}
+
+type ReplicationOptions struct {
+	MasterAddress  string
+	MasterPort     int
+	MasterDatabase string
+	FollowerUsr    string
+	FollowerPwd    string
 }
 
 // DefaultOptions returns default server options
@@ -99,8 +108,8 @@ func DefaultOptions() *Options {
 		WebServer:            true,
 		DevMode:              false,
 		AdminPassword:        auth.SysAdminPassword,
-		systemAdminDbName:    SystemdbName,
-		defaultDbName:        DefaultdbName,
+		systemAdminDBName:    SystemDBName,
+		defaultDBName:        DefaultDBName,
 		usingCustomListener:  false,
 		maintenance:          false,
 		synced:               true,
@@ -253,7 +262,7 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
-	opts = append(opts, rightPad("Default database", o.defaultDbName))
+	opts = append(opts, rightPad("Default database", o.defaultDBName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
 	opts = append(opts, rightPad("Synced mode", o.synced))
 	if o.RemoteStorageOptions.S3Storage {
@@ -304,14 +313,14 @@ func (o *Options) WithAdminPassword(adminPassword string) *Options {
 	return o
 }
 
-//GetSystemAdminDbName returns the System database name
-func (o *Options) GetSystemAdminDbName() string {
-	return o.systemAdminDbName
+//GetSystemAdminDBName returns the System database name
+func (o *Options) GetSystemAdminDBName() string {
+	return o.systemAdminDBName
 }
 
-//GetDefaultDbName returns the default database name
-func (o *Options) GetDefaultDbName() string {
-	return o.defaultDbName
+//GetDefaultDBName returns the default database name
+func (o *Options) GetDefaultDBName() string {
+	return o.defaultDBName
 }
 
 // WithListener used usually to pass a bufered listener for testing purposes
@@ -378,6 +387,11 @@ func (o *Options) WithRemoteStorageOptions(remoteStorageOptions *RemoteStorageOp
 	return o
 }
 
+func (o *Options) WithReplicationOptions(replicationOptions *ReplicationOptions) *Options {
+	o.ReplicationOptions = replicationOptions
+	return o
+}
+
 // RemoteStorageOptions
 
 func (opts *RemoteStorageOptions) WithS3Storage(S3Storage bool) *RemoteStorageOptions {
@@ -407,5 +421,32 @@ func (opts *RemoteStorageOptions) WithS3BucketName(s3BucketName string) *RemoteS
 
 func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteStorageOptions {
 	opts.S3PathPrefix = s3PathPrefix
+	return opts
+}
+
+// ReplicationOptions
+
+func (opts *ReplicationOptions) WithMasterAddress(masterAddress string) *ReplicationOptions {
+	opts.MasterAddress = masterAddress
+	return opts
+}
+
+func (opts *ReplicationOptions) WithMasterPort(masterPort int) *ReplicationOptions {
+	opts.MasterPort = masterPort
+	return opts
+}
+
+func (opts *ReplicationOptions) WithMasterDatabase(masterDatabase string) *ReplicationOptions {
+	opts.MasterDatabase = masterDatabase
+	return opts
+}
+
+func (opts *ReplicationOptions) WithFollowerUsr(followerUsr string) *ReplicationOptions {
+	opts.FollowerUsr = followerUsr
+	return opts
+}
+
+func (opts *ReplicationOptions) WithFollowerPwd(followerPwd string) *ReplicationOptions {
+	opts.FollowerPwd = followerPwd
 	return opts
 }

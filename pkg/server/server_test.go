@@ -87,7 +87,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
-	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultdbName))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultDBName))
 	if os.IsNotExist(err) {
 		t.Fatalf("default database directory not created")
 	}
@@ -131,7 +131,7 @@ func TestServerReOpen(t *testing.T) {
 		t.Fatalf("error loading default database %v", err)
 	}
 
-	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDbName()))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDBName()))
 	if os.IsNotExist(err) {
 		t.Fatalf("system database directory not created")
 	}
@@ -156,7 +156,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
-	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDbName()))
+	_, err = os.Stat(path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDBName()))
 	if os.IsNotExist(err) {
 		t.Fatalf("system database directory not created")
 	}
@@ -336,7 +336,7 @@ func TestServerUpdateDatabase(t *testing.T) {
 	require.Equal(t, ErrIllegalArguments, err)
 
 	dbSettings := &schema.DatabaseSettings{
-		DatabaseName: serverOptions.defaultDbName,
+		DatabaseName: serverOptions.defaultDBName,
 	}
 	_, err = s.UpdateDatabase(ctx, dbSettings)
 	require.Equal(t, ErrReservedDatabase, err)
@@ -1118,7 +1118,7 @@ func TestServerErrors(t *testing.T) {
 	adminCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
-	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultdbName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "username can only contain letters, digits and underscores")
 
@@ -1126,7 +1126,7 @@ func TestServerErrors(t *testing.T) {
 	usernameBytes := []byte(username)
 	password := "$omePassword1"
 	passwordBytes := []byte(password)
-	_, _, err = s.insertNewUser(usernameBytes, []byte("a"), 1, DefaultdbName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
 	require.Error(t, err)
 	require.Contains(
 		t,
@@ -1134,7 +1134,7 @@ func TestServerErrors(t *testing.T) {
 		"password must have between 8 and 32 letters, digits and special characters "+
 			"of which at least 1 uppercase letter, 1 digit and 1 special character")
 
-	_, _, err = s.insertNewUser(usernameBytes, passwordBytes, 99, DefaultdbName, false, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
 	require.Equal(t, errors.New("unknown permission"), err)
 
 	// getLoggedInUserDataFromUsername errors
@@ -1174,7 +1174,7 @@ func TestServerErrors(t *testing.T) {
 		User:       usernameBytes,
 		Password:   passwordBytes,
 		Permission: 1,
-		Database:   DefaultdbName,
+		Database:   DefaultDBName,
 	})
 	require.NoError(t, err)
 
@@ -1196,7 +1196,7 @@ func TestServerErrors(t *testing.T) {
 	cpr := &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Username:   username,
-		Database:   SystemdbName,
+		Database:   SystemDBName,
 		Permission: 2,
 	}
 	_, err = s.ChangePermission(adminCtx, cpr)
@@ -1205,7 +1205,7 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.Logout(userCtx, &emptypb.Empty{})
 	require.NoError(t, err)
 
-	cpr.Database = DefaultdbName
+	cpr.Database = DefaultDBName
 	s.Options.auth = false
 	_, err = s.ChangePermission(userCtx, cpr)
 	require.Equal(t, ErrNotLoggedIn.Message(), err.Error())
@@ -1227,7 +1227,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, codes.InvalidArgument, errStatus.Code())
 	require.Equal(t, "database can not be empty", errStatus.Message())
 
-	cpr.Database = DefaultdbName
+	cpr.Database = DefaultDBName
 	cpr.Action = 99
 	_, err = s.ChangePermission(userCtx, cpr)
 	errStatus, _ = status.FromError(err)
@@ -1290,16 +1290,16 @@ func TestServerErrors(t *testing.T) {
 
 	// UseDatabase errors
 	s.Options.auth = false
-	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: DefaultdbName})
+	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: DefaultDBName})
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
-	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultdbName})
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultDBName})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.Unauthenticated, errStatus.Code())
 	require.Equal(t, "Please login", errStatus.Message())
 
-	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: SystemdbName})
+	_, err = s.UseDatabase(adminCtx, &schema.Database{DatabaseName: SystemDBName})
 	require.NoError(t, err)
 
 	lr, err = s.Login(userCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
@@ -1308,7 +1308,7 @@ func TestServerErrors(t *testing.T) {
 	md = metadata.Pairs("authorization", lr.Token)
 	userCtx = metadata.NewIncomingContext(context.Background(), md)
 
-	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: SystemdbName})
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: SystemDBName})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
@@ -1321,7 +1321,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
 	s.Options.maintenance = true
-	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultdbName})
+	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: DefaultDBName})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
@@ -1344,7 +1344,7 @@ func TestServerErrors(t *testing.T) {
 	cpr = &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Username:   username,
-		Database:   DefaultdbName,
+		Database:   DefaultDBName,
 		Permission: 2,
 	}
 	_, err = s.ChangePermission(adminCtx, cpr)
@@ -1436,7 +1436,7 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.CreateDatabaseWith(userCtx, createDbReq)
 	require.Equal(t, errors.New("Logged In user does not have permissions for this operation"), err)
 
-	createDbReq.DatabaseName = SystemdbName
+	createDbReq.DatabaseName = SystemDBName
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this database name is reserved"), err)
 	createDbReq.DatabaseName = someDb2
@@ -1591,7 +1591,7 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 		User:       []byte(username),
 		Password:   []byte("Somepass1$"),
 		Permission: 1,
-		Database:   DefaultdbName})
+		Database:   DefaultDBName})
 	require.NoError(t, err)
 	require.NoError(t, err)
 
@@ -1655,7 +1655,7 @@ func TestServerMandatoryAuth(t *testing.T) {
 		User:       []byte("someuser"),
 		Password:   []byte("Somepass1$"),
 		Permission: 1,
-		Database:   DefaultdbName,
+		Database:   DefaultDBName,
 	})
 	require.NoError(t, err)
 	s.dbList.Append(s.dbList.GetByIndex(0))
