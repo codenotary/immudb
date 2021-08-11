@@ -278,3 +278,7 @@ func (c *Column) Type() SQLValueType {
 func (c *Column) IsNullable() bool {
 	return !c.notNull
 }
+
+func (c *Column) IsAutoIncremental() bool {
+	return c.autoIncrement
+}
