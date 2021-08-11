@@ -214,6 +214,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		{Name: "TYPE", Type: sql.VarcharType},
 		{Name: "NULLABLE", Type: sql.BooleanType},
 		{Name: "INDEX", Type: sql.VarcharType},
+		{Name: "AUTO_INCREMENT", Type: sql.BooleanType},
 	}}
 
 	for _, c := range table.ColsByID() {
@@ -237,6 +238,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 				{Value: &schema.SQLValue_S{S: c.Type()}},
 				{Value: &schema.SQLValue_B{B: c.IsNullable()}},
 				{Value: &schema.SQLValue_S{S: index}},
+				{Value: &schema.SQLValue_B{B: c.IsAutoIncremental()}},
 			},
 		})
 	}
