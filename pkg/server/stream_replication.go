@@ -63,7 +63,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 	}
 
 	if s.replicationInProgressFor(db.GetName()) {
-		return ErrReplicationInFollowerMode
+		return ErrReplicationInProgress
 	}
 
 	receiver := s.StreamServiceFactory.NewMsgReceiver(replicateTxServer)

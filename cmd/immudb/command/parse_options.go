@@ -35,8 +35,8 @@ func parseOptions() (options *server.Options, err error) {
 		replicationOptions = (&server.ReplicationOptions{}).
 			WithMasterAddress(viper.GetString("master-address")).
 			WithMasterPort(viper.GetInt("master-port")).
-			WithFollowerUsr(viper.GetString("follower-username")).
-			WithFollowerPwd(viper.GetString("follower-password"))
+			WithReplicaUsername(viper.GetString("replica-username")).
+			WithReplicaPassword(viper.GetString("replica-password"))
 	}
 
 	pidfile := viper.GetString("pidfile")

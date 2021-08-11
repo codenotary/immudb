@@ -21,9 +21,9 @@ import "testing"
 func TestOptions(t *testing.T) {
 	opts := &Options{}
 
-	opts.WithSrcDatabase("defaultdb").
-		WithSrcAddress("127.0.0.1").
-		WithSrcPort(3322).
-		WithFollowerUsr("immudbUsr").
-		WithFollowerPwd("immdubPwd")
+	opts.WithMasterDatabase("defaultdb").
+		WithMasterAddress("127.0.0.1").
+		WithMasterPort(3322).
+		WithReplicaUsername("immudbUsr").
+		WithReplicaPassword("immdubPwd")
 }

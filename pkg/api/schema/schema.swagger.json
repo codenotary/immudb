@@ -1402,20 +1402,20 @@
         "replica": {
           "type": "boolean"
         },
-        "srcDatabase": {
+        "masterDatabase": {
           "type": "string"
         },
-        "srcAddress": {
+        "masterAddress": {
           "type": "string"
         },
-        "srcPort": {
+        "masterPort": {
           "type": "integer",
           "format": "int64"
         },
-        "followerUsr": {
+        "replicaUsername": {
           "type": "string"
         },
-        "followerPwd": {
+        "replicaPassword": {
           "type": "string"
         },
         "fileSize": {
