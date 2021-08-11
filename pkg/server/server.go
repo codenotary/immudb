@@ -582,11 +582,11 @@ func (s *ImmuServer) startReplicationFor(db database.DB, replicationOptions *Rep
 	defer s.replicationMutex.Unlock()
 
 	replicatorOpts := replication.DefaultOptions().
-		WithSrcDatabase(replicationOptions.MasterDatabase).
-		WithSrcAddress(replicationOptions.MasterAddress).
-		WithSrcPort(replicationOptions.MasterPort).
-		WithFollowerUsr(replicationOptions.FollowerUsr).
-		WithFollowerPwd(replicationOptions.FollowerPwd).
+		WithMasterDatabase(replicationOptions.MasterDatabase).
+		WithMasterAddress(replicationOptions.MasterAddress).
+		WithMasterPort(replicationOptions.MasterPort).
+		WithReplicaUsername(replicationOptions.ReplicaUsername).
+		WithReplicaPassword(replicationOptions.ReplicaPassword).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
 	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
@@ -610,7 +610,7 @@ func (s *ImmuServer) stopReplicationFor(db string) error {
 
 	replicator, ok := s.replicators[db]
 	if !ok {
-		return ErrNoReplicationInProgress
+		return ErrReplicationNotInProgress
 	}
 
 	err := replicator.Stop()
@@ -797,11 +797,11 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	settings := &dbSettings{
 		Database:          req.DatabaseName,
 		Replica:           req.Replica,
-		SrcDatabase:       req.SrcDatabase,
-		SrcAddress:        req.SrcAddress,
-		SrcPort:           int(req.SrcPort),
-		FollowerUsr:       req.FollowerUsr,
-		FollowerPwd:       req.FollowerPwd,
+		MasterDatabase:    req.MasterDatabase,
+		MasterAddress:     req.MasterAddress,
+		MasterPort:        int(req.MasterPort),
+		ReplicaUsername:   req.ReplicaUsername,
+		ReplicaPassword:   req.ReplicaPassword,
 		ExcludeCommitTime: req.ExcludeCommitTime,
 		CreatedBy:         user.Username,
 		CreatedAt:         time.Now(),
@@ -892,7 +892,7 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	s.Logger.Infof("Updating settings of database '%s'...", db.GetName())
 
 	err = s.stopReplicationFor(req.DatabaseName)
-	if err != nil && err != ErrNoReplicationInProgress {
+	if err != nil && err != ErrReplicationNotInProgress {
 		s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.DatabaseName, err)
 	}
 
@@ -902,11 +902,11 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	}
 
 	settings.Replica = req.Replica
-	settings.SrcDatabase = req.SrcDatabase
-	settings.SrcAddress = req.SrcAddress
-	settings.SrcPort = int(req.SrcPort)
-	settings.FollowerUsr = req.FollowerUsr
-	settings.FollowerPwd = req.FollowerPwd
+	settings.MasterDatabase = req.MasterDatabase
+	settings.MasterAddress = req.MasterAddress
+	settings.MasterPort = int(req.MasterPort)
+	settings.ReplicaUsername = req.ReplicaUsername
+	settings.ReplicaPassword = req.ReplicaPassword
 	settings.ExcludeCommitTime = req.ExcludeCommitTime
 	settings.UpdatedBy = user.Username
 	settings.UpdatedAt = time.Now()
@@ -944,11 +944,11 @@ func replicationOptionsFrom(settings *dbSettings) *ReplicationOptions {
 	}
 
 	return &ReplicationOptions{
-		MasterDatabase: settings.SrcDatabase,
-		MasterAddress:  settings.SrcAddress,
-		MasterPort:     settings.SrcPort,
-		FollowerUsr:    settings.FollowerUsr,
-		FollowerPwd:    settings.FollowerPwd,
+		MasterDatabase:  settings.MasterDatabase,
+		MasterAddress:   settings.MasterAddress,
+		MasterPort:      settings.MasterPort,
+		ReplicaUsername: settings.ReplicaUsername,
+		ReplicaPassword: settings.ReplicaPassword,
 	}
 }
 
@@ -1113,11 +1113,11 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 type dbSettings struct {
 	Database          string    `json:"database"`
 	Replica           bool      `json:"replica"`
-	SrcDatabase       string    `json:"srcDatabase"`
-	SrcAddress        string    `json:"srcAddress"`
-	SrcPort           int       `json:"srcPort"`
-	FollowerUsr       string    `json:"followerUsr"`
-	FollowerPwd       string    `json:"followerPwd"`
+	MasterDatabase    string    `json:"masterDatabase"`
+	MasterAddress     string    `json:"masterAddress"`
+	MasterPort        int       `json:"masterPort"`
+	ReplicaUsername   string    `json:"replicaUsername"`
+	ReplicaPassword   string    `json:"replicaPassword"`
 	ExcludeCommitTime bool      `json:"excludeCommitTime"`
 	CreatedBy         string    `json:"createdBy"`
 	CreatedAt         time.Time `json:"createdAt"`

@@ -79,7 +79,7 @@ func (txr *TxReplicator) Start() error {
 		return ErrAlreadyRunning
 	}
 
-	srcDB := fullAddress(txr.opts.srcDatabase, txr.opts.srcAddress, txr.opts.srcPort)
+	srcDB := fullAddress(txr.opts.masterDatabase, txr.opts.masterAddress, txr.opts.masterPort)
 
 	txr.logger.Infof("Initializing replication from '%s' to '%s'...", srcDB, txr.db.GetName())
 
@@ -168,22 +168,22 @@ func (txr *TxReplicator) connect() error {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Connecting to '%s':'%d'...", txr.opts.srcAddress, txr.opts.srcPort)
+	txr.logger.Infof("Connecting to '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
 
-	opts := client.DefaultOptions().WithAddress(txr.opts.srcAddress).WithPort(txr.opts.srcPort)
+	opts := client.DefaultOptions().WithAddress(txr.opts.masterAddress).WithPort(txr.opts.masterPort)
 	client, err := client.NewImmuClient(opts)
 	if err != nil {
 		return err
 	}
 
-	login, err := client.Login(txr.context, []byte(txr.opts.followerUsr), []byte(txr.opts.followerPwd))
+	login, err := client.Login(txr.context, []byte(txr.opts.replicaUsername), []byte(txr.opts.replicaPassword))
 	if err != nil {
 		return err
 	}
 
 	txr.context = metadata.NewOutgoingContext(txr.context, metadata.Pairs("authorization", login.GetToken()))
 
-	udr, err := client.UseDatabase(txr.context, &schema.Database{DatabaseName: txr.opts.srcDatabase})
+	udr, err := client.UseDatabase(txr.context, &schema.Database{DatabaseName: txr.opts.masterDatabase})
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (txr *TxReplicator) connect() error {
 
 	txr.client = client
 
-	txr.logger.Infof("Connection to '%s':'%d' successfully stablished", txr.opts.srcAddress, txr.opts.srcPort)
+	txr.logger.Infof("Connection to '%s':'%d' successfully stablished", txr.opts.masterAddress, txr.opts.masterPort)
 
 	return nil
 }
@@ -201,14 +201,14 @@ func (txr *TxReplicator) disconnect() {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Disconnecting from '%s':'%d'...", txr.opts.srcAddress, txr.opts.srcPort)
+	txr.logger.Infof("Disconnecting from '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
 
 	txr.client.Logout(txr.context)
 	txr.client.Disconnect()
 
 	txr.client = nil
 
-	txr.logger.Infof("Disconnected from '%s':'%d'...", txr.opts.srcAddress, txr.opts.srcPort)
+	txr.logger.Infof("Disconnected from '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
 }
 
 func (txr *TxReplicator) fetchTX() ([]byte, error) {
@@ -234,7 +234,7 @@ func (txr *TxReplicator) Stop() error {
 	if txr.client != nil {
 		err := txr.client.Logout(txr.context)
 		if err != nil {
-			txr.logger.Warningf("Error login out from '%s:%d'. Reason: %v", txr.opts.srcAddress, txr.opts.srcPort, err)
+			txr.logger.Warningf("Error login out from '%s:%d'. Reason: %v", txr.opts.masterAddress, txr.opts.masterPort, err)
 		}
 	}
 
@@ -245,7 +245,7 @@ func (txr *TxReplicator) Stop() error {
 	if txr.client != nil {
 		err := txr.client.Disconnect()
 		if err != nil {
-			txr.logger.Warningf("Error disconnecting from '%s:%d'. Reason: %v", txr.opts.srcAddress, txr.opts.srcPort, err)
+			txr.logger.Warningf("Error disconnecting from '%s:%d'. Reason: %v", txr.opts.masterAddress, txr.opts.masterPort, err)
 		}
 	}
 

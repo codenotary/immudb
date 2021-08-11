@@ -21,11 +21,11 @@ import "time"
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 
 type Options struct {
-	srcDatabase string
-	srcAddress  string
-	srcPort     int
-	followerUsr string
-	followerPwd string
+	masterDatabase  string
+	masterAddress   string
+	masterPort      int
+	replicaUsername string
+	replicaPassword string
 
 	streamChunkSize int
 
@@ -52,33 +52,33 @@ func (opts *Options) Valid() bool {
 		opts.delayer != nil
 }
 
-// WithSrcDatabase sets the source database name
-func (o *Options) WithSrcDatabase(srcDatabase string) *Options {
-	o.srcDatabase = srcDatabase
+// WithMasterDatabase sets the source database name
+func (o *Options) WithMasterDatabase(masterDatabase string) *Options {
+	o.masterDatabase = masterDatabase
 	return o
 }
 
-// WithSrcAddress sets the source database address
-func (o *Options) WithSrcAddress(srcAddress string) *Options {
-	o.srcAddress = srcAddress
+// WithMasterAddress sets the source database address
+func (o *Options) WithMasterAddress(masterAddress string) *Options {
+	o.masterAddress = masterAddress
 	return o
 }
 
-// WithSrcPort sets the source database port
-func (o *Options) WithSrcPort(srcPort int) *Options {
-	o.srcPort = srcPort
+// WithMasterPort sets the source database port
+func (o *Options) WithMasterPort(masterPort int) *Options {
+	o.masterPort = masterPort
 	return o
 }
 
-// WithFollowerUsr sets follower username
-func (o *Options) WithFollowerUsr(followerUsr string) *Options {
-	o.followerUsr = followerUsr
+// WithReplicaUsername sets username used for replication
+func (o *Options) WithReplicaUsername(replicaUsername string) *Options {
+	o.replicaUsername = replicaUsername
 	return o
 }
 
-// WithFollowerPwd sets follower password
-func (o *Options) WithFollowerPwd(followerPwd string) *Options {
-	o.followerPwd = followerPwd
+// WithReplicaPassword sets password used for replication
+func (o *Options) WithReplicaPassword(replicaPassword string) *Options {
+	o.replicaPassword = replicaPassword
 	return o
 }
 

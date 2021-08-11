@@ -24,15 +24,15 @@ var (
 
 	// ---- Fetching committed transactions ---------------------------------------
 
-	metricsFollowerStreammingEvents = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "immudb_follower_streamming_events",
-		Help: "immudb follower streamming event counters",
+	metricsReplicaStreammingEvents = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "immudb_replica_streamming_events",
+		Help: "immudb replica streamming event counters",
 	}, []string{"event"})
 
-	metricsTxStreamStarted   = metricsFollowerStreammingEvents.WithLabelValues("started")
-	metricsTxStreamFinished  = metricsFollowerStreammingEvents.WithLabelValues("finished")
-	metricsTxStreamFailed    = metricsFollowerStreammingEvents.WithLabelValues("failed")
-	metricsTxStreamCancelled = metricsFollowerStreammingEvents.WithLabelValues("cancelled")
-	metricsTxStreamRetried   = metricsFollowerStreammingEvents.WithLabelValues("retried")
-	metricsTxStreamSucceeded = metricsFollowerStreammingEvents.WithLabelValues("succeeded")
+	metricsTxStreamStarted   = metricsReplicaStreammingEvents.WithLabelValues("started")
+	metricsTxStreamFinished  = metricsReplicaStreammingEvents.WithLabelValues("finished")
+	metricsTxStreamFailed    = metricsReplicaStreammingEvents.WithLabelValues("failed")
+	metricsTxStreamCancelled = metricsReplicaStreammingEvents.WithLabelValues("cancelled")
+	metricsTxStreamRetried   = metricsReplicaStreammingEvents.WithLabelValues("retried")
+	metricsTxStreamSucceeded = metricsReplicaStreammingEvents.WithLabelValues("succeeded")
 )

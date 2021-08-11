@@ -80,11 +80,11 @@ type RemoteStorageOptions struct {
 }
 
 type ReplicationOptions struct {
-	MasterAddress  string
-	MasterPort     int
-	MasterDatabase string
-	FollowerUsr    string
-	FollowerPwd    string
+	MasterAddress   string
+	MasterPort      int
+	MasterDatabase  string
+	ReplicaUsername string
+	ReplicaPassword string
 }
 
 // DefaultOptions returns default server options
@@ -247,6 +247,13 @@ func (o *Options) String() string {
 	opts = append(opts, "================ Config ================")
 	opts = append(opts, rightPad("Data dir", o.Dir))
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
+
+	repOpts := o.ReplicationOptions
+
+	if o.ReplicationOptions != nil {
+		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.MasterAddress, repOpts.MasterPort)))
+	}
+
 	if o.MetricsServer {
 		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsPort)))
 	}
@@ -441,12 +448,12 @@ func (opts *ReplicationOptions) WithMasterDatabase(masterDatabase string) *Repli
 	return opts
 }
 
-func (opts *ReplicationOptions) WithFollowerUsr(followerUsr string) *ReplicationOptions {
-	opts.FollowerUsr = followerUsr
+func (opts *ReplicationOptions) WithReplicaUsername(replicaUsername string) *ReplicationOptions {
+	opts.ReplicaUsername = replicaUsername
 	return opts
 }
 
-func (opts *ReplicationOptions) WithFollowerPwd(followerPwd string) *ReplicationOptions {
-	opts.FollowerPwd = followerPwd
+func (opts *ReplicationOptions) WithReplicaPassword(replicaPassword string) *ReplicationOptions {
+	opts.ReplicaPassword = replicaPassword
 	return opts
 }

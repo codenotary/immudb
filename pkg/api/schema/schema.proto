@@ -332,11 +332,11 @@ message Database {
 message DatabaseSettings {
 	string databaseName = 1;
 	bool   replica = 2;
-	string srcDatabase = 3;
-	string srcAddress = 4;
-	uint32 srcPort = 5;
-	string followerUsr = 6;
-	string followerPwd = 7;
+	string masterDatabase = 3;
+	string masterAddress = 4;
+	uint32 masterPort = 5;
+	string replicaUsername = 6;
+	string replicaPassword = 7;
 	uint32 fileSize = 8;
 	uint32 maxKeyLen = 9;
 	uint32 maxValueLen = 10;
