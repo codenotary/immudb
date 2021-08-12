@@ -72,6 +72,10 @@ func (jointr *jointRowReader) ImplicitTable() string {
 	return jointr.rowReader.ImplicitTable()
 }
 
+func (jointr *jointRowReader) OrderBy() *ColDescriptor {
+	return jointr.rowReader.OrderBy()
+}
+
 func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
 	colsBySel, err := jointr.colsBySelector()
 	if err != nil {

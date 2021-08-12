@@ -52,6 +52,7 @@ var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
 var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
+var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrCatalogNotReady = errors.New("catalog not ready")

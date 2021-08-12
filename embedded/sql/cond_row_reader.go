@@ -47,6 +47,10 @@ func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) {
 	cr.params = params
 }
 
+func (cr *conditionalRowReader) OrderBy() *ColDescriptor {
+	return cr.rowReader.OrderBy()
+}
+
 func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }
