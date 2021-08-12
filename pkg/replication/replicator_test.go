@@ -15,27 +15,3 @@ limitations under the License.
 */
 
 package replication
-
-import (
-	"testing"
-	"time"
-)
-
-func TestOptions(t *testing.T) {
-	opts := &Options{}
-
-	delayer := &expBackoff{
-		retryMinDelay: time.Second,
-		retryMaxDelay: 2 * time.Minute,
-		retryDelayExp: 2,
-		retryJitter:   0.1,
-	}
-
-	opts.WithMasterDatabase("defaultdb").
-		WithMasterAddress("127.0.0.1").
-		WithMasterPort(3322).
-		WithReplicaUsername("immudbUsr").
-		WithReplicaPassword("immdubPwd").
-		WithStreamChunkSize(DefaultChunkSize).
-		WithDelayer(delayer)
-}

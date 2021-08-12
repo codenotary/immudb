@@ -41,11 +41,12 @@ type TxReplicator struct {
 
 	logger logger.Logger
 
-	context    context.Context
-	cancelFunc context.CancelFunc
+	mainContext context.Context
+	cancelFunc  context.CancelFunc
 
 	streamSrvFactory stream.ServiceFactory
 	client           client.ImmuClient
+	clientContext    context.Context
 
 	delayer        Delayer
 	failedAttempts int
@@ -79,16 +80,16 @@ func (txr *TxReplicator) Start() error {
 		return ErrAlreadyRunning
 	}
 
-	srcDB := fullAddress(txr.opts.masterDatabase, txr.opts.masterAddress, txr.opts.masterPort)
+	masterDB := fullAddress(txr.opts.masterDatabase, txr.opts.masterAddress, txr.opts.masterPort)
 
-	txr.logger.Infof("Initializing replication from '%s' to '%s'...", srcDB, txr.db.GetName())
+	txr.logger.Infof("Initializing replication from '%s' to '%s'...", masterDB, txr.db.GetName())
 
 	st, err := txr.db.CurrentState()
 	if err != nil {
 		return err
 	}
 
-	txr.context, txr.cancelFunc = context.WithCancel(context.Background())
+	txr.mainContext, txr.cancelFunc = context.WithCancel(context.Background())
 
 	txr.nextTx = st.TxId + 1
 
@@ -105,22 +106,26 @@ func (txr *TxReplicator) Start() error {
 
 				txr.failedAttempts++
 
-				txr.logger.Warningf("Failed to connect with '%s' (%d failed attempts). Reason: %v", srcDB, txr.failedAttempts, err)
+				txr.logger.Warningf("Failed to connect with '%s' for database '%s' (%d failed attempts). Reason: %v",
+					masterDB,
+					txr.db.GetName(),
+					txr.failedAttempts,
+					err)
 
 				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
 				select {
-				case <-txr.context.Done():
+				case <-txr.mainContext.Done():
 					timer.Stop()
 					return
 				case <-timer.C:
 					break
 				}
 			} else {
-				txr.logger.Infof("Replicating transaction %d from '%s' to '%s'...", txr.nextTx, srcDB, txr.db.GetName())
+				txr.logger.Debugf("Replicating transaction %d from '%s' to '%s'...", txr.nextTx, masterDB, txr.db.GetName())
 
 				bs, err := txr.fetchTX()
 				if err != nil {
-					txr.logger.Warningf("Failed to export transaction from '%s'. Reason: %v", srcDB, err)
+					txr.logger.Warningf("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
 
 					txr.failedAttempts++
 
@@ -131,7 +136,7 @@ func (txr *TxReplicator) Start() error {
 
 					timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
 					select {
-					case <-txr.context.Done():
+					case <-txr.mainContext.Done():
 						timer.Stop()
 						return
 					case <-timer.C:
@@ -143,11 +148,15 @@ func (txr *TxReplicator) Start() error {
 
 				_, err = txr.db.ReplicateTx(bs)
 				if err != nil {
-					txr.logger.Warningf("Failed to replicate transaction in database '%s' from '%s'. Reason: %v", txr.db.GetName(), srcDB, err)
+					txr.logger.Warningf("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
+						txr.nextTx,
+						txr.db.GetName(),
+						masterDB,
+						err)
 					continue
 				}
 
-				txr.logger.Infof("Transaction %d successfully replicated from '%s' to '%s'", txr.nextTx, srcDB, txr.db.GetName())
+				txr.logger.Debugf("Transaction %d from '%s' to '%s' successfully replicated", txr.nextTx, masterDB, txr.db.GetName())
 
 				txr.nextTx++
 				txr.failedAttempts = 0
@@ -155,7 +164,7 @@ func (txr *TxReplicator) Start() error {
 		}
 	}()
 
-	txr.logger.Infof("Replication succesfully initialized from '%s' to '%s'...", srcDB, txr.db.GetName())
+	txr.logger.Infof("Replication from '%s' to '%s' succesfully initialized", masterDB, txr.db.GetName())
 
 	return nil
 }
@@ -168,7 +177,10 @@ func (txr *TxReplicator) connect() error {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Connecting to '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
+	txr.logger.Infof("Connecting to '%s':'%d' for database '%s'...",
+		txr.opts.masterAddress,
+		txr.opts.masterPort,
+		txr.db.GetName())
 
 	opts := client.DefaultOptions().WithAddress(txr.opts.masterAddress).WithPort(txr.opts.masterPort)
 	client, err := client.NewImmuClient(opts)
@@ -176,23 +188,26 @@ func (txr *TxReplicator) connect() error {
 		return err
 	}
 
-	login, err := client.Login(txr.context, []byte(txr.opts.replicaUsername), []byte(txr.opts.replicaPassword))
+	login, err := client.Login(txr.mainContext, []byte(txr.opts.replicaUsername), []byte(txr.opts.replicaPassword))
 	if err != nil {
 		return err
 	}
 
-	txr.context = metadata.NewOutgoingContext(txr.context, metadata.Pairs("authorization", login.GetToken()))
+	txr.clientContext = metadata.NewOutgoingContext(txr.mainContext, metadata.Pairs("authorization", login.GetToken()))
 
-	udr, err := client.UseDatabase(txr.context, &schema.Database{DatabaseName: txr.opts.masterDatabase})
+	udr, err := client.UseDatabase(txr.clientContext, &schema.Database{DatabaseName: txr.opts.masterDatabase})
 	if err != nil {
 		return err
 	}
 
-	txr.context = metadata.NewOutgoingContext(txr.context, metadata.Pairs("authorization", udr.GetToken()))
+	txr.clientContext = metadata.NewOutgoingContext(txr.clientContext, metadata.Pairs("authorization", udr.GetToken()))
 
 	txr.client = client
 
-	txr.logger.Infof("Connection to '%s':'%d' successfully stablished", txr.opts.masterAddress, txr.opts.masterPort)
+	txr.logger.Infof("Connection to '%s':'%d' for database '%s' successfully stablished",
+		txr.opts.masterAddress,
+		txr.opts.masterPort,
+		txr.db.GetName())
 
 	return nil
 }
@@ -201,18 +216,18 @@ func (txr *TxReplicator) disconnect() {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Disconnecting from '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
+	txr.logger.Infof("Disconnecting from '%s':'%d' for database '%s'...", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 
-	txr.client.Logout(txr.context)
+	txr.client.Logout(txr.clientContext)
 	txr.client.Disconnect()
 
 	txr.client = nil
 
-	txr.logger.Infof("Disconnected from '%s':'%d'...", txr.opts.masterAddress, txr.opts.masterPort)
+	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 }
 
 func (txr *TxReplicator) fetchTX() ([]byte, error) {
-	exportTxStream, err := txr.client.ExportTx(txr.context, &schema.TxRequest{Tx: txr.nextTx})
+	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.TxRequest{Tx: txr.nextTx})
 	if err != nil {
 		return nil, err
 	}
@@ -225,16 +240,20 @@ func (txr *TxReplicator) Stop() error {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Stopping replication for '%s'...", txr.db.GetName())
+	txr.logger.Infof("Stopping replication of database '%s'...", txr.db.GetName())
 
 	if !txr.running {
 		return ErrAlreadyStopped
 	}
 
 	if txr.client != nil {
-		err := txr.client.Logout(txr.context)
+		err := txr.client.Logout(txr.clientContext)
 		if err != nil {
-			txr.logger.Warningf("Error login out from '%s:%d'. Reason: %v", txr.opts.masterAddress, txr.opts.masterPort, err)
+			txr.logger.Warningf("Error login out from '%s:%d' for database '%s'. Reason: %v",
+				txr.opts.masterAddress,
+				txr.opts.masterPort,
+				txr.db.GetName(),
+				err)
 		}
 	}
 
@@ -245,13 +264,17 @@ func (txr *TxReplicator) Stop() error {
 	if txr.client != nil {
 		err := txr.client.Disconnect()
 		if err != nil {
-			txr.logger.Warningf("Error disconnecting from '%s:%d'. Reason: %v", txr.opts.masterAddress, txr.opts.masterPort, err)
+			txr.logger.Warningf("Error disconnecting from '%s:%d' for database '%s'. Reason: %v",
+				txr.opts.masterAddress,
+				txr.opts.masterPort,
+				txr.db.GetName(),
+				err)
 		}
 	}
 
 	txr.running = false
 
-	txr.logger.Infof("Replication successfully stopped for '%s'", txr.db.GetName())
+	txr.logger.Infof("Replication of database '%s' successfully stopped", txr.db.GetName())
 
 	return nil
 }
