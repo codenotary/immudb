@@ -29,6 +29,7 @@ type RowReader interface {
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
+	OrderBy() *ColDescriptor
 	InferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]*ColDescriptor, error)
 }
@@ -74,7 +75,7 @@ type rawRowReader struct {
 	tableAlias string
 	colsByPos  []*ColDescriptor
 	colsBySel  map[string]*ColDescriptor
-	col        string
+	orderByCol *Column
 	desc       bool
 	reader     *store.KeyReader
 }
@@ -91,12 +92,12 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
-func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, orderByCol string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	col, err := table.GetColumnByName(colName)
+	col, err := table.GetColumnByName(orderByCol)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 	}
 
 	if cmp == LowerThan || cmp == LowerOrEqualTo {
-		if table.pk.colName == colName {
+		if table.pk.colName == orderByCol {
 			skey = append(skey, encInitKeyVal...)
 		} else {
 			maxPKVal := maxKeyVal(table.pk.colType)
@@ -170,7 +171,7 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
 		tableAlias: tableAlias,
-		col:        col.colName,
+		orderByCol: col,
 		desc:       rSpec.DescOrder,
 		reader:     r,
 	}, nil
@@ -182,6 +183,15 @@ func (r *rawRowReader) ImplicitDB() string {
 
 func (r *rawRowReader) ImplicitTable() string {
 	return r.tableAlias
+}
+
+func (r *rawRowReader) OrderBy() *ColDescriptor {
+	return &ColDescriptor{
+		Database: r.table.db.name,
+		Table:    r.tableAlias,
+		Column:   r.orderByCol.colName,
+		Type:     r.orderByCol.colType,
+	}
 }
 
 func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
@@ -215,7 +225,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.table.pk.colName == r.col {
+	if r.table.pk.colName == r.orderByCol.colName {
 		v, err = vref.Resolve()
 		if err != nil {
 			return nil, err

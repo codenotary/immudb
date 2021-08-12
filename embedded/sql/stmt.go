@@ -1119,6 +1119,10 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 		return nil, ErrHavingClauseRequiresGroupClause
 	}
 
+	if len(stmt.groupBy) > 1 {
+		return nil, ErrLimitedGroupBy
+	}
+
 	if len(stmt.orderBy) > 1 {
 		return nil, ErrLimitedOrderBy
 	}

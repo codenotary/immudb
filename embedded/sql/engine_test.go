@@ -826,6 +826,12 @@ func TestQuery(t *testing.T) {
 	r, err := engine.QueryStmt("SELECT id FROM db1.table1 WHERE id >= @id", nil, true)
 	require.NoError(t, err)
 
+	orderBy := r.OrderBy()
+	require.NotNil(t, orderBy)
+	require.Equal(t, "id", orderBy.Column)
+	require.Equal(t, "table1", orderBy.Table)
+	require.Equal(t, "db1", orderBy.Database)
+
 	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
 
@@ -954,7 +960,10 @@ func TestQuery(t *testing.T) {
 
 	encPayloadPrefix := hex.EncodeToString([]byte("blob"))
 
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT id, title, active FROM table1 WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't", encPayloadPrefix), params, true)
+	r, err = engine.QueryStmt(fmt.Sprintf(`
+		SELECT id, title, active
+		FROM table1
+		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't`, encPayloadPrefix), params, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i += 2 {
@@ -1204,6 +1213,12 @@ func TestOrderBy(t *testing.T) {
 
 	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY title", nil, true)
 	require.NoError(t, err)
+
+	orderBy := r.OrderBy()
+	require.NotNil(t, orderBy)
+	require.Equal(t, "title", orderBy.Column)
+	require.Equal(t, "table1", orderBy.Table)
+	require.Equal(t, "db1", orderBy.Database)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
@@ -1490,6 +1505,66 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCount(t *testing.T) {
+	catalogStore, err := store.Open("catalog_agg", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_agg")
+
+	dataStore, err := store.Open("sqldata_agg", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_agg")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON t1(val1)", nil, true)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 3; j++ {
+			_, err = engine.ExecStmt("INSERT INTO t1(val1) VALUES($1)", map[string]interface{}{"param1": j}, true)
+			require.NoError(t, err)
+		}
+	}
+
+	r, err := engine.QueryStmt("SELECT COUNT() as c FROM t1", nil, true)
+	require.NoError(t, err)
+
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.EqualValues(t, uint64(30), row.Values["(db1.t1.c)"].Value())
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	_, err = engine.QueryStmt("SELECT COUNT() as c FROM t1 GROUP BY val1", nil, true)
+	require.ErrorIs(t, err, ErrLimitedGroupBy)
+
+	r, err = engine.QueryStmt("SELECT COUNT() as c FROM t1 GROUP BY val1 ORDER BY val1", nil, true)
+	require.NoError(t, err)
+
+	for j := 0; j < 3; j++ {
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.EqualValues(t, uint64(10), row.Values["(db1.t1.c)"].Value())
+	}
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
 func TestGroupByHaving(t *testing.T) {
 	catalogStore, err := store.Open("catalog_having", store.DefaultOptions())
 	require.NoError(t, err)
@@ -1531,7 +1606,13 @@ func TestGroupByHaving(t *testing.T) {
 	_, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil, true)
 	require.Equal(t, ErrHavingClauseRequiresGroupClause, err)
 
-	r, err := engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null GROUP BY active HAVING AVG(age) >= MIN(age)", nil, true)
+	r, err := engine.QueryStmt(`
+		SELECT active, COUNT(), SUM(age1)
+		FROM table1
+		WHERE active != null
+		GROUP BY active
+		HAVING AVG(age) >= MIN(age)
+		ORDER BY active`, nil, true)
 	require.NoError(t, err)
 
 	r.SetParameters(nil)
@@ -1542,13 +1623,18 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE AVG(age) >= MIN(age) GROUP BY active", nil, true)
+	r, err = engine.QueryStmt(`
+		SELECT active, COUNT(), SUM(age1)
+		FROM table1
+		WHERE AVG(age) >= MIN(age)
+		GROUP BY active
+		ORDER BY active`, nil, true)
 	require.NoError(t, err)
 
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active", nil, true)
+	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active ORDER BY active", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1557,7 +1643,12 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT() FROM table1 GROUP BY active HAVING AVG(age) >= MIN(age1)", nil, true)
+	r, err = engine.QueryStmt(`
+		SELECT active, COUNT()
+		FROM table1
+		GROUP BY active
+		HAVING AVG(age) >= MIN(age1)
+		ORDER BY active`, nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1566,7 +1657,18 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil, true)
+	r, err = engine.QueryStmt(`
+		SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age)
+		FROM table1
+		GROUP BY active
+		HAVING COUNT() <= SUM(age)   AND 
+				MIN(age) <= MAX(age) AND 
+				AVG(age) <= MAX(age) AND 
+				MAX(age) < SUM(age)  AND 
+				AVG(age) >= MIN(age) AND 
+				SUM(age) > 0
+		ORDER BY active DESC`, nil, true)
+
 	require.NoError(t, err)
 
 	_, err = r.Columns()
@@ -1976,9 +2078,14 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	params, err = engine.InferParameters("CREATE INDEX ON mytable(title)")
+	stmt = "CREATE INDEX ON mytable(active)"
+
+	params, err = engine.InferParameters(stmt)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
+
+	_, err = engine.ExecStmt(stmt, nil, true)
+	require.NoError(t, err)
 
 	params, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@id, @title); COMMIT")
 	require.NoError(t, err)
@@ -2024,12 +2131,12 @@ func TestInferParameters(t *testing.T) {
 	require.Equal(t, BooleanType, params["param1"])
 	require.Equal(t, IntegerType, params["param2"])
 
-	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT()")
+	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT() ORDER BY active")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])
 
-	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING @param1 < MIN(id)")
+	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING @param1 < MIN(id) ORDER BY active")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])

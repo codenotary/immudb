@@ -75,6 +75,10 @@ func (r *dummyRowReader) Close() error {
 	return dummyError
 }
 
+func (r *dummyRowReader) OrderBy() *ColDescriptor {
+	return nil
+}
+
 func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
 	return nil, dummyError
 }
