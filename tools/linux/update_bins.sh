@@ -11,9 +11,10 @@
 # If systemctl is available and service is running, it will be stopped and started afterwards.
 #
 # 
-# Example:
-# $ bash tools/linux/update_bins.sh --ask # this will ask you for confirmation before overwriting files
-# $ bash tools/linux/update_bins.sh --quite # this will overwrite files without asking for confirmation
+# Examples:
+# $ ./tools/linux/update_bins.sh --help # print help
+# $ ./tools/linux/update_bins.sh --ask # this will ask you for confirmation before overwriting files
+# $ ./tools/linux/update_bins.sh --quite # this will overwrite files without asking for confirmation
 
 set -o nounset
 
