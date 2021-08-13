@@ -2,23 +2,25 @@
 # 
 # usage: ./tools/linux/update_bins.sh [<writing_mode>]  
 # Arguments: 
-#   writing_mode: --ask |--quite
+#   writing_mode: --ask |--batch
 #   default: --ask
 #
 # Description:
 # This script will update the immudb binaries. After building, running this script will overwrite files all over the place.
-# You can choose whether to use interactive (--ask) or quiet (--quite) mode.
+# You can choose whether to use interactive (--ask) or batch (--batch) mode.
 # If systemctl is available and service is running, it will be stopped and started afterwards.
 #
 # 
 # Examples:
 # $ ./tools/linux/update_bins.sh --help # print help
 # $ ./tools/linux/update_bins.sh --ask # this will ask you for confirmation before overwriting files
-# $ ./tools/linux/update_bins.sh --quite # this will overwrite files without asking for confirmation
+# $ ./tools/linux/update_bins.sh --batch # this will overwrite files without asking for confirmation
+# $ ./tools/linux/update_bins.sh # writing mode omitted, default is --ask
 
+# no unset, please
 set -o nounset
 
-# script stuff
+# script stuff declarations
 ERROR=1
 SUCCESS=0
 PWD=$(pwd)
@@ -27,12 +29,12 @@ FIMMUCLIENT="immuclient"
 FIMMUADMIN="immuadmin"
 FIMMUTEST="immutest"
 SERVICE="immudb.service"
-USAGE="Usage: ./tools/linux/$0 [--ask|--quite]\nDebug: bash -x tools/linux/$0 [--ask|--quite]"
+USAGE="Usage: ./tools/linux/$0 [--ask|--batch]\nDebug: bash -x tools/linux/$0 [--ask|--batch]"
 
 # Parsing script arguments, in order to identify the writing mode
 INTERACTIVE=${1:-"--ask"}
 
-# I need one argument, either --ask or --quite. Nothing more, nothing less.
+# I need one argument, either --ask or --batch. Nothing more, nothing less.
 if [ $# -eq 0 ]; then
     echo "Writing mode not passed, I set --ask for you"
 elif [ $# -gt 1 ]; then
@@ -43,7 +45,7 @@ else
 fi
 
 # Argument parsing: parameters passed to the script, or help. Everything else is an error
-if [ "${INTERACTIVE}" == "--quite" ]; then
+if [ "${INTERACTIVE}" == "--batch" ]; then
     CPI=""
 elif [ "${INTERACTIVE}" == "--ask" ]; then
     CPI="-i"
