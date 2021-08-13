@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# usage: ./immudbin.sh [<writing_mode>]  
+# usage: ./tools/linux/immudbin.sh [<writing_mode>]  
 # Arguments: 
 #   writing_mode: --ask |--quite
 #   default: --ask
