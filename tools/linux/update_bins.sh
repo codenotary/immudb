@@ -27,7 +27,7 @@ FIMMUCLIENT="immuclient"
 FIMMUADMIN="immuadmin"
 FIMMUTEST="immutest"
 SERVICE="immudb.service"
-USAGE="Usage: ./$0 [--ask|--quite]\nDebug: bash -x ./$0 [--ask|--quite]"
+USAGE="Usage: ./tools/linux/$0 [--ask|--quite]\nDebug: bash -x tools/linux/$0 [--ask|--quite]"
 
 # Parsing script arguments, in order to identify the writing mode
 INTERACTIVE=${1:-"--ask"}
@@ -39,7 +39,7 @@ elif [ $# -gt 1 ]; then
     echo -e $USAGE
     exit $ERROR
 else
-    echo "Writing mode: $INTERACTIVE"
+    echo "Passed: $INTERACTIVE"
 fi
 
 # Argument parsing: parameters passed to the script, or help. Everything else is an error
@@ -48,7 +48,7 @@ if [ "${INTERACTIVE}" == "--quite" ]; then
 elif [ "${INTERACTIVE}" == "--ask" ]; then
     CPI="-i"
 elif [ "${INTERACTIVE}" == "--help" ]; then
-    echo -n "${USAGE}"
+    echo -e "${USAGE}"
     exit ${SUCCESS}
 else
     echo "EROOR: unknown option ${INTERACTIVE}"
