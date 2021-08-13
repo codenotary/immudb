@@ -1652,15 +1652,13 @@ func (s *ImmuStore) Close() error {
 
 	s.closed = true
 
-	errors := make([]error, 0)
+	merr := multierr.NewMultiErr()
 
 	for i := range s.vLogs {
 		vLog, _ := s.fetchVLog(i+1, false)
 
 		err := vLog.Close()
-		if err != nil {
-			errors = append(errors, err)
-		}
+		merr.Append(err)
 	}
 	s.vLogsCond.Broadcast()
 
@@ -1673,28 +1671,20 @@ func (s *ImmuStore) Close() error {
 
 	s.wHub.Close()
 
-	iErr := s.indexer.Close()
-	if iErr != nil {
-		errors = append(errors, iErr)
-	}
+	err := s.indexer.Close()
+	merr.Append(err)
 
-	txErr := s.txLog.Close()
-	if txErr != nil {
-		errors = append(errors, txErr)
-	}
+	err = s.txLog.Close()
+	merr.Append(err)
 
-	cErr := s.cLog.Close()
-	if cErr != nil {
-		errors = append(errors, cErr)
-	}
+	err = s.cLog.Close()
+	merr.Append(err)
 
-	tErr := s.aht.Close()
-	if tErr != nil {
-		errors = append(errors, tErr)
-	}
+	err = s.aht.Close()
+	merr.Append(err)
 
-	if len(errors) > 0 {
-		return &multierr.MultiErr{Errors: errors}
+	if merr.HasErrors() {
+		return merr
 	}
 
 	return nil

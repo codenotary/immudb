@@ -779,25 +779,19 @@ func (t *AHtree) Close() error {
 
 	t.closed = true
 
-	errors := make([]error, 0)
+	merrors := multierr.NewMultiErr()
 
-	pErr := t.pLog.Close()
-	if pErr != nil {
-		errors = append(errors, pErr)
-	}
+	err := t.pLog.Close()
+	merrors.Append(err)
 
-	dErr := t.dLog.Close()
-	if dErr != nil {
-		errors = append(errors, dErr)
-	}
+	err = t.dLog.Close()
+	merrors.Append(err)
 
-	cErr := t.cLog.Close()
-	if cErr != nil {
-		errors = append(errors, cErr)
-	}
+	err = t.cLog.Close()
+	merrors.Append(err)
 
-	if len(errors) > 0 {
-		return &multierr.MultiErr{Errors: errors}
+	if merrors.HasErrors() {
+		return merrors
 	}
 
 	return nil

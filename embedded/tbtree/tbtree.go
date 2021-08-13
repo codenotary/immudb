@@ -1059,25 +1059,19 @@ func (t *TBtree) Close() error {
 
 	t.closed = true
 
-	errors := make([]error, 0)
+	merrors := multierr.NewMultiErr()
 
-	nErr := t.nLog.Close()
-	if nErr != nil {
-		errors = append(errors, nErr)
-	}
+	err = t.nLog.Close()
+	merrors.Append(err)
 
-	hErr := t.hLog.Close()
-	if hErr != nil {
-		errors = append(errors, hErr)
-	}
+	err = t.hLog.Close()
+	merrors.Append(err)
 
-	cErr := t.cLog.Close()
-	if cErr != nil {
-		errors = append(errors, cErr)
-	}
+	err = t.cLog.Close()
+	merrors.Append(err)
 
-	if len(errors) > 0 {
-		return &multierr.MultiErr{Errors: errors}
+	if merrors.HasErrors() {
+		return merrors
 	}
 
 	return nil

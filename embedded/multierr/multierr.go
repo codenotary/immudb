@@ -15,12 +15,45 @@ limitations under the License.
 */
 package multierr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type MultiErr struct {
-	Errors []error
+	errors []error
+}
+
+func NewMultiErr() *MultiErr {
+	return &MultiErr{}
+}
+
+func (me *MultiErr) Append(err error) *MultiErr {
+	if err != nil {
+		me.errors = append(me.errors, err)
+	}
+
+	return me
+}
+
+func (me *MultiErr) Includes(err error) bool {
+	for _, e := range me.errors {
+		if errors.Is(e, err) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (me *MultiErr) HasErrors() bool {
+	return len(me.errors) > 0
+}
+
+func (me *MultiErr) Errors() []error {
+	return me.errors
 }
 
 func (me *MultiErr) Error() string {
-	return fmt.Sprintf("%v", me.Errors)
+	return fmt.Sprintf("%v", me.errors)
 }
