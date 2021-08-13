@@ -659,9 +659,11 @@ type ValueExp interface {
 	jointColumnTo(col *Column, tableAlias string) (*ColSelector, error)
 	substitute(params map[string]interface{}) (ValueExp, error)
 	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
+	reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp
 }
 
 type TypedValue interface {
+	ValueExp
 	Type() SQLValueType
 	Value() interface{}
 	Compare(val TypedValue) (int, error)
@@ -721,6 +723,10 @@ func (v *NullValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable
 	return v, nil
 }
 
+func (v *NullValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
 type Number struct {
 	val uint64
 }
@@ -751,6 +757,10 @@ func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *Number) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
+}
+
+func (v *Number) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
 }
 
 func (v *Number) Value() interface{} {
@@ -812,6 +822,10 @@ func (v *Varchar) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable s
 	return v, nil
 }
 
+func (v *Varchar) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
 func (v *Varchar) Value() interface{} {
 	return v.val
 }
@@ -861,6 +875,10 @@ func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *Bool) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
+}
+
+func (v *Bool) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
 }
 
 func (v *Bool) Value() interface{} {
@@ -922,6 +940,10 @@ func (v *Blob) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable stri
 	return v, nil
 }
 
+func (v *Blob) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
 func (v *Blob) Value() interface{} {
 	return v.val
 }
@@ -979,6 +1001,10 @@ func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable str
 	}
 
 	return nil, errors.New("not yet supported")
+}
+
+func (v *SysFn) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
 }
 
 type Param struct {
@@ -1049,6 +1075,10 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (p *Param) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
+}
+
+func (p *Param) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return p
 }
 
 type Comparison int
@@ -1161,8 +1191,12 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 func (stmt *SelectStmt) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
 	var orderByCol *OrdCol
 
-	if len(stmt.orderBy) > 0 {
+	if ordCol == nil && len(stmt.orderBy) > 0 {
 		orderByCol = stmt.orderBy[0]
+	}
+
+	if ordCol != nil {
+		orderByCol = ordCol
 	}
 
 	rowReader, err := stmt.ds.Resolve(e, implicitDB, snap, params, orderByCol)
@@ -1439,6 +1473,17 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 	return v, nil
 }
 
+func (sel *ColSelector) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
+
+	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
+	if !ok {
+		return sel
+	}
+
+	return v
+}
+
 type AggColSelector struct {
 	aggFn AggregateFn
 	db    string
@@ -1523,6 +1568,10 @@ func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implic
 		return nil, ErrColumnDoesNotExist
 	}
 	return v, nil
+}
+
+func (sel *AggColSelector) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return sel
 }
 
 type NumExp struct {
@@ -1630,6 +1679,14 @@ func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable
 	return nil, ErrUnexpected
 }
 
+func (bexp *NumExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &NumExp{
+		op:    bexp.op,
+		left:  bexp.left.reduceSelectors(row, implicitDB, implicitTable),
+		right: bexp.right.reduceSelectors(row, implicitDB, implicitTable),
+	}
+}
+
 type NotBoolExp struct {
 	exp ValueExp
 }
@@ -1680,6 +1737,12 @@ func (bexp *NotBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 	return &Bool{val: !r}, nil
 }
 
+func (bexp *NotBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &NotBoolExp{
+		exp: bexp.exp.reduceSelectors(row, implicitDB, implicitTable),
+	}
+}
+
 type LikeBoolExp struct {
 	sel     Selector
 	pattern string
@@ -1721,6 +1784,10 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 	}
 
 	return &Bool{val: matched}, nil
+}
+
+func (bexp *LikeBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return bexp
 }
 
 type CmpBoolExp struct {
@@ -1846,6 +1913,14 @@ func (bexp *CmpBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 	return &Bool{val: cmpSatisfiesOp(r, bexp.op)}, nil
 }
 
+func (bexp *CmpBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &CmpBoolExp{
+		op:    bexp.op,
+		left:  bexp.left.reduceSelectors(row, implicitDB, implicitTable),
+		right: bexp.right.reduceSelectors(row, implicitDB, implicitTable),
+	}
+}
+
 func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
 	switch cmp {
 	case 0:
@@ -1957,6 +2032,14 @@ func (bexp *BinBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 	return nil, ErrUnexpected
 }
 
+func (bexp *BinBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &BinBoolExp{
+		op:    bexp.op,
+		left:  bexp.left.reduceSelectors(row, implicitDB, implicitTable),
+		right: bexp.right.reduceSelectors(row, implicitDB, implicitTable),
+	}
+}
+
 type ExistsBoolExp struct {
 	q *SelectStmt
 }
@@ -1979,4 +2062,8 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 
 func (bexp *ExistsBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
+}
+
+func (bexp *ExistsBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return bexp
 }
