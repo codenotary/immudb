@@ -1797,10 +1797,10 @@ func TestJoins(t *testing.T) {
 
 	t.Run("should find one matching row", func(t *testing.T) {
 		r, err := engine.QueryStmt(`
-		SELECT table1.title, table2.amount, table3.age
-		FROM (SELECT * FROM table2 WHERE amount = 1)
-		INNER JOIN table1 ON table2.id = table1.fkid1 AND table2.amount > 0
-		INNER JOIN table3 ON table1.fkid2 = table3.id AND table3.age > 30`, nil, true)
+		SELECT t1.title, t2.amount, t3.age
+		FROM (SELECT id, amount FROM table2 WHERE amount = 1 AS t2)
+		INNER JOIN (table1 as t1) ON t2.id = t1.fkid1 AND t2.amount > 0
+		INNER JOIN (table3 as t3) ON t1.fkid2 = t3.id AND t3.age > 30`, nil, true)
 		require.NoError(t, err)
 
 		row, err := r.Read()
