@@ -860,49 +860,89 @@ func TestQuery(t *testing.T) {
 	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil, true)
 	require.Equal(t, ErrNoSupported, err)
 
-	r, err = engine.QueryStmt("SELECT id1 FROM table1", nil, true)
-	require.NoError(t, err)
-
-	row, err := r.Read()
-	require.Equal(t, ErrColumnDoesNotExist, err)
-	require.Nil(t, row)
-
-	err = r.Close()
-	require.NoError(t, err)
-
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil, true)
-	require.NoError(t, err)
-
-	colsBySel, err := r.colsBySelector()
-	require.NoError(t, err)
-	require.Len(t, colsBySel, 5)
-
-	require.Equal(t, "db1", r.ImplicitDB())
-	require.Equal(t, "table1", r.ImplicitTable())
-
-	cols, err := r.Columns()
-	require.NoError(t, err)
-	require.Len(t, cols, 5)
-
-	for i := 0; i < rowCount; i++ {
-		row, err := r.Read()
+	t.Run("should fail reading due to non-existent column", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id1 FROM table1", nil, true)
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.Values, 5)
-		require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
-		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "d")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 
-		encPayload := []byte(fmt.Sprintf("blob%d", i))
-		require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "table1", "payload")].Value())
-	}
+		row, err := r.Read()
+		require.Equal(t, ErrColumnDoesNotExist, err)
+		require.Nil(t, row)
 
-	_, err = r.Read()
-	require.Equal(t, ErrNoMoreRows, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
-	err = r.Close()
-	require.NoError(t, err)
+	t.Run("should resolve every row with two-time table aliasing", func(t *testing.T) {
+		r, err = engine.QueryStmt(fmt.Sprintf("SELECT * FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1", rowCount), nil, true)
+		require.NoError(t, err)
+
+		colsBySel, err := r.colsBySelector()
+		require.NoError(t, err)
+		require.Len(t, colsBySel, 5)
+
+		require.Equal(t, "db1", r.ImplicitDB())
+		require.Equal(t, "mytable1", r.ImplicitTable())
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 5)
+
+		for i := 0; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Len(t, row.Values, 5)
+			require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value())
+			require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "mytable1", "id")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "mytable1", "title")].Value())
+			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "mytable1", "active")].Value())
+
+			encPayload := []byte(fmt.Sprintf("blob%d", i))
+			require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "mytable1", "payload")].Value())
+		}
+
+		_, err = r.Read()
+		require.Equal(t, ErrNoMoreRows, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should resolve every row with column and two-time table aliasing", func(t *testing.T) {
+		r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1", rowCount), nil, true)
+		require.NoError(t, err)
+
+		colsBySel, err := r.colsBySelector()
+		require.NoError(t, err)
+		require.Len(t, colsBySel, 5)
+
+		require.Equal(t, "db1", r.ImplicitDB())
+		require.Equal(t, "mytable1", r.ImplicitTable())
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 5)
+
+		for i := 0; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Len(t, row.Values, 5)
+			require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value())
+			require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "mytable1", "d")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "mytable1", "title")].Value())
+			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "mytable1", "active")].Value())
+
+			encPayload := []byte(fmt.Sprintf("blob%d", i))
+			require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "mytable1", "payload")].Value())
+		}
+
+		_, err = r.Read()
+		require.Equal(t, ErrNoMoreRows, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY title", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
@@ -948,7 +988,7 @@ func TestQuery(t *testing.T) {
 
 	r.SetParameters(params)
 
-	row, err = r.Read()
+	row, err := r.Read()
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 
@@ -983,7 +1023,7 @@ func TestQuery(t *testing.T) {
 	r, err = engine.QueryStmt("SELECT * FROM table1 WHERE id = 0", nil, true)
 	require.NoError(t, err)
 
-	cols, err = r.Columns()
+	cols, err := r.Columns()
 	require.NoError(t, err)
 	require.Len(t, cols, 5)
 
