@@ -1786,59 +1786,65 @@ func TestJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.fkid1 = table1.fkid1", nil, true)
-	require.NoError(t, err)
+	t.Run("should not find any matching row", func(t *testing.T) {
+		r, err := engine.QueryStmt(`
+		SELECT table1.title, table2.amount, table3.age
+		FROM (SELECT * FROM table2 WHERE amount = 1)
+		INNER JOIN table1 ON table2.id = table1.fkid1 AND table2.amount > 0
+		INNER JOIN table3 ON table1.fkid2 = table3.id AND table3.age < 30`, nil, true)
+		require.NoError(t, err)
 
-	r.SetParameters(nil)
+		_, err = r.Read()
+		require.Equal(t, ErrNoMoreRows, err)
 
-	_, err = r.Read()
-	require.Equal(t, ErrJointColumnNotFound, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
-	err = r.Close()
-	require.NoError(t, err)
+	t.Run("should find one matching row", func(t *testing.T) {
+		r, err := engine.QueryStmt(`
+		SELECT table1.title, table2.amount, table3.age
+		FROM (SELECT * FROM table2 WHERE amount = 1)
+		INNER JOIN table1 ON table2.id = table1.fkid1 AND table2.amount > 0
+		INNER JOIN table3 ON table1.fkid2 = table3.id AND table3.age > 30`, nil, true)
+		require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil, true)
-	require.NoError(t, err)
-
-	cols, err := r.Columns()
-	require.NoError(t, err)
-	require.Len(t, cols, 4)
-
-	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.Values, 4)
+		require.Len(t, row.Values, 3)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table2", "amount")].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table3", "age")].Value())
-	}
+		_, err = r.Read()
+		require.Equal(t, ErrNoMoreRows, err)
 
-	err = r.Close()
-	require.NoError(t, err)
-
-	_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", rowCount, rowCount, rowCount, rowCount), nil, true)
-	require.NoError(t, err)
-
-	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id ORDER BY id DESC", nil, true)
-	require.NoError(t, err)
-
-	for i := 0; i < rowCount; i++ {
-		row, err := r.Read()
+		err = r.Close()
 		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.Values, 4)
+	})
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table2", "amount")].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table3", "age")].Value())
-	}
+	t.Run("should resolve every inserted row", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil, true)
+		require.NoError(t, err)
 
-	err = r.Close()
-	require.NoError(t, err)
+		r.SetParameters(nil)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 4)
+
+		for i := 0; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Len(t, row.Values, 4)
+
+			require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+			require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table2", "amount")].Value())
+			require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table3", "age")].Value())
+		}
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	err = engine.Close()
 	require.NoError(t, err)

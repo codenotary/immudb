@@ -67,6 +67,35 @@ func (v *CountValue) updateWith(val TypedValue) error {
 	return nil
 }
 
+// ValueExp
+
+func (v *CountValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (v *CountValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != IntegerType {
+		return ErrNotComparableValues
+	}
+	return nil
+}
+
+func (v *CountValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *CountValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *CountValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *CountValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return nil
+}
+
 type SumValue struct {
 	s   uint64
 	sel string
@@ -116,6 +145,35 @@ func (v *SumValue) updateWith(val TypedValue) error {
 	return nil
 }
 
+// ValueExp
+
+func (v *SumValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (v *SumValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != IntegerType {
+		return ErrNotComparableValues
+	}
+	return nil
+}
+
+func (v *SumValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *SumValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *SumValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *SumValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return nil
+}
+
 type MinValue struct {
 	val TypedValue
 	sel string
@@ -159,6 +217,44 @@ func (v *MinValue) updateWith(val TypedValue) error {
 	return nil
 }
 
+// ValueExp
+
+func (v *MinValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	if v.val == nil {
+		return AnyType, ErrUnexpected
+	}
+
+	return v.val.Type(), nil
+}
+
+func (v *MinValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if v.val == nil {
+		return ErrUnexpected
+	}
+
+	if t != v.val.Type() {
+		return ErrNotComparableValues
+	}
+
+	return nil
+}
+
+func (v *MinValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MinValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MinValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MinValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return nil
+}
+
 type MaxValue struct {
 	val TypedValue
 	sel string
@@ -199,6 +295,44 @@ func (v *MaxValue) updateWith(val TypedValue) error {
 		v.val = val
 	}
 
+	return nil
+}
+
+// ValueExp
+
+func (v *MaxValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	if v.val == nil {
+		return AnyType, ErrUnexpected
+	}
+
+	return v.val.Type(), nil
+}
+
+func (v *MaxValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if v.val == nil {
+		return ErrUnexpected
+	}
+
+	if t != v.val.Type() {
+		return ErrNotComparableValues
+	}
+
+	return nil
+}
+
+func (v *MaxValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MaxValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MaxValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *MaxValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return nil
 }
 
@@ -251,5 +385,35 @@ func (v *AVGValue) updateWith(val TypedValue) error {
 	v.s += val.Value().(uint64)
 	v.c++
 
+	return nil
+}
+
+// ValueExp
+
+func (v *AVGValue) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return IntegerType, nil
+}
+
+func (v *AVGValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != IntegerType {
+		return ErrNotComparableValues
+	}
+
+	return nil
+}
+
+func (v *AVGValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *AVGValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *AVGValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
+}
+
+func (v *AVGValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return nil
 }
