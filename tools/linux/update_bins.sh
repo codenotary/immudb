@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# usage: ./tools/linux/immudbin.sh [<writing_mode>]  
+# usage: ./tools/linux/update_bins.sh [<writing_mode>]  
 # Arguments: 
 #   writing_mode: --ask |--quite
 #   default: --ask
@@ -14,7 +14,6 @@
 # Example:
 # $ bash tools/linux/update_bins.sh --ask # this will ask you for confirmation before overwriting files
 # $ bash tools/linux/update_bins.sh --quite # this will overwrite files without asking for confirmation
-#
 
 set -o nounset
 
@@ -59,7 +58,6 @@ fi
 # Searching for all binaries occurences, it will overwrite them 
 search_replace(){
     BNAME=${1}
-
     echo "## WRITING ${BNAME^^} ##"
     C=0
     for i in $( sudo find / -name ${BNAME} -type f 2> /dev/null );do 
