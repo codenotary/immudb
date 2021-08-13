@@ -526,8 +526,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	err = store.Close()
 	require.IsType(t, &multierr.MultiErr{}, err)
 	mErr := err.(*multierr.MultiErr)
-	require.Len(t, mErr.Errors, 1)
-	require.ErrorIs(t, mErr.Errors[0], ahtree.ErrAlreadyClosed)
+	require.True(t, mErr.Includes(ahtree.ErrAlreadyClosed))
 
 	for i, checkApp := range mockedApps {
 		injectedError = fmt.Errorf("Injected error %d", i)
@@ -538,8 +537,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		err = store.Close()
 		require.IsType(t, &multierr.MultiErr{}, err)
 		mErr := err.(*multierr.MultiErr)
-		require.Len(t, mErr.Errors, 1)
-		require.ErrorIs(t, mErr.Errors[0], injectedError)
+		require.True(t, mErr.Includes(injectedError))
 
 		checkApp.CloseFn = func() error { return nil }
 	}

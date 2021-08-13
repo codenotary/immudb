@@ -23,15 +23,28 @@ import (
 )
 
 func TestMultiErr(t *testing.T) {
-	merr := &MultiErr{
-		Errors: []error{
-			errors.New("error1"),
-			errors.New("error2"),
-			errors.New("error3"),
-		},
+	includedErrors := []error{
+		errors.New("error1"),
+		errors.New("error2"),
 	}
+
+	excludedErr := errors.New("error3")
+
+	merr := NewMultiErr()
+	require.NotNil(t, merr)
+	require.False(t, merr.HasErrors())
+	require.Empty(t, merr.Errors())
+
+	merr.Append(includedErrors[0]).Append(includedErrors[1])
+
 	require.Error(t, merr)
+	require.True(t, merr.HasErrors())
+	require.Len(t, merr.Errors(), 2)
+	require.True(t, merr.Includes(includedErrors[0]))
+	require.True(t, merr.Includes(includedErrors[1]))
+	require.False(t, merr.Includes(excludedErr))
+
 	require.Contains(t, merr.Error(), "error1")
 	require.Contains(t, merr.Error(), "error2")
-	require.Contains(t, merr.Error(), "error3")
+	require.NotContains(t, merr.Error(), "error3")
 }
