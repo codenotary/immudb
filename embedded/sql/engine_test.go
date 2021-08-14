@@ -853,7 +853,10 @@ func TestQuery(t *testing.T) {
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, ts, title, active, payload) VALUES (%d, NOW(), 'title%d', %v, x'%s')", i, i, i%2 == 0, encPayload), nil, true)
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			UPSERT INTO table1 (id, ts, title, active, payload)
+			VALUES (%d, NOW(), 'title%d', %v, x'%s')
+		`, i, i, i%2 == 0, encPayload), nil, true)
 		require.NoError(t, err)
 	}
 
@@ -873,7 +876,9 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should resolve every row with two-time table aliasing", func(t *testing.T) {
-		r, err = engine.QueryStmt(fmt.Sprintf("SELECT * FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1", rowCount), nil, true)
+		r, err = engine.QueryStmt(fmt.Sprintf(`
+			SELECT * FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1
+		`, rowCount), nil, true)
 		require.NoError(t, err)
 
 		colsBySel, err := r.colsBySelector()
@@ -909,7 +914,9 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should resolve every row with column and two-time table aliasing", func(t *testing.T) {
-		r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1", rowCount), nil, true)
+		r, err = engine.QueryStmt(fmt.Sprintf(`
+			SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1
+		`, rowCount), nil, true)
 		require.NoError(t, err)
 
 		colsBySel, err := r.colsBySelector()
@@ -1337,7 +1344,9 @@ func TestQueryWithRowFiltering(t *testing.T) {
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')", i, i, i%2 == 0, encPayload), nil, true)
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')
+		`, i, i, i%2 == 0, encPayload), nil, true)
 		require.NoError(t, err)
 	}
 
@@ -1499,7 +1508,9 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload) FROM table1 WHERE false", nil, true)
+	r, err = engine.QueryStmt(`
+		SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload)
+		FROM table1 WHERE false`, nil, true)
 	require.NoError(t, err)
 
 	row, err = r.Read()
@@ -1770,7 +1781,8 @@ func TestJoins(t *testing.T) {
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", i, i, rowCount-1-i, i), nil, true)
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)`, i, i, rowCount-1-i, i), nil, true)
 		require.NoError(t, err)
 
 		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i), nil, true)
@@ -1815,7 +1827,12 @@ func TestJoins(t *testing.T) {
 	})
 
 	t.Run("should resolve every inserted row", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil, true)
+		r, err := engine.QueryStmt(`
+			SELECT id, title, table2.amount, table3.age 
+			FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id 
+			INNER JOIN table3 ON table1.fkid2 = table3.id
+			WHERE table1.id >= 0 AND table3.age >= 30
+			ORDER BY id DESC`, nil, true)
 		require.NoError(t, err)
 
 		r.SetParameters(nil)
@@ -1839,6 +1856,79 @@ func TestJoins(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
+func TestJoinsWithJointTable(t *testing.T) {
+	catalogStore, err := store.Open("catalog_innerjoin_joint", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_innerjoin_joint")
+
+	dataStore, err := store.Open("sqldata_innerjoin_joint", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_innerjoin_joint")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, amount INTEGER, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table12 (id INTEGER AUTO_INCREMENT, fkid1 INTEGER, fkid2 INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table1 (name) VALUES ('name1'), ('name2'), ('name3')", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table2 (amount) VALUES (10), (20), (30)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (1,1,false),(1,2,true),(1,3,true)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (2,1,false),(2,2,false),(2,3,true)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (3,1,false),(3,2,false),(3,3,false)", nil, true)
+	require.NoError(t, err)
+
+	r, err := engine.QueryStmt(`
+		SELECT t1.name, t2.amount, t12.active
+		FROM (SELECT * FROM table1 where name = 'name1' AS t1)
+		INNER JOIN (table12 AS t12) on t12.fkid1 = t1.id
+		INNER JOIN (table2 AS t2)  on t12.fkid2 = t2.id
+		WHERE t12.active = true
+		AS q`, nil, true)
+	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 3)
+
+	for i := 0; i < 2; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 3)
+
+		require.Equal(t, "name1", row.Values[EncodeSelector("", "db1", "q", "name")].Value())
+		require.Equal(t, uint64(20+i*10), row.Values[EncodeSelector("", "db1", "q", "amount")].Value())
+		require.Equal(t, true, row.Values[EncodeSelector("", "db1", "q", "active")].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
 
 	err = engine.Close()
 	require.NoError(t, err)
@@ -1884,7 +1974,12 @@ func TestNestedJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS total_amount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil, true)
+	r, err := engine.QueryStmt(`
+		SELECT id, title, t2.amount AS total_amount, t3.age
+		FROM (table1 AS t1)
+		INNER JOIN (table2 as t2) ON fkid1 = t2.id
+		INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id
+		ORDER BY id DESC`, nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -2002,11 +2097,16 @@ func TestSubQuery(t *testing.T) {
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')", i, i, i%2 == 0, encPayload), nil, true)
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')
+		`, i, i, i%2 == 0, encPayload), nil, true)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0 AS t2", nil, true)
+	r, err := engine.QueryStmt(`
+		SELECT id, title AS t
+		FROM (SELECT id, title, active FROM table1 AS table2)
+		WHERE active AND table2.id >= 0 AS t2`, nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
