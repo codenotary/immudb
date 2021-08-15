@@ -81,8 +81,6 @@ const tsSize = 8
 const szSize = 4
 const offsetSize = 8
 
-const linkedLeafSize = txIDSize + tsSize + txIDSize + 3*sha256.Size
-
 const Version = 1
 
 const (
@@ -127,6 +125,8 @@ type ImmuStore struct {
 	maxLinearProofLen int
 
 	maxTxSize int
+
+	timeFunc TimeFunc
 
 	_txs     *list.List // pre-allocated txs
 	_txsLock sync.Mutex
@@ -416,6 +416,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		maxTxSize: maxTxSize,
 
+		timeFunc: opts.TimeFunc,
+
 		aht:      aht,
 		blBuffer: blBuffer,
 
@@ -548,6 +550,19 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
 	return s.indexer.History(key, offset, descOrder, limit)
+}
+
+func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
+	if timeFunc == nil {
+		return ErrIllegalArguments
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.timeFunc = timeFunc
+
+	return nil
 }
 
 func (s *ImmuStore) NewTx() *Tx {
@@ -857,7 +872,7 @@ func (s *ImmuStore) commitUsing(entries []*KV, md *TxMetadata, waitForIndexing b
 	var blTxID uint64
 
 	if md == nil {
-		ts = time.Now().Unix()
+		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
 	} else {
 		ts = md.Ts
@@ -1198,7 +1213,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		return nil, err
 	}
 
-	err = s.commit(tx, r.offsets, time.Now().Unix(), s.aht.Size())
+	err = s.commit(tx, r.offsets, s.timeFunc().Unix(), s.aht.Size())
 	if err != nil {
 		return nil, err
 	}
