@@ -516,6 +516,12 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			AsReplica(settings.Replica).
 			WithReplicationOptions(replicationOpts)
 
+		if settings.ExcludeCommitTime {
+			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
+		} else {
+			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
+		}
+
 		db, err := database.OpenDB(op, s.sysDB, s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s': %w", dbname, err)
@@ -685,15 +691,16 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	}
 
 	settings := &dbSettings{
-		Database:    req.DatabaseName,
-		Replica:     req.Replica,
-		SrcDatabase: req.SrcDatabase,
-		SrcAddress:  req.SrcAddress,
-		SrcPort:     int(req.SrcPort),
-		FollowerUsr: req.FollowerUsr,
-		FollowerPwd: req.FollowerPwd,
-		CreatedBy:   user.Username,
-		CreatedAt:   time.Now(),
+		Database:          req.DatabaseName,
+		Replica:           req.Replica,
+		SrcDatabase:       req.SrcDatabase,
+		SrcAddress:        req.SrcAddress,
+		SrcPort:           int(req.SrcPort),
+		FollowerUsr:       req.FollowerUsr,
+		FollowerPwd:       req.FollowerPwd,
+		ExcludeCommitTime: req.ExcludeCommitTime,
+		CreatedBy:         user.Username,
+		CreatedAt:         time.Now(),
 	}
 
 	err = s.saveSettings(settings)
@@ -724,6 +731,12 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage, stOpts)).
 		AsReplica(settings.Replica).
 		WithReplicationOptions(replicationOpts)
+
+	if req.ExcludeCommitTime {
+		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
+	} else {
+		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
+	}
 
 	db, err := database.NewDB(op, s.sysDB, s.Logger)
 	if err != nil {
@@ -783,12 +796,19 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	settings.SrcPort = int(req.SrcPort)
 	settings.FollowerUsr = req.FollowerUsr
 	settings.FollowerPwd = req.FollowerPwd
+	settings.ExcludeCommitTime = req.ExcludeCommitTime
 	settings.UpdatedBy = user.Username
 	settings.UpdatedAt = time.Now()
 
 	err = s.saveSettings(settings)
 	if err != nil {
 		return nil, err
+	}
+
+	if settings.ExcludeCommitTime {
+		db.UseTimeFunc(func() time.Time { return time.Unix(0, 0) })
+	} else {
+		db.UseTimeFunc(func() time.Time { return time.Now() })
 	}
 
 	db.UpdateReplication(settings.Replica, &database.ReplicationOptions{
@@ -954,17 +974,18 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 }
 
 type dbSettings struct {
-	Database    string    `json:"database"`
-	Replica     bool      `json:"replica"`
-	SrcDatabase string    `json:"srcDatabase"`
-	SrcAddress  string    `json:"srcAddress"`
-	SrcPort     int       `json:"srcPort"`
-	FollowerUsr string    `json:"followerUsr"`
-	FollowerPwd string    `json:"followerPwd"`
-	CreatedBy   string    `json:"createdBy"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedBy   string    `json:"updatedBy"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	Database          string    `json:"database"`
+	Replica           bool      `json:"replica"`
+	SrcDatabase       string    `json:"srcDatabase"`
+	SrcAddress        string    `json:"srcAddress"`
+	SrcPort           int       `json:"srcPort"`
+	FollowerUsr       string    `json:"followerUsr"`
+	FollowerPwd       string    `json:"followerPwd"`
+	ExcludeCommitTime bool      `json:"excludeCommitTime"`
+	CreatedBy         string    `json:"createdBy"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedBy         string    `json:"updatedBy"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 func (s *ImmuServer) loadSettings(database string) (*dbSettings, error) {

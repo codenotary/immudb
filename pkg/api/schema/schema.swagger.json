@@ -1433,6 +1433,9 @@
         "maxTxEntries": {
           "type": "integer",
           "format": "int64"
+        },
+        "excludeCommitTime": {
+          "type": "boolean"
         }
       }
     },
