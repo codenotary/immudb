@@ -245,6 +245,7 @@
 | maxKeyLen | [uint32](#uint32) |  |  |
 | maxValueLen | [uint32](#uint32) |  |  |
 | maxTxEntries | [uint32](#uint32) |  |  |
+| excludeCommitTime | [bool](#bool) |  |  |
 
 
 

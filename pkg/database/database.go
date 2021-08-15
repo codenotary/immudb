@@ -72,6 +72,7 @@ type DB interface {
 	GetOptions() *Options
 	UpdateReplication(asReplica bool, replicationOpts *ReplicationOptions)
 	IsReplica() bool
+	UseTimeFunc(timeFunc store.TimeFunc) error
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
@@ -289,6 +290,14 @@ func NewDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 
 func (d *db) isReplica() bool {
 	return d.options.replica
+}
+
+// UseTimeFunc ...
+func (d *db) UseTimeFunc(timeFunc store.TimeFunc) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.st.UseTimeFunc(timeFunc)
 }
 
 // CompactIndex ...

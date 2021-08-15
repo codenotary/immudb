@@ -318,7 +318,7 @@ message VerifiableTxRequest {
 message TxScanRequest {
 	uint64 initialTx = 1;
 	uint32 limit = 2;
-    bool desc = 3;
+    bool   desc = 3;
 }
 
 message TxList {
@@ -331,7 +331,7 @@ message Database {
 
 message DatabaseSettings {
 	string databaseName = 1;
-	bool replica = 2;
+	bool   replica = 2;
 	string srcDatabase = 3;
 	string srcAddress = 4;
 	uint32 srcPort = 5;
@@ -341,6 +341,7 @@ message DatabaseSettings {
 	uint32 maxKeyLen = 9;
 	uint32 maxValueLen = 10;
 	uint32 maxTxEntries = 11;
+	bool   excludeCommitTime = 12;
 }
 
 message Table {
@@ -348,21 +349,21 @@ message Table {
 }
 
 message SQLGetRequest {
-	string table = 1;
+	string   table = 1;
 	SQLValue pkValue = 2;
-    uint64 atTx = 3;
-	uint64 sinceTx = 4;
+    uint64   atTx = 3;
+	uint64   sinceTx = 4;
 }
 
 message VerifiableSQLGetRequest {
 	SQLGetRequest sqlGetRequest = 1;
-	uint64 proveSinceTx = 2;
+	uint64        proveSinceTx = 2;
 }
 
 message SQLEntry {
 	uint64 tx = 1;
-	bytes key = 2;
-	bytes value = 3;
+	bytes  key = 2;
+	bytes  value = 3;
 }
 
 message VerifiableSQLEntry {
