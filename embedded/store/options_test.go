@@ -52,6 +52,11 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).VLogMaxOpenedFiles)
 	require.Equal(t, DefaultMaxWaitees, opts.WithMaxWaitees(DefaultMaxWaitees).MaxWaitees)
 
+	timeFun := func() time.Time {
+		return time.Now()
+	}
+	require.NotNil(t, opts.WithTimeFunc(timeFun).TimeFunc)
+
 	require.True(t, opts.WithSynced(true).Synced)
 
 	require.NotNil(t, opts.WithIndexOptions(DefaultIndexOptions()).IndexOpts)

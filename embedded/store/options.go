@@ -46,6 +46,8 @@ type AppFactoryFunc func(
 	opts *multiapp.Options,
 ) (appendable.Appendable, error)
 
+type TimeFunc func() time.Time
+
 type Options struct {
 	ReadOnly bool
 	Synced   bool
@@ -66,6 +68,8 @@ type Options struct {
 	CommitLogMaxOpenedFiles int
 
 	MaxWaitees int
+
+	TimeFunc TimeFunc
 
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
@@ -108,6 +112,10 @@ func DefaultOptions() *Options {
 
 		MaxWaitees: DefaultMaxWaitees,
 
+		TimeFunc: func() time.Time {
+			return time.Now()
+		},
+
 		// options below are only set during initialization and stored as metadata
 		MaxTxEntries:      DefaultMaxTxEntries,
 		MaxKeyLen:         DefaultMaxKeyLen,
@@ -146,6 +154,8 @@ func validOptions(opts *Options) bool {
 		opts.TxLogCacheSize >= 0 &&
 
 		opts.MaxWaitees >= 0 &&
+
+		opts.TimeFunc != nil &&
 
 		// options below are only set during initialization and stored as metadata
 		opts.MaxTxEntries > 0 &&
@@ -254,6 +264,11 @@ func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *O
 
 func (opts *Options) WithMaxWaitees(maxWaitees int) *Options {
 	opts.MaxWaitees = maxWaitees
+	return opts
+}
+
+func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
+	opts.TimeFunc = timeFunc
 	return opts
 }
 
