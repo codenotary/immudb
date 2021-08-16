@@ -171,7 +171,7 @@ func (v *SumValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable 
 }
 
 func (v *SumValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
-	return nil
+	return v
 }
 
 type MinValue struct {

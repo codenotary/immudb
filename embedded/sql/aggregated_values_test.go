@@ -126,7 +126,7 @@ func TestSumValue(t *testing.T) {
 	_, err = cval.reduce(nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
 
-	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
+	require.Equal(t, cval, cval.reduceSelectors(nil, "db1", "table1"))
 }
 
 func TestMinValue(t *testing.T) {
