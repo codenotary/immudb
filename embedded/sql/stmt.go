@@ -591,9 +591,11 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		constraint := store.NoConstraint
 
-		if stmt.isInsert {
+		if stmt.isInsert && !table.pk.autoIncrement {
 			constraint = store.MustNotExist
-		} else if table.pk.autoIncrement {
+		}
+
+		if !stmt.isInsert && table.pk.autoIncrement {
 			constraint = store.MustExist
 		}
 
