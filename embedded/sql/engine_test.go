@@ -1983,7 +1983,7 @@ func TestNestedJoins(t *testing.T) {
 	r, err := engine.QueryStmt(`
 		SELECT id, title, t2.amount AS total_amount, t3.age
 		FROM (table1 AS t1)
-		INNER JOIN (table2 as t2) ON fkid1 = t2.id
+		INNER JOIN (table2 as t2) ON (fkid1 = t2.id AND title != NULL)
 		INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id
 		ORDER BY id DESC`, nil, true)
 	require.NoError(t, err)
