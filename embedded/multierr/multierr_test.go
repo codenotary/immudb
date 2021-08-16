@@ -22,29 +22,74 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type includedErrA struct {
+	err string
+}
+
+func (e *includedErrA) Error() string {
+	return e.err
+}
+
+type includedErrB struct {
+	err string
+}
+
+func (e *includedErrB) Error() string {
+	return e.err
+}
+
+type excludedErr struct {
+	err string
+}
+
+func (e *excludedErr) Error() string {
+	return e.err
+}
+
 func TestMultiErr(t *testing.T) {
 	includedErrors := []error{
-		errors.New("error1"),
-		errors.New("error2"),
+		&includedErrA{err: "includedErrorA1"},
+		&includedErrA{err: "includedErrorA2"},
+		&includedErrB{err: "includedErrorB1"},
 	}
 
-	excludedErr := errors.New("error3")
+	eErr := &excludedErr{err: "excludedError1"}
 
 	merr := NewMultiErr()
 	require.NotNil(t, merr)
 	require.False(t, merr.HasErrors())
 	require.Empty(t, merr.Errors())
 
-	merr.Append(includedErrors[0]).Append(includedErrors[1])
+	merr.Append(includedErrors[0]).
+		Append(includedErrors[1]).
+		Append(includedErrors[2])
 
 	require.Error(t, merr)
 	require.True(t, merr.HasErrors())
-	require.Len(t, merr.Errors(), 2)
+	require.Len(t, merr.Errors(), 3)
 	require.True(t, merr.Includes(includedErrors[0]))
 	require.True(t, merr.Includes(includedErrors[1]))
-	require.False(t, merr.Includes(excludedErr))
+	require.True(t, merr.Includes(includedErrors[2]))
+	require.False(t, merr.Includes(eErr))
 
-	require.Contains(t, merr.Error(), "error1")
-	require.Contains(t, merr.Error(), "error2")
-	require.NotContains(t, merr.Error(), "error3")
+	require.ErrorIs(t, merr, includedErrors[0])
+	require.ErrorIs(t, merr, includedErrors[1])
+	require.NotErrorIs(t, merr, eErr)
+
+	require.Contains(t, merr.Error(), "includedErrorA1")
+	require.Contains(t, merr.Error(), "includedErrorA2")
+	require.Contains(t, merr.Error(), "includedErrorB1")
+	require.NotContains(t, merr.Error(), "excludedError1")
+
+	var iErrA *includedErrA
+	require.ErrorAs(t, merr, &iErrA)
+	require.NotNil(t, iErrA)
+
+	var iErrB *includedErrB
+	require.ErrorAs(t, merr, &iErrB)
+	require.NotNil(t, iErrB)
+
+	var eErr2 *excludedErr
+	require.False(t, errors.As(merr, &eErr2))
+	require.Nil(t, eErr2)
 }

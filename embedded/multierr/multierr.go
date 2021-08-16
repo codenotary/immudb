@@ -54,6 +54,26 @@ func (me *MultiErr) Errors() []error {
 	return me.errors
 }
 
+func (me *MultiErr) Is(target error) bool {
+	for _, err := range me.errors {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (me *MultiErr) As(target interface{}) bool {
+	for _, err := range me.errors {
+		if errors.As(err, target) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (me *MultiErr) Error() string {
 	return fmt.Sprintf("%v", me.errors)
 }
