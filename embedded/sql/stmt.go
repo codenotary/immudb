@@ -654,7 +654,6 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 type ValueExp interface {
 	inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error)
 	requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error
-	jointColumnTo(col *Column, tableAlias string) (*ColSelector, error)
 	substitute(params map[string]interface{}) (ValueExp, error)
 	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
 	reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp
@@ -709,10 +708,6 @@ func (v *NullValue) requiresType(t SQLValueType, cols map[string]*ColDescriptor,
 	return nil
 }
 
-func (v *NullValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (v *NullValue) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
@@ -743,10 +738,6 @@ func (v *Number) requiresType(t SQLValueType, cols map[string]*ColDescriptor, pa
 	}
 
 	return nil
-}
-
-func (v *Number) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -808,10 +799,6 @@ func (v *Varchar) requiresType(t SQLValueType, cols map[string]*ColDescriptor, p
 	return nil
 }
 
-func (v *Varchar) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (v *Varchar) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
@@ -861,10 +848,6 @@ func (v *Bool) requiresType(t SQLValueType, cols map[string]*ColDescriptor, para
 	}
 
 	return nil
-}
-
-func (v *Bool) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -926,10 +909,6 @@ func (v *Blob) requiresType(t SQLValueType, cols map[string]*ColDescriptor, para
 	return nil
 }
 
-func (v *Blob) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (v *Blob) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
@@ -985,10 +964,6 @@ func (v *SysFn) requiresType(t SQLValueType, cols map[string]*ColDescriptor, par
 	return ErrIllegalArguments
 }
 
-func (v *SysFn) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
@@ -1029,10 +1004,6 @@ func (v *Param) requiresType(t SQLValueType, cols map[string]*ColDescriptor, par
 	params[v.id] = t
 
 	return nil
-}
-
-func (p *Param) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1440,22 +1411,6 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]*ColDescrip
 	return nil
 }
 
-func (sel *ColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	if sel.db != "" && sel.db != col.table.db.name {
-		return nil, ErrJointColumnNotFound
-	}
-
-	if sel.table != tableAlias {
-		return nil, ErrJointColumnNotFound
-	}
-
-	if sel.col != col.colName {
-		return nil, ErrJointColumnNotFound
-	}
-
-	return sel, nil
-}
-
 func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
 	return sel, nil
 }
@@ -1552,10 +1507,6 @@ func (sel *AggColSelector) requiresType(t SQLValueType, cols map[string]*ColDesc
 	return colSelector.requiresType(t, cols, params, implicitDB, implicitTable)
 }
 
-func (sel *AggColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
 	return sel, nil
 }
@@ -1607,10 +1558,6 @@ func (bexp *NumExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor,
 	}
 
 	return nil
-}
-
-func (bexp *NumExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (bexp *NumExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1706,10 +1653,6 @@ func (bexp *NotBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescrip
 	return bexp.exp.requiresType(BooleanType, cols, params, implicitDB, implicitTable)
 }
 
-func (bexp *NotBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return bexp.exp.jointColumnTo(col, tableAlias)
-}
-
 func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
 	rexp, err := bexp.exp.substitute(params)
 	if err != nil {
@@ -1756,10 +1699,6 @@ func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescri
 	}
 
 	return nil
-}
-
-func (bexp *LikeBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1839,40 +1778,6 @@ func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescrip
 	_, err := bexp.inferType(cols, params, implicitDB, implicitTable)
 
 	return err
-}
-
-func (bexp *CmpBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	if bexp.op != EQ {
-		return nil, ErrJointColumnNotFound
-	}
-
-	selLeft, okLeft := bexp.left.(*ColSelector)
-	selRight, okRight := bexp.right.(*ColSelector)
-
-	if !okLeft || !okRight {
-		return nil, ErrJointColumnNotFound
-	}
-
-	_, lErr := selLeft.jointColumnTo(col, tableAlias)
-	_, rErr := selRight.jointColumnTo(col, tableAlias)
-
-	if lErr == nil && rErr == nil {
-		return nil, ErrInvalidJointColumn
-	}
-
-	if lErr == nil && rErr == ErrJointColumnNotFound {
-		return selRight, nil
-	}
-
-	if rErr == nil && lErr == ErrJointColumnNotFound {
-		return selLeft, nil
-	}
-
-	if lErr != nil {
-		return nil, lErr
-	}
-
-	return nil, rErr
 }
 
 func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1974,10 +1879,6 @@ func (bexp *BinBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescrip
 	return nil
 }
 
-func (bexp *BinBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
 	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
@@ -2048,10 +1949,6 @@ func (bexp *ExistsBoolExp) inferType(cols map[string]*ColDescriptor, params map[
 
 func (bexp *ExistsBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	return errors.New("not yet supported")
-}
-
-func (bexp *ExistsBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
 }
 
 func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
