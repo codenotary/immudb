@@ -435,6 +435,12 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
 	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
 
+	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil, true)
+	require.NoError(t, err)
+
 	err = engine.ReloadCatalog(nil)
 	require.NoError(t, err)
 
@@ -442,7 +448,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, summary.DDTxs)
 	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(2), summary.DMTxs[0].ID)
+	require.Equal(t, uint64(3), summary.DMTxs[0].ID)
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, uint64(2), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 1, summary.UpdatedRows)
@@ -456,7 +462,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, summary.DDTxs)
 	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(3), summary.DMTxs[0].ID)
+	require.Equal(t, uint64(4), summary.DMTxs[0].ID)
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, uint64(4), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 2, summary.UpdatedRows)
