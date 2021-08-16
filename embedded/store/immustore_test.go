@@ -34,7 +34,6 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/htree"
-	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/stretchr/testify/assert"
@@ -524,9 +523,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	err = store.aht.Close()
 	require.NoError(t, err)
 	err = store.Close()
-	require.IsType(t, &multierr.MultiErr{}, err)
-	mErr := err.(*multierr.MultiErr)
-	require.True(t, mErr.Includes(ahtree.ErrAlreadyClosed))
+	require.ErrorIs(t, err, ahtree.ErrAlreadyClosed)
 
 	for i, checkApp := range mockedApps {
 		injectedError = fmt.Errorf("Injected error %d", i)
@@ -535,9 +532,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 		require.NoError(t, err)
 		err = store.Close()
-		require.IsType(t, &multierr.MultiErr{}, err)
-		mErr := err.(*multierr.MultiErr)
-		require.True(t, mErr.Includes(injectedError))
+		require.ErrorIs(t, err, injectedError)
 
 		checkApp.CloseFn = func() error { return nil }
 	}
