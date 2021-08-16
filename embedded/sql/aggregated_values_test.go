@@ -49,6 +49,29 @@ func TestCountValue(t *testing.T) {
 	cmp, err = cval.Compare(&Number{val: 3})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
+
+	// ValueExp
+
+	sqlt, err := cval.inferType(nil, nil, "db1", "table1")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, sqlt)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.NoError(t, err)
+
+	err = cval.requiresType(BooleanType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = cval.jointColumnTo(nil, "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.substitute(nil)
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.reduce(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
 }
 
 func TestSumValue(t *testing.T) {
@@ -81,6 +104,29 @@ func TestSumValue(t *testing.T) {
 	cmp, err = cval.Compare(&Number{val: 12})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
+
+	// ValueExp
+
+	sqlt, err := cval.inferType(nil, nil, "db1", "table1")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, sqlt)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.NoError(t, err)
+
+	err = cval.requiresType(BooleanType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = cval.jointColumnTo(nil, "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.substitute(nil)
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.reduce(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
 }
 
 func TestMinValue(t *testing.T) {
@@ -88,7 +134,13 @@ func TestMinValue(t *testing.T) {
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
 
-	err := cval.updateWith(&Number{val: 10})
+	_, err := cval.inferType(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	err = cval.updateWith(&Number{val: 10})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
@@ -113,6 +165,29 @@ func TestMinValue(t *testing.T) {
 	cmp, err = cval.Compare(&Number{val: 4})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
+
+	// ValueExp
+
+	sqlt, err := cval.inferType(nil, nil, "db1", "table1")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, sqlt)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.NoError(t, err)
+
+	err = cval.requiresType(BooleanType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = cval.jointColumnTo(nil, "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.substitute(nil)
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.reduce(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
 }
 
 func TestMaxValue(t *testing.T) {
@@ -120,7 +195,13 @@ func TestMaxValue(t *testing.T) {
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
 
-	err := cval.updateWith(&Number{val: 10})
+	_, err := cval.inferType(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	err = cval.updateWith(&Number{val: 10})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
@@ -145,6 +226,29 @@ func TestMaxValue(t *testing.T) {
 	cmp, err = cval.Compare(&Number{val: 11})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
+
+	// ValueExp
+
+	sqlt, err := cval.inferType(nil, nil, "db1", "table1")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, sqlt)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.NoError(t, err)
+
+	err = cval.requiresType(BooleanType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = cval.jointColumnTo(nil, "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.substitute(nil)
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.reduce(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
 }
 
 func TestAVGValue(t *testing.T) {
@@ -177,4 +281,27 @@ func TestAVGValue(t *testing.T) {
 	cmp, err = cval.Compare(&Number{val: 7})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
+
+	// ValueExp
+
+	sqlt, err := cval.inferType(nil, nil, "db1", "table1")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, sqlt)
+
+	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
+	require.NoError(t, err)
+
+	err = cval.requiresType(BooleanType, nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = cval.jointColumnTo(nil, "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.substitute(nil)
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	_, err = cval.reduce(nil, nil, "db1", "table1")
+	require.ErrorIs(t, err, ErrUnexpected)
+
+	require.Nil(t, cval.reduceSelectors(nil, "db1", "table1"))
 }
