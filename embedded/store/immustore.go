@@ -1012,7 +1012,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 			if err == ErrKeyNotFound && txe.constraint == MustExist {
 				return ErrKeyNotFound
 			}
-			if err != ErrKeyNotFound {
+			if err != nil && err != ErrKeyNotFound {
 				return err
 			}
 		}
