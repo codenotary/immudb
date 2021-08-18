@@ -101,7 +101,20 @@ Or just use Docker to run immudb in a ready-to-use container:
 docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 ```
 
-If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
+
+:warning: If you are running the Docker image without host networking (MacOS for example), make sure to expose ports 3322 and 9497. You may also use the provided docker-compose wrapper (requires docker and docker-compose) script:
+
+```bash
+./compose-wrapper.sh
+# or
+./compose-wrapper.sh -d my_data_dir
+```
+
+This will:
+
+* Create a .env file to be used with docker-compose
+* Create a local data directory to store your immudb data (If option is provided)
+* Build immudb and start a container, exposing all used ports by immudb
 
 ### Enabling S3 storage (Feature Work-in-progress. Not ready for production use)
 

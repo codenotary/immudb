@@ -1,0 +1,23 @@
+version: "3.9"
+    
+services:
+  immudb:
+    build:
+        context: .
+        args:
+            IMMU_UID: ${IMMU_UID:-3322}
+            IMMU_GID: ${IMMU_GID:-3322}
+        # Uncomment line below to use .env file
+    user: immu
+#    volumes:
+#        - ${LOCAL_IMMUDB_DATA_DIR:-./data}:/var/lib/immudb
+    ports: 
+        # Change the following mappings to customize which ports you'd like to use
+        # Immudb port
+        - 3322:3322
+        # Web console port
+        - 3380:8080
+        # PSQL Port
+        - 5432:5432
+        # Metrics ports
+        - 9497:9497
