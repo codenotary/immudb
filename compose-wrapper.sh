@@ -1,6 +1,6 @@
 #!/bin/bash
 set -o errexit
-compose_bin=$(which docker-compose) || { echo "Could not find docker-compose in PAHT, exitting"; exit 2 ;}
+compose_bin=$(which docker-compose) || { echo "Could not find docker-compose in PATH, exiting"; exit 2 ;}
 
 OPTIND=1
 DATA_DIR_OPT=""
@@ -108,12 +108,11 @@ fi
 
 # 
 if [ -n "$DATA_DIR_OVERRIDE" ]; then
-    sed -i '/^#.*volumes:/s/^#//' docker-compose.yml
-    sed -i '/^#.*LOCAL_IMMUDB_DATA_DIR:/s/^#//' docker-compose.yml
+    sed -i .bak -e '/^#.*volumes:/ s/^#//g' -- docker-compose.yml && rm -- docker-compose.yml.bak
+    sed -i .bak -e '/^#.*LOCAL_IMMUDB_DATA_DIR:/ s/^#//g' -- docker-compose.yml && rm -- docker-compose.yml.bak
     LOCAL_IMMUDB_DATA_DIR="./$DATA_DIR_OVERRIDE" $compose_bin up $BUILD_FLAG $POST_FLAG
 else
-    sed -e '/^    volumes:$/ s/^#*/#/g' -i docker-compose.yml
-    sed -e '/^        - ${LOCAL_IMMUDB_DATA_DIR:-.\/data}:\/var\/lib\/immudb$/ s/^#*/#/g' -i docker-compose.yml
+    sed -i .bak -e '/^    volumes:$/ s/^#*/#/g' -- docker-compose.yml && rm -- docker-compose.yml.bak
+    sed -i .bak -e '/^        - ${LOCAL_IMMUDB_DATA_DIR:-.\/data}:\/var\/lib\/immudb$/ s/^#*/#/g' -- docker-compose.yml && rm -- docker-compose.yml.bak
     $compose_bin up $BUILD_FLAG $POST_FLAG
 fi
-
