@@ -273,7 +273,8 @@ func TestCreateIndex(t *testing.T) {
 	col, err := table.GetColumnByName("name")
 	require.NoError(t, err)
 
-	_, indexed := table.indexes[col.id]
+	indexed, err := table.IsIndexed(col.colName)
+	require.NoError(t, err)
 	require.True(t, indexed)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(id)", nil, true)
@@ -285,7 +286,8 @@ func TestCreateIndex(t *testing.T) {
 	col, err = table.GetColumnByName("age")
 	require.NoError(t, err)
 
-	_, indexed = table.indexes[col.id]
+	indexed, err = table.IsIndexed(col.colName)
+	require.NoError(t, err)
 	require.True(t, indexed)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
@@ -2071,7 +2073,8 @@ func TestReOpening(t *testing.T) {
 	require.Equal(t, VarcharType, col.colType)
 	require.Len(t, table.indexes, 1)
 
-	_, indexed := table.indexes[col.id]
+	indexed, err := table.IsIndexed(col.colName)
+	require.NoError(t, err)
 	require.True(t, indexed)
 
 	err = engine.Close()
@@ -2774,72 +2777,39 @@ func TestUnmapIndex(t *testing.T) {
 func TestUnmapRow(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, colID, encVal, encPKVal, err := e.unmapRow(nil)
+	dbID, tableID, encPKVal, err := e.unmapRow(nil)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
-	require.Zero(t, colID)
-	require.Nil(t, encVal)
 	require.Nil(t, encPKVal)
 
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow([]byte(
+	dbID, tableID, encPKVal, err = e.unmapRow([]byte(
 		"e-prefix.ROW.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
-	require.Zero(t, colID)
-	require.Nil(t, encVal)
 	require.Nil(t, encPKVal)
 
 	fullValue := append(
 		[]byte("e-prefix.ROW."),
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 		0, 0, 0, 3,
 		'a', 'b', 'c',
 	)
 
 	for i := 13; i < len(fullValue); i++ {
-		dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullValue[:i])
+		dbID, tableID, encPKVal, err = e.unmapRow(fullValue[:i])
 		require.ErrorIs(t, err, ErrCorruptedData)
 		require.Zero(t, dbID)
 		require.Zero(t, tableID)
-		require.Zero(t, colID)
-		require.Nil(t, encVal)
 		require.Nil(t, encPKVal)
 	}
 
-	fullIndexedValue := append(
-		fullValue,
-		0, 0, 0, 4,
-		'd', 'e', 'f', 'g',
-	)
-
-	for i := len(fullValue) + 1; i < len(fullIndexedValue); i++ {
-		dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullIndexedValue[:i])
-		require.ErrorIs(t, err, ErrCorruptedData)
-		require.Zero(t, dbID)
-		require.Zero(t, tableID)
-		require.Zero(t, colID)
-		require.Nil(t, encVal)
-		require.Nil(t, encPKVal)
-	}
-
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(append(fullValue, 0))
-	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Zero(t, dbID)
-	require.Zero(t, tableID)
-	require.Zero(t, colID)
-	require.Nil(t, encVal)
-	require.Nil(t, encPKVal)
-
-	dbID, tableID, colID, encVal, encPKVal, err = e.unmapRow(fullIndexedValue)
+	dbID, tableID, encPKVal, err = e.unmapRow(fullValue)
 	require.NoError(t, err)
 	require.EqualValues(t, 0x0102030405060708, dbID)
 	require.EqualValues(t, 0x1112131415161718, tableID)
-	require.EqualValues(t, 0x2122232425262728, colID)
-	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encVal)
-	require.EqualValues(t, []byte{0, 0, 0, 4, 'd', 'e', 'f', 'g'}, encPKVal)
+	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encPKVal)
 }

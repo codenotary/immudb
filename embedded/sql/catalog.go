@@ -24,20 +24,29 @@ type Catalog struct {
 
 type Database struct {
 	id           uint64
+	catalog      *Catalog
 	name         string
 	tablesByID   map[uint64]*Table
 	tablesByName map[string]*Table
 }
 
 type Table struct {
-	db         *Database
-	id         uint64
-	name       string
-	colsByID   map[uint64]*Column
-	colsByName map[string]*Column
-	pk         *Column
-	indexes    map[uint64]struct{}
-	maxPK      uint64
+	db             *Database
+	id             uint64
+	name           string
+	colsByID       map[uint64]*Column
+	colsByName     map[string]*Column
+	pk             *Column
+	indexes        map[string]*Index
+	indexesByColID map[uint64][]*Index
+	maxPK          uint64
+}
+
+type Index struct {
+	table  *Table
+	id     uint64
+	unique bool
+	colIDs []uint64
 }
 
 type Column struct {
@@ -69,6 +78,7 @@ func (c *Catalog) newDatabase(id uint64, name string) (*Database, error) {
 
 	db := &Database{
 		id:           id,
+		catalog:      c,
 		name:         name,
 		tablesByID:   map[uint64]*Table{},
 		tablesByName: map[string]*Table{},
@@ -181,14 +191,15 @@ func (t *Table) PrimaryKey() *Column {
 	return t.pk
 }
 
-func (t *Table) IsIndexed(colName string) (bool, error) {
+func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
 	c, exists := t.colsByName[colName]
 	if !exists {
 		return false, ErrColumnDoesNotExist
 	}
 
-	_, indexed := t.indexes[c.id]
-	return indexed, nil
+	_, ok := t.indexesByColID[c.id]
+
+	return ok, nil
 }
 
 func (t *Table) GetColumnByName(name string) (*Column, error) {
@@ -207,7 +218,17 @@ func (t *Table) GetColumnByID(id uint64) (*Column, error) {
 	return col, nil
 }
 
-func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Table, error) {
+func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table *Table, err error) {
+	defer func() {
+		if err != nil {
+			return
+		}
+
+		db.tablesByID[table.id] = table
+		db.tablesByName[table.name] = table
+		db.catalog.mutated = true
+	}()
+
 	if len(name) == 0 || len(colsSpec) == 0 || len(pk) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -219,13 +240,14 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 
 	id := len(db.tablesByID) + 1
 
-	table := &Table{
-		id:         uint64(id),
-		db:         db,
-		name:       name,
-		colsByID:   make(map[uint64]*Column),
-		colsByName: make(map[string]*Column),
-		indexes:    make(map[uint64]struct{}),
+	table = &Table{
+		id:             uint64(id),
+		db:             db,
+		name:           name,
+		colsByID:       make(map[uint64]*Column),
+		colsByName:     make(map[string]*Column),
+		indexes:        make(map[string]*Index),
+		indexesByColID: make(map[uint64][]*Index),
 	}
 
 	for _, cs := range colsSpec {
@@ -257,10 +279,52 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 		return nil, ErrInvalidPK
 	}
 
-	db.tablesByID[table.id] = table
-	db.tablesByName[table.name] = table
-
 	return table, nil
+}
+
+func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error) {
+	defer func() {
+		if err != nil {
+			return
+		}
+
+		t.indexes[keyFromIDs(index.colIDs)] = index
+
+		// having a direct way to get the indexes by colID
+		for _, colID := range index.colIDs {
+			t.indexesByColID[colID] = append(t.indexesByColID[colID], index)
+		}
+
+		t.db.catalog.mutated = true
+	}()
+
+	if len(colIDs) == 1 && t.pk.id == colIDs[0] {
+		return nil, ErrIndexAlreadyExists
+	}
+
+	// validate column ids
+	for _, colID := range colIDs {
+		_, err := t.GetColumnByID(colID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	index = &Index{
+		id:     uint64(len(t.indexes) + 1),
+		table:  t,
+		unique: unique,
+		colIDs: colIDs,
+	}
+
+	indexKey := keyFromIDs(index.colIDs)
+
+	_, exists := t.indexes[indexKey]
+	if exists {
+		return nil, ErrIndexAlreadyExists
+	}
+
+	return index, nil
 }
 
 func (c *Column) ID() uint64 {

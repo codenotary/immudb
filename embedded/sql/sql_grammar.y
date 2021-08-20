@@ -61,7 +61,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     pparam int
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
+%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
 %token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
@@ -193,9 +193,14 @@ ddlstmt:
         $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pk: $10}
     }
 |
-    CREATE INDEX ON IDENTIFIER '(' IDENTIFIER ')'
+    CREATE INDEX ON IDENTIFIER '(' ids ')'
     {
-        $$ = &CreateIndexStmt{table: $4, col: $6}
+        $$ = &CreateIndexStmt{table: $4, cols: $6}
+    }
+|
+    CREATE UNIQUE INDEX ON IDENTIFIER '(' ids ')'
+    {
+        $$ = &CreateIndexStmt{unique: true, table: $5, cols: $7}
     }
 |
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
@@ -222,6 +227,8 @@ opt_if_not_exists:
     {
         $$ = true
     }
+
+
 
 dmlstmt:
     INSERT INTO tableRef '(' ids ')' VALUES rows

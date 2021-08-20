@@ -31,8 +31,10 @@ const (
 	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
 	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={auto_incremental | nullable}{colNAME})
-	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
-	RowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
+	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
+	RowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{pkValLen}{pkVal}, value={non-null values})
+	IndexPrefix           = "INDEX."            // (key=INDEX.{dbID}{tableID}{indexID}({valLen}{val})+{pkValLen}{pkVal}, value={})
+	UniqueIndexPrefix     = "UINDEX."           // (key=UINDEX.{dbID}{tableID}{indexID}({valLen}{val})+, value={{pkValLen}{pkVal})
 )
 
 const (
@@ -262,8 +264,6 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	e.catalog.mutated = true
-
 	for colID, col := range table.ColsByID() {
 		v := make([]byte, 1+len(col.colName))
 
@@ -303,8 +303,9 @@ type ColSpec struct {
 }
 
 type CreateIndexStmt struct {
-	table string
-	col   string
+	unique bool
+	table  string
+	cols   []string
 }
 
 func (stmt *CreateIndexStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
@@ -312,6 +313,14 @@ func (stmt *CreateIndexStmt) inferParameters(e *Engine, implicitDB *Database, pa
 }
 
 func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	if len(stmt.cols) < 1 {
+		return nil, ErrIllegalArguments
+	}
+
+	if len(stmt.cols) > MaxNumberOfColumnsInIndex {
+		return nil, ErrMaxNumberOfColumnsInIndexExceeded
+	}
+
 	summary = newTxSummary()
 	summary.db = implicitDB
 
@@ -324,43 +333,53 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	if table.pk.colName == stmt.col {
-		return nil, ErrIndexAlreadyExists
-	}
-
-	col, err := table.GetColumnByName(stmt.col)
-	if err != nil {
-		return nil, err
-	}
-
-	_, exists := table.indexes[col.id]
-	if exists {
-		return nil, ErrIndexAlreadyExists
-	}
-
 	// check table is empty
-	lastTxID, _ := e.dataStore.Alh()
-	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+	{
+		lastTxID, _ := e.dataStore.Alh()
+		err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		pkPrefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id))
+		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
+		if err != nil {
+			return nil, err
+		}
+		if existKey {
+			return nil, ErrLimitedIndex
+		}
+	}
+
+	colIDs := make([]uint64, len(stmt.cols))
+
+	for i, colName := range stmt.cols {
+		col, err := table.GetColumnByName(colName)
+		if err != nil {
+			return nil, err
+		}
+
+		colIDs[i] = col.id
+	}
+
+	index, err := table.newIndex(stmt.unique, colIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	pkPrefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id))
-	existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
-	if err != nil {
-		return nil, err
-	}
-	if existKey {
-		return nil, ErrLimitedIndex
+	encodedValues := make([]byte, 1+len(index.colIDs)*EncIDLen)
+
+	if index.unique {
+		encodedValues[0] = 1
 	}
 
-	table.indexes[col.id] = struct{}{}
-
-	e.catalog.mutated = true
+	for i, colID := range index.colIDs {
+		copy(encodedValues[1+i*EncIDLen:], EncodeID(colID))
+	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id)),
-		Value: []byte(table.name),
+		Key:   e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id)),
+		Value: encodedValues,
 	}
 	summary.ces = append(summary.ces, te)
 
@@ -587,7 +606,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		// create entry for the column which is the pk
-		mkey := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id), pkEncVal)
+		mkey := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), pkEncVal)
 
 		constraint := store.NoConstraint
 
@@ -609,43 +628,72 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		summary.updatedRows++
 
 		// create entries for each indexed column, with value as value for pk column
-		for colID := range table.indexes {
-			colPos, defined := cs[colID]
-			if !defined {
-				return nil, ErrIndexedColumnCanNotBeNull
+		for _, index := range table.indexes {
+			var prefix string
+			var encodedValues [][]byte
+			var val []byte
+
+			if index.unique {
+				prefix = UniqueIndexPrefix
+				encodedValues = make([][]byte, 3+len(index.colIDs))
+				val = pkEncVal
+			} else {
+				prefix = IndexPrefix
+				encodedValues = make([][]byte, 4+len(index.colIDs))
+				encodedValues[len(encodedValues)-1] = pkEncVal
 			}
 
-			cVal := row.Values[colPos]
+			encodedValues[0] = EncodeID(table.db.id)
+			encodedValues[1] = EncodeID(table.id)
+			encodedValues[2] = EncodeID(index.id)
 
-			val, err := cVal.substitute(params)
-			if err != nil {
-				return nil, err
-			}
+			for i, colID := range index.colIDs {
+				colPos, defined := cs[colID]
+				if !defined {
+					return nil, ErrIndexedColumnCanNotBeNull
+				}
 
-			rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
-			if err != nil {
-				return nil, err
-			}
+				cVal := row.Values[colPos]
 
-			_, isNull := rval.(*NullValue)
-			if isNull {
-				return nil, ErrIndexedColumnCanNotBeNull
-			}
+				val, err := cVal.substitute(params)
+				if err != nil {
+					return nil, err
+				}
 
-			col, err := table.GetColumnByID(colID)
-			if err != nil {
-				return nil, err
-			}
+				rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
+				if err != nil {
+					return nil, err
+				}
 
-			encVal, err := EncodeValue(rval, col.colType, asKey)
-			if err != nil {
-				return nil, err
+				_, isNull := rval.(*NullValue)
+				if isNull {
+					return nil, ErrIndexedColumnCanNotBeNull
+				}
+
+				col, err := table.GetColumnByID(colID)
+				if err != nil {
+					return nil, err
+				}
+
+				encVal, err := EncodeValue(rval, col.colType, asKey)
+				if err != nil {
+					return nil, err
+				}
+
+				constraint = store.NoConstraint
+				if index.unique {
+					constraint = store.MustNotExist
+				}
+
+				encodedValues[i+3] = encVal
 			}
 
 			ie := &store.KV{
-				Key:   e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(colID), encVal, pkEncVal),
-				Value: nil,
+				Key:        e.mapKey(prefix, encodedValues...),
+				Value:      val,
+				Constraint: constraint,
 			}
+
 			summary.des = append(summary.des, ie)
 		}
 	}
@@ -1150,7 +1198,7 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 			return nil, nil
 		}
 
-		_, indexed := table.indexes[col.id]
+		_, indexed := table.indexesByColID[col.id]
 		if !indexed {
 			return nil, ErrLimitedOrderBy
 		}
@@ -1296,7 +1344,7 @@ func (stmt *TableRef) Resolve(e *Engine, implicitDB *Database, snap *store.Snaps
 
 		// if it's not PK then it must be an indexed column
 		if table.pk.colName != ordCol.sel.col {
-			_, indexed := table.indexes[col.id]
+			_, indexed := table.indexesByColID[col.id]
 			if !indexed {
 				return nil, ErrColumnNotIndexed
 			}

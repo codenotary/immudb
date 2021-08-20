@@ -43,7 +43,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
 		},
 	}
 
@@ -185,7 +185,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
 		},
 		{
 			input:          "CREATE TABLE table1",
@@ -217,13 +217,18 @@ func TestCreateIndexStmt(t *testing.T) {
 	}{
 		{
 			input:          "CREATE INDEX ON table1(id)",
-			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table1", col: "id"}},
+			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table1", cols: []string{"id"}}},
 			expectedError:  nil,
 		},
 		{
 			input:          "CREATE INDEX table1(id)",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON"),
+		},
+		{
+			input:          "CREATE UNIQUE INDEX ON table1(id, title)",
+			expectedOutput: []SQLStmt{&CreateIndexStmt{unique: true, table: "table1", cols: []string{"id", "title"}}},
+			expectedError:  nil,
 		},
 	}
 
