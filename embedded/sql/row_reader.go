@@ -76,6 +76,7 @@ type rawRowReader struct {
 	colsByPos  []*ColDescriptor
 	colsBySel  map[string]*ColDescriptor
 	orderByCol *Column
+	unique     bool
 	desc       bool
 	reader     *store.KeyReader
 }
@@ -102,7 +103,25 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		return nil, err
 	}
 
-	prefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id))
+	var prefix []byte
+	var unique bool
+
+	if table.pk.colName == orderByCol {
+		prefix = e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id))
+	} else {
+		index := table.indexesByColID[col.id][0] // TODO: temporary assume one simple index per column
+
+		unique = index.unique
+
+		var iprefix string
+		if index.unique {
+			iprefix = UniqueIndexPrefix
+		} else {
+			iprefix = IndexPrefix
+		}
+
+		prefix = e.mapKey(iprefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id))
+	}
 
 	if cmp == EqualTo {
 		prefix = append(prefix, encInitKeyVal...)
@@ -172,6 +191,7 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		colsBySel:  colsBySel,
 		tableAlias: tableAlias,
 		orderByCol: col,
+		unique:     unique,
 		desc:       rSpec.DescOrder,
 		reader:     r,
 	}, nil
@@ -231,12 +251,21 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, err
 		}
 	} else {
-		_, _, _, _, encPKVal, err := r.e.unmapRow(mkey)
-		if err != nil {
-			return nil, err
+		var encPKVal []byte
+
+		if r.unique {
+			encPKVal, err = vref.Resolve()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			_, _, _, _, encPKVal, err = r.e.unmapIndexEntry(mkey)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(r.table.pk.id), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), encPKVal))
 		if err != nil {
 			return nil, err
 		}
