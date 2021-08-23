@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+
 	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -136,7 +137,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return err
 	}
 
-	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.RowPrefix, sql.EncodeID(dbID), sql.EncodeID(tableID), sql.EncodeID(pkID), pkEncVal)
+	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(dbID), sql.EncodeID(tableID), sql.EncodeID(pkID), pkEncVal)
 
 	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById)
 	if err != nil {
