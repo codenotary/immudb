@@ -285,7 +285,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	}
 
 	// No snapshot present or none was valid, fresh initialization
-	opts.log.Infof("Staring with an empty index...")
+	opts.log.Infof("Starting with an empty index...")
 
 	err = hLog.SetOffset(0)
 	if err != nil {
