@@ -29,7 +29,7 @@ type RowReader interface {
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
-	OrderBy() *ColDescriptor
+	OrderBy() []*ColDescriptor
 	InferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]*ColDescriptor, error)
 }
@@ -68,16 +68,13 @@ func (row *Row) Compatible(aRow *Row, selectors []*ColSelector, db, table string
 
 type rawRowReader struct {
 	e          *Engine
-	implicitDB string
 	snap       *store.Snapshot
 	table      *Table
 	asBefore   uint64
 	tableAlias string
 	colsByPos  []*ColDescriptor
 	colsBySel  map[string]*ColDescriptor
-	orderByCol *Column
-	unique     bool
-	desc       bool
+	scanSpec   *scanSpec
 	reader     *store.KeyReader
 }
 
@@ -93,63 +90,14 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
-func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, orderByCol string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
-	if snap == nil || table == nil {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, scanSpec *scanSpec) (*rawRowReader, error) {
+	if snap == nil || table == nil || scanSpec == nil || scanSpec.index == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	col, err := table.GetColumnByName(orderByCol)
+	rSpec, err := keyReaderSpecFrom(e, table, scanSpec)
 	if err != nil {
 		return nil, err
-	}
-
-	var prefix []byte
-	var unique bool
-
-	if table.pk.colName == orderByCol {
-		prefix = e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id))
-	} else {
-		index := table.indexesByColID[col.id][0] // TODO: temporary assume one simple index per column
-
-		unique = index.unique
-
-		var iprefix string
-		if index.unique {
-			iprefix = UniqueIndexPrefix
-		} else {
-			iprefix = IndexPrefix
-		}
-
-		prefix = e.mapKey(iprefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id))
-	}
-
-	if cmp == EqualTo {
-		prefix = append(prefix, encInitKeyVal...)
-	}
-
-	skey := make([]byte, len(prefix))
-	copy(skey, prefix)
-
-	if cmp == GreaterThan || cmp == GreaterOrEqualTo {
-		skey = append(skey, encInitKeyVal...)
-	}
-
-	if cmp == LowerThan || cmp == LowerOrEqualTo {
-		if table.pk.colName == orderByCol {
-			skey = append(skey, encInitKeyVal...)
-		} else {
-			maxPKVal := maxKeyVal(table.pk.colType)
-
-			skey = append(skey, encInitKeyVal...)
-			skey = append(skey, maxPKVal...)
-		}
-	}
-
-	rSpec := &store.KeyReaderSpec{
-		SeekKey:       skey,
-		InclusiveSeek: cmp != LowerThan && cmp != GreaterThan,
-		Prefix:        prefix,
-		DescOrder:     cmp == LowerThan || cmp == LowerOrEqualTo,
 	}
 
 	r, err := snap.NewKeyReader(rSpec)
@@ -176,42 +124,112 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		colsBySel[colDescriptor.Selector()] = colDescriptor
 	}
 
-	implicitDB := ""
-	if db != nil {
-		implicitDB = db.name
-	}
-
 	return &rawRowReader{
 		e:          e,
-		implicitDB: implicitDB,
 		snap:       snap,
 		table:      table,
 		asBefore:   asBefore,
+		tableAlias: tableAlias,
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
-		tableAlias: tableAlias,
-		orderByCol: col,
-		unique:     unique,
-		desc:       rSpec.DescOrder,
+		scanSpec:   scanSpec,
 		reader:     r,
 	}, nil
 }
 
+func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store.KeyReaderSpec, err error) {
+	var indexPrefix string
+
+	if scanSpec.index.isPrimary() {
+		indexPrefix = PIndexPrefix
+	} else {
+		if scanSpec.index.unique {
+			indexPrefix = UIndexPrefix
+		} else {
+			indexPrefix = SIndexPrefix
+		}
+	}
+
+	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpec.index.id))
+
+	var skey []byte
+
+	for i := 0; i < scanSpec.fixedValuesUpto; i++ {
+		col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
+		if err != nil {
+			return nil, err
+		}
+
+		encVal, err := EncodeValue(scanSpec.valuesByColID[col.id], col.colType, false)
+		if err != nil {
+			return nil, err
+		}
+
+		prefix = append(prefix, encVal...)
+	}
+
+	skey = make([]byte, len(prefix))
+	copy(skey, prefix)
+
+	if scanSpec.cmp == LowerThan || scanSpec.cmp == LowerOrEqualTo {
+		for i := scanSpec.fixedValuesUpto; i < len(scanSpec.index.colIDs); i++ {
+			col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
+			if err != nil {
+				return nil, err
+			}
+
+			val, specified := scanSpec.valuesByColID[col.id]
+			var encVal []byte
+
+			if specified {
+				encVal, err = EncodeValue(val, col.colType, false)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				encVal = maxKeyVal(col.colType)
+			}
+
+			skey = append(skey, encVal...)
+		}
+
+		if !scanSpec.index.isPrimary() && !scanSpec.index.unique {
+			// non-unique index entries include pk value as suffix
+			skey = append(skey, maxKeyVal(table.pk.colType)...)
+		}
+	}
+
+	return &store.KeyReaderSpec{
+		SeekKey:       skey,
+		InclusiveSeek: scanSpec == nil || (scanSpec.cmp != LowerThan && scanSpec.cmp != GreaterThan),
+		Prefix:        prefix,
+		DescOrder:     scanSpec != nil && (scanSpec.cmp == LowerThan || scanSpec.cmp == LowerOrEqualTo),
+	}, nil
+}
+
 func (r *rawRowReader) ImplicitDB() string {
-	return r.implicitDB
+	return r.table.db.name
 }
 
 func (r *rawRowReader) ImplicitTable() string {
 	return r.tableAlias
 }
 
-func (r *rawRowReader) OrderBy() *ColDescriptor {
-	return &ColDescriptor{
-		Database: r.table.db.name,
-		Table:    r.tableAlias,
-		Column:   r.orderByCol.colName,
-		Type:     r.orderByCol.colType,
+func (r *rawRowReader) OrderBy() []*ColDescriptor {
+	cols := make([]*ColDescriptor, len(r.scanSpec.index.colIDs))
+
+	for i, colID := range r.scanSpec.index.colIDs {
+		col := r.table.colsByID[colID]
+
+		cols[i] = &ColDescriptor{
+			Database: r.table.db.name,
+			Table:    r.tableAlias,
+			Column:   col.colName,
+			Type:     col.colType,
+		}
 	}
+
+	return cols
 }
 
 func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
@@ -245,7 +263,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.table.pk.colName == r.orderByCol.colName {
+	if r.scanSpec.index.isPrimary() {
 		v, err = vref.Resolve()
 		if err != nil {
 			return nil, err
@@ -253,19 +271,19 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	} else {
 		var encPKVal []byte
 
-		if r.unique {
+		if r.scanSpec.index.unique {
 			encPKVal, err = vref.Resolve()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			_, _, _, _, encPKVal, err = r.e.unmapIndexEntry(mkey)
+			_, _, _, _, encPKVal, err = r.e.unmapIndexEntry(SIndexPrefix, mkey)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(pkIndexID), encPKVal))
 		if err != nil {
 			return nil, err
 		}

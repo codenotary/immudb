@@ -565,7 +565,7 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 }
 
 func TestAliasing(t *testing.T) {
-	stmt := &SelectStmt{ds: &TableRef{table: "table1"}}
+	stmt := &SelectStmt{ds: &tableRef{table: "table1"}}
 	require.Equal(t, "table1", stmt.Alias())
 
 	stmt.as = "t1"

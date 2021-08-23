@@ -35,8 +35,9 @@ func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, 
 		return nil, ErrIllegalArguments
 	}
 
+	// TODO: leverage multi-column indexing
 	if len(groupBy) == 1 &&
-		rowReader.OrderBy().Selector() != EncodeSelector(groupBy[0].resolve(rowReader.ImplicitDB(), rowReader.ImplicitTable())) {
+		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.ImplicitDB(), rowReader.ImplicitTable())) {
 		return nil, ErrLimitedGroupBy
 	}
 
@@ -56,7 +57,7 @@ func (gr *groupedRowReader) ImplicitTable() string {
 	return gr.rowReader.ImplicitTable()
 }
 
-func (gr *groupedRowReader) OrderBy() *ColDescriptor {
+func (gr *groupedRowReader) OrderBy() []*ColDescriptor {
 	return gr.rowReader.OrderBy()
 }
 

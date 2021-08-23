@@ -49,6 +49,7 @@ var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not b
 var ErrIndexedColumnCanNotBeNull = errors.New("indexed column can not be null")
 var ErrIndexAlreadyExists = errors.New("index already exists")
 var ErrMaxNumberOfColumnsInIndexExceeded = errors.New("number of columns in multi-column index exceeded")
+var ErrNoAvailableIndex = errors.New("no available index")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrInferredMultipleTypes = errors.New("inferred multiple types")
@@ -562,7 +563,7 @@ func keyFromIDs(ids []uint64) string {
 
 func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) (TypedValue, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id)),
+		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID)),
 		DescOrder: true,
 	}
 
@@ -577,12 +578,12 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) (TypedValue, 
 		return nil, err
 	}
 
-	dbID, tableID, encMaxPK, err := e.unmapRow(mkey)
+	dbID, tableID, indexID, encVals, encMaxPK, err := e.unmapIndexEntry(PIndexPrefix, mkey)
 	if err != nil {
 		return nil, err
 	}
 
-	if dbID != table.db.id || tableID != table.id {
+	if dbID != table.db.id || tableID != table.id || indexID != pkIndexID || len(encVals) != 0 {
 		return nil, ErrCorruptedData
 	}
 
@@ -810,51 +811,13 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint64, err err
 	return
 }
 
-func (e *Engine) unmapRow(mkey []byte) (dbID, tableID uint64, encPKVal []byte, err error) {
-	enc, err := e.trimPrefix(mkey, []byte(RowPrefix))
+func (e *Engine) unmapIndexEntry(indexPrefix string, mkey []byte) (dbID, tableID, indexID uint64, encVals [][]byte, encPKVal []byte, err error) {
+	enc, err := e.trimPrefix(mkey, []byte(indexPrefix))
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	if len(enc) < EncIDLen*2+EncLenLen {
-		return 0, 0, nil, ErrCorruptedData
-	}
-
-	off := 0
-
-	dbID = binary.BigEndian.Uint64(enc[off:])
-	off += EncIDLen
-
-	tableID = binary.BigEndian.Uint64(enc[off:])
-	off += EncIDLen
-
-	//read pk value
-	valLen := int(binary.BigEndian.Uint32(enc[off:]))
-	off += EncLenLen
-
-	if len(enc)-off < valLen {
-		return 0, 0, nil, ErrCorruptedData
-	}
-
-	if len(enc)-off != valLen {
-		return 0, 0, nil, ErrCorruptedData
-	}
-
-	encPKVal = make([]byte, EncLenLen+valLen)
-	binary.BigEndian.PutUint32(encPKVal, uint32(valLen))
-	copy(encPKVal[EncLenLen:], enc[off:])
-	off += len(encPKVal)
-
-	return
-}
-
-func (e *Engine) unmapIndexEntry(mkey []byte) (dbID, tableID, indexID uint64, encVals [][]byte, encPKVal []byte, err error) {
-	enc, err := e.trimPrefix(mkey, []byte(IndexPrefix))
-	if err != nil {
-		return 0, 0, 0, nil, nil, err
-	}
-
-	if len(enc) <= EncIDLen*3+2*EncLenLen {
+	if len(enc) <= EncIDLen*3+EncLenLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
@@ -888,10 +851,6 @@ func (e *Engine) unmapIndexEntry(mkey []byte) (dbID, tableID, indexID uint64, en
 		} else {
 			encVals = append(encVals, encVal)
 		}
-	}
-
-	if len(encVals) == 0 {
-		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
 	return
@@ -1376,7 +1335,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	return stmt.Resolve(e, implicitDB, snapshot, params, nil)
+	return stmt.Resolve(e, snapshot, implicitDB, params, nil)
 }
 
 func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
