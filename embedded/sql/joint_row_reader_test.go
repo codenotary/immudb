@@ -51,7 +51,7 @@ func TestJointRowReader(t *testing.T) {
 	snap, err := engine.getSnapshot()
 	require.NoError(t, err)
 
-	r, err := engine.newRawRowReader(db, snap, table, 0, "", "id", EqualTo, nil)
+	r, err := engine.newRawRowReader(snap, table, 0, "", &scanSpec{index: table.primaryIndex})
 	require.NoError(t, err)
 
 	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: LeftJoin}})
@@ -60,16 +60,17 @@ func TestJointRowReader(t *testing.T) {
 	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
 	require.Equal(t, ErrLimitedJoins, err)
 
-	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &TableRef{table: "table2"}}})
+	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table2"}}})
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &TableRef{table: "table1"}}})
+	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
 	require.NoError(t, err)
 
 	orderBy := jr.OrderBy()
 	require.NotNil(t, orderBy)
-	require.Equal(t, "id", orderBy.Column)
-	require.Equal(t, "table1", orderBy.Table)
+	require.Len(t, orderBy, 1)
+	require.Equal(t, "id", orderBy[0].Column)
+	require.Equal(t, "table1", orderBy[0].Table)
 
 	cols, err := jr.Columns()
 	require.NoError(t, err)

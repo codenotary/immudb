@@ -106,7 +106,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 
 	indexed, err := table.IsIndexed("id")
 	require.NoError(t, err)
-	require.False(t, indexed)
+	require.True(t, indexed)
 
 	_, err = table.IsIndexed("id1")
 	require.Equal(t, ErrColumnDoesNotExist, err)

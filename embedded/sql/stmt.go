@@ -32,10 +32,12 @@ const (
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
 	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={auto_incremental | nullable}{colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
-	RowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{pkValLen}{pkVal}, value={non-null values})
-	IndexPrefix           = "INDEX."            // (key=INDEX.{dbID}{tableID}{indexID}({valLen}{val})+{pkValLen}{pkVal}, value={})
-	UniqueIndexPrefix     = "UINDEX."           // (key=UINDEX.{dbID}{tableID}{indexID}({valLen}{val})+, value={{pkValLen}{pkVal})
+	PIndexPrefix          = "PINDEX."           // (key=PINDEX.{dbID}{tableID}{0}{pkValLen}{pkVal}, value={non-null values})
+	SIndexPrefix          = "SINDEX."           // (key=SINDEX.{dbID}{tableID}{indexID}({valLen}{val})+{pkValLen}{pkVal}, value={})
+	UIndexPrefix          = "UINDEX."           // (key=UINDEX.{dbID}{tableID}{indexID}({valLen}{val})+, value={{pkValLen}{pkVal})
 )
+
+const pkIndexID = uint64(0)
 
 const (
 	nullableFlag      byte = 1 << iota
@@ -341,7 +343,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 			return nil, err
 		}
 
-		pkPrefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id))
+		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID))
 		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
 		if err != nil {
 			return nil, err
@@ -401,7 +403,7 @@ func (stmt *AddColumnStmt) compileUsing(e *Engine, implicitDB *Database, params 
 
 type UpsertIntoStmt struct {
 	isInsert bool
-	tableRef *TableRef
+	tableRef *tableRef
 	cols     []string
 	rows     []*RowSpec
 }
@@ -606,7 +608,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		// create entry for the column which is the pk
-		mkey := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), pkEncVal)
+		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID), pkEncVal)
 
 		constraint := store.NoConstraint
 
@@ -629,16 +631,20 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		// create entries for each indexed column, with value as value for pk column
 		for _, index := range table.indexes {
+			if index.isPrimary() {
+				continue
+			}
+
 			var prefix string
 			var encodedValues [][]byte
 			var val []byte
 
 			if index.unique {
-				prefix = UniqueIndexPrefix
+				prefix = UIndexPrefix
 				encodedValues = make([][]byte, 3+len(index.colIDs))
 				val = pkEncVal
 			} else {
-				prefix = IndexPrefix
+				prefix = SIndexPrefix
 				encodedValues = make([][]byte, 4+len(index.colIDs))
 				encodedValues[len(encodedValues)-1] = pkEncVal
 			}
@@ -681,7 +687,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				}
 
 				constraint = store.NoConstraint
-				if index.unique {
+				if stmt.isInsert && index.unique {
 					constraint = store.MustNotExist
 				}
 
@@ -1112,7 +1118,7 @@ const (
 
 type DataSource interface {
 	inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error
-	Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, scanSpec *scanSpec) (RowReader, error)
 	Alias() string
 }
 
@@ -1127,6 +1133,14 @@ type SelectStmt struct {
 	limit     uint64
 	orderBy   []*OrdCol
 	as        string
+}
+
+type scanSpec struct {
+	index *Index
+
+	fixedValuesUpto int
+	valuesByColID   map[uint64]TypedValue
+	cmp             Comparison
 }
 
 func (stmt *SelectStmt) Limit() uint64 {
@@ -1145,7 +1159,7 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 	}
 
 	// TODO (jeroiraz) may be optimized so to resolve the query statement just once
-	rowReader, err := stmt.Resolve(e, implicitDB, snapshot, nil, nil)
+	rowReader, err := stmt.Resolve(e, snapshot, implicitDB, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -1179,7 +1193,7 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 	}
 
 	if len(stmt.orderBy) > 0 {
-		tableRef, ok := stmt.ds.(*TableRef)
+		tableRef, ok := stmt.ds.(*tableRef)
 		if !ok {
 			return nil, ErrLimitedOrderBy
 		}
@@ -1207,18 +1221,53 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 	return summary, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
-	var orderByCol *OrdCol
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *scanSpec) (RowReader, error) {
+	var sSpec *scanSpec
 
-	if ordCol == nil && len(stmt.orderBy) > 0 {
-		orderByCol = stmt.orderBy[0]
+	tableRef, isTableRef := stmt.ds.(*tableRef)
+	if isTableRef {
+		var index *Index
+		cmp := GreaterOrEqualTo
+
+		table, err := tableRef.referencedTable(e, implicitDB)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(stmt.orderBy) > 0 {
+			col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
+			if err != nil {
+				return nil, err
+			}
+
+			// get the first index in which the column is the first, actually should be selected from the where condition
+			for _, i := range table.indexesByColID[col.id] {
+				if i.colIDs[0] == col.id {
+					index = i
+					break
+				}
+			}
+
+			if index == nil {
+				return nil, ErrNoAvailableIndex
+			}
+
+			if stmt.orderBy[0].order == AscOrder {
+				cmp = GreaterOrEqualTo
+			} else {
+				cmp = LowerOrEqualTo
+			}
+		} else {
+			index = table.primaryIndex
+		}
+
+		sSpec = &scanSpec{
+			index: index,
+			cmp:   cmp,
+		}
 	}
 
-	if ordCol != nil {
-		orderByCol = ordCol
-	}
-
-	rowReader, err := stmt.ds.Resolve(e, implicitDB, snap, params, orderByCol)
+	rowReader, err := stmt.ds.Resolve(e, snap, implicitDB, params, sSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -1275,14 +1324,14 @@ func (stmt *SelectStmt) Alias() string {
 	return stmt.as
 }
 
-type TableRef struct {
+type tableRef struct {
 	db       string
 	table    string
 	asBefore uint64
 	as       string
 }
 
-func (stmt *TableRef) referencedTable(e *Engine, implicitDB *Database) (*Table, error) {
+func (stmt *tableRef) referencedTable(e *Engine, implicitDB *Database) (*Table, error) {
 	var db *Database
 
 	if stmt.db != "" {
@@ -1310,12 +1359,12 @@ func (stmt *TableRef) referencedTable(e *Engine, implicitDB *Database) (*Table, 
 	return table, nil
 }
 
-func (stmt *TableRef) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *tableRef) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
-	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
+func (stmt *tableRef) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, scanSpec *scanSpec) (RowReader, error) {
+	if e == nil || snap == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -1324,56 +1373,15 @@ func (stmt *TableRef) Resolve(e *Engine, implicitDB *Database, snap *store.Snaps
 		return nil, err
 	}
 
-	colName := table.pk.colName
-	cmp := GreaterOrEqualTo
-	var initKeyVal []byte
-
-	if ordCol != nil {
-		if ordCol.sel.db != "" && ordCol.sel.db != table.db.name {
-			return nil, ErrInvalidColumn
-		}
-
-		if ordCol.sel.table != "" && ordCol.sel.table != table.name {
-			return nil, ErrInvalidColumn
-		}
-
-		col, err := table.GetColumnByName(ordCol.sel.col)
-		if err != nil {
-			return nil, err
-		}
-
-		// if it's not PK then it must be an indexed column
-		if table.pk.colName != ordCol.sel.col {
-			_, indexed := table.indexesByColID[col.id]
-			if !indexed {
-				return nil, ErrColumnNotIndexed
-			}
-		}
-
-		colName = col.colName
-		cmp = ordCol.cmp
-
-		if ordCol.useInitKeyVal {
-			if len(ordCol.initKeyVal) > EncLenLen+len(maxKeyVal(col.colType)) {
-				return nil, ErrMaxKeyLengthExceeded
-			}
-			initKeyVal = ordCol.initKeyVal
-		}
-
-		if !ordCol.useInitKeyVal && (cmp == LowerThan || cmp == LowerOrEqualTo) {
-			initKeyVal = maxKeyVal(col.colType)
-		}
-	}
-
 	asBefore := stmt.asBefore
 	if asBefore == 0 {
 		asBefore = e.snapAsBeforeTx
 	}
 
-	return e.newRawRowReader(implicitDB, snap, table, asBefore, stmt.as, colName, cmp, initKeyVal)
+	return e.newRawRowReader(snap, table, asBefore, stmt.as, scanSpec)
 }
 
-func (stmt *TableRef) Alias() string {
+func (stmt *tableRef) Alias() string {
 	if stmt.as == "" {
 		return stmt.table
 	}
@@ -1386,11 +1394,16 @@ type JoinSpec struct {
 	cond     ValueExp
 }
 
+type Order int
+
+const (
+	AscOrder Order = iota
+	DescOrder
+)
+
 type OrdCol struct {
-	sel           *ColSelector
-	cmp           Comparison
-	initKeyVal    []byte
-	useInitKeyVal bool
+	sel   *ColSelector
+	order Order
 }
 
 type Selector interface {

@@ -47,7 +47,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     sels []Selector
     distinct bool
     ds DataSource
-    tableRef *TableRef
+    tableRef *tableRef
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
@@ -55,7 +55,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     binExp ValueExp
     err error
     ordcols []*OrdCol
-    opt_ord Comparison
+    opt_ord Order
     logicOp LogicOperator
     cmpOp CmpOperator
     pparam int
@@ -478,12 +478,12 @@ ds:
 tableRef:
     IDENTIFIER
     {
-        $$ = &TableRef{table: $1}
+        $$ = &tableRef{table: $1}
     }
 |
     IDENTIFIER '.' IDENTIFIER
     {
-        $$ = &TableRef{db: $1, table: $3}
+        $$ = &tableRef{db: $1, table: $3}
     }
 
 opt_as_before:
@@ -576,27 +576,27 @@ opt_orderby:
 ordcols:
     col opt_ord
     {
-        $$ = []*OrdCol{{sel: $1, cmp: $2}}
+        $$ = []*OrdCol{{sel: $1, order: $2}}
     }
 |
     ordcols ',' col opt_ord
     {
-        $$ = append($1, &OrdCol{sel: $3, cmp: $4})
+        $$ = append($1, &OrdCol{sel: $3, order: $4})
     }
 
 opt_ord:
     {
-        $$ = GreaterOrEqualTo
+        $$ = AscOrder
     }
 |
     ASC
     {
-        $$ = GreaterOrEqualTo
+        $$ = AscOrder
     }
 |
     DESC
     {
-        $$ = LowerOrEqualTo
+        $$ = DescOrder
     }
 
 opt_as:

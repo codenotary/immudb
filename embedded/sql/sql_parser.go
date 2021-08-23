@@ -33,7 +33,7 @@ type yySymType struct {
 	sels     []Selector
 	distinct bool
 	ds       DataSource
-	tableRef *TableRef
+	tableRef *tableRef
 	joins    []*JoinSpec
 	join     *JoinSpec
 	joinType JoinType
@@ -41,7 +41,7 @@ type yySymType struct {
 	binExp   ValueExp
 	err      error
 	ordcols  []*OrdCol
-	opt_ord  Comparison
+	opt_ord  Order
 	logicOp  LogicOperator
 	cmpOp    CmpOperator
 	pparam   int
@@ -1024,12 +1024,12 @@ yydefault:
 	case 67:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.tableRef = &TableRef{table: yyDollar[1].id}
+			yyVAL.tableRef = &tableRef{table: yyDollar[1].id}
 		}
 	case 68:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.tableRef = &TableRef{db: yyDollar[1].id, table: yyDollar[3].id}
+			yyVAL.tableRef = &tableRef{db: yyDollar[1].id, table: yyDollar[3].id}
 		}
 	case 69:
 		yyDollar = yyS[yypt-0 : yypt+1]
@@ -1119,27 +1119,27 @@ yydefault:
 	case 86:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, cmp: yyDollar[2].opt_ord}}
+			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, order: yyDollar[2].opt_ord}}
 		}
 	case 87:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, cmp: yyDollar[4].opt_ord})
+			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, order: yyDollar[4].opt_ord})
 		}
 	case 88:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.opt_ord = GreaterOrEqualTo
+			yyVAL.opt_ord = AscOrder
 		}
 	case 89:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = GreaterOrEqualTo
+			yyVAL.opt_ord = AscOrder
 		}
 	case 90:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = LowerOrEqualTo
+			yyVAL.opt_ord = DescOrder
 		}
 	case 91:
 		yyDollar = yyS[yypt-0 : yypt+1]

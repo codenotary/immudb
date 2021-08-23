@@ -39,6 +39,7 @@ type Table struct {
 	pk             *Column
 	indexes        map[string]*Index
 	indexesByColID map[uint64][]*Index
+	primaryIndex   *Index
 	maxPK          uint64
 }
 
@@ -218,6 +219,10 @@ func (t *Table) GetColumnByID(id uint64) (*Column, error) {
 	return col, nil
 }
 
+func (i *Index) isPrimary() bool {
+	return i.id == 0
+}
+
 func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table *Table, err error) {
 	defer func() {
 		if err != nil {
@@ -272,6 +277,10 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table
 
 		if pk == col.colName {
 			table.pk = col
+			table.primaryIndex, err = table.newIndex(true, []uint64{col.id})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -298,10 +307,6 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 		t.db.catalog.mutated = true
 	}()
 
-	if len(colIDs) == 1 && t.pk.id == colIDs[0] {
-		return nil, ErrIndexAlreadyExists
-	}
-
 	// validate column ids
 	for _, colID := range colIDs {
 		_, err := t.GetColumnByID(colID)
@@ -311,7 +316,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 	}
 
 	index = &Index{
-		id:     uint64(len(t.indexes) + 1),
+		id:     uint64(len(t.indexes)),
 		table:  t,
 		unique: unique,
 		colIDs: colIDs,

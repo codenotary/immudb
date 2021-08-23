@@ -47,7 +47,7 @@ func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params ma
 			return nil, ErrUnsupportedJoinType
 		}
 
-		tableRef, ok := jspec.ds.(*TableRef)
+		tableRef, ok := jspec.ds.(*tableRef)
 		if !ok {
 			return nil, ErrLimitedJoins
 		}
@@ -78,7 +78,7 @@ func (jointr *jointRowReader) ImplicitTable() string {
 	return jointr.rowReader.ImplicitTable()
 }
 
-func (jointr *jointRowReader) OrderBy() *ColDescriptor {
+func (jointr *jointRowReader) OrderBy() []*ColDescriptor {
 	return jointr.rowReader.OrderBy()
 }
 
@@ -106,7 +106,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	}
 
 	for _, jspec := range jointr.joins {
-		tableRef := jspec.ds.(*TableRef)
+		tableRef := jspec.ds.(*tableRef)
 		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 
 		for _, c := range table.ColsByID() {
@@ -204,7 +204,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				where: jspec.cond.reduceSelectors(row, jointr.ImplicitDB(), jointr.ImplicitTable()),
 			}
 
-			reader, err := jointq.Resolve(jointr.e, jointr.implicitDB, jointr.snap, jointr.params, nil)
+			reader, err := jointq.Resolve(jointr.e, jointr.snap, jointr.implicitDB, jointr.params, nil)
 			if err != nil {
 				return nil, err
 			}

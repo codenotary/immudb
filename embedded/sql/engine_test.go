@@ -264,8 +264,7 @@ func TestCreateIndex(t *testing.T) {
 
 	table, err := engine.GetTableByName("db1", "table1")
 	require.NoError(t, err)
-
-	require.Len(t, table.indexes, 0)
+	require.Len(t, table.indexes, 1)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
 	require.NoError(t, err)
@@ -298,8 +297,6 @@ func TestCreateIndex(t *testing.T) {
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil, true)
 	require.Equal(t, ErrColumnDoesNotExist, err)
-
-	require.Len(t, table.indexes, 2)
 
 	_, err = engine.ExecStmt("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil, true)
 	require.NoError(t, err)
@@ -836,9 +833,10 @@ func TestQuery(t *testing.T) {
 
 	orderBy := r.OrderBy()
 	require.NotNil(t, orderBy)
-	require.Equal(t, "id", orderBy.Column)
-	require.Equal(t, "table1", orderBy.Table)
-	require.Equal(t, "db1", orderBy.Database)
+	require.Len(t, orderBy, 1)
+	require.Equal(t, "id", orderBy[0].Column)
+	require.Equal(t, "table1", orderBy[0].Table)
+	require.Equal(t, "db1", orderBy[0].Database)
 
 	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
@@ -1271,9 +1269,10 @@ func TestOrderBy(t *testing.T) {
 
 	orderBy := r.OrderBy()
 	require.NotNil(t, orderBy)
-	require.Equal(t, "title", orderBy.Column)
-	require.Equal(t, "table1", orderBy.Table)
-	require.Equal(t, "db1", orderBy.Database)
+	require.Len(t, orderBy, 1)
+	require.Equal(t, "title", orderBy[0].Column)
+	require.Equal(t, "table1", orderBy[0].Table)
+	require.Equal(t, "db1", orderBy[0].Database)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
@@ -2071,7 +2070,6 @@ func TestReOpening(t *testing.T) {
 	col, err = table.GetColumnByName("name")
 	require.NoError(t, err)
 	require.Equal(t, VarcharType, col.colType)
-	require.Len(t, table.indexes, 1)
 
 	indexed, err := table.IsIndexed(col.colName)
 	require.NoError(t, err)
@@ -2774,42 +2772,51 @@ func TestUnmapIndex(t *testing.T) {
 	require.EqualValues(t, 0x2122232425262728, colID)
 }
 
-func TestUnmapRow(t *testing.T) {
+func TestUnmapIndexEntry(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, encPKVal, err := e.unmapRow(nil)
-	require.ErrorIs(t, err, ErrIllegalMappedKey)
+	dbID, tableID, indexID, encVals, encPKVal, err := e.unmapIndexEntry(PIndexPrefix, nil)
+	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
+	require.Zero(t, indexID)
+	require.Nil(t, encVals)
 	require.Nil(t, encPKVal)
 
-	dbID, tableID, encPKVal, err = e.unmapRow([]byte(
-		"e-prefix.ROW.a",
+	dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(PIndexPrefix, []byte(
+		"e-prefix.PINDEX.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
+	require.Zero(t, indexID)
+	require.Nil(t, encVals)
 	require.Nil(t, encPKVal)
 
 	fullValue := append(
-		[]byte("e-prefix.ROW."),
+		[]byte("e-prefix.SINDEX."),
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
 		0, 0, 0, 3,
 		'a', 'b', 'c',
 	)
 
 	for i := 13; i < len(fullValue); i++ {
-		dbID, tableID, encPKVal, err = e.unmapRow(fullValue[:i])
+		dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(SIndexPrefix, fullValue[:i])
 		require.ErrorIs(t, err, ErrCorruptedData)
 		require.Zero(t, dbID)
 		require.Zero(t, tableID)
+		require.Zero(t, indexID)
+		require.Nil(t, encVals)
 		require.Nil(t, encPKVal)
 	}
 
-	dbID, tableID, encPKVal, err = e.unmapRow(fullValue)
+	dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(SIndexPrefix, fullValue)
 	require.NoError(t, err)
 	require.EqualValues(t, 0x0102030405060708, dbID)
 	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, uint64(2), indexID)
+	require.Nil(t, encVals)
 	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encPKVal)
 }

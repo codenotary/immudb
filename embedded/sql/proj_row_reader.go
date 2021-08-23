@@ -70,7 +70,7 @@ func (pr *projectedRowReader) ImplicitTable() string {
 	return pr.tableAlias
 }
 
-func (pr *projectedRowReader) OrderBy() *ColDescriptor {
+func (pr *projectedRowReader) OrderBy() []*ColDescriptor {
 	return pr.rowReader.OrderBy()
 }
 
