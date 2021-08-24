@@ -42,18 +42,18 @@ func TestConditionalRowReader(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = rowReader.Columns()
-	require.Equal(t, dummyError, err)
+	require.Equal(t, errDummy, err)
 
 	err = rowReader.InferParameters(nil)
-	require.Equal(t, dummyError, err)
+	require.Equal(t, errDummy, err)
 
 	dummyr.failInferringParams = true
 
 	err = rowReader.InferParameters(nil)
-	require.Equal(t, dummyError, err)
+	require.Equal(t, errDummy, err)
 }
 
-var dummyError = errors.New("dummy error")
+var errDummy = errors.New("dummy error")
 
 type dummyRowReader struct {
 	failInferringParams bool
@@ -68,11 +68,11 @@ func (r *dummyRowReader) ImplicitTable() string {
 }
 
 func (r *dummyRowReader) Read() (*Row, error) {
-	return nil, dummyError
+	return nil, errDummy
 }
 
 func (r *dummyRowReader) Close() error {
-	return dummyError
+	return errDummy
 }
 
 func (r *dummyRowReader) OrderBy() []*ColDescriptor {
@@ -80,7 +80,7 @@ func (r *dummyRowReader) OrderBy() []*ColDescriptor {
 }
 
 func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
-	return nil, dummyError
+	return nil, errDummy
 }
 
 func (r *dummyRowReader) SetParameters(params map[string]interface{}) {
@@ -88,12 +88,12 @@ func (r *dummyRowReader) SetParameters(params map[string]interface{}) {
 
 func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
 	if r.failInferringParams {
-		return dummyError
+		return errDummy
 	}
 
 	return nil
 }
 
 func (r *dummyRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
-	return nil, dummyError
+	return nil, errDummy
 }

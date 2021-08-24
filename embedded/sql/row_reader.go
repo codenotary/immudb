@@ -154,7 +154,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store
 
 	var skey []byte
 
-	for i := 0; i < scanSpec.fixedValuesUpto; i++ {
+	for i := 0; i < scanSpec.fixedValuesCount; i++ {
 		col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
 		if err != nil {
 			return nil, err
@@ -172,7 +172,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store
 	copy(skey, prefix)
 
 	if scanSpec.cmp == LowerThan || scanSpec.cmp == LowerOrEqualTo {
-		for i := scanSpec.fixedValuesUpto; i < len(scanSpec.index.colIDs); i++ {
+		for i := scanSpec.fixedValuesCount; i < len(scanSpec.index.colIDs); i++ {
 			col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
 			if err != nil {
 				return nil, err
