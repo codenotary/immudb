@@ -96,6 +96,14 @@ func (v *CountValue) reduceSelectors(row *Row, implicitDB, implicitTable string)
 	return nil
 }
 
+func (v *CountValue) isConstant() bool {
+	return false
+}
+
+func (v *CountValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type SumValue struct {
 	s   uint64
 	sel string
@@ -172,6 +180,14 @@ func (v *SumValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable 
 
 func (v *SumValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
+}
+
+func (v *SumValue) isConstant() bool {
+	return false
+}
+
+func (v *SumValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 type MinValue struct {
@@ -252,6 +268,14 @@ func (v *MinValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable 
 }
 
 func (v *MinValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return nil
+}
+
+func (v *MinValue) isConstant() bool {
+	return false
+}
+
+func (v *MinValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
 	return nil
 }
 
@@ -336,6 +360,14 @@ func (v *MaxValue) reduceSelectors(row *Row, implicitDB, implicitTable string) V
 	return nil
 }
 
+func (v *MaxValue) isConstant() bool {
+	return false
+}
+
+func (v *MaxValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type AVGValue struct {
 	s   uint64
 	c   uint64
@@ -415,5 +447,13 @@ func (v *AVGValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable 
 }
 
 func (v *AVGValue) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return nil
+}
+
+func (v *AVGValue) isConstant() bool {
+	return false
+}
+
+func (v *AVGValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
 	return nil
 }

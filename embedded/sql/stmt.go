@@ -713,6 +713,32 @@ type ValueExp interface {
 	substitute(params map[string]interface{}) (ValueExp, error)
 	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
 	reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp
+	isConstant() bool
+	selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error
+}
+
+type typedValueRange struct {
+	lRange *typedValueSemiRange
+	hRange *typedValueSemiRange
+}
+
+func (r *typedValueRange) unitary() bool {
+	if r.lRange == nil || r.hRange == nil {
+		return false
+	}
+
+	res, _ := r.lRange.val.Compare(r.hRange.val)
+	return res == 0
+}
+
+type typedValueSemiRange struct {
+	val TypedValue
+	cmp Comparison
+}
+
+func (r *typedValueRange) refineWith(rng *typedValueRange) error {
+	// TODO: implement
+	return nil
 }
 
 type TypedValue interface {
@@ -776,6 +802,14 @@ func (v *NullValue) reduceSelectors(row *Row, implicitDB, implicitTable string) 
 	return v
 }
 
+func (v *NullValue) isConstant() bool {
+	return true
+}
+
+func (v *NullValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type Number struct {
 	val uint64
 }
@@ -806,6 +840,14 @@ func (v *Number) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable st
 
 func (v *Number) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
+}
+
+func (v *Number) isConstant() bool {
+	return true
+}
+
+func (v *Number) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 func (v *Number) Value() interface{} {
@@ -867,6 +909,14 @@ func (v *Varchar) reduceSelectors(row *Row, implicitDB, implicitTable string) Va
 	return v
 }
 
+func (v *Varchar) isConstant() bool {
+	return true
+}
+
+func (v *Varchar) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 func (v *Varchar) Value() interface{} {
 	return v.val
 }
@@ -916,6 +966,14 @@ func (v *Bool) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable stri
 
 func (v *Bool) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
+}
+
+func (v *Bool) isConstant() bool {
+	return true
+}
+
+func (v *Bool) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 func (v *Bool) Value() interface{} {
@@ -977,6 +1035,14 @@ func (v *Blob) reduceSelectors(row *Row, implicitDB, implicitTable string) Value
 	return v
 }
 
+func (v *Blob) isConstant() bool {
+	return true
+}
+
+func (v *Blob) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 func (v *Blob) Value() interface{} {
 	return v.val
 }
@@ -1034,6 +1100,14 @@ func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable str
 
 func (v *SysFn) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
+}
+
+func (v *SysFn) isConstant() bool {
+	return false
+}
+
+func (v *SysFn) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 type Param struct {
@@ -1106,6 +1180,14 @@ func (p *Param) reduceSelectors(row *Row, implicitDB, implicitTable string) Valu
 	return p
 }
 
+func (p *Param) isConstant() bool {
+	return true
+}
+
+func (v *Param) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type Comparison int
 
 const (
@@ -1129,6 +1211,7 @@ type SelectStmt struct {
 	joins     []*JoinSpec
 	where     ValueExp
 	groupBy   []*ColSelector
+	indexOn   []string
 	having    ValueExp
 	limit     uint64
 	orderBy   []*OrdCol
@@ -1136,11 +1219,10 @@ type SelectStmt struct {
 }
 
 type scanSpec struct {
-	index *Index
-
-	fixedValuesUpto int
-	valuesByColID   map[uint64]TypedValue
-	cmp             Comparison
+	index            *Index
+	valuesByColID    map[uint64]TypedValue
+	fixedValuesCount int
+	cmp              Comparison
 }
 
 func (stmt *SelectStmt) Limit() uint64 {
@@ -1208,10 +1290,6 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 			return nil, err
 		}
 
-		if table.pk.id == col.id {
-			return nil, nil
-		}
-
 		_, indexed := table.indexesByColID[col.id]
 		if !indexed {
 			return nil, ErrLimitedOrderBy
@@ -1221,53 +1299,13 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 	return summary, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *scanSpec) (RowReader, error) {
-	var sSpec *scanSpec
-
-	tableRef, isTableRef := stmt.ds.(*tableRef)
-	if isTableRef {
-		var index *Index
-		cmp := GreaterOrEqualTo
-
-		table, err := tableRef.referencedTable(e, implicitDB)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(stmt.orderBy) > 0 {
-			col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
-			if err != nil {
-				return nil, err
-			}
-
-			// get the first index in which the column is the first, actually should be selected from the where condition
-			for _, i := range table.indexesByColID[col.id] {
-				if i.colIDs[0] == col.id {
-					index = i
-					break
-				}
-			}
-
-			if index == nil {
-				return nil, ErrNoAvailableIndex
-			}
-
-			if stmt.orderBy[0].order == AscOrder {
-				cmp = GreaterOrEqualTo
-			} else {
-				cmp = LowerOrEqualTo
-			}
-		} else {
-			index = table.primaryIndex
-		}
-
-		sSpec = &scanSpec{
-			index: index,
-			cmp:   cmp,
-		}
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *scanSpec) (rowReader RowReader, err error) {
+	sSpec, err := stmt.genScanSpec(e, snap, implicitDB, params)
+	if err != nil {
+		return nil, err
 	}
 
-	rowReader, err := stmt.ds.Resolve(e, snap, implicitDB, params, sSpec)
+	rowReader, err = stmt.ds.Resolve(e, snap, implicitDB, params, sSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -1322,6 +1360,89 @@ func (stmt *SelectStmt) Alias() string {
 	}
 
 	return stmt.as
+}
+
+func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}) (*scanSpec, error) {
+	tableRef, isTableRef := stmt.ds.(*tableRef)
+	if !isTableRef {
+		return nil, nil
+	}
+
+	table, err := tableRef.referencedTable(e, implicitDB)
+	if err != nil {
+		return nil, err
+	}
+
+	rangesByColID := make(map[uint64]*typedValueRange)
+	if stmt.where != nil {
+		err = stmt.where.selectorRanges(table, params, rangesByColID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	index := table.primaryIndex
+	cmp := GreaterOrEqualTo
+
+	// TODO: get index from the one specified in stmt (if any), check consistency against oder by
+
+	if len(stmt.orderBy) > 0 {
+		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, idx := range table.indexesByColID[col.id] {
+			// all columns before col.id must be fixedValues otherwise the index can not be used
+			for _, colID := range idx.colIDs {
+				if colID == col.id {
+					index = idx
+					break
+				}
+				if rangesByColID[colID].unitary() {
+					continue
+				}
+			}
+		}
+
+		if index == nil {
+			return nil, ErrNoAvailableIndex
+		}
+
+		if stmt.orderBy[0].order == AscOrder {
+			cmp = GreaterOrEqualTo
+		} else {
+			cmp = LowerOrEqualTo
+		}
+	}
+
+	valuesByColID := make(map[uint64]TypedValue)
+	fixedValuesCount := 0
+	allFixed := true
+
+	for _, colID := range index.colIDs {
+		colRange, ok := rangesByColID[colID]
+		if !ok {
+			continue
+		}
+
+		if colRange.unitary() {
+			valuesByColID[colID] = colRange.hRange.val
+
+			if allFixed {
+				fixedValuesCount++
+			}
+		} else {
+			allFixed = false
+		}
+	}
+
+	return &scanSpec{
+		index:            index,
+		cmp:              cmp,
+		valuesByColID:    valuesByColID,
+		fixedValuesCount: fixedValuesCount,
+	}, nil
 }
 
 type tableRef struct {
@@ -1500,6 +1621,14 @@ func (sel *ColSelector) reduceSelectors(row *Row, implicitDB, implicitTable stri
 	return v
 }
 
+func (sel *ColSelector) isConstant() bool {
+	return false
+}
+
+func (sel *ColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type AggColSelector struct {
 	aggFn AggregateFn
 	db    string
@@ -1584,6 +1713,14 @@ func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implic
 
 func (sel *AggColSelector) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return sel
+}
+
+func (sel *AggColSelector) isConstant() bool {
+	return false
+}
+
+func (sel *AggColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 type NumExp struct {
@@ -1695,6 +1832,14 @@ func (bexp *NumExp) reduceSelectors(row *Row, implicitDB, implicitTable string) 
 	}
 }
 
+func (bexp *NumExp) isConstant() bool {
+	return bexp.left.isConstant() && bexp.right.isConstant()
+}
+
+func (bexp *NumExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type NotBoolExp struct {
 	exp ValueExp
 }
@@ -1747,6 +1892,14 @@ func (bexp *NotBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable stri
 	}
 }
 
+func (bexp *NotBoolExp) isConstant() bool {
+	return bexp.exp.isConstant()
+}
+
+func (bexp *NotBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
+}
+
 type LikeBoolExp struct {
 	sel     Selector
 	pattern string
@@ -1788,6 +1941,14 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 
 func (bexp *LikeBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return bexp
+}
+
+func (bexp *LikeBoolExp) isConstant() bool {
+	return false
+}
+
+func (bexp *LikeBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }
 
 type CmpBoolExp struct {
@@ -1885,6 +2046,123 @@ func (bexp *CmpBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable stri
 		left:  bexp.left.reduceSelectors(row, implicitDB, implicitTable),
 		right: bexp.right.reduceSelectors(row, implicitDB, implicitTable),
 	}
+}
+
+func (bexp *CmpBoolExp) isConstant() bool {
+	return bexp.left.isConstant() && bexp.right.isConstant()
+}
+
+func (bexp *CmpBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	matchingFunc := func(left, right ValueExp) (*ColSelector, ValueExp, bool) {
+		s, isSel := bexp.left.(*ColSelector)
+		if isSel && bexp.right.isConstant() {
+			return s, right, true
+		}
+		return nil, nil, false
+	}
+
+	sel, c, ok := matchingFunc(bexp.left, bexp.right)
+	if !ok {
+		sel, c, ok = matchingFunc(bexp.right, bexp.left)
+	}
+
+	if !ok {
+		return nil
+	}
+
+	aggFn, db, t, col := sel.resolve(table.db.name, table.name)
+	if aggFn != "" || db != table.db.name || t != table.name {
+		return nil
+	}
+
+	column, err := table.GetColumnByName(col)
+	if err != nil {
+		return err
+	}
+
+	val, err := c.substitute(params)
+	if err == ErrMissingParameter {
+		// TODO: not supported when parameters are not provided during query resolution
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	rval, err := val.reduce(nil, nil, table.db.name, table.name)
+	if err != nil {
+		return err
+	}
+
+	return updateRangeFor(column.id, rval, bexp.op, rangesByColID)
+}
+
+func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID map[uint64]*typedValueRange) error {
+	currRange, ranged := rangesByColID[colID]
+	var newRange *typedValueRange
+
+	switch cmp {
+	case EQ:
+		{
+			newRange = &typedValueRange{
+				lRange: &typedValueSemiRange{
+					val: val,
+					cmp: EqualTo,
+				},
+				hRange: &typedValueSemiRange{
+					val: val,
+					cmp: EqualTo,
+				},
+			}
+		}
+	case LT:
+		{
+			newRange = &typedValueRange{
+				hRange: &typedValueSemiRange{
+					val: val,
+					cmp: LowerThan,
+				},
+			}
+		}
+	case LE:
+		{
+			newRange = &typedValueRange{
+				hRange: &typedValueSemiRange{
+					val: val,
+					cmp: LowerOrEqualTo,
+				},
+			}
+		}
+	case GT:
+		{
+			newRange = &typedValueRange{
+				lRange: &typedValueSemiRange{
+					val: val,
+					cmp: GreaterThan,
+				},
+			}
+		}
+	case GE:
+		{
+			newRange = &typedValueRange{
+				lRange: &typedValueSemiRange{
+					val: val,
+					cmp: GreaterOrEqualTo,
+				},
+			}
+		}
+	case NE:
+		{
+			return nil
+		}
+	}
+
+	if ranged {
+		return currRange.refineWith(newRange)
+	}
+
+	rangesByColID[colID] = newRange
+	return nil
 }
 
 func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
@@ -2002,6 +2280,15 @@ func (bexp *BinBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable stri
 	}
 }
 
+func (bexp *BinBoolExp) isConstant() bool {
+	return bexp.left.isConstant() && bexp.right.isConstant()
+}
+
+func (bexp *BinBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	// TODO: implement
+	return nil
+}
+
 type ExistsBoolExp struct {
 	q *SelectStmt
 }
@@ -2024,4 +2311,12 @@ func (bexp *ExistsBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implic
 
 func (bexp *ExistsBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return bexp
+}
+
+func (bexp *ExistsBoolExp) isConstant() bool {
+	return false
+}
+
+func (bexp *ExistsBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+	return nil
 }

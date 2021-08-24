@@ -1330,6 +1330,8 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
+	// TODO: eval params at once
+
 	_, err = stmt.compileUsing(e, implicitDB, params)
 	if err != nil {
 		return nil, err
@@ -1386,6 +1388,8 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	summary = &ExecSummary{
 		LastInsertedPKs: make(map[string]uint64),
 	}
+
+	// TODO: eval params at once
 
 	for _, stmt := range stmts {
 		txSummary, err := stmt.compileUsing(e, implicitDB, params)

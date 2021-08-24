@@ -118,6 +118,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
+%type <ids> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null
 
 %start sql
@@ -375,7 +376,7 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct opt_selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
+    SELECT opt_distinct opt_selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_indexon opt_limit opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -386,8 +387,9 @@ dqlstmt:
                 groupBy: $8,
                 having: $9,
                 orderBy: $10,
-                limit: $11,
-                as: $12,
+                indexOn: $11,
+                limit: $12,
+                as: $13,
             }
     }
 
@@ -571,6 +573,16 @@ opt_orderby:
     ORDER BY ordcols
     {
         $$ = $3
+    }
+
+opt_indexon:
+    {
+        $$ = nil
+    }
+|
+    INDEX ON '(' ids ')'
+    {
+        $$ = $4
     }
 
 ordcols:
