@@ -74,6 +74,10 @@ func (pr *projectedRowReader) OrderBy() []*ColDescriptor {
 	return pr.rowReader.OrderBy()
 }
 
+func (pr *projectedRowReader) ScanSpecs() *ScanSpecs {
+	return pr.rowReader.ScanSpecs()
+}
+
 func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 	colsBySel, err := pr.colsBySelector()
 	if err != nil {

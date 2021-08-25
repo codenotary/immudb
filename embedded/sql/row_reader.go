@@ -30,6 +30,7 @@ type RowReader interface {
 	Close() error
 	Columns() ([]*ColDescriptor, error)
 	OrderBy() []*ColDescriptor
+	ScanSpecs() *ScanSpecs
 	InferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]*ColDescriptor, error)
 }
@@ -74,7 +75,7 @@ type rawRowReader struct {
 	tableAlias string
 	colsByPos  []*ColDescriptor
 	colsBySel  map[string]*ColDescriptor
-	scanSpec   *scanSpec
+	scanSpecs  *ScanSpecs
 	reader     *store.KeyReader
 }
 
@@ -90,12 +91,12 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, scanSpec *scanSpec) (*rawRowReader, error) {
-	if snap == nil || table == nil || scanSpec == nil || scanSpec.index == nil {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
+	if snap == nil || table == nil || scanSpecs == nil || scanSpecs.index == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	rSpec, err := keyReaderSpecFrom(e, table, scanSpec)
+	rSpec, err := keyReaderSpecFrom(e, table, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -132,35 +133,35 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 		tableAlias: tableAlias,
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
-		scanSpec:   scanSpec,
+		scanSpecs:  scanSpecs,
 		reader:     r,
 	}, nil
 }
 
-func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store.KeyReaderSpec, err error) {
+func keyReaderSpecFrom(e *Engine, table *Table, ScanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
 	var indexPrefix string
 
-	if scanSpec.index.isPrimary() {
+	if ScanSpecs.index.isPrimary() {
 		indexPrefix = PIndexPrefix
 	} else {
-		if scanSpec.index.unique {
+		if ScanSpecs.index.unique {
 			indexPrefix = UIndexPrefix
 		} else {
 			indexPrefix = SIndexPrefix
 		}
 	}
 
-	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpec.index.id))
+	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(ScanSpecs.index.id))
 
 	var skey []byte
 
-	for i := 0; i < scanSpec.fixedValuesCount; i++ {
-		col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
+	for i := 0; i < ScanSpecs.fixedValuesCount; i++ {
+		col, err := table.GetColumnByID(ScanSpecs.index.colIDs[i])
 		if err != nil {
 			return nil, err
 		}
 
-		encVal, err := EncodeValue(scanSpec.valuesByColID[col.id], col.colType, false)
+		encVal, err := EncodeValue(ScanSpecs.valuesByColID[col.id], col.colType, false)
 		if err != nil {
 			return nil, err
 		}
@@ -171,14 +172,14 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store
 	skey = make([]byte, len(prefix))
 	copy(skey, prefix)
 
-	if scanSpec.cmp == LowerThan || scanSpec.cmp == LowerOrEqualTo {
-		for i := scanSpec.fixedValuesCount; i < len(scanSpec.index.colIDs); i++ {
-			col, err := table.GetColumnByID(scanSpec.index.colIDs[i])
+	if ScanSpecs.cmp == LowerThan || ScanSpecs.cmp == LowerOrEqualTo {
+		for i := ScanSpecs.fixedValuesCount; i < len(ScanSpecs.index.colIDs); i++ {
+			col, err := table.GetColumnByID(ScanSpecs.index.colIDs[i])
 			if err != nil {
 				return nil, err
 			}
 
-			val, specified := scanSpec.valuesByColID[col.id]
+			val, specified := ScanSpecs.valuesByColID[col.id]
 			var encVal []byte
 
 			if specified {
@@ -193,7 +194,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store
 			skey = append(skey, encVal...)
 		}
 
-		if !scanSpec.index.isPrimary() && !scanSpec.index.unique {
+		if !ScanSpecs.index.isPrimary() && !ScanSpecs.index.unique {
 			// non-unique index entries include pk value as suffix
 			skey = append(skey, maxKeyVal(table.pk.colType)...)
 		}
@@ -201,9 +202,9 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpec *scanSpec) (spec *store
 
 	return &store.KeyReaderSpec{
 		SeekKey:       skey,
-		InclusiveSeek: scanSpec == nil || (scanSpec.cmp != LowerThan && scanSpec.cmp != GreaterThan),
+		InclusiveSeek: ScanSpecs == nil || (ScanSpecs.cmp != LowerThan && ScanSpecs.cmp != GreaterThan),
 		Prefix:        prefix,
-		DescOrder:     scanSpec != nil && (scanSpec.cmp == LowerThan || scanSpec.cmp == LowerOrEqualTo),
+		DescOrder:     ScanSpecs != nil && (ScanSpecs.cmp == LowerThan || ScanSpecs.cmp == LowerOrEqualTo),
 	}, nil
 }
 
@@ -216,9 +217,9 @@ func (r *rawRowReader) ImplicitTable() string {
 }
 
 func (r *rawRowReader) OrderBy() []*ColDescriptor {
-	cols := make([]*ColDescriptor, len(r.scanSpec.index.colIDs))
+	cols := make([]*ColDescriptor, len(r.scanSpecs.index.colIDs))
 
-	for i, colID := range r.scanSpec.index.colIDs {
+	for i, colID := range r.scanSpecs.index.colIDs {
 		col := r.table.colsByID[colID]
 
 		cols[i] = &ColDescriptor{
@@ -230,6 +231,10 @@ func (r *rawRowReader) OrderBy() []*ColDescriptor {
 	}
 
 	return cols
+}
+
+func (r *rawRowReader) ScanSpecs() *ScanSpecs {
+	return r.scanSpecs
 }
 
 func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
@@ -263,7 +268,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.scanSpec.index.isPrimary() {
+	if r.scanSpecs.index.isPrimary() {
 		v, err = vref.Resolve()
 		if err != nil {
 			return nil, err
@@ -271,7 +276,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	} else {
 		var encPKVal []byte
 
-		if r.scanSpec.index.unique {
+		if r.scanSpecs.index.unique {
 			encPKVal, err = vref.Resolve()
 			if err != nil {
 				return nil, err
