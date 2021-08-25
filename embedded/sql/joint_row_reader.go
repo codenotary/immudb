@@ -82,6 +82,10 @@ func (jointr *jointRowReader) OrderBy() []*ColDescriptor {
 	return jointr.rowReader.OrderBy()
 }
 
+func (jointr *jointRowReader) ScanSpecs() *ScanSpecs {
+	return jointr.rowReader.ScanSpecs()
+}
+
 func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
 	colsBySel, err := jointr.colsBySelector()
 	if err != nil {

@@ -51,6 +51,10 @@ func (cr *conditionalRowReader) OrderBy() []*ColDescriptor {
 	return cr.rowReader.OrderBy()
 }
 
+func (cr *conditionalRowReader) ScanSpecs() *ScanSpecs {
+	return cr.rowReader.ScanSpecs()
+}
+
 func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }

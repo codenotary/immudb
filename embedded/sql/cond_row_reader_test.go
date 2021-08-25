@@ -79,6 +79,10 @@ func (r *dummyRowReader) OrderBy() []*ColDescriptor {
 	return nil
 }
 
+func (r *dummyRowReader) ScanSpecs() *ScanSpecs {
+	return nil
+}
+
 func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
 	return nil, errDummy
 }

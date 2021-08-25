@@ -223,6 +223,20 @@ func (i *Index) isPrimary() bool {
 	return i.id == 0
 }
 
+func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValueRange) bool {
+	// all columns before colID must be fixedValues otherwise the index can not be used
+	for _, id := range i.colIDs {
+		if id == colID {
+			return true
+		}
+		if rangesByColID[colID].unitary() {
+			continue
+		}
+		return false
+	}
+	return false
+}
+
 func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table *Table, err error) {
 	defer func() {
 		if err != nil {

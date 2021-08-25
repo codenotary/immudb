@@ -61,6 +61,10 @@ func (gr *groupedRowReader) OrderBy() []*ColDescriptor {
 	return gr.rowReader.OrderBy()
 }
 
+func (gr *groupedRowReader) ScanSpecs() *ScanSpecs {
+	return gr.rowReader.ScanSpecs()
+}
+
 func (gr *groupedRowReader) Columns() ([]*ColDescriptor, error) {
 	colsBySel, err := gr.colsBySelector()
 	if err != nil {

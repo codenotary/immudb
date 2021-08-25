@@ -1200,7 +1200,7 @@ const (
 
 type DataSource interface {
 	inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error
-	Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, scanSpec *scanSpec) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
 
@@ -1218,7 +1218,7 @@ type SelectStmt struct {
 	as        string
 }
 
-type scanSpec struct {
+type ScanSpecs struct {
 	index            *Index
 	valuesByColID    map[uint64]TypedValue
 	fixedValuesCount int
@@ -1299,13 +1299,13 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 	return summary, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *scanSpec) (rowReader RowReader, err error) {
-	sSpec, err := stmt.genScanSpec(e, snap, implicitDB, params)
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	scanSpecs, err := stmt.genScanSpecs(e, snap, implicitDB, params)
 	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err = stmt.ds.Resolve(e, snap, implicitDB, params, sSpec)
+	rowReader, err = stmt.ds.Resolve(e, snap, implicitDB, params, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -1362,7 +1362,7 @@ func (stmt *SelectStmt) Alias() string {
 	return stmt.as
 }
 
-func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}) (*scanSpec, error) {
+func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}) (*ScanSpecs, error) {
 	tableRef, isTableRef := stmt.ds.(*tableRef)
 	if !isTableRef {
 		return nil, nil
@@ -1381,10 +1381,20 @@ func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB 
 		}
 	}
 
-	index := table.primaryIndex
+	var preferredIndex *Index
+
+	// TODO: read preferredIndex from stmt (if any)
+
+	var sortingIndex *Index
 	cmp := GreaterOrEqualTo
 
-	// TODO: get index from the one specified in stmt (if any), check consistency against oder by
+	if stmt.orderBy == nil {
+		if preferredIndex == nil {
+			sortingIndex = table.primaryIndex
+		} else {
+			sortingIndex = preferredIndex
+		}
+	}
 
 	if len(stmt.orderBy) > 0 {
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
@@ -1393,20 +1403,12 @@ func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB 
 		}
 
 		for _, idx := range table.indexesByColID[col.id] {
-			// all columns before col.id must be fixedValues otherwise the index can not be used
-			for _, colID := range idx.colIDs {
-				if colID == col.id {
-					index = idx
+			if idx.sortableUsing(col.id, rangesByColID) {
+				if preferredIndex == nil || idx.id == preferredIndex.id {
+					sortingIndex = idx
 					break
 				}
-				if rangesByColID[colID].unitary() {
-					continue
-				}
 			}
-		}
-
-		if index == nil {
-			return nil, ErrNoAvailableIndex
 		}
 
 		if stmt.orderBy[0].order == AscOrder {
@@ -1416,11 +1418,15 @@ func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB 
 		}
 	}
 
+	if sortingIndex == nil {
+		return nil, ErrNoAvailableIndex
+	}
+
 	valuesByColID := make(map[uint64]TypedValue)
 	fixedValuesCount := 0
-	allFixed := true
+	allFixedValues := true
 
-	for _, colID := range index.colIDs {
+	for _, colID := range sortingIndex.colIDs {
 		colRange, ok := rangesByColID[colID]
 		if !ok {
 			continue
@@ -1429,19 +1435,27 @@ func (stmt *SelectStmt) genScanSpec(e *Engine, snap *store.Snapshot, implicitDB 
 		if colRange.unitary() {
 			valuesByColID[colID] = colRange.hRange.val
 
-			if allFixed {
+			if allFixedValues {
 				fixedValuesCount++
 			}
 		} else {
-			allFixed = false
+			allFixedValues = false
+
+			if cmp == GreaterOrEqualTo {
+				valuesByColID[colID] = colRange.lRange.val
+			}
+
+			if cmp == LowerOrEqualTo {
+				valuesByColID[colID] = colRange.hRange.val
+			}
 		}
 	}
 
-	return &scanSpec{
-		index:            index,
-		cmp:              cmp,
+	return &ScanSpecs{
+		index:            sortingIndex,
 		valuesByColID:    valuesByColID,
 		fixedValuesCount: fixedValuesCount,
+		cmp:              cmp,
 	}, nil
 }
 
@@ -1484,7 +1498,7 @@ func (stmt *tableRef) inferParameters(e *Engine, implicitDB *Database, params ma
 	return nil
 }
 
-func (stmt *tableRef) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, scanSpec *scanSpec) (RowReader, error) {
+func (stmt *tableRef) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
 	if e == nil || snap == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1499,7 +1513,7 @@ func (stmt *tableRef) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Datab
 		asBefore = e.snapAsBeforeTx
 	}
 
-	return e.newRawRowReader(snap, table, asBefore, stmt.as, scanSpec)
+	return e.newRawRowReader(snap, table, asBefore, stmt.as, scanSpecs)
 }
 
 func (stmt *tableRef) Alias() string {

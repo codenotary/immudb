@@ -50,7 +50,7 @@ func TestGroupedRowReader(t *testing.T) {
 	snap, err := engine.getSnapshot()
 	require.NoError(t, err)
 
-	r, err := engine.newRawRowReader(snap, table, 0, "", &scanSpec{index: table.primaryIndex})
+	r, err := engine.newRawRowReader(snap, table, 0, "", &ScanSpecs{index: table.primaryIndex})
 	require.NoError(t, err)
 
 	gr, err := engine.newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
