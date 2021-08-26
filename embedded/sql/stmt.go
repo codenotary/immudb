@@ -764,26 +764,20 @@ func (r *typedValueRange) refineWith(refiningRange *typedValueRange) error {
 }
 
 func (r *typedValueRange) extendWith(extendingRange *typedValueRange) error {
-	if r.lRange == nil {
-		r.lRange = extendingRange.lRange
-	}
 	if r.lRange != nil && extendingRange.lRange != nil {
-		maxRange, err := minSemiRange(r.lRange, extendingRange.lRange)
+		minRange, err := minSemiRange(r.lRange, extendingRange.lRange)
 		if err != nil {
 			return err
 		}
-		r.lRange = maxRange
+		r.lRange = minRange
 	}
 
-	if r.hRange == nil {
-		r.hRange = extendingRange.hRange
-	}
 	if r.hRange != nil && extendingRange.hRange != nil {
-		minRange, err := maxSemiRange(r.hRange, extendingRange.hRange)
+		maxRange, err := maxSemiRange(r.hRange, extendingRange.hRange)
 		if err != nil {
 			return err
 		}
-		r.hRange = minRange
+		r.hRange = maxRange
 	}
 
 	return nil
@@ -796,7 +790,7 @@ func maxSemiRange(or1, or2 *typedValueSemiRange) (*typedValueSemiRange, error) {
 	}
 
 	maxVal := or1.val
-	if r > 0 {
+	if r < 0 {
 		maxVal = or2.val
 	}
 
@@ -813,13 +807,13 @@ func minSemiRange(or1, or2 *typedValueSemiRange) (*typedValueSemiRange, error) {
 	}
 
 	minVal := or1.val
-	if r < 0 {
+	if r > 0 {
 		minVal = or2.val
 	}
 
 	return &typedValueSemiRange{
 		val:       minVal,
-		inclusive: or1.inclusive && or2.inclusive,
+		inclusive: or1.inclusive || or2.inclusive,
 	}, nil
 }
 
@@ -1523,11 +1517,11 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 		} else {
 			allFixedValues = false
 
-			if cmp == GreaterOrEqualTo {
+			if cmp == GreaterOrEqualTo && colRange.lRange != nil {
 				valuesByColID[colID] = colRange.lRange.val
 			}
 
-			if cmp == LowerOrEqualTo {
+			if cmp == LowerOrEqualTo && colRange.hRange != nil {
 				valuesByColID[colID] = colRange.hRange.val
 			}
 		}
