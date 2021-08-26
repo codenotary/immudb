@@ -1065,7 +1065,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 		return nil, errors.New(errReadFile)
 	}
 	expectedErr :=
-		fmt.Errorf("error reading config file %s: %s", configFile, errReadFile)
+		fmt.Errorf("error reading config file '%s'. Reason: %s", configFile, errReadFile)
 	err = s.updateConfigItem("key", "key = value", func(string) bool { return false })
 	require.Equal(t, expectedErr, err)
 	immuOS.ReadFileF = readFileOK
@@ -1073,7 +1073,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	// Config already having the specified item
 	ioutil.WriteFile(configFile, []byte("key = value"), 0644)
 	err = s.updateConfigItem("key", "key = value", func(string) bool { return true })
-	require.Equal(t, errors.New("Server config already has key = value"), err)
+	require.Equal(t, errors.New("Server config already has 'key = value'"), err)
 
 	// Add new config item
 	err = s.updateConfigItem("key2", "key2 = value2", func(string) bool { return false })
@@ -1330,7 +1330,7 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: "nonexistentdb"})
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.NotFound, errStatus.Code())
-	require.Equal(t, "nonexistentdb does not exist", errStatus.Message())
+	require.Equal(t, "'nonexistentdb' does not exist", errStatus.Message())
 
 	// DatabaseList errors
 	s.Options.auth = false
@@ -1447,7 +1447,7 @@ func TestServerErrors(t *testing.T) {
 
 	createDbReq.DatabaseName = someDb1
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
-	require.Equal(t, fmt.Errorf("database %s already exists", someDb1), err)
+	require.Equal(t, fmt.Errorf("database '%s' already exists", someDb1), err)
 
 	// ChangePassword errors
 	s.Options.auth = false
