@@ -722,23 +722,105 @@ type typedValueRange struct {
 	hRange *typedValueSemiRange
 }
 
+type typedValueSemiRange struct {
+	val       TypedValue
+	inclusive bool
+}
+
 func (r *typedValueRange) unitary() bool {
+	// TODO: this simplified implementation doesn't cover all unitary cases e.g. 3<=v<4
 	if r.lRange == nil || r.hRange == nil {
 		return false
 	}
 
 	res, _ := r.lRange.val.Compare(r.hRange.val)
-	return res == 0
+	return res == 0 && r.lRange.inclusive && r.hRange.inclusive
 }
 
-type typedValueSemiRange struct {
-	val TypedValue
-	cmp Comparison
-}
+func (r *typedValueRange) refineWith(refiningRange *typedValueRange) error {
+	if r.lRange == nil {
+		r.lRange = refiningRange.lRange
+	}
+	if r.lRange != nil && refiningRange.lRange != nil {
+		maxRange, err := maxSemiRange(r.lRange, refiningRange.lRange)
+		if err != nil {
+			return err
+		}
+		r.lRange = maxRange
+	}
 
-func (r *typedValueRange) refineWith(rng *typedValueRange) error {
-	// TODO: implement
+	if r.hRange == nil {
+		r.hRange = refiningRange.hRange
+	}
+	if r.hRange != nil && refiningRange.hRange != nil {
+		minRange, err := minSemiRange(r.hRange, refiningRange.hRange)
+		if err != nil {
+			return err
+		}
+		r.hRange = minRange
+	}
+
 	return nil
+}
+
+func (r *typedValueRange) extendWith(extendingRange *typedValueRange) error {
+	if r.lRange == nil {
+		r.lRange = extendingRange.lRange
+	}
+	if r.lRange != nil && extendingRange.lRange != nil {
+		maxRange, err := minSemiRange(r.lRange, extendingRange.lRange)
+		if err != nil {
+			return err
+		}
+		r.lRange = maxRange
+	}
+
+	if r.hRange == nil {
+		r.hRange = extendingRange.hRange
+	}
+	if r.hRange != nil && extendingRange.hRange != nil {
+		minRange, err := maxSemiRange(r.hRange, extendingRange.hRange)
+		if err != nil {
+			return err
+		}
+		r.hRange = minRange
+	}
+
+	return nil
+}
+
+func maxSemiRange(or1, or2 *typedValueSemiRange) (*typedValueSemiRange, error) {
+	r, err := or1.val.Compare(or2.val)
+	if err != nil {
+		return nil, err
+	}
+
+	maxVal := or1.val
+	if r > 0 {
+		maxVal = or2.val
+	}
+
+	return &typedValueSemiRange{
+		val:       maxVal,
+		inclusive: or1.inclusive && or2.inclusive,
+	}, nil
+}
+
+func minSemiRange(or1, or2 *typedValueSemiRange) (*typedValueSemiRange, error) {
+	r, err := or1.val.Compare(or2.val)
+	if err != nil {
+		return nil, err
+	}
+
+	minVal := or1.val
+	if r < 0 {
+		minVal = or2.val
+	}
+
+	return &typedValueSemiRange{
+		val:       minVal,
+		inclusive: or1.inclusive && or2.inclusive,
+	}, nil
 }
 
 type TypedValue interface {
@@ -2120,12 +2202,12 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 		{
 			newRange = &typedValueRange{
 				lRange: &typedValueSemiRange{
-					val: val,
-					cmp: EqualTo,
+					val:       val,
+					inclusive: true,
 				},
 				hRange: &typedValueSemiRange{
-					val: val,
-					cmp: EqualTo,
+					val:       val,
+					inclusive: true,
 				},
 			}
 		}
@@ -2134,7 +2216,6 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 			newRange = &typedValueRange{
 				hRange: &typedValueSemiRange{
 					val: val,
-					cmp: LowerThan,
 				},
 			}
 		}
@@ -2142,8 +2223,8 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 		{
 			newRange = &typedValueRange{
 				hRange: &typedValueSemiRange{
-					val: val,
-					cmp: LowerOrEqualTo,
+					val:       val,
+					inclusive: true,
 				},
 			}
 		}
@@ -2152,7 +2233,6 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 			newRange = &typedValueRange{
 				lRange: &typedValueSemiRange{
 					val: val,
-					cmp: GreaterThan,
 				},
 			}
 		}
@@ -2160,8 +2240,8 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 		{
 			newRange = &typedValueRange{
 				lRange: &typedValueSemiRange{
-					val: val,
-					cmp: GreaterOrEqualTo,
+					val:       val,
+					inclusive: true,
 				},
 			}
 		}
@@ -2172,7 +2252,10 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 	}
 
 	if ranged {
-		return currRange.refineWith(newRange)
+		err := currRange.refineWith(newRange)
+		if err != nil {
+			return err
+		}
 	}
 
 	rangesByColID[colID] = newRange
@@ -2299,7 +2382,42 @@ func (bexp *BinBoolExp) isConstant() bool {
 }
 
 func (bexp *BinBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
-	// TODO: implement
+	if bexp.op == AND {
+		err := bexp.left.selectorRanges(table, params, rangesByColID)
+		if err != nil {
+			return err
+		}
+
+		return bexp.right.selectorRanges(table, params, rangesByColID)
+	}
+
+	lRanges := make(map[uint64]*typedValueRange)
+	rRanges := make(map[uint64]*typedValueRange)
+
+	err := bexp.left.selectorRanges(table, params, lRanges)
+	if err != nil {
+		return err
+	}
+
+	err = bexp.right.selectorRanges(table, params, rRanges)
+	if err != nil {
+		return err
+	}
+
+	for colID, lr := range lRanges {
+		rr, ok := rRanges[colID]
+		if !ok {
+			continue
+		}
+
+		err = lr.extendWith(rr)
+		if err != nil {
+			return err
+		}
+
+		rangesByColID[colID] = lr
+	}
+
 	return nil
 }
 
