@@ -113,24 +113,38 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrIllegalArguments
 	}
 
+	greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeyLen)
+	copy(greatestPrefixedKey, spec.Prefix)
+
+	// Adjust seekKey based on key prefix
 	seekKey := spec.SeekKey
 	inclusiveSeek := spec.InclusiveSeek
 
-	// Adjust seekKey based on key prefix
-	if len(spec.Prefix) > 0 {
-		if spec.DescOrder {
-			greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeyLen)
-			copy(greatestPrefixedKey, spec.Prefix)
+	if spec.DescOrder {
+		if len(spec.SeekKey) == 0 || bytes.Compare(spec.SeekKey, greatestPrefixedKey) > 0 {
+			seekKey = greatestPrefixedKey
+			inclusiveSeek = true
+		}
+	} else {
+		if bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
+			seekKey = spec.Prefix
+			inclusiveSeek = true
+		}
+	}
 
-			if bytes.Compare(spec.SeekKey, greatestPrefixedKey) > 0 || len(spec.SeekKey) == 0 {
-				seekKey = greatestKeyOfSize(s.t.maxKeyLen)
-				inclusiveSeek = true
-			}
-		} else {
-			if bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
-				seekKey = spec.Prefix
-				inclusiveSeek = true
-			}
+	// Adjust endKey based on key prefix
+	endKey := spec.EndKey
+	inclusiveEnd := spec.InclusiveEnd
+
+	if spec.DescOrder {
+		if bytes.Compare(spec.EndKey, spec.Prefix) < 0 {
+			endKey = spec.Prefix
+			inclusiveEnd = true
+		}
+	} else {
+		if len(spec.EndKey) == 0 || bytes.Compare(spec.EndKey, greatestPrefixedKey) > 0 {
+			endKey = greatestPrefixedKey
+			inclusiveEnd = true
 		}
 	}
 
@@ -138,8 +152,10 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		snapshot:      s,
 		id:            s.maxReaderID,
 		seekKey:       seekKey,
+		endKey:        endKey,
 		prefix:        spec.Prefix,
 		inclusiveSeek: inclusiveSeek,
+		inclusiveEnd:  inclusiveEnd,
 		descOrder:     spec.DescOrder,
 		closed:        false,
 	}
