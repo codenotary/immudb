@@ -104,6 +104,59 @@ func TestReaderAscendingScan(t *testing.T) {
 	require.Equal(t, ErrAlreadyClosed, err)
 }
 
+func TestReaderAscendingScanWithEndingKey(t *testing.T) {
+	tbtree, err := Open("test_tree_rasc_ending", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_rasc_ending")
+
+	monotonicInsertions(t, tbtree, 1, 1000, true)
+
+	snapshot, err := tbtree.Snapshot()
+	require.NotNil(t, snapshot)
+	require.NoError(t, err)
+	defer func() {
+		err := snapshot.Close()
+		require.NoError(t, err)
+	}()
+
+	rspec := &ReaderSpec{
+		EndKey:       []byte{0, 0, 0, 100},
+		InclusiveEnd: true,
+		Prefix:       []byte{0, 0, 0},
+		DescOrder:    false,
+	}
+	reader, err := snapshot.NewReader(rspec)
+	require.NoError(t, err)
+
+	err = snapshot.Close()
+	require.Equal(t, ErrReadersNotClosed, err)
+
+	var lastKey []byte
+
+	for {
+		k, _, _, _, err := reader.Read()
+		if err != nil {
+			require.Equal(t, ErrNoMoreEntries, err)
+			break
+		}
+
+		require.True(t, bytes.Compare(reader.seekKey, k) < 1)
+
+		lastKey = k
+	}
+
+	require.Equal(t, rspec.EndKey, lastKey)
+
+	err = reader.Close()
+	require.NoError(t, err)
+
+	_, _, _, _, err = reader.Read()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = reader.Close()
+	require.Equal(t, ErrAlreadyClosed, err)
+}
+
 func TestReaderAscendingScanAsBefore(t *testing.T) {
 	tbtree, err := Open("test_tree_rasc_as_before", DefaultOptions().WithMaxNodeSize(MinNodeSize))
 	require.NoError(t, err)
