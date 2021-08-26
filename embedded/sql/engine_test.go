@@ -1287,6 +1287,99 @@ func TestIndexing(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("should use index on `ts` descending order", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY ts DESC", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "ts", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.False(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Empty(t, scanSpecs.valuesByColID)
+		require.Zero(t, scanSpecs.fixedValuesCount)
+		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `title` descending order", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY title DESC", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "title", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Empty(t, scanSpecs.valuesByColID)
+		require.Zero(t, scanSpecs.fixedValuesCount)
+		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `title` ascending order starting with 'title1'", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY title", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "title", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.valuesByColID, 1)
+		require.Equal(t, "title1", scanSpecs.valuesByColID[3].Value())
+		require.Zero(t, scanSpecs.fixedValuesCount)
+		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `title` ascending order", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title < 'title10' or title = 'title1' ORDER BY title", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "title", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Empty(t, scanSpecs.valuesByColID)
+		require.Zero(t, scanSpecs.fixedValuesCount)
+		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
 	err = engine.Close()
 	require.NoError(t, err)
 }
