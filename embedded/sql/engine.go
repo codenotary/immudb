@@ -563,7 +563,7 @@ func keyFromIDs(ids []uint64) string {
 
 func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) (TypedValue, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID)),
+		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
@@ -583,7 +583,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) (TypedValue, 
 		return nil, err
 	}
 
-	if dbID != table.db.id || tableID != table.id || indexID != pkIndexID || len(encVals) != 0 {
+	if dbID != table.db.id || tableID != table.id || indexID != PKIndexID || len(encVals) != 0 {
 		return nil, ErrCorruptedData
 	}
 

@@ -64,7 +64,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	}
 
 	// build the encoded key for the pk
-	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(table.PrimaryKey().ID()), pkEncVal)
+	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(sql.PKIndexID), pkEncVal)
 
 	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, txEntry)
 	if err != nil {

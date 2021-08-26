@@ -288,7 +288,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			}
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(pkIndexID), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVal))
 		if err != nil {
 			return nil, err
 		}
