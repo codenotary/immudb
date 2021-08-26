@@ -37,7 +37,7 @@ const (
 	UIndexPrefix          = "UINDEX."           // (key=UINDEX.{dbID}{tableID}{indexID}({valLen}{val})+, value={{pkValLen}{pkVal})
 )
 
-const pkIndexID = uint64(0)
+const PKIndexID = uint64(0)
 
 const (
 	nullableFlag      byte = 1 << iota
@@ -343,7 +343,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 			return nil, err
 		}
 
-		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID))
+		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID))
 		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
 		if err != nil {
 			return nil, err
@@ -608,7 +608,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		// create entry for the column which is the pk
-		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(pkIndexID), pkEncVal)
+		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID), pkEncVal)
 
 		constraint := store.NoConstraint
 

@@ -137,7 +137,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return err
 	}
 
-	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(dbID), sql.EncodeID(tableID), sql.EncodeID(pkID), pkEncVal)
+	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(dbID), sql.EncodeID(tableID), sql.EncodeID(sql.PKIndexID), pkEncVal)
 
 	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById)
 	if err != nil {
