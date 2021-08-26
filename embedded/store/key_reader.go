@@ -36,8 +36,10 @@ type KeyReader struct {
 
 type KeyReaderSpec struct {
 	SeekKey       []byte
+	EndKey        []byte
 	Prefix        []byte
 	InclusiveSeek bool
+	InclusiveEnd  bool
 	DescOrder     bool
 }
 
@@ -79,8 +81,10 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 
 	r, err := s.snap.NewReader(&tbtree.ReaderSpec{
 		SeekKey:       spec.SeekKey,
+		EndKey:        spec.EndKey,
 		Prefix:        spec.Prefix,
 		InclusiveSeek: spec.InclusiveSeek,
+		InclusiveEnd:  spec.InclusiveEnd,
 		DescOrder:     spec.DescOrder,
 	})
 	if err != nil {
