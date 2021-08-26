@@ -16,6 +16,7 @@ limitations under the License.
 package tbtree
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -115,20 +116,21 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 	seekKey := spec.SeekKey
 	inclusiveSeek := spec.InclusiveSeek
 
-	// Automatically set seekKey based on prefixKey (when seekKey is not specified)
-	if len(seekKey) == 0 && len(spec.Prefix) > 0 {
-		inclusiveSeek = true
-
+	// Adjust seekKey based on key prefix
+	if len(spec.Prefix) > 0 {
 		if spec.DescOrder {
-			// Initial key is padded so to cover all keys with provided prefix
-			seekKey = make([]byte, s.t.maxKeyLen)
-			copy(seekKey, spec.Prefix)
-			for i := len(spec.Prefix); i < s.t.maxKeyLen; i++ {
-				seekKey[i] = 0xFF
+			greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeyLen)
+			copy(greatestPrefixedKey, spec.Prefix)
+
+			if bytes.Compare(spec.SeekKey, greatestPrefixedKey) > 0 || len(spec.SeekKey) == 0 {
+				seekKey = greatestKeyOfSize(s.t.maxKeyLen)
+				inclusiveSeek = true
 			}
 		} else {
-			seekKey = make([]byte, len(spec.Prefix))
-			copy(seekKey, spec.Prefix)
+			if bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
+				seekKey = spec.Prefix
+				inclusiveSeek = true
+			}
 		}
 	}
 
