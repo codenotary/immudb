@@ -938,9 +938,13 @@ func EncodeID(id uint64) []byte {
 
 func maxKeyVal(colType SQLValueType) []byte {
 	switch colType {
+	case BooleanType:
+		{
+			return mKeyVal[:EncLenLen+1]
+		}
 	case IntegerType:
 		{
-			return mKeyVal[:EncIDLen]
+			return mKeyVal[:EncLenLen+EncIDLen]
 		}
 	}
 	return mKeyVal[:]
