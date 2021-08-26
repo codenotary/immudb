@@ -138,73 +138,131 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 	}, nil
 }
 
-func keyReaderSpecFrom(e *Engine, table *Table, ScanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
+func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
 	var indexPrefix string
 
-	if ScanSpecs.index.isPrimary() {
+	if scanSpecs.index.isPrimary() {
 		indexPrefix = PIndexPrefix
 	} else {
-		if ScanSpecs.index.unique {
+		if scanSpecs.index.unique {
 			indexPrefix = UIndexPrefix
 		} else {
 			indexPrefix = SIndexPrefix
 		}
 	}
 
-	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(ScanSpecs.index.id))
+	desc := scanSpecs != nil && (scanSpecs.cmp == LowerThan || scanSpecs.cmp == LowerOrEqualTo)
 
-	var skey []byte
+	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
 
-	for i := 0; i < ScanSpecs.fixedValuesCount; i++ {
-		col, err := table.GetColumnByID(ScanSpecs.index.colIDs[i])
+	var seekKey []byte
+	var seekKeyReady bool
+
+	var endKey []byte
+	var endKeyReady bool
+
+	seekKey = make([]byte, len(prefix))
+	copy(seekKey, prefix)
+
+	endKey = make([]byte, len(prefix))
+	copy(endKey, prefix)
+
+	for _, colID := range scanSpecs.index.colIDs {
+		col, err := table.GetColumnByID(colID)
 		if err != nil {
 			return nil, err
 		}
 
-		encVal, err := EncodeValue(ScanSpecs.valuesByColID[col.id], col.colType, false)
-		if err != nil {
-			return nil, err
+		colRange, ok := scanSpecs.rangesByColID[colID]
+		if !ok {
+			if desc {
+				if !seekKeyReady {
+					seekKey = append(seekKey, maxKeyVal(col.colType)...)
+				}
+				endKeyReady = true
+			} else {
+				if !endKeyReady {
+					endKey = append(endKey, maxKeyVal(col.colType)...)
+				}
+				seekKeyReady = true
+			}
+
+			continue
 		}
 
-		prefix = append(prefix, encVal...)
+		if desc {
+			if !seekKeyReady {
+				if colRange.hRange == nil {
+					seekKey = append(seekKey, maxKeyVal(col.colType)...)
+				}
+
+				if colRange.hRange != nil {
+					encVal, err := EncodeValue(colRange.hRange.val, col.colType, true)
+					if err != nil {
+						return nil, err
+					}
+					seekKey = append(seekKey, encVal...)
+				}
+			}
+
+			if !endKeyReady {
+				if colRange.lRange == nil {
+					endKeyReady = true
+				}
+
+				if colRange.lRange != nil {
+					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
+					if err != nil {
+						return nil, err
+					}
+					endKey = append(endKey, encVal...)
+				}
+			}
+		}
+
+		if !desc {
+			if !seekKeyReady {
+				if colRange.lRange == nil {
+					seekKeyReady = true
+				}
+
+				if colRange.lRange != nil {
+					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
+					if err != nil {
+						return nil, err
+					}
+					seekKey = append(seekKey, encVal...)
+				}
+			}
+
+			if !endKeyReady {
+				if colRange.hRange == nil {
+					endKey = append(endKey, maxKeyVal(col.colType)...)
+				}
+
+				if colRange.hRange != nil {
+					encVal, err := EncodeValue(colRange.hRange.val, col.colType, true)
+					if err != nil {
+						return nil, err
+					}
+					endKey = append(endKey, encVal...)
+				}
+			}
+		}
 	}
 
-	skey = make([]byte, len(prefix))
-	copy(skey, prefix)
-
-	if ScanSpecs.cmp == LowerThan || ScanSpecs.cmp == LowerOrEqualTo {
-		for i := ScanSpecs.fixedValuesCount; i < len(ScanSpecs.index.colIDs); i++ {
-			col, err := table.GetColumnByID(ScanSpecs.index.colIDs[i])
-			if err != nil {
-				return nil, err
-			}
-
-			val, specified := ScanSpecs.valuesByColID[col.id]
-			var encVal []byte
-
-			if specified {
-				encVal, err = EncodeValue(val, col.colType, false)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				encVal = maxKeyVal(col.colType)
-			}
-
-			skey = append(skey, encVal...)
-		}
-
-		if !ScanSpecs.index.isPrimary() && !ScanSpecs.index.unique {
-			// non-unique index entries include pk value as suffix
-			skey = append(skey, maxKeyVal(table.pk.colType)...)
-		}
+	if desc && !scanSpecs.index.isPrimary() && !scanSpecs.index.unique {
+		// non-unique index entries include pk value as suffix
+		seekKey = append(seekKey, maxKeyVal(table.pk.colType)...)
 	}
 
 	return &store.KeyReaderSpec{
-		SeekKey:       skey,
-		InclusiveSeek: ScanSpecs == nil || (ScanSpecs.cmp != LowerThan && ScanSpecs.cmp != GreaterThan),
+		SeekKey:       seekKey,
+		InclusiveSeek: scanSpecs == nil || (scanSpecs.cmp != LowerThan && scanSpecs.cmp != GreaterThan),
+		EndKey:        endKey,
+		InclusiveEnd:  true,
 		Prefix:        prefix,
-		DescOrder:     ScanSpecs != nil && (ScanSpecs.cmp == LowerThan || ScanSpecs.cmp == LowerOrEqualTo),
+		DescOrder:     desc,
 	}, nil
 }
 

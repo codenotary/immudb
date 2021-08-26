@@ -1295,10 +1295,9 @@ type SelectStmt struct {
 }
 
 type ScanSpecs struct {
-	index            *Index
-	valuesByColID    map[uint64]TypedValue
-	fixedValuesCount int
-	cmp              Comparison
+	index         *Index
+	rangesByColID map[uint64]*typedValueRange
+	cmp           Comparison
 }
 
 func (stmt *SelectStmt) Limit() uint64 {
@@ -1498,40 +1497,10 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 		return nil, ErrNoAvailableIndex
 	}
 
-	valuesByColID := make(map[uint64]TypedValue)
-	fixedValuesCount := 0
-	allFixedValues := true
-
-	for _, colID := range sortingIndex.colIDs {
-		colRange, ok := rangesByColID[colID]
-		if !ok {
-			continue
-		}
-
-		if colRange.unitary() {
-			valuesByColID[colID] = colRange.hRange.val
-
-			if allFixedValues {
-				fixedValuesCount++
-			}
-		} else {
-			allFixedValues = false
-
-			if cmp == GreaterOrEqualTo && colRange.lRange != nil {
-				valuesByColID[colID] = colRange.lRange.val
-			}
-
-			if cmp == LowerOrEqualTo && colRange.hRange != nil {
-				valuesByColID[colID] = colRange.hRange.val
-			}
-		}
-	}
-
 	return &ScanSpecs{
-		index:            sortingIndex,
-		valuesByColID:    valuesByColID,
-		fixedValuesCount: fixedValuesCount,
-		cmp:              cmp,
+		index:         sortingIndex,
+		rangesByColID: rangesByColID,
+		cmp:           cmp,
 	}, nil
 }
 
