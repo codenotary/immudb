@@ -580,9 +580,9 @@ opt_indexon:
         $$ = nil
     }
 |
-    INDEX ON '(' ids ')'
+    USE INDEX ON '(' ids ')'
     {
-        $$ = $4
+        $$ = $5
     }
 
 ordcols:

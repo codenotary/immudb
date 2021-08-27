@@ -1458,7 +1458,25 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 
 	var preferredIndex *Index
 
-	// TODO: read preferredIndex from stmt (if any)
+	if len(stmt.indexOn) > 0 {
+		colsIDs := make([]uint64, len(stmt.indexOn))
+
+		for i, colName := range stmt.indexOn {
+			col, err := table.GetColumnByName(colName)
+			if err != nil {
+				return nil, err
+			}
+
+			colsIDs[i] = col.id
+		}
+
+		index, ok := table.indexes[keyFromIDs(colsIDs)]
+		if !ok {
+			return nil, ErrNoAvailableIndex
+		}
+
+		preferredIndex = index
+	}
 
 	var sortingIndex *Index
 	cmp := GreaterOrEqualTo
