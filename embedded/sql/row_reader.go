@@ -151,9 +151,9 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		}
 	}
 
-	desc := scanSpecs != nil && (scanSpecs.cmp == LowerThan || scanSpecs.cmp == LowerOrEqualTo)
-
 	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
+
+	desc := scanSpecs.cmp == LowerThan || scanSpecs.cmp == LowerOrEqualTo
 
 	var seekKey []byte
 	var seekKeyReady bool
@@ -206,9 +206,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 			}
 
 			if !endKeyReady {
-				if colRange.lRange == nil {
-					endKeyReady = true
-				}
+				endKeyReady = colRange.lRange == nil
 
 				if colRange.lRange != nil {
 					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
@@ -222,9 +220,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 
 		if !desc {
 			if !seekKeyReady {
-				if colRange.lRange == nil {
-					seekKeyReady = true
-				}
+				seekKeyReady = colRange.lRange == nil
 
 				if colRange.lRange != nil {
 					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
@@ -258,7 +254,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 
 	return &store.KeyReaderSpec{
 		SeekKey:       seekKey,
-		InclusiveSeek: scanSpecs == nil || (scanSpecs.cmp != LowerThan && scanSpecs.cmp != GreaterThan),
+		InclusiveSeek: scanSpecs.cmp != LowerThan && scanSpecs.cmp != GreaterThan,
 		EndKey:        endKey,
 		InclusiveEnd:  true,
 		Prefix:        prefix,
