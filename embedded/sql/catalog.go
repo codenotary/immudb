@@ -229,9 +229,12 @@ func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValue
 		if id == colID {
 			return true
 		}
-		if rangesByColID[colID].unitary() {
+
+		colRange, ok := rangesByColID[id]
+		if ok && colRange.unitary() {
 			continue
 		}
+
 		return false
 	}
 	return false
