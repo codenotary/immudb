@@ -562,6 +562,12 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 
 	_, err = exp.reduce(nil, nil, "", "")
 	require.Error(t, err)
+
+	require.Equal(t, exp, exp.reduceSelectors(nil, "", ""))
+
+	require.False(t, exp.isConstant())
+
+	require.Nil(t, exp.selectorRanges(nil, nil, nil))
 }
 
 func TestAliasing(t *testing.T) {
@@ -570,4 +576,14 @@ func TestAliasing(t *testing.T) {
 
 	stmt.as = "t1"
 	require.Equal(t, "t1", stmt.Alias())
+}
+
+func TestEdgeCases(t *testing.T) {
+	exp := &CreateIndexStmt{}
+	_, err := exp.compileUsing(nil, nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	exp.cols = make([]string, MaxNumberOfColumnsInIndex+1)
+	_, err = exp.compileUsing(nil, nil, nil)
+	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }

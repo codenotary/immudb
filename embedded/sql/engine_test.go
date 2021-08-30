@@ -1155,6 +1155,13 @@ func TestIndexing(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1 (title)", nil, true)
 	require.NoError(t, err)
 
+	t.Run("should fail due to unique index", func(t *testing.T) {
+		_, err = engine.ExecStmt("INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil, true)
+		require.ErrorIs(t, err, store.ErrDuplicatedKey)
+	})
+
+	require.NoError(t, engine.EnsureCatalogReady(nil))
+
 	t.Run("should use primary index by default", func(t *testing.T) {
 		r, err := engine.QueryStmt("SELECT * FROM table1", nil, true)
 		require.NoError(t, err)
@@ -1463,6 +1470,28 @@ func TestIndexing(t *testing.T) {
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `title` descending order", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title < 'title10' and title = 'title1' ORDER BY title DESC USE INDEX ON (title)", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "title", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.rangesByColID, 1)
+		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
 		require.NoError(t, err)
