@@ -309,6 +309,10 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table
 }
 
 func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error) {
+	if len(colIDs) < 1 {
+		return nil, ErrIllegalArguments
+	}
+
 	defer func() {
 		if err != nil {
 			return
@@ -324,12 +328,21 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 		t.db.catalog.mutated = true
 	}()
 
+	cols := make(map[uint64]struct{}, len(colIDs))
+
 	// validate column ids
 	for _, colID := range colIDs {
 		_, err := t.GetColumnByID(colID)
 		if err != nil {
 			return nil, err
 		}
+
+		_, ok := cols[colID]
+		if ok {
+			return nil, ErrDuplicatedColumn
+		}
+
+		cols[colID] = struct{}{}
 	}
 
 	index = &Index{

@@ -126,4 +126,11 @@ func TestFromEmptyCatalog(t *testing.T) {
 
 	_, err = table.GetColumnByID(3)
 	require.Equal(t, ErrColumnDoesNotExist, err)
+
+	_, err = table.newIndex(true, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = table.newIndex(true, []uint64{1, 2, 1})
+	require.ErrorIs(t, err, ErrDuplicatedColumn)
+
 }
