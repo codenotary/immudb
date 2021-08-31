@@ -1316,6 +1316,34 @@ func TestIndexing(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("should use index on `ts` in default order", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (ts)", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "ts", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.False(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Empty(t, scanSpecs.rangesByColID)
+		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
+		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should fail using index on `ts` when ordering by `title`", func(t *testing.T) {
+		_, err := engine.QueryStmt("SELECT * FROM table1 ORDER BY title USE INDEX ON (ts)", nil, true)
+		require.ErrorIs(t, err, ErrNoAvailableIndex)
+	})
+
 	t.Run("should use index on `title` with max value in desc order", func(t *testing.T) {
 		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title < 'title10' ORDER BY title DESC USE INDEX ON (title)", nil, true)
 		require.NoError(t, err)
