@@ -240,6 +240,18 @@ func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValue
 	return false
 }
 
+func (i *Index) prefix() string {
+	if i.isPrimary() {
+		return PIndexPrefix
+	}
+
+	if i.unique {
+		return UIndexPrefix
+	}
+
+	return SIndexPrefix
+}
+
 func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table *Table, err error) {
 	defer func() {
 		if err != nil {

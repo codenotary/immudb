@@ -139,19 +139,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 }
 
 func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
-	var indexPrefix string
-
-	if scanSpecs.index.isPrimary() {
-		indexPrefix = PIndexPrefix
-	} else {
-		if scanSpecs.index.unique {
-			indexPrefix = UIndexPrefix
-		} else {
-			indexPrefix = SIndexPrefix
-		}
-	}
-
-	prefix := e.mapKey(indexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
+	prefix := e.mapKey(scanSpecs.index.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
 
 	desc := scanSpecs.cmp == LowerThan || scanSpecs.cmp == LowerOrEqualTo
 
