@@ -1262,7 +1262,13 @@ func TestIndexing(t *testing.T) {
 		require.False(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
-		//require.Equal(t, uint64(1629902962), scanSpecs.valuesByColID[2].Value())
+
+		tsRange := scanSpecs.rangesByColID[2]
+		require.Nil(t, tsRange.lRange)
+		require.NotNil(t, tsRange.hRange)
+		require.False(t, tsRange.hRange.inclusive)
+		require.Equal(t, uint64(1629902963), tsRange.hRange.val.Value())
+
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1286,7 +1292,6 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 2)
 		require.Empty(t, scanSpecs.rangesByColID)
-		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1309,7 +1314,6 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
-		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1332,7 +1336,6 @@ func TestIndexing(t *testing.T) {
 		require.False(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
-		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1360,7 +1363,13 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
-		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.Nil(t, titleRange.lRange)
+		require.NotNil(t, titleRange.hRange)
+		require.False(t, titleRange.hRange.inclusive)
+		require.Equal(t, "title10", titleRange.hRange.val.Value())
+
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1384,7 +1393,15 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
-		//require.Equal(t, "title10", scanSpecs.valuesByColID[3].Value())
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.True(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.NotNil(t, titleRange.hRange)
+		require.True(t, titleRange.hRange.inclusive)
+		require.Equal(t, "title1", titleRange.hRange.val.Value())
+
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1407,6 +1424,13 @@ func TestIndexing(t *testing.T) {
 		require.False(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.False(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title10", titleRange.lRange.val.Value())
+		require.Nil(t, titleRange.hRange)
+
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1429,6 +1453,13 @@ func TestIndexing(t *testing.T) {
 		require.False(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.True(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Nil(t, titleRange.hRange)
+
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1452,6 +1483,13 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.True(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Nil(t, titleRange.hRange)
+
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1474,7 +1512,13 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
-		//require.Equal(t, "title1", scanSpecs.valuesByColID[3].Value())
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.True(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.Nil(t, titleRange.hRange)
+
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1497,6 +1541,13 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.Nil(t, titleRange.lRange)
+		require.NotNil(t, titleRange.hRange)
+		require.False(t, titleRange.hRange.inclusive)
+		require.Equal(t, "title10", titleRange.hRange.val.Value())
+
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
@@ -1519,6 +1570,15 @@ func TestIndexing(t *testing.T) {
 		require.True(t, scanSpecs.index.unique)
 		require.Len(t, scanSpecs.index.colIDs, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		titleRange := scanSpecs.rangesByColID[3]
+		require.NotNil(t, titleRange.lRange)
+		require.True(t, titleRange.lRange.inclusive)
+		require.Equal(t, "title1", titleRange.lRange.val.Value())
+		require.NotNil(t, titleRange.hRange)
+		require.True(t, titleRange.hRange.inclusive)
+		require.Equal(t, "title1", titleRange.hRange.val.Value())
+
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
 		err = r.Close()
