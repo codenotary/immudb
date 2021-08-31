@@ -59,7 +59,7 @@ func makeDb() (DB, func()) {
 func makeDbWith(opts *Options) (DB, func()) {
 	db, err := NewDB(opts, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		log.Fatalf("Error creating Db instance %s", err)
+		log.Fatalf("Error creating DB instance %s", err)
 	}
 
 	return db, func() {
@@ -77,7 +77,7 @@ func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
 	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Fatalf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating DB instance %s", err)
 	}
 
 	require.Equal(t, options, db.GetOptions())
@@ -135,7 +135,7 @@ func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
 	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Fatalf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating DB instance %s", err)
 	}
 
 	defer func() {
@@ -165,7 +165,7 @@ func TestOpenDB(t *testing.T) {
 	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
 	db, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Fatalf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating DB instance %s", err)
 	}
 
 	err = db.Close()

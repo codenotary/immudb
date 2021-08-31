@@ -134,6 +134,11 @@ func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 		return nil, err
 	}
 
+	err = dbi.sqlEngine.EnsureCatalogReady(nil)
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	}
+
 	if op.replica {
 		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replica)
 		return dbi, nil
@@ -264,6 +269,11 @@ func NewDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 	dbi.tx2 = dbi.st.NewTx()
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	}
+
+	err = dbi.sqlEngine.EnsureCatalogReady(nil)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}

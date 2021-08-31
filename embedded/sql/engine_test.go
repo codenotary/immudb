@@ -87,6 +87,9 @@ func TestUseDatabase(t *testing.T) {
 	_, err = engine.DatabaseInUse()
 	require.Equal(t, ErrCatalogNotReady, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -126,6 +129,9 @@ func TestCreateTable(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
@@ -161,6 +167,9 @@ func TestDumpCatalogTo(t *testing.T) {
 	defer os.RemoveAll("dump_catalog_data")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -221,6 +230,9 @@ func TestAddColumn(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
@@ -247,6 +259,9 @@ func TestCreateIndex(t *testing.T) {
 	defer os.RemoveAll("sqldata_create_index")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -319,6 +334,9 @@ func TestUpsertInto(t *testing.T) {
 	defer os.RemoveAll("sqldata_upsert")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -403,6 +421,9 @@ func TestAutoIncrementPK(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -413,12 +434,21 @@ func TestAutoIncrementPK(t *testing.T) {
 		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 
+		err = engine.EnsureCatalogReady(nil)
+		require.NoError(t, err)
+
 		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+
+		err = engine.EnsureCatalogReady(nil)
+		require.NoError(t, err)
 
 		_, err = engine.ExecStmt("CREATE TABLE table1 (id VARCHAR AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 	})
+
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
@@ -435,8 +465,14 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
 	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil, true)
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil, true)
 	require.NoError(t, err)
@@ -478,6 +514,9 @@ func TestTransactions(t *testing.T) {
 	defer os.RemoveAll("sqldata_tx")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -535,6 +574,9 @@ func TestUseSnapshot(t *testing.T) {
 	defer os.RemoveAll("sqldata_snap")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -801,6 +843,9 @@ func TestQuery(t *testing.T) {
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrCatalogNotReady, err)
+
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
@@ -1150,6 +1195,9 @@ func TestQueryWithNullables(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1206,6 +1254,9 @@ func TestOrderBy(t *testing.T) {
 	defer os.RemoveAll("sqldata_orderby")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1335,6 +1386,9 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	defer os.RemoveAll("sqldata_where")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1470,6 +1524,9 @@ func TestAggregations(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1574,6 +1631,9 @@ func TestCount(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1632,6 +1692,9 @@ func TestGroupByHaving(t *testing.T) {
 	defer os.RemoveAll("sqldata_having")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1769,6 +1832,9 @@ func TestJoins(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1879,6 +1945,9 @@ func TestJoinsWithJointTable(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -1952,6 +2021,9 @@ func TestNestedJoins(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -2023,6 +2095,9 @@ func TestReOpening(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -2088,6 +2163,9 @@ func TestSubQuery(t *testing.T) {
 	defer os.RemoveAll("sqldata_subq")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2314,6 +2392,9 @@ func TestInferParametersPrepared(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
+	err = engine.EnsureCatalogReady(nil)
+	require.NoError(t, err)
+
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -2345,6 +2426,9 @@ func TestInferParametersUnbounded(t *testing.T) {
 	defer os.RemoveAll("catalog_infer_params_unbounded")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2402,6 +2486,9 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	defer os.RemoveAll("catalog_infer_params_invalid")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	err = engine.EnsureCatalogReady(nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)

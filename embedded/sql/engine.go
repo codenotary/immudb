@@ -1289,18 +1289,16 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		return nil, ErrIllegalArguments
 	}
 
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
 
 	if e.closed {
 		return nil, ErrAlreadyClosed
 	}
 
 	if e.catalog == nil {
-		err := e.loadCatalog(nil)
-		if err != nil {
-			return nil, err
-		}
+		// won't be needed with a transactional in-memory catalog
+		return nil, ErrCatalogNotReady
 	}
 
 	implicitDB, err := e.databaseInUse()
