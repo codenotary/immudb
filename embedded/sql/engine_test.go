@@ -1247,7 +1247,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 ORDER BY ts", nil, true)
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 AND ts < 1629902963 ORDER BY ts", nil, true)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -2190,7 +2190,7 @@ func TestJoins(t *testing.T) {
 		r, err := engine.QueryStmt(`
 		SELECT table1.title, table2.amount, table3.age
 		FROM (SELECT * FROM table2 WHERE amount = 1)
-		INNER JOIN table1 ON table2.id = table1.fkid1 AND table2.amount > 0
+		INNER JOIN table1 ON table2.id = table1.fkid1 AND (table2.amount > 0 OR table2.amount > 0+1)
 		INNER JOIN table3 ON table1.fkid2 = table3.id AND table3.age < 30`, nil, true)
 		require.NoError(t, err)
 

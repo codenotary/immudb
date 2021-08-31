@@ -587,3 +587,39 @@ func TestEdgeCases(t *testing.T) {
 	_, err = exp.compileUsing(nil, nil, nil)
 	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }
+
+func TestIsConstant(t *testing.T) {
+	require.True(t, (&NullValue{}).isConstant())
+	require.True(t, (&Number{}).isConstant())
+	require.True(t, (&Varchar{}).isConstant())
+	require.True(t, (&Bool{}).isConstant())
+	require.True(t, (&Blob{}).isConstant())
+	require.True(t, (&Param{}).isConstant())
+	require.False(t, (&ColSelector{}).isConstant())
+	require.False(t, (&AggColSelector{}).isConstant())
+
+	require.True(t, (&NumExp{
+		op:    AND,
+		left:  &Number{val: 1},
+		right: &Number{val: 2},
+	}).isConstant())
+
+	require.True(t, (&NotBoolExp{exp: &Bool{}}).isConstant())
+	require.False(t, (&LikeBoolExp{}).isConstant())
+
+	require.True(t, (&CmpBoolExp{
+		op:    LE,
+		left:  &Number{val: 1},
+		right: &Number{val: 2},
+	}).isConstant())
+
+	require.True(t, (&BinBoolExp{
+		op:    ADDOP,
+		left:  &Number{val: 1},
+		right: &Number{val: 2},
+	}).isConstant())
+
+	require.False(t, (&SysFn{}).isConstant())
+
+	require.False(t, (&ExistsBoolExp{}).isConstant())
+}
