@@ -155,22 +155,17 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 	endKey = make([]byte, len(prefix))
 	copy(endKey, prefix)
 
-	for _, colID := range scanSpecs.index.colIDs {
-		col, err := table.GetColumnByID(colID)
-		if err != nil {
-			return nil, err
-		}
-
-		colRange, ok := scanSpecs.rangesByColID[colID]
+	for _, col := range scanSpecs.index.cols {
+		colRange, ok := scanSpecs.rangesByColID[col.id]
 		if !ok {
 			if desc {
 				if !seekKeyReady {
-					seekKey = append(seekKey, maxKeyVal(col.colType)...)
+					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
 				}
 				endKeyReady = true
 			} else {
 				if !endKeyReady {
-					endKey = append(endKey, maxKeyVal(col.colType)...)
+					endKey = append(endKey, maxKeyValOf(col.colType)...)
 				}
 				seekKeyReady = true
 			}
@@ -181,7 +176,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		if desc {
 			if !seekKeyReady {
 				if colRange.hRange == nil {
-					seekKey = append(seekKey, maxKeyVal(col.colType)...)
+					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
 				}
 
 				if colRange.hRange != nil {
@@ -221,7 +216,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 
 			if !endKeyReady {
 				if colRange.hRange == nil {
-					endKey = append(endKey, maxKeyVal(col.colType)...)
+					endKey = append(endKey, maxKeyValOf(col.colType)...)
 				}
 
 				if colRange.hRange != nil {
@@ -236,8 +231,10 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 	}
 
 	if desc && !scanSpecs.index.isPrimary() && !scanSpecs.index.unique {
-		// non-unique index entries include pk value as suffix
-		seekKey = append(seekKey, maxKeyVal(table.pk.colType)...)
+		// non-unique index entries include encoded pk values as suffix
+		for _, col := range table.primaryIndex.cols {
+			seekKey = append(seekKey, maxKeyValOf(col.colType)...)
+		}
 	}
 
 	return &store.KeyReaderSpec{
@@ -259,11 +256,9 @@ func (r *rawRowReader) ImplicitTable() string {
 }
 
 func (r *rawRowReader) OrderBy() []*ColDescriptor {
-	cols := make([]*ColDescriptor, len(r.scanSpecs.index.colIDs))
+	cols := make([]*ColDescriptor, len(r.scanSpecs.index.cols))
 
-	for i, colID := range r.scanSpecs.index.colIDs {
-		col := r.table.colsByID[colID]
-
+	for i, col := range r.scanSpecs.index.cols {
 		cols[i] = &ColDescriptor{
 			Database: r.table.db.name,
 			Table:    r.tableAlias,
@@ -316,21 +311,21 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, err
 		}
 	} else {
-		var encPKVal []byte
+		var encPKVals []byte
 
 		if r.scanSpecs.index.unique {
-			encPKVal, err = vref.Resolve()
+			encPKVals, err = vref.Resolve()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			_, _, _, _, encPKVal, err = r.e.unmapIndexEntry(SIndexPrefix, mkey)
+			_, encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
 		if err != nil {
 			return nil, err
 		}
@@ -340,6 +335,10 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 	for _, col := range r.table.colsByName {
 		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
+	}
+
+	if len(v) < EncLenLen {
+		return nil, ErrCorruptedData
 	}
 
 	voff := 0
@@ -367,6 +366,10 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 		voff += n
 		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
+	}
+
+	if len(v)-voff > 0 {
+		return nil, ErrCorruptedData
 	}
 
 	return &Row{Values: values}, nil
