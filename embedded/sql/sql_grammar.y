@@ -96,7 +96,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
 %type <colsSpec> colsSpec
 %type <colSpec> colSpec
-%type <ids> ids
+%type <ids> ids one_or_more_ids
 %type <cols> cols
 %type <rows> rows
 %type <row> row
@@ -189,9 +189,9 @@ ddlstmt:
         $$ = &UseSnapshotStmt{sinceTx: $3, asBefore: $4}
     }
 |
-    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
+    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY one_or_more_ids ')'
     {
-        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pk: $10}
+        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
     }
 |
     CREATE INDEX ON IDENTIFIER '(' ids ')'
@@ -229,7 +229,16 @@ opt_if_not_exists:
         $$ = true
     }
 
-
+one_or_more_ids:
+    IDENTIFIER
+    {
+        $$ = []string{$1}
+    }
+|
+    '(' ids ')'
+    {
+        $$ = $2
+    }
 
 dmlstmt:
     INSERT INTO tableRef '(' ids ')' VALUES rows

@@ -128,7 +128,7 @@ func TestCreateTableStmt(t *testing.T) {
 					table:       "table1",
 					ifNotExists: false,
 					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType}},
-					pk:          "id",
+					pkColNames:  []string{"id"},
 				}},
 			expectedError: nil,
 		},
@@ -139,7 +139,7 @@ func TestCreateTableStmt(t *testing.T) {
 					table:       "table1",
 					ifNotExists: false,
 					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType, autoIncrement: true}},
-					pk:          "id",
+					pkColNames:  []string{"id"},
 				}},
 			expectedError: nil,
 		},
@@ -150,23 +150,23 @@ func TestCreateTableStmt(t *testing.T) {
 					table:       "xtable1",
 					ifNotExists: false,
 					colsSpec:    []*ColSpec{{colName: "xid", colType: IntegerType}},
-					pk:          "xid",
+					pkColNames:  []string{"xid"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)",
+			input: "CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY (id))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
 					ifNotExists: true,
 					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType}},
-					pk:          "id",
+					pkColNames:  []string{"id"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
@@ -178,7 +178,7 @@ func TestCreateTableStmt(t *testing.T) {
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
 					},
-					pk: "id",
+					pkColNames: []string{"id", "name"},
 				}},
 			expectedError: nil,
 		},
@@ -449,7 +449,7 @@ func TestStmtSeparator(t *testing.T) {
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
 					},
-					pk: "id",
+					pkColNames: []string{"id"},
 				},
 			},
 			expectedError: nil,
@@ -462,7 +462,7 @@ func TestStmtSeparator(t *testing.T) {
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
 					},
-					pk: "id",
+					pkColNames: []string{"id"},
 				},
 			},
 			expectedError: nil,
@@ -475,7 +475,7 @@ func TestStmtSeparator(t *testing.T) {
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
 					},
-					pk: "id",
+					pkColNames: []string{"id"},
 				},
 			},
 			expectedError: nil,
@@ -561,7 +561,7 @@ func TestTxStmt(t *testing.T) {
 						{colName: "id", colType: IntegerType},
 						{colName: "label", colType: VarcharType},
 					},
-					pk: "id",
+					pkColNames: []string{"id"},
 				},
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -588,7 +588,7 @@ func TestTxStmt(t *testing.T) {
 								{colName: "id", colType: IntegerType},
 								{colName: "label", colType: VarcharType, notNull: true},
 							},
-							pk: "id",
+							pkColNames: []string{"id"},
 						},
 						&UpsertIntoStmt{
 							tableRef: &tableRef{table: "table1"},
@@ -1224,7 +1224,7 @@ func TestMultiLineStmts(t *testing.T) {
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
 					},
-					pk: "id",
+					pkColNames: []string{"id"},
 				},
 				&TxStmt{
 					stmts: []SQLStmt{

@@ -58,7 +58,11 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, err
 	}
 
-	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(req.SqlGetRequest.PkValue), table.PrimaryKey().Type(), true)
+	if len(table.PrimaryIndex().Cols()) > 1 {
+		return nil, errors.New("verification with multi-key primary keys is not yet supported")
+	}
+
+	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(req.SqlGetRequest.PkValue), table.PrimaryIndex().Cols()[0].Type(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +135,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		InclusionProof: schema.InclusionProofTo(inclusionProof),
 		DatabaseId:     table.Database().ID(),
 		TableId:        table.ID(),
-		PKName:         table.PrimaryKey().Name(),
+		PKName:         table.PrimaryIndex().Cols()[0].Name(),
 		ColNamesById:   colNamesById,
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesById,
@@ -220,7 +224,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	for _, c := range table.ColsByID() {
 		index := "NO"
 
-		if table.PrimaryKey().Name() == c.Name() {
+		if table.PrimaryIndex().Cols()[0].Name() == c.Name() {
 			index = "PRIMARY KEY"
 		}
 

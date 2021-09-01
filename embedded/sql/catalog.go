@@ -31,23 +31,25 @@ type Database struct {
 }
 
 type Table struct {
-	db             *Database
-	id             uint64
-	name           string
-	colsByID       map[uint64]*Column
-	colsByName     map[string]*Column
-	pk             *Column
-	indexes        map[string]*Index
-	indexesByColID map[uint64][]*Index
-	primaryIndex   *Index
-	maxPK          uint64
+	db              *Database
+	id              uint64
+	name            string
+	cols            []*Column
+	colsByID        map[uint64]*Column
+	colsByName      map[string]*Column
+	indexes         map[string]*Index
+	indexesByColID  map[uint64][]*Index
+	primaryIndex    *Index
+	autoIncrementPK bool
+	maxPK           uint64
 }
 
 type Index struct {
-	table  *Table
-	id     uint64
-	unique bool
-	colIDs []uint64
+	table    *Table
+	id       uint64
+	unique   bool
+	cols     []*Column
+	colsByID map[uint64]*Column
 }
 
 type Column struct {
@@ -176,6 +178,10 @@ func (t *Table) Database() *Database {
 	return t.db
 }
 
+func (t *Table) Cols() []*Column {
+	return t.cols
+}
+
 func (t *Table) ColsByID() map[uint64]*Column {
 	return t.colsByID
 }
@@ -188,8 +194,8 @@ func (t *Table) Name() string {
 	return t.name
 }
 
-func (t *Table) PrimaryKey() *Column {
-	return t.pk
+func (t *Table) PrimaryIndex() *Index {
+	return t.primaryIndex
 }
 
 func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
@@ -220,17 +226,21 @@ func (t *Table) GetColumnByID(id uint64) (*Column, error) {
 }
 
 func (i *Index) isPrimary() bool {
-	return i.id == 0
+	return i.id == PKIndexID
+}
+
+func (i *Index) Cols() []*Column {
+	return i.cols
 }
 
 func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
-	for _, id := range i.colIDs {
-		if id == colID {
+	for _, col := range i.cols {
+		if col.id == colID {
 			return true
 		}
 
-		colRange, ok := rangesByColID[id]
+		colRange, ok := rangesByColID[col.id]
 		if ok && colRange.unitary() {
 			continue
 		}
@@ -252,18 +262,8 @@ func (i *Index) prefix() string {
 	return SIndexPrefix
 }
 
-func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table *Table, err error) {
-	defer func() {
-		if err != nil {
-			return
-		}
-
-		db.tablesByID[table.id] = table
-		db.tablesByName[table.name] = table
-		db.catalog.mutated = true
-	}()
-
-	if len(name) == 0 || len(colsSpec) == 0 || len(pk) == 0 {
+func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -278,16 +278,21 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table
 		id:             uint64(id),
 		db:             db,
 		name:           name,
+		cols:           make([]*Column, len(colsSpec)),
 		colsByID:       make(map[uint64]*Column),
 		colsByName:     make(map[string]*Column),
 		indexes:        make(map[string]*Index),
 		indexesByColID: make(map[uint64][]*Index),
 	}
 
-	for _, cs := range colsSpec {
+	for i, cs := range colsSpec {
 		_, colExists := table.colsByName[cs.colName]
 		if colExists {
 			return nil, ErrDuplicatedColumn
+		}
+
+		if cs.autoIncrement && cs.colType != IntegerType {
+			return nil, ErrLimitedAutoIncrement
 		}
 
 		id := len(table.colsByID) + 1
@@ -298,24 +303,17 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (table
 			colName:       cs.colName,
 			colType:       cs.colType,
 			autoIncrement: cs.autoIncrement,
-			notNull:       cs.notNull || cs.colName == pk,
+			notNull:       cs.notNull,
 		}
 
+		table.cols[i] = col
 		table.colsByID[col.id] = col
 		table.colsByName[col.colName] = col
-
-		if pk == col.colName {
-			table.pk = col
-			table.primaryIndex, err = table.newIndex(true, []uint64{col.id})
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
-	if table.pk == nil {
-		return nil, ErrInvalidPK
-	}
+	db.tablesByID[table.id] = table
+	db.tablesByName[table.name] = table
+	db.catalog.mutated = true
 
 	return table, nil
 }
@@ -325,51 +323,53 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 		return nil, ErrIllegalArguments
 	}
 
-	defer func() {
-		if err != nil {
-			return
-		}
-
-		t.indexes[keyFromIDs(index.colIDs)] = index
-
-		// having a direct way to get the indexes by colID
-		for _, colID := range index.colIDs {
-			t.indexesByColID[colID] = append(t.indexesByColID[colID], index)
-		}
-
-		t.db.catalog.mutated = true
-	}()
-
-	cols := make(map[uint64]struct{}, len(colIDs))
-
 	// validate column ids
-	for _, colID := range colIDs {
-		_, err := t.GetColumnByID(colID)
+	cols := make([]*Column, len(colIDs))
+	colsByID := make(map[uint64]*Column, len(colIDs))
+
+	for i, colID := range colIDs {
+		col, err := t.GetColumnByID(colID)
 		if err != nil {
 			return nil, err
 		}
 
-		_, ok := cols[colID]
+		_, ok := colsByID[colID]
 		if ok {
 			return nil, ErrDuplicatedColumn
 		}
 
-		cols[colID] = struct{}{}
+		cols[i] = col
+		colsByID[colID] = col
 	}
 
-	index = &Index{
-		id:     uint64(len(t.indexes)),
-		table:  t,
-		unique: unique,
-		colIDs: colIDs,
-	}
-
-	indexKey := keyFromIDs(index.colIDs)
+	indexKey := indexKeyFrom(cols)
 
 	_, exists := t.indexes[indexKey]
 	if exists {
 		return nil, ErrIndexAlreadyExists
 	}
+
+	index = &Index{
+		id:       uint64(len(t.indexes)),
+		table:    t,
+		unique:   unique,
+		cols:     cols,
+		colsByID: colsByID,
+	}
+
+	t.indexes[indexKey] = index
+
+	// having a direct way to get the indexes by colID
+	for _, col := range index.cols {
+		t.indexesByColID[col.id] = append(t.indexesByColID[col.id], index)
+	}
+
+	if index.id == PKIndexID {
+		t.primaryIndex = index
+		t.autoIncrementPK = len(index.cols) == 1 && index.cols[0].autoIncrement
+	}
+
+	t.db.catalog.mutated = true
 
 	return index, nil
 }

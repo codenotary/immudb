@@ -45,8 +45,13 @@ func TestJointRowReader(t *testing.T) {
 	db, err := engine.catalog.newDatabase(1, "db1")
 	require.NoError(t, err)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}}, "id")
+	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
 	require.NoError(t, err)
+
+	index, err := table.newIndex(true, []uint64{1})
+	require.NoError(t, err)
+	require.NotNil(t, index)
+	require.Equal(t, table.primaryIndex, index)
 
 	snap, err := engine.getSnapshot()
 	require.NoError(t, err)

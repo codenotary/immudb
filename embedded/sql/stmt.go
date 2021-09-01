@@ -29,12 +29,12 @@ import (
 
 const (
 	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
-	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
+	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}, value={tableNAME})
 	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={auto_incremental | nullable}{colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
-	PIndexPrefix          = "PINDEX."           // (key=PINDEX.{dbID}{tableID}{0}{pkValLen}{pkVal}, value={non-null values})
-	SIndexPrefix          = "SINDEX."           // (key=SINDEX.{dbID}{tableID}{indexID}({valLen}{val})+{pkValLen}{pkVal}, value={})
-	UIndexPrefix          = "UINDEX."           // (key=UINDEX.{dbID}{tableID}{indexID}({valLen}{val})+, value={{pkValLen}{pkVal})
+	PIndexPrefix          = "P."                // (key=P.{dbID}{tableID}{0}({valLen}{val})+, value={count (colID valLen val)+})
+	SIndexPrefix          = "S."                // (key=S.{dbID}{tableID}{indexID}({valLen}{val})+({pkValLen}{pkVal})+, value={})
+	UIndexPrefix          = "U."                // (key=U.{dbID}{tableID}{indexID}({valLen}{val})+, value={({pkValLen}{pkVal})+)
 )
 
 const PKIndexID = uint64(0)
@@ -110,8 +110,9 @@ type TxSummary struct {
 	lastInsertedPKs map[string]uint64
 }
 
-func newTxSummary() *TxSummary {
+func newTxSummary(db *Database) *TxSummary {
 	return &TxSummary{
+		db:              db,
 		lastInsertedPKs: make(map[string]uint64),
 	}
 }
@@ -156,8 +157,7 @@ func (stmt *TxStmt) inferParameters(e *Engine, implicitDB *Database, params map[
 }
 
 func (stmt *TxStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-	summary.db = implicitDB
+	summary = newTxSummary(implicitDB)
 
 	for _, stmt := range stmt.stmts {
 		stmtSummary, err := stmt.compileUsing(e, summary.db, params)
@@ -183,8 +183,6 @@ func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, implicitDB *Database,
 }
 
 func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-
 	id := uint64(len(e.catalog.dbsByID) + 1)
 
 	db, err := e.catalog.newDatabase(id, stmt.DB)
@@ -192,7 +190,7 @@ func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, pa
 		return nil, err
 	}
 
-	summary.db = db
+	summary = newTxSummary(db)
 
 	kv := &store.KV{
 		Key:   e.mapKey(catalogDatabasePrefix, EncodeID(db.id)),
@@ -213,16 +211,12 @@ func (stmt *UseDatabaseStmt) inferParameters(e *Engine, implicitDB *Database, pa
 }
 
 func (stmt *UseDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-
 	db, err := e.catalog.GetDatabaseByName(stmt.DB)
 	if err != nil {
 		return nil, err
 	}
 
-	summary.db = db
-
-	return summary, nil
+	return newTxSummary(db), nil
 }
 
 type UseSnapshotStmt struct {
@@ -242,7 +236,7 @@ type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
 	colsSpec    []*ColSpec
-	pk          string
+	pkColNames  []string
 }
 
 func (stmt *CreateTableStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
@@ -250,18 +244,28 @@ func (stmt *CreateTableStmt) inferParameters(e *Engine, implicitDB *Database, pa
 }
 
 func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-	summary.db = implicitDB
-
 	if implicitDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
+
+	summary = newTxSummary(implicitDB)
 
 	if stmt.ifNotExists && implicitDB.ExistTable(stmt.table) {
 		return summary, nil
 	}
 
-	table, err := implicitDB.newTable(stmt.table, stmt.colsSpec, stmt.pk)
+	table, err := implicitDB.newTable(stmt.table, stmt.colsSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
+	indexSummary, err := createIndexStmt.compileUsing(e, implicitDB, params)
+	if err != nil {
+		return nil, err
+	}
+
+	err = summary.add(indexSummary)
 	if err != nil {
 		return nil, err
 	}
@@ -269,16 +273,18 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 	for colID, col := range table.ColsByID() {
 		v := make([]byte, 1+len(col.colName))
 
-		if col.autoIncrement && (col.colName != table.pk.colName || table.pk.colType != IntegerType) {
-			return nil, ErrLimitedAutoIncrement
-		}
-
 		if col.autoIncrement {
+			if col.id != table.primaryIndex.cols[0].id {
+				return nil, ErrLimitedAutoIncrement
+			}
+
 			v[0] = v[0] | autoIncrementFlag
 		}
+
 		if col.notNull {
 			v[0] = v[0] | nullableFlag
 		}
+
 		copy(v[1:], []byte(col.Name()))
 
 		ce := &store.KV{
@@ -289,7 +295,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(table.pk.id)),
+		Key:   e.mapKey(catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id)),
 		Value: []byte(table.name),
 	}
 	summary.ces = append(summary.ces, te)
@@ -323,12 +329,11 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, ErrMaxNumberOfColumnsInIndexExceeded
 	}
 
-	summary = newTxSummary()
-	summary.db = implicitDB
-
 	if implicitDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
+
+	summary = newTxSummary(implicitDB)
 
 	table, err := implicitDB.GetTableByName(stmt.table)
 	if err != nil {
@@ -369,14 +374,14 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	encodedValues := make([]byte, 1+len(index.colIDs)*EncIDLen)
+	encodedValues := make([]byte, 1+len(index.cols)*EncIDLen)
 
 	if index.unique {
 		encodedValues[0] = 1
 	}
 
-	for i, colID := range index.colIDs {
-		copy(encodedValues[1+i*EncIDLen:], EncodeID(colID))
+	for i, col := range index.cols {
+		copy(encodedValues[1+i*EncIDLen:], EncodeID(col.id))
 	}
 
 	te := &store.KV{
@@ -412,75 +417,6 @@ type RowSpec struct {
 	Values []ValueExp
 }
 
-func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[string]interface{}) ([]byte, error) {
-	valbuf := bytes.Buffer{}
-
-	colCount := 0
-
-	notNullCols := make(map[uint64]struct{}, len(t.colsByID))
-
-	for i, val := range r.Values {
-		col, err := t.GetColumnByName(cols[i])
-		if err != nil {
-			return nil, err
-		}
-
-		sval, err := val.substitute(params)
-		if err != nil {
-			return nil, err
-		}
-
-		rval, err := sval.reduce(catalog, nil, t.db.name, t.name)
-		if err != nil {
-			return nil, err
-		}
-
-		_, isNull := rval.(*NullValue)
-		if isNull {
-			continue
-		}
-
-		b := make([]byte, EncIDLen)
-		binary.BigEndian.PutUint64(b, uint64(col.id))
-
-		_, err = valbuf.Write(b)
-		if err != nil {
-			return nil, err
-		}
-
-		valb, err := EncodeValue(rval, col.colType, !asKey)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = valbuf.Write(valb)
-		if err != nil {
-			return nil, err
-		}
-
-		notNullCols[col.id] = struct{}{}
-
-		colCount++
-	}
-
-	for _, c := range t.colsByID {
-		if c.IsNullable() {
-			continue
-		}
-
-		_, notNull := notNullCols[c.id]
-		if !notNull {
-			return nil, ErrNotNullableColumnCannotBeNull
-		}
-	}
-
-	b := make([]byte, EncLenLen+len(valbuf.Bytes()))
-	binary.BigEndian.PutUint32(b, uint32(colCount))
-	copy(b[EncLenLen:], valbuf.Bytes())
-
-	return b, nil
-}
-
 func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
@@ -509,8 +445,7 @@ func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, par
 }
 
 func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
-	pkIncluded := false
-	selByColID := make(map[uint64]int, len(stmt.cols))
+	selPosByColID := make(map[uint64]int, len(stmt.cols))
 
 	for i, c := range stmt.cols {
 		col, err := table.GetColumnByName(c)
@@ -518,43 +453,30 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
 			return nil, err
 		}
 
-		if table.pk.colName == c {
-			pkIncluded = true
-		}
-
-		_, duplicated := selByColID[col.id]
+		_, duplicated := selPosByColID[col.id]
 		if duplicated {
 			return nil, ErrDuplicatedColumn
 		}
 
-		selByColID[col.id] = i
+		selPosByColID[col.id] = i
 	}
 
-	if !pkIncluded && (!stmt.isInsert || !table.pk.autoIncrement) {
-		return nil, ErrPKCanNotBeNull
-	}
-
-	if pkIncluded && stmt.isInsert && table.pk.autoIncrement {
-		return nil, ErrNoValueForAutoIncrementalColumn
-	}
-
-	return selByColID, nil
+	return selPosByColID, nil
 }
 
 func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-	summary.db = implicitDB
-
 	if implicitDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
+
+	summary = newTxSummary(implicitDB)
 
 	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
 		return nil, err
 	}
 
-	cs, err := stmt.validate(table)
+	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
 	}
@@ -564,72 +486,138 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, ErrInvalidNumberOfValues
 		}
 
-		cols := stmt.cols
+		encRowValuesByColID := make(map[uint64][]byte)
 
-		var pkVal ValueExp
+		for colID, col := range table.colsByID {
+			colPos, specified := selPosByColID[colID]
+			if !specified {
+				if col.notNull {
+					return nil, ErrNotNullableColumnCannotBeNull
+				}
+				continue
+			}
+
+			if stmt.isInsert && col.autoIncrement {
+				return nil, ErrNoValueForAutoIncrementalColumn
+			}
+
+			cVal := row.Values[colPos]
+
+			val, err := cVal.substitute(params)
+			if err != nil {
+				return nil, err
+			}
+
+			rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
+			if err != nil {
+				return nil, err
+			}
+
+			_, isNull := rval.(*NullValue)
+			if isNull {
+				if col.notNull {
+					return nil, ErrNotNullableColumnCannotBeNull
+				}
+
+				continue
+			}
+
+			encVal, err := EncodeValue(rval, col.colType, !asKey)
+			if err != nil {
+				return nil, err
+			}
+
+			encRowValuesByColID[colID] = encVal
+		}
 
 		// inject auto-incremental pk value
-		if stmt.isInsert && table.pk.autoIncrement {
+		if stmt.isInsert && table.autoIncrementPK {
 			table.maxPK++
 			e.catalog.mutated = true // TODO: implement transactional in-memory catalog
 
-			pkVal = &Number{val: table.maxPK}
-			cols = append(cols, table.pk.colName)
-			row.Values = append(row.Values, pkVal)
+			pkCol := table.primaryIndex.cols[0]
+
+			pkEncVal, err := EncodeValue(&Number{val: table.maxPK}, IntegerType, asKey)
+			if err != nil {
+				return nil, err
+			}
+
+			encRowValuesByColID[pkCol.id] = pkEncVal
 
 			summary.lastInsertedPKs[table.name] = table.maxPK
-		} else {
-			pkVal = row.Values[cs[table.pk.id]]
 		}
 
-		val, err := pkVal.substitute(params)
+		valbuf := bytes.Buffer{}
+
+		for _, col := range table.primaryIndex.cols {
+			encVal, notNull := encRowValuesByColID[col.id]
+			if !notNull {
+				return nil, ErrPKCanNotBeNull
+			}
+
+			if len(encVal) > EncLenLen+maxKeyLen {
+				return nil, ErrMaxKeyLengthExceeded
+			}
+
+			_, err = valbuf.Write(encVal)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		pkEncVals := valbuf.Bytes()
+
+		valbuf = bytes.Buffer{}
+
+		b := make([]byte, EncLenLen)
+		binary.BigEndian.PutUint32(b, uint32(len(encRowValuesByColID)))
+
+		_, err = valbuf.Write(b)
 		if err != nil {
 			return nil, err
 		}
 
-		rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
-		if err != nil {
-			return nil, err
-		}
+		for _, col := range table.cols {
+			encVal, notNull := encRowValuesByColID[col.id]
+			if !notNull {
+				continue
+			}
 
-		_, isNull := rval.(*NullValue)
-		if isNull {
-			return nil, ErrPKCanNotBeNull
-		}
+			b := make([]byte, EncIDLen)
+			binary.BigEndian.PutUint64(b, uint64(col.id))
 
-		pkEncVal, err := EncodeValue(rval, table.pk.colType, asKey)
-		if err != nil {
-			return nil, err
-		}
+			_, err = valbuf.Write(b)
+			if err != nil {
+				return nil, err
+			}
 
-		bs, err := row.bytes(e.catalog, table, cols, params)
-		if err != nil {
-			return nil, err
+			_, err = valbuf.Write(encVal)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// create entry for the column which is the pk
-		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID), pkEncVal)
+		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		constraint := store.NoConstraint
 
-		if stmt.isInsert && !table.pk.autoIncrement {
+		if stmt.isInsert && !table.autoIncrementPK {
 			constraint = store.MustNotExist
 		}
 
-		if !stmt.isInsert && table.pk.autoIncrement {
+		if !stmt.isInsert && table.autoIncrementPK {
 			constraint = store.MustExist
 		}
 
 		pke := &store.KV{
 			Key:        mkey,
-			Value:      bs,
+			Value:      valbuf.Bytes(),
 			Constraint: constraint,
 		}
 		summary.des = append(summary.des, pke)
 
-		summary.updatedRows++
-
-		// create entries for each indexed column, with value as value for pk column
+		// create entries for remaining indexes
 		for _, index := range table.indexes {
 			if index.isPrimary() {
 				continue
@@ -641,57 +629,30 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 			if index.unique {
 				prefix = UIndexPrefix
-				encodedValues = make([][]byte, 3+len(index.colIDs))
-				val = pkEncVal
+				encodedValues = make([][]byte, 3+len(index.cols))
+				val = pkEncVals
 			} else {
 				prefix = SIndexPrefix
-				encodedValues = make([][]byte, 4+len(index.colIDs))
-				encodedValues[len(encodedValues)-1] = pkEncVal
+				encodedValues = make([][]byte, 4+len(index.cols))
+				encodedValues[len(encodedValues)-1] = pkEncVals
 			}
 
 			encodedValues[0] = EncodeID(table.db.id)
 			encodedValues[1] = EncodeID(table.id)
 			encodedValues[2] = EncodeID(index.id)
 
-			for i, colID := range index.colIDs {
-				colPos, defined := cs[colID]
-				if !defined {
+			for i, col := range index.cols {
+				encVal, notNull := encRowValuesByColID[col.id]
+				if !notNull {
 					return nil, ErrIndexedColumnCanNotBeNull
-				}
-
-				cVal := row.Values[colPos]
-
-				val, err := cVal.substitute(params)
-				if err != nil {
-					return nil, err
-				}
-
-				rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
-				if err != nil {
-					return nil, err
-				}
-
-				_, isNull := rval.(*NullValue)
-				if isNull {
-					return nil, ErrIndexedColumnCanNotBeNull
-				}
-
-				col, err := table.GetColumnByID(colID)
-				if err != nil {
-					return nil, err
-				}
-
-				encVal, err := EncodeValue(rval, col.colType, asKey)
-				if err != nil {
-					return nil, err
-				}
-
-				constraint = store.NoConstraint
-				if stmt.isInsert && index.unique {
-					constraint = store.MustNotExist
 				}
 
 				encodedValues[i+3] = encVal
+			}
+
+			constraint = store.NoConstraint
+			if stmt.isInsert && index.unique {
+				constraint = store.MustNotExist
 			}
 
 			ie := &store.KV{
@@ -702,6 +663,8 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 			summary.des = append(summary.des, ie)
 		}
+
+		summary.updatedRows++
 	}
 
 	return summary, nil
@@ -1326,9 +1289,6 @@ func (stmt *SelectStmt) inferParameters(e *Engine, implicitDB *Database, params 
 }
 
 func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	summary = newTxSummary()
-	summary.db = implicitDB
-
 	if implicitDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -1371,7 +1331,7 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 		}
 	}
 
-	return summary, nil
+	return newTxSummary(implicitDB), nil
 }
 
 func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
@@ -1459,7 +1419,7 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 	var preferredIndex *Index
 
 	if len(stmt.indexOn) > 0 {
-		colsIDs := make([]uint64, len(stmt.indexOn))
+		cols := make([]*Column, len(stmt.indexOn))
 
 		for i, colName := range stmt.indexOn {
 			col, err := table.GetColumnByName(colName)
@@ -1467,10 +1427,10 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 				return nil, err
 			}
 
-			colsIDs[i] = col.id
+			cols[i] = col
 		}
 
-		index, ok := table.indexes[keyFromIDs(colsIDs)]
+		index, ok := table.indexes[indexKeyFrom(cols)]
 		if !ok {
 			return nil, ErrNoAvailableIndex
 		}

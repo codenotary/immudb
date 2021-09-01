@@ -136,7 +136,7 @@ func TestCreateTable(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, true)
-	require.Equal(t, ErrInvalidPK, err)
+	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, true)
 	require.NoError(t, err)
@@ -231,7 +231,7 @@ func TestAddColumn(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, true)
-	require.Equal(t, ErrInvalidPK, err)
+	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	_, err = engine.ExecStmt("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil, true)
 	require.Equal(t, ErrNoSupported, err)
@@ -341,25 +341,25 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, age) VALUES (1, 50)", nil, true)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (@id, 'title1')", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", nil, true)
 	require.Equal(t, ErrMissingParameter, err)
 
 	params := make(map[string]interface{}, 1)
 	params["id"] = [4]byte{1, 2, 3, 4}
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (@id, 'title1')", params, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params, true)
 	require.Equal(t, ErrUnsupportedParameter, err)
 
 	params = make(map[string]interface{}, 1)
 	params["id"] = []byte{1, 2, 3}
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (@id, 'title1')", params, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params, true)
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, @title)", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, false)", nil, true)
 	require.Equal(t, ErrMissingParameter, err)
 
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, @title)", params, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, true)
 	require.Equal(t, ErrInvalidValue, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO Table1 (id, active) VALUES (1, true)", nil, true)
@@ -377,16 +377,16 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, id) VALUES (1, 2)", nil, true)
 	require.Equal(t, ErrDuplicatedColumn, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES ('1')", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES ('1', true)", nil, true)
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (NULL)", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil, true)
 	require.Equal(t, ErrPKCanNotBeNull, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, NULL, true)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (title, active) VALUES ('interesting title', true)", nil, true)
 	require.Equal(t, ErrPKCanNotBeNull, err)
 }
 
@@ -866,6 +866,42 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	t.Run("should resolve every row", func(t *testing.T) {
+		r, err = engine.QueryStmt("SELECT * FROM table1", nil, true)
+		require.NoError(t, err)
+
+		colsBySel, err := r.colsBySelector()
+		require.NoError(t, err)
+		require.Len(t, colsBySel, 5)
+
+		require.Equal(t, "db1", r.ImplicitDB())
+		require.Equal(t, "table1", r.ImplicitTable())
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 5)
+
+		for i := 0; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Len(t, row.Values, 5)
+			require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
+			require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
+
+			encPayload := []byte(fmt.Sprintf("blob%d", i))
+			require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "table1", "payload")].Value())
+		}
+
+		_, err = r.Read()
+		require.Equal(t, ErrNoMoreRows, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
 	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil, true)
 	require.Equal(t, ErrNoSupported, err)
 
@@ -1216,7 +1252,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
@@ -1238,7 +1274,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
@@ -1260,7 +1296,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		tsRange := scanSpecs.rangesByColID[2]
@@ -1290,7 +1326,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 2)
+		require.Len(t, scanSpecs.index.cols, 2)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
@@ -1312,7 +1348,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
@@ -1334,7 +1370,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
@@ -1361,7 +1397,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1391,7 +1427,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 2)
+		require.Len(t, scanSpecs.index.cols, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1422,7 +1458,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1451,7 +1487,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.False(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1481,7 +1517,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 2)
+		require.Len(t, scanSpecs.index.cols, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1510,7 +1546,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1539,7 +1575,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -1568,7 +1604,7 @@ func TestIndexing(t *testing.T) {
 		require.NotNil(t, scanSpecs.index)
 		require.False(t, scanSpecs.index.isPrimary())
 		require.True(t, scanSpecs.index.unique)
-		require.Len(t, scanSpecs.index.colIDs, 1)
+		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
 		titleRange := scanSpecs.rangesByColID[3]
@@ -2535,7 +2571,9 @@ func TestReOpening(t *testing.T) {
 
 	table, err := db.GetTableByName("table1")
 	require.NoError(t, err)
-	require.Equal(t, "id", table.pk.colName)
+	require.NotNil(t, table.primaryIndex)
+	require.Len(t, table.primaryIndex.cols, 1)
+	require.Equal(t, "id", table.primaryIndex.cols[0].colName)
 	require.Len(t, table.ColsByID(), 2)
 
 	col, err := table.GetColumnByName("id")
@@ -3144,30 +3182,26 @@ func TestUnmapDatabaseId(t *testing.T) {
 func TestUnmapTableId(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, pkID, err := e.unmapTableID(nil)
+	dbID, tableID, err := e.unmapTableID(nil)
 	require.ErrorIs(t, err, ErrIllegalMappedKey)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
-	require.Zero(t, pkID)
 
-	dbID, tableID, pkID, err = e.unmapTableID([]byte(
+	dbID, tableID, err = e.unmapTableID([]byte(
 		"e-prefix.CATALOG.TABLE.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
-	require.Zero(t, pkID)
 
-	dbID, tableID, pkID, err = e.unmapTableID(append(
+	dbID, tableID, err = e.unmapTableID(append(
 		[]byte("e-prefix.CATALOG.TABLE."),
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 	))
 	require.NoError(t, err)
 	require.EqualValues(t, 0x0102030405060708, dbID)
 	require.EqualValues(t, 0x1112131415161718, tableID)
-	require.EqualValues(t, 0x2122232425262728, pkID)
 }
 
 func TestUnmapColSpec(t *testing.T) {
@@ -3250,48 +3284,55 @@ func TestUnmapIndex(t *testing.T) {
 func TestUnmapIndexEntry(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	dbID, tableID, indexID, encVals, encPKVal, err := e.unmapIndexEntry(PIndexPrefix, nil)
+	encVals, encPKVals, err := e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, nil)
 	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Zero(t, dbID)
-	require.Zero(t, tableID)
-	require.Zero(t, indexID)
 	require.Nil(t, encVals)
-	require.Nil(t, encPKVal)
+	require.Nil(t, encPKVals)
 
-	dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(PIndexPrefix, []byte(
-		"e-prefix.PINDEX.a",
+	encVals, encPKVals, err = e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, []byte(
+		"e-prefix.P.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Zero(t, dbID)
-	require.Zero(t, tableID)
-	require.Zero(t, indexID)
 	require.Nil(t, encVals)
-	require.Nil(t, encPKVal)
+	require.Nil(t, encPKVals)
 
 	fullValue := append(
-		[]byte("e-prefix.SINDEX."),
+		[]byte("e-prefix.S."),
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
 		0, 0, 0, 3,
 		'a', 'b', 'c',
+		0, 0, 0, 4,
+		'w', 'x', 'y', 'z',
 	)
 
-	for i := 13; i < len(fullValue); i++ {
-		dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(SIndexPrefix, fullValue[:i])
-		require.ErrorIs(t, err, ErrCorruptedData)
-		require.Zero(t, dbID)
-		require.Zero(t, tableID)
-		require.Zero(t, indexID)
-		require.Nil(t, encVals)
-		require.Nil(t, encPKVal)
+	sIndex := &Index{
+		table: &Table{
+			db: &Database{
+				id: 0x0102030405060708,
+			},
+			id: 0x1112131415161718,
+		},
+		id:     2,
+		unique: false,
+		cols: []*Column{
+			{id: 3},
+		},
 	}
 
-	dbID, tableID, indexID, encVals, encPKVal, err = e.unmapIndexEntry(SIndexPrefix, fullValue)
+	encPKLen := 8
+
+	for i := 13; i < len(fullValue)-encPKLen; i++ {
+		encVals, encPKVals, err = e.unmapIndexEntry(sIndex, fullValue[:i])
+		require.ErrorIs(t, err, ErrCorruptedData)
+		require.Nil(t, encVals)
+		require.Nil(t, encPKVals)
+	}
+
+	encVals, encPKVals, err = e.unmapIndexEntry(sIndex, fullValue)
 	require.NoError(t, err)
-	require.EqualValues(t, 0x0102030405060708, dbID)
-	require.EqualValues(t, 0x1112131415161718, tableID)
-	require.EqualValues(t, uint64(2), indexID)
-	require.Nil(t, encVals)
-	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encPKVal)
+	require.Len(t, encVals, 1)
+	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encVals[0])
+	require.EqualValues(t, []byte{0, 0, 0, 4, 'w', 'x', 'y', 'z'}, encPKVals)
 }
