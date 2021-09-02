@@ -139,6 +139,12 @@ func TestCreateTable(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, true)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil, true)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -255,7 +261,7 @@ func TestCreateIndex(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[50], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	db, err := engine.GetDatabaseByName("db1")
@@ -305,7 +311,7 @@ func TestCreateIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
-	require.Equal(t, ErrLimitedIndex, err)
+	require.Equal(t, ErrLimitedIndexCreation, err)
 }
 
 func TestUpsertInto(t *testing.T) {
@@ -509,7 +515,7 @@ func TestTransactions(t *testing.T) {
 
 	_, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
-			CREATE TABLE table2 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id);
+			CREATE TABLE table2 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id);
 			CREATE INDEX ON table2(title);
 		COMMIT
 		`, nil, true)
@@ -585,146 +591,146 @@ func TestUseSnapshot(t *testing.T) {
 }
 
 func TestEncodeRawValue(t *testing.T) {
-	b, err := EncodeRawValue(uint64(1), IntegerType, true)
+	b, err := EncodeValue(uint64(1), IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeRawValue(true, IntegerType, true)
+	b, err = EncodeValue(true, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeRawValue(true, BooleanType, true)
+	b, err = EncodeValue(true, BooleanType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeRawValue(uint64(1), BooleanType, true)
+	b, err = EncodeValue(uint64(1), BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeRawValue("title", VarcharType, true)
+	b, err = EncodeValue("title", VarcharType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeRawValue(uint64(1), VarcharType, true)
+	b, err = EncodeValue(uint64(1), VarcharType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeRawValue([]byte{}, BLOBType, true)
+	b, err = EncodeValue([]byte{}, BLOBType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeRawValue(nil, BLOBType, true)
+	b, err = EncodeValue(nil, BLOBType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeRawValue(uint64(1), BLOBType, true)
+	b, err = EncodeValue(uint64(1), BLOBType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeRawValue(uint64(1), "invalid type", true)
+	b, err = EncodeValue(uint64(1), "invalid type", 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeRawValue("012345678901234567890123456789012", VarcharType, true)
-	require.ErrorIs(t, err, ErrInvalidPK)
+	b, err = EncodeValue("012345678901234567890123456789012", VarcharType, 32)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeRawValue("01234567890123456789012345678902", VarcharType, true)
+	_, err = EncodeValue("01234567890123456789012345678902", VarcharType, 0)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue("012345678901234567890123456789012", VarcharType, false)
+	_, err = EncodeValue("012345678901234567890123456789012", VarcharType, 0)
 	require.NoError(t, err)
 
-	b, err = EncodeRawValue([]byte{
+	b, err = EncodeValue([]byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}, BLOBType, true)
-	require.ErrorIs(t, err, ErrInvalidPK)
+	}, BLOBType, 32)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeRawValue([]byte{
+	_, err = EncodeValue([]byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
-	}, BLOBType, true)
+	}, BLOBType, 0)
 	require.NoError(t, err)
 
-	_, err = EncodeRawValue([]byte{
+	_, err = EncodeValue([]byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}, BLOBType, false)
+	}, BLOBType, 0)
 	require.NoError(t, err)
 }
 
 func TestEncodeValue(t *testing.T) {
-	b, err := EncodeValue(&Number{val: 1}, IntegerType, true)
+	b, err := EncodeValue((&Number{val: 1}).Value(), IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue(&Bool{val: true}, IntegerType, true)
+	b, err = EncodeValue((&Bool{val: true}).Value(), IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Bool{val: true}, BooleanType, true)
+	b, err = EncodeValue((&Bool{val: true}).Value(), BooleanType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue(&Number{val: 1}, BooleanType, true)
+	b, err = EncodeValue((&Number{val: 1}).Value(), BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Varchar{val: "title"}, VarcharType, true)
+	b, err = EncodeValue((&Varchar{val: "title"}).Value(), VarcharType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue(&Number{val: 1}, VarcharType, true)
+	b, err = EncodeValue((&Number{val: 1}).Value(), VarcharType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Blob{val: []byte{}}, BLOBType, true)
+	b, err = EncodeValue((&Blob{val: []byte{}}).Value(), BLOBType, 50)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue(&Blob{val: nil}, BLOBType, true)
+	b, err = EncodeValue((&Blob{val: nil}).Value(), BLOBType, 50)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue(&Number{val: 1}, BLOBType, true)
+	b, err = EncodeValue((&Number{val: 1}).Value(), BLOBType, 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue(&Number{val: 1}, "invalid type", true)
+	b, err = EncodeValue((&Number{val: 1}).Value(), "invalid type", 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
 	// Max allowed key size is 32 bytes
-	b, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, true)
-	require.ErrorIs(t, err, ErrInvalidPK)
+	b, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}).Value(), VarcharType, 32)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue(&Varchar{val: "01234567890123456789012345678902"}, VarcharType, true)
+	_, err = EncodeValue((&Varchar{val: "01234567890123456789012345678902"}).Value(), VarcharType, 256)
 	require.NoError(t, err)
 
-	_, err = EncodeValue(&Varchar{val: "012345678901234567890123456789012"}, VarcharType, false)
+	_, err = EncodeValue((&Varchar{val: "012345678901234567890123456789012"}).Value(), VarcharType, 256)
 	require.NoError(t, err)
 
-	b, err = EncodeValue(&Blob{val: []byte{
+	b, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}, BLOBType, true)
-	require.ErrorIs(t, err, ErrInvalidPK)
+	}}).Value(), BLOBType, 32)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	require.Nil(t, b)
 
-	_, err = EncodeValue(&Blob{val: []byte{
+	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1,
-	}}, BLOBType, true)
+	}}).Value(), BLOBType, 256)
 	require.NoError(t, err)
 
-	_, err = EncodeValue(&Blob{val: []byte{
+	_, err = EncodeValue((&Blob{val: []byte{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
-	}}, BLOBType, false)
+	}}).Value(), BLOBType, 256)
 	require.NoError(t, err)
 }
 
@@ -1171,7 +1177,7 @@ func TestIndexing(t *testing.T) {
 	_, err = engine.ExecStmt(`CREATE TABLE table1 (
 								id INTEGER AUTO_INCREMENT, 
 								ts INTEGER, 
-								title VARCHAR, 
+								title VARCHAR[20], 
 								active BOOLEAN,
 								amount INTEGER,
 								payload BLOB, 
@@ -1728,7 +1734,7 @@ func TestOrderBy(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil, true)
@@ -2538,7 +2544,7 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (id INTEGER, name VARCHAR, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("USE DATABASE db1; CREATE INDEX ON table1(name)", nil, true)
@@ -3284,16 +3290,14 @@ func TestUnmapIndex(t *testing.T) {
 func TestUnmapIndexEntry(t *testing.T) {
 	e := Engine{prefix: []byte("e-prefix.")}
 
-	encVals, encPKVals, err := e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, nil)
+	encPKVals, err := e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, nil)
 	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Nil(t, encVals)
 	require.Nil(t, encPKVals)
 
-	encVals, encPKVals, err = e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, []byte(
+	encPKVals, err = e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, []byte(
 		"e-prefix.P.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
-	require.Nil(t, encVals)
 	require.Nil(t, encPKVals)
 
 	fullValue := append(
@@ -3301,10 +3305,10 @@ func TestUnmapIndexEntry(t *testing.T) {
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+		'a', 'b', 'c', 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 3,
-		'a', 'b', 'c',
-		0, 0, 0, 4,
 		'w', 'x', 'y', 'z',
+		0, 0, 0, 4,
 	)
 
 	sIndex := &Index{
@@ -3317,22 +3321,19 @@ func TestUnmapIndexEntry(t *testing.T) {
 		id:     2,
 		unique: false,
 		cols: []*Column{
-			{id: 3},
+			{id: 3, colType: VarcharType, maxLen: 10},
 		},
 	}
 
 	encPKLen := 8
 
 	for i := 13; i < len(fullValue)-encPKLen; i++ {
-		encVals, encPKVals, err = e.unmapIndexEntry(sIndex, fullValue[:i])
+		encPKVals, err = e.unmapIndexEntry(sIndex, fullValue[:i])
 		require.ErrorIs(t, err, ErrCorruptedData)
-		require.Nil(t, encVals)
 		require.Nil(t, encPKVals)
 	}
 
-	encVals, encPKVals, err = e.unmapIndexEntry(sIndex, fullValue)
+	encPKVals, err = e.unmapIndexEntry(sIndex, fullValue)
 	require.NoError(t, err)
-	require.Len(t, encVals, 1)
-	require.EqualValues(t, []byte{0, 0, 0, 3, 'a', 'b', 'c'}, encVals[0])
-	require.EqualValues(t, []byte{0, 0, 0, 4, 'w', 'x', 'y', 'z'}, encPKVals)
+	require.EqualValues(t, []byte{'w', 'x', 'y', 'z', 0, 0, 0, 4}, encPKVals)
 }

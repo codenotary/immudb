@@ -180,7 +180,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 				}
 
 				if colRange.hRange != nil {
-					encVal, err := EncodeValue(colRange.hRange.val, col.colType, true)
+					encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
 					if err != nil {
 						return nil, err
 					}
@@ -192,7 +192,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 				endKeyReady = colRange.lRange == nil
 
 				if colRange.lRange != nil {
-					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
+					encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
 					if err != nil {
 						return nil, err
 					}
@@ -206,7 +206,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 				seekKeyReady = colRange.lRange == nil
 
 				if colRange.lRange != nil {
-					encVal, err := EncodeValue(colRange.lRange.val, col.colType, true)
+					encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
 					if err != nil {
 						return nil, err
 					}
@@ -220,7 +220,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 				}
 
 				if colRange.hRange != nil {
-					encVal, err := EncodeValue(colRange.hRange.val, col.colType, true)
+					encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
 					if err != nil {
 						return nil, err
 					}
@@ -319,7 +319,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 				return nil, err
 			}
 		} else {
-			_, encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
+			encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
 			if err != nil {
 				return nil, err
 			}

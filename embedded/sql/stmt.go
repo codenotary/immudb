@@ -30,11 +30,11 @@ import (
 const (
 	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}, value={tableNAME})
-	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={auto_incremental | nullable}{colNAME})
+	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
-	PIndexPrefix          = "P."                // (key=P.{dbID}{tableID}{0}({valLen}{val})+, value={count (colID valLen val)+})
-	SIndexPrefix          = "S."                // (key=S.{dbID}{tableID}{indexID}({valLen}{val})+({pkValLen}{pkVal})+, value={})
-	UIndexPrefix          = "U."                // (key=U.{dbID}{tableID}{indexID}({valLen}{val})+, value={({pkValLen}{pkVal})+)
+	PIndexPrefix          = "P."                // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
+	SIndexPrefix          = "S."                // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
+	UIndexPrefix          = "U."                // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
 )
 
 const PKIndexID = uint64(0)
@@ -271,7 +271,8 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 	}
 
 	for colID, col := range table.ColsByID() {
-		v := make([]byte, 1+len(col.colName))
+		//{auto_incremental | nullable}{maxLen}{colNAME})
+		v := make([]byte, 1+4+len(col.colName))
 
 		if col.autoIncrement {
 			if col.id != table.primaryIndex.cols[0].id {
@@ -285,7 +286,9 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 			v[0] = v[0] | nullableFlag
 		}
 
-		copy(v[1:], []byte(col.Name()))
+		binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+
+		copy(v[5:], []byte(col.Name()))
 
 		ce := &store.KV{
 			Key:   e.mapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(colID), []byte(col.colType)),
@@ -306,6 +309,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 type ColSpec struct {
 	colName       string
 	colType       SQLValueType
+	maxLen        int
 	autoIncrement bool
 	notNull       bool
 }
@@ -354,7 +358,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 			return nil, err
 		}
 		if existKey {
-			return nil, ErrLimitedIndex
+			return nil, ErrLimitedIndexCreation
 		}
 	}
 
@@ -364,6 +368,10 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
 			return nil, err
+		}
+
+		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > maxKeyLen) {
+			return nil, ErrLimitedKeyType
 		}
 
 		colIDs[i] = col.id
@@ -486,7 +494,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, ErrInvalidNumberOfValues
 		}
 
-		encRowValuesByColID := make(map[uint64][]byte)
+		valuesByColID := make(map[uint64]TypedValue)
 
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
@@ -522,12 +530,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				continue
 			}
 
-			encVal, err := EncodeValue(rval, col.colType, !asKey)
-			if err != nil {
-				return nil, err
-			}
-
-			encRowValuesByColID[colID] = encVal
+			valuesByColID[colID] = rval
 		}
 
 		// inject auto-incremental pk value
@@ -537,12 +540,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 			pkCol := table.primaryIndex.cols[0]
 
-			pkEncVal, err := EncodeValue(&Number{val: table.maxPK}, IntegerType, asKey)
-			if err != nil {
-				return nil, err
-			}
-
-			encRowValuesByColID[pkCol.id] = pkEncVal
+			valuesByColID[pkCol.id] = &Number{val: table.maxPK}
 
 			summary.lastInsertedPKs[table.name] = table.maxPK
 		}
@@ -550,9 +548,14 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		valbuf := bytes.Buffer{}
 
 		for _, col := range table.primaryIndex.cols {
-			encVal, notNull := encRowValuesByColID[col.id]
+			rval, notNull := valuesByColID[col.id]
 			if !notNull {
 				return nil, ErrPKCanNotBeNull
+			}
+
+			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+			if err != nil {
+				return nil, err
 			}
 
 			if len(encVal) > EncLenLen+maxKeyLen {
@@ -570,7 +573,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		valbuf = bytes.Buffer{}
 
 		b := make([]byte, EncLenLen)
-		binary.BigEndian.PutUint32(b, uint32(len(encRowValuesByColID)))
+		binary.BigEndian.PutUint32(b, uint32(len(valuesByColID)))
 
 		_, err = valbuf.Write(b)
 		if err != nil {
@@ -578,9 +581,14 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		for _, col := range table.cols {
-			encVal, notNull := encRowValuesByColID[col.id]
+			rval, notNull := valuesByColID[col.id]
 			if !notNull {
 				continue
+			}
+
+			encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
+			if err != nil {
+				return nil, err
 			}
 
 			b := make([]byte, EncIDLen)
@@ -642,9 +650,14 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			encodedValues[2] = EncodeID(index.id)
 
 			for i, col := range index.cols {
-				encVal, notNull := encRowValuesByColID[col.id]
+				rval, notNull := valuesByColID[col.id]
 				if !notNull {
 					return nil, ErrIndexedColumnCanNotBeNull
+				}
+
+				encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+				if err != nil {
+					return nil, err
 				}
 
 				encodedValues[i+3] = encVal

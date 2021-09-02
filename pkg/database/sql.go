@@ -62,7 +62,9 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, errors.New("verification with multi-key primary keys is not yet supported")
 	}
 
-	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(req.SqlGetRequest.PkValue), table.PrimaryIndex().Cols()[0].Type(), true)
+	pkCol := table.PrimaryIndex().Cols()[0]
+
+	pkEncVal, err := sql.EncodeAsKey(schema.RawValue(req.SqlGetRequest.PkValue), pkCol.Type(), pkCol.MaxLen())
 	if err != nil {
 		return nil, err
 	}
