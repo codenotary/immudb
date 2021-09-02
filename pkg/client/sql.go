@@ -132,7 +132,20 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return sql.ErrCorruptedData
 	}
 
-	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(pkVal), pkType, true)
+	// TODO: properly provide maxLen from server side
+	var pkLen int
+	switch pkType {
+	case "INTEGER":
+		pkLen = 8
+	case "TIMESTAMP":
+		pkLen = 8
+	case "BOOLEAN":
+		pkLen = 1
+	default:
+		return errors.New("not yet implemented")
+	}
+
+	pkEncVal, err := sql.EncodeAsKey(schema.RawValue(pkVal), pkType, pkLen)
 	if err != nil {
 		return err
 	}

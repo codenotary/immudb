@@ -114,7 +114,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <boolExp> boolExp opt_where opt_having
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <number> opt_limit
+%type <number> opt_limit opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -354,9 +354,19 @@ colsSpec:
     }
 
 colSpec:
-    IDENTIFIER TYPE opt_auto_increment opt_not_null
+    IDENTIFIER TYPE opt_max_len opt_auto_increment opt_not_null
     {
-        $$ = &ColSpec{colName: $1, colType: $2, autoIncrement: $3, notNull: $4}
+        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), autoIncrement: $4, notNull: $5}
+    }
+
+opt_max_len:
+    {
+        $$ = 0
+    }
+|
+    '[' NUMBER ']'
+    {
+        $$ = $2
     }
 
 opt_auto_increment:

@@ -57,6 +57,7 @@ type Column struct {
 	id            uint64
 	colName       string
 	colType       SQLValueType
+	maxLen        int
 	autoIncrement bool
 	notNull       bool
 }
@@ -295,6 +296,10 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 			return nil, ErrLimitedAutoIncrement
 		}
 
+		if !validMaxLenForType(cs.maxLen, cs.colType) {
+			return nil, ErrLimitedMaxLen
+		}
+
 		id := len(table.colsByID) + 1
 
 		col := &Column{
@@ -302,6 +307,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 			table:         table,
 			colName:       cs.colName,
 			colType:       cs.colType,
+			maxLen:        cs.maxLen,
 			autoIncrement: cs.autoIncrement,
 			notNull:       cs.notNull,
 		}
@@ -386,10 +392,35 @@ func (c *Column) Type() SQLValueType {
 	return c.colType
 }
 
+func (c *Column) MaxLen() int {
+	switch c.colType {
+	case BooleanType:
+		return 1
+	case IntegerType:
+		return 8
+	case TimestampType:
+		return 8
+	}
+	return c.maxLen
+}
+
 func (c *Column) IsNullable() bool {
 	return !c.notNull
 }
 
 func (c *Column) IsAutoIncremental() bool {
 	return c.autoIncrement
+}
+
+func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
+	switch sqlType {
+	case BooleanType:
+		return maxLen <= 1
+	case IntegerType:
+		return maxLen == 0 || maxLen == 8
+	case TimestampType:
+		return maxLen == 0 || maxLen == 8
+	}
+
+	return maxLen >= 0
 }

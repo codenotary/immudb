@@ -166,14 +166,14 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR[50], ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY (id, name))",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:       "table1",
 					ifNotExists: false,
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
-						{colName: "name", colType: VarcharType},
+						{colName: "name", colType: VarcharType, maxLen: 50},
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
