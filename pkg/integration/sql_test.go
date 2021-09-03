@@ -75,7 +75,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
 		require.Equal(t, sql.ErrColumnDoesNotExist, err)
 	}
 
@@ -84,12 +84,12 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NotNil(t, res)
 
 	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
 		require.NoError(t, err)
 
 		row.Values[1].Value = &schema.SQLValue_S{S: "tampered title"}
 
-		err = client.VerifyRow(ctx, row, "table1", row.Values[0])
+		err = client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
 		require.Equal(t, sql.ErrCorruptedData, err)
 	}
 
@@ -98,7 +98,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NotNil(t, res)
 
 	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
 		require.NoError(t, err)
 	}
 
@@ -107,7 +107,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NotNil(t, res)
 
 	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 		require.NoError(t, err)
 	}
 
@@ -184,7 +184,7 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	err = client.VerifyRow(context.Background(), &schema.Row{
 		Columns: []string{"col1"},
 		Values:  []*schema.SQLValue{},
-	}, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 	require.True(t, errors.Is(err, sql.ErrCorruptedData))
 
 	err = client.VerifyRow(context.Background(), nil, "", nil)
@@ -211,6 +211,6 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	err = client.VerifyRow(context.Background(), &schema.Row{
 		Columns: []string{"col1"},
 		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
-	}, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 }

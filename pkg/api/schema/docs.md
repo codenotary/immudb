@@ -70,6 +70,7 @@
     - [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest)
     - [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry)
     - [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry)
+    - [VerifiableSQLEntry.ColLenByIdEntry](#immudb.schema.VerifiableSQLEntry.ColLenByIdEntry)
     - [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry)
     - [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry)
     - [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest)
@@ -774,7 +775,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [string](#string) |  |  |
-| pkValue | [SQLValue](#immudb.schema.SQLValue) |  |  |
+| pkValues | [SQLValue](#immudb.schema.SQLValue) | repeated |  |
 | atTx | [uint64](#uint64) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 
@@ -1176,10 +1177,11 @@
 | inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
 | DatabaseId | [uint64](#uint64) |  |  |
 | TableId | [uint64](#uint64) |  |  |
-| PKName | [string](#string) |  |  |
+| PKIDs | [uint64](#uint64) | repeated |  |
 | ColNamesById | [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry) | repeated |  |
 | ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated |  |
 | ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated |  |
+| ColLenById | [VerifiableSQLEntry.ColLenByIdEntry](#immudb.schema.VerifiableSQLEntry.ColLenByIdEntry) | repeated |  |
 
 
 
@@ -1196,6 +1198,22 @@
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
 | value | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLEntry.ColLenByIdEntry"></a>
+
+### VerifiableSQLEntry.ColLenByIdEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [uint64](#uint64) |  |  |
+| value | [int32](#int32) |  |  |
 
 
 
