@@ -1289,7 +1289,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 AND ts < 1629902963 ORDER BY ts", nil, true)
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 OR ts < 1629902963 ORDER BY ts", nil, true)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1307,6 +1307,68 @@ func TestIndexing(t *testing.T) {
 
 		tsRange := scanSpecs.rangesByColID[2]
 		require.Nil(t, tsRange.lRange)
+		require.NotNil(t, tsRange.hRange)
+		require.False(t, tsRange.hRange.inclusive)
+		require.Equal(t, uint64(1629902963), tsRange.hRange.val.Value())
+
+		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 AND ts = 1629902963 ORDER BY ts", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "ts", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.False(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.cols, 1)
+		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		tsRange := scanSpecs.rangesByColID[2]
+		require.NotNil(t, tsRange.lRange)
+		require.True(t, tsRange.lRange.inclusive)
+		require.Equal(t, uint64(1629902963), tsRange.lRange.val.Value())
+		require.NotNil(t, tsRange.hRange)
+		require.True(t, tsRange.hRange.inclusive)
+		require.Equal(t, uint64(1629902962), tsRange.hRange.val.Value())
+
+		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts > 1629902962 AND ts < 1629902963 ORDER BY ts", nil, true)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "ts", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.index)
+		require.False(t, scanSpecs.index.isPrimary())
+		require.False(t, scanSpecs.index.unique)
+		require.Len(t, scanSpecs.index.cols, 1)
+		require.Len(t, scanSpecs.rangesByColID, 1)
+
+		tsRange := scanSpecs.rangesByColID[2]
+		require.NotNil(t, tsRange.lRange)
+		require.False(t, tsRange.lRange.inclusive)
+		require.Equal(t, uint64(1629902962), tsRange.lRange.val.Value())
 		require.NotNil(t, tsRange.hRange)
 		require.False(t, tsRange.hRange.inclusive)
 		require.Equal(t, uint64(1629902963), tsRange.hRange.val.Value())

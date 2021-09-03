@@ -716,8 +716,7 @@ func (r *typedValueRange) unitary() bool {
 func (r *typedValueRange) refineWith(refiningRange *typedValueRange) error {
 	if r.lRange == nil {
 		r.lRange = refiningRange.lRange
-	}
-	if r.lRange != nil && refiningRange.lRange != nil {
+	} else if r.lRange != nil && refiningRange.lRange != nil {
 		maxRange, err := maxSemiRange(r.lRange, refiningRange.lRange)
 		if err != nil {
 			return err
@@ -727,8 +726,7 @@ func (r *typedValueRange) refineWith(refiningRange *typedValueRange) error {
 
 	if r.hRange == nil {
 		r.hRange = refiningRange.hRange
-	}
-	if r.hRange != nil && refiningRange.hRange != nil {
+	} else if r.hRange != nil && refiningRange.hRange != nil {
 		minRange, err := minSemiRange(r.hRange, refiningRange.hRange)
 		if err != nil {
 			return err
@@ -740,7 +738,9 @@ func (r *typedValueRange) refineWith(refiningRange *typedValueRange) error {
 }
 
 func (r *typedValueRange) extendWith(extendingRange *typedValueRange) error {
-	if r.lRange != nil && extendingRange.lRange != nil {
+	if r.lRange == nil || extendingRange.lRange == nil {
+		r.lRange = nil
+	} else {
 		minRange, err := minSemiRange(r.lRange, extendingRange.lRange)
 		if err != nil {
 			return err
@@ -748,7 +748,9 @@ func (r *typedValueRange) extendWith(extendingRange *typedValueRange) error {
 		r.lRange = minRange
 	}
 
-	if r.hRange != nil && extendingRange.hRange != nil {
+	if r.hRange == nil || extendingRange.hRange == nil {
+		r.hRange = nil
+	} else {
 		maxRange, err := maxSemiRange(r.hRange, extendingRange.hRange)
 		if err != nil {
 			return err
@@ -2205,15 +2207,12 @@ func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID
 		}
 	}
 
-	if ranged {
-		err := currRange.refineWith(newRange)
-		if err != nil {
-			return err
-		}
+	if !ranged {
+		rangesByColID[colID] = newRange
+		return nil
 	}
 
-	rangesByColID[colID] = newRange
-	return nil
+	return currRange.refineWith(newRange)
 }
 
 func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
