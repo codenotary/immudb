@@ -349,10 +349,10 @@ message Table {
 }
 
 message SQLGetRequest {
-	string   table = 1;
-	SQLValue pkValue = 2;
-    uint64   atTx = 3;
-	uint64   sinceTx = 4;
+	string table = 1;
+	repeated SQLValue pkValues = 2;
+    uint64 atTx = 3;
+	uint64 sinceTx = 4;
 }
 
 message VerifiableSQLGetRequest {
@@ -372,10 +372,11 @@ message VerifiableSQLEntry {
 	InclusionProof inclusionProof = 3;
 	uint64 DatabaseId = 4;
 	uint64 TableId = 5;
-	string PKName = 6;
+	repeated uint64 PKIDs = 6;
 	map<uint64, string> ColNamesById = 8;
 	map<string, uint64> ColIdsByName = 9;
 	map<uint64, string> ColTypesById = 10;
+	map<uint64, int32> ColLenById = 11;
 }
 
 message UseDatabaseReply{

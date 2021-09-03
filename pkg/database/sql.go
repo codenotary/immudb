@@ -16,6 +16,7 @@ limitations under the License.
 package database
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 
@@ -58,19 +59,28 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, err
 	}
 
-	if len(table.PrimaryIndex().Cols()) > 1 {
-		return nil, errors.New("verification with multi-key primary keys is not yet supported")
-	}
+	valbuf := bytes.Buffer{}
 
-	pkCol := table.PrimaryIndex().Cols()[0]
+	for i, pkCol := range table.PrimaryIndex().Cols() {
+		pkEncVal, err := sql.EncodeAsKey(schema.RawValue(req.SqlGetRequest.PkValues[i]), pkCol.Type(), pkCol.MaxLen())
+		if err != nil {
+			return nil, err
+		}
 
-	pkEncVal, err := sql.EncodeAsKey(schema.RawValue(req.SqlGetRequest.PkValue), pkCol.Type(), pkCol.MaxLen())
-	if err != nil {
-		return nil, err
+		_, err = valbuf.Write(pkEncVal)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// build the encoded key for the pk
-	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.PIndexPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(sql.PKIndexID), pkEncVal)
+	pkKey := sql.MapKey(
+		[]byte{SQLPrefix},
+		sql.PIndexPrefix,
+		sql.EncodeID(table.Database().ID()),
+		sql.EncodeID(table.ID()),
+		sql.EncodeID(sql.PKIndexID),
+		valbuf.Bytes())
 
 	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, txEntry)
 	if err != nil {
@@ -121,14 +131,22 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	colNamesById := make(map[uint64]string, len(table.ColsByID()))
+	colNamesByID := make(map[uint64]string, len(table.ColsByID()))
 	colIdsByName := make(map[string]uint64, len(table.ColsByName()))
-	colTypesById := make(map[uint64]string, len(table.ColsByID()))
+	colTypesByID := make(map[uint64]string, len(table.ColsByID()))
+	colLenByID := make(map[uint64]int32, len(table.ColsByID()))
 
 	for _, col := range table.ColsByID() {
-		colNamesById[col.ID()] = col.Name()
+		colNamesByID[col.ID()] = col.Name()
 		colIdsByName[sql.EncodeSelector("", d.options.dbName, table.Name(), col.Name())] = col.ID()
-		colTypesById[col.ID()] = col.Type()
+		colTypesByID[col.ID()] = col.Type()
+		colLenByID[col.ID()] = int32(col.MaxLen())
+	}
+
+	pkIDs := make([]uint64, len(table.PrimaryIndex().Cols()))
+
+	for i, col := range table.PrimaryIndex().Cols() {
+		pkIDs[i] = uint64(col.ID())
 	}
 
 	return &schema.VerifiableSQLEntry{
@@ -137,10 +155,11 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		InclusionProof: schema.InclusionProofTo(inclusionProof),
 		DatabaseId:     table.Database().ID(),
 		TableId:        table.ID(),
-		PKName:         table.PrimaryIndex().Cols()[0].Name(),
-		ColNamesById:   colNamesById,
+		PKIDs:          pkIDs,
+		ColNamesById:   colNamesByID,
 		ColIdsByName:   colIdsByName,
-		ColTypesById:   colTypesById,
+		ColTypesById:   colTypesByID,
+		ColLenById:     colLenByID,
 	}, nil
 }
 

@@ -90,8 +90,8 @@ func TestReadOnlyReplica(t *testing.T) {
 
 	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
-			Table:   "mytable",
-			PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}},
+			Table:    "mytable",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
 	require.Equal(t, ErrSQLNotReady, err)
@@ -127,8 +127,8 @@ func TestSwitchToReplica(t *testing.T) {
 
 	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
-			Table:   "mytable",
-			PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}},
+			Table:    "mytable",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
 	require.NoError(t, err)

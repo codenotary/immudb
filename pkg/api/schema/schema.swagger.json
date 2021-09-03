@@ -1866,8 +1866,11 @@
         "table": {
           "type": "string"
         },
-        "pkValue": {
-          "$ref": "#/definitions/schemaSQLValue"
+        "pkValues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaSQLValue"
+          }
         },
         "atTx": {
           "type": "string",
@@ -2209,8 +2212,12 @@
           "type": "string",
           "format": "uint64"
         },
-        "PKName": {
-          "type": "string"
+        "PKIDs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uint64"
+          }
         },
         "ColNamesById": {
           "type": "object",
@@ -2229,6 +2236,13 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
+          }
+        },
+        "ColLenById": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       }

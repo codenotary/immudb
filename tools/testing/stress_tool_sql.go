@@ -188,7 +188,7 @@ func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, 
 		}
 		if len(r.Rows) > 0 {
 			row := r.Rows[0]
-			err = client.VerifyRow(ctx, row, "entries", row.Values[0])
+			err = client.VerifyRow(ctx, row, "entries", []*schema.SQLValue{row.Values[0]})
 			if err != nil {
 				log.Fatalf("Verification failed: verifier %d, id %d row %+v", id, idx, row)
 			}

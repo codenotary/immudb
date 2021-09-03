@@ -112,39 +112,57 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Equal(t, store.ErrIllegalArguments, err)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
-		ProveSinceTx:  4,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+		},
+		ProveSinceTx: 4,
 	})
 	require.Equal(t, store.ErrIllegalState, err)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table2", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
-		ProveSinceTx:  0,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table2",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+		},
+		ProveSinceTx: 0,
 	})
 	require.Equal(t, sql.ErrTableDoesNotExist, err)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}},
-		ProveSinceTx:  0,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_B{B: true}}},
+		},
+		ProveSinceTx: 0,
 	})
 	require.Equal(t, sql.ErrInvalidValue, err)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 4}}},
-		ProveSinceTx:  0,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
+		},
+		ProveSinceTx: 0,
 	})
 	require.Equal(t, store.ErrKeyNotFound, err)
 
 	ve, err := db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
-		ProveSinceTx:  0,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+		},
+		ProveSinceTx: 0,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, ve)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
-		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 4}}},
-		ProveSinceTx:  0,
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
+		},
+		ProveSinceTx: 0,
 	})
 	require.Equal(t, store.ErrKeyNotFound, err)
 
