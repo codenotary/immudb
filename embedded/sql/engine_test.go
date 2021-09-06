@@ -155,6 +155,9 @@ func TestCreateTable(t *testing.T) {
 
 	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
 }
 
 func TestDumpCatalogTo(t *testing.T) {
@@ -394,6 +397,18 @@ func TestUpsertInto(t *testing.T) {
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (title, active) VALUES ('interesting title', true)", nil, true)
 	require.Equal(t, ErrPKCanNotBeNull, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES (x'00A1')", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES (x'00A100A2')", nil, true)
+	require.ErrorIs(t, err, ErrMaxLengthExceeded)
+
+	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES ('00A100A2')", nil, true)
+	require.ErrorIs(t, err, ErrInvalidValue)
 }
 
 func TestAutoIncrementPK(t *testing.T) {

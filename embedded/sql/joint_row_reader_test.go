@@ -80,4 +80,9 @@ func TestJointRowReader(t *testing.T) {
 	cols, err := jr.Columns()
 	require.NoError(t, err)
 	require.Len(t, cols, 1)
+
+	scanSpecs := jr.ScanSpecs()
+	require.NotNil(t, scanSpecs)
+	require.NotNil(t, scanSpecs.index)
+	require.True(t, scanSpecs.index.isPrimary())
 }

@@ -28,7 +28,30 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	return db.VerifiableSQLGet(req)
+	ventry, err := db.VerifiableSQLGet(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(ventry.VerifiableTx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     db.GetOptions().GetDBName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		ventry.VerifiableTx.Signature = newState.Signature
+	}
+
+	return ventry, nil
 }
 
 func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
