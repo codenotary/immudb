@@ -91,7 +91,9 @@ type ImmuClient interface {
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
+	//DEPRECATED: use CompactIndex instead
 	CleanIndex(ctx context.Context, req *emptypb.Empty) error
+	CompactIndex(ctx context.Context, req *empty.Empty) error
 
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 

@@ -337,6 +337,10 @@ message DatabaseSettings {
 	uint32 srcPort = 5;
 	string followerUsr = 6;
 	string followerPwd = 7;
+	uint32 fileSize = 8;
+	uint32 maxKeyLen = 9;
+	uint32 maxValueLen = 10;
+	uint32 maxTxEntries = 11;
 }
 
 message Table {

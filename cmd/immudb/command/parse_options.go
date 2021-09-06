@@ -66,9 +66,6 @@ func parseOptions() (options *server.Options, err error) {
 		WithS3BucketName(s3BucketName).
 		WithS3PathPrefix(s3PathPrefix)
 
-	storeOpts := server.DefaultStoreOptions().
-		WithSynced(synced)
-
 	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
 	if err != nil {
 		return options, err
@@ -90,7 +87,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithAdminPassword(adminPassword).
 		WithMaintenance(maintenance).
 		WithSigningKey(signingKey).
-		WithStoreOptions(storeOpts).
+		WithSynced(synced).
 		WithRemoteStorageOptions(remoteStorageOptions).
 		WithTokenExpiryTime(tokenExpTime).
 		WithWebServer(webServer).

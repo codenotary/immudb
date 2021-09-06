@@ -93,7 +93,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	dataDir := s.Options.Dir
-	err = os.MkdirAll(dataDir, s.Options.StoreOptions.FileMode)
+	err = os.MkdirAll(dataDir, store.DefaultFileMode)
 	if err != nil {
 		return logErr(s.Logger, "Unable to create data dir: %v", err)
 	}
@@ -356,7 +356,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDbName())
 
 	// Do a copy of storeOpts to avoid modification of the original ones
-	storeOpts := s.storeOptionsForDb(s.Options.GetSystemAdminDbName(), remoteStorage).
+	storeOpts := s.storeOptionsForDb(s.Options.GetSystemAdminDbName(), remoteStorage, s.Options.DefaultStoreOptions()).
 		WithSynced(true)
 
 	op := database.DefaultOption().
@@ -421,7 +421,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	op := database.DefaultOption().
 		WithDBName(s.Options.GetDefaultDbName()).
 		WithDBRootPath(dataDir).
-		WithStoreOptions(s.storeOptionsForDb(s.Options.GetDefaultDbName(), remoteStorage))
+		WithStoreOptions(s.storeOptionsForDb(s.Options.GetDefaultDbName(), remoteStorage, s.Options.DefaultStoreOptions()))
 
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
@@ -512,7 +512,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		op := database.DefaultOption().
 			WithDBName(dbname).
 			WithDBRootPath(dataDir).
-			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage)).
+			WithStoreOptions(s.storeOptionsForDb(dbname, remoteStorage, s.Options.DefaultStoreOptions())).
 			AsReplica(settings.Replica).
 			WithReplicationOptions(replicationOpts)
 
@@ -635,6 +635,12 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
 }
 
+var conditionalSet = func(condition bool, setter func()) {
+	if condition {
+		setter()
+	}
+}
+
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
@@ -705,10 +711,17 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 
 	dataDir := s.Options.Dir
 
+	stOpts := s.Options.DefaultStoreOptions()
+
+	conditionalSet(req.FileSize > 0, func() { stOpts.WithFileSize(int(req.FileSize)) })
+	conditionalSet(req.MaxKeyLen > 0, func() { stOpts.WithMaxKeyLen(int(req.MaxKeyLen)) })
+	conditionalSet(req.MaxValueLen > 0, func() { stOpts.WithMaxValueLen(int(req.MaxValueLen)) })
+	conditionalSet(req.MaxTxEntries > 0, func() { stOpts.WithMaxTxEntries(int(req.MaxTxEntries)) })
+
 	op := database.DefaultOption().
 		WithDBName(req.DatabaseName).
 		WithDBRootPath(dataDir).
-		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage)).
+		WithStoreOptions(s.storeOptionsForDb(req.DatabaseName, s.remoteStorage, stOpts)).
 		AsReplica(settings.Replica).
 		WithReplicationOptions(replicationOpts)
 

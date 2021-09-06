@@ -889,7 +889,6 @@ func TestImmuClient_History(t *testing.T) {
 
 func TestImmuClient_SetAll(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
-	options.StoreOptions.WithIndexOptions(options.StoreOptions.IndexOpts.WithCompactionThld(0))
 	bs := servertest.NewBufconnServer(options)
 
 	defer os.RemoveAll(options.Dir)
@@ -927,7 +926,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	err = client.CleanIndex(ctx, &emptypb.Empty{})
+	err = client.CompactIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	for _, kv := range setRequest.KVs {

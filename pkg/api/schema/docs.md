@@ -241,6 +241,12 @@
 | srcPort | [uint32](#uint32) |  |  |
 | followerUsr | [string](#string) |  |  |
 | followerPwd | [string](#string) |  |  |
+| fileSize | [uint32](#uint32) |  |  |
+| maxKeyLen | [uint32](#uint32) |  |  |
+| maxValueLen | [uint32](#uint32) |  |  |
+| maxTxEntries | [uint32](#uint32) |  |  |
+| maxConcurrency | [uint32](#uint32) |  |  |
+| maxIOConcurrency | [uint32](#uint32) |  |  |
 
 
 
