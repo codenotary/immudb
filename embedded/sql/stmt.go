@@ -270,7 +270,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	for colID, col := range table.ColsByID() {
+	for _, col := range table.Cols() {
 		//{auto_incremental | nullable}{maxLen}{colNAME})
 		v := make([]byte, 1+4+len(col.colName))
 
@@ -291,7 +291,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		copy(v[5:], []byte(col.Name()))
 
 		ce := &store.KV{
-			Key:   e.mapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(colID), []byte(col.colType)),
+			Key:   e.mapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(col.id), []byte(col.colType)),
 			Value: v,
 		}
 		summary.ces = append(summary.ces, ce)

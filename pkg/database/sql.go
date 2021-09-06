@@ -131,12 +131,12 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	colNamesByID := make(map[uint64]string, len(table.ColsByID()))
+	colNamesByID := make(map[uint64]string, len(table.Cols()))
 	colIdsByName := make(map[string]uint64, len(table.ColsByName()))
-	colTypesByID := make(map[uint64]string, len(table.ColsByID()))
-	colLenByID := make(map[uint64]int32, len(table.ColsByID()))
+	colTypesByID := make(map[uint64]string, len(table.Cols()))
+	colLenByID := make(map[uint64]int32, len(table.Cols()))
 
-	for _, col := range table.ColsByID() {
+	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
 		colIdsByName[sql.EncodeSelector("", d.options.dbName, table.Name(), col.Name())] = col.ID()
 		colTypesByID[col.ID()] = col.Type()
@@ -242,7 +242,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		{Name: "AUTO_INCREMENT", Type: sql.BooleanType},
 	}}
 
-	for _, c := range table.ColsByID() {
+	for _, c := range table.Cols() {
 		index := "NO"
 
 		if table.PrimaryIndex().Cols()[0].Name() == c.Name() {
