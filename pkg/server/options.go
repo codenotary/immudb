@@ -259,10 +259,12 @@ func (o *Options) String() string {
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
 	}
-	opts = append(opts, "----------------------------------------")
-	opts = append(opts, "Superadmin default credentials")
-	opts = append(opts, rightPad("   Username", auth.SysAdminUsername))
-	opts = append(opts, rightPad("   Password", auth.SysAdminPassword))
+	if o.AdminPassword == auth.SysAdminPassword {
+		opts = append(opts, "----------------------------------------")
+		opts = append(opts, "Superadmin default credentials")
+		opts = append(opts, rightPad("   Username", auth.SysAdminUsername))
+		opts = append(opts, rightPad("   Password", auth.SysAdminPassword))
+	}
 	opts = append(opts, "========================================")
 	return strings.Join(opts, "\n")
 }
