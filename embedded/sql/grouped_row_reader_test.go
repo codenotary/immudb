@@ -70,4 +70,9 @@ func TestGroupedRowReader(t *testing.T) {
 	cols, err := gr.Columns()
 	require.NoError(t, err)
 	require.Len(t, cols, 1)
+
+	scanSpecs := gr.ScanSpecs()
+	require.NotNil(t, scanSpecs)
+	require.NotNil(t, scanSpecs.index)
+	require.True(t, scanSpecs.index.isPrimary())
 }

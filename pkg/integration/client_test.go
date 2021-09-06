@@ -1612,9 +1612,14 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
+
 	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
+	require.NoError(t, err)
+
 	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
 	require.NoError(t, err)
+
 	_, err = client.VerifiedGet(ctx, []byte(`key3`))
 	require.NoError(t, err)
 	client.Disconnect()
@@ -1667,7 +1672,7 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedGet(ctx, []byte(`key3`))
-	require.Equal(t, ic.ErrServerStateIsOlder, err)
+	require.ErrorIs(t, err, ic.ErrServerStateIsOlder)
 
 	bs.Stop()
 }

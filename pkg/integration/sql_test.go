@@ -32,7 +32,7 @@ import (
 )
 
 func TestImmuClient_SQL(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	defer os.RemoveAll(options.Dir)
@@ -41,7 +41,11 @@ func TestImmuClient_SQL(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	clientOpts := ic.DefaultOptions().
+		WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithServerSigningPubKey("./../../test/signer/ec1.pub")
+
+	client, err := ic.NewImmuClient(clientOpts)
 	require.NoError(t, err)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
@@ -75,6 +79,12 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, row := range res.Rows {
+		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+		require.Equal(t, sql.ErrColumnDoesNotExist, err)
+	}
+
+	for i := len(res.Rows); i > 0; i-- {
+		row := res.Rows[i-1]
 		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
 		require.Equal(t, sql.ErrColumnDoesNotExist, err)
 	}
