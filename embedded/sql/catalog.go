@@ -183,10 +183,6 @@ func (t *Table) Cols() []*Column {
 	return t.cols
 }
 
-func (t *Table) ColsByID() map[uint64]*Column {
-	return t.colsByID
-}
-
 func (t *Table) ColsByName() map[string]*Column {
 	return t.colsByName
 }

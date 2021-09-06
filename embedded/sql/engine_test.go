@@ -2657,7 +2657,7 @@ func TestReOpening(t *testing.T) {
 	require.NotNil(t, table.primaryIndex)
 	require.Len(t, table.primaryIndex.cols, 1)
 	require.Equal(t, "id", table.primaryIndex.cols[0].colName)
-	require.Len(t, table.ColsByID(), 2)
+	require.Len(t, table.Cols(), 2)
 
 	col, err := table.GetColumnByName("id")
 	require.NoError(t, err)

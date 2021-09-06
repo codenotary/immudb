@@ -110,10 +110,10 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]*ColDescriptor, len(table.ColsByID()))
-	colsBySel := make(map[string]*ColDescriptor, len(table.ColsByID()))
+	colsByPos := make([]*ColDescriptor, len(table.Cols()))
+	colsBySel := make(map[string]*ColDescriptor, len(table.Cols()))
 
-	for i, c := range table.ColsByID() {
+	for i, c := range table.Cols() {
 		colDescriptor := &ColDescriptor{
 			Database: table.db.name,
 			Table:    tableAlias,
@@ -121,7 +121,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 			Type:     c.colType,
 		}
 
-		colsByPos[i-1] = colDescriptor
+		colsByPos[i] = colDescriptor
 		colsBySel[colDescriptor.Selector()] = colDescriptor
 	}
 
@@ -331,9 +331,9 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		}
 	}
 
-	values := make(map[string]TypedValue, len(r.table.ColsByID()))
+	values := make(map[string]TypedValue, len(r.table.Cols()))
 
-	for _, col := range r.table.colsByName {
+	for _, col := range r.table.Cols() {
 		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
 	}
 

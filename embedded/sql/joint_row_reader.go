@@ -113,7 +113,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 		tableRef := jspec.ds.(*tableRef)
 		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 
-		for _, c := range table.ColsByID() {
+		for _, c := range table.Cols() {
 			des := &ColDescriptor{
 				Database: table.db.name,
 				Table:    tableRef.Alias(),
