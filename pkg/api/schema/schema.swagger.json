@@ -1440,6 +1440,30 @@
         },
         "followerPwd": {
           "type": "string"
+        },
+        "fileSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxKeyLen": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxValueLen": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxTxEntries": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxConcurrency": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxIOConcurrency": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

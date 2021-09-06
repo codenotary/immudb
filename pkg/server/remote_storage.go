@@ -93,7 +93,7 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 	for _, subFolder := range subFolders {
 		err := os.MkdirAll(
 			filepath.Join(s.Options.Dir, subFolder),
-			s.Options.StoreOptions.FileMode,
+			store.DefaultFileMode,
 		)
 		if err != nil {
 			return err
@@ -108,12 +108,9 @@ func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error
 	return remoteStorage.Put(ctx, IDENTIFIER_FNAME, filepath.Join(s.Options.Dir, IDENTIFIER_FNAME))
 }
 
-func (s *ImmuServer) storeOptionsForDb(name string, remoteStorage remotestorage.Storage) *store.Options {
-	opts := *s.Options.StoreOptions
-
+func (s *ImmuServer) storeOptionsForDb(name string, remoteStorage remotestorage.Storage, stOpts *store.Options) *store.Options {
 	if remoteStorage != nil {
-
-		opts.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+		stOpts.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
 			baseDir, err := filepath.Abs(s.Options.Dir)
 			if err != nil {
 				return nil, err
@@ -146,5 +143,5 @@ func (s *ImmuServer) storeOptionsForDb(name string, remoteStorage remotestorage.
 			WithCompactionDisabled(true) // Disable index compaction
 	}
 
-	return &opts
+	return stOpts
 }

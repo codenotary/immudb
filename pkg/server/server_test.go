@@ -977,8 +977,6 @@ func TestServerDbOperations(t *testing.T) {
 		WithAdminPassword(auth.SysAdminPassword).
 		WithSigningKey("./../../test/signer/ec1.key")
 
-	serverOptions.StoreOptions.IndexOpts = serverOptions.StoreOptions.IndexOpts.WithCompactionThld(0)
-
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 

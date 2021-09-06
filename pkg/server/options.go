@@ -32,6 +32,8 @@ import (
 
 const SystemdbName = "systemdb"
 const DefaultdbName = "defaultdb"
+const DefaultMaxValueLen = 1 << 25   //32Mb
+const DefaultStoreFileSize = 1 << 29 //512Mb
 
 // Options server options list
 type Options struct {
@@ -59,7 +61,7 @@ type Options struct {
 	usingCustomListener  bool
 	maintenance          bool
 	SigningKey           string
-	StoreOptions         *store.Options
+	synced               bool
 	RemoteStorageOptions *RemoteStorageOptions
 	StreamChunkSize      int
 	TokenExpiryTimeMin   int
@@ -101,7 +103,7 @@ func DefaultOptions() *Options {
 		defaultDbName:        DefaultdbName,
 		usingCustomListener:  false,
 		maintenance:          false,
-		StoreOptions:         DefaultStoreOptions(),
+		synced:               true,
 		RemoteStorageOptions: DefaultRemoteStorageOptions(),
 		StreamChunkSize:      stream.DefaultChunkSize,
 		TokenExpiryTimeMin:   1440,
@@ -110,16 +112,22 @@ func DefaultOptions() *Options {
 	}
 }
 
-func DefaultStoreOptions() *store.Options {
+func (opts *Options) DefaultStoreOptions() *store.Options {
 	indexOptions := store.DefaultIndexOptions().
 		WithRenewSnapRootAfter(0).
+		WithCompactionThld(0).
 		WithDelayDuringCompaction(10 * time.Millisecond)
 
 	return store.DefaultOptions().
 		WithIndexOptions(indexOptions).
 		WithMaxLinearProofLen(0).
 		WithMaxConcurrency(10).
-		WithMaxValueLen(32 << 20)
+		WithMaxIOConcurrency(1).
+		WithFileSize(DefaultStoreFileSize).
+		WithMaxKeyLen(store.DefaultMaxKeyLen).
+		WithMaxValueLen(DefaultMaxValueLen).
+		WithMaxTxEntries(store.DefaultMaxTxEntries).
+		WithSynced(opts.synced)
 }
 
 func DefaultRemoteStorageOptions() *RemoteStorageOptions {
@@ -206,11 +214,6 @@ func (o *Options) WithDetached(detached bool) *Options {
 	return o
 }
 
-func (o *Options) WithStoreOptions(storeOpts *store.Options) *Options {
-	o.StoreOptions = storeOpts
-	return o
-}
-
 // Bind returns bind address
 func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
@@ -252,7 +255,7 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
 	opts = append(opts, rightPad("Default database", o.defaultDbName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
-	opts = append(opts, rightPad("Synced mode", o.StoreOptions.Synced))
+	opts = append(opts, rightPad("Synced mode", o.synced))
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
@@ -325,6 +328,17 @@ func (o *Options) WithMaintenance(m bool) *Options {
 // GetMaintenance gets maintenance mode
 func (o *Options) GetMaintenance() bool {
 	return o.maintenance
+}
+
+// WithSynced sets synced mode
+func (o *Options) WithSynced(synced bool) *Options {
+	o.synced = synced
+	return o
+}
+
+// GetSynced gets synced mode
+func (o *Options) GetSynced() bool {
+	return o.synced
 }
 
 // WithSigningKey sets signature private key
