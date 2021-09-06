@@ -245,8 +245,6 @@
 | maxKeyLen | [uint32](#uint32) |  |  |
 | maxValueLen | [uint32](#uint32) |  |  |
 | maxTxEntries | [uint32](#uint32) |  |  |
-| maxConcurrency | [uint32](#uint32) |  |  |
-| maxIOConcurrency | [uint32](#uint32) |  |  |
 
 
 
@@ -1452,7 +1450,6 @@ immudb gRPC &amp; REST service
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: use CompactIndex |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

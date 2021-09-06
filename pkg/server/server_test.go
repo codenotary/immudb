@@ -580,10 +580,10 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Nil index after Setbatch")
 	}
 
-	_, err = s.CleanIndex(ctx, nil)
+	_, err = s.CompactIndex(ctx, nil)
 	require.NoError(t, err)
 
-	_, err = s.CleanIndex(ctx, &emptypb.Empty{})
+	_, err = s.CompactIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	_, err = s.GetAll(ctx, nil)
@@ -997,6 +997,7 @@ func TestServerDbOperations(t *testing.T) {
 
 	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
+		FileSize:     1 << 20,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
 	if err != nil {

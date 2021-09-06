@@ -321,11 +321,6 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 	return vtx, nil
 }
 
-// DEPRECATED: use CompactIndex
-func (s *ImmuServer) CleanIndex(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
-	return s.CompactIndex(ctx, e)
-}
-
 func (s *ImmuServer) CompactIndex(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
 	db, err := s.getDBFromCtx(ctx, "CompactIndex")
 	if err != nil {

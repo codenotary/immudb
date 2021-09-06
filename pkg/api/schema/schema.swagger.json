@@ -12,29 +12,6 @@
     "application/json"
   ],
   "paths": {
-    "/db/cleanindex": {
-      "get": {
-        "summary": "DEPRECATED: use CompactIndex",
-        "operationId": "ImmuService_CleanIndex",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/db/compactindex": {
       "get": {
         "operationId": "ImmuService_CompactIndex",
@@ -1454,14 +1431,6 @@
           "format": "int64"
         },
         "maxTxEntries": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "maxConcurrency": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "maxIOConcurrency": {
           "type": "integer",
           "format": "int64"
         }

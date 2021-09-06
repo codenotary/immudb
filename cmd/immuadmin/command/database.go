@@ -154,14 +154,14 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 
 	ccc := &cobra.Command{
-		Use:               "clean command",
-		Short:             "Clean database index",
-		Example:           "clean",
+		Use:               "compact command",
+		Short:             "Compact database index",
+		Example:           "compact",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := cl.immuClient.CleanIndex(cl.context, &emptypb.Empty{})
+			err := cl.immuClient.CompactIndex(cl.context, &emptypb.Empty{})
 			if err != nil {
 				cl.quit(err)
 			}
@@ -169,7 +169,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully cleaned\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully compacted\n")
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
