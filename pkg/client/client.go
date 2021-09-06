@@ -44,7 +44,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -91,8 +90,6 @@ type ImmuClient interface {
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
-	//DEPRECATED: use CompactIndex instead
-	CleanIndex(ctx context.Context, req *emptypb.Empty) error
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
@@ -1395,11 +1392,6 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
 
 	return err
-}
-
-// DEPREACATED: use CompactIndex
-func (c *immuClient) CleanIndex(ctx context.Context, req *empty.Empty) error {
-	return c.CompactIndex(ctx, req)
 }
 
 func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {

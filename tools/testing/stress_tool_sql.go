@@ -16,8 +16,8 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"context"
+	"flag"
 	"log"
 	"math/rand"
 	"sync"
@@ -35,24 +35,24 @@ type Entry struct {
 }
 
 type cfg struct {
-	IpAddr    string
-	Port      int
-	Username  string
-	Password  string
-	DBName    string
-	committers        int
-	kvCount           int
-	vLen              int
-	rndValues         bool
-	readers           int
-	rdCount           int
-	readDelay         int
-	readPause         int
-	readRenew         bool
-	compactDelay      int
-	compactCycles     int
-	verifiers         int
-	vrCount           int
+	IpAddr        string
+	Port          int
+	Username      string
+	Password      string
+	DBName        string
+	committers    int
+	kvCount       int
+	vLen          int
+	rndValues     bool
+	readers       int
+	rdCount       int
+	readDelay     int
+	readPause     int
+	readRenew     bool
+	compactDelay  int
+	compactCycles int
+	verifiers     int
+	vrCount       int
 }
 
 func parseConfig() (c cfg) {
@@ -143,7 +143,7 @@ func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries
 	for i := 0; i < c.kvCount; i++ {
 		entry := <-entries
 		_, err := client.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
-			map[string]interface{}{"id": entry.id, "value": entry.value} )
+			map[string]interface{}{"id": entry.id, "value": entry.value})
 		if err != nil {
 			log.Fatalf("Committer %d: Error while inserting value %d [%d]: %s", cid, entry.id, i, err)
 		}
@@ -186,14 +186,14 @@ func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, 
 		if err != nil {
 			log.Fatalf("Error querying val %d: %s", i, err.Error())
 		}
-		if len(r.Rows)>0 {
+		if len(r.Rows) > 0 {
 			row := r.Rows[0]
 			err = client.VerifyRow(ctx, row, "entries", row.Values[0])
 			if err != nil {
-				log.Fatalf("Verification failed: verifier %d, id %d row %+v",id, idx, row)
+				log.Fatalf("Verification failed: verifier %d, id %d row %+v", id, idx, row)
 			}
 		} else {
-			log.Printf("Verifier %d no results for id %d",id, idx)
+			log.Printf("Verifier %d no results for id %d", id, idx)
 		}
 		if c.readPause > 0 {
 			time.Sleep(time.Duration(c.readPause) * time.Millisecond)
@@ -203,16 +203,15 @@ func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, 
 	log.Printf("Verifier %d out\n", id)
 }
 
-
 func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, wg *sync.WaitGroup) {
-	for i:=0; i<c.compactCycles; i++ {
+	for i := 0; i < c.compactCycles; i++ {
 		time.Sleep(time.Duration(c.compactDelay) * time.Millisecond)
-		log.Printf("Compaction %d started",i)
-		client.CleanIndex(ctx, &emptypb.Empty{})
-		log.Printf("Compaction %d terminated",i)
+		log.Printf("Compaction %d started", i)
+		client.CompactIndex(ctx, &emptypb.Empty{})
+		log.Printf("Compaction %d terminated", i)
 	}
-log.Printf("All compaction terminated")
-wg.Done()
+	log.Printf("All compaction terminated")
+	wg.Done()
 }
 
 func main() {
@@ -235,7 +234,7 @@ func main() {
 
 	for i := 0; i < c.committers; i++ {
 		wg.Add(1)
-		go committer(ctx, client,c, entries, i, &wg)
+		go committer(ctx, client, c, entries, i, &wg)
 	}
 
 	for i := 0; i < c.readers; i++ {
@@ -246,7 +245,7 @@ func main() {
 		wg.Add(1)
 		go verifier(ctx, client, c, i, &wg)
 	}
-	if (c.compactDelay>0) {
+	if c.compactDelay > 0 {
 		wg.Add(1)
 		go compactor(ctx, client, c, &wg)
 	}

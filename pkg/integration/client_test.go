@@ -556,7 +556,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.True(t, errors.Is(client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")), ic.ErrNotConnected))
 	require.True(t, errors.Is(client.UpdateAuthConfig(ctx, auth.KindPassword), ic.ErrNotConnected))
 	require.True(t, errors.Is(client.UpdateMTLSConfig(ctx, false), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.CleanIndex(ctx, &emptypb.Empty{}), ic.ErrNotConnected))
+	require.True(t, errors.Is(client.CompactIndex(ctx, &emptypb.Empty{}), ic.ErrNotConnected))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.True(t, errors.Is(err.(immuErrors.ImmuError), ic.ErrNotConnected))

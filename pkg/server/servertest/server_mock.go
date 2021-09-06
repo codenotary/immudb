@@ -244,10 +244,6 @@ func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	return s.Srv.UpdateDatabase(ctx, req)
 }
 
-func (s *ServerMock) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
-	return s.Srv.CleanIndex(ctx, req)
-}
-
 func (s *ServerMock) CompactIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return s.Srv.CompactIndex(ctx, req)
 }

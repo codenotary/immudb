@@ -714,13 +714,6 @@ service ImmuService {
 		};
 	}
 
-	// DEPRECATED: use CompactIndex
-	rpc CleanIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
-		option (google.api.http) = {
-			get: "/db/cleanindex"
-		};
-	}
-
 	rpc CompactIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			get: "/db/compactindex"
