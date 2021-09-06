@@ -81,9 +81,15 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
+			excludeCommitTime, err := cmd.Flags().GetBool("exclude-commit-time")
+			if err != nil {
+				return err
+			}
+
 			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
-				DatabaseName: args[0],
-				Replica:      isReplica,
+				DatabaseName:      args[0],
+				Replica:           isReplica,
+				ExcludeCommitTime: excludeCommitTime,
 			}); err != nil {
 				return err
 			}
@@ -91,9 +97,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully created\n", args[0], isReplica)
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(2),
 	}
 	cc.Flags().BoolP("replica", "r", false, "set database as a replica")
+	cc.Flags().Bool("exclude-commit-time", false, "useful when reproducibility is a desired feature")
 
 	cu := &cobra.Command{
 		Use:               "update",
@@ -111,9 +118,15 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
+			excludeCommitTime, err := cmd.Flags().GetBool("exclude-commit-time")
+			if err != nil {
+				return err
+			}
+
 			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{
-				DatabaseName: args[0],
-				Replica:      isReplica,
+				DatabaseName:      args[0],
+				Replica:           isReplica,
+				ExcludeCommitTime: excludeCommitTime,
 			}); err != nil {
 				return err
 			}
@@ -121,9 +134,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully updated\n", args[0], isReplica)
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(2),
 	}
 	cu.Flags().BoolP("replica", "r", false, "set database as a replica")
+	cu.Flags().Bool("exclude-commit-time", false, "useful when reproducibility is a desired feature")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
