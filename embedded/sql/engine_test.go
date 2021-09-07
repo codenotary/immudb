@@ -400,15 +400,64 @@ func TestUpsertInto(t *testing.T) {
 
 	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
+}
 
-	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES (x'00A1')", nil, true)
+func TestUpsertIntoEdgeCases(t *testing.T) {
+	catalogStore, err := store.Open("catalog_upsert", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_upsert")
+
+	dataStore, err := store.Open("sqldata_upsert", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_upsert")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES (x'00A100A2')", nil, true)
-	require.ErrorIs(t, err, ErrMaxLengthExceeded)
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO blob_table (id) VALUES ('00A100A2')", nil, true)
-	require.ErrorIs(t, err, ErrInvalidValue)
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1 (title)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1 (active)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1 (payload)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, true)
+	require.NoError(t, err)
+
+	t.Run("varchar key cases", func(t *testing.T) {
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title123456789', true, x'00A1')", nil, true)
+		require.ErrorIs(t, err, ErrMaxLengthExceeded)
+
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 10, true, '00A1')", nil, true)
+		require.ErrorIs(t, err, ErrInvalidValue)
+	})
+
+	t.Run("boolean key cases", func(t *testing.T) {
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', 'true', x'00A1')", nil, true)
+		require.ErrorIs(t, err, ErrInvalidValue)
+	})
+
+	t.Run("blob key cases", func(t *testing.T) {
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A100A2')", nil, true)
+		require.ErrorIs(t, err, ErrMaxLengthExceeded)
+
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, '00A100A2')", nil, true)
+		require.ErrorIs(t, err, ErrInvalidValue)
+	})
+
+	err = engine.Close()
+	require.NoError(t, err)
 }
 
 func TestAutoIncrementPK(t *testing.T) {
@@ -1215,6 +1264,13 @@ func TestIndexing(t *testing.T) {
 	t.Run("should fail due to unique index", func(t *testing.T) {
 		_, err = engine.ExecStmt("INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil, true)
 		require.ErrorIs(t, err, store.ErrDuplicatedKey)
+	})
+
+	require.NoError(t, engine.EnsureCatalogReady(nil))
+
+	t.Run("should fail due non-available index", func(t *testing.T) {
+		_, err = engine.QueryStmt("SELECT * FROM table1 ORDER BY amount DESC", nil, true)
+		require.ErrorIs(t, err, ErrNoAvailableIndex)
 	})
 
 	require.NoError(t, engine.EnsureCatalogReady(nil))

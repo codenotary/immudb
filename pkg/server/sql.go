@@ -33,7 +33,7 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(ventry.VerifiableTx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 

@@ -43,8 +43,13 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	require.Equal(t, uint64(2), db.id)
-	require.Equal(t, "db1", db.name)
+	require.Equal(t, "db1", db.Name())
 	require.Empty(t, db.GetTables())
+
+	dbs = catalog.Databases()
+	require.NotNil(t, db)
+	require.Len(t, dbs, 1)
+	require.Equal(t, "db1", dbs[0].Name())
 
 	db1, err := catalog.GetDatabaseByID(2)
 	require.NoError(t, err)

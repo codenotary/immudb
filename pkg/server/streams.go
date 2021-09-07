@@ -130,7 +130,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		return err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
@@ -265,7 +265,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 			"StreamVerifiableSet received the following error: %s", err.Error())
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(verifiableTx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
