@@ -22,7 +22,7 @@ func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.
 
 	state.Db = db.GetOptions().GetDBName()
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		err = s.StateSigner.Sign(state)
 		if err != nil {
 			return nil, err
@@ -62,7 +62,7 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
@@ -105,7 +105,7 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
@@ -168,7 +168,7 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
@@ -239,7 +239,7 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
@@ -300,7 +300,7 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 		return nil, err
 	}
 
-	if s.Options.SigningKey != "" {
+	if s.StateSigner != nil {
 		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
 		alh := md.Alh()
 
