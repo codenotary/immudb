@@ -94,13 +94,15 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully created\n", args[0], isReplica)
+			fmt.Fprintf(cmd.OutOrStdout(),
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], isReplica, excludeCommitTime)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(2),
+		Args: cobra.ExactArgs(1),
 	}
 	cc.Flags().BoolP("replica", "r", false, "set database as a replica")
-	cc.Flags().Bool("exclude-commit-time", false, "useful when reproducibility is a desired feature")
+	cc.Flags().Bool("exclude-commit-time", false,
+		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
 
 	cu := &cobra.Command{
 		Use:               "update",
@@ -131,13 +133,15 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' (replica = %v) successfully updated\n", args[0], isReplica)
+			fmt.Fprintf(cmd.OutOrStdout(),
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], isReplica, excludeCommitTime)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(2),
+		Args: cobra.ExactArgs(1),
 	}
 	cu.Flags().BoolP("replica", "r", false, "set database as a replica")
-	cu.Flags().Bool("exclude-commit-time", false, "useful when reproducibility is a desired feature")
+	cu.Flags().Bool("exclude-commit-time", false,
+		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
