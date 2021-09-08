@@ -121,7 +121,7 @@ func (opts *Options) DefaultStoreOptions() *store.Options {
 	return store.DefaultOptions().
 		WithIndexOptions(indexOptions).
 		WithMaxLinearProofLen(0).
-		WithMaxConcurrency(10).
+		WithMaxConcurrency(30).
 		WithMaxIOConcurrency(1).
 		WithFileSize(DefaultStoreFileSize).
 		WithMaxKeyLen(store.DefaultMaxKeyLen).
