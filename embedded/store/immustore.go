@@ -971,7 +971,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 	// will overwrite partially written and uncommitted data
 	committedTxID, committedAlh, committedTxLogSize := s.commitState()
 
-	s.txLog.SetOffset(committedTxLogSize)
+	err := s.txLog.SetOffset(committedTxLogSize)
+	if err != nil {
+		return fmt.Errorf("commit log: could not set offset: %w", err)
+	}
 
 	tx.ID = committedTxID + 1
 	tx.Ts = ts
