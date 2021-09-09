@@ -230,10 +230,19 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		}
 	}
 
-	if desc && !scanSpecs.index.isPrimary() && !scanSpecs.index.unique {
+	if !scanSpecs.index.isPrimary() && !scanSpecs.index.unique {
 		// non-unique index entries include encoded pk values as suffix
-		for _, col := range table.primaryIndex.cols {
-			seekKey = append(seekKey, maxKeyValOf(col.colType)...)
+
+		if desc {
+			for _, col := range table.primaryIndex.cols {
+				seekKey = append(seekKey, maxKeyValOf(col.colType)...)
+			}
+		}
+
+		if !desc {
+			for _, col := range table.primaryIndex.cols {
+				endKey = append(endKey, maxKeyValOf(col.colType)...)
+			}
 		}
 	}
 
