@@ -89,7 +89,8 @@ func (s *session) nextMessage() (interface{}, bool, error) {
 	if msg.t == 'P' ||
 		msg.t == 'B' ||
 		msg.t == 'D' ||
-		msg.t == 'E' {
+		msg.t == 'E' ||
+		msg.t == 'H' {
 		extQueryMode = true
 	}
 	return i, extQueryMode, err
@@ -113,6 +114,8 @@ func (s *session) parseRawMessage(msg *rawMessage) (interface{}, error) {
 		return fm.ParseSyncMsg(msg.payload)
 	case 'E':
 		return fm.ParseExecuteMsg(msg.payload)
+	case 'H':
+		return fm.ParseFlushMsg(msg.payload)
 	default:
 		return nil, errors.ErrUnknowMessageType
 	}
