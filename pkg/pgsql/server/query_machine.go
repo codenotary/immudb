@@ -211,6 +211,8 @@ func (s *session) QueriesMachine() (err error) {
 				s.ErrorHandle(err)
 				waitForSync = true
 			}
+		case fm.FlushMsg:
+			// there is no buffer to be flushed
 		default:
 			s.ErrorHandle(pserr.ErrUnknowMessageType)
 			continue

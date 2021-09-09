@@ -67,4 +67,5 @@ var MTypes = map[byte]string{
 	'P': "parse",
 	't': "parameterDesctiption",
 	'B': "bind",
+	'H': "flush",
 }
