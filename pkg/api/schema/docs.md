@@ -1175,9 +1175,9 @@
 | sqlEntry | [SQLEntry](#immudb.schema.SQLEntry) |  |  |
 | verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
 | inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
-| DatabaseId | [uint64](#uint64) |  |  |
-| TableId | [uint64](#uint64) |  |  |
-| PKIDs | [uint64](#uint64) | repeated |  |
+| DatabaseId | [uint32](#uint32) |  |  |
+| TableId | [uint32](#uint32) |  |  |
+| PKIDs | [uint32](#uint32) | repeated |  |
 | ColNamesById | [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry) | repeated |  |
 | ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated |  |
 | ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated |  |
@@ -1197,7 +1197,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [uint64](#uint64) |  |  |
+| value | [uint32](#uint32) |  |  |
 
 
 
@@ -1212,7 +1212,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [uint64](#uint64) |  |  |
+| key | [uint32](#uint32) |  |  |
 | value | [int32](#int32) |  |  |
 
 
@@ -1228,7 +1228,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [uint64](#uint64) |  |  |
+| key | [uint32](#uint32) |  |  |
 | value | [string](#string) |  |  |
 
 
@@ -1244,7 +1244,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [uint64](#uint64) |  |  |
+| key | [uint32](#uint32) |  |  |
 | value | [string](#string) |  |  |
 
 
