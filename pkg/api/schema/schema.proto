@@ -370,13 +370,13 @@ message VerifiableSQLEntry {
 	SQLEntry sqlEntry = 1;
 	VerifiableTx verifiableTx = 2;
 	InclusionProof inclusionProof = 3;
-	uint64 DatabaseId = 4;
-	uint64 TableId = 5;
-	repeated uint64 PKIDs = 6;
-	map<uint64, string> ColNamesById = 8;
-	map<string, uint64> ColIdsByName = 9;
-	map<uint64, string> ColTypesById = 10;
-	map<uint64, int32> ColLenById = 11;
+	uint32 DatabaseId = 4;
+	uint32 TableId = 5;
+	repeated uint32 PKIDs = 6;
+	map<uint32, string> ColNamesById = 8;
+	map<string, uint32> ColIdsByName = 9;
+	map<uint32, string> ColTypesById = 10;
+	map<uint32, int32> ColLenById = 11;
 }
 
 message UseDatabaseReply{

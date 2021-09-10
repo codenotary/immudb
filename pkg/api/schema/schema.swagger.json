@@ -2205,18 +2205,18 @@
           "$ref": "#/definitions/schemaInclusionProof"
         },
         "DatabaseId": {
-          "type": "string",
-          "format": "uint64"
+          "type": "integer",
+          "format": "int64"
         },
         "TableId": {
-          "type": "string",
-          "format": "uint64"
+          "type": "integer",
+          "format": "int64"
         },
         "PKIDs": {
           "type": "array",
           "items": {
-            "type": "string",
-            "format": "uint64"
+            "type": "integer",
+            "format": "int64"
           }
         },
         "ColNamesById": {
@@ -2228,8 +2228,8 @@
         "ColIdsByName": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "format": "uint64"
+            "type": "integer",
+            "format": "int64"
           }
         },
         "ColTypesById": {
