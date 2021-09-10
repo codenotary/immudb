@@ -26,12 +26,12 @@ import (
 
 func TestDecodeRowErrors(t *testing.T) {
 
-	type tMap map[uint64]sql.SQLValueType
+	type tMap map[uint32]sql.SQLValueType
 
 	for _, d := range []struct {
 		n        string
 		data     []byte
-		colTypes map[uint64]sql.SQLValueType
+		colTypes map[uint32]sql.SQLValueType
 	}{
 		{
 			"No data",
@@ -75,14 +75,14 @@ func TestVerifyAgainst(t *testing.T) {
 	err := verifyRowAgainst(&schema.Row{
 		Columns: []string{"c1"},
 		Values:  []*schema.SQLValue{{Value: nil}},
-	}, map[uint64]*schema.SQLValue{}, map[string]uint64{})
+	}, map[uint32]*schema.SQLValue{}, map[string]uint32{})
 	require.True(t, errors.Is(err, sql.ErrColumnDoesNotExist))
 
 	// Nil value
 	err = verifyRowAgainst(&schema.Row{
 		Columns: []string{"c1"},
 		Values:  []*schema.SQLValue{{Value: nil}},
-	}, map[uint64]*schema.SQLValue{}, map[string]uint64{
+	}, map[uint32]*schema.SQLValue{}, map[string]uint32{
 		"c1": 0,
 	})
 	require.True(t, errors.Is(err, sql.ErrCorruptedData))
@@ -93,7 +93,7 @@ func TestVerifyAgainst(t *testing.T) {
 		Values: []*schema.SQLValue{
 			{Value: &schema.SQLValue_N{N: 1}},
 		},
-	}, map[uint64]*schema.SQLValue{}, map[string]uint64{
+	}, map[uint32]*schema.SQLValue{}, map[string]uint32{
 		"c1": 0,
 	})
 	require.True(t, errors.Is(err, sql.ErrCorruptedData))
@@ -104,9 +104,9 @@ func TestVerifyAgainst(t *testing.T) {
 		Values: []*schema.SQLValue{
 			{Value: &schema.SQLValue_N{N: 1}},
 		},
-	}, map[uint64]*schema.SQLValue{
+	}, map[uint32]*schema.SQLValue{
 		0: {Value: nil},
-	}, map[string]uint64{
+	}, map[string]uint32{
 		"c1": 0,
 	})
 	require.True(t, errors.Is(err, sql.ErrCorruptedData))
@@ -117,9 +117,9 @@ func TestVerifyAgainst(t *testing.T) {
 		Values: []*schema.SQLValue{
 			{Value: &schema.SQLValue_N{N: 1}},
 		},
-	}, map[uint64]*schema.SQLValue{
+	}, map[uint32]*schema.SQLValue{
 		0: {Value: &schema.SQLValue_S{S: "1"}},
-	}, map[string]uint64{
+	}, map[string]uint32{
 		"c1": 0,
 	})
 	require.True(t, errors.Is(err, sql.ErrNotComparableValues))
@@ -130,9 +130,9 @@ func TestVerifyAgainst(t *testing.T) {
 		Values: []*schema.SQLValue{
 			{Value: &schema.SQLValue_N{N: 1}},
 		},
-	}, map[uint64]*schema.SQLValue{
+	}, map[uint32]*schema.SQLValue{
 		0: {Value: &schema.SQLValue_N{N: 2}},
-	}, map[string]uint64{
+	}, map[string]uint32{
 		"c1": 0,
 	})
 	require.True(t, errors.Is(err, sql.ErrCorruptedData))
@@ -143,9 +143,9 @@ func TestVerifyAgainst(t *testing.T) {
 		Values: []*schema.SQLValue{
 			{Value: &schema.SQLValue_N{N: 1}},
 		},
-	}, map[uint64]*schema.SQLValue{
+	}, map[uint32]*schema.SQLValue{
 		0: {Value: &schema.SQLValue_N{N: 1}},
-	}, map[string]uint64{
+	}, map[string]uint32{
 		"c1": 0,
 	})
 	require.NoError(t, err)

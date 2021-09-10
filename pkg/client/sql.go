@@ -237,7 +237,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	return nil
 }
 
-func verifyRowAgainst(row *schema.Row, decodedRow map[uint64]*schema.SQLValue, colIdsByName map[string]uint64) error {
+func verifyRowAgainst(row *schema.Row, decodedRow map[uint32]*schema.SQLValue, colIdsByName map[string]uint32) error {
 	for i, colName := range row.Columns {
 		colID, ok := colIdsByName[colName]
 		if !ok {
@@ -275,7 +275,7 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint64]*schema.SQLValue, c
 	return nil
 }
 
-func decodeRow(encodedRow []byte, colTypes map[uint64]sql.SQLValueType) (map[uint64]*schema.SQLValue, error) {
+func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uint32]*schema.SQLValue, error) {
 	off := 0
 
 	if len(encodedRow) < off+sql.EncLenLen {
@@ -285,14 +285,14 @@ func decodeRow(encodedRow []byte, colTypes map[uint64]sql.SQLValueType) (map[uin
 	colsCount := binary.BigEndian.Uint32(encodedRow[off:])
 	off += sql.EncLenLen
 
-	values := make(map[uint64]*schema.SQLValue, colsCount)
+	values := make(map[uint32]*schema.SQLValue, colsCount)
 
 	for i := 0; i < int(colsCount); i++ {
 		if len(encodedRow) < off+sql.EncIDLen {
 			return nil, sql.ErrCorruptedData
 		}
 
-		colID := binary.BigEndian.Uint64(encodedRow[off:])
+		colID := binary.BigEndian.Uint32(encodedRow[off:])
 		off += sql.EncIDLen
 
 		colType, ok := colTypes[colID]
