@@ -18,6 +18,7 @@ package database
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -131,10 +132,10 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	colNamesByID := make(map[uint64]string, len(table.Cols()))
-	colIdsByName := make(map[string]uint64, len(table.ColsByName()))
-	colTypesByID := make(map[uint64]string, len(table.Cols()))
-	colLenByID := make(map[uint64]int32, len(table.Cols()))
+	colNamesByID := make(map[uint32]string, len(table.Cols()))
+	colIdsByName := make(map[string]uint32, len(table.ColsByName()))
+	colTypesByID := make(map[uint32]string, len(table.Cols()))
+	colLenByID := make(map[uint32]int32, len(table.Cols()))
 
 	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
@@ -143,10 +144,10 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		colLenByID[col.ID()] = int32(col.MaxLen())
 	}
 
-	pkIDs := make([]uint64, len(table.PrimaryIndex().Cols()))
+	pkIDs := make([]uint32, len(table.PrimaryIndex().Cols()))
 
 	for i, col := range table.PrimaryIndex().Cols() {
-		pkIDs[i] = uint64(col.ID())
+		pkIDs[i] = col.ID()
 	}
 
 	return &schema.VerifiableSQLEntry{
@@ -240,14 +241,11 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		{Name: "NULLABLE", Type: sql.BooleanType},
 		{Name: "INDEX", Type: sql.VarcharType},
 		{Name: "AUTO_INCREMENT", Type: sql.BooleanType},
+		{Name: "UNIQUE", Type: sql.BooleanType},
 	}}
 
 	for _, c := range table.Cols() {
 		index := "NO"
-
-		if table.PrimaryIndex().Cols()[0].Name() == c.Name() {
-			index = "PRIMARY KEY"
-		}
 
 		indexed, err := table.IsIndexed(c.Name())
 		if err != nil {
@@ -257,13 +255,32 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 			index = "YES"
 		}
 
+		if table.PrimaryIndex().IncludesCol(c.ID()) {
+			index = "PRIMARY KEY"
+		}
+
+		var unique bool
+		for _, index := range table.IndexesByColID(c.ID()) {
+			if index.IsUnique() {
+				unique = true
+				break
+			}
+		}
+
+		var maxLen string
+
+		if c.MaxLen() > 0 && (c.Type() == sql.VarcharType || c.Type() == sql.BLOBType) {
+			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
+		}
+
 		res.Rows = append(res.Rows, &schema.Row{
 			Values: []*schema.SQLValue{
 				{Value: &schema.SQLValue_S{S: c.Name()}},
-				{Value: &schema.SQLValue_S{S: c.Type()}},
+				{Value: &schema.SQLValue_S{S: c.Type() + maxLen}},
 				{Value: &schema.SQLValue_B{B: c.IsNullable()}},
 				{Value: &schema.SQLValue_S{S: index}},
 				{Value: &schema.SQLValue_B{B: c.IsAutoIncremental()}},
+				{Value: &schema.SQLValue_B{B: unique}},
 			},
 		})
 	}

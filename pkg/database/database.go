@@ -119,7 +119,7 @@ func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 
 	_, dbErr := os.Stat(dbDir)
 	if os.IsNotExist(dbErr) {
-		return nil, fmt.Errorf("Missing database directories")
+		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
 	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
@@ -136,7 +136,7 @@ func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 	}
 
 	if op.replica {
-		dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replica)
+		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", op.dbName, op.replica)
 		return dbi, nil
 	}
 
@@ -146,18 +146,18 @@ func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 	go func() {
 		defer dbi.sqlInit.Done()
 
-		dbi.Logger.Infof("Loading SQL Engine for database '%s' (replica = %v)...", op.dbName, op.replica)
+		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", op.dbName, op.replica)
 
-		err := dbi.initSQLEngine(systemDB)
+		err := dbi.initSQLEngine()
 		if err != nil {
-			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' (replica = %v). %v", op.dbName, op.replica, err)
+			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", op.dbName, op.replica, err)
 			return
 		}
 
-		dbi.Logger.Infof("SQL Engine ready for database '%s' (replica = %v)", op.dbName, op.replica)
+		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", op.dbName, op.replica)
 	}()
 
-	dbi.Logger.Infof("Database '%s' successfully opened (replica = %v)", op.dbName, op.replica)
+	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", op.dbName, op.replica)
 
 	return dbi, nil
 }
@@ -166,7 +166,7 @@ func (d *db) path() string {
 	return filepath.Join(d.options.GetDBRootPath(), d.options.GetDBName())
 }
 
-func (d *db) initSQLEngine(systemDB DB) error {
+func (d *db) initSQLEngine() error {
 	err := d.sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
 	if err != nil {
 		return err
@@ -177,40 +177,10 @@ func (d *db) initSQLEngine(systemDB DB) error {
 		return err
 	}
 
-	dbDir := d.path()
-
 	if err == sql.ErrDatabaseDoesNotExist {
-		d.Logger.Infof("Migrating catalog from systemdb to %s...", dbDir)
-
-		var catalogSt *store.ImmuStore
-		if systemDB == nil {
-			catalogSt = d.st
-		} else {
-			systemDBI, _ := systemDB.(*db)
-			catalogSt = systemDBI.st
-		}
-
-		sqlEngine, err := sql.NewEngine(catalogSt, d.st, []byte{SQLPrefix})
+		_, err = d.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
 		if err != nil {
-			return err
-		}
-		defer sqlEngine.Close()
-
-		err = sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
-		if err != nil {
-			return err
-		}
-
-		err = sqlEngine.DumpCatalogTo(d.options.dbName, dbInstanceName, d.st)
-		if err != nil {
-			return err
-		}
-
-		d.Logger.Infof("Catalog successfully migrated from systemdb to %s", dbDir)
-
-		err = d.sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
-		if err != nil {
-			return err
+			return logErr(d.Logger, "Unable to open store: %s", err)
 		}
 
 		err = d.sqlEngine.UseDatabase(dbInstanceName)
