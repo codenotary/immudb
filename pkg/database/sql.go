@@ -261,7 +261,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 
 		var unique bool
 		for _, index := range table.IndexesByColID(c.ID()) {
-			if index.IsUnique() {
+			if index.IsUnique() && len(index.Cols()) == 1 {
 				unique = true
 				break
 			}
