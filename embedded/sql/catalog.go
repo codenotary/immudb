@@ -16,29 +16,29 @@ limitations under the License.
 package sql
 
 type Catalog struct {
-	dbsByID   map[uint64]*Database
+	dbsByID   map[uint32]*Database
 	dbsByName map[string]*Database
 
 	mutated bool
 }
 
 type Database struct {
-	id           uint64
+	id           uint32
 	catalog      *Catalog
 	name         string
-	tablesByID   map[uint64]*Table
+	tablesByID   map[uint32]*Table
 	tablesByName map[string]*Table
 }
 
 type Table struct {
 	db              *Database
-	id              uint64
+	id              uint32
 	name            string
 	cols            []*Column
-	colsByID        map[uint64]*Column
+	colsByID        map[uint32]*Column
 	colsByName      map[string]*Column
 	indexes         map[string]*Index
-	indexesByColID  map[uint64][]*Index
+	indexesByColID  map[uint32][]*Index
 	primaryIndex    *Index
 	autoIncrementPK bool
 	maxPK           uint64
@@ -46,15 +46,15 @@ type Table struct {
 
 type Index struct {
 	table    *Table
-	id       uint64
+	id       uint32
 	unique   bool
 	cols     []*Column
-	colsByID map[uint64]*Column
+	colsByID map[uint32]*Column
 }
 
 type Column struct {
 	table         *Table
-	id            uint64
+	id            uint32
 	colName       string
 	colType       SQLValueType
 	maxLen        int
@@ -64,7 +64,7 @@ type Column struct {
 
 func newCatalog() *Catalog {
 	return &Catalog{
-		dbsByID:   map[uint64]*Database{},
+		dbsByID:   map[uint32]*Database{},
 		dbsByName: map[string]*Database{},
 	}
 }
@@ -74,7 +74,7 @@ func (c *Catalog) ExistDatabase(db string) bool {
 	return exists
 }
 
-func (c *Catalog) newDatabase(id uint64, name string) (*Database, error) {
+func (c *Catalog) newDatabase(id uint32, name string) (*Database, error) {
 	exists := c.ExistDatabase(name)
 	if exists {
 		return nil, ErrDatabaseAlreadyExists
@@ -84,7 +84,7 @@ func (c *Catalog) newDatabase(id uint64, name string) (*Database, error) {
 		id:           id,
 		catalog:      c,
 		name:         name,
-		tablesByID:   map[uint64]*Table{},
+		tablesByID:   map[uint32]*Table{},
 		tablesByName: map[string]*Table{},
 	}
 
@@ -114,7 +114,7 @@ func (c *Catalog) GetDatabaseByName(name string) (*Database, error) {
 	return db, nil
 }
 
-func (c *Catalog) GetDatabaseByID(id uint64) (*Database, error) {
+func (c *Catalog) GetDatabaseByID(id uint32) (*Database, error) {
 	db, exists := c.dbsByID[id]
 	if !exists {
 		return nil, ErrDatabaseDoesNotExist
@@ -122,7 +122,7 @@ func (c *Catalog) GetDatabaseByID(id uint64) (*Database, error) {
 	return db, nil
 }
 
-func (db *Database) ID() uint64 {
+func (db *Database) ID() uint32 {
 	return db.id
 }
 
@@ -163,7 +163,7 @@ func (db *Database) GetTableByName(name string) (*Table, error) {
 	return table, nil
 }
 
-func (db *Database) GetTableByID(id uint64) (*Table, error) {
+func (db *Database) GetTableByID(id uint32) (*Table, error) {
 	table, exists := db.tablesByID[id]
 	if !exists {
 		return nil, ErrTableDoesNotExist
@@ -171,7 +171,7 @@ func (db *Database) GetTableByID(id uint64) (*Table, error) {
 	return table, nil
 }
 
-func (t *Table) ID() uint64 {
+func (t *Table) ID() uint32 {
 	return t.id
 }
 
@@ -206,6 +206,10 @@ func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
 	return ok, nil
 }
 
+func (t *Table) IndexesByColID(colID uint32) []*Index {
+	return t.indexesByColID[colID]
+}
+
 func (t *Table) GetColumnByName(name string) (*Column, error) {
 	col, exists := t.colsByName[name]
 	if !exists {
@@ -214,7 +218,7 @@ func (t *Table) GetColumnByName(name string) (*Column, error) {
 	return col, nil
 }
 
-func (t *Table) GetColumnByID(id uint64) (*Column, error) {
+func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	col, exists := t.colsByID[id]
 	if !exists {
 		return nil, ErrColumnDoesNotExist
@@ -222,15 +226,24 @@ func (t *Table) GetColumnByID(id uint64) (*Column, error) {
 	return col, nil
 }
 
-func (i *Index) isPrimary() bool {
+func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
+}
+
+func (i *Index) IsUnique() bool {
+	return i.unique
 }
 
 func (i *Index) Cols() []*Column {
 	return i.cols
 }
 
-func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValueRange) bool {
+func (i *Index) IncludesCol(colID uint32) bool {
+	_, ok := i.colsByID[colID]
+	return ok
+}
+
+func (i *Index) sortableUsing(colID uint32, rangesByColID map[uint32]*typedValueRange) bool {
 	// all columns before colID must be fixedValues otherwise the index can not be used
 	for _, col := range i.cols {
 		if col.id == colID {
@@ -248,11 +261,11 @@ func (i *Index) sortableUsing(colID uint64, rangesByColID map[uint64]*typedValue
 }
 
 func (i *Index) prefix() string {
-	if i.isPrimary() {
+	if i.IsPrimary() {
 		return PIndexPrefix
 	}
 
-	if i.unique {
+	if i.IsUnique() {
 		return UIndexPrefix
 	}
 
@@ -272,14 +285,14 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 	id := len(db.tablesByID) + 1
 
 	table = &Table{
-		id:             uint64(id),
+		id:             uint32(id),
 		db:             db,
 		name:           name,
 		cols:           make([]*Column, len(colsSpec)),
-		colsByID:       make(map[uint64]*Column),
+		colsByID:       make(map[uint32]*Column),
 		colsByName:     make(map[string]*Column),
 		indexes:        make(map[string]*Index),
-		indexesByColID: make(map[uint64][]*Index),
+		indexesByColID: make(map[uint32][]*Index),
 	}
 
 	for i, cs := range colsSpec {
@@ -299,7 +312,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		id := len(table.colsByID) + 1
 
 		col := &Column{
-			id:            uint64(id),
+			id:            uint32(id),
 			table:         table,
 			colName:       cs.colName,
 			colType:       cs.colType,
@@ -320,14 +333,14 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 	return table, nil
 }
 
-func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error) {
+func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error) {
 	if len(colIDs) < 1 {
 		return nil, ErrIllegalArguments
 	}
 
 	// validate column ids
 	cols := make([]*Column, len(colIDs))
-	colsByID := make(map[uint64]*Column, len(colIDs))
+	colsByID := make(map[uint32]*Column, len(colIDs))
 
 	for i, colID := range colIDs {
 		col, err := t.GetColumnByID(colID)
@@ -352,7 +365,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 	}
 
 	index = &Index{
-		id:       uint64(len(t.indexes)),
+		id:       uint32(len(t.indexes)),
 		table:    t,
 		unique:   unique,
 		cols:     cols,
@@ -376,7 +389,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint64) (index *Index, err error)
 	return index, nil
 }
 
-func (c *Column) ID() uint64 {
+func (c *Column) ID() uint32 {
 	return c.id
 }
 

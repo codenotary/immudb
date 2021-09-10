@@ -100,7 +100,7 @@ func (v *CountValue) isConstant() bool {
 	return false
 }
 
-func (v *CountValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *CountValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -186,7 +186,7 @@ func (v *SumValue) isConstant() bool {
 	return false
 }
 
-func (v *SumValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *SumValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -275,7 +275,7 @@ func (v *MinValue) isConstant() bool {
 	return false
 }
 
-func (v *MinValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *MinValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -364,7 +364,7 @@ func (v *MaxValue) isConstant() bool {
 	return false
 }
 
-func (v *MaxValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *MaxValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -454,6 +454,6 @@ func (v *AVGValue) isConstant() bool {
 	return false
 }
 
-func (v *AVGValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *AVGValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }

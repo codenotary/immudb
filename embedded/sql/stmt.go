@@ -28,16 +28,16 @@ import (
 )
 
 const (
-	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
-	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}, value={tableNAME})
-	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
-	PIndexPrefix          = "P."                // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
-	SIndexPrefix          = "S."                // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
-	UIndexPrefix          = "U."                // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
+	catalogDatabasePrefix = "CTL.DATABASE." // (key=CTL.DATABASE.{dbID}, value={dbNAME})
+	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
+	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
+	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
+	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
+	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
+	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
 )
 
-const PKIndexID = uint64(0)
+const PKIndexID = uint32(0)
 
 const (
 	nullableFlag      byte = 1 << iota
@@ -183,7 +183,7 @@ func (stmt *CreateDatabaseStmt) inferParameters(e *Engine, implicitDB *Database,
 }
 
 func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
-	id := uint64(len(e.catalog.dbsByID) + 1)
+	id := uint32(len(e.catalog.dbsByID) + 1)
 
 	db, err := e.catalog.newDatabase(id, stmt.DB)
 	if err != nil {
@@ -362,7 +362,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		}
 	}
 
-	colIDs := make([]uint64, len(stmt.cols))
+	colIDs := make([]uint32, len(stmt.cols))
 
 	for i, colName := range stmt.cols {
 		col, err := table.GetColumnByName(colName)
@@ -384,7 +384,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 
 	encodedValues := make([]byte, 1+len(index.cols)*EncIDLen)
 
-	if index.unique {
+	if index.IsUnique() {
 		encodedValues[0] = 1
 	}
 
@@ -452,8 +452,8 @@ func (stmt *UpsertIntoStmt) inferParameters(e *Engine, implicitDB *Database, par
 	return nil
 }
 
-func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint64]int, error) {
-	selPosByColID := make(map[uint64]int, len(stmt.cols))
+func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
+	selPosByColID := make(map[uint32]int, len(stmt.cols))
 
 	for i, c := range stmt.cols {
 		col, err := table.GetColumnByName(c)
@@ -494,7 +494,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, ErrInvalidNumberOfValues
 		}
 
-		valuesByColID := make(map[uint64]TypedValue)
+		valuesByColID := make(map[uint32]TypedValue)
 
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
@@ -592,7 +592,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			}
 
 			b := make([]byte, EncIDLen)
-			binary.BigEndian.PutUint64(b, uint64(col.id))
+			binary.BigEndian.PutUint32(b, uint32(col.id))
 
 			_, err = valbuf.Write(b)
 			if err != nil {
@@ -627,7 +627,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		// create entries for remaining indexes
 		for _, index := range table.indexes {
-			if index.isPrimary() {
+			if index.IsPrimary() {
 				continue
 			}
 
@@ -635,7 +635,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			var encodedValues [][]byte
 			var val []byte
 
-			if index.unique {
+			if index.IsUnique() {
 				prefix = UIndexPrefix
 				encodedValues = make([][]byte, 3+len(index.cols))
 				val = pkEncVals
@@ -664,7 +664,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			}
 
 			constraint = store.NoConstraint
-			if stmt.isInsert && index.unique {
+			if stmt.isInsert && index.IsUnique() {
 				constraint = store.MustNotExist
 			}
 
@@ -690,7 +690,7 @@ type ValueExp interface {
 	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
 	reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp
 	isConstant() bool
-	selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error
+	selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error
 }
 
 type typedValueRange struct {
@@ -860,7 +860,7 @@ func (v *NullValue) isConstant() bool {
 	return true
 }
 
-func (v *NullValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *NullValue) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -900,7 +900,7 @@ func (v *Number) isConstant() bool {
 	return true
 }
 
-func (v *Number) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *Number) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -967,7 +967,7 @@ func (v *Varchar) isConstant() bool {
 	return true
 }
 
-func (v *Varchar) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *Varchar) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1026,7 +1026,7 @@ func (v *Bool) isConstant() bool {
 	return true
 }
 
-func (v *Bool) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *Bool) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1093,7 +1093,7 @@ func (v *Blob) isConstant() bool {
 	return true
 }
 
-func (v *Blob) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *Blob) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1160,7 +1160,7 @@ func (v *SysFn) isConstant() bool {
 	return false
 }
 
-func (v *SysFn) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *SysFn) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1238,7 +1238,7 @@ func (p *Param) isConstant() bool {
 	return true
 }
 
-func (v *Param) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (v *Param) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1274,7 +1274,7 @@ type SelectStmt struct {
 
 type ScanSpecs struct {
 	index         *Index
-	rangesByColID map[uint64]*typedValueRange
+	rangesByColID map[uint32]*typedValueRange
 	cmp           Comparison
 }
 
@@ -1423,7 +1423,7 @@ func (stmt *SelectStmt) genScanSpecs(e *Engine, snap *store.Snapshot, implicitDB
 		return nil, err
 	}
 
-	rangesByColID := make(map[uint64]*typedValueRange)
+	rangesByColID := make(map[uint32]*typedValueRange)
 	if stmt.where != nil {
 		err = stmt.where.selectorRanges(table, params, rangesByColID)
 		if err != nil {
@@ -1677,7 +1677,7 @@ func (sel *ColSelector) isConstant() bool {
 	return false
 }
 
-func (sel *ColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (sel *ColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1771,7 +1771,7 @@ func (sel *AggColSelector) isConstant() bool {
 	return false
 }
 
-func (sel *AggColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (sel *AggColSelector) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1888,7 +1888,7 @@ func (bexp *NumExp) isConstant() bool {
 	return bexp.left.isConstant() && bexp.right.isConstant()
 }
 
-func (bexp *NumExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *NumExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1948,7 +1948,7 @@ func (bexp *NotBoolExp) isConstant() bool {
 	return bexp.exp.isConstant()
 }
 
-func (bexp *NotBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *NotBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -1999,7 +1999,7 @@ func (bexp *LikeBoolExp) isConstant() bool {
 	return false
 }
 
-func (bexp *LikeBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *LikeBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -2104,7 +2104,7 @@ func (bexp *CmpBoolExp) isConstant() bool {
 	return bexp.left.isConstant() && bexp.right.isConstant()
 }
 
-func (bexp *CmpBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *CmpBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	matchingFunc := func(left, right ValueExp) (*ColSelector, ValueExp, bool) {
 		s, isSel := bexp.left.(*ColSelector)
 		if isSel && bexp.right.isConstant() {
@@ -2149,7 +2149,7 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, params map[string]interface
 	return updateRangeFor(column.id, rval, bexp.op, rangesByColID)
 }
 
-func updateRangeFor(colID uint64, val TypedValue, cmp CmpOperator, rangesByColID map[uint64]*typedValueRange) error {
+func updateRangeFor(colID uint32, val TypedValue, cmp CmpOperator, rangesByColID map[uint32]*typedValueRange) error {
 	currRange, ranged := rangesByColID[colID]
 	var newRange *typedValueRange
 
@@ -2334,7 +2334,7 @@ func (bexp *BinBoolExp) isConstant() bool {
 	return bexp.left.isConstant() && bexp.right.isConstant()
 }
 
-func (bexp *BinBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *BinBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	if bexp.op == AND {
 		err := bexp.left.selectorRanges(table, params, rangesByColID)
 		if err != nil {
@@ -2344,8 +2344,8 @@ func (bexp *BinBoolExp) selectorRanges(table *Table, params map[string]interface
 		return bexp.right.selectorRanges(table, params, rangesByColID)
 	}
 
-	lRanges := make(map[uint64]*typedValueRange)
-	rRanges := make(map[uint64]*typedValueRange)
+	lRanges := make(map[uint32]*typedValueRange)
+	rRanges := make(map[uint32]*typedValueRange)
 
 	err := bexp.left.selectorRanges(table, params, lRanges)
 	if err != nil {
@@ -2402,6 +2402,6 @@ func (bexp *ExistsBoolExp) isConstant() bool {
 	return false
 }
 
-func (bexp *ExistsBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint64]*typedValueRange) error {
+func (bexp *ExistsBoolExp) selectorRanges(table *Table, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
