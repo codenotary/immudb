@@ -1287,7 +1287,7 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.True(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.IsPrimary())
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
 
@@ -1307,7 +1307,7 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.True(t, scanSpecs.index.isPrimary())
+		require.True(t, scanSpecs.index.IsPrimary())
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
 
@@ -1327,8 +1327,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
@@ -1349,8 +1349,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, LowerOrEqualTo, scanSpecs.cmp)
@@ -1371,8 +1371,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1400,8 +1400,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1431,8 +1431,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1463,8 +1463,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 2)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
@@ -1485,8 +1485,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
@@ -1507,8 +1507,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Empty(t, scanSpecs.rangesByColID)
 		require.Equal(t, GreaterOrEqualTo, scanSpecs.cmp)
@@ -1534,8 +1534,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1564,8 +1564,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1595,8 +1595,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1624,8 +1624,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.False(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.False(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1654,8 +1654,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 2)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1683,8 +1683,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1712,8 +1712,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -1741,8 +1741,8 @@ func TestIndexing(t *testing.T) {
 		scanSpecs := r.ScanSpecs()
 		require.NotNil(t, scanSpecs)
 		require.NotNil(t, scanSpecs.index)
-		require.False(t, scanSpecs.index.isPrimary())
-		require.True(t, scanSpecs.index.unique)
+		require.False(t, scanSpecs.index.IsPrimary())
+		require.True(t, scanSpecs.index.IsUnique())
 		require.Len(t, scanSpecs.index.cols, 1)
 		require.Len(t, scanSpecs.rangesByColID, 1)
 
@@ -3305,17 +3305,17 @@ func TestUnmapDatabaseId(t *testing.T) {
 	require.Zero(t, id)
 
 	id, err = e.unmapDatabaseID([]byte(
-		"e-prefix.CATALOG.DATABASE.a",
+		"e-prefix.CTL.DATABASE.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, id)
 
 	id, err = e.unmapDatabaseID(append(
-		[]byte("e-prefix.CATALOG.DATABASE."),
-		1, 2, 3, 4, 5, 6, 7, 8,
+		[]byte("e-prefix.CTL.DATABASE."),
+		1, 2, 3, 4,
 	))
 	require.NoError(t, err)
-	require.EqualValues(t, 0x0102030405060708, id)
+	require.EqualValues(t, 0x01020304, id)
 }
 
 func TestUnmapTableId(t *testing.T) {
@@ -3327,20 +3327,20 @@ func TestUnmapTableId(t *testing.T) {
 	require.Zero(t, tableID)
 
 	dbID, tableID, err = e.unmapTableID([]byte(
-		"e-prefix.CATALOG.TABLE.a",
+		"e-prefix.CTL.TABLE.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
 	require.Zero(t, tableID)
 
 	dbID, tableID, err = e.unmapTableID(append(
-		[]byte("e-prefix.CATALOG.TABLE."),
-		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		[]byte("e-prefix.CTL.TABLE."),
+		0x01, 0x02, 0x03, 0x04,
+		0x11, 0x12, 0x13, 0x14,
 	))
 	require.NoError(t, err)
-	require.EqualValues(t, 0x0102030405060708, dbID)
-	require.EqualValues(t, 0x1112131415161718, tableID)
+	require.EqualValues(t, 0x01020304, dbID)
+	require.EqualValues(t, 0x11121314, tableID)
 }
 
 func TestUnmapColSpec(t *testing.T) {
@@ -3354,7 +3354,7 @@ func TestUnmapColSpec(t *testing.T) {
 	require.Zero(t, colType)
 
 	dbID, tableID, colID, colType, err = e.unmapColSpec([]byte(
-		"e-prefix.CATALOG.COLUMN.a",
+		"e-prefix.CTL.COLUMN.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
@@ -3363,10 +3363,10 @@ func TestUnmapColSpec(t *testing.T) {
 	require.Zero(t, colType)
 
 	dbID, tableID, colID, colType, err = e.unmapColSpec(append(
-		[]byte("e-prefix.CATALOG.COLUMN."),
-		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		[]byte("e-prefix.CTL.COLUMN."),
+		0x01, 0x02, 0x03, 0x04,
+		0x11, 0x12, 0x13, 0x14,
+		0x21, 0x22, 0x23, 0x24,
 		0x00,
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
@@ -3376,17 +3376,17 @@ func TestUnmapColSpec(t *testing.T) {
 	require.Zero(t, colType)
 
 	dbID, tableID, colID, colType, err = e.unmapColSpec(append(
-		[]byte("e-prefix.CATALOG.COLUMN."),
-		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		[]byte("e-prefix.CTL.COLUMN."),
+		0x01, 0x02, 0x03, 0x04,
+		0x11, 0x12, 0x13, 0x14,
+		0x21, 0x22, 0x23, 0x24,
 		'I', 'N', 'T', 'E', 'G', 'E', 'R',
 	))
 
 	require.NoError(t, err)
-	require.EqualValues(t, 0x0102030405060708, dbID)
-	require.EqualValues(t, 0x1112131415161718, tableID)
-	require.EqualValues(t, 0x2122232425262728, colID)
+	require.EqualValues(t, 0x01020304, dbID)
+	require.EqualValues(t, 0x11121314, tableID)
+	require.EqualValues(t, 0x21222324, colID)
 	require.Equal(t, "INTEGER", colType)
 }
 
@@ -3400,7 +3400,7 @@ func TestUnmapIndex(t *testing.T) {
 	require.Zero(t, colID)
 
 	dbID, tableID, colID, err = e.unmapIndex([]byte(
-		"e-prefix.CATALOG.INDEX.a",
+		"e-prefix.CTL.INDEX.a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Zero(t, dbID)
@@ -3408,16 +3408,16 @@ func TestUnmapIndex(t *testing.T) {
 	require.Zero(t, colID)
 
 	dbID, tableID, colID, err = e.unmapIndex(append(
-		[]byte("e-prefix.CATALOG.INDEX."),
-		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		[]byte("e-prefix.CTL.INDEX."),
+		0x01, 0x02, 0x03, 0x04,
+		0x11, 0x12, 0x13, 0x14,
+		0x21, 0x22, 0x23, 0x24,
 	))
 
 	require.NoError(t, err)
-	require.EqualValues(t, 0x0102030405060708, dbID)
-	require.EqualValues(t, 0x1112131415161718, tableID)
-	require.EqualValues(t, 0x2122232425262728, colID)
+	require.EqualValues(t, 0x01020304, dbID)
+	require.EqualValues(t, 0x11121314, tableID)
+	require.EqualValues(t, 0x21222324, colID)
 }
 
 func TestUnmapIndexEntry(t *testing.T) {
@@ -3435,9 +3435,9 @@ func TestUnmapIndexEntry(t *testing.T) {
 
 	fullValue := append(
 		[]byte("e-prefix.S."),
-		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+		0x01, 0x02, 0x03, 0x04,
+		0x11, 0x12, 0x13, 0x14,
+		0x00, 0x00, 0x00, 0x02,
 		'a', 'b', 'c', 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 3,
 		'w', 'x', 'y', 'z',
@@ -3447,9 +3447,9 @@ func TestUnmapIndexEntry(t *testing.T) {
 	sIndex := &Index{
 		table: &Table{
 			db: &Database{
-				id: 0x0102030405060708,
+				id: 0x01020304,
 			},
-			id: 0x1112131415161718,
+			id: 0x11121314,
 		},
 		id:     2,
 		unique: false,

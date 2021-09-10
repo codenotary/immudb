@@ -82,7 +82,7 @@ var ErrAlreadyClosed = errors.New("sql engine already closed")
 var maxKeyLen = 256
 var maxKeyVal []byte = greatestKeyOfSize(maxKeyLen)
 
-const EncIDLen = 8
+const EncIDLen = 4
 const EncLenLen = 4
 
 const MaxNumberOfColumnsInIndex = 8
@@ -566,7 +566,7 @@ func indexKeyFrom(cols []*Column) string {
 	var buf bytes.Buffer
 
 	for _, col := range cols {
-		buf.WriteString(strconv.FormatUint(col.id, 16))
+		buf.WriteString(strconv.FormatUint(uint64(col.id), 16))
 	}
 
 	return buf.String()
@@ -592,7 +592,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 	return e.unmapIndexEntry(table.primaryIndex, mkey)
 }
 
-func (e *Engine) loadColSpecs(dbID, tableID uint64, snap *store.Snapshot) (specs []*ColSpec, err error) {
+func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs []*ColSpec, err error) {
 	initialKey := e.mapKey(catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
@@ -688,10 +688,10 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 			return ErrCorruptedData
 		}
 
-		var colIDs []uint64
+		var colIDs []uint32
 
 		for i := 1; i < len(v); i += EncIDLen {
-			colID := binary.BigEndian.Uint64(v[i:])
+			colID := binary.BigEndian.Uint32(v[i:])
 			colIDs = append(colIDs, colID)
 		}
 
@@ -718,7 +718,7 @@ func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	return mkey[len(e.prefix)+len(mappingPrefix):], nil
 }
 
-func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint64, err error) {
+func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint32, err error) {
 	encID, err := e.trimPrefix(mkey, []byte(catalogDatabasePrefix))
 	if err != nil {
 		return 0, err
@@ -728,10 +728,10 @@ func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint64, err error) {
 		return 0, ErrCorruptedData
 	}
 
-	return binary.BigEndian.Uint64(encID), nil
+	return binary.BigEndian.Uint32(encID), nil
 }
 
-func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID uint64, err error) {
+func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID uint32, err error) {
 	encID, err := e.trimPrefix(mkey, []byte(catalogTablePrefix))
 	if err != nil {
 		return 0, 0, err
@@ -741,13 +741,13 @@ func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID uint64, err error) {
 		return 0, 0, ErrCorruptedData
 	}
 
-	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
+	dbID = binary.BigEndian.Uint32(encID)
+	tableID = binary.BigEndian.Uint32(encID[EncIDLen:])
 
 	return
 }
 
-func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint64, colType SQLValueType, err error) {
+func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
 	encID, err := e.trimPrefix(mkey, []byte(catalogColumnPrefix))
 	if err != nil {
 		return 0, 0, 0, "", err
@@ -757,9 +757,9 @@ func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint64, colType
 		return 0, 0, 0, "", ErrCorruptedData
 	}
 
-	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
-	colID = binary.BigEndian.Uint64(encID[2*EncIDLen:])
+	dbID = binary.BigEndian.Uint32(encID)
+	tableID = binary.BigEndian.Uint32(encID[EncIDLen:])
+	colID = binary.BigEndian.Uint32(encID[2*EncIDLen:])
 
 	colType, err = asType(string(encID[EncIDLen*3:]))
 	if err != nil {
@@ -781,7 +781,7 @@ func asType(t string) (SQLValueType, error) {
 	return t, ErrCorruptedData
 }
 
-func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint64, err error) {
+func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint32, err error) {
 	encID, err := e.trimPrefix(mkey, []byte(catalogIndexPrefix))
 	if err != nil {
 		return 0, 0, 0, err
@@ -791,9 +791,9 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint64, err err
 		return 0, 0, 0, ErrCorruptedData
 	}
 
-	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
-	indexID = binary.BigEndian.Uint64(encID[EncIDLen*2:])
+	dbID = binary.BigEndian.Uint32(encID)
+	tableID = binary.BigEndian.Uint32(encID[EncIDLen:])
+	indexID = binary.BigEndian.Uint32(encID[EncIDLen*2:])
 
 	return
 }
@@ -814,20 +814,20 @@ func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, e
 
 	off := 0
 
-	dbID := binary.BigEndian.Uint64(enc[off:])
+	dbID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	tableID := binary.BigEndian.Uint64(enc[off:])
+	tableID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
-	indexID := binary.BigEndian.Uint64(enc[off:])
+	indexID := binary.BigEndian.Uint32(enc[off:])
 	off += EncIDLen
 
 	if dbID != index.table.db.id || tableID != index.table.id || indexID != index.id {
 		return nil, ErrCorruptedData
 	}
 
-	if index.isPrimary() {
+	if index.IsPrimary() {
 		return enc[off:], nil
 	}
 
@@ -880,9 +880,9 @@ func MapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
 	return mkey
 }
 
-func EncodeID(id uint64) []byte {
+func EncodeID(id uint32) []byte {
 	var encID [EncIDLen]byte
-	binary.BigEndian.PutUint64(encID[:], id)
+	binary.BigEndian.PutUint32(encID[:], id)
 	return encID[:]
 }
 
@@ -894,7 +894,7 @@ func maxKeyValOf(colType SQLValueType) []byte {
 		}
 	case IntegerType:
 		{
-			return maxKeyVal[:EncLenLen+EncIDLen]
+			return maxKeyVal[:EncLenLen+8]
 		}
 	}
 	return maxKeyVal[:]
@@ -928,8 +928,8 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			}
 
 			// len(v) + v
-			var encv [EncLenLen + EncIDLen]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(EncIDLen))
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
 			binary.BigEndian.PutUint64(encv[EncLenLen:], intVal)
 
 			return encv[:], nil
@@ -1010,7 +1010,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			}
 
 			// v
-			var encv [EncIDLen]byte
+			var encv [8]byte
 			binary.BigEndian.PutUint64(encv[:], intVal)
 
 			return encv[:], nil

@@ -230,7 +230,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		}
 	}
 
-	if !scanSpecs.index.isPrimary() && !scanSpecs.index.unique {
+	if !scanSpecs.index.IsPrimary() && !scanSpecs.index.IsUnique() {
 		// non-unique index entries include encoded pk values as suffix
 
 		if desc {
@@ -314,7 +314,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.scanSpecs.index.isPrimary() {
+	if r.scanSpecs.index.IsPrimary() {
 		v, err = vref.Resolve()
 		if err != nil {
 			return nil, err
@@ -322,7 +322,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	} else {
 		var encPKVals []byte
 
-		if r.scanSpecs.index.unique {
+		if r.scanSpecs.index.IsUnique() {
 			encPKVals, err = vref.Resolve()
 			if err != nil {
 				return nil, err
@@ -360,7 +360,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, ErrCorruptedData
 		}
 
-		colID := binary.BigEndian.Uint64(v[voff:])
+		colID := binary.BigEndian.Uint32(v[voff:])
 		voff += EncIDLen
 
 		col, err := r.table.GetColumnByID(colID)

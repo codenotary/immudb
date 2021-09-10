@@ -48,7 +48,7 @@ func TestJointRowReader(t *testing.T) {
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
 	require.NoError(t, err)
 
-	index, err := table.newIndex(true, []uint64{1})
+	index, err := table.newIndex(true, []uint32{1})
 	require.NoError(t, err)
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
@@ -84,5 +84,5 @@ func TestJointRowReader(t *testing.T) {
 	scanSpecs := jr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
 	require.NotNil(t, scanSpecs.index)
-	require.True(t, scanSpecs.index.isPrimary())
+	require.True(t, scanSpecs.index.IsPrimary())
 }

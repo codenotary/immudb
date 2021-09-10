@@ -42,7 +42,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	db, err := catalog.newDatabase(2, "db1")
 	require.NoError(t, err)
 	require.NotNil(t, db)
-	require.Equal(t, uint64(2), db.id)
+	require.Equal(t, uint32(2), db.id)
 	require.Equal(t, "db1", db.Name())
 	require.Empty(t, db.GetTables())
 
@@ -86,7 +86,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
 
-	_, err = table.newIndex(true, []uint64{1})
+	_, err = table.newIndex(true, []uint32{1})
 	require.NoError(t, err)
 
 	tables := db.GetTables()
@@ -133,7 +133,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = table.newIndex(true, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = table.newIndex(true, []uint64{1, 2, 1})
+	_, err = table.newIndex(true, []uint32{1, 2, 1})
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
 }
