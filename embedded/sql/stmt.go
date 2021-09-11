@@ -484,6 +484,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		return nil, err
 	}
 
+	if !stmt.isInsert && len(table.indexes) > 1 {
+		return nil, ErrLimitedUpsert
+	}
+
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
