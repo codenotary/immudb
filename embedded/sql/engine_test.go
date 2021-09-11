@@ -1896,10 +1896,10 @@ func TestOrderBy(t *testing.T) {
 
 	params := make(map[string]interface{}, 1)
 	params["age"] = nil
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params, true)
+	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params, true)
 	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title')", nil, true)
+	_, err = engine.ExecStmt("INSERT INTO table1 (id, title) VALUES (1, 'title')", nil, true)
 	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
 
 	rowCount := 1
@@ -1910,7 +1910,7 @@ func TestOrderBy(t *testing.T) {
 		params["title"] = fmt.Sprintf("title%d", i)
 		params["age"] = 40 + i
 
-		_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
 		require.NoError(t, err)
 	}
 
@@ -2142,7 +2142,7 @@ func TestAggregations(t *testing.T) {
 		params["title"] = fmt.Sprintf("title%d", i)
 		params["age"] = base + i
 
-		_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
 		require.NoError(t, err)
 	}
 
@@ -2307,7 +2307,7 @@ func TestGroupByHaving(t *testing.T) {
 		params["age"] = base + i
 		params["active"] = i%2 == 0
 
-		_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age, active) VALUES (@id, @title, @age, @active)", params, true)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age, active) VALUES (@id, @title, @age, @active)", params, true)
 		require.NoError(t, err)
 	}
 
