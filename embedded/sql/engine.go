@@ -40,7 +40,7 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
-var ErrLimitedAutoIncrement = errors.New("only INTEGER primary keys can be set as auto incremental")
+var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
 var ErrLimitedUpsert = errors.New("upsert is only supported in tables without secondary indexes")
 var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
 var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
@@ -546,7 +546,7 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 		if table.autoIncrementPK {
 			encMaxPK, err := e.loadMaxPK(dataSnap, table)
 			if err == store.ErrNoMoreEntries {
-				break
+				continue
 			}
 			if err != nil {
 				return err
