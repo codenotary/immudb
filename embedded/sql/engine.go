@@ -828,21 +828,24 @@ func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, e
 		return nil, ErrCorruptedData
 	}
 
-	if index.IsPrimary() {
-		return enc[off:], nil
+	if !index.IsPrimary() {
+		//read index values
+		for _, col := range index.cols {
+			maxLen := col.MaxLen()
+			if variableSized(col.colType) {
+				maxLen += EncLenLen
+			}
+			if len(enc)-off < maxLen {
+				return nil, ErrCorruptedData
+			}
+
+			off += maxLen
+		}
 	}
 
-	//read index values
-	for _, col := range index.cols {
-		maxLen := col.MaxLen()
-		if variableSized(col.colType) {
-			maxLen += EncLenLen
-		}
-		if len(enc)-off < maxLen {
-			return nil, ErrCorruptedData
-		}
-
-		off += maxLen
+	//PK cannot be nil
+	if len(enc)-off < 1 {
+		return nil, ErrCorruptedData
 	}
 
 	return enc[off:], nil
