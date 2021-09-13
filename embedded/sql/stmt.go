@@ -275,7 +275,7 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		v := make([]byte, 1+4+len(col.colName))
 
 		if col.autoIncrement {
-			if col.id != table.primaryIndex.cols[0].id {
+			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
 				return nil, ErrLimitedAutoIncrement
 			}
 
