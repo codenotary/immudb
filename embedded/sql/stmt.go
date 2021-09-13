@@ -31,7 +31,7 @@ const (
 	catalogDatabasePrefix = "CTL.DATABASE." // (key=CTL.DATABASE.{dbID}, value={dbNAME})
 	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
 	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
-	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}...{colIDN}})
+	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
 	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
 	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
 	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
@@ -382,14 +382,18 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	encodedValues := make([]byte, 1+len(index.cols)*EncIDLen)
+	// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
+	// TODO: currently only ASC order is supported
+	colSpecLen := EncIDLen + 1
+
+	encodedValues := make([]byte, 1+len(index.cols)*colSpecLen)
 
 	if index.IsUnique() {
 		encodedValues[0] = 1
 	}
 
 	for i, col := range index.cols {
-		copy(encodedValues[1+i*EncIDLen:], EncodeID(col.id))
+		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
 	te := &store.KV{

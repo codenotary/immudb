@@ -684,15 +684,23 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 			return err
 		}
 
-		// v={unique {colID1}...{colIDN}}
-		if len(v) < 1+EncIDLen || len(v)%EncIDLen != 1 {
+		// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}
+		colSpecLen := EncIDLen + 1
+
+		if len(v) < 1+colSpecLen || len(v)%colSpecLen != 1 {
 			return ErrCorruptedData
 		}
 
 		var colIDs []uint32
 
-		for i := 1; i < len(v); i += EncIDLen {
+		for i := 1; i < len(v); i += colSpecLen {
 			colID := binary.BigEndian.Uint32(v[i:])
+
+			// TODO: currently only ASC order is supported
+			if v[i+EncIDLen] != 0 {
+				return ErrCorruptedData
+			}
+
 			colIDs = append(colIDs, colID)
 		}
 
