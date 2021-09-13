@@ -46,16 +46,6 @@ func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params ma
 		if jspec.joinType != InnerJoin {
 			return nil, ErrUnsupportedJoinType
 		}
-
-		tableRef, ok := jspec.ds.(*tableRef)
-		if !ok {
-			return nil, ErrLimitedJoins
-		}
-
-		_, err := tableRef.referencedTable(e, db)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &jointRowReader{

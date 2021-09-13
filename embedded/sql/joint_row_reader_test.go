@@ -63,10 +63,7 @@ func TestJointRowReader(t *testing.T) {
 	require.Equal(t, ErrUnsupportedJoinType, err)
 
 	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
-	require.Equal(t, ErrLimitedJoins, err)
-
-	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table2"}}})
-	require.Equal(t, ErrTableDoesNotExist, err)
+	require.NoError(t, err)
 
 	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
 	require.NoError(t, err)

@@ -62,7 +62,6 @@ var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrCatalogNotReady = errors.New("catalog not ready")
 var ErrNoMoreRows = store.ErrNoMoreEntries
-var ErrLimitedJoins = errors.New("joins limited to tables")
 var ErrInvalidTypes = errors.New("invalid types")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
