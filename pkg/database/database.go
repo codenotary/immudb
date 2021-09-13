@@ -173,12 +173,12 @@ func (d *db) initSQLEngine() error {
 	}
 
 	// Warn about existent SQL data
-	exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte("ROW.")...), nil, false)
+	exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte("CATALOG.TABLE.")...), nil, false)
 	if err != nil {
 		return err
 	}
 	if exists {
-		d.Logger.Warningf("Existent SQL data won't be automatically migrated. Please reach us out in Discord channel if you need any assistance.")
+		d.Logger.Warningf("Existent SQL data won’t be automatically migrated. Please reach out to the immudb maintainers at the Discord channel if you need any assistance.")
 	}
 
 	err = d.sqlEngine.UseDatabase(dbInstanceName)
