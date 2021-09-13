@@ -361,7 +361,7 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($0, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR, expecting ')'"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, @title)",
