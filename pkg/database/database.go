@@ -172,6 +172,15 @@ func (d *db) initSQLEngine() error {
 		return err
 	}
 
+	// Warn about existent SQL data
+	exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte("ROW.")...), nil, false)
+	if err != nil {
+		return err
+	}
+	if exists {
+		d.Logger.Warningf("Existent SQL data won't be automatically migrated. Please reach us out in Discord channel if you need any assistance.")
+	}
+
 	err = d.sqlEngine.UseDatabase(dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
