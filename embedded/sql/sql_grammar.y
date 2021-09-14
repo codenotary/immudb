@@ -51,7 +51,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
-    boolExp ValueExp
+    exp ValueExp
     binExp ValueExp
     err error
     ordcols []*OrdCol
@@ -111,7 +111,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <number> opt_since opt_as_before
 %type <joins> opt_joins joins
 %type <join> join
-%type <boolExp> boolExp opt_where opt_having
+%type <exp> exp opt_where opt_having
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <number> opt_limit opt_max_len
@@ -311,12 +311,12 @@ opt_values:
     }
 
 values:
-    val
+    exp
     {
         $$ = []ValueExp{$1}
     }
 |
-    values ',' val
+    values ',' exp
     {
         $$ = append($1, $3)
     }
@@ -559,7 +559,7 @@ joins:
     }
 
 join:
-    JOINTYPE JOIN ds ON boolExp
+    JOINTYPE JOIN ds ON exp
     {
         $$ = &JoinSpec{joinType: $1, ds: $3, cond: $5}
     }
@@ -569,7 +569,7 @@ opt_where:
         $$ = nil
     }
 |
-    WHERE boolExp
+    WHERE exp
     {
         $$ = $2
     }
@@ -589,7 +589,7 @@ opt_having:
         $$ = nil
     }
 |
-    HAVING boolExp
+    HAVING exp
     {
         $$ = $2
     }
@@ -660,7 +660,7 @@ opt_as:
         $$ = $2
     }
 
-boolExp:
+exp:
     selector
     {
         $$ = $1
@@ -676,17 +676,17 @@ boolExp:
         $$ = $1
     }
 |
-    NOT boolExp
+    NOT exp
     {
         $$ = &NotBoolExp{exp: $2}
     }
 |
-    '-' boolExp
+    '-' exp
     {
         $$ = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: $2}
     }
 |
-    '(' boolExp ')'
+    '(' exp ')'
     {
         $$ = $2
     }
@@ -702,32 +702,32 @@ boolExp:
     }
 
 binExp:
-    boolExp '+' boolExp
+    exp '+' exp
     {
         $$ = &NumExp{left: $1, op: ADDOP, right: $3}
     }
 |
-    boolExp '-' boolExp
+    exp '-' exp
     {
         $$ = &NumExp{left: $1, op: SUBSOP, right: $3}
     }
 |
-    boolExp '/' boolExp
+    exp '/' exp
     {
         $$ = &NumExp{left: $1, op: DIVOP, right: $3}
     }
 |
-    boolExp '*' boolExp
+    exp '*' exp
     {
         $$ = &NumExp{left: $1, op: MULTOP, right: $3}
     }
 |
-    boolExp LOP boolExp
+    exp LOP exp
     {
         $$ = &BinBoolExp{left: $1, op: $2, right: $3}
     }
 |
-    boolExp CMPOP boolExp
+    exp CMPOP exp
     {
         $$ = &CmpBoolExp{left: $1, op: $2, right: $3}
     }
