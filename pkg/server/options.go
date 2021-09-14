@@ -80,11 +80,11 @@ type RemoteStorageOptions struct {
 }
 
 type ReplicationOptions struct {
-	MasterAddress   string
-	MasterPort      int
-	MasterDatabase  string
-	ReplicaUsername string
-	ReplicaPassword string
+	MasterAddress    string
+	MasterPort       int
+	MasterDatabase   string
+	FollowerUsername string
+	FollowerPassword string
 }
 
 // DefaultOptions returns default server options
@@ -448,12 +448,12 @@ func (opts *ReplicationOptions) WithMasterDatabase(masterDatabase string) *Repli
 	return opts
 }
 
-func (opts *ReplicationOptions) WithReplicaUsername(replicaUsername string) *ReplicationOptions {
-	opts.ReplicaUsername = replicaUsername
+func (opts *ReplicationOptions) WithFollowerUsername(followerUsername string) *ReplicationOptions {
+	opts.FollowerUsername = followerUsername
 	return opts
 }
 
-func (opts *ReplicationOptions) WithReplicaPassword(replicaPassword string) *ReplicationOptions {
-	opts.ReplicaPassword = replicaPassword
+func (opts *ReplicationOptions) WithFollowerPassword(followerPassword string) *ReplicationOptions {
+	opts.FollowerPassword = followerPassword
 	return opts
 }

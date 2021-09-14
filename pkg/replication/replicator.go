@@ -188,7 +188,7 @@ func (txr *TxReplicator) connect() error {
 		return err
 	}
 
-	login, err := client.Login(txr.mainContext, []byte(txr.opts.replicaUsername), []byte(txr.opts.replicaPassword))
+	login, err := client.Login(txr.mainContext, []byte(txr.opts.followerUsername), []byte(txr.opts.followerPassword))
 	if err != nil {
 		return err
 	}

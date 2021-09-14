@@ -21,11 +21,11 @@ import "time"
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 
 type Options struct {
-	masterDatabase  string
-	masterAddress   string
-	masterPort      int
-	replicaUsername string
-	replicaPassword string
+	masterDatabase   string
+	masterAddress    string
+	masterPort       int
+	followerUsername string
+	followerPassword string
 
 	streamChunkSize int
 
@@ -70,15 +70,15 @@ func (o *Options) WithMasterPort(masterPort int) *Options {
 	return o
 }
 
-// WithReplicaUsername sets username used for replication
-func (o *Options) WithReplicaUsername(replicaUsername string) *Options {
-	o.replicaUsername = replicaUsername
+// WithFollowerUsername sets username used for replication
+func (o *Options) WithFollowerUsername(followerUsername string) *Options {
+	o.followerUsername = followerUsername
 	return o
 }
 
-// WithReplicaPassword sets password used for replication
-func (o *Options) WithReplicaPassword(replicaPassword string) *Options {
-	o.replicaPassword = replicaPassword
+// WithFollowerPassword sets password used for replication
+func (o *Options) WithFollowerPassword(followerPassword string) *Options {
+	o.followerPassword = followerPassword
 	return o
 }
 
