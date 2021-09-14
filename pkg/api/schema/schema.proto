@@ -335,8 +335,8 @@ message DatabaseSettings {
 	string masterDatabase = 3;
 	string masterAddress = 4;
 	uint32 masterPort = 5;
-	string replicaUsername = 6;
-	string replicaPassword = 7;
+	string followerUsername = 6;
+	string followerPassword = 7;
 	uint32 fileSize = 8;
 	uint32 maxKeyLen = 9;
 	uint32 maxValueLen = 10;

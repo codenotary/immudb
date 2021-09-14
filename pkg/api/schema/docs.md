@@ -240,8 +240,8 @@
 | masterDatabase | [string](#string) |  |  |
 | masterAddress | [string](#string) |  |  |
 | masterPort | [uint32](#uint32) |  |  |
-| replicaUsername | [string](#string) |  |  |
-| replicaPassword | [string](#string) |  |  |
+| followerUsername | [string](#string) |  |  |
+| followerPassword | [string](#string) |  |  |
 | fileSize | [uint32](#uint32) |  |  |
 | maxKeyLen | [uint32](#uint32) |  |  |
 | maxValueLen | [uint32](#uint32) |  |  |
