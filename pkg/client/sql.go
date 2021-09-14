@@ -316,7 +316,7 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	switch tv.Type() {
 	case sql.IntegerType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.Value().(uint64)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.Value().(int64)}}
 		}
 	case sql.VarcharType:
 		{
