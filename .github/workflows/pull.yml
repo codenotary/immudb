@@ -28,7 +28,7 @@ jobs:
       - name: Build with webconsole
         run: |
           sudo apt update && sudo apt install curl -y
-          WEBCONSOLE=1 make all
+          WEBCONSOLE=default make all
         if: runner.os == 'Linux'
       - name: Upload webconsole artifact
         uses: actions/upload-artifact@v2

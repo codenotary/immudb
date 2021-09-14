@@ -28,10 +28,11 @@ rm -rf webconsole/dist
 
 ## 2. Bump version (vX.Y.Z)
 
-Edit `Makefile` and modify the `VERSION` variable:
+Edit `Makefile` and modify the `VERSION` and `DEFAULT_WEBCONSOLE_VERSION` variables:
 
 ```
 VERSION=X.Y.Z
+DEFAULT_WEBCONSOLE_VERSION=A.B.C
 ```
 > N.B. Omit the `v` prefix.
 
@@ -70,7 +71,7 @@ Make sure the path of those files is accessible.
 Build all dist files. It's possible launch script on all services. Modify SERVICE_NAME according your needs:
 
 ```
-WEBCONSOLE=1 SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist
+WEBCONSOLE=default SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist
 ```
 > Distribution files will be created into the `dist` directory.
 

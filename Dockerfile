@@ -1,7 +1,7 @@
 FROM golang:1.13-stretch as build
 WORKDIR /src
 COPY . .
-RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=1 make immuadmin-static immudb-static
+RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
 FROM ubuntu:18.04
 MAINTAINER CodeNotary, Inc. <info@codenotary.io>
 
