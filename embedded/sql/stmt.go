@@ -1664,6 +1664,10 @@ func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, err
 }
 
 func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	if row == nil {
+		return nil, ErrInvalidValue
+	}
+
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
 
 	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
@@ -1854,12 +1858,12 @@ func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable
 
 	nl, isNumber := vl.Value().(int64)
 	if !isNumber {
-		return nil, ErrInvalidCondition
+		return nil, ErrInvalidValue
 	}
 
 	nr, isNumber := vr.Value().(int64)
 	if !isNumber {
-		return nil, ErrInvalidCondition
+		return nil, ErrInvalidValue
 	}
 
 	switch bexp.op {
