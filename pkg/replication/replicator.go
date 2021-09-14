@@ -96,6 +96,12 @@ func (txr *TxReplicator) Start() error {
 	txr.running = true
 
 	go func() {
+		defer func() {
+			if txr.client != nil {
+				txr.disconnect()
+			}
+		}()
+
 		for {
 			if txr.client == nil {
 				err = txr.connect()
@@ -118,49 +124,48 @@ func (txr *TxReplicator) Start() error {
 					timer.Stop()
 					return
 				case <-timer.C:
-					break
-				}
-			} else {
-				txr.logger.Debugf("Replicating transaction %d from '%s' to '%s'...", txr.nextTx, masterDB, txr.db.GetName())
-
-				bs, err := txr.fetchTX()
-				if err != nil {
-					txr.logger.Infof("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
-
-					txr.failedAttempts++
-
-					if txr.failedAttempts == 3 {
-						txr.disconnect()
-						continue
-					}
-
-					timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-					select {
-					case <-txr.mainContext.Done():
-						timer.Stop()
-						return
-					case <-timer.C:
-						break
-					}
-
-					continue
 				}
 
-				_, err = txr.db.ReplicateTx(bs)
-				if err != nil {
-					txr.logger.Infof("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
-						txr.nextTx,
-						txr.db.GetName(),
-						masterDB,
-						err)
-					continue
-				}
-
-				txr.logger.Debugf("Transaction %d from '%s' to '%s' successfully replicated", txr.nextTx, masterDB, txr.db.GetName())
-
-				txr.nextTx++
-				txr.failedAttempts = 0
+				continue
 			}
+
+			txr.logger.Debugf("Replicating transaction %d from '%s' to '%s'...", txr.nextTx, masterDB, txr.db.GetName())
+
+			bs, err := txr.fetchTX()
+			if err != nil {
+				txr.logger.Infof("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
+
+				txr.failedAttempts++
+
+				if txr.failedAttempts == 3 {
+					txr.disconnect()
+				}
+
+				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
+				select {
+				case <-txr.mainContext.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
+
+				continue
+			}
+
+			_, err = txr.db.ReplicateTx(bs)
+			if err != nil {
+				txr.logger.Infof("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
+					txr.nextTx,
+					txr.db.GetName(),
+					masterDB,
+					err)
+				continue
+			}
+
+			txr.logger.Debugf("Transaction %d from '%s' to '%s' successfully replicated", txr.nextTx, masterDB, txr.db.GetName())
+
+			txr.nextTx++
+			txr.failedAttempts = 0
 		}
 	}()
 
@@ -204,7 +209,7 @@ func (txr *TxReplicator) connect() error {
 
 	txr.client = client
 
-	txr.logger.Infof("Connection to '%s':'%d' for database '%s' successfully stablished",
+	txr.logger.Infof("Connection to '%s':'%d' for database '%s' successfully established",
 		txr.opts.masterAddress,
 		txr.opts.masterPort,
 		txr.db.GetName())
@@ -246,30 +251,8 @@ func (txr *TxReplicator) Stop() error {
 		return ErrAlreadyStopped
 	}
 
-	if txr.client != nil {
-		err := txr.client.Logout(txr.clientContext)
-		if err != nil {
-			txr.logger.Infof("Error login out from '%s:%d' for database '%s'. Reason: %v",
-				txr.opts.masterAddress,
-				txr.opts.masterPort,
-				txr.db.GetName(),
-				err)
-		}
-	}
-
 	if txr.cancelFunc != nil {
 		txr.cancelFunc()
-	}
-
-	if txr.client != nil {
-		err := txr.client.Disconnect()
-		if err != nil {
-			txr.logger.Infof("Error disconnecting from '%s:%d' for database '%s'. Reason: %v",
-				txr.opts.masterAddress,
-				txr.opts.masterPort,
-				txr.db.GetName(),
-				err)
-		}
 	}
 
 	txr.running = false
