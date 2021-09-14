@@ -107,13 +107,13 @@ type TxSummary struct {
 	des []*store.KV
 
 	updatedRows     int
-	lastInsertedPKs map[string]uint64
+	lastInsertedPKs map[string]int64
 }
 
 func newTxSummary(db *Database) *TxSummary {
 	return &TxSummary{
 		db:              db,
-		lastInsertedPKs: make(map[string]uint64),
+		lastInsertedPKs: make(map[string]int64),
 	}
 }
 
@@ -873,7 +873,7 @@ func (v *NullValue) selectorRanges(table *Table, params map[string]interface{}, 
 }
 
 type Number struct {
-	val uint64
+	val int64
 }
 
 func (v *Number) Type() SQLValueType {
@@ -926,13 +926,13 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(uint64)
+	rval := val.Value().(int64)
 
-	if int64(v.val) == int64(rval) {
+	if v.val == rval {
 		return 0, nil
 	}
 
-	if int64(v.val) > int64(rval) {
+	if v.val > rval {
 		return 1, nil
 	}
 
@@ -1154,7 +1154,7 @@ func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if strings.ToUpper(v.fn) == "NOW" {
-		return &Number{val: uint64(time.Now().UnixNano())}, nil
+		return &Number{val: time.Now().UnixNano()}, nil
 	}
 
 	return nil, errors.New("not yet supported")
@@ -1219,11 +1219,15 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case int:
 		{
-			return &Number{val: uint64(v)}, nil
+			return &Number{val: int64(v)}, nil
+		}
+	case uint:
+		{
+			return &Number{val: int64(v)}, nil
 		}
 	case uint64:
 		{
-			return &Number{val: v}, nil
+			return &Number{val: int64(v)}, nil
 		}
 	case []byte:
 		{
@@ -1848,12 +1852,12 @@ func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable
 		return nil, err
 	}
 
-	nl, isNumber := vl.Value().(uint64)
+	nl, isNumber := vl.Value().(int64)
 	if !isNumber {
 		return nil, ErrInvalidCondition
 	}
 
-	nr, isNumber := vr.Value().(uint64)
+	nr, isNumber := vr.Value().(int64)
 	if !isNumber {
 		return nil, ErrInvalidCondition
 	}

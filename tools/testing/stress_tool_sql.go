@@ -164,7 +164,7 @@ func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg
 		}
 		ret := r.Rows[0]
 		n := ret.Values[0].GetN()
-		if n != uint64(i) {
+		if n != int64(i) {
 			log.Printf("Reader %d read %d vs %d", id, n, i)
 		}
 		if c.readPause > 0 {

@@ -324,7 +324,7 @@ values:
 val: 
     NUMBER
     {
-        $$ = &Number{val: $1}
+        $$ = &Number{val: int64($1)}
     }
 |
     VARCHAR
@@ -683,7 +683,7 @@ boolExp:
 |
     '-' boolExp
     {
-        $$ = &NumExp{left: &Number{val: uint64(0)}, op: SUBSOP, right: $2}
+        $$ = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: $2}
     }
 |
     '(' boolExp ')'

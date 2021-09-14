@@ -41,7 +41,7 @@ type Table struct {
 	indexesByColID  map[uint32][]*Index
 	primaryIndex    *Index
 	autoIncrementPK bool
-	maxPK           uint64
+	maxPK           int64
 }
 
 type Index struct {
