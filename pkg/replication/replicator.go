@@ -106,7 +106,7 @@ func (txr *TxReplicator) Start() error {
 
 				txr.failedAttempts++
 
-				txr.logger.Warningf("Failed to connect with '%s' for database '%s' (%d failed attempts). Reason: %v",
+				txr.logger.Infof("Failed to connect with '%s' for database '%s' (%d failed attempts). Reason: %v",
 					masterDB,
 					txr.db.GetName(),
 					txr.failedAttempts,
@@ -125,7 +125,7 @@ func (txr *TxReplicator) Start() error {
 
 				bs, err := txr.fetchTX()
 				if err != nil {
-					txr.logger.Warningf("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
+					txr.logger.Infof("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
 
 					txr.failedAttempts++
 
@@ -148,7 +148,7 @@ func (txr *TxReplicator) Start() error {
 
 				_, err = txr.db.ReplicateTx(bs)
 				if err != nil {
-					txr.logger.Warningf("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
+					txr.logger.Infof("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
 						txr.nextTx,
 						txr.db.GetName(),
 						masterDB,
@@ -249,7 +249,7 @@ func (txr *TxReplicator) Stop() error {
 	if txr.client != nil {
 		err := txr.client.Logout(txr.clientContext)
 		if err != nil {
-			txr.logger.Warningf("Error login out from '%s:%d' for database '%s'. Reason: %v",
+			txr.logger.Infof("Error login out from '%s:%d' for database '%s'. Reason: %v",
 				txr.opts.masterAddress,
 				txr.opts.masterPort,
 				txr.db.GetName(),
@@ -264,7 +264,7 @@ func (txr *TxReplicator) Stop() error {
 	if txr.client != nil {
 		err := txr.client.Disconnect()
 		if err != nil {
-			txr.logger.Warningf("Error disconnecting from '%s:%d' for database '%s'. Reason: %v",
+			txr.logger.Infof("Error disconnecting from '%s:%d' for database '%s'. Reason: %v",
 				txr.opts.masterAddress,
 				txr.opts.masterPort,
 				txr.db.GetName(),
