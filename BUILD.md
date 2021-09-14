@@ -9,6 +9,7 @@ make all
 To embed the webconsole, build with
 
 ```
+rm -rf webconsole/dist  # force download of the correct webconsole version
 make WEBCONSOLE=default
 ```
 
