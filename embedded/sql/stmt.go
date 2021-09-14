@@ -928,11 +928,11 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 
 	rval := val.Value().(uint64)
 
-	if v.val == rval {
+	if int64(v.val) == int64(rval) {
 		return 0, nil
 	}
 
-	if v.val > rval {
+	if int64(v.val) > int64(rval) {
 		return 1, nil
 	}
 
