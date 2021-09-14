@@ -48,19 +48,19 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 	switch tv := v.(type) {
 	case uint:
 		{
-			return &SQLValue{Value: &SQLValue_N{N: uint64(tv)}}, nil
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
 	case int:
 		{
-			return &SQLValue{Value: &SQLValue_N{N: uint64(tv)}}, nil
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
 	case int64:
 		{
-			return &SQLValue{Value: &SQLValue_N{N: uint64(tv)}}, nil
+			return &SQLValue{Value: &SQLValue_N{N: tv}}, nil
 		}
 	case uint64:
 		{
-			return &SQLValue{Value: &SQLValue_N{N: uint64(tv)}}, nil
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
 	case string:
 		{

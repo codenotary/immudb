@@ -19,6 +19,7 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
@@ -62,7 +63,7 @@ func DataRow(rows []*schema.Row, colNumb int, ResultColumnFormatCodes []int16) [
 					{
 						binary.BigEndian.PutUint32(valueLength, uint32(8))
 						value = make([]byte, 8)
-						binary.BigEndian.PutUint64(value, tv.N)
+						binary.BigEndian.PutUint64(value, uint64(tv.N))
 					}
 				case *schema.SQLValue_S:
 					{

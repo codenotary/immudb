@@ -826,7 +826,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | null | [google.protobuf.NullValue](#google.protobuf.NullValue) |  |  |
-| n | [uint64](#uint64) |  |  |
+| n | [int64](#int64) |  |  |
 | s | [string](#string) |  |  |
 | b | [bool](#bool) |  |  |
 | bs | [bytes](#bytes) |  |  |

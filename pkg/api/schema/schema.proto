@@ -456,7 +456,7 @@ message Row {
 message SQLValue {
 	oneof value {
 		google.protobuf.NullValue null = 1;
-		uint64 n = 2;
+		int64 n = 2;
 		string s = 3;
 		bool b = 4;
 		bytes bs = 5;
