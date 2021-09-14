@@ -24,7 +24,7 @@ type AggregatedValue interface {
 }
 
 type CountValue struct {
-	c   uint64
+	c   int64
 	sel string
 }
 
@@ -49,7 +49,7 @@ func (v *CountValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	nv := val.Value().(uint64)
+	nv := val.Value().(int64)
 
 	if v.c == nv {
 		return 0, nil
@@ -105,7 +105,7 @@ func (v *CountValue) selectorRanges(table *Table, params map[string]interface{},
 }
 
 type SumValue struct {
-	s   uint64
+	s   int64
 	sel string
 }
 
@@ -130,7 +130,7 @@ func (v *SumValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
-	nv := val.Value().(uint64)
+	nv := val.Value().(int64)
 
 	if v.s == nv {
 		return 0, nil
@@ -148,7 +148,7 @@ func (v *SumValue) updateWith(val TypedValue) error {
 		return ErrNotComparableValues
 	}
 
-	v.s += val.Value().(uint64)
+	v.s += val.Value().(int64)
 
 	return nil
 }
@@ -369,8 +369,8 @@ func (v *MaxValue) selectorRanges(table *Table, params map[string]interface{}, r
 }
 
 type AVGValue struct {
-	s   uint64
-	c   uint64
+	s   int64
+	c   int64
 	sel string
 }
 
@@ -396,7 +396,7 @@ func (v *AVGValue) Compare(val TypedValue) (int, error) {
 	}
 
 	avg := v.s / v.c
-	nv := val.Value().(uint64)
+	nv := val.Value().(int64)
 
 	if avg == nv {
 		return 0, nil
@@ -414,7 +414,7 @@ func (v *AVGValue) updateWith(val TypedValue) error {
 		return ErrNotComparableValues
 	}
 
-	v.s += val.Value().(uint64)
+	v.s += val.Value().(int64)
 	v.c++
 
 	return nil
