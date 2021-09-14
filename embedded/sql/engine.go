@@ -555,7 +555,7 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 				return ErrCorruptedData
 			}
 
-			table.maxPK = binary.BigEndian.Uint64(encMaxPK)
+			table.maxPK = binary.BigEndian.Uint64(encMaxPK) + math.MaxInt64 + 1
 		}
 	}
 
@@ -942,6 +942,9 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrInvalidValue
 			}
 
+			// map to unsigned integer space
+			intVal += math.MaxInt64 + 1
+
 			// len(v) + v
 			var encv [EncLenLen + 8]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(8))
@@ -1035,6 +1038,9 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrInvalidValue
 			}
 
+			// map to unsigned integer space
+			intVal += math.MaxInt64 + 1
+
 			// v
 			var encv [8]byte
 			binary.BigEndian.PutUint64(encv[:], intVal)
@@ -1109,14 +1115,17 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 		}
 	case IntegerType:
 		{
-			if vlen > 8 {
+			if vlen != 8 {
 				return nil, 0, ErrCorruptedData
 			}
 
-			buff := [8]byte{0}
+			buff := [8]byte{}
 			copy(buff[8-vlen:], b[voff:voff+vlen])
 			v := binary.BigEndian.Uint64(buff[:])
 			voff += vlen
+
+			// map to signed integer space
+			v += math.MaxInt64 + 1
 
 			return &Number{val: v}, voff, nil
 		}

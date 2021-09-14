@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -657,7 +658,7 @@ func TestUseSnapshot(t *testing.T) {
 func TestEncodeRawValue(t *testing.T) {
 	b, err := EncodeValue(uint64(1), IntegerType, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
+	require.EqualValues(t, []byte{0, 0, 0, 8, 128, 0, 0, 0, 0, 0, 0, 1}, b)
 
 	b, err = EncodeValue(true, IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
@@ -729,7 +730,7 @@ func TestEncodeRawValue(t *testing.T) {
 func TestEncodeValue(t *testing.T) {
 	b, err := EncodeValue((&Number{val: 1}).Value(), IntegerType, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
+	require.EqualValues(t, []byte{0, 0, 0, 8, 128, 0, 0, 0, 0, 0, 0, 1}, b)
 
 	b, err = EncodeValue((&Bool{val: true}).Value(), IntegerType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
@@ -3161,37 +3162,23 @@ func TestDecodeValueSuccess(t *testing.T) {
 		},
 		{
 			"zero integer",
-			[]byte{0, 0, 0, 0},
+			[]byte{0, 0, 0, 8, 128, 0, 0, 0, 0, 0, 0, 0},
 			IntegerType,
 			&Number{val: 0},
-			4,
-		},
-		{
-			"byte",
-			[]byte{0, 0, 0, 1, 123},
-			IntegerType,
-			&Number{val: 123},
-			5,
-		},
-		{
-			"byte padded",
-			[]byte{0, 0, 0, 1, 123, 45, 6},
-			IntegerType,
-			&Number{val: 123},
-			5,
+			12,
 		},
 		{
 			"large integer",
-			[]byte{0, 0, 0, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+			[]byte{0, 0, 0, 8, 128, 0, 0, 0, 127, 255, 255, 255},
 			IntegerType,
-			&Number{val: 0x102030405060708},
+			&Number{val: math.MaxInt32},
 			12,
 		},
 		{
 			"large integer padded",
-			[]byte{0, 0, 0, 8, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+			[]byte{0, 0, 0, 8, 128, 0, 0, 0, 127, 255, 255, 255, 1, 1, 1},
 			IntegerType,
-			&Number{val: 0x100000000000000},
+			&Number{val: math.MaxInt32},
 			12,
 		},
 		{
