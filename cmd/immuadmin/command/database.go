@@ -103,7 +103,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 	cc.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	cc.Flags().BoolP("replication-enabled", "r", false, "set database as a replica")
+	cc.Flags().Bool("replication-enabled", false, "set database as a replica")
 	cc.Flags().String("replication-master-database", "", "set master database to be replicated")
 	cc.Flags().String("replication-master-address", "127.0.0.1", "set master address")
 	cc.Flags().Uint32("replication-master-port", 3322, "set master port")
@@ -147,7 +147,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 	cu.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	cu.Flags().BoolP("replication-enabled", "r", false, "set database as a replica")
+	cu.Flags().Bool("replication-enabled", false, "set database as a replica")
 	cu.Flags().String("replication-master-database", "", "set master database to be replicated")
 	cu.Flags().String("replication-master-address", "127.0.0.1", "set master address")
 	cu.Flags().Uint32("replication-master-port", 3322, "set master port")
