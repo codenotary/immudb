@@ -619,6 +619,12 @@ func TestIsConstant(t *testing.T) {
 		right: &Number{val: 2},
 	}).isConstant())
 
+	require.False(t, (&CmpBoolExp{
+		op:    LE,
+		left:  &Number{val: 1},
+		right: &ColSelector{},
+	}).isConstant())
+
 	require.False(t, (&SysFn{}).isConstant())
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
