@@ -402,14 +402,14 @@ func TestUpsertInto(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUpsertIntoEdgeCases(t *testing.T) {
-	catalogStore, err := store.Open("catalog_upsert", store.DefaultOptions())
+func TestInsertIntoEdgeCases(t *testing.T) {
+	catalogStore, err := store.Open("catalog_insert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_upsert")
+	defer os.RemoveAll("catalog_insert")
 
-	dataStore, err := store.Open("sqldata_upsert", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_insert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata_upsert")
+	defer os.RemoveAll("sqldata_insert")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -3469,4 +3469,47 @@ func TestUnmapIndexEntry(t *testing.T) {
 	encPKVals, err = e.unmapIndexEntry(sIndex, fullValue)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{'w', 'x', 'y', 'z', 0, 0, 0, 4}, encPKVals)
+}
+
+func TestEncodeAsKeyEdgeCases(t *testing.T) {
+	_, err := EncodeAsKey(nil, IntegerType, 0)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	_, err = EncodeAsKey("a", VarcharType, maxKeyLen+1)
+	require.ErrorIs(t, err, ErrMaxKeyLengthExceeded)
+
+	_, err = EncodeAsKey("a", "NOTATYPE", maxKeyLen)
+	require.ErrorIs(t, err, ErrInvalidValue)
+
+	t.Run("varchar cases", func(t *testing.T) {
+		_, err = EncodeAsKey(true, VarcharType, 10)
+		require.ErrorIs(t, err, ErrInvalidValue)
+
+		_, err = EncodeAsKey("abc", VarcharType, 1)
+		require.ErrorIs(t, err, ErrMaxLengthExceeded)
+	})
+
+	t.Run("integer cases", func(t *testing.T) {
+		_, err = EncodeAsKey(true, IntegerType, 8)
+		require.ErrorIs(t, err, ErrInvalidValue)
+
+		_, err = EncodeAsKey(int64(10), IntegerType, 4)
+		require.ErrorIs(t, err, ErrCorruptedData)
+	})
+
+	t.Run("boolean cases", func(t *testing.T) {
+		_, err = EncodeAsKey("abc", BooleanType, 1)
+		require.ErrorIs(t, err, ErrInvalidValue)
+
+		_, err = EncodeAsKey(true, BooleanType, 2)
+		require.ErrorIs(t, err, ErrCorruptedData)
+	})
+
+	t.Run("blob cases", func(t *testing.T) {
+		_, err = EncodeAsKey("abc", BLOBType, 3)
+		require.ErrorIs(t, err, ErrInvalidValue)
+
+		_, err = EncodeAsKey([]byte{1, 2, 3}, BLOBType, 2)
+		require.ErrorIs(t, err, ErrMaxLengthExceeded)
+	})
 }

@@ -367,7 +367,7 @@ message SQLEntry {
 }
 
 message VerifiableSQLEntry {
-	reserved 12;
+	reserved 6;
 	SQLEntry sqlEntry = 1;
 	VerifiableTx verifiableTx = 2;
 	InclusionProof inclusionProof = 3;

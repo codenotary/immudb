@@ -616,9 +616,13 @@ func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs
 			return nil, err
 		}
 
-		_, _, colID, colType, err := e.unmapColSpec(mkey)
+		mdbID, mtableID, colID, colType, err := e.unmapColSpec(mkey)
 		if err != nil {
 			return nil, err
+		}
+
+		if dbID != mdbID || tableID != mtableID {
+			return nil, ErrCorruptedData
 		}
 
 		v, err := vref.Resolve()
@@ -994,6 +998,13 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 }
 
 func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
+	if val == nil || maxLen <= 0 {
+		return nil, ErrInvalidValue
+	}
+	if maxLen > maxKeyLen {
+		return nil, ErrMaxKeyLengthExceeded
+	}
+
 	switch colType {
 	case VarcharType:
 		{
@@ -1002,7 +1013,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrInvalidValue
 			}
 
-			if maxLen > 0 && len(strVal) > maxLen {
+			if len(strVal) > maxLen {
 				return nil, ErrMaxLengthExceeded
 			}
 
@@ -1015,6 +1026,10 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case IntegerType:
 		{
+			if maxLen != 8 {
+				return nil, ErrCorruptedData
+			}
+
 			intVal, ok := val.(uint64)
 			if !ok {
 				return nil, ErrInvalidValue
@@ -1028,6 +1043,10 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case BooleanType:
 		{
+			if maxLen != 1 {
+				return nil, ErrCorruptedData
+			}
+
 			boolVal, ok := val.(bool)
 			if !ok {
 				return nil, ErrInvalidValue
@@ -1048,7 +1067,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrInvalidValue
 			}
 
-			if maxLen > 0 && len(blobVal) > maxLen {
+			if len(blobVal) > maxLen {
 				return nil, ErrMaxLengthExceeded
 			}
 
