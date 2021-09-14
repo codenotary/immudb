@@ -34,8 +34,8 @@ func TestOptions(t *testing.T) {
 	opts.WithMasterDatabase("defaultdb").
 		WithMasterAddress("127.0.0.1").
 		WithMasterPort(3322).
-		WithReplicaUsername("immudbUsr").
-		WithReplicaPassword("immdubPwd").
+		WithFollowerUsername("immudbUsr").
+		WithFollowerPassword("immdubPwd").
 		WithStreamChunkSize(DefaultChunkSize).
 		WithDelayer(delayer)
 }

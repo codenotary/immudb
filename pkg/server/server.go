@@ -585,8 +585,8 @@ func (s *ImmuServer) startReplicationFor(db database.DB, replicationOptions *Rep
 		WithMasterDatabase(replicationOptions.MasterDatabase).
 		WithMasterAddress(replicationOptions.MasterAddress).
 		WithMasterPort(replicationOptions.MasterPort).
-		WithReplicaUsername(replicationOptions.ReplicaUsername).
-		WithReplicaPassword(replicationOptions.ReplicaPassword).
+		WithFollowerUsername(replicationOptions.FollowerUsername).
+		WithFollowerPassword(replicationOptions.FollowerPassword).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
 	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
@@ -800,8 +800,8 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		MasterDatabase:    req.MasterDatabase,
 		MasterAddress:     req.MasterAddress,
 		MasterPort:        int(req.MasterPort),
-		ReplicaUsername:   req.ReplicaUsername,
-		ReplicaPassword:   req.ReplicaPassword,
+		FollowerUsername:  req.FollowerUsername,
+		FollowerPassword:  req.FollowerPassword,
 		ExcludeCommitTime: req.ExcludeCommitTime,
 		CreatedBy:         user.Username,
 		CreatedAt:         time.Now(),
@@ -905,8 +905,8 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	settings.MasterDatabase = req.MasterDatabase
 	settings.MasterAddress = req.MasterAddress
 	settings.MasterPort = int(req.MasterPort)
-	settings.ReplicaUsername = req.ReplicaUsername
-	settings.ReplicaPassword = req.ReplicaPassword
+	settings.FollowerUsername = req.FollowerUsername
+	settings.FollowerPassword = req.FollowerPassword
 	settings.ExcludeCommitTime = req.ExcludeCommitTime
 	settings.UpdatedBy = user.Username
 	settings.UpdatedAt = time.Now()
@@ -944,11 +944,11 @@ func replicationOptionsFrom(settings *dbSettings) *ReplicationOptions {
 	}
 
 	return &ReplicationOptions{
-		MasterDatabase:  settings.MasterDatabase,
-		MasterAddress:   settings.MasterAddress,
-		MasterPort:      settings.MasterPort,
-		ReplicaUsername: settings.ReplicaUsername,
-		ReplicaPassword: settings.ReplicaPassword,
+		MasterDatabase:   settings.MasterDatabase,
+		MasterAddress:    settings.MasterAddress,
+		MasterPort:       settings.MasterPort,
+		FollowerUsername: settings.FollowerUsername,
+		FollowerPassword: settings.FollowerPassword,
 	}
 }
 
@@ -1116,8 +1116,8 @@ type dbSettings struct {
 	MasterDatabase    string    `json:"masterDatabase"`
 	MasterAddress     string    `json:"masterAddress"`
 	MasterPort        int       `json:"masterPort"`
-	ReplicaUsername   string    `json:"replicaUsername"`
-	ReplicaPassword   string    `json:"replicaPassword"`
+	FollowerUsername  string    `json:"followerUsername"`
+	FollowerPassword  string    `json:"followerPassword"`
 	ExcludeCommitTime bool      `json:"excludeCommitTime"`
 	CreatedBy         string    `json:"createdBy"`
 	CreatedAt         time.Time `json:"createdAt"`
