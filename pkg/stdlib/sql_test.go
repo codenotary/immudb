@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"math"
 	"math/rand"
 	"os"
 	"testing"
@@ -260,6 +261,20 @@ func TestParseConfig(t *testing.T) {
 	require.Equal(t, 3324, ris.Port)
 }
 
+func TestParseConfigErrs(t *testing.T) {
+	connString := "immudb://immudb:immudb@127.0.0.1:aaa/defaultdb"
+	_, err := ParseConfig(connString)
+	require.Error(t, err)
+	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb"
+	_, err = ParseConfig(connString)
+	require.Error(t, err)
+}
+
+func TestGetUriErr(t *testing.T) {
+	cliOpts := client.DefaultOptions().WithAddress(" ").WithUsername(" ")
+	_, err := GetUri(cliOpts)
+	require.Error(t, err)
+}
 func TestRows(t *testing.T) {
 	r := Rows{
 		index: 0,
@@ -267,5 +282,14 @@ func TestRows(t *testing.T) {
 		rows:  nil,
 	}
 
-	r.Columns()
+	ast := r.Columns()
+	require.Nil(t, ast)
+	st := r.ColumnTypeDatabaseTypeName(1)
+	require.Equal(t, "", st)
+	num, b := r.ColumnTypeLength(1)
+	require.Equal(t, int64(math.MaxInt64), num)
+	require.False(t, b)
+	_, _, _ = r.ColumnTypePrecisionScale(1)
+	ty := r.ColumnTypeScanType(1)
+	require.Nil(t, ty)
 }
