@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc"
 	"math/rand"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -86,12 +85,6 @@ func TestOpenDB(t *testing.T) {
 	require.Equal(t, uint64(2), id)
 	require.Equal(t, "immu2", name)
 
-}
-
-func TestRegisterConnConfig(t *testing.T) {
-	registered := RegisterConnConfig(&Conn{})
-	require.True(t, strings.Contains(registered, "registeredConnConfig"))
-	UnregisterConnConfig(registered)
 }
 
 func TestDriverConnector_ConnectErr(t *testing.T) {
@@ -171,12 +164,13 @@ func TestConnector_Driver(t *testing.T) {
 
 func TestDriver_Open(t *testing.T) {
 	d := immuDriver
-	_, err := d.Open("immudb")
-	require.NoError(t, err)
+	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3324/defaultdb")
+	require.Errorf(t, err, "connection error: desc = \"transport: Error while dialing dial tcp 127.0.0.1:3324: connect: connection refused\"")
+	require.Nil(t, conn)
 }
 
 func TestDriverConnector_Driver(t *testing.T) {
-	c := driverConnector{
+	c := Connector{
 		driver: immuDriver,
 	}
 	d := c.Driver()
@@ -219,6 +213,59 @@ func TestConnErr(t *testing.T) {
 	require.Error(t, err)
 	err = c.ResetSession(context.TODO())
 	require.Error(t, err)
-	err = c.CheckNamedValue(nil)
+	ris := c.CheckNamedValue(nil)
+	require.Nil(t, ris)
+}
+
+func TestConn_QueryContextErr(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+
+	_, err := db.QueryContext(context.TODO(), "query", 10.5)
+	require.Equal(t, ErrFloatValuesNotSupported, err)
+	_, err = db.ExecContext(context.TODO(), "query", 10.5)
+	require.Equal(t, ErrFloatValuesNotSupported, err)
+
+	_, err = db.ExecContext(context.TODO(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
 	require.Error(t, err)
+	_, err = db.QueryContext(context.TODO(), "SELECT * FROM myTable")
+	require.Error(t, err)
+}
+
+func TestParseConfig(t *testing.T) {
+	connString := "immudb://immudb:immudb@127.0.0.1:3324/defaultdb"
+	ris, err := ParseConfig(connString)
+	require.NoError(t, err)
+	require.NotNil(t, ris)
+	require.Equal(t, "immudb", ris.Username)
+	require.Equal(t, "immudb", ris.Password)
+	require.Equal(t, "defaultdb", ris.Database)
+	require.Equal(t, "127.0.0.1", ris.Address)
+	require.Equal(t, 3324, ris.Port)
+}
+
+func TestRows(t *testing.T) {
+	r := Rows{
+		index: 0,
+		conn:  nil,
+		rows:  nil,
+	}
+
+	r.Columns()
 }

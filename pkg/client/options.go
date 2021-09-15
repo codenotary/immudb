@@ -43,7 +43,7 @@ type Options struct {
 	Config             string
 	TokenFileName      string
 	CurrentDatabase    string
-	//--> only used by immuclient CLI
+	//--> used by immuclient CLI and sql stdlib package
 	PasswordReader c.PasswordReader
 	Username       string
 	Password       string

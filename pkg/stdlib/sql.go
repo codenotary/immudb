@@ -21,11 +21,12 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc/metadata"
 	"io"
+	"math"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ type ConnConfig struct {
 }
 
 func OpenDB(cliOpts *client.Options) *sql.DB {
-	c := Connector{
+	c := &Connector{
 		cliOptions: cliOpts,
 		driver:     immuDriver,
 	}
@@ -62,96 +63,76 @@ type Connector struct {
 	driver     *Driver
 }
 
-// RegisterConnConfig registers a ConnConfig and returns the connection string to use with Open.
-func RegisterConnConfig(c *Conn) string {
-	return immuDriver.registerConnConfig(c)
-}
-
-// UnregisterConnConfig removes the ConnConfig registration for connStr.
-func UnregisterConnConfig(connStr string) {
-	immuDriver.unregisterConnConfig(connStr)
-}
-
 // Connect implement driver.Connector interface
 func (c Connector) Connect(ctx context.Context) (driver.Conn, error) {
-	conn, err := client.NewImmuClient(c.cliOptions)
+	name, err := GetUri(c.cliOptions)
 	if err != nil {
 		return nil, err
 	}
-	lr, err := conn.Login(ctx, []byte(c.cliOptions.Username), []byte(c.cliOptions.Password))
-	if err != nil {
-		return nil, err
+	c.driver.configMutex.Lock()
+	cn := c.driver.configs[name]
+	c.driver.configMutex.Unlock()
+
+	if cn == nil {
+		if c.cliOptions == nil {
+			var err error
+			c.cliOptions, err = ParseConfig(name)
+			if err != nil {
+				return nil, err
+			}
+		}
+		conn, err := client.NewImmuClient(c.cliOptions)
+		if err != nil {
+			return nil, err
+		}
+		lr, err := conn.Login(ctx, []byte(c.cliOptions.Username), []byte(c.cliOptions.Password))
+		if err != nil {
+			return nil, err
+		}
+
+		md := metadata.Pairs("authorization", lr.Token)
+		ctx = metadata.NewOutgoingContext(ctx, md)
+
+		resp, err := conn.UseDatabase(ctx, &schema.Database{DatabaseName: c.cliOptions.Database})
+		if err != nil {
+			return nil, err
+		}
+
+		cn = &Conn{
+			conn:    conn,
+			options: c.cliOptions,
+			Token:   resp.Token,
+		}
 	}
 
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	c.driver.configMutex.Lock()
+	c.driver.configs[name] = cn
+	c.driver.configMutex.Unlock()
 
-	resp, err := conn.UseDatabase(ctx, &schema.Database{DatabaseName: c.cliOptions.Database})
-	if err != nil {
-		return nil, err
-	}
-	cn := &Conn{
-		conn:    conn,
-		options: c.cliOptions,
-		Token:   resp.Token,
-	}
-	c.driver.registerConnConfig(cn)
-
-	return &Conn{conn: conn, options: c.cliOptions, Token: resp.Token}, nil
-}
-
-// Driver implement driver.Connector interface
-func (c Connector) Driver() driver.Driver {
-	return c.driver
+	return cn, nil
 }
 
 type Driver struct {
 	configMutex sync.Mutex
 	configs     map[string]*Conn
-	sequence    int
 }
 
 func (d *Driver) Open(name string) (driver.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-
 	connector, _ := d.OpenConnector(name)
-
 	return connector.Connect(ctx)
 }
 
 func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
-	return &driverConnector{driver: d, name: name}, nil
+	cliOpts, err := ParseConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Connector{driver: d, cliOptions: cliOpts}, nil
 }
 
-func (d *Driver) registerConnConfig(c *Conn) string {
-	d.configMutex.Lock()
-	d.sequence++
-	connStr := fmt.Sprintf("registeredConnConfig%d", d.sequence)
-	d.configs[connStr] = c
-	d.configMutex.Unlock()
-	return connStr
-}
-
-func (d *Driver) unregisterConnConfig(connStr string) {
-	d.configMutex.Lock()
-	delete(d.configs, connStr)
-	d.configMutex.Unlock()
-}
-
-type driverConnector struct {
-	driver *Driver
-	name   string
-}
-
-func (dc *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	dc.driver.configMutex.Lock()
-	connConfig := dc.driver.configs[dc.name]
-	dc.driver.configMutex.Unlock()
-	return connConfig, nil
-}
-
-func (dc *driverConnector) Driver() driver.Driver {
+func (dc *Connector) Driver() driver.Driver {
 	return dc.driver
 }
 
@@ -171,23 +152,23 @@ func (c *Conn) GetToken() string {
 }
 
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
-	return nil, errors.New("not implemented")
+	return nil, ErrNotImplemented
 }
 
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return nil, errors.New("not implemented")
+	return nil, ErrNotImplemented
 }
 
 func (c *Conn) Close() error {
-	return c.conn.Disconnect()
+	return nil
 }
 
 func (c *Conn) Begin() (driver.Tx, error) {
-	return nil, errors.New("not implemented")
+	return nil, ErrNotImplemented
 }
 
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, errors.New("not implemented")
+	return nil, ErrNotImplemented
 }
 
 func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Result, error) {
@@ -242,15 +223,16 @@ func (c *Conn) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (c *Conn) CheckNamedValue(*driver.NamedValue) error {
-	return errors.New("not implemented")
+func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {
+	// driver.Valuer interface is used instead
+	return nil
 }
 
 func (c *Conn) ResetSession(ctx context.Context) error {
 	if !c.conn.IsConnected() {
 		return driver.ErrBadConn
 	}
-	return errors.New("not implemented")
+	return ErrNotImplemented
 }
 
 type Rows struct {
@@ -271,16 +253,14 @@ func (r *Rows) Columns() []string {
 	return nil
 }
 
-// ColumnTypeDatabaseTypeName returns the database system type name. If the name is unknown the OID is returned.
+// ColumnTypeDatabaseTypeName
 func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 	return ""
 }
 
-// ColumnTypeLength returns the length of the column type if the column is a
-// variable length type. If the column is not a variable length type ok
-// should return false.
+// ColumnTypeLength If length is not limited other than system limits, it should return math.MaxInt64
 func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
-	return 0, false
+	return math.MaxInt64, false
 }
 
 // ColumnTypePrecisionScale should return the precision and scale for decimal
@@ -295,7 +275,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 }
 
 func (r *Rows) Close() error {
-	return nil
+	return r.conn.Close()
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
@@ -340,7 +320,7 @@ func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, err
 		case uint:
 			vals[key] = int64(nv.(uint))
 		case float64:
-			return nil, errors.New("float values are not yet supported by immudb")
+			return nil, ErrFloatValuesNotSupported
 		case interface{}:
 			vals[key] = nv
 		default:
@@ -366,15 +346,7 @@ func convertDriverValuers(args []interface{}) ([]interface{}, error) {
 
 var valuerReflectType = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 
-// callValuerValue returns vr.Value(), with one exception:
-// If vr.Value is an auto-generated method on a pointer type and the
-// pointer is nil, it would panic at runtime in the panicwrap
-// method. Treat it like nil instead.
-//
-// This is so people can implement driver.Value on value types and
-// still use nil pointers to those types to mean nil/NULL, just like
-// string/*string.
-//
+// callValuerValue returns vr.Value()
 // This function is mirrored in the database/sql/driver package.
 func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 	if rv := reflect.ValueOf(vr); rv.Kind() == reflect.Ptr &&
@@ -383,4 +355,35 @@ func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 		return nil, nil
 	}
 	return vr.Value()
+}
+
+func ParseConfig(uri string) (*client.Options, error) {
+	if uri != "" && strings.HasPrefix(uri, "immudb://") {
+		url, err := url.Parse(uri)
+		if err != nil {
+			return nil, ErrBadQueryString
+		}
+		pw, _ := url.User.Password()
+		port, err := strconv.Atoi(url.Port())
+		if err != nil {
+			return nil, ErrBadQueryString
+		}
+		cliOpts := client.DefaultOptions().
+			WithUsername(url.User.Username()).
+			WithPassword(pw).
+			WithPort(port).
+			WithAddress(url.Hostname()).
+			WithDatabase(url.Path[1:])
+
+		return cliOpts, nil
+	}
+	return nil, ErrBadQueryString
+}
+
+func GetUri(o *client.Options) (string, error) {
+	uri := strings.Join([]string{"immudb://", o.Username, ":", o.Password, "@", o.Address, ":", strconv.Itoa(o.Port), "/", o.Database}, "")
+	if _, err := ParseConfig(uri); err != nil {
+		return "", errors.New("invalid client options")
+	}
+	return uri, nil
 }
