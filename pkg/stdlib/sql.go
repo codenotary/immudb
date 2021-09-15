@@ -364,10 +364,7 @@ func ParseConfig(uri string) (*client.Options, error) {
 			return nil, ErrBadQueryString
 		}
 		pw, _ := url.User.Password()
-		port, err := strconv.Atoi(url.Port())
-		if err != nil {
-			return nil, ErrBadQueryString
-		}
+		port, _ := strconv.Atoi(url.Port())
 		cliOpts := client.DefaultOptions().
 			WithUsername(url.User.Username()).
 			WithPassword(pw).
