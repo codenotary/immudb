@@ -82,6 +82,7 @@ jobs:
         DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
         DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
         DOCKER_BUILDKIT: "1"
+        DEBIAN_VERSION: bullseye-slim
       steps:
         - uses: actions/setup-go@v1
           with:
@@ -97,13 +98,15 @@ jobs:
               VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
             fi
 
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" -f Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" --target scratch -f Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" --target ${DEBIAN_VERSION} -f Dockerfile .
             docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f Dockerfile.immuadmin .
             docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f Dockerfile.immuclient .
 
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
             
             docker push "${DOCKER_IMAGE_IMMUDB}:dev"
+            docker push "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}"
             docker push "${DOCKER_IMAGE_IMMUADMIN}:dev"
             docker push "${DOCKER_IMAGE_IMMUCLIENT}:dev"
 
@@ -111,6 +114,9 @@ jobs:
               for tag in "${VERSION_TAG}" "${VERSION_TAG_SHORT}" "latest"; do
                 docker tag "${DOCKER_IMAGE_IMMUDB}:dev" "${DOCKER_IMAGE_IMMUDB}:${tag}"
                 docker push "${DOCKER_IMAGE_IMMUDB}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
+                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
 
                 docker tag "${DOCKER_IMAGE_IMMUADMIN}:dev" "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
                 docker push "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
@@ -125,9 +131,10 @@ jobs:
             chmod +x ./vcn
             VCN_USER=${{ secrets.VCN_IMAGE_USER }} VCN_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn login
             
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUADMIN
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUCLIENT
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB:dev
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB:dev-${DEBIAN_VERSION}
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUADMIN:dev
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUCLIENT:dev
             
             ./vcn logout
             
