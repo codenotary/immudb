@@ -97,7 +97,7 @@ func TestRowComparison(t *testing.T) {
 	require.Equal(t, "string1", rawStringValue)
 
 	rawIntValue := RawValue(&SQLValue{Value: intValue1})
-	require.Equal(t, uint64(1), rawIntValue)
+	require.Equal(t, int64(1), rawIntValue)
 
 	rawBlobValue := RawValue(&SQLValue{Value: blobValue2})
 	require.Equal(t, []byte{1, 2, 3}, rawBlobValue)
