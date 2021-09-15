@@ -81,6 +81,7 @@ jobs:
         DOCKER_IMAGE_IMMUDB: "codenotary/immudb"
         DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
         DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
+        DOCKER_BUILDKIT: "1"
       steps:
         - uses: actions/setup-go@v1
           with:
