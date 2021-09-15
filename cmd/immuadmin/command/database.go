@@ -82,21 +82,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
-			excludeCommitTime, err := cmd.Flags().GetBool("exclude-commit-time")
-			if err != nil {
-				return err
-			}
-
-			if err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{
-				DatabaseName:      args[0],
-				Replica:           settings.Replica,
-				ExcludeCommitTime: excludeCommitTime,
-			}); err != nil {
+			if err := cl.immuClient.CreateDatabase(cl.context, settings); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully created\n", args[0], settings.Replica, excludeCommitTime)
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully created\n", args[0], settings.Replica, settings.ExcludeCommitTime)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -126,21 +117,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
-			excludeCommitTime, err := cmd.Flags().GetBool("exclude-commit-time")
-			if err != nil {
-				return err
-			}
-
-			if err := cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{
-				DatabaseName:      args[0],
-				Replica:           settings.Replica,
-				ExcludeCommitTime: excludeCommitTime,
-			}); err != nil {
+			if err := cl.immuClient.UpdateDatabase(cl.context, settings); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], settings.Replica, excludeCommitTime)
+				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], settings.Replica, settings.ExcludeCommitTime)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -213,13 +195,21 @@ func (cl *commandline) database(cmd *cobra.Command) {
 }
 
 func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettings, error) {
+	excludeCommitTime, err := flags.GetBool("exclude-commit-time")
+	if err != nil {
+		return nil, err
+	}
+
 	replicationEnabled, err := flags.GetBool("replication-enabled")
 	if err != nil {
 		return nil, err
 	}
 
 	if !replicationEnabled {
-		return &schema.DatabaseSettings{DatabaseName: db}, nil
+		return &schema.DatabaseSettings{
+			DatabaseName:      db,
+			ExcludeCommitTime: excludeCommitTime,
+		}, nil
 	}
 
 	masterDatabase, err := flags.GetString("replication-master-database")
@@ -248,12 +238,13 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 	}
 
 	return &schema.DatabaseSettings{
-		DatabaseName:     db,
-		Replica:          replicationEnabled,
-		MasterDatabase:   masterDatabase,
-		MasterAddress:    masterAddress,
-		MasterPort:       masterPort,
-		FollowerUsername: followerUsername,
-		FollowerPassword: followerPassword,
+		DatabaseName:      db,
+		ExcludeCommitTime: excludeCommitTime,
+		Replica:           replicationEnabled,
+		MasterDatabase:    masterDatabase,
+		MasterAddress:     masterAddress,
+		MasterPort:        masterPort,
+		FollowerUsername:  followerUsername,
+		FollowerPassword:  followerPassword,
 	}, nil
 }
