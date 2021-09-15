@@ -16,7 +16,6 @@ ARG IMMU_GID="3322"
 
 ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DIR="/var/lib/immudb" \
-    IMMUDB_DBNAME="immudb" \
     IMMUDB_ADDRESS="0.0.0.0" \
     IMMUDB_PORT="3322" \
     IMMUDB_PIDFILE="" \
@@ -54,7 +53,6 @@ ARG IMMU_GID="3322"
 
 ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DIR="/var/lib/immudb" \
-    IMMUDB_DBNAME="immudb" \
     IMMUDB_ADDRESS="0.0.0.0" \
     IMMUDB_PORT="3322" \
     IMMUDB_PIDFILE="" \
