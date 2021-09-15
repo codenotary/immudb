@@ -3,6 +3,7 @@ name: pushCI
 on:
   push:
     branches: master
+    tags: 'v*'
 
 jobs:
   install_vcn:
@@ -90,16 +91,34 @@ jobs:
           with:
             name: vcn
         - run: |
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:latest" -f Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:latest" -f Dockerfile.immuadmin .
-            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:latest" -f Dockerfile.immuclient .
-           
+            if [[ "${GITHUB_REF}" =~ refs/tags/v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+              VERSION_TAG="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+              VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+            fi
+
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" -f Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f Dockerfile.immuclient .
+
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
             
-            docker push "${DOCKER_IMAGE_IMMUDB}:latest"
-            docker push "${DOCKER_IMAGE_IMMUADMIN}:latest"
-            docker push "${DOCKER_IMAGE_IMMUCLIENT}:latest"
-           
+            docker push "${DOCKER_IMAGE_IMMUDB}:dev"
+            docker push "${DOCKER_IMAGE_IMMUADMIN}:dev"
+            docker push "${DOCKER_IMAGE_IMMUCLIENT}:dev"
+
+            if [[ ! -z "$VERSION_TAG" ]]; then
+              for tag in "${VERSION_TAG}" "${VERSION_TAG_SHORT}" "latest"; do
+                docker tag "${DOCKER_IMAGE_IMMUDB}:dev" "${DOCKER_IMAGE_IMMUDB}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUADMIN}:dev" "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
+              done
+            fi
+
             docker logout
             
             chmod +x ./vcn
