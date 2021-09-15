@@ -946,7 +946,7 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			// len(v) + v
 			var encv [EncLenLen + 8]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal+math.MaxInt64+1))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal))
 
 			return encv[:], nil
 		}
@@ -1117,9 +1117,6 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
-
-			// map to signed integer space
-			v += math.MaxInt64 + 1
 
 			return &Number{val: int64(v)}, voff, nil
 		}
