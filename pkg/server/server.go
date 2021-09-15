@@ -794,6 +794,10 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, fmt.Errorf("database '%s' already exists", req.GetDatabaseName())
 	}
 
+	if (!req.Replica && req.MasterDatabase != "") || (req.Replica && req.MasterDatabase == "") {
+		return nil, ErrIllegalArguments
+	}
+
 	settings := &dbSettings{
 		Database:          req.DatabaseName,
 		Replica:           req.Replica,
