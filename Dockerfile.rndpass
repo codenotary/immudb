@@ -1,4 +1,4 @@
-FROM golang:1.13-stretch as build
+FROM golang:1.17 as build
 WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
@@ -37,6 +37,7 @@ RUN addgroup --system --gid $IMMU_GID immu && \
 
 EXPOSE 3322
 EXPOSE 9497
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
 USER immu
