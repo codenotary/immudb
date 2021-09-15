@@ -1,12 +1,12 @@
-FROM golang:1.13-stretch as build
+FROM golang:1.17 as build
 WORKDIR /src
 COPY . .
+RUN rm -rf /src/webconsole/dist
 RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
-FROM ubuntu:18.04
-MAINTAINER CodeNotary, Inc. <info@codenotary.io>
+RUN mkdir /empty
 
-COPY --from=build /src/immudb /usr/sbin/immudb
-COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
+FROM scratch as scratch
+MAINTAINER CodeNotary, Inc. <info@codenotary.io>
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
@@ -24,19 +24,19 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
-    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
+    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" \
+    USER=immu \
+    HOME="${IMMUDB_HOME}"
 
-RUN addgroup --system --gid $IMMU_GID immu && \
-    adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
-    mkdir -p "$IMMUDB_HOME" && \
-    mkdir -p "$IMMUDB_DIR" && \
-    chown -R immu:immu "$IMMUDB_HOME" "$IMMUDB_DIR" && \
-    chmod -R 777 "$IMMUDB_HOME" "$IMMUDB_DIR" && \
-    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin
+COPY --from=build /src/immudb /usr/sbin/immudb
+COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
+COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_HOME"
+COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_DIR"
 
 EXPOSE 3322
 EXPOSE 9497
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
-USER immu
+USER "${IMMU_UID}:${IMMU_GID}"
 ENTRYPOINT ["/usr/sbin/immudb"]
