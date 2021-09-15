@@ -1115,9 +1115,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 				return nil, 0, ErrCorruptedData
 			}
 
-			buff := [8]byte{}
-			copy(buff[8-vlen:], b[voff:voff+vlen])
-			v := binary.BigEndian.Uint64(buff[:])
+			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
 			// map to signed integer space
