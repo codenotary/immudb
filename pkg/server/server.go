@@ -1112,13 +1112,13 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 
 type dbSettings struct {
 	Database          string    `json:"database"`
+	ExcludeCommitTime bool      `json:"excludeCommitTime"`
 	Replica           bool      `json:"replica"`
 	MasterDatabase    string    `json:"masterDatabase"`
 	MasterAddress     string    `json:"masterAddress"`
 	MasterPort        int       `json:"masterPort"`
 	FollowerUsername  string    `json:"followerUsername"`
 	FollowerPassword  string    `json:"followerPassword"`
-	ExcludeCommitTime bool      `json:"excludeCommitTime"`
 	CreatedBy         string    `json:"createdBy"`
 	CreatedAt         time.Time `json:"createdAt"`
 	UpdatedBy         string    `json:"updatedBy"`
