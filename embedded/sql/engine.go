@@ -555,7 +555,10 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 				return ErrCorruptedData
 			}
 
-			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK) + math.MaxInt64 + 1)
+			// map to signed integer space
+			encMaxPK[0] ^= 0x80
+
+			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK))
 		}
 	}
 
@@ -1039,7 +1042,8 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			// v
 			// map to unsigned integer space
 			var encv [8]byte
-			binary.BigEndian.PutUint64(encv[:], uint64(intVal+math.MaxInt64+1))
+			binary.BigEndian.PutUint64(encv[:], uint64(intVal))
+			encv[0] ^= 0x80
 
 			return encv[:], nil
 		}
