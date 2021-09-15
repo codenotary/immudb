@@ -1229,6 +1229,10 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		{
 			return &Number{val: int64(v)}, nil
 		}
+	case int64:
+		{
+			return &Number{val: v}, nil
+		}
 	case []byte:
 		{
 			return &Blob{val: v}, nil
