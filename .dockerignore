@@ -2,6 +2,9 @@
 /bm
 dist
 
+# Immudb data
+/data*
+
 # Vendor
 vendor
 
@@ -9,7 +12,6 @@ vendor
 *.iml
 *.swp
 .idea/
-.git/
 .gitignore
 build
 resources
