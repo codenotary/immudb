@@ -99,7 +99,7 @@ func DefaultOptions() *Options {
 		Config:               "configs/immudb.toml",
 		Pidfile:              "",
 		Logfile:              "",
-		TLSConfig:            &tls.Config{},
+		TLSConfig:            nil,
 		auth:                 true,
 		MaxRecvMsgSize:       1024 * 1024 * 32, // 32Mb
 		NoHistograms:         false,
