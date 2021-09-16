@@ -119,7 +119,7 @@ func TestParseBindMsg(t *testing.T) {
 		},
 	}
 
-	pgmeta.MaxInt32MsgSize = 1024
+	pgmeta.MaxMsgSize = 1024
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("%d_bind", i), func(t *testing.T) {
