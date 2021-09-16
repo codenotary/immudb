@@ -65,6 +65,9 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	if pLen > math.MaxInt32 {
 		return nil, errors.ErrMalformedMessage
 	}
+	if pLen > uint32(pgmeta.MaxMsgSize) {
+		return nil, errors.ErrMessageTooLarge
+	}
 	payload := make([]byte, pLen)
 	if _, err := r.conn.Read(payload); err != nil {
 		return nil, err
