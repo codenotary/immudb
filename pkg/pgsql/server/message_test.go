@@ -19,6 +19,7 @@ package server
 import (
 	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/stretchr/testify/require"
 	"math"
 	"net"
@@ -79,4 +80,28 @@ func TestSession_MessageReader(t *testing.T) {
 	err = mr.CloseConnection()
 
 	require.Error(t, errors.ErrMalformedMessage)
+}
+
+func TestSession_MessageReaderMaxMsgSize(t *testing.T) {
+
+	c1, c2 := net.Pipe()
+	mr := &messageReader{
+		conn: c1,
+	}
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(pgmeta.MaxMsgSize))
+	go func() {
+		c2.Write([]byte{'E'})
+		c2.Write(b)
+		c2.Close()
+	}()
+
+	_, err := mr.ReadRawMessage()
+
+	require.Error(t, err)
+
+	mr = &messageReader{}
+	err = mr.CloseConnection()
+
+	require.Error(t, errors.ErrMessageTooLarge)
 }
