@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
@@ -69,8 +70,13 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	defer masterServer.Stop()
-	defer followerServer.Stop()
+	defer func() {
+		masterServer.Stop()
+
+		time.Sleep(500 * time.Millisecond)
+
+		followerServer.Stop()
+	}()
 
 	// init master client
 	masterPort := masterServer.Listener.Addr().(*net.TCPAddr).Port
@@ -83,6 +89,12 @@ func TestReplication(t *testing.T) {
 
 	mmd := metadata.Pairs("authorization", mlr.Token)
 	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
+
+	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionR, "defaultdb")
+	require.NoError(t, err)
+
+	err = masterClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: "follower"})
+	require.NoError(t, err)
 
 	// init follower client
 	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
@@ -103,8 +115,8 @@ func TestReplication(t *testing.T) {
 		MasterDatabase:   "defaultdb",
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       uint32(masterPort),
-		FollowerUsername: "immudb",
-		FollowerPassword: "immudb",
+		FollowerUsername: "follower",
+		FollowerPassword: "follower1Pwd!",
 	})
 	require.NoError(t, err)
 
@@ -126,8 +138,20 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	t.Run("key1 should exist", func(t *testing.T) {
+	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))
 		require.NoError(t, err)
+	})
+
+	fdb, err = followerClient.UseDatabase(fctx, &schema.Database{DatabaseName: "defaultdb"})
+	require.NoError(t, err)
+	require.NotNil(t, fdb)
+
+	fmd = metadata.Pairs("authorization", fdb.Token)
+	fctx = metadata.NewOutgoingContext(context.Background(), fmd)
+
+	t.Run("key1 should not exist in defaultdb@follower", func(t *testing.T) {
+		_, err = followerClient.Get(fctx, []byte("key1"))
+		require.Contains(t, err.Error(), "key not found")
 	})
 }
