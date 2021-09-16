@@ -36,16 +36,13 @@ func TestReplication(t *testing.T) {
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
-		WithPort(3322).
+		WithPort(0).
 		WithDir("master-data")
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
 	defer os.RemoveAll(masterServerOpts.Dir)
 
 	err := masterServer.Initialize()
-	require.NoError(t, err)
-
-	err = masterServer.Start()
 	require.NoError(t, err)
 
 	//init follower server
@@ -76,7 +73,7 @@ func TestReplication(t *testing.T) {
 	defer followerServer.Stop()
 
 	// init master client
-	masterPort := 3322 //masterServer.Listener.Addr().(*net.TCPAddr).Port
+	masterPort := masterServer.Listener.Addr().(*net.TCPAddr).Port
 	masterClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(masterPort))
 	require.NoError(t, err)
 	require.NotNil(t, masterClient)
@@ -104,7 +101,7 @@ func TestReplication(t *testing.T) {
 		Replica:        true,
 		MasterDatabase: "defaultdb",
 		MasterAddress:  "127.0.0.1",
-		MasterPort:     3322,
+		MasterPort:     uint32(masterPort),
 	})
 	require.NoError(t, err)
 
