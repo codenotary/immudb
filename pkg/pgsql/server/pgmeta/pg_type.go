@@ -16,7 +16,10 @@ limitations under the License.
 
 package pgmeta
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 const PgTypeMapOid = 0
 const PgTypeMapLength = 1
@@ -69,3 +72,5 @@ var MTypes = map[byte]string{
 	'B': "bind",
 	'H': "flush",
 }
+
+var MaxInt32MsgSize = math.MaxInt32

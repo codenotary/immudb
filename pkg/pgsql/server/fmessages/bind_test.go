@@ -4,6 +4,7 @@ import (
 	"fmt"
 	pgserror "github.com/codenotary/immudb/pkg/pgsql/errors"
 	h "github.com/codenotary/immudb/pkg/pgsql/server/fmessages/fmessages_test"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/stretchr/testify/require"
 	"io"
 	"math"
@@ -96,7 +97,7 @@ func TestParseBindMsg(t *testing.T) {
 			BindMsg{},
 			pgserror.ErrMalformedMessage,
 		},
-		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(2), h.I16(1), h.I16(0), h.I16(2), h.I32(math.MaxInt32), h.B(make([]byte, math.MaxInt32)), h.I32(2), h.I16(1), h.I16(1), h.I16(1)}),
+		{h.Join([][]byte{h.S("port"), h.S("st"), h.I16(2), h.I16(1), h.I16(0), h.I16(2), h.I32(math.MaxInt32), h.B(make([]byte, 1024)), h.I32(2), h.I16(1), h.I16(1), h.I16(1)}),
 			BindMsg{},
 			pgserror.ErrParametersValueSizeTooLarge,
 		},
@@ -117,6 +118,8 @@ func TestParseBindMsg(t *testing.T) {
 			pgserror.ErrMalformedMessage,
 		},
 	}
+
+	pgmeta.MaxInt32MsgSize = 1024
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("%d_bind", i), func(t *testing.T) {
