@@ -116,6 +116,19 @@ func TestReplication(t *testing.T) {
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       uint32(masterPort),
 		FollowerUsername: "follower",
+		FollowerPassword: "wrongPassword",
+	})
+	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
+
+	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
+		DatabaseName:     "replicateddb",
+		Replica:          true,
+		MasterDatabase:   "defaultdb",
+		MasterAddress:    "127.0.0.1",
+		MasterPort:       uint32(masterPort),
+		FollowerUsername: "follower",
 		FollowerPassword: "follower1Pwd!",
 	})
 	require.NoError(t, err)
