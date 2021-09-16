@@ -348,8 +348,9 @@ func TestServerUpdateDatabase(t *testing.T) {
 	require.Equal(t, database.ErrDatabaseNotExists, err)
 
 	newdb := &schema.DatabaseSettings{
-		DatabaseName: "lisbon",
-		Replica:      true,
+		DatabaseName:   "lisbon",
+		Replica:        true,
+		MasterDatabase: "defaultdb",
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
