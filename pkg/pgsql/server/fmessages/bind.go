@@ -20,7 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	pgserrors "github.com/codenotary/immudb/pkg/pgsql/errors"
-	"math"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 )
 
 // BindMsg Once a prepared statement exists, it can be readied for execution using a Bind message. The Bind message gives the
@@ -114,7 +114,7 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 			return BindMsg{}, err
 		}
 		totalParamLen += int(pLen)
-		if totalParamLen > math.MaxInt32 {
+		if totalParamLen > pgmeta.MaxInt32MsgSize {
 			return BindMsg{}, pgserrors.ErrParametersValueSizeTooLarge
 		}
 		pVal := make([]byte, pLen)
