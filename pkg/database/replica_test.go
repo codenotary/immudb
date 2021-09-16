@@ -32,7 +32,7 @@ func TestReadOnlyReplica(t *testing.T) {
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").AsReplica(true)
 
-	replica, err := NewDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	replica, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	defer os.RemoveAll(options.dbRootPath)
@@ -40,7 +40,7 @@ func TestReadOnlyReplica(t *testing.T) {
 	err = replica.Close()
 	require.NoError(t, err)
 
-	replica, err = OpenDB(options, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
+	replica, err = OpenDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	_, err = replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})

@@ -19,10 +19,13 @@ package replication
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptions(t *testing.T) {
 	opts := &Options{}
+	require.False(t, opts.Valid())
 
 	delayer := &expBackoff{
 		retryMinDelay: time.Second,
@@ -38,4 +41,18 @@ func TestOptions(t *testing.T) {
 		WithFollowerPassword("immdubPwd").
 		WithStreamChunkSize(DefaultChunkSize).
 		WithDelayer(delayer)
+
+	require.Equal(t, "defaultdb", opts.masterDatabase)
+	require.Equal(t, "127.0.0.1", opts.masterAddress)
+	require.Equal(t, 3322, opts.masterPort)
+	require.Equal(t, "immudbUsr", opts.followerUsername)
+	require.Equal(t, "immdubPwd", opts.followerPassword)
+	require.Equal(t, DefaultChunkSize, opts.streamChunkSize)
+	require.Equal(t, delayer, opts.delayer)
+
+	require.True(t, opts.Valid())
+
+	defaultOpts := DefaultOptions()
+	require.NotNil(t, defaultOpts)
+	require.True(t, defaultOpts.Valid())
 }

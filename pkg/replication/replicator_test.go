@@ -15,3 +15,47 @@ limitations under the License.
 */
 
 package replication
+
+import (
+	"os"
+	"testing"
+
+	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/stretchr/testify/require"
+)
+
+func TestReplication(t *testing.T) {
+	_, err := NewTxReplicator(nil, nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	rOpts := DefaultOptions().
+		WithMasterDatabase("defaultdb").
+		WithMasterAddress("127.0.0.1").
+		WithMasterPort(3322).
+		WithFollowerUsername("immudb").
+		WithFollowerPassword("immudb").
+		WithStreamChunkSize(DefaultChunkSize)
+
+	logger := logger.NewSimpleLogger("logger", os.Stdout)
+
+	db, err := database.NewDB(database.DefaultOption().AsReplica(true), logger)
+	require.NoError(t, err)
+
+	defer os.RemoveAll(db.GetOptions().GetDBRootPath())
+
+	txReplicator, err := NewTxReplicator(db, rOpts, logger)
+	require.NoError(t, err)
+
+	err = txReplicator.Stop()
+	require.ErrorIs(t, err, ErrAlreadyStopped)
+
+	err = txReplicator.Start()
+	require.NoError(t, err)
+
+	err = txReplicator.Start()
+	require.ErrorIs(t, err, ErrAlreadyRunning)
+
+	err = txReplicator.Stop()
+	require.NoError(t, err)
+}

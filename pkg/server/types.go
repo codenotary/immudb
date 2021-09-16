@@ -59,7 +59,7 @@ type ImmuServer struct {
 
 	Logger      logger.Logger
 	Options     *Options
-	listener    net.Listener
+	Listener    net.Listener
 	GrpcServer  *grpc.Server
 	UUID        xid.ID
 	Pid         PIDFile

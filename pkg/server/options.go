@@ -165,9 +165,7 @@ func (o *Options) WithAddress(address string) *Options {
 
 // WithPort sets port
 func (o *Options) WithPort(port int) *Options {
-	if port > 0 {
-		o.Port = port
-	}
+	o.Port = port
 	return o
 }
 
@@ -302,9 +300,7 @@ func (o *Options) WithWebServer(webServer bool) *Options {
 
 // WithWebServerPort ...
 func (o *Options) WithWebServerPort(port int) *Options {
-	if port > 0 {
-		o.WebServerPort = port
-	}
+	o.WebServerPort = port
 	return o
 }
 
