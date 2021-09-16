@@ -270,11 +270,6 @@ func TestParseConfigErrs(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetUriErr(t *testing.T) {
-	cliOpts := client.DefaultOptions().WithAddress(" ").WithUsername(" ")
-	_, err := GetUri(cliOpts)
-	require.Error(t, err)
-}
 func TestRows(t *testing.T) {
 	r := Rows{
 		index: 0,
