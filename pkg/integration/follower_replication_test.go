@@ -86,7 +86,8 @@ func TestReplication(t *testing.T) {
 
 	// init follower client
 	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
-	followerClient := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithPort(followerPort))
+	followerClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(followerPort))
+	require.NoError(t, err)
 	require.NotNil(t, followerClient)
 
 	lr, err = followerClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
