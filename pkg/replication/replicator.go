@@ -59,7 +59,7 @@ type TxReplicator struct {
 }
 
 func NewTxReplicator(db database.DB, opts *Options, logger logger.Logger) (*TxReplicator, error) {
-	if db == nil || opts == nil || !opts.Valid() {
+	if db == nil || logger == nil || opts == nil || !opts.Valid() {
 		return nil, ErrIllegalArguments
 	}
 

@@ -106,8 +106,8 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
-	log.Infof("Opening database '%s' (replica = %v)...", op.dbName, op.replica)
+func OpenDB(op *Options, log logger.Logger) (DB, error) {
+	log.Infof("Opening database '%s' {replica = %v}...", op.dbName, op.replica)
 
 	var err error
 
@@ -218,8 +218,8 @@ func (d *db) reloadSQLCatalog() error {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
-	log.Infof("Creating database '%s' (replica = %v)...", op.dbName, op.replica)
+func NewDB(op *Options, log logger.Logger) (DB, error) {
+	log.Infof("Creating database '%s' {replica = %v}...", op.dbName, op.replica)
 
 	var err error
 
@@ -266,7 +266,7 @@ func NewDB(op *Options, systemDB DB, log logger.Logger) (DB, error) {
 		dbi.Logger.Warningf("Replication is a work-in-progress feature. Not ready for production use")
 	}
 
-	dbi.Logger.Infof("Database '%s' successfully created (replica = %v)", op.dbName, op.replica)
+	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", op.dbName, op.replica)
 
 	return dbi, nil
 }

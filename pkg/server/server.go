@@ -156,9 +156,9 @@ func (s *ImmuServer) Initialize() error {
 
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
-		s.listener = s.Options.listener
+		s.Listener = s.Options.listener
 	} else {
-		s.listener, err = net.Listen(s.Options.Network, s.Options.Bind())
+		s.Listener, err = net.Listen(s.Options.Network, s.Options.Bind())
 		if err != nil {
 			return logErr(s.Logger, "Immudb unable to listen: %v", err)
 		}
@@ -256,7 +256,7 @@ func (s *ImmuServer) Start() (err error) {
 	s.installShutdownHandler()
 
 	go func() {
-		if err := s.GrpcServer.Serve(s.listener); err != nil {
+		if err := s.GrpcServer.Serve(s.Listener); err != nil {
 			s.mux.Unlock()
 			log.Fatal(err)
 		}
@@ -371,7 +371,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 
 	_, err := s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(op, nil, s.Logger)
+		s.sysDB, err = database.OpenDB(op, s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", op.GetDBName())
@@ -397,7 +397,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(op, nil, s.Logger)
+	s.sysDB, err = database.NewDB(op, s.Logger)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
-		db, err := database.OpenDB(op, s.sysDB, s.Logger)
+		db, err := database.OpenDB(op, s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", op.GetDBName())
@@ -471,7 +471,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		return err
 	}
 
-	db, err := database.NewDB(op, s.sysDB, s.Logger)
+	db, err := database.NewDB(op, s.Logger)
 	if err != nil {
 		return err
 	}
@@ -549,7 +549,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
 		}
 
-		db, err := database.OpenDB(op, s.sysDB, s.Logger)
+		db, err := database.OpenDB(op, s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
 		}
@@ -837,7 +837,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
 	}
 
-	db, err := database.NewDB(op, s.sysDB, s.Logger)
+	db, err := database.NewDB(op, s.Logger)
 	if err != nil {
 		return nil, err
 	}
