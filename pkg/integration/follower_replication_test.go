@@ -155,3 +155,100 @@ func TestReplication(t *testing.T) {
 		require.Contains(t, err.Error(), "key not found")
 	})
 }
+
+func TestSystemDBAndDefaultDBReplication(t *testing.T) {
+	//init master server
+	masterServerOpts := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0).
+		WithDir("master-data")
+
+	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
+	defer os.RemoveAll(masterServerOpts.Dir)
+
+	err := masterServer.Initialize()
+	require.NoError(t, err)
+
+	go func() {
+		masterServer.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	defer masterServer.Stop()
+
+	// init master client
+	masterPort := masterServer.Listener.Addr().(*net.TCPAddr).Port
+	masterClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(masterPort))
+	require.NoError(t, err)
+	require.NotNil(t, masterClient)
+
+	mlr, err := masterClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	mmd := metadata.Pairs("authorization", mlr.Token)
+	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
+
+	//init follower server
+	replicationOpts := &server.ReplicationOptions{
+		MasterDatabase:   "defaultdb",
+		MasterAddress:    "127.0.0.1",
+		MasterPort:       masterPort,
+		FollowerUsername: "immudb",
+		FollowerPassword: "immudb",
+	}
+	followerServerOpts := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0).
+		WithDir("follower-data").
+		WithReplicationOptions(replicationOpts)
+
+	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
+	defer os.RemoveAll(followerServerOpts.Dir)
+
+	err = followerServer.Initialize()
+	require.NoError(t, err)
+
+	go func() {
+		followerServer.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	defer followerServer.Stop()
+
+	// init follower client
+	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
+	followerClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(followerPort))
+	require.NoError(t, err)
+	require.NotNil(t, followerClient)
+
+	flr, err := followerClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	fmd := metadata.Pairs("authorization", flr.Token)
+	fctx := metadata.NewOutgoingContext(context.Background(), fmd)
+
+	t.Run("key1 should not exist", func(t *testing.T) {
+		_, err = followerClient.Get(fctx, []byte("key1"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not found")
+	})
+
+	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
+
+	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
+		_, err = followerClient.Get(fctx, []byte("key1"))
+		require.NoError(t, err)
+	})
+
+	_, err = followerClient.Set(mctx, []byte("key2"), []byte("value2"))
+	require.Contains(t, err.Error(), "database is read-only because it's a replica")
+}
