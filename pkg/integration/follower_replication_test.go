@@ -78,11 +78,11 @@ func TestReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, masterClient)
 
-	lr, err := masterClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	mlr, err := masterClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
-	md := metadata.Pairs("authorization", lr.Token)
-	mctx := metadata.NewOutgoingContext(context.Background(), md)
+	mmd := metadata.Pairs("authorization", mlr.Token)
+	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
 
 	// init follower client
 	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
@@ -90,19 +90,21 @@ func TestReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, followerClient)
 
-	lr, err = followerClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	flr, err := followerClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
-	md = metadata.Pairs("authorization", lr.Token)
-	fctx := metadata.NewOutgoingContext(context.Background(), md)
+	fmd := metadata.Pairs("authorization", flr.Token)
+	fctx := metadata.NewOutgoingContext(context.Background(), fmd)
 
 	// create database as replica in follower server
 	err = followerClient.CreateDatabase(fctx, &schema.DatabaseSettings{
-		DatabaseName:   "replicateddb",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
-		MasterAddress:  "127.0.0.1",
-		MasterPort:     uint32(masterPort),
+		DatabaseName:     "replicateddb",
+		Replica:          true,
+		MasterDatabase:   "defaultdb",
+		MasterAddress:    "127.0.0.1",
+		MasterPort:       uint32(masterPort),
+		FollowerUsername: "immudb",
+		FollowerPassword: "immudb",
 	})
 	require.NoError(t, err)
 
@@ -110,8 +112,8 @@ func TestReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, fdb)
 
-	md = metadata.Pairs("authorization", fdb.Token)
-	fctx = metadata.NewOutgoingContext(context.Background(), md)
+	fmd = metadata.Pairs("authorization", fdb.Token)
+	fctx = metadata.NewOutgoingContext(context.Background(), fmd)
 
 	t.Run("key1 should not exist", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))
