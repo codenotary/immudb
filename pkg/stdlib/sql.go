@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc/metadata"
@@ -65,10 +64,8 @@ type Connector struct {
 
 // Connect implement driver.Connector interface
 func (c Connector) Connect(ctx context.Context) (driver.Conn, error) {
-	name, err := GetUri(c.cliOptions)
-	if err != nil {
-		return nil, err
-	}
+	name := GetUri(c.cliOptions)
+
 	c.driver.configMutex.Lock()
 	cn := c.driver.configs[name]
 	c.driver.configMutex.Unlock()
@@ -377,10 +374,15 @@ func ParseConfig(uri string) (*client.Options, error) {
 	return nil, ErrBadQueryString
 }
 
-func GetUri(o *client.Options) (string, error) {
-	uri := strings.Join([]string{"immudb://", o.Username, ":", o.Password, "@", o.Address, ":", strconv.Itoa(o.Port), "/", o.Database}, "")
-	if _, err := ParseConfig(uri); err != nil {
-		return "", errors.New("invalid client options")
+func GetUri(o *client.Options) string {
+	u := url.URL{
+		Scheme: "immudb",
+		User: url.UserPassword(
+			o.Username,
+			o.Password,
+		),
+		Host: strings.Join([]string{o.Address, ":", strconv.Itoa(o.Port)}, ""),
+		Path: o.Database,
 	}
-	return uri, nil
+	return u.String()
 }
