@@ -18,7 +18,6 @@ package pgmeta
 
 import (
 	"fmt"
-	"math"
 )
 
 const PgTypeMapOid = 0
@@ -73,4 +72,4 @@ var MTypes = map[byte]string{
 	'H': "flush",
 }
 
-var MaxInt32MsgSize = math.MaxInt32
+var MaxMsgSize = 32 << 20 // 32MB

@@ -114,7 +114,7 @@ func ParseBindMsg(payload []byte) (BindMsg, error) {
 			return BindMsg{}, err
 		}
 		totalParamLen += int(pLen)
-		if totalParamLen > pgmeta.MaxInt32MsgSize {
+		if totalParamLen > pgmeta.MaxMsgSize {
 			return BindMsg{}, pgserrors.ErrParametersValueSizeTooLarge
 		}
 		pVal := make([]byte, pLen)
