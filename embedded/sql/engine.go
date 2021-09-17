@@ -908,11 +908,11 @@ func maxKeyValOf(colType SQLValueType) []byte {
 	switch colType {
 	case BooleanType:
 		{
-			return maxKeyVal[:EncLenLen+1]
+			return maxKeyVal[:1]
 		}
 	case IntegerType:
 		{
-			return maxKeyVal[:EncLenLen+8]
+			return maxKeyVal[:8]
 		}
 	}
 	return maxKeyVal[:]
