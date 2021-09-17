@@ -224,18 +224,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	return &Rows{conn: c, rows: queryResult.Rows}, nil
 }
 
-func (c *Conn) Ping(ctx context.Context) error {
-	if !c.conn.IsConnected() {
-		return driver.ErrBadConn
-	}
-	err := c.conn.HealthCheck(ctx)
-	if err != nil {
-		c.Close()
-		return driver.ErrBadConn
-	}
-	return nil
-}
-
 func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {
 	// driver.Valuer interface is used instead
 	return nil
