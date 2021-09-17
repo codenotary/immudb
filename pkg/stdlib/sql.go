@@ -426,6 +426,5 @@ func RenderValue(op interface{}) interface{} {
 			return v.Bs
 		}
 	}
-
 	return []byte(fmt.Sprintf("%v", op))
 }

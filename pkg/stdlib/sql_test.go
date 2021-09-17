@@ -18,6 +18,7 @@ package stdlib
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/client"
@@ -150,6 +151,53 @@ func TestQueryCapabilities(t *testing.T) {
 	require.Equal(t, "title 1", title)
 	require.Equal(t, binaryContent, content)
 	require.Equal(t, true, isPresent)
+}
+
+func TestNilValues(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+
+	table := getRandomTableName()
+	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content) VALUES (?, ?, ?, ?, ?)", table), 1, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	var id int64
+	var amount sql.NullInt64
+	var title sql.NullString
+	var content []byte
+
+	rows, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT id, amount, title, content FROM %s where id=? and amount=? and total=? and title=?", table), 1, nil, nil, nil)
+	defer rows.Close()
+
+	require.NoError(t, err)
+	rows.Next()
+	err = rows.Scan(&id, &amount, &title, &content)
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), id)
+	require.False(t, title.Valid)
+	require.False(t, amount.Valid)
+	require.Nil(t, content)
 }
 
 func TestDriverConnector_ConnectErr(t *testing.T) {
