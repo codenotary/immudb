@@ -96,9 +96,11 @@ func (c Connector) Connect(ctx context.Context) (driver.Conn, error) {
 		}
 
 		cn = &Conn{
+			name:    name,
 			conn:    conn,
 			options: c.cliOptions,
 			Token:   resp.Token,
+			driver:  c.driver,
 		}
 	}
 
@@ -129,14 +131,22 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &Connector{driver: d, cliOptions: cliOpts}, nil
 }
 
+func (d *Driver) unregisterConnection(name string) {
+	d.configMutex.Lock()
+	delete(d.configs, name)
+	d.configMutex.Unlock()
+}
+
 func (dc *Connector) Driver() driver.Driver {
 	return dc.driver
 }
 
 type Conn struct {
+	name    string
 	conn    client.ImmuClient
 	options *client.Options
 	Token   string
+	driver  *Driver
 }
 
 // Conn returns the underlying client.ImmuClient
@@ -148,6 +158,10 @@ func (c *Conn) GetToken() string {
 	return c.Token
 }
 
+func (c *Conn) GetDriver() *Driver {
+	return c.driver
+}
+
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	return nil, ErrNotImplemented
 }
@@ -157,7 +171,8 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 }
 
 func (c *Conn) Close() error {
-	return nil
+	defer c.GetDriver().unregisterConnection(c.name)
+	return c.conn.Disconnect()
 }
 
 func (c *Conn) Begin() (driver.Tx, error) {
