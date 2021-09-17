@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc/metadata"
@@ -298,7 +299,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 	row := r.rows[r.index]
 
 	for idx, val := range row.Values {
-		dest[idx] = schema.RenderValueAsByte(val.Value)
+		dest[idx] = RenderValue(val.Value)
 	}
 
 	r.index++
@@ -400,4 +401,31 @@ func GetUri(o *client.Options) string {
 		Path: o.Database,
 	}
 	return u.String()
+}
+
+func RenderValue(op interface{}) interface{} {
+	switch v := op.(type) {
+	case *schema.SQLValue_Null:
+		{
+			return nil
+		}
+	case *schema.SQLValue_N:
+		{
+			return v.N
+		}
+	case *schema.SQLValue_S:
+		{
+			return v.S
+		}
+	case *schema.SQLValue_B:
+		{
+			return v.B
+		}
+	case *schema.SQLValue_Bs:
+		{
+			return v.Bs
+		}
+	}
+
+	return []byte(fmt.Sprintf("%v", op))
 }
