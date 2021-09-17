@@ -200,6 +200,65 @@ func TestNilValues(t *testing.T) {
 	require.Nil(t, content)
 }
 
+type valuer struct {
+	val interface{}
+}
+
+func (v *valuer) Value() (driver.Value, error) {
+	return v.val.(driver.Value), nil
+}
+
+func TestDriverValuer(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+
+	table := getRandomTableName()
+	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	binaryContent := []byte("my blob content1")
+
+	argsV := []interface{}{&valuer{1}, &valuer{100}, &valuer{200}, &valuer{"title 1"}, &valuer{binaryContent}, &valuer{true}}
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), argsV...)
+	require.NoError(t, err)
+
+	var id int64
+	var amount int64
+	var title string
+	var isPresent bool
+	var content []byte
+
+	rows, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s ", table), argsV...)
+	defer rows.Close()
+
+	require.NoError(t, err)
+	rows.Next()
+	err = rows.Scan(&id, &amount, &title, &content, &isPresent)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), id)
+	require.Equal(t, int64(100), amount)
+	require.Equal(t, "title 1", title)
+	require.Equal(t, binaryContent, content)
+	require.Equal(t, true, isPresent)
+}
+
 func TestDriverConnector_ConnectErr(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -322,8 +381,6 @@ func TestConnErr(t *testing.T) {
 	require.Error(t, err)
 	_, err = c.QueryContext(context.TODO(), "", nil)
 	require.Error(t, err)
-	err = c.Ping(context.TODO())
-	require.Error(t, err)
 	err = c.ResetSession(context.TODO())
 	require.Error(t, err)
 	ris := c.CheckNamedValue(nil)
@@ -400,3 +457,33 @@ func TestRows(t *testing.T) {
 	ty := r.ColumnTypeScanType(1)
 	require.Nil(t, ty)
 }
+
+/*func TestConn_Ping(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+	dri := db.Driver()
+
+	conn, err := dri.Open(GetUri(opts))
+	require.NoError(t, err)
+
+	immuConn := conn.(driver.Pinger)
+
+	err = immuConn.Ping(context.TODO())
+	require.NoError(t, err)
+}*/
