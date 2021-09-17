@@ -1,8 +1,16 @@
 FROM golang:1.17 as build
+
+RUN apt-get update -qq && \
+    apt-get install -qq upx
+
 WORKDIR /src
 COPY . .
 RUN rm -rf /src/webconsole/dist
 RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
+RUN strip immudb && \
+    strip immuadmin && \
+    upx -9 immudb && \
+    upx -9 immuadmin
 RUN mkdir /empty
 
 FROM debian:bullseye-slim as bullseye-slim
