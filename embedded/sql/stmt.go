@@ -566,7 +566,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				return nil, err
 			}
 
-			if len(encVal) > EncLenLen+maxKeyLen {
+			if len(encVal) > maxKeyLen {
 				return nil, ErrMaxKeyLengthExceeded
 			}
 
@@ -589,6 +589,14 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		for _, col := range table.cols {
+			b := make([]byte, EncIDLen)
+			binary.BigEndian.PutUint32(b, uint32(col.id))
+
+			_, err = valbuf.Write(b)
+			if err != nil {
+				return nil, err
+			}
+
 			rval, notNull := valuesByColID[col.id]
 			if !notNull {
 				continue
@@ -599,21 +607,13 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				return nil, err
 			}
 
-			b := make([]byte, EncIDLen)
-			binary.BigEndian.PutUint32(b, uint32(col.id))
-
-			_, err = valbuf.Write(b)
-			if err != nil {
-				return nil, err
-			}
-
 			_, err = valbuf.Write(encVal)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		// create entry for the column which is the pk
+		// create primary index entry
 		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
 		constraint := store.NoConstraint
@@ -633,7 +633,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 		summary.des = append(summary.des, pke)
 
-		// create entries for remaining indexes
+		// create entries for secondary indexes
 		for _, index := range table.indexes {
 			if index.IsPrimary() {
 				continue
@@ -666,6 +666,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
+				}
+
+				if len(encVal) > maxKeyLen {
+					return nil, ErrMaxKeyLengthExceeded
 				}
 
 				encodedValues[i+3] = encVal
