@@ -2515,6 +2515,20 @@ func TestJoins(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("should return error when joining nonexistent table", func(t *testing.T) {
+		r, err := engine.QueryStmt(`
+		SELECT title
+		FROM table1
+		INNER JOIN table22 ON table1.id = table11.fkid1`, nil, true)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.Equal(t, ErrTableDoesNotExist, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
 	err = engine.Close()
 	require.NoError(t, err)
 }
