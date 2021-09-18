@@ -589,17 +589,17 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		for _, col := range table.cols {
+			rval, notNull := valuesByColID[col.id]
+			if !notNull {
+				continue
+			}
+
 			b := make([]byte, EncIDLen)
 			binary.BigEndian.PutUint32(b, uint32(col.id))
 
 			_, err = valbuf.Write(b)
 			if err != nil {
 				return nil, err
-			}
-
-			rval, notNull := valuesByColID[col.id]
-			if !notNull {
-				continue
 			}
 
 			encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
