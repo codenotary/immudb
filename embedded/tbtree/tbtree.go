@@ -723,7 +723,8 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	return t.root.get(key)
+	v, ts, hc, err := t.root.get(key)
+	return cp(v), ts, hc, err
 }
 
 func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {

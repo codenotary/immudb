@@ -53,7 +53,8 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 		return nil, 0, 0, ErrIllegalArguments
 	}
 
-	return s.root.get(key)
+	v, ts, hc, err := s.root.get(key)
+	return cp(v), ts, hc, err
 }
 
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
