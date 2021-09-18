@@ -139,7 +139,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 		if len(r.prefix) == 0 {
 			ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
 			if err == nil {
-				return leafValue.key, ts, nil
+				return cp(leafValue.key), ts, nil
 			}
 		}
 
@@ -150,7 +150,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 			if bytes.Equal(r.prefix, leafPrefix) {
 				ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
 				if err == nil {
-					return leafValue.key, ts, nil
+					return cp(leafValue.key), ts, nil
 				}
 			}
 		}
@@ -238,7 +238,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err err
 		}
 
 		if len(r.prefix) == 0 {
-			return leafValue.key, leafValue.value, leafValue.ts, leafValue.hCount, nil
+			return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
 		}
 
 		if len(r.prefix) > 0 && len(leafValue.key) >= len(r.prefix) {
@@ -246,7 +246,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err err
 
 			// prefix match
 			if bytes.Equal(r.prefix, leafPrefix) {
-				return leafValue.key, leafValue.value, leafValue.ts, leafValue.hCount, nil
+				return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
 			}
 		}
 	}
@@ -261,4 +261,15 @@ func (r *Reader) Close() error {
 	r.closed = true
 
 	return nil
+}
+
+func cp(s []byte) []byte {
+	if s == nil {
+		return nil
+	}
+
+	c := make([]byte, len(s))
+	copy(c, s)
+
+	return c
 }
