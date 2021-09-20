@@ -4,7 +4,7 @@ COPY . .
 RUN GOOS=linux GOARCH=amd64 make immuadmin-static
 
 FROM debian:bullseye-slim as bullseye
-MAINTAINER CodeNotary, Inc. <info@codenotary.io>
+LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
 
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
 

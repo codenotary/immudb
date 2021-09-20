@@ -12,7 +12,7 @@ provides:
 - immuclient
 depends:
 - adduser
-maintainer: "<info@codenotary.io>"
+maintainer: "<info@codenotary.com>"
 description: |
   immudb - the tamperproof database
 vendor: "CodeNotary, Inc."
