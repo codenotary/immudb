@@ -262,8 +262,6 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
-	} else {
-		dbi.Logger.Warningf("Replication is a work-in-progress feature. Not ready for production use")
 	}
 
 	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", op.dbName, op.replica)
@@ -846,10 +844,6 @@ func (d *db) GetOptions() *Options {
 func (d *db) AsReplica(asReplica bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	if asReplica {
-		d.Logger.Warningf("Replication is a work-in-progress feature. Not ready for production use")
-	}
 
 	d.options.replica = asReplica
 }
