@@ -147,3 +147,12 @@ Sign:
 ```
 vcn n -p docker://codenotary/immudb:X.Y.Z
 ```
+
+## 7. Create documentation for the version
+
+Documentation is kept inside the [immudb.io repo](https://github.com/codenotary/immudb.io).
+
+Make sure that the documentation in `src/master` is up-to-date and then copy it to `src/<version>` folder.
+Once done, add new version to the list in [version constant in vuepress index.js file](https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/theme/util/index.js#L242).
+
+Once those changes end up in master, the documentation will be compiled and deployed automatically.
