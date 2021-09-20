@@ -101,7 +101,10 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 
 	for _, jspec := range jointr.joins {
 		tableRef := jspec.ds.(*tableRef)
-		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
+		table, err := tableRef.referencedTable(jointr.e, jointr.implicitDB)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, c := range table.Cols() {
 			des := &ColDescriptor{
