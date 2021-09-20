@@ -78,10 +78,6 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			if settings.Replica {
-				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
-			}
-
 			if err := cl.immuClient.CreateDatabase(cl.context, settings); err != nil {
 				return err
 			}
@@ -111,10 +107,6 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			settings, err := prepareDatabaseSettings(args[0], cmd.Flags())
 			if err != nil {
 				return err
-			}
-
-			if settings.Replica {
-				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Replication is a work-in-progress feature. Not ready for production use\n")
 			}
 
 			if err := cl.immuClient.UpdateDatabase(cl.context, settings); err != nil {

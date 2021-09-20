@@ -23,9 +23,6 @@ var (
 
 func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error) {
 	if s.Options.RemoteStorageOptions.S3Storage {
-
-		s.Logger.Warningf("Remote Storage is a work-in-progress feature. Not ready for production use")
-
 		// S3 storage
 		return s3.Open(
 			s.Options.RemoteStorageOptions.S3Endpoint,
@@ -37,7 +34,6 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 	}
 
 	return nil, nil
-
 }
 
 func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) error {
