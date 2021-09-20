@@ -30,6 +30,10 @@ Don't forget to ⭐ this repo if you like immudb!
 
 ---
 
+Detailed documentation can be found at https://docs.immudb.io/
+
+---
+
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
 immudb is a database with built-in cryptographic proof and verification. It tracks changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server. It can operate as a key-value store or as relational database (SQL).
