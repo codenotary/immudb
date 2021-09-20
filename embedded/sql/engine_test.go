@@ -136,6 +136,9 @@ func TestCreateTable(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, PRIMARY KEY id)", nil, true)
+	require.ErrorIs(t, err, ErrNoSupported)
+
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, true)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
