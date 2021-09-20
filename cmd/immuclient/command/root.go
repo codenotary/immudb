@@ -27,11 +27,15 @@ func (cl *commandline) NewCmd() (*cobra.Command, error) {
 		Use:   "immuclient",
 		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
+
+immudb documentation:
+  https://docs.immudb.io/
+
 Environment variables:
   IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
   IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=true
-	IMMUCLIENT_USERNAME=username
+  IMMUCLIENT_USERNAME=username
   IMMUCLIENT_PASSWORD=password
   IMMUCLIENT_DATABASE=database
   IMMUCLIENT_MTLS=false

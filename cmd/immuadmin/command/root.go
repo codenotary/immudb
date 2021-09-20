@@ -24,6 +24,9 @@ func (cl *commandline) NewCmd() (*cobra.Command, error) {
 		Short: "CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
+immudb documentation:
+  https://docs.immudb.io/
+
 Environment variables:
   IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
   IMMUADMIN_IMMUDB_PORT=3322
