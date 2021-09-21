@@ -75,7 +75,7 @@ func TestCountValue(t *testing.T) {
 
 	require.False(t, cval.isConstant())
 
-	require.Nil(t, cval.selectorRanges(nil, nil, nil))
+	require.Nil(t, cval.selectorRanges(nil, "", nil, nil))
 }
 
 func TestSumValue(t *testing.T) {
@@ -134,7 +134,7 @@ func TestSumValue(t *testing.T) {
 
 	require.False(t, cval.isConstant())
 
-	require.Nil(t, cval.selectorRanges(nil, nil, nil))
+	require.Nil(t, cval.selectorRanges(nil, "", nil, nil))
 }
 
 func TestMinValue(t *testing.T) {
@@ -199,7 +199,7 @@ func TestMinValue(t *testing.T) {
 
 	require.False(t, cval.isConstant())
 
-	require.Nil(t, cval.selectorRanges(nil, nil, nil))
+	require.Nil(t, cval.selectorRanges(nil, "", nil, nil))
 }
 
 func TestMaxValue(t *testing.T) {
@@ -264,7 +264,7 @@ func TestMaxValue(t *testing.T) {
 
 	require.False(t, cval.isConstant())
 
-	require.Nil(t, cval.selectorRanges(nil, nil, nil))
+	require.Nil(t, cval.selectorRanges(nil, "", nil, nil))
 }
 
 func TestAVGValue(t *testing.T) {
@@ -323,5 +323,5 @@ func TestAVGValue(t *testing.T) {
 
 	require.False(t, cval.isConstant())
 
-	require.Nil(t, cval.selectorRanges(nil, nil, nil))
+	require.Nil(t, cval.selectorRanges(nil, "", nil, nil))
 }

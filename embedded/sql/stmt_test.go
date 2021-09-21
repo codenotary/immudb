@@ -567,7 +567,7 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 
 	require.False(t, exp.isConstant())
 
-	require.Nil(t, exp.selectorRanges(nil, nil, nil))
+	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 }
 
 func TestAliasing(t *testing.T) {
