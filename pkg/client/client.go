@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
@@ -75,7 +76,7 @@ type ImmuClient interface {
 	WithStateService(rs state.StateService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
-	WithTokenService(tokenService TokenService) *immuClient
+	WithTokenService(tokenService tokenservice.TokenService) *immuClient
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
 	WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient
 
@@ -166,7 +167,7 @@ type immuClient struct {
 	clientConn           *grpc.ClientConn
 	ServiceClient        schema.ImmuServiceClient
 	StateService         state.StateService
-	Tkns                 TokenService
+	Tkns                 tokenservice.TokenService
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
 	sync.RWMutex
@@ -316,6 +317,8 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
 		}
 	}
+	uic = append(uic, c.TokenInterceptor)
+
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return &opts
@@ -474,6 +477,12 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 	})
 
 	c.Logger.Debugf("login finished in %s", time.Since(start))
+
+	err = c.Tkns.SetToken("defaultdb", result.Token)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return result, errors.FromError(err)
 }
@@ -1375,6 +1384,12 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	c.Options.CurrentDatabase = db.DatabaseName
 
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))
+
+	err = c.Tkns.SetToken("defaultdb", result.Token)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return result, err
 }

@@ -17,11 +17,12 @@ limitations under the License.
 package clienttest
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 )
 
 type TokenServiceMock struct {
-	client.TokenService
+	tokenservice.TokenService
 	GetTokenF       func() (string, error)
 	SetTokenF       func(database string, token string) error
 	IsTokenPresentF func() (bool, error)
@@ -48,11 +49,11 @@ func (ts TokenServiceMock) GetDatabase() (string, error) {
 	return "", nil
 }
 
-func (ts TokenServiceMock) WithHds(hds client.HomedirService) client.TokenService {
+func (ts TokenServiceMock) WithHds(hds homedir.HomedirService) tokenservice.TokenService {
 	return ts
 }
 
-func (ts TokenServiceMock) WithTokenFileName(tfn string) client.TokenService {
+func (ts TokenServiceMock) WithTokenFileName(tfn string) tokenservice.TokenService {
 	return ts
 }
 

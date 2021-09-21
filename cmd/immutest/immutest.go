@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -30,7 +31,7 @@ func main() {
 		client.NewImmuClient,
 		c.DefaultPasswordReader,
 		c.NewTerminalReader(os.Stdin),
-		client.NewTokenService(),
+		tokenservice.NewFileTokenService(),
 		c.QuitWithUserError,
 		nil)
 	if err != nil {
@@ -43,7 +44,7 @@ func execute(
 	newImmuClient func(*client.Options) (client.ImmuClient, error),
 	pwr c.PasswordReader,
 	tr c.TerminalReader,
-	ts client.TokenService,
+	ts tokenservice.TokenService,
 	onError func(err error),
 	args []string,
 ) error {

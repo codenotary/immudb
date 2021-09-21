@@ -40,7 +40,7 @@ func TestGetByIndex(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -100,7 +100,7 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -154,7 +154,7 @@ func TestGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -209,7 +209,7 @@ func TestSafeGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -269,7 +269,7 @@ func TestRawSafeGetKey(t *testing.T) {
 	bs.Start()
 defer bs.Stop()
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())

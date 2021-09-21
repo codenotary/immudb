@@ -154,7 +154,7 @@ func TestDumpToFile(t *testing.T) {
 	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
 		return true, nil
 	}
-	clb.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	clb.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 
 	daemMock := defaultDaemonMock()
 	clb.Backupper = &backupper{
@@ -255,7 +255,7 @@ func TestBackup(t *testing.T) {
 	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
 		return true, nil
 	}
-	clb.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	clb.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 
 	daemMock := defaultDaemonMock()
 	clb.Backupper = &backupper{
@@ -666,7 +666,7 @@ func TestRestore(t *testing.T) {
 	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
 		return true, nil
 	}
-	clb.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	clb.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 
 	daemMock := defaultDaemonMock()
 	bckpr := &backupper{

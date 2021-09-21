@@ -18,6 +18,7 @@ package client
 
 import (
 	"crypto/ecdsa"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -46,7 +47,7 @@ func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *
 	return c
 }
 
-func (c *immuClient) WithTokenService(tokenService TokenService) *immuClient {
+func (c *immuClient) WithTokenService(tokenService tokenservice.TokenService) *immuClient {
 	c.Tkns = tokenService
 	return c
 }
