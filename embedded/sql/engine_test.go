@@ -976,8 +976,31 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil, true)
-	require.Equal(t, ErrNoSupported, err)
+	t.Run("should return two rows", func(t *testing.T) {
+		r, err = engine.QueryStmt("SELECT DISTINCT active FROM table1", nil, true)
+		require.NoError(t, err)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.active)", cols[0].Selector())
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Len(t, row.Values, 1)
+		require.Equal(t, row.Values["(db1.table1.active)"].Value(), true)
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Len(t, row.Values, 1)
+		require.Equal(t, row.Values["(db1.table1.active)"].Value(), false)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	t.Run("should fail reading due to non-existent column", func(t *testing.T) {
 		r, err := engine.QueryStmt("SELECT id1 FROM table1", nil, true)
@@ -3095,9 +3118,6 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, note) VALUES (@param1, @param2)")
 	require.Equal(t, ErrColumnDoesNotExist, err)
-
-	_, err = engine.InferParameters("SELECT DISTINCT title FROM mytable")
-	require.Error(t, err)
 
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
 	require.Equal(t, ErrInferredMultipleTypes, err)
