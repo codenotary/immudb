@@ -559,9 +559,9 @@ joins:
     }
 
 join:
-    JOINTYPE JOIN ds ON exp opt_indexon
+    JOINTYPE JOIN ds opt_indexon ON exp
     {
-        $$ = &JoinSpec{joinType: $1, ds: $3, cond: $5, indexOn: $6}
+        $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: $6}
     }
 
 opt_where:
