@@ -18,6 +18,8 @@ package immuc
 import (
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -33,7 +35,7 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
-	ts             client.TokenService
+	ts             tokenservice.TokenService
 }
 
 // Client ...
@@ -165,7 +167,7 @@ func Options() *client.Options {
 		WithDatabase(viper.GetString("database")).
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
-		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService())).
+		WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(homedir.NewHomedirService())).
 		WithServerSigningPubKey(viper.GetString("server-signing-pub-key"))
 
 	if viper.GetBool("mtls") {

@@ -18,6 +18,8 @@ package immuclienttest
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"log"
 	"os"
@@ -32,13 +34,13 @@ import (
 
 type clientTest struct {
 	Imc     immuc.Client
-	Ts      client.TokenService
+	Ts      tokenservice.TokenService
 	Options client.Options
 	Pr      helper.PasswordReader
 }
 
 type HomedirServiceMock struct {
-	client.HomedirService
+	homedir.HomedirService
 	token []byte
 }
 
@@ -62,7 +64,7 @@ func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string,
 func NewDefaultClientTest() *clientTest {
 	return &clientTest{}
 }
-func NewClientTest(pr helper.PasswordReader, tkns client.TokenService) *clientTest {
+func NewClientTest(pr helper.PasswordReader, tkns tokenservice.TokenService) *clientTest {
 	return &clientTest{
 		Ts: tkns,
 		Pr: pr,

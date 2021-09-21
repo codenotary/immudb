@@ -18,6 +18,8 @@ package client
 
 import (
 	"encoding/json"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/stream"
@@ -49,7 +51,7 @@ type Options struct {
 	Password       string
 	Database       string
 	//<--
-	Tkns                TokenService
+	Tkns                tokenservice.TokenService
 	Metrics             bool
 	PidPath             string
 	LogFileName         string
@@ -71,7 +73,7 @@ func DefaultOptions() *Options {
 		TokenFileName:       "token",
 		DialOptions:         &[]grpc.DialOption{},
 		PasswordReader:      c.DefaultPasswordReader,
-		Tkns:                NewTokenService().WithTokenFileName("token").WithHds(NewHomedirService()),
+		Tkns:                tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
 		Metrics:             true,
 		PidPath:             "",
 		LogFileName:         "",
@@ -196,7 +198,7 @@ func (o *Options) WithDatabase(database string) *Options {
 }
 
 // WithTokenService sets the TokenService for the client
-func (o *Options) WithTokenService(tkns TokenService) *Options {
+func (o *Options) WithTokenService(tkns tokenservice.TokenService) *Options {
 	o.Tkns = tkns
 	return o
 }

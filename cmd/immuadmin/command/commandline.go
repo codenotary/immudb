@@ -19,6 +19,8 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
@@ -53,7 +55,7 @@ type commandline struct {
 	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
 	context        context.Context
-	ts             client.TokenService
+	ts             tokenservice.TokenService
 	onError        func(msg interface{})
 	os             immuos.OS
 }
@@ -75,7 +77,7 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		}
 		// here all command line options and services need to be configured by options retrieved from viper
 		cl.options = Options()
-		cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
+		cl.ts = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
 		if post != nil {
 			return post(cmd, args)
 		}

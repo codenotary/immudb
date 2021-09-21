@@ -33,7 +33,7 @@ func TestCurrentRoot(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 defer bs.Stop()
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
