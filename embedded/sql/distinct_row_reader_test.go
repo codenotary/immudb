@@ -23,28 +23,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConditionalRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_cond_row_reader", store.DefaultOptions())
+func TestDistinctRowReader(t *testing.T) {
+	catalogStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_cond_row_reader")
+	defer os.RemoveAll("catalog_distinct_row_reader")
 
-	dataStore, err := store.Open("catalog_cond_row_reader", store.DefaultOptions())
+	dataStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_cond_row_reader")
+	defer os.RemoveAll("catalog_distinct_row_reader")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
 	dummyr := &dummyRowReader{}
 
-	rowReader, err := engine.newConditionalRowReader(dummyr, &Bool{val: true}, nil)
+	rowReader, err := engine.newDistinctRowReader(dummyr)
 	require.NoError(t, err)
+
+	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())
+	require.Equal(t, dummyr.ImplicitTable(), rowReader.ImplicitTable())
+	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
+	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
 
 	_, err = rowReader.Columns()
 	require.Equal(t, errDummy, err)
 
 	err = rowReader.InferParameters(nil)
-	require.Equal(t, errDummy, err)
+	require.NoError(t, err)
 
 	dummyr.failInferringParams = true
 

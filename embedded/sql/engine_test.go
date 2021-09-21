@@ -977,8 +977,13 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should return two rows", func(t *testing.T) {
-		r, err = engine.QueryStmt("SELECT DISTINCT active FROM table1", nil, true)
+		params := make(map[string]interface{})
+		params["id"] = 0
+
+		r, err = engine.QueryStmt("SELECT DISTINCT active FROM table1 WHERE id >= @id", nil, true)
 		require.NoError(t, err)
+
+		r.SetParameters(params)
 
 		cols, err := r.Columns()
 		require.NoError(t, err)
