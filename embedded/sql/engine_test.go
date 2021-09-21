@@ -1393,7 +1393,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 AND ts = 1629902963 ORDER BY ts", nil, true)
+		r, err := engine.QueryStmt("SELECT * FROM (table1 AS t) WHERE t.ts = 1629902962 AND t.ts = 1629902963 ORDER BY t.ts", nil, true)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
