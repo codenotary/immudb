@@ -1328,10 +1328,6 @@ func (stmt *SelectStmt) compileUsing(e *Engine, implicitDB *Database, params map
 		return nil, ErrNoDatabaseSelected
 	}
 
-	if stmt.distinct {
-		return nil, ErrNoSupported
-	}
-
 	if stmt.groupBy == nil && stmt.having != nil {
 		return nil, ErrHavingClauseRequiresGroupClause
 	}
@@ -1421,7 +1417,19 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Dat
 		}
 	}
 
-	return e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, stmt.limit)
+	rowReader, err = e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, stmt.limit)
+	if err != nil {
+		return nil, err
+	}
+
+	if stmt.distinct {
+		rowReader, err = e.newDistinctRowReader(rowReader)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return rowReader, nil
 }
 
 func (stmt *SelectStmt) Alias() string {

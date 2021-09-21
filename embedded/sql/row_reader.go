@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -40,7 +41,7 @@ type Row struct {
 }
 
 // rows are selector-compatible if both rows have the same assigned value for all specified selectors
-func (row *Row) Compatible(aRow *Row, selectors []*ColSelector, db, table string) (bool, error) {
+func (row *Row) compatible(aRow *Row, selectors []*ColSelector, db, table string) (bool, error) {
 	for _, sel := range selectors {
 		c := EncodeSelector(sel.resolve(db, table))
 
@@ -65,6 +66,26 @@ func (row *Row) Compatible(aRow *Row, selectors []*ColSelector, db, table string
 	}
 
 	return true, nil
+}
+
+func (row *Row) digest() (d [sha256.Size]byte, err error) {
+	h := sha256.New()
+
+	for _, v := range row.Values {
+		encVal, err := EncodeValue(v.Value(), v.Type(), 0)
+		if err != nil {
+			return d, err
+		}
+
+		_, err = h.Write(encVal)
+		if err != nil {
+			return d, err
+		}
+	}
+
+	copy(d[:], h.Sum(nil))
+
+	return
 }
 
 type rawRowReader struct {
