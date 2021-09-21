@@ -19,7 +19,7 @@ SHELL=/bin/bash -o pipefail
 VERSION=1.0.5
 DEFAULT_WEBCONSOLE_VERSION=0.1.9
 SERVICES=immudb immuadmin immuclient
-TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64
+TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
 
 PWD = $(shell pwd)
 GO ?= go
