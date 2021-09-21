@@ -1282,10 +1282,10 @@ type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
 	ds        DataSource
+	indexOn   []string
 	joins     []*JoinSpec
 	where     ValueExp
 	groupBy   []*ColSelector
-	indexOn   []string
 	having    ValueExp
 	limit     uint64
 	orderBy   []*OrdCol
@@ -1585,6 +1585,7 @@ type JoinSpec struct {
 	joinType JoinType
 	ds       DataSource
 	cond     ValueExp
+	indexOn  []string
 }
 
 type Order int

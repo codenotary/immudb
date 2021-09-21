@@ -197,8 +197,9 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 			jspec := jointr.joins[i]
 
 			jointq := &SelectStmt{
-				ds:    jspec.ds,
-				where: jspec.cond.reduceSelectors(row, jointr.ImplicitDB(), jointr.ImplicitTable()),
+				ds:      jspec.ds,
+				where:   jspec.cond.reduceSelectors(row, jointr.ImplicitDB(), jointr.ImplicitTable()),
+				indexOn: jspec.indexOn,
 			}
 
 			reader, err := jointq.Resolve(jointr.e, jointr.snap, jointr.implicitDB, jointr.params, nil)
