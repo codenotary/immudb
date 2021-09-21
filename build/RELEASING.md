@@ -24,7 +24,7 @@ any existing content will be used instead of the released webconsole version:
 rm -rf webconsole/dist
 ```
 
-[webconsole]: github.com/codenotary/immudb-webconsole/releases/latest
+[webconsole]: https://github.com/codenotary/immudb-webconsole/releases/latest
 
 ## 2. Bump version (vX.Y.Z)
 
@@ -71,7 +71,9 @@ Make sure the path of those files is accessible.
 Build all dist files. It's possible launch script on all services. Modify SERVICE_NAME according your needs:
 
 ```
-WEBCONSOLE=default SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist
+export SIGNCODE_PVK_PASSWORD
+read -s SIGNCODE_PVK_PASSWORD
+WEBCONSOLE=default SIGNCODE_PVK=<full path to vchain.pvk> SIGNCODE_SPC=<full path to vchain.spc> make dist
 ```
 > Distribution files will be created into the `dist` directory.
 
