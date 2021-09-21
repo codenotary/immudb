@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -706,7 +707,7 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 	}
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -747,7 +748,7 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 	}
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -788,7 +789,7 @@ func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
 	}
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -830,7 +831,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	}
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -856,7 +857,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 
 	client.Disconnect()
 
-	ts = ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts = tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -936,7 +937,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		return stream.NewExecAllStreamSender(str)
 	}
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1041,7 +1042,7 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 		return stream.NewZStreamReceiver(msr, 4096)
 	}
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)

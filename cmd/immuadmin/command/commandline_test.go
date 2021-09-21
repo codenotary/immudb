@@ -47,7 +47,7 @@ func TestCommandline(t *testing.T) {
 		},
 		passwordReader: pwr,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile"),
+		ts:             tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile"),
 	}
 	cmd := &cobra.Command{}
 
@@ -85,16 +85,16 @@ func TestCommandline(t *testing.T) {
 	hds.FileExistsInUserHomeDirF = func(pathToFile string) (bool, error) {
 		return false, errFileExists
 	}
-	cl.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	cl.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 	require.NoError(t, cl.checkLoggedIn(cmd, nil))
 	hds.FileExistsInUserHomeDirF = prevFileExists
-	cl.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	cl.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 
 	require.Equal(t, errPleaseLogin, cl.checkLoggedInAndConnect(cmd, nil))
 	hds.FileExistsInUserHomeDirF = func(pathToFile string) (bool, error) {
 		return true, nil
 	}
-	cl.ts = client.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
+	cl.ts = tokenservice.NewTokenService().WithHds(hds).WithTokenFileName("testTokenFile")
 	cl.newImmuClient = func(*client.Options) (client.ImmuClient, error) {
 		return nil, errNewImmuClient
 	}

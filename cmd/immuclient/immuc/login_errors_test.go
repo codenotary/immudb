@@ -36,7 +36,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	ic := new(immuc)
 	ic.ImmuClient = immuClientMock
 	ic.passwordReader = passwordReaderMock
-	ic.ts = client.NewTokenService().WithHds(homedirServiceMock)
+	ic.ts = tokenservice.NewTokenService().WithHds(homedirServiceMock)
 
 	// Login errors
 	passwordReadErr := errors.New("Password read error")

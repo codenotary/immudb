@@ -14,35 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package tokenservice
 
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/codenotary/immudb/pkg/client/homedir"
 	"strings"
 )
 
-type TokenService interface {
-	SetToken(database string, token string) error
-	WithHds(hds HomedirService) TokenService
-	WithTokenFileName(tfn string) TokenService
-	IsTokenPresent() (bool, error)
-	DeleteToken() error
-	GetToken() (string, error)
-	GetDatabase() (string, error)
-}
-
-type tokenService struct {
+type file struct {
 	tokenFileName string
-	hds           HomedirService
+	hds           homedir.HomedirService
 }
 
-//NewTokenService ...
-func NewTokenService() TokenService {
-	return &tokenService{}
+//NewFileTokenService ...
+func NewFileTokenService() *file {
+	return &file{
+		tokenFileName: "token",
+		hds:           homedir.NewHomedirService(),
+	}
 }
 
-func (ts *tokenService) GetToken() (string, error) {
+func (ts *file) GetToken() (string, error) {
 	_, token, err := ts.parseContent()
 	if err != nil {
 		return "", err
@@ -51,7 +45,7 @@ func (ts *tokenService) GetToken() (string, error) {
 }
 
 //SetToken ...
-func (ts *tokenService) SetToken(database string, token string) error {
+func (ts *file) SetToken(database string, token string) error {
 	return ts.hds.WriteFileToUserHomeDir(BuildToken(database, token), ts.tokenFileName)
 }
 
@@ -67,21 +61,21 @@ func BuildToken(database string, token string) []byte {
 	return cnt
 }
 
-func (ts *tokenService) DeleteToken() error {
+func (ts *file) DeleteToken() error {
 	return ts.hds.DeleteFileFromUserHomeDir(ts.tokenFileName)
 }
 
 //IsTokenPresent ...
-func (ts *tokenService) IsTokenPresent() (bool, error) {
+func (ts *file) IsTokenPresent() (bool, error) {
 	return ts.hds.FileExistsInUserHomeDir(ts.tokenFileName)
 }
 
-func (ts *tokenService) GetDatabase() (string, error) {
+func (ts *file) GetDatabase() (string, error) {
 	dbname, _, err := ts.parseContent()
 	return dbname, err
 }
 
-func (ts *tokenService) parseContent() (string, string, error) {
+func (ts *file) parseContent() (string, string, error) {
 	content, err := ts.hds.ReadFileFromUserHomeDir(ts.tokenFileName)
 	if err != nil {
 		return "", "", err
@@ -109,13 +103,13 @@ func (ts *tokenService) parseContent() (string, string, error) {
 }
 
 // WithHds ...
-func (ts *tokenService) WithHds(hds HomedirService) TokenService {
+func (ts *file) WithHds(hds homedir.HomedirService) *file {
 	ts.hds = hds
 	return ts
 }
 
 // WithTokenFileName ...
-func (ts *tokenService) WithTokenFileName(tfn string) TokenService {
+func (ts *file) WithTokenFileName(tfn string) *file {
 	ts.tokenFileName = tfn
 	return ts
 }

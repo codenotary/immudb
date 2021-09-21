@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package tokenservice
 
 import (
+	"github.com/codenotary/immudb/pkg/client/homedir"
 	"os"
 	"testing"
 
@@ -26,7 +27,7 @@ import (
 
 func TestTokenSevice_setToken(t *testing.T) {
 	fn := "deleteme"
-	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
+	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	assert.Nil(t, err)
 	database, err := ts.GetDatabase()
@@ -40,7 +41,7 @@ func TestTokenSevice_setToken(t *testing.T) {
 
 func TestTokenService_IsTokenPresent(t *testing.T) {
 	fn := "deleteme"
-	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
+	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	ok, err := ts.IsTokenPresent()
@@ -50,7 +51,7 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 
 func TestTokenService_DeleteToken(t *testing.T) {
 	fn := "deleteme"
-	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
+	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	err = ts.DeleteToken()
