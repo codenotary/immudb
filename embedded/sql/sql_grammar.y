@@ -415,18 +415,18 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct opt_selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_indexon opt_limit opt_as
+    SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
                 selectors: $3,
                 ds: $5,
-                joins: $6,
-                where: $7,
-                groupBy: $8,
-                having: $9,
-                orderBy: $10,
-                indexOn: $11,
+                indexOn: $6,
+                joins: $7,
+                where: $8,
+                groupBy: $9,
+                having: $10,
+                orderBy: $11,
                 limit: $12,
                 as: $13,
             }
