@@ -123,8 +123,8 @@ jobs:
                 docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
                 docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${DEBIAN_VERSION}"
 
-                docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}}"
-                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}}"
+                docker tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}"
+                docker push "${DOCKER_IMAGE_IMMUDB}:${tag}-${ALMA_VERSION}"
 
                 docker tag "${DOCKER_IMAGE_IMMUADMIN}:dev" "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
                 docker push "${DOCKER_IMAGE_IMMUADMIN}:${tag}"
