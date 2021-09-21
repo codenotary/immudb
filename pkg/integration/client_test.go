@@ -18,6 +18,8 @@ package integration
 import (
 	"context"
 	"errors"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"log"
 	"os"
 	"path"
@@ -232,7 +234,7 @@ func TestImmuClient(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	opts := ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
@@ -276,7 +278,7 @@ func TestImmuClientTampering(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	opts := ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
@@ -426,7 +428,7 @@ func TestReplica(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -474,7 +476,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -535,7 +537,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	opts := ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
@@ -660,7 +662,7 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -682,7 +684,7 @@ func TestWaitForHealthCheck(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -733,7 +735,7 @@ func TestUserManagement(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -827,7 +829,7 @@ func TestDatabaseManagement(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -860,7 +862,7 @@ func TestImmuClient_History(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -898,7 +900,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -953,7 +955,7 @@ func TestImmuClient_GetAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -993,7 +995,7 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1036,7 +1038,7 @@ func TestImmuClient_Scan(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1070,7 +1072,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1125,7 +1127,7 @@ func TestImmuClient_Logout(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts1 := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts1 := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	ts2 := &TokenServiceMock{
 		TokenService: ts1,
 		GetTokenF:    ts1.GetToken,
@@ -1142,7 +1144,7 @@ func TestImmuClient_Logout(t *testing.T) {
 	ts3.IsTokenPresentF = func() (bool, error) {
 		return true, nil
 	}
-	tokenServices := []ic.TokenService{ts1, ts2, &ts3}
+	tokenServices := []tokenservice.TokenService{ts1, ts2, &ts3}
 	expectations := []func(error){
 		func(err error) { require.Nil(t, err) },
 		func(err error) {
@@ -1187,7 +1189,7 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1214,7 +1216,7 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1245,7 +1247,7 @@ func TestImmuClient_Count(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1271,7 +1273,7 @@ func TestImmuClient_CountAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1405,7 +1407,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1485,7 +1487,7 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 	}
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
@@ -1512,7 +1514,7 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	opts := ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
@@ -1558,7 +1560,7 @@ func TestImmuClient_VerifiedGetSince(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	ts := ic.NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
 	if err != nil {
 		log.Fatal(err)
@@ -1679,7 +1681,7 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 }
 
 type HomedirServiceMock struct {
-	ic.HomedirService
+	homedir.HomedirService
 	WriteFileToUserHomeDirF    func(content []byte, pathToFile string) error
 	FileExistsInUserHomeDirF   func(pathToFile string) (bool, error)
 	ReadFileFromUserHomeDirF   func(pathToFile string) (string, error)
@@ -1725,7 +1727,7 @@ func DefaultHomedirServiceMock() *HomedirServiceMock {
 }
 
 type TokenServiceMock struct {
-	ic.TokenService
+	tokenservice.TokenService
 	GetTokenF       func() (string, error)
 	SetTokenF       func(database string, token string) error
 	IsTokenPresentF func() (bool, error)
@@ -1752,10 +1754,10 @@ func (ts TokenServiceMock) GetDatabase() (string, error) {
 	return "", nil
 }
 
-func (ts TokenServiceMock) WithHds(hds ic.HomedirService) ic.TokenService {
+func (ts TokenServiceMock) WithHds(hds homedir.HomedirService) tokenservice.TokenService {
 	return ts
 }
 
-func (ts TokenServiceMock) WithTokenFileName(tfn string) ic.TokenService {
+func (ts TokenServiceMock) WithTokenFileName(tfn string) tokenservice.TokenService {
 	return ts
 }

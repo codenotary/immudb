@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -294,7 +295,7 @@ func TestDriverConnector_ConnectLoginErr(t *testing.T) {
 	opts := client.DefaultOptions()
 	opts.Username = "wrongUsername"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	db := OpenDB(opts)
 	defer db.Close()

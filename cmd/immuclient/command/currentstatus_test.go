@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -40,7 +41,7 @@ func TestCurrentState(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())

@@ -19,6 +19,8 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"log"
 	"os"
@@ -100,7 +102,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin"),
+		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin"),
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
@@ -150,14 +152,14 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	}
 	cliopt := Options().WithDialOptions(&dialOptions)
 
-	cliopt.Tkns = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin")
+	cliopt.Tkns = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin")
 	cmdl := commandline{
 		config:         helper.Config{Name: "immuadmin"},
 		options:        cliopt,
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin"),
+		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin"),
 		newImmuClient:  client.NewImmuClient,
 	}
 	cmdl.login(cmd)
@@ -184,7 +186,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin"),
+		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin"),
 	}
 	b1 := bytes.NewBufferString("")
 	cl = commandline{}
@@ -236,7 +238,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl1 := new(commandline)
 	cl1.context = context.Background()
 	cl1.passwordReader = pwReaderMock
-	cl1.ts = client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin")
+	cl1.ts = tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin")
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}

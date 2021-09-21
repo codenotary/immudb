@@ -17,11 +17,13 @@ limitations under the License.
 // Package clienttest ...
 package clienttest
 
-import "github.com/codenotary/immudb/pkg/client"
+import (
+	"github.com/codenotary/immudb/pkg/client/homedir"
+)
 
 // HomedirServiceMock ...
 type HomedirServiceMock struct {
-	client.HomedirService
+	homedir.HomedirService
 	WriteFileToUserHomeDirF    func(content []byte, pathToFile string) error
 	FileExistsInUserHomeDirF   func(pathToFile string) (bool, error)
 	ReadFileFromUserHomeDirF   func(pathToFile string) (string, error)

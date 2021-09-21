@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type commandline struct {
 	newImmuClient func(*client.Options) (client.ImmuClient, error)
 	pwr           c.PasswordReader
 	tr            c.TerminalReader
-	tkns          client.TokenService
+	tkns          tokenservice.TokenService
 	config        c.Config
 	onError       func(err error)
 }
@@ -84,8 +85,8 @@ func Init(cmd *cobra.Command, cl *commandline) {
 		user := viper.GetString("user")
 		ctx := context.Background()
 		onSuccess := func() { reconnect(cl, cmd) } // used to redial with new token
-		login(ctx, cl, cl.immuClient, cl.pwr, cl.tkns.WithHds(client.NewHomedirService()).WithTokenFileName(viper.GetString("tokenfile")), user, defaultUser, defaultPassword, onSuccess)
-		selectDb(ctx, cl, cl.immuClient, cl.tkns.WithHds(client.NewHomedirService()).WithTokenFileName(viper.GetString("tokenfile")), db, onSuccess)
+		login(ctx, cl, cl.immuClient, cl.pwr, cl.tkns, user, defaultUser, defaultPassword, onSuccess)
+		selectDb(ctx, cl, cl.immuClient, cl.tkns, db, onSuccess)
 		nbEntries := parseNbEntries(args, cl)
 		fmt.Printf("Database %s will be populated with %d entries.\n", db, nbEntries)
 		askUserToConfirmOrCancel(cl.tr, cl)
@@ -134,7 +135,7 @@ func login(
 	cl *commandline,
 	immuClient client.ImmuClient,
 	pwr c.PasswordReader,
-	tkns client.TokenService,
+	tkns tokenservice.TokenService,
 	user string,
 	defaultUser string,
 	defaultPassword string,
@@ -171,7 +172,7 @@ func selectDb(
 	ctx context.Context,
 	cl *commandline,
 	immuClient client.ImmuClient,
-	tkns client.TokenService,
+	tkns tokenservice.TokenService,
 	db string,
 	onSuccess func()) {
 	response, err := immuClient.UseDatabase(ctx, &schema.Database{DatabaseName: db})
