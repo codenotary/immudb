@@ -225,7 +225,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			continue
 		}
 
-		compatible, err := gr.currRow.Compatible(row, gr.groupBy, gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
 		if err != nil {
 			return nil, err
 		}
