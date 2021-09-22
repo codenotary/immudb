@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file. This projec
 
 
 <a name="v1.1.0"></a>
-## [v1.1.0] - 2021-09-21
+## [v1.1.0] - 2021-09-22
 ### Bug Fixes
-- Update Dockerfile.alma maintainer field
 - Minor updates to build/RELEASING.md
+- Update Dockerfile.alma maintainer field
+- **CI:** Fix building and releasing almalinux images
 - **Dockerfile:** Fix compiling version information in docker images
 - **Dockerfile.rndpass:** Fix building rndpass docker image
 - **embedded/sql:** suffix endKey when scan over all entries
@@ -30,102 +31,103 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/stdlib:** fix driver connection releasing
 
 ### Changes
-- Add documentation link to command line help outputs
-- Add documentation link at the beginning of README.md
-- remove wip warning for fully implemented features
-- Update codenotary maintainer info
 - Update RELEASING.md with documentation step.
+- remove wip warning for fully implemented features
 - Add documentation badge to README.md
+- Add documentation link at the beginning of README.md
+- Add documentation link to command line help outputs
+- Update codenotary maintainer info
+- Remove experimental S3 warning from README
 - **CI:** Build almalinux-based immudb image
-- **CI:** Use buildkit when building docker images
 - **CI:** Explicitly require bash in gh action building docker images
-- **Dockerfile:** Remove unused IMMUDB_DBNAME env var
-- **Dockerfile:** Update base docker images
+- **CI:** Use buildkit when building docker images
 - **Dockerfile:** Build a debian-based image for immudb next to the scratch one
 - **Dockerfile:** Use scratch as a base for immudb image
+- **Dockerfile:** Remove unused IMMUDB_DBNAME env var
+- **Dockerfile:** Update base docker images
 - **Makefile:** More explicit webconsole version
 - **Makefile:** Add darwin/amd64 target
 - **build.md:** Add info about removing webconsole/dist folder
-- **cmd/immuadmin:** improve flag description and rollback args spec
-- **cmd/immuadmin:** parse all db flags when preparing settings
 - **cmd/immuadmin:** remove replication flag shortcut
+- **cmd/immuadmin:** parse all db flags when preparing settings
+- **cmd/immuadmin:** improve flag description and rollback args spec
 - **cmd/immuclient:** display number of updated rows as result of sql exec
 - **cmd/immudb:** use common replication prefix
 - **docker:** Update generation of docker tags
 - **embedded:** leverage kv constraint to enforce upsert over auto-incremental pk requires row to already exist
 - **embedded/multierr:** enhace multi error implementation
-- **embedded/sql:** minor code refactoring
+- **embedded/sql:** fix primary key supported types error message
 - **embedded/sql:** get rid of limited joint implementation
-- **embedded/sql:** mark catalog as mutated when using auto incremental pk
-- **embedded/sql:** catalog loading requires up to date data store indexing
-- **embedded/sql:** fix max key length validation
+- **embedded/sql:** ignore null values when encoding row
+- **embedded/sql:** include constraint only when insert occurs without auto_incremental pk
 - **embedded/sql:** wip scan optimizations based on query condition and sorting
 - **embedded/sql:** partial progress on selector range calculation
 - **embedded/sql:** partial progress on selector range calculation
 - **embedded/sql:** expose primary key index id
-- **embedded/sql:** fix primary key supported types error message
-- **embedded/sql:** changed identifiers length in catalog
-- **embedded/sql:** ignore null values when encoding row
+- **embedded/sql:** leverage endKey to optimize indexing scanning
+- **embedded/sql:** minor code refactoring
+- **embedded/sql:** mark catalog as mutated when using auto incremental pk
+- **embedded/sql:** fix max key length validation
+- **embedded/sql:** catalog loading requires up to date data store indexing
+- **embedded/sql:** optional parenthesis when specifying single-column index
 - **embedded/sql:** disable TIMESTAMP data-type
 - **embedded/sql:** move index selection closer to data source in query statements
-- **embedded/sql:** move index spec closer to ds
-- **embedded/sql:** include constraint only when insert occurs without auto_incremental pk
 - **embedded/sql:** optimize integer key mapping
 - **embedded/sql:** use plain big-endian encoding for integer values
 - **embedded/sql:** include support for int64 parameters
 - **embedded/sql:** minor refactoring to simplify code
-- **embedded/sql:** leverage endKey to optimize indexing scanning
+- **embedded/sql:** minor code simplification
 - **embedded/sql:** use int64 as value holder for INTEGER type
 - **embedded/sql:** add further validations when encoding values as keys
-- **embedded/sql:** remove join constraints
+- **embedded/sql:** move index spec closer to ds
 - **embedded/sql:** reserve byte to support multi-ordered indexes
-- **embedded/sql:** minor code simplification
 - **embedded/sql:** index prefix function
 - **embedded/sql:** use Cols as a replacement for ColsByID
+- **embedded/sql:** changed identifiers length in catalog
 - **embedded/sql:** validate non-null pk when decoding index entry
 - **embedded/sql:** limit upsert to tables without secondary indexes
-- **embedded/sql:** optional parenthesis when specifying single-column index
+- **embedded/sql:** remove join constraints
 - **embedded/sql:** convert unmapIndexedRow into unmapRow with optional indexed value
 - **embedded/tbtree:** typo in log message
 - **embedded/tbtree:** compaction doesn't need snapshots to be closed
-- **embedded/tbtree:** adjust seekKey based on prefix even when a value is set
 - **embedded/tbtree:** return kv copies
+- **embedded/tbtree:** adjust seekKey based on prefix even when a value is set
 - **embedded/tools:** update sql stress tool with exec summary
+- **pkg/api:** changed db identifiers type
 - **pkg/api:** use fresh id in proto message
 - **pkg/api:** use a map for holding latest auto-incremental pks
-- **pkg/api:** include updated rows and last inserted pks in sql exec result
 - **pkg/api:** use int64 as value holder for INTEGER type
 - **pkg/api:** use follower naming for replication credentials
-- **pkg/api:** changed db identifiers type
+- **pkg/api:** include updated rows and last inserted pks in sql exec result
 - **pkg/api:** delete deprecated clean operation
-- **pkg/client:** move unit testing to integration package to avoid circular references
 - **pkg/client:** changed db identifiers type
-- **pkg/database:** minor adjustments based on multi-column indexing
-- **pkg/database:** minor refactoring coding conventions
-- **pkg/database:** create sql db instance if not present
-- **pkg/database:** remove active replication options from database
-- **pkg/database:** display as unique if there is a single-column index
-- **pkg/database:** update integration to exec summary
-- **pkg/database:** include updated rows and last inserted pks in sql exec result
+- **pkg/client:** move unit testing to integration package to avoid circular references
 - **pkg/database:** warn about data migration needed
+- **pkg/database:** minor refactoring coding conventions
+- **pkg/database:** remove active replication options from database
+- **pkg/database:** create sql db instance if not present
+- **pkg/database:** minor adjustments based on multi-column indexing
+- **pkg/database:** update integration to exec summary
+- **pkg/database:** display as unique if there is a single-column index
+- **pkg/database:** include updated rows and last inserted pks in sql exec result
 - **pkg/database:** warn about data migration needed
 - **pkg/database:** minor renaming after rebase
 - **pkg/pgsql/server:** adds pgsql server maxMsgSize 32MB limit
 - **pkg/pgsql/server:** add a guard on payload message len
-- **pkg/replication:** use new context for each client connection
 - **pkg/replication:** handle disconnection only within a single thread
+- **pkg/replication:** use new context for each client connection
 - **pkg/replication:** use info log level for network failures
-- **pkg/server:** use replica wording
+- **pkg/server:** followers management
 - **pkg/server:** validate replication settings
+- **pkg/server:** nil tlsConfig on default options
 - **pkg/server:** change max concurrency per database to 30
 - **pkg/server:** changed default db file size and make it customizable at db creation time
-- **pkg/server:** followers management
-- **pkg/server:** nil tlsConfig on default options
+- **pkg/server:** use replica wording
 - **pkg/stdLib:** implementing golang standard sql interfaces
-- **pkg/stdlib:** increase code coverage and fix blob results scan
 - **pkg/stdlib:** remove pinger interface implementation and increase code coverage
-- **pkg/stdlib:** simplified and hardened uri handling
+- **pkg/stdlib:** increase code coverage and fix blob results scan
 - **pkg/stdlib:** immuclient options identifier(uri) is used to retrieve cached connections
+- **pkg/stdlib:** simplified and hardened uri handling
 
 ### Features
 - Dockerfile for almalinux based image
