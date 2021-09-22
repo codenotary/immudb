@@ -108,7 +108,7 @@ docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 
 If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
 
-### Enabling S3 storage (Feature Work-in-progress. Not ready for production use)
+### Enabling S3 storage
 
 immudb can store its data in the Amazon S3 service (or a compatible alternative).
 The following example shows how to run immudb with the S3 storage enabled:
