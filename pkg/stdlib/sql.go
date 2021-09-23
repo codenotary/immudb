@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -132,9 +133,19 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &Connector{driver: d, cliOptions: cliOpts}, nil
 }
 
-func (d *Driver) unregisterConnection(name string) {
+func (d *Driver) OpenConnectorByOptions(cliOpts *client.Options) (driver.Connector, error) {
+	return &Connector{driver: d, cliOptions: cliOpts}, nil
+}
+
+func (d *Driver) UnregisterConnection(name string) {
 	d.configMutex.Lock()
 	delete(d.configs, name)
+	d.configMutex.Unlock()
+}
+
+func (d *Driver) RegisterConnection(name string, cn *Conn) {
+	d.configMutex.Lock()
+	d.configs[name] = cn
 	d.configMutex.Unlock()
 }
 
@@ -172,7 +183,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 }
 
 func (c *Conn) Close() error {
-	defer c.GetDriver().unregisterConnection(c.name)
+	defer c.GetDriver().UnregisterConnection(c.name)
 	return c.conn.Disconnect()
 }
 
@@ -201,7 +212,8 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 	if err != nil {
 		return nil, err
 	}
-	return driver.RowsAffected(execResult.UpdatedRows), err
+
+	return RowsAffected{execResult}, err
 }
 
 func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Rows, error) {
@@ -255,13 +267,74 @@ func (r *Rows) Columns() []string {
 }
 
 // ColumnTypeDatabaseTypeName
+// 	IntegerType   SQLValueType = "INTEGER"
+//	BooleanType   SQLValueType = "BOOLEAN"
+//	VarcharType   SQLValueType = "VARCHAR"
+//	BLOBType      SQLValueType = "BLOB"
+//	TimestampType SQLValueType = "TIMESTAMP"
+//	AnyType       SQLValueType = "ANY"
 func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
-	return ""
+	if len(r.rows) <= 0 && len(r.rows[0].Values) <= index {
+		return ""
+	}
+	op := r.rows[0].Values[index].Value
+
+	switch op.(type) {
+	case *schema.SQLValue_Null:
+		{
+			return "ANY"
+		}
+	case *schema.SQLValue_N:
+		{
+			return "INTEGER"
+		}
+	case *schema.SQLValue_S:
+		{
+			return "VARCHAR"
+		}
+	case *schema.SQLValue_B:
+		{
+			return "BOOLEAN"
+		}
+	case *schema.SQLValue_Bs:
+		{
+			return "BLOB"
+		}
+	default:
+		return "ANY"
+	}
 }
 
 // ColumnTypeLength If length is not limited other than system limits, it should return math.MaxInt64
 func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
-	return math.MaxInt64, false
+	if len(r.rows) <= 0 && len(r.rows[0].Values) <= index {
+		return 0, false
+	}
+	op := r.rows[0].Values[index].Value
+	switch op.(type) {
+	case *schema.SQLValue_Null:
+		{
+			return 0, false
+		}
+	case *schema.SQLValue_N:
+		{
+			return 8, false
+		}
+	case *schema.SQLValue_S:
+		{
+			return math.MaxInt64, true
+		}
+	case *schema.SQLValue_B:
+		{
+			return 1, false
+		}
+	case *schema.SQLValue_Bs:
+		{
+			return math.MaxInt64, true
+		}
+	default:
+		return math.MaxInt64, true
+	}
 }
 
 // ColumnTypePrecisionScale should return the precision and scale for decimal
@@ -272,7 +345,34 @@ func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok b
 
 // ColumnTypeScanType returns the value type that can be used to scan types into.
 func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
-	return nil
+	if len(r.rows) <= 0 && len(r.rows[0].Values) <= index {
+		return nil
+	}
+	op := r.rows[0].Values[index].Value
+	switch op.(type) {
+	case *schema.SQLValue_Null:
+		{
+			return reflect.TypeOf(nil)
+		}
+	case *schema.SQLValue_N:
+		{
+			return reflect.TypeOf(int64(0))
+		}
+	case *schema.SQLValue_S:
+		{
+			return reflect.TypeOf("")
+		}
+	case *schema.SQLValue_B:
+		{
+			return reflect.TypeOf(false)
+		}
+	case *schema.SQLValue_Bs:
+		{
+			return reflect.TypeOf([]byte{})
+		}
+	default:
+		return reflect.TypeOf("")
+	}
 }
 
 func (r *Rows) Close() error {
@@ -415,4 +515,23 @@ func RenderValue(op interface{}) interface{} {
 		}
 	}
 	return []byte(fmt.Sprintf("%v", op))
+}
+
+// RowsAffected implements Result for an INSERT or UPDATE operation
+// which mutates a number of rows.
+type RowsAffected struct {
+	er *schema.SQLExecResult
+}
+
+func (rows RowsAffected) LastInsertId() (int64, error) {
+	if rows.er != nil && rows.er.LastInsertedPKs != nil && len(rows.er.LastInsertedPKs) == 1 {
+		for _, v := range rows.er.LastInsertedPKs {
+			return v.GetN(), nil
+		}
+	}
+	return 0, errors.New("unable to retrieve LastInsertId")
+}
+
+func (rows RowsAffected) RowsAffected() (int64, error) {
+	return int64(rows.er.UpdatedRows), nil
 }
