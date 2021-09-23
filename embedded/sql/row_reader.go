@@ -170,8 +170,6 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
 	prefix := e.mapKey(scanSpecs.index.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
 
-	desc := scanSpecs.cmp == LowerThan || scanSpecs.cmp == LowerOrEqualTo
-
 	var seekKey []byte
 	var seekKeyReady bool
 
@@ -187,7 +185,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 	for _, col := range scanSpecs.index.cols {
 		colRange, ok := scanSpecs.rangesByColID[col.id]
 		if !ok {
-			if desc {
+			if scanSpecs.descOrder {
 				if !seekKeyReady {
 					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
 				}
@@ -202,7 +200,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 			continue
 		}
 
-		if desc {
+		if scanSpecs.descOrder {
 			if !seekKeyReady {
 				if colRange.hRange == nil {
 					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
@@ -230,7 +228,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 			}
 		}
 
-		if !desc {
+		if !scanSpecs.descOrder {
 			if !seekKeyReady {
 				seekKeyReady = colRange.lRange == nil
 
@@ -262,13 +260,13 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 	if !scanSpecs.index.IsPrimary() && !scanSpecs.index.IsUnique() {
 		// non-unique index entries include encoded pk values as suffix
 
-		if desc {
+		if scanSpecs.descOrder {
 			for _, col := range table.primaryIndex.cols {
 				seekKey = append(seekKey, maxKeyValOf(col.colType)...)
 			}
 		}
 
-		if !desc {
+		if !scanSpecs.descOrder {
 			for _, col := range table.primaryIndex.cols {
 				endKey = append(endKey, maxKeyValOf(col.colType)...)
 			}
@@ -277,11 +275,11 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 
 	return &store.KeyReaderSpec{
 		SeekKey:       seekKey,
-		InclusiveSeek: scanSpecs.cmp != LowerThan && scanSpecs.cmp != GreaterThan,
+		InclusiveSeek: true,
 		EndKey:        endKey,
 		InclusiveEnd:  true,
 		Prefix:        prefix,
-		DescOrder:     desc,
+		DescOrder:     scanSpecs.descOrder,
 	}, nil
 }
 

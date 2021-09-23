@@ -41,7 +41,7 @@ type yySymType struct {
 	binExp   ValueExp
 	err      error
 	ordcols  []*OrdCol
-	opt_ord  Order
+	opt_ord  bool
 	logicOp  LogicOperator
 	cmpOp    CmpOperator
 	pparam   int
@@ -1212,27 +1212,27 @@ yydefault:
 	case 97:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, order: yyDollar[2].opt_ord}}
+			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, descOrder: yyDollar[2].opt_ord}}
 		}
 	case 98:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, order: yyDollar[4].opt_ord})
+			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, descOrder: yyDollar[4].opt_ord})
 		}
 	case 99:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.opt_ord = AscOrder
+			yyVAL.opt_ord = false
 		}
 	case 100:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = AscOrder
+			yyVAL.opt_ord = false
 		}
 	case 101:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = DescOrder
+			yyVAL.opt_ord = true
 		}
 	case 102:
 		yyDollar = yyS[yypt-0 : yypt+1]
