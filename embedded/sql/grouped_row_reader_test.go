@@ -32,7 +32,7 @@ func TestGroupedRowReader(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_grouped_reader")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)

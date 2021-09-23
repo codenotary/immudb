@@ -67,6 +67,10 @@ func (dr *distinctRowReader) InferParameters(params map[string]SQLValueType) err
 
 func (dr *distinctRowReader) Read() (*Row, error) {
 	for {
+		if len(dr.readRows) == dr.e.distinctLimit {
+			return nil, ErrTooManyRows
+		}
+
 		row, err := dr.rowReader.Read()
 		if err != nil {
 			return nil, err

@@ -77,6 +77,7 @@ var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
 var ErrLimitedIndexCreation = errors.New("index creation is only supported on empty tables")
+var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = errors.New("sql engine already closed")
 
 var maxKeyLen = 256
@@ -91,7 +92,8 @@ type Engine struct {
 	catalogStore *store.ImmuStore
 	dataStore    *store.ImmuStore
 
-	prefix []byte
+	prefix        []byte
+	distinctLimit int
 
 	catalog *Catalog // in-mem current catalog (used for INSERT, DDL statements and SELECT statements without UseSnapshotStmt)
 
@@ -105,18 +107,19 @@ type Engine struct {
 	mutex sync.RWMutex
 }
 
-func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine, error) {
-	if catalogStore == nil || dataStore == nil {
+func NewEngine(catalogStore, dataStore *store.ImmuStore, opts *Options) (*Engine, error) {
+	if catalogStore == nil || dataStore == nil || !ValidOpts(opts) {
 		return nil, ErrIllegalArguments
 	}
 
 	e := &Engine{
-		catalogStore: catalogStore,
-		dataStore:    dataStore,
-		prefix:       make([]byte, len(prefix)),
+		catalogStore:  catalogStore,
+		dataStore:     dataStore,
+		prefix:        make([]byte, len(opts.prefix)),
+		distinctLimit: opts.distinctLimit,
 	}
 
-	copy(e.prefix, prefix)
+	copy(e.prefix, opts.prefix)
 
 	return e, nil
 }

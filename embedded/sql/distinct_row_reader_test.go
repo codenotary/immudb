@@ -32,7 +32,7 @@ func TestDistinctRowReader(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_distinct_row_reader")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	dummyr := &dummyRowReader{}
