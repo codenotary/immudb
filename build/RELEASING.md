@@ -152,6 +152,17 @@ once everything works correctly, uncheck the `pre-release` mark.
 Documentation is kept inside the [immudb.io repo](https://github.com/codenotary/immudb.io).
 
 Make sure that the documentation in `src/master` is up-to-date and then copy it to `src/<version>` folder.
-Once done, add new version to the list in [version constant in vuepress index.js file](https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/theme/util/index.js#L242).
+
+Once done, add new version to the list in the [version constant in src/.vuepress/theme/util/index.js file][index.js]
+and adjust the right-side menu list in the [getSidebar function in src/.vuepress/enhanceApp.js file][enhanceApp.js].
 
 Once those changes end up in master, the documentation will be compiled and deployed automatically.
+
+[index.js]: https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/theme/util/index.js#L242
+[enhanceApp.js]: https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/enhanceApp.js#L27
+
+## 7. Update immudb readme on docker hub
+
+Once the release is done, make sure that the readme in docker hub are up-to-date.
+For immudb please edit  the Readme in https://hub.docker.com/repository/docker/codenotary/immudb
+and synchronzie it with README.md from this repository.
