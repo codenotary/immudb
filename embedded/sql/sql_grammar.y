@@ -55,7 +55,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     binExp ValueExp
     err error
     ordcols []*OrdCol
-    opt_ord Order
+    opt_ord bool
     logicOp LogicOperator
     cmpOp CmpOperator
     pparam int
@@ -633,27 +633,27 @@ opt_indexon:
 ordcols:
     col opt_ord
     {
-        $$ = []*OrdCol{{sel: $1, order: $2}}
+        $$ = []*OrdCol{{sel: $1, descOrder: $2}}
     }
 |
     ordcols ',' col opt_ord
     {
-        $$ = append($1, &OrdCol{sel: $3, order: $4})
+        $$ = append($1, &OrdCol{sel: $3, descOrder: $4})
     }
 
 opt_ord:
     {
-        $$ = AscOrder
+        $$ = false
     }
 |
     ASC
     {
-        $$ = AscOrder
+        $$ = false
     }
 |
     DESC
     {
-        $$ = DescOrder
+        $$ = true
     }
 
 opt_as:
