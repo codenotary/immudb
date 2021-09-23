@@ -132,7 +132,7 @@ func OpenDB(op *Options, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 	dbi.tx1 = dbi.st.NewTx()
 	dbi.tx2 = dbi.st.NewTx()
 
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, []byte{SQLPrefix})
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}

@@ -29,9 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const sqlPrefix = 2
-
-var prefix = []byte{sqlPrefix}
+var sqlPrefix = []byte{2}
 
 func TestCreateDatabase(t *testing.T) {
 	catalogStore, err := store.Open("catalog_create_db", store.DefaultOptions())
@@ -42,7 +40,7 @@ func TestCreateDatabase(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_db")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)
@@ -79,7 +77,7 @@ func TestUseDatabase(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_use_db")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
@@ -124,7 +122,7 @@ func TestCreateTable(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_table")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -173,7 +171,7 @@ func TestDumpCatalogTo(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("dump_catalog_data")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -204,7 +202,7 @@ func TestDumpCatalogTo(t *testing.T) {
 	err = engine.DumpCatalogTo("db1", "db2", dumpedCatalogStore)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	engine, err = NewEngine(dumpedCatalogStore, dataStore, prefix)
+	engine, err = NewEngine(dumpedCatalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)
@@ -231,7 +229,7 @@ func TestAddColumn(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_add_column")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -259,7 +257,7 @@ func TestCreateIndex(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_index")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -330,7 +328,7 @@ func TestUpsertInto(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_upsert")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -415,7 +413,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_insert")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -473,7 +471,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_auto_inc")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -550,7 +548,7 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_tx")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -607,7 +605,7 @@ func TestUseSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_snap")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -814,7 +812,7 @@ func TestClosing(t *testing.T) {
 	_, err = NewEngine(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.Close()
@@ -869,7 +867,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_q")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
@@ -896,7 +894,13 @@ func TestQuery(t *testing.T) {
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+								id INTEGER,
+								ts INTEGER,
+								title VARCHAR,
+								active BOOLEAN,
+								payload BLOB,
+								PRIMARY KEY id)`, nil, true)
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
@@ -971,37 +975,6 @@ func TestQuery(t *testing.T) {
 
 		_, err = r.Read()
 		require.Equal(t, ErrNoMoreRows, err)
-
-		err = r.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("should return two rows", func(t *testing.T) {
-		params := make(map[string]interface{})
-		params["id"] = 0
-
-		r, err = engine.QueryStmt("SELECT DISTINCT active FROM table1 WHERE id >= @id", nil, true)
-		require.NoError(t, err)
-
-		r.SetParameters(params)
-
-		cols, err := r.Columns()
-		require.NoError(t, err)
-		require.Len(t, cols, 1)
-		require.Equal(t, "(db1.table1.active)", cols[0].Selector())
-
-		row, err := r.Read()
-		require.NoError(t, err)
-		require.Len(t, row.Values, 1)
-		require.Equal(t, row.Values["(db1.table1.active)"].Value(), true)
-
-		row, err = r.Read()
-		require.NoError(t, err)
-		require.Len(t, row.Values, 1)
-		require.Equal(t, row.Values["(db1.table1.active)"].Value(), false)
-
-		_, err = r.Read()
-		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -1252,6 +1225,190 @@ func TestQuery(t *testing.T) {
 	require.Nil(t, r)
 }
 
+func TestQueryDistinct(t *testing.T) {
+	catalogStore, err := store.Open("catalog_qd", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_qd")
+
+	dataStore, err := store.Open("sqldata_qd", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_qd")
+
+	opts := DefaultOptions().WithPrefix(sqlPrefix).WithDistinctLimit(4)
+	engine, err := NewEngine(catalogStore, dataStore, opts)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+								id INTEGER AUTO_INCREMENT,
+								title VARCHAR,
+								amount INTEGER,
+								active BOOLEAN,
+								PRIMARY KEY id)`, nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt(`INSERT INTO table1 (title, amount, active) VALUES 
+								('title1', 100, NULL),
+								('title2', 200, false),
+								('title3', 200, true),
+								('title4', 300, NULL)`, nil, true)
+	require.NoError(t, err)
+
+	t.Run("should return all titles", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.QueryStmt("SELECT DISTINCT title FROM table1 WHERE id <= @id", nil, true)
+		require.NoError(t, err)
+
+		r.SetParameters(params)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.title)", cols[0].Selector())
+
+		for i := 1; i <= 3; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.Values, 1)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values["(db1.table1.title)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should return two distinct amounts", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.QueryStmt("SELECT DISTINCT amount FROM table1 WHERE id <= @id", params, true)
+		require.NoError(t, err)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.amount)", cols[0].Selector())
+
+		for i := 1; i <= 2; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.Values, 1)
+			require.Equal(t, int64(i*100), row.Values["(db1.table1.amount)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should return rows with null, false and true", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.QueryStmt("SELECT DISTINCT active FROM table1 WHERE id <= @id", params, true)
+		require.NoError(t, err)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.active)", cols[0].Selector())
+
+		for i := 0; i <= 2; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.Values, 1)
+
+			if i == 0 {
+				require.Nil(t, row.Values["(db1.table1.active)"].Value())
+				continue
+			}
+
+			require.Equal(t, i == 2, row.Values["(db1.table1.active)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should return three rows", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.QueryStmt("SELECT DISTINCT amount, active FROM table1 WHERE id <= @id", params, true)
+		require.NoError(t, err)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 2)
+		require.Equal(t, "(db1.table1.amount)", cols[0].Selector())
+		require.Equal(t, "(db1.table1.active)", cols[1].Selector())
+
+		for i := 0; i <= 2; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.Values, 2)
+
+			if i == 0 {
+				require.Equal(t, int64(100), row.Values["(db1.table1.amount)"].Value())
+				require.Nil(t, row.Values["(db1.table1.active)"].Value())
+				continue
+			}
+
+			require.Equal(t, int64(200), row.Values["(db1.table1.amount)"].Value())
+			require.Equal(t, i == 2, row.Values["(db1.table1.active)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should return too many rows error", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT DISTINCT id FROM table1", nil, true)
+		require.NoError(t, err)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.id)", cols[0].Selector())
+
+		for i := 0; i < engine.distinctLimit; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.Values, 1)
+
+			require.Equal(t, int64(i+1), row.Values["(db1.table1.id)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrTooManyRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	err = engine.Close()
+	require.NoError(t, err)
+
+}
+
 func TestIndexing(t *testing.T) {
 	catalogStore, err := store.Open("catalog_indexing", store.DefaultOptions())
 	require.NoError(t, err)
@@ -1261,7 +1418,7 @@ func TestIndexing(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_indexing")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1805,7 +1962,7 @@ func TestExecCornerCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_q")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	summary, err := engine.ExecStmt("INVALID STATEMENT", nil, false)
@@ -1829,7 +1986,7 @@ func TestQueryWithNullables(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_nullable")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1887,7 +2044,7 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_orderby")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2017,7 +2174,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_where")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2150,7 +2307,7 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_agg")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2254,7 +2411,7 @@ func TestCount(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_agg")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2314,7 +2471,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_having")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2449,7 +2606,7 @@ func TestJoins(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_innerjoin")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2573,7 +2730,7 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_innerjoin_joint")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2646,7 +2803,7 @@ func TestNestedJoins(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_nestedjoins")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2717,7 +2874,7 @@ func TestReOpening(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_reopening")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2729,7 +2886,7 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1; CREATE INDEX ON table1(name)", nil, true)
 	require.NoError(t, err)
 
-	engine, err = NewEngine(catalogStore, dataStore, prefix)
+	engine, err = NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExistDatabase("db1")
@@ -2786,7 +2943,7 @@ func TestSubQuery(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_subq")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2865,7 +3022,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	stmt := "CREATE DATABASE db1"
@@ -3010,7 +3167,7 @@ func TestInferParametersPrepared(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_prepared")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3043,7 +3200,7 @@ func TestInferParametersUnbounded(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_unbounded")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3100,7 +3257,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_invalid")
 
-	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3286,7 +3443,7 @@ func TestTrimPrefix(t *testing.T) {
 		k string
 	}{
 		{"empty key", ""},
-		{"no engine prefix", "no-e-prefix"},
+		{"no engine prefix", "no-e-prefix)"},
 		{"no mapping prefix", "e-prefix-no-mapping-prefix"},
 		{"short mapping prefix", "e-prefix-mapping"},
 	} {
@@ -3309,7 +3466,7 @@ func TestTrimPrefix(t *testing.T) {
 			prefix, err := e.trimPrefix([]byte(d.k), []byte("-mapping-prefix"))
 			require.NoError(t, err)
 			require.NotNil(t, prefix)
-			require.EqualValues(t, prefix, []byte(d.p))
+			require.EqualValues(t, []byte(d.p), prefix)
 		})
 	}
 }

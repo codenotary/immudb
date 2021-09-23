@@ -72,6 +72,11 @@ func (row *Row) digest() (d [sha256.Size]byte, err error) {
 	h := sha256.New()
 
 	for _, v := range row.Values {
+		_, isNull := v.(*NullValue)
+		if isNull {
+			continue
+		}
+
 		encVal, err := EncodeValue(v.Value(), v.Type(), 0)
 		if err != nil {
 			return d, err

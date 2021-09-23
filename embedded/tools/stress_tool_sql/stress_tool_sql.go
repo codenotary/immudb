@@ -152,7 +152,7 @@ func main() {
 		log.Printf("Store %s with %d Txs successfully opened!\r\n", name, store.TxCount())
 	}
 
-	engine, err := sql.NewEngine(catalogStore, dataStore, []byte("sql"))
+	engine, err := sql.NewEngine(catalogStore, dataStore, sql.DefaultOptions().WithPrefix([]byte("sql")))
 	if err != nil {
 		panic(err)
 	}
