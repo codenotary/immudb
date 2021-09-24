@@ -26,12 +26,12 @@ type projectedRowReader struct {
 
 	selectors []Selector
 
-	limit uint64
+	limit int
 
-	read uint64
+	read int
 }
 
-func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector, limit uint64) (*projectedRowReader, error) {
+func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector, limit int) (*projectedRowReader, error) {
 	// case: SELECT *
 	if len(selectors) == 0 {
 		cols, err := rowReader.Columns()
