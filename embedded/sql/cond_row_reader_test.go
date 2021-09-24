@@ -35,7 +35,7 @@ func TestConditionalRowReader(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	dummyr := &dummyRowReader{}
+	dummyr := &dummyRowReader{failReturningColumns: true}
 
 	rowReader, err := engine.newConditionalRowReader(dummyr, &Bool{val: true}, nil)
 	require.NoError(t, err)

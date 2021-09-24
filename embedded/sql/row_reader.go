@@ -68,10 +68,16 @@ func (row *Row) compatible(aRow *Row, selectors []*ColSelector, db, table string
 	return true, nil
 }
 
-func (row *Row) digest() (d [sha256.Size]byte, err error) {
+func (row *Row) digest(cols []*ColDescriptor) (d [sha256.Size]byte, err error) {
 	h := sha256.New()
 
-	for _, v := range row.Values {
+	for i, col := range cols {
+		v := row.Values[col.Selector()]
+
+		var b [4]byte
+		binary.BigEndian.PutUint32(b[:], uint32(i))
+		h.Write(b[:])
+
 		_, isNull := v.(*NullValue)
 		if isNull {
 			continue
@@ -82,10 +88,7 @@ func (row *Row) digest() (d [sha256.Size]byte, err error) {
 			return d, err
 		}
 
-		_, err = h.Write(encVal)
-		if err != nil {
-			return d, err
-		}
+		h.Write(encVal)
 	}
 
 	copy(d[:], h.Sum(nil))

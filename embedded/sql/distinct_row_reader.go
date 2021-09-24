@@ -21,6 +21,7 @@ type distinctRowReader struct {
 	e *Engine
 
 	rowReader RowReader
+	cols      []*ColDescriptor
 
 	limit int
 
@@ -28,9 +29,15 @@ type distinctRowReader struct {
 }
 
 func (e *Engine) newDistinctRowReader(rowReader RowReader, limit int) (*distinctRowReader, error) {
+	cols, err := rowReader.Columns()
+	if err != nil {
+		return nil, err
+	}
+
 	return &distinctRowReader{
 		e:         e,
 		rowReader: rowReader,
+		cols:      cols,
 		readRows:  make(map[[sha256.Size]byte]struct{}),
 		limit:     limit,
 	}, nil
@@ -83,7 +90,7 @@ func (dr *distinctRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		digest, err := row.digest()
+		digest, err := row.digest(dr.cols)
 		if err != nil {
 			return nil, err
 		}

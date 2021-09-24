@@ -22,7 +22,8 @@ import (
 var errDummy = errors.New("dummy error")
 
 type dummyRowReader struct {
-	failInferringParams bool
+	failReturningColumns bool
+	failInferringParams  bool
 }
 
 func (r *dummyRowReader) ImplicitDB() string {
@@ -50,7 +51,11 @@ func (r *dummyRowReader) ScanSpecs() *ScanSpecs {
 }
 
 func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
-	return nil, errDummy
+	if r.failReturningColumns {
+		return nil, errDummy
+	}
+
+	return nil, nil
 }
 
 func (r *dummyRowReader) SetParameters(params map[string]interface{}) {
