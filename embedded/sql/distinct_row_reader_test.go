@@ -37,7 +37,7 @@ func TestDistinctRowReader(t *testing.T) {
 
 	dummyr := &dummyRowReader{}
 
-	rowReader, err := engine.newDistinctRowReader(dummyr)
+	rowReader, err := engine.newDistinctRowReader(dummyr, 0)
 	require.NoError(t, err)
 
 	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())

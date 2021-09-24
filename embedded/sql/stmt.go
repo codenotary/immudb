@@ -1417,19 +1417,16 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, implicitDB *Dat
 		}
 	}
 
-	rowReader, err = e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, stmt.limit)
+	if !stmt.distinct {
+		return e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, stmt.limit)
+	}
+
+	rowReader, err = e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	if stmt.distinct {
-		rowReader, err = e.newDistinctRowReader(rowReader)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return rowReader, nil
+	return e.newDistinctRowReader(rowReader, stmt.limit)
 }
 
 func (stmt *SelectStmt) Alias() string {
