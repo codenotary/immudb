@@ -33,9 +33,9 @@ const (
 	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
 	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
-	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
-	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
-	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
+	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={DELETED count (colID valLen val)+})
+	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={DELETED})
+	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={DELETED ({pkVal}{padding}{pkValLen})+})
 )
 
 const PKIndexID = uint32(0)
@@ -493,10 +493,6 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		return nil, err
 	}
 
-	if !stmt.isInsert && len(table.indexes) > 1 {
-		return nil, ErrLimitedUpsert
-	}
-
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
@@ -583,6 +579,27 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		pkEncVals := valbuf.Bytes()
 
+		if !stmt.isInsert && len(table.indexes) > 1 {
+			currPKRow, err := e.fetchPKRow(table, valuesByColID)
+			if err != nil && err != ErrNoMoreRows {
+				return nil, err
+			}
+
+			if err == nil {
+				currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.Values))
+
+				for _, col := range table.cols {
+					encSel := EncodeSelector("", table.db.name, table.name, col.colName)
+					currValuesByColID[col.id] = currPKRow.Values[encSel]
+				}
+
+				err = e.deleteIndexEntriesFor(pkEncVals, currValuesByColID, valuesByColID, table, summary)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		valbuf = bytes.Buffer{}
 
 		b := make([]byte, EncLenLen)
@@ -633,7 +650,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		pke := &store.KV{
 			Key:        mkey,
-			Value:      valbuf.Bytes(),
+			Value:      append([]byte{0}, valbuf.Bytes()...),
 			Constraint: constraint,
 		}
 		summary.des = append(summary.des, pke)
@@ -651,11 +668,12 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			if index.IsUnique() {
 				prefix = UIndexPrefix
 				encodedValues = make([][]byte, 3+len(index.cols))
-				val = pkEncVals
+				val = append([]byte{0}, pkEncVals...)
 			} else {
 				prefix = SIndexPrefix
 				encodedValues = make([][]byte, 4+len(index.cols))
 				encodedValues[len(encodedValues)-1] = pkEncVals
+				val = []byte{0} // unset deletion flag
 			}
 
 			encodedValues[0] = EncodeID(table.db.id)
@@ -698,6 +716,95 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 	}
 
 	return summary, nil
+}
+
+func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (*Row, error) {
+	pkRanges := make(map[uint32]*typedValueRange, len(table.primaryIndex.cols))
+
+	for _, pkCol := range table.primaryIndex.cols {
+		pkVal := valuesByColID[pkCol.id]
+
+		pkRanges[pkCol.id] = &typedValueRange{
+			lRange: &typedValueSemiRange{val: pkVal, inclusive: true},
+			hRange: &typedValueSemiRange{val: pkVal, inclusive: true},
+		}
+	}
+
+	scanSpecs := &ScanSpecs{
+		index:         table.primaryIndex,
+		rangesByColID: pkRanges,
+	}
+
+	r, err := e.newRawRowReader(e.snapshot, table, 0, table.name, scanSpecs)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Read()
+}
+
+// deleteIndexEntriesFor mark deleted those index entries whose previous value was not null and differs from new one
+func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newValuesByColID map[uint32]TypedValue, table *Table, summary *TxSummary) error {
+	for _, index := range table.indexes {
+		if index.IsPrimary() {
+			continue
+		}
+
+		var prefix string
+		var encodedValues [][]byte
+		var val []byte
+
+		if index.IsUnique() {
+			prefix = UIndexPrefix
+			encodedValues = make([][]byte, 3+len(index.cols))
+			val = append([]byte{1}, pkEncVals...)
+		} else {
+			prefix = SIndexPrefix
+			encodedValues = make([][]byte, 4+len(index.cols))
+			encodedValues[len(encodedValues)-1] = pkEncVals
+			val = []byte{1} // set deletion flag
+		}
+
+		encodedValues[0] = EncodeID(table.db.id)
+		encodedValues[1] = EncodeID(table.id)
+		encodedValues[2] = EncodeID(index.id)
+
+		// some rows might not indexed by every index
+		var notIndexed bool
+
+		// existent index entry is deleted only if it differs from existent one
+		sameIndexKey := true
+
+		for i, col := range index.cols {
+			currVal, notNull := currValuesByColID[col.id]
+			if !notNull {
+				notIndexed = true
+				break
+			}
+
+			r, err := currVal.Compare(newValuesByColID[col.id])
+			if err != nil {
+				return err
+			}
+
+			sameIndexKey = sameIndexKey && r == 0
+
+			encVal, _ := EncodeAsKey(currVal.Value(), col.colType, col.MaxLen())
+
+			encodedValues[i+3] = encVal
+		}
+
+		if !notIndexed && !sameIndexKey {
+			ie := &store.KV{
+				Key:   e.mapKey(prefix, encodedValues...),
+				Value: val,
+			}
+
+			summary.des = append(summary.des, ie)
+		}
+	}
+
+	return nil
 }
 
 type ValueExp interface {
@@ -1298,9 +1405,10 @@ type SelectStmt struct {
 }
 
 type ScanSpecs struct {
-	index         *Index
-	rangesByColID map[uint32]*typedValueRange
-	descOrder     bool
+	index          *Index
+	rangesByColID  map[uint32]*typedValueRange
+	includeDeleted bool
+	descOrder      bool
 }
 
 func (stmt *SelectStmt) Limit() int {

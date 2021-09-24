@@ -41,7 +41,6 @@ var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
 var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
-var ErrLimitedUpsert = errors.New("upsert is only supported in tables without secondary indexes")
 var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
 var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
 var ErrDuplicatedColumn = errors.New("duplicated column")
@@ -1383,6 +1382,21 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	summary = &ExecSummary{
 		LastInsertedPKs: make(map[string]int64),
 	}
+
+	// TODO: improve snapshot mgmt (leverage mutex)
+	lastTxID, _ := e.catalogStore.Alh()
+	err = e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	latestCatalogSnap, err := e.catalogStore.SnapshotSince(math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+	defer latestCatalogSnap.Close()
+
+	e.snapshot = latestCatalogSnap
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
