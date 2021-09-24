@@ -23,21 +23,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDistinctRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
+func TestLimitRowReader(t *testing.T) {
+	catalogStore, err := store.Open("catalog_limit_row_reader", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_distinct_row_reader")
+	defer os.RemoveAll("catalog_limit_row_reader")
 
-	dataStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
+	dataStore, err := store.Open("catalog_limit_row_reader", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_distinct_row_reader")
+	defer os.RemoveAll("catalog_limit_row_reader")
 
 	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := engine.newDistinctRowReader(dummyr)
+	rowReader, err := engine.newLimitRowReader(dummyr, 1)
 	require.NoError(t, err)
 
 	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())
