@@ -1383,20 +1383,20 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		LastInsertedPKs: make(map[string]int64),
 	}
 
-	// TODO: improve snapshot mgmt (leverage mutex)
-	lastTxID, _ := e.catalogStore.Alh()
-	err = e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
+	// TODO: improve snapshot mgmt (use locking)
+	lastTxID, _ := e.dataStore.Alh()
+	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	latestCatalogSnap, err := e.catalogStore.SnapshotSince(math.MaxUint64)
-	if err != nil {
-		return nil, err
+	if e.snapshot == nil || e.snapshot.Ts() < lastTxID {
+		latestDataSnap, err := e.dataStore.SnapshotSince(math.MaxUint64)
+		if err != nil {
+			return nil, err
+		}
+		e.snapshot = latestDataSnap
 	}
-	defer latestCatalogSnap.Close()
-
-	e.snapshot = latestCatalogSnap
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)

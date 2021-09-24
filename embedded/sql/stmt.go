@@ -740,6 +740,8 @@ func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 		return nil, err
 	}
 
+	defer r.Close()
+
 	return r.Read()
 }
 
