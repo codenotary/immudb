@@ -35,7 +35,7 @@ func TestDistinctRowReader(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	dummyr := &dummyRowReader{}
+	dummyr := &dummyRowReader{failReturningColumns: false}
 
 	rowReader, err := engine.newDistinctRowReader(dummyr, 0)
 	require.NoError(t, err)
@@ -45,6 +45,7 @@ func TestDistinctRowReader(t *testing.T) {
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
 
+	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()
 	require.Equal(t, errDummy, err)
 
