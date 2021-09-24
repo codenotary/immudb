@@ -1168,6 +1168,10 @@ func (t *TBtree) Ts() uint64 {
 	return t.root.ts()
 }
 
+func (t *TBtree) UnsafeSnashot() *Snapshot {
+	return t.newSnapshot(0, t.root)
+}
+
 func (t *TBtree) Snapshot() (*Snapshot, error) {
 	return t.SnapshotSince(0)
 }

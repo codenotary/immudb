@@ -1383,20 +1383,15 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		LastInsertedPKs: make(map[string]int64),
 	}
 
-	// TODO: improve snapshot mgmt (use locking)
 	lastTxID, _ := e.dataStore.Alh()
 	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if e.snapshot == nil || e.snapshot.Ts() < lastTxID {
-		latestDataSnap, err := e.dataStore.SnapshotSince(math.MaxUint64)
-		if err != nil {
-			return nil, err
-		}
-		e.snapshot = latestDataSnap
-	}
+	// TODO: still not safe with KV api
+	e.snapshot = e.dataStore.UnsafeSnapshot()
+	defer func() { e.snapshot = nil }()
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
