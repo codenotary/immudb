@@ -593,6 +593,13 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
 	}, nil
 }
 
+func (s *ImmuStore) UnsafeSnapshot() *Snapshot {
+	return &Snapshot{
+		st:   s,
+		snap: s.indexer.index.UnsafeSnashot(),
+	}
+}
+
 func (s *ImmuStore) binaryLinking() {
 	for {
 		select {
