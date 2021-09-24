@@ -427,7 +427,7 @@ dqlstmt:
                 groupBy: $9,
                 having: $10,
                 orderBy: $11,
-                limit: $12,
+                limit: int($12),
                 as: $13,
             }
     }

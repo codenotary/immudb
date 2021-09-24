@@ -995,7 +995,7 @@ yydefault:
 				groupBy:   yyDollar[9].cols,
 				having:    yyDollar[10].exp,
 				orderBy:   yyDollar[11].ordcols,
-				limit:     yyDollar[12].number,
+				limit:     int(yyDollar[12].number),
 				as:        yyDollar[13].id,
 			}
 		}

@@ -1287,7 +1287,7 @@ type SelectStmt struct {
 	where     ValueExp
 	groupBy   []*ColSelector
 	having    ValueExp
-	limit     uint64
+	limit     int
 	orderBy   []*OrdCol
 	as        string
 }
@@ -1298,7 +1298,7 @@ type ScanSpecs struct {
 	cmp           Comparison
 }
 
-func (stmt *SelectStmt) Limit() uint64 {
+func (stmt *SelectStmt) Limit() int {
 	return stmt.limit
 }
 

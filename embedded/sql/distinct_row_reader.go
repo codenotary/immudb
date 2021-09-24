@@ -22,12 +22,12 @@ type distinctRowReader struct {
 
 	rowReader RowReader
 
-	limit uint64
+	limit int
 
 	readRows map[[sha256.Size]byte]struct{}
 }
 
-func (e *Engine) newDistinctRowReader(rowReader RowReader, limit uint64) (*distinctRowReader, error) {
+func (e *Engine) newDistinctRowReader(rowReader RowReader, limit int) (*distinctRowReader, error) {
 	return &distinctRowReader{
 		e:         e,
 		rowReader: rowReader,
@@ -70,7 +70,7 @@ func (dr *distinctRowReader) InferParameters(params map[string]SQLValueType) err
 
 func (dr *distinctRowReader) Read() (*Row, error) {
 	for {
-		if dr.limit > 0 && uint64(len(dr.readRows)) == dr.limit {
+		if dr.limit > 0 && len(dr.readRows) == dr.limit {
 			return nil, ErrNoMoreRows
 		}
 
