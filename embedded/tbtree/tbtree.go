@@ -111,8 +111,8 @@ type TBtree struct {
 
 	compacting bool
 
-	closed bool
-	mutex  sync.Mutex
+	closed  bool
+	rwmutex sync.RWMutex
 }
 
 type path []*innerNode
@@ -712,8 +712,8 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 }
 
 func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
 
 	if t.closed {
 		return nil, 0, 0, ErrAlreadyClosed
@@ -728,8 +728,8 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 }
 
 func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
 
 	if t.closed {
 		return nil, ErrAlreadyClosed
@@ -747,8 +747,8 @@ func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (
 }
 
 func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
 
 	if t.closed {
 		return false, ErrAlreadyClosed
@@ -772,8 +772,8 @@ func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, er
 }
 
 func (t *TBtree) Sync() error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
@@ -797,8 +797,8 @@ func (t *TBtree) sync() error {
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return 0, 0, ErrAlreadyClosed
@@ -829,7 +829,7 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		return 0, 0, nil
 	}
 
-	snapshot := t.newSnapshot(0, t.root)
+	snapshot := t.newSnapshot(0, t.root, false)
 
 	// will overwrite partially written and uncommitted data
 	// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
@@ -903,14 +903,14 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 		return nil, err
 	}
 
-	return t.newSnapshot(0, t.root), nil
+	return t.newSnapshot(0, t.root, false), nil
 }
 
 // SnapshotCount returns the number of stored snapshots
 // Note: snapshotCount(compact(t)) = 1
 func (t *TBtree) SnapshotCount() (uint64, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
 
 	if t.closed {
 		return 0, ErrAlreadyClosed
@@ -924,8 +924,8 @@ func (t *TBtree) snapshotCount() uint64 {
 }
 
 func (t *TBtree) Compact() (uint64, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return 0, ErrAlreadyClosed
@@ -951,9 +951,9 @@ func (t *TBtree) Compact() (uint64, error) {
 
 	t.compacting = true
 
-	t.mutex.Unlock()
+	t.rwmutex.Unlock()
 	err = t.fullDump(snapshot)
-	t.mutex.Lock()
+	t.rwmutex.Lock()
 
 	t.compacting = false
 
@@ -1042,8 +1042,8 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
@@ -1088,7 +1088,7 @@ func (t *TBtree) Insert(key []byte, value []byte) error {
 }
 
 func (t *TBtree) BulkInsert(kvs []*KV) error {
-	t.mutex.Lock()
+	t.rwmutex.Lock()
 
 	defer func() {
 		slowDown := false
@@ -1097,7 +1097,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 			slowDown = true
 		}
 
-		t.mutex.Unlock()
+		t.rwmutex.Unlock()
 
 		if slowDown {
 			time.Sleep(t.delayDuringCompaction)
@@ -1162,14 +1162,15 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 }
 
 func (t *TBtree) Ts() uint64 {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.RLock()
+	defer t.rwmutex.RUnlock()
 
 	return t.root.ts()
 }
 
 func (t *TBtree) UnsafeSnashot() *Snapshot {
-	return t.newSnapshot(0, t.root)
+	t.rwmutex.RLock()
+	return t.newSnapshot(0, t.root, true)
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
@@ -1177,8 +1178,8 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return nil, ErrAlreadyClosed
@@ -1204,25 +1205,31 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 
 	t.maxSnapshotID++
 
-	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapRoot)
+	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapRoot, false)
 
 	t.snapshots[snapshot.id] = snapshot
 
 	return snapshot, nil
 }
 
-func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
+func (t *TBtree) newSnapshot(snapshotID uint64, root node, unsafe bool) *Snapshot {
 	return &Snapshot{
 		t:       t,
 		id:      snapshotID,
 		root:    root,
+		unsafe:  unsafe,
 		readers: make(map[int]io.Closer),
 	}
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	if snapshot.unsafe {
+		t.rwmutex.RUnlock()
+		return nil
+	}
+
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
 
 	delete(t.snapshots, snapshot.id)
 

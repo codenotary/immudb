@@ -1389,9 +1389,19 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		return nil, err
 	}
 
-	// TODO: still not safe with KV api
 	e.snapshot = e.dataStore.UnsafeSnapshot()
-	defer func() { e.snapshot = nil }()
+	defer func() {
+		e.snapshot.Close()
+		e.snapshot = nil
+
+		if waitForIndexing {
+			lastTxID, _ := e.dataStore.Alh()
+			e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+
+			lastTxID, _ = e.catalogStore.Alh()
+			e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
+		}
+	}()
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
@@ -1414,7 +1424,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.ces) > 0 {
-			txmd, err := e.catalogStore.Commit(txSummary.ces, waitForIndexing)
+			txmd, err := e.catalogStore.Commit(txSummary.ces, false)
 			// TODO (jeroiraz): implement transactional in-memory catalog
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
@@ -1425,7 +1435,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.des) > 0 {
-			txmd, err := e.dataStore.Commit(txSummary.des, waitForIndexing)
+			txmd, err := e.dataStore.Commit(txSummary.des, false)
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
 				return summary, err
