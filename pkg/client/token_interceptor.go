@@ -25,15 +25,11 @@ import (
 
 // TokenInterceptor inject token from tokenservice if present and if provided context contain no one
 func (c *immuClient) TokenInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	var ctxToken string
-	if md, ok := metadata.FromOutgoingContext(ctx); ok && len(md.Get("authorization")) > 0 {
-		ctxToken = md.Get("authorization")[0]
-	}
-	if token, err := c.Tkns.GetToken(); ctxToken == "" && err == nil {
-		md := metadata.Pairs("authorization", token)
-		ctx = metadata.NewOutgoingContext(ctx, md)
+	if md, ok := metadata.FromOutgoingContext(ctx); !ok || len(md.Get("authorization")) == 0 {
+		if token, err := c.Tkns.GetToken(); err == nil && token != "" {
+			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", token))
+		}
 	}
 	ris := invoker(ctx, method, req, reply, cc, opts...)
-
 	return ris
 }
