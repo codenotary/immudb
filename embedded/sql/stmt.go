@@ -101,6 +101,22 @@ const (
 	RightJoin
 )
 
+var deletedOrMustNotExist store.KVConstraint = func(key, currValue []byte, err error) error {
+	if err == store.ErrKeyNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// ignore deleted
+	if len(currValue) > 0 && currValue[0] == 1 {
+		return nil
+	}
+
+	return store.ErrKeyAlreadyExists
+}
+
 type TxSummary struct {
 	db *Database
 
@@ -579,6 +595,8 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		pkEncVals := valbuf.Bytes()
 
+		var reusableIndexEntries map[uint32]struct{}
+
 		if !stmt.isInsert && len(table.indexes) > 1 {
 			currPKRow, err := e.fetchPKRow(table, valuesByColID)
 			if err != nil && err != ErrNoMoreRows {
@@ -593,7 +611,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 					currValuesByColID[col.id] = currPKRow.Values[encSel]
 				}
 
-				err = e.deleteIndexEntriesFor(pkEncVals, currValuesByColID, valuesByColID, table, summary)
+				reusableIndexEntries, err = e.deleteIndexEntriesFor(pkEncVals, currValuesByColID, valuesByColID, table, summary)
 				if err != nil {
 					return nil, err
 				}
@@ -638,10 +656,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		// create primary index entry
 		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
-		constraint := store.NoConstraint
+		var constraint store.KVConstraint
 
 		if stmt.isInsert && !table.autoIncrementPK {
-			constraint = store.MustNotExist
+			constraint = deletedOrMustNotExist
 		}
 
 		if !stmt.isInsert && table.autoIncrementPK {
@@ -659,6 +677,13 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		for _, index := range table.indexes {
 			if index.IsPrimary() {
 				continue
+			}
+
+			if reusableIndexEntries != nil {
+				_, reusable := reusableIndexEntries[index.id]
+				if reusable {
+					continue
+				}
 			}
 
 			var prefix string
@@ -698,9 +723,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				encodedValues[i+3] = encVal
 			}
 
-			constraint = store.NoConstraint
-			if stmt.isInsert && index.IsUnique() {
-				constraint = store.MustNotExist
+			var constraint store.KVConstraint
+
+			if index.IsUnique() {
+				constraint = deletedOrMustNotExist
 			}
 
 			ie := &store.KV{
@@ -745,8 +771,15 @@ func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 	return r.Read()
 }
 
-// deleteIndexEntriesFor mark deleted those index entries whose previous value was not null and differs from new one
-func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newValuesByColID map[uint32]TypedValue, table *Table, summary *TxSummary) error {
+// deleteIndexEntriesFor mark previous index entries as deleted
+func (e *Engine) deleteIndexEntriesFor(
+	pkEncVals []byte,
+	currValuesByColID, newValuesByColID map[uint32]TypedValue,
+	table *Table,
+	summary *TxSummary) (reusableIndexEntries map[uint32]struct{}, err error) {
+
+	reusableIndexEntries = make(map[uint32]struct{})
+
 	for _, index := range table.indexes {
 		if index.IsPrimary() {
 			continue
@@ -772,7 +805,7 @@ func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newV
 		encodedValues[2] = EncodeID(index.id)
 
 		// some rows might not indexed by every index
-		var notIndexed bool
+		indexed := true
 
 		// existent index entry is deleted only if it differs from existent one
 		sameIndexKey := true
@@ -780,24 +813,33 @@ func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newV
 		for i, col := range index.cols {
 			currVal, notNull := currValuesByColID[col.id]
 			if !notNull {
-				notIndexed = true
+				indexed = false
 				break
 			}
 
-			r, err := currVal.Compare(newValuesByColID[col.id])
-			if err != nil {
-				return err
-			}
+			newVal, notNull := newValuesByColID[col.id]
+			if notNull {
+				r, err := currVal.Compare(newVal)
+				if err != nil {
+					return nil, err
+				}
 
-			sameIndexKey = sameIndexKey && r == 0
+				sameIndexKey = sameIndexKey && r == 0
+			}
 
 			encVal, _ := EncodeAsKey(currVal.Value(), col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
 		}
 
+		if !indexed {
+			continue
+		}
+
 		// mark existent index entry as deleted
-		if !notIndexed && !sameIndexKey {
+		if sameIndexKey {
+			reusableIndexEntries[index.id] = struct{}{}
+		} else {
 			ie := &store.KV{
 				Key:   e.mapKey(prefix, encodedValues...),
 				Value: val,
@@ -807,7 +849,7 @@ func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newV
 		}
 	}
 
-	return nil
+	return reusableIndexEntries, nil
 }
 
 type ValueExp interface {

@@ -349,13 +349,18 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, true)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN NOT NULL, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+								id INTEGER, 
+								title VARCHAR,
+								amount INTEGER,
+								active BOOLEAN NOT NULL,
+								PRIMARY KEY id)`, nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(active, id)", nil, true)
+	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(amount, active)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, true)
@@ -391,47 +396,55 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, true)
 	require.Equal(t, ErrDuplicatedParameters, err)
 
-	summary, err := engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (1, true)", nil, true)
+	summary, err := engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil, true)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	require.Equal(t, summary.UpdatedRows, 1)
 
-	t.Run("row with pk 1 should have active in true", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT active FROM table1 WHERE id = 1", nil, true)
-		require.NoError(t, err)
-
-		row, err := r.Read()
-		require.NoError(t, err)
-		require.NotNil(t, row)
-		require.Len(t, row.Values, 1)
-		require.True(t, row.Values[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
-	})
-
-	summary, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (1, false)", nil, true)
-	require.NoError(t, err)
-	require.NotNil(t, summary)
-	require.Equal(t, summary.UpdatedRows, 1)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (2, 10, true)", nil, true)
+	require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
 	t.Run("row with pk 1 should have active in false", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT active FROM table1 WHERE id = 1", nil, true)
+		summary, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 20, false)", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, summary.UpdatedRows, 1)
+
+		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil, true)
 		require.NoError(t, err)
 
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 1)
+		require.Len(t, row.Values, 2)
+		require.Equal(t, int64(20), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
 		require.False(t, row.Values[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
 	})
 
-	summary, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (1, false)", nil, true)
-	require.NoError(t, err)
-	require.NotNil(t, summary)
-	require.Equal(t, summary.UpdatedRows, 1)
+	t.Run("row with pk 1 should have active in true", func(t *testing.T) {
+		summary, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, summary.UpdatedRows, 1)
+
+		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil, true)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 2)
+		require.Equal(t, int64(10), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
+		require.True(t, row.Values[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
+	})
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, true)
+	require.ErrorIs(t, err, ErrIndexedColumnCanNotBeNull)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Amount, Active) VALUES (1, 'some title', 100, false)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, 'another title', true)", nil, true)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, amount, active) VALUES (2, 'another title', 200, true)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')", nil, true)
