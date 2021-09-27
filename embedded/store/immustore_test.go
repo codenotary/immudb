@@ -750,7 +750,7 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 	immuStore, _ := Open("data_kv_constraints", opts)
 	defer os.RemoveAll("data_kv_constraints")
 
-	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Constraint: NoConstraint}}, true)
+	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}}}, true)
 	require.NoError(t, err)
 
 	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Constraint: MustNotExist}}, true)

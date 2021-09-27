@@ -156,12 +156,22 @@ type refVLog struct {
 	unlockedRef *list.Element // unlockedRef == nil <-> vLog is locked
 }
 
-type KVConstraint int
+type KVConstraint func(key, currValue []byte, err error) error
 
-const (
-	NoConstraint KVConstraint = iota
-	MustExist    KVConstraint = iota + 1
-	MustNotExist KVConstraint = iota + 1
+var (
+	MustExist KVConstraint = func(_, _ []byte, err error) error {
+		return err
+	}
+
+	MustNotExist KVConstraint = func(_, _ []byte, err error) error {
+		if err == ErrKeyNotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return ErrKeyAlreadyExists
+	}
 )
 
 type KV struct {
@@ -1022,7 +1032,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 		txe := tx.entries[i]
 		txe.vOff = offsets[i]
 
-		if txe.constraint != NoConstraint {
+		if txe.constraint != nil {
 			if tx.ID > 1 {
 				err := s.WaitForIndexingUpto(tx.ID-1, nil)
 				if err != nil {
@@ -1030,14 +1040,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 				}
 			}
 
-			_, _, _, err := s.indexer.Get(txe.Key())
-			if err == nil && txe.constraint == MustNotExist {
-				return ErrKeyAlreadyExists
-			}
-			if err == ErrKeyNotFound && txe.constraint == MustExist {
-				return ErrKeyNotFound
-			}
-			if err != nil && err != ErrKeyNotFound {
+			val, _, _, err := s.Get(txe.Key())
+
+			err = txe.constraint(txe.Key(), val, err)
+			if err != nil {
 				return err
 			}
 		}
