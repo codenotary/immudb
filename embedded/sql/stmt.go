@@ -796,7 +796,8 @@ func (e *Engine) deleteIndexEntriesFor(pkEncVals []byte, currValuesByColID, newV
 			encodedValues[i+3] = encVal
 		}
 
-		if !notIndexed || !sameIndexKey {
+		// mark existent index entry as deleted
+		if !notIndexed && !sameIndexKey {
 			ie := &store.KV{
 				Key:   e.mapKey(prefix, encodedValues...),
 				Value: val,
