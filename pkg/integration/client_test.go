@@ -527,6 +527,58 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.Nil(t, vi)
 }
 
+func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(tokenservice.NewInmemoryTokenService()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+		DatabaseName: "db1",
+	})
+	require.NoError(t, err)
+
+	resp, err := client.UseDatabase(context.TODO(), &schema.Database{
+		DatabaseName: "db1",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Token)
+
+	_, err = client.VerifiedSet(context.TODO(), []byte(`db1-my`), []byte(`item`))
+	require.NoError(t, err)
+
+	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+		DatabaseName: "db2",
+	})
+	require.NoError(t, err)
+
+	resp2, err := client.UseDatabase(context.TODO(), &schema.Database{
+		DatabaseName: "db2",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp2.Token)
+
+	_, err = client.VerifiedSet(context.TODO(), []byte(`db2-my`), []byte(`item`))
+	require.NoError(t, err)
+
+	vi, err := client.VerifiedGet(context.TODO(), []byte(`db1-my`))
+	require.Error(t, err)
+	require.Nil(t, vi)
+}
+
 func TestImmuClientDisconnect(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
