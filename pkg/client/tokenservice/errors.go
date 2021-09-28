@@ -16,26 +16,9 @@ limitations under the License.
 
 package tokenservice
 
-import (
-	"github.com/stretchr/testify/require"
-	"testing"
-)
+import "errors"
 
-func TestNewInmemoryTokenService(t *testing.T) {
-	ts := NewInmemoryTokenService()
-	err := ts.SetToken("db1", "")
-	require.Equal(t, ErrEmptyTokenProvided, err)
-	err = ts.SetToken("db", "tk")
-	require.NoError(t, err)
-	present, err := ts.IsTokenPresent()
-	require.True(t, present)
-	require.NoError(t, err)
-	db, err := ts.GetDatabase()
-	require.Equal(t, db, "db")
-	require.NoError(t, err)
-	tk, err := ts.GetToken()
-	require.NoError(t, err)
-	require.Equal(t, tk, "tk")
-	err = ts.DeleteToken()
-	require.NoError(t, err)
-}
+// Errors related to Client connection and health check
+var (
+	ErrEmptyTokenProvided = errors.New("empty token provided")
+)

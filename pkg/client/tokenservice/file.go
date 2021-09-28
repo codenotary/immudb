@@ -21,9 +21,11 @@ import (
 	"errors"
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"strings"
+	"sync"
 )
 
 type file struct {
+	sync.Mutex
 	tokenFileName string
 	hds           homedir.HomedirService
 }
@@ -37,6 +39,8 @@ func NewFileTokenService() *file {
 }
 
 func (ts *file) GetToken() (string, error) {
+	ts.Lock()
+	defer ts.Unlock()
 	_, token, err := ts.parseContent()
 	if err != nil {
 		return "", err
@@ -46,6 +50,11 @@ func (ts *file) GetToken() (string, error) {
 
 //SetToken ...
 func (ts *file) SetToken(database string, token string) error {
+	ts.Lock()
+	defer ts.Unlock()
+	if token == "" {
+		return ErrEmptyTokenProvided
+	}
 	return ts.hds.WriteFileToUserHomeDir(BuildToken(database, token), ts.tokenFileName)
 }
 
@@ -62,15 +71,21 @@ func BuildToken(database string, token string) []byte {
 }
 
 func (ts *file) DeleteToken() error {
+	ts.Lock()
+	defer ts.Unlock()
 	return ts.hds.DeleteFileFromUserHomeDir(ts.tokenFileName)
 }
 
 //IsTokenPresent ...
 func (ts *file) IsTokenPresent() (bool, error) {
+	ts.Lock()
+	defer ts.Unlock()
 	return ts.hds.FileExistsInUserHomeDir(ts.tokenFileName)
 }
 
 func (ts *file) GetDatabase() (string, error) {
+	ts.Lock()
+	defer ts.Unlock()
 	dbname, _, err := ts.parseContent()
 	return dbname, err
 }

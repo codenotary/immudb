@@ -33,6 +33,9 @@ func NewInmemoryTokenService() *inmemoryTokenService {
 func (m *inmemoryTokenService) SetToken(database string, token string) error {
 	m.Lock()
 	defer m.Unlock()
+	if token == "" {
+		return ErrEmptyTokenProvided
+	}
 	m.token = token
 	m.database = database
 	return nil
