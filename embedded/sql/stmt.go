@@ -493,6 +493,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		return nil, err
 	}
 
+	if len(stmt.rows)*len(table.indexes) > e.dataStore.MaxTxEntries() {
+		return nil, ErrTooManyRows
+	}
+
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
 		return nil, err
@@ -554,30 +558,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			summary.lastInsertedPKs[table.name] = table.maxPK
 		}
 
-		valbuf := bytes.Buffer{}
-
-		for _, col := range table.primaryIndex.cols {
-			if col.MaxLen() > maxKeyLen {
-				return nil, ErrMaxKeyLengthExceeded
-			}
-
-			rval, notNull := valuesByColID[col.id]
-			if !notNull {
-				return nil, ErrPKCanNotBeNull
-			}
-
-			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = valbuf.Write(encVal)
-			if err != nil {
-				return nil, err
-			}
+		pkEncVals, err := encodedPK(table, valuesByColID)
+		if err != nil {
+			return nil, err
 		}
-
-		pkEncVals := valbuf.Bytes()
 
 		var reusableIndexEntries map[uint32]struct{}
 
@@ -595,14 +579,14 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 					currValuesByColID[col.id] = currPKRow.Values[encSel]
 				}
 
-				reusableIndexEntries, err = e.deleteIndexEntriesFor(pkEncVals, currValuesByColID, valuesByColID, table, summary)
+				reusableIndexEntries, err = e.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table, summary)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 
-		valbuf = bytes.Buffer{}
+		valbuf := bytes.Buffer{}
 
 		b := make([]byte, EncLenLen)
 		binary.BigEndian.PutUint32(b, uint32(len(valuesByColID)))
@@ -727,6 +711,33 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 	return summary, nil
 }
 
+func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
+	valbuf := bytes.Buffer{}
+
+	for _, col := range table.primaryIndex.cols {
+		rval, notNull := valuesByColID[col.id]
+		if !notNull {
+			return nil, ErrPKCanNotBeNull
+		}
+
+		encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+		if err != nil {
+			return nil, err
+		}
+
+		if len(encVal) > maxKeyLen {
+			return nil, ErrMaxKeyLengthExceeded
+		}
+
+		_, err = valbuf.Write(encVal)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return valbuf.Bytes(), nil
+}
+
 func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (*Row, error) {
 	pkRanges := make(map[uint32]*typedValueRange, len(table.primaryIndex.cols))
 
@@ -767,8 +778,8 @@ func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 	return r.Read()
 }
 
-// deleteIndexEntriesFor mark previous index entries as deleted
-func (e *Engine) deleteIndexEntriesFor(
+// deprecateIndexEntries mark previous index entries as deleted
+func (e *Engine) deprecateIndexEntries(
 	pkEncVals []byte,
 	currValuesByColID, newValuesByColID map[uint32]TypedValue,
 	table *Table,
@@ -835,6 +846,139 @@ func (e *Engine) deleteIndexEntriesFor(
 	}
 
 	return reusableIndexEntries, nil
+}
+
+type DeleteFromStmt struct {
+	tableRef *tableRef
+	where    ValueExp
+	indexOn  []string
+	limit    int
+}
+
+func (stmt *DeleteFromStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
+	selectStmt := &SelectStmt{
+		ds:    stmt.tableRef,
+		where: stmt.where,
+	}
+	return selectStmt.inferParameters(e, implicitDB, params)
+}
+
+func (stmt *DeleteFromStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	if implicitDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	err = e.renewSnapshot()
+	if err != nil {
+		return nil, err
+	}
+
+	selectStmt := &SelectStmt{
+		ds:      stmt.tableRef,
+		where:   stmt.where,
+		indexOn: stmt.indexOn,
+		limit:   stmt.limit,
+	}
+
+	rowReader, err := selectStmt.Resolve(e, e.snapshot, implicitDB, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rowReader.Close()
+
+	table := rowReader.ScanSpecs().index.table
+
+	summary = newTxSummary(implicitDB)
+
+	for {
+		if summary.updatedRows*len(table.indexes) > e.dataStore.MaxTxEntries() {
+			return nil, ErrTooManyRows
+		}
+
+		row, err := rowReader.Read()
+		if err == ErrNoMoreRows {
+			break
+		}
+
+		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+
+		for _, col := range table.cols {
+			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
+			valuesByColID[col.id] = row.Values[encSel]
+		}
+
+		pkEncVals, err := encodedPK(table, valuesByColID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = e.deleteIndexEntries(pkEncVals, valuesByColID, table, summary)
+		if err != nil {
+			return nil, err
+		}
+
+		summary.updatedRows++
+	}
+
+	return summary, nil
+}
+
+func (e *Engine) deleteIndexEntries(
+	pkEncVals []byte,
+	valuesByColID map[uint32]TypedValue,
+	table *Table,
+	summary *TxSummary) error {
+
+	for _, index := range table.indexes {
+		var prefix string
+		var encodedValues [][]byte
+
+		if index.IsUnique() {
+			if index.IsPrimary() {
+				prefix = PIndexPrefix
+			} else {
+				prefix = UIndexPrefix
+			}
+
+			encodedValues = make([][]byte, 3+len(index.cols))
+		} else {
+			prefix = SIndexPrefix
+			encodedValues = make([][]byte, 4+len(index.cols))
+			encodedValues[len(encodedValues)-1] = pkEncVals
+		}
+
+		encodedValues[0] = EncodeID(table.db.id)
+		encodedValues[1] = EncodeID(table.id)
+		encodedValues[2] = EncodeID(index.id)
+
+		// some rows might not indexed by every index
+		indexed := true
+
+		for i, col := range index.cols {
+			val, notNull := valuesByColID[col.id]
+			if !notNull {
+				indexed = false
+				break
+			}
+
+			encVal, _ := EncodeAsKey(val.Value(), col.colType, col.MaxLen())
+
+			encodedValues[i+3] = encVal
+		}
+
+		if !indexed {
+			continue
+		}
+
+		ie := &store.EntrySpec{
+			Key:      e.mapKey(prefix, encodedValues...),
+			Metadata: store.NewKVMetadata().AsDeleted(true),
+		}
+
+		summary.des = append(summary.des, ie)
+	}
+
+	return nil
 }
 
 type ValueExp interface {
