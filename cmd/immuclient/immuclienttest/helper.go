@@ -41,7 +41,7 @@ type clientTest struct {
 
 type HomedirServiceMock struct {
 	homedir.HomedirService
-	token []byte
+	Token []byte
 }
 
 func (h *HomedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
@@ -49,7 +49,7 @@ func (h *HomedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, e
 }
 
 func (h *HomedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
-	h.token = content
+	h.Token = content
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (h *HomedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error 
 }
 
 func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
-	return string(h.token), nil
+	return string(h.Token), nil
 }
 
 func NewDefaultClientTest() *clientTest {

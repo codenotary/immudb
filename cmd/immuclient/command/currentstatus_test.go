@@ -40,8 +40,10 @@ func TestCurrentState(t *testing.T) {
 	defer bs.Stop()
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+	defer os.Remove("testTokenFile")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
