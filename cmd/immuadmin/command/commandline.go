@@ -111,12 +111,12 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.newImmuClient == nil {
-		if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
+		if cl.immuClient, err = client.NewImmuClient(cl.options.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))); err != nil {
 			cl.quit(err)
 		}
 		return
 	}
-	if cl.immuClient, err = cl.newImmuClient(cl.options); err != nil {
+	if cl.immuClient, err = cl.newImmuClient(cl.options.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))); err != nil {
 		cl.quit(err)
 	}
 	return
