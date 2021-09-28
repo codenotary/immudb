@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/codenotary/immudb/pkg/client/homedir"
+	"os"
 	"strings"
 	"sync"
 )
@@ -80,7 +81,14 @@ func (ts *file) DeleteToken() error {
 func (ts *file) IsTokenPresent() (bool, error) {
 	ts.Lock()
 	defer ts.Unlock()
-	return ts.hds.FileExistsInUserHomeDir(ts.tokenFileName)
+	_, _, err := ts.parseContent()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (ts *file) GetDatabase() (string, error) {
@@ -96,7 +104,7 @@ func (ts *file) parseContent() (string, string, error) {
 		return "", "", err
 	}
 	if len(content) <= 8 {
-		return "", "", errors.New("token content not present")
+		return "", "", ErrTokenContentNotPresent
 	}
 	// token prefix is hardcoded into library. Please modify in case of changes in paseto library
 	if strings.HasPrefix(content, "v2.public.") {

@@ -20,5 +20,6 @@ import "errors"
 
 // Errors related to Client connection and health check
 var (
-	ErrEmptyTokenProvided = errors.New("empty token provided")
+	ErrEmptyTokenProvided     = errors.New("empty token provided")
+	ErrTokenContentNotPresent = errors.New("token content not present")
 )
