@@ -109,7 +109,8 @@ func TestUserList(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -131,7 +132,8 @@ func TestUserCreate(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -266,7 +268,8 @@ func TestUserChangePassword(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -343,7 +346,8 @@ func TestUserSetActive(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())
@@ -415,7 +419,8 @@ func TestSetUserPermission(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
+		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts).WithOptions(client.DefaultOptions())

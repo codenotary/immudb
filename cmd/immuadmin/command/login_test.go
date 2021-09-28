@@ -132,7 +132,7 @@ func (c scIClientInnerMock) GetOptions() *client.Options {
 }
 
 func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
-	return &schema.LoginResponse{}, nil
+	return &schema.LoginResponse{Token: "fake-token"}, nil
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
