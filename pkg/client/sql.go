@@ -276,7 +276,7 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint32]*schema.SQLValue, c
 }
 
 func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uint32]*schema.SQLValue, error) {
-	off := 0
+	off := 1 // ignore DELETED flag during decoding
 
 	if len(encodedRow) < off+sql.EncLenLen {
 		return nil, sql.ErrCorruptedData
