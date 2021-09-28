@@ -482,10 +482,10 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 
 	err = c.Tkns.SetToken("defaultdb", result.Token)
 	if err != nil {
-		return nil, err
+		return nil, errors.FromError(err)
 	}
 
-	return result, errors.FromError(err)
+	return result, nil
 }
 
 // Logout ...

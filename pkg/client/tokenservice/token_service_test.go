@@ -21,21 +21,22 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTokenSevice_setToken(t *testing.T) {
 	fn := "deleteme"
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
-	err := ts.SetToken("db1", "toooooken")
-	assert.Nil(t, err)
+	err := ts.SetToken("db1", "")
+	require.Equal(t, ErrEmptyTokenProvided, err)
+	err = ts.SetToken("db1", "toooooken")
+	require.Nil(t, err)
 	database, err := ts.GetDatabase()
-	assert.Nil(t, err)
-	assert.Equal(t, "db1", database)
+	require.Nil(t, err)
+	require.Equal(t, "db1", database)
 	token, err := ts.GetToken()
-	assert.Nil(t, err)
-	assert.Equal(t, "toooooken", token)
+	require.Nil(t, err)
+	require.Equal(t, "toooooken", token)
 	os.Remove(fn)
 }
 
@@ -46,7 +47,7 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 	require.Nil(t, err)
 	ok, err := ts.IsTokenPresent()
 	require.Nil(t, err)
-	assert.True(t, ok)
+	require.True(t, ok)
 }
 
 func TestTokenService_DeleteToken(t *testing.T) {
@@ -55,5 +56,5 @@ func TestTokenService_DeleteToken(t *testing.T) {
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	err = ts.DeleteToken()
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }

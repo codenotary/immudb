@@ -477,14 +477,15 @@ func TestDatabasesSwitching(t *testing.T) {
 	defer bs.Stop()
 
 	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
-	if err != nil {
-		log.Fatal(err)
-	}
+	client, err := ic.NewImmuClient(
+		ic.DefaultOptions().
+			WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+			WithTokenService(ts))
+	require.NoError(t, err)
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
@@ -537,14 +538,14 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(tokenservice.NewInmemoryTokenService()))
-	if err != nil {
-		log.Fatal(err)
-	}
+	client, err := ic.NewImmuClient(
+		ic.DefaultOptions().
+			WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+			WithTokenService(tokenservice.NewInmemoryTokenService()))
+	require.NoError(t, err)
+
 	_, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
 		DatabaseName: "db1",
