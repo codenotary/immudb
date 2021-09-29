@@ -21,14 +21,15 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"math"
 	"math/rand"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestOpenDB(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -116,7 +117,7 @@ func TestQueryCapabilities(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -169,7 +170,7 @@ func TestNilValues(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -224,7 +225,7 @@ func TestDriverValuer(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -295,7 +296,7 @@ func TestDriverConnector_ConnectLoginErr(t *testing.T) {
 	opts := client.DefaultOptions()
 	opts.Username = "wrongUsername"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(tokenservice.NewInmemoryTokenService())
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -318,7 +319,7 @@ func TestDriverConnector_ConnectUseDatabaseErr(t *testing.T) {
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "wrong db"
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -328,7 +329,7 @@ func TestDriverConnector_ConnectUseDatabaseErr(t *testing.T) {
 }
 
 func TestConnector_Driver(t *testing.T) {
-	c := Connector{
+	c := immuConnector{
 		driver: immuDriver,
 	}
 	d := c.Driver()
@@ -342,8 +343,32 @@ func TestDriver_Open(t *testing.T) {
 	require.Nil(t, conn)
 }
 
+func TestDriver_OpenSSLDisable(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", client.DefaultOptions().Port))
+	}
+	d := immuDriver
+	//disable, allow, prefer, require, verify-ca and verify-full . require, allow and prefer
+	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+}
+
+func TestDriver_OpenSSLRequire(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", client.DefaultOptions().Port))
+	}
+	d := immuDriver
+	//disable, allow, prefer, require, verify-ca and verify-full . require, allow and prefer
+	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=require")
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+}
+
 func TestDriverConnector_Driver(t *testing.T) {
-	c := Connector{
+	c := immuConnector{
 		driver: immuDriver,
 	}
 	d := c.Driver()
@@ -403,7 +428,7 @@ func TestConn_QueryContextErr(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -444,15 +469,18 @@ func TestRows(t *testing.T) {
 	r := Rows{
 		index: 0,
 		conn:  nil,
-		rows:  nil,
+		rows: []*schema.Row{{
+			Columns: []string{"c1"},
+			Values:  []*schema.SQLValue{{Value: nil}},
+		}},
 	}
 
 	ast := r.Columns()
-	require.Nil(t, ast)
+	require.Equal(t, "c", ast[0])
 	st := r.ColumnTypeDatabaseTypeName(1)
 	require.Equal(t, "", st)
 	num, b := r.ColumnTypeLength(1)
-	require.Equal(t, int64(math.MaxInt64), num)
+	require.Equal(t, int64(0), num)
 	require.False(t, b)
 	_, _, _ = r.ColumnTypePrecisionScale(1)
 	ty := r.ColumnTypeScanType(1)

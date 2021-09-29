@@ -82,7 +82,7 @@ type ImmuClient interface {
 
 	GetServiceClient() schema.ImmuServiceClient
 	GetOptions() *Options
-	SetupDialOptions(options *Options) *[]grpc.DialOption
+	SetupDialOptions(options *Options) []grpc.DialOption
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
@@ -243,10 +243,8 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	return c, nil
 }
 
-func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
-	opts := *options.DialOptions
-	opts = append(opts, grpc.WithInsecure())
-
+func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
+	opts := options.DialOptions
 	//---------- TLS Setting -----------//
 	if options.MTLs {
 		//LoadX509KeyPair reads and parses a public/private key pair from a pair of files.
@@ -321,11 +319,11 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
-	return &opts
+	return opts
 }
 
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
-	if c.clientConn, err = grpc.Dial(c.Options.Bind(), *c.Options.DialOptions...); err != nil {
+	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
 		return nil, err
 	}
