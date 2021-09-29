@@ -41,7 +41,7 @@ type Options struct {
 	MTLsOptions        MTLsOptions
 	Auth               bool
 	MaxRecvMsgSize     int
-	DialOptions        *[]grpc.DialOption
+	DialOptions        []grpc.DialOption
 	Config             string
 	TokenFileName      string
 	CurrentDatabase    string
@@ -71,7 +71,7 @@ func DefaultOptions() *Options {
 		MaxRecvMsgSize:      4 * 1024 * 1024, //4Mb
 		Config:              "configs/immuclient.toml",
 		TokenFileName:       "token",
-		DialOptions:         &[]grpc.DialOption{},
+		DialOptions:         []grpc.DialOption{grpc.WithInsecure()},
 		PasswordReader:      c.DefaultPasswordReader,
 		Tkns:                tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
 		Metrics:             true,
@@ -163,7 +163,7 @@ func (o *Options) WithMTLsOptions(MTLsOptions MTLsOptions) *Options {
 }
 
 // WithDialOptions sets dialOptions
-func (o *Options) WithDialOptions(dialOptions *[]grpc.DialOption) *Options {
+func (o *Options) WithDialOptions(dialOptions []grpc.DialOption) *Options {
 	o.DialOptions = dialOptions
 	return o
 }
