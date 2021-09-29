@@ -28,7 +28,8 @@ func TestServerRecovertMode(t *testing.T) {
 	serverOptions := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithMaintenance(true).
-		WithAuth(true)
+		WithAuth(true).
+		WithPort(0)
 	s := server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
@@ -39,7 +40,8 @@ func TestServerRecovertMode(t *testing.T) {
 		WithMetricsServer(true).
 		WithPgsqlServer(true).
 		WithMaintenance(true).
-		WithAuth(false)
+		WithAuth(false).
+		WithPort(0)
 	s = server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 
 	err = s.Initialize()
