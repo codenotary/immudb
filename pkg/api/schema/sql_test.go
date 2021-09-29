@@ -57,25 +57,46 @@ func TestAsSQLValue(t *testing.T) {
 			"uint", uint(10), &SQLValue{Value: &SQLValue_N{N: 10}}, false,
 		},
 		{
-			"int", int(11), &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+			"uint8", uint8(10), &SQLValue{Value: &SQLValue_N{N: 10}}, false,
 		},
 		{
-			"int64(", int64(12), &SQLValue{Value: &SQLValue_N{N: 12}}, false,
+			"uint16", uint16(10), &SQLValue{Value: &SQLValue_N{N: 10}}, false,
+		},
+		{
+			"uint32", uint32(10), &SQLValue{Value: &SQLValue_N{N: 10}}, false,
 		},
 		{
 			"uint64", uint64(13), &SQLValue{Value: &SQLValue_N{N: 13}}, false,
 		},
 		{
+			"int", 11, &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+		},
+		{
+			"int8", int8(11), &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+		},
+		{
+			"int16", int16(11), &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+		},
+		{
+			"int32", int32(11), &SQLValue{Value: &SQLValue_N{N: 11}}, false,
+		},
+		{
+			"int64", int64(12), &SQLValue{Value: &SQLValue_N{N: 12}}, false,
+		},
+		{
 			"string", string("14"), &SQLValue{Value: &SQLValue_S{S: "14"}}, false,
 		},
 		{
-			"bool", bool(true), &SQLValue{Value: &SQLValue_B{B: true}}, false,
+			"bool", true, &SQLValue{Value: &SQLValue_B{B: true}}, false,
 		},
 		{
 			"[]byte", []byte{1, 5}, &SQLValue{Value: &SQLValue_Bs{Bs: []byte{1, 5}}}, false,
 		},
 		{
 			"struct{}", struct{}{}, nil, true,
+		},
+		{
+			"nil", (*string)(nil), nil, true,
 		},
 	} {
 		t.Run(d.n, func(t *testing.T) {
