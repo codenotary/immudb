@@ -17,6 +17,7 @@ package schema
 
 import (
 	"github.com/codenotary/immudb/embedded/sql"
+	"reflect"
 )
 
 func EncodeParams(params map[string]interface{}) ([]*NamedParam, error) {
@@ -41,12 +42,27 @@ func EncodeParams(params map[string]interface{}) ([]*NamedParam, error) {
 }
 
 func asSQLValue(v interface{}) (*SQLValue, error) {
-	if v == nil {
+	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		return &SQLValue{Value: &SQLValue_Null{}}, nil
 	}
-
 	switch tv := v.(type) {
 	case uint:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case uint8:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case uint16:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case uint32:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case uint64:
 		{
 			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
@@ -54,13 +70,21 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 		{
 			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
+	case int8:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case int16:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
+	case int32:
+		{
+			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
+		}
 	case int64:
 		{
 			return &SQLValue{Value: &SQLValue_N{N: tv}}, nil
-		}
-	case uint64:
-		{
-			return &SQLValue{Value: &SQLValue_N{N: int64(tv)}}, nil
 		}
 	case string:
 		{
