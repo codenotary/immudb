@@ -59,11 +59,13 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     logicOp LogicOperator
     cmpOp CmpOperator
     pparam int
+    update *colUpdate
+    updates []*colUpdate
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
-%token INSERT UPSERT INTO VALUES DELETE
+%token INSERT UPSERT INTO VALUES DELETE UPDATE SET
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN
 %token AUTO_INCREMENT NULL NPARAM
@@ -121,6 +123,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
+%type <update> update
+%type <updates> updates
 
 %start sql
 
@@ -255,6 +259,28 @@ dmlstmt:
     DELETE FROM tableRef opt_where opt_indexon opt_limit
     {
         $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: int($6)}
+    }
+|
+    UPDATE tableRef SET updates opt_where opt_indexon opt_limit
+    {
+        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: int($7)}
+    }
+
+updates:
+    update
+    {
+        $$ = []*colUpdate{$1}
+    }
+|
+    updates  ',' update
+    {
+        $$ = append($1, $3)
+    }
+
+update:
+    IDENTIFIER CMPOP exp
+    {
+        $$ = &colUpdate{col: $1, op: $2, val: $3}
     }
 
 opt_ids:

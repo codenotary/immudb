@@ -49,6 +49,8 @@ var reservedWords = map[string]int{
 	"UPSERT":         UPSERT,
 	"INTO":           INTO,
 	"VALUES":         VALUES,
+	"UPDATE":         UPDATE,
+	"SET":            SET,
 	"DELETE":         DELETE,
 	"BEGIN":          BEGIN,
 	"TRANSACTION":    TRANSACTION,
