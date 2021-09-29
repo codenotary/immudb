@@ -46,6 +46,7 @@ var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max lengt
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
+var ErrPKCanNotBeUpdated = errors.New("primary key can not be updated")
 var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not be null")
 var ErrIndexedColumnCanNotBeNull = errors.New("indexed column can not be null")
 var ErrIndexAlreadyExists = errors.New("index already exists")

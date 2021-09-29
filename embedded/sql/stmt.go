@@ -563,152 +563,161 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			return nil, err
 		}
 
-		var reusableIndexEntries map[uint32]struct{}
-
-		if !stmt.isInsert && len(table.indexes) > 1 {
-			currPKRow, err := e.fetchPKRow(table, valuesByColID)
-			if err != nil && err != ErrNoMoreRows {
-				return nil, err
-			}
-
-			if err == nil {
-				currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.Values))
-
-				for _, col := range table.cols {
-					encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-					currValuesByColID[col.id] = currPKRow.Values[encSel]
-				}
-
-				reusableIndexEntries, err = e.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table, summary)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		valbuf := bytes.Buffer{}
-
-		b := make([]byte, EncLenLen)
-		binary.BigEndian.PutUint32(b, uint32(len(valuesByColID)))
-
-		_, err = valbuf.Write(b)
+		err = e.doUpsert(pkEncVals, valuesByColID, table, stmt.isInsert, summary)
 		if err != nil {
 			return nil, err
 		}
-
-		for _, col := range table.cols {
-			rval, notNull := valuesByColID[col.id]
-			if !notNull {
-				continue
-			}
-
-			b := make([]byte, EncIDLen)
-			binary.BigEndian.PutUint32(b, uint32(col.id))
-
-			_, err = valbuf.Write(b)
-			if err != nil {
-				return nil, err
-			}
-
-			encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = valbuf.Write(encVal)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		// create primary index entry
-		mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
-
-		var constraint store.KVConstraint
-
-		if stmt.isInsert && !table.autoIncrementPK {
-			constraint = store.MustNotExistOrDeleted
-		}
-
-		if !stmt.isInsert && table.autoIncrementPK {
-			constraint = store.MustExist
-		}
-
-		pke := &store.EntrySpec{
-			Key:        mkey,
-			Value:      valbuf.Bytes(),
-			Constraint: constraint,
-		}
-		summary.des = append(summary.des, pke)
-
-		// create entries for secondary indexes
-		for _, index := range table.indexes {
-			if index.IsPrimary() {
-				continue
-			}
-
-			if reusableIndexEntries != nil {
-				_, reusable := reusableIndexEntries[index.id]
-				if reusable {
-					continue
-				}
-			}
-
-			var prefix string
-			var encodedValues [][]byte
-			var val []byte
-
-			if index.IsUnique() {
-				prefix = UIndexPrefix
-				encodedValues = make([][]byte, 3+len(index.cols))
-				val = pkEncVals
-			} else {
-				prefix = SIndexPrefix
-				encodedValues = make([][]byte, 4+len(index.cols))
-				encodedValues[len(encodedValues)-1] = pkEncVals
-			}
-
-			encodedValues[0] = EncodeID(table.db.id)
-			encodedValues[1] = EncodeID(table.id)
-			encodedValues[2] = EncodeID(index.id)
-
-			for i, col := range index.cols {
-				if col.MaxLen() > maxKeyLen {
-					return nil, ErrMaxKeyLengthExceeded
-				}
-
-				rval, notNull := valuesByColID[col.id]
-				if !notNull {
-					return nil, ErrIndexedColumnCanNotBeNull
-				}
-
-				encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
-				if err != nil {
-					return nil, err
-				}
-
-				encodedValues[i+3] = encVal
-			}
-
-			var constraint store.KVConstraint
-
-			if index.IsUnique() {
-				constraint = store.MustNotExistOrDeleted
-			}
-
-			ie := &store.EntrySpec{
-				Key:        e.mapKey(prefix, encodedValues...),
-				Value:      val,
-				Constraint: constraint,
-			}
-
-			summary.des = append(summary.des, ie)
-		}
-
-		summary.updatedRows++
 	}
 
 	return summary, nil
+}
+
+func (e *Engine) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, isInsert bool, summary *TxSummary) error {
+	var reusableIndexEntries map[uint32]struct{}
+
+	if !isInsert && len(table.indexes) > 1 {
+		currPKRow, err := e.fetchPKRow(table, valuesByColID)
+		if err != nil && err != ErrNoMoreRows {
+			return err
+		}
+
+		if err == nil {
+			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.Values))
+
+			for _, col := range table.cols {
+				encSel := EncodeSelector("", table.db.name, table.name, col.colName)
+				currValuesByColID[col.id] = currPKRow.Values[encSel]
+			}
+
+			reusableIndexEntries, err = e.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table, summary)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// create primary index entry
+	mkey := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+
+	var constraint store.KVConstraint
+
+	if isInsert && !table.autoIncrementPK {
+		constraint = store.MustNotExistOrDeleted
+	}
+
+	if !isInsert && table.autoIncrementPK {
+		constraint = store.MustExist
+	}
+
+	valbuf := bytes.Buffer{}
+
+	b := make([]byte, EncLenLen)
+	binary.BigEndian.PutUint32(b, uint32(len(valuesByColID)))
+
+	_, err := valbuf.Write(b)
+	if err != nil {
+		return err
+	}
+
+	for _, col := range table.cols {
+		rval, notNull := valuesByColID[col.id]
+		if !notNull {
+			continue
+		}
+
+		b := make([]byte, EncIDLen)
+		binary.BigEndian.PutUint32(b, uint32(col.id))
+
+		_, err = valbuf.Write(b)
+		if err != nil {
+			return err
+		}
+
+		encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
+		if err != nil {
+			return err
+		}
+
+		_, err = valbuf.Write(encVal)
+		if err != nil {
+			return err
+		}
+	}
+
+	pke := &store.EntrySpec{
+		Key:        mkey,
+		Value:      valbuf.Bytes(),
+		Constraint: constraint,
+	}
+	summary.des = append(summary.des, pke)
+
+	// create entries for secondary indexes
+	for _, index := range table.indexes {
+		if index.IsPrimary() {
+			continue
+		}
+
+		if reusableIndexEntries != nil {
+			_, reusable := reusableIndexEntries[index.id]
+			if reusable {
+				continue
+			}
+		}
+
+		var prefix string
+		var encodedValues [][]byte
+		var val []byte
+
+		if index.IsUnique() {
+			prefix = UIndexPrefix
+			encodedValues = make([][]byte, 3+len(index.cols))
+			val = pkEncVals
+		} else {
+			prefix = SIndexPrefix
+			encodedValues = make([][]byte, 4+len(index.cols))
+			encodedValues[len(encodedValues)-1] = pkEncVals
+		}
+
+		encodedValues[0] = EncodeID(table.db.id)
+		encodedValues[1] = EncodeID(table.id)
+		encodedValues[2] = EncodeID(index.id)
+
+		for i, col := range index.cols {
+			if col.MaxLen() > maxKeyLen {
+				return ErrMaxKeyLengthExceeded
+			}
+
+			rval, notNull := valuesByColID[col.id]
+			if !notNull {
+				return ErrIndexedColumnCanNotBeNull
+			}
+
+			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
+			if err != nil {
+				return err
+			}
+
+			encodedValues[i+3] = encVal
+		}
+
+		var constraint store.KVConstraint
+
+		if index.IsUnique() {
+			constraint = store.MustNotExistOrDeleted
+		}
+
+		ie := &store.EntrySpec{
+			Key:        e.mapKey(prefix, encodedValues...),
+			Value:      val,
+			Constraint: constraint,
+		}
+
+		summary.des = append(summary.des, ie)
+	}
+
+	summary.updatedRows++
+
+	return nil
 }
 
 func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error) {
@@ -846,6 +855,171 @@ func (e *Engine) deprecateIndexEntries(
 	}
 
 	return reusableIndexEntries, nil
+}
+
+type UpdateStmt struct {
+	tableRef *tableRef
+	where    ValueExp
+	updates  []*colUpdate
+	indexOn  []string
+	limit    int
+}
+
+type colUpdate struct {
+	col string
+	op  CmpOperator
+	val ValueExp
+}
+
+func (stmt *UpdateStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
+	selectStmt := &SelectStmt{
+		ds:    stmt.tableRef,
+		where: stmt.where,
+	}
+
+	err := selectStmt.inferParameters(e, implicitDB, params)
+	if err != nil {
+		return err
+	}
+
+	table, err := stmt.tableRef.referencedTable(e, implicitDB)
+	if err != nil {
+		return err
+	}
+
+	for _, update := range stmt.updates {
+		col, err := table.GetColumnByName(update.col)
+		if err != nil {
+			return err
+		}
+
+		err = update.val.requiresType(col.colType, make(map[string]ColDescriptor), params, implicitDB.name, table.name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (stmt *UpdateStmt) validate(table *Table) error {
+	colIDs := make(map[uint32]struct{}, len(stmt.updates))
+
+	for _, update := range stmt.updates {
+		if update.op != EQ {
+			return ErrIllegalArguments
+		}
+
+		col, err := table.GetColumnByName(update.col)
+		if err != nil {
+			return err
+		}
+
+		if table.PrimaryIndex().IncludesCol(col.id) {
+			return ErrPKCanNotBeUpdated
+		}
+
+		_, duplicated := colIDs[col.id]
+		if duplicated {
+			return ErrDuplicatedColumn
+		}
+
+		colIDs[col.id] = struct{}{}
+	}
+
+	return nil
+}
+
+func (stmt *UpdateStmt) compileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (summary *TxSummary, err error) {
+	if implicitDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	err = e.renewSnapshot()
+	if err != nil {
+		return nil, err
+	}
+
+	selectStmt := &SelectStmt{
+		ds:      stmt.tableRef,
+		where:   stmt.where,
+		indexOn: stmt.indexOn,
+		limit:   stmt.limit,
+	}
+
+	rowReader, err := selectStmt.Resolve(e, e.snapshot, implicitDB, params, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rowReader.Close()
+
+	table := rowReader.ScanSpecs().index.table
+
+	err = stmt.validate(table)
+	if err != nil {
+		return nil, err
+	}
+
+	cols, err := rowReader.colsBySelector()
+	if err != nil {
+		return nil, err
+	}
+
+	summary = newTxSummary(implicitDB)
+
+	for {
+		if summary.updatedRows*len(table.indexes) > e.dataStore.MaxTxEntries() {
+			return nil, ErrTooManyRows
+		}
+
+		row, err := rowReader.Read()
+		if err == ErrNoMoreRows {
+			break
+		}
+
+		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+
+		for _, col := range table.cols {
+			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
+			valuesByColID[col.id] = row.Values[encSel]
+		}
+
+		for _, update := range stmt.updates {
+			col, err := table.GetColumnByName(update.col)
+			if err != nil {
+				return nil, err
+			}
+
+			sval, err := update.val.substitute(params)
+			if err != nil {
+				return nil, err
+			}
+
+			rval, err := sval.reduce(e.catalog, row, table.db.name, table.name)
+			if err != nil {
+				return nil, err
+			}
+
+			err = rval.requiresType(col.colType, cols, nil, table.db.name, table.name)
+			if err != nil {
+				return nil, err
+			}
+
+			valuesByColID[col.id] = rval
+		}
+
+		pkEncVals, err := encodedPK(table, valuesByColID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = e.doUpsert(pkEncVals, valuesByColID, table, false, summary)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return summary, nil
 }
 
 type DeleteFromStmt struct {
