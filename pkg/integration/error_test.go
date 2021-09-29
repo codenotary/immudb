@@ -42,7 +42,7 @@ func TestGRPCError(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	cli, _ := client.NewImmuClient(client.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	cli, _ := client.NewImmuClient(client.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
 	_, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
 

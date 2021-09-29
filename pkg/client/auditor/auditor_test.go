@@ -47,7 +47,7 @@ func TestDefaultAuditor(t *testing.T) {
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{},
+		[]grpc.DialOption{},
 		"immudb",
 		"immudb",
 		nil,
@@ -77,7 +77,7 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 	_, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{},
+		[]grpc.DialOption{},
 		"immudb",
 		"enc:"+string([]byte{0}),
 		nil,
@@ -109,7 +109,7 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",
@@ -147,7 +147,7 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",
@@ -187,7 +187,7 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",
@@ -230,7 +230,7 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",
@@ -276,7 +276,7 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",
@@ -350,7 +350,7 @@ func testDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T, pk *ecdsa.Publi
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
+		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		},
 		"immudb",

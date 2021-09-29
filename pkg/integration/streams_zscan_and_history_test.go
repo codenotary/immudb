@@ -44,7 +44,7 @@ func TestImmuClient_StreamZScan(t *testing.T) {
 	defer bs.Stop()
 
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(
-		&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
+		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
@@ -102,7 +102,7 @@ func TestImmuClient_StreamHistory(t *testing.T) {
 	defer bs.Stop()
 
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(
-		&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
+		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))

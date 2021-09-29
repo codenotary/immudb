@@ -49,7 +49,7 @@ func TestStats_Status(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	cl := commandline{
 		options:        cliopt,
@@ -103,7 +103,7 @@ func TestStats_StatsText(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
 	cl := commandline{
@@ -157,7 +157,7 @@ func TestStats_StatsRaw(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
 	cl := commandline{
