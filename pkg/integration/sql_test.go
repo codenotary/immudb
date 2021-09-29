@@ -42,7 +42,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	defer bs.Stop()
 
 	clientOpts := ic.DefaultOptions().
-		WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
 		WithServerSigningPubKey("./../../test/signer/ec1.pub")
 
 	client, err := ic.NewImmuClient(clientOpts)
@@ -178,7 +178,7 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
 
 	_, err = client.SQLExec(context.Background(), "", map[string]interface{}{

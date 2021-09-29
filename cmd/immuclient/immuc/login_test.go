@@ -50,7 +50,7 @@ func TestLogin(t *testing.T) {
 	c.DefaultPasswordReader = &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
 	}
-	imc, err := Init(Options().WithDialOptions(&dialOptions))
+	imc, err := Init(Options().WithDialOptions(dialOptions))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestLogout(t *testing.T) {
 	pr.Pass = []string{"immudb"}
 	c.DefaultPasswordReader = pr
 
-	imc, err := Init(Options().WithDialOptions(&dialOptions))
+	imc, err := Init(Options().WithDialOptions(dialOptions))
 	if err != nil {
 		t.Fatal(err)
 	}

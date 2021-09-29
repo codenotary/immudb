@@ -29,7 +29,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"math/rand"
-	"net"
 	"os"
 	"testing"
 	"time"
@@ -336,37 +335,6 @@ func TestConnector_Driver(t *testing.T) {
 	require.IsType(t, &Driver{}, d)
 }
 
-func TestDriver_Open(t *testing.T) {
-	d := immuDriver
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3324/defaultdb")
-	require.Errorf(t, err, "connection error: desc = \"transport: Error while dialing dial tcp 127.0.0.1:3324: connect: connection refused\"")
-	require.Nil(t, conn)
-}
-
-func TestDriver_OpenSSLDisable(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", client.DefaultOptions().Port))
-	}
-	d := immuDriver
-	//disable, allow, prefer, require, verify-ca and verify-full . require, allow and prefer
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
-	require.NoError(t, err)
-	require.NotNil(t, conn)
-}
-
-func TestDriver_OpenSSLRequire(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", client.DefaultOptions().Port))
-	}
-	d := immuDriver
-	//disable, allow, prefer, require, verify-ca and verify-full . require, allow and prefer
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=require")
-	require.NoError(t, err)
-	require.NotNil(t, conn)
-}
-
 func TestDriverConnector_Driver(t *testing.T) {
 	c := immuConnector{
 		driver: immuDriver,
@@ -502,7 +470,7 @@ func TestRows(t *testing.T) {
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()

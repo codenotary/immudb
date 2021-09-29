@@ -18,9 +18,9 @@ func TestDatabaseList(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
@@ -78,9 +78,9 @@ func TestDatabaseCreate(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+	cliopt := Options().WithDialOptions(dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {

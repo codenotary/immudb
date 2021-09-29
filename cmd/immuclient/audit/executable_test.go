@@ -41,7 +41,7 @@ defer bs.Stop()
 	}
 	pidpath := "my_pid"
 	ad := new(auditAgent)
-	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidpath)
+	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidpath)
 	ad.logger = logger.NewSimpleLogger("test", os.Stdout)
 	_, err := ad.InitAgent()
 	if err != nil {

@@ -70,7 +70,7 @@ defer bs.Stop()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidPath)
+	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
 	if err != nil {
 		t.Fatal("InitAgent", err)
@@ -128,7 +128,7 @@ defer bs.Stop()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidPath)
+	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
 	if err != nil {
 		t.Fatal("InitAgent", err)
