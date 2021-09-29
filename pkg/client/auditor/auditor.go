@@ -87,7 +87,7 @@ type defaultAuditor struct {
 func DefaultAuditor(
 	interval time.Duration,
 	serverAddress string,
-	dialOptions *[]grpc.DialOption,
+	dialOptions []grpc.DialOption,
 	username string,
 	passwordBase64 string,
 	auditDatabases []string,
@@ -117,7 +117,7 @@ func DefaultAuditor(
 		0,
 		log,
 		serverAddress,
-		*dialOptions,
+		dialOptions,
 		history,
 		client.NewTimestampService(dt),
 		[]byte(username),

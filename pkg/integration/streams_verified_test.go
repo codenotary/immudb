@@ -45,7 +45,7 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 	defer os.Remove(".state-")
 
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(
-		&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
+		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))

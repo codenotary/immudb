@@ -72,7 +72,7 @@ func TestCommandLine_Connect(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	opts := Options()
-	opts.DialOptions = &dialOptions
+	opts.DialOptions = dialOptions
 	cmdl := commandline{
 		context: context.Background(),
 		options: opts,
@@ -96,7 +96,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
@@ -150,7 +150,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions)
+	cliopt := Options().WithDialOptions(dialOptions)
 
 	cliopt.Tkns = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin")
 	cmdl := commandline{
@@ -231,7 +231,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cmd.Execute()
 
 	cl.options = Options()
-	cl.options.DialOptions = &dialOptions
+	cl.options.DialOptions = dialOptions
 	cl.login(cmd)
 
 	cmd1 := cobra.Command{}
@@ -244,7 +244,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	}
 
 	cl1.options = Options()
-	cl1.options.DialOptions = &dialOptions1
+	cl1.options.DialOptions = dialOptions1
 	err := cl1.checkLoggedIn(&cmd1, nil)
 	assert.Nil(t, err)
 }

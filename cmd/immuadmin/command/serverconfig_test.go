@@ -48,7 +48,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 
 	hds := clienttest.DefaultHomedirServiceMock()
 	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
@@ -105,7 +105,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
+	cliopt.DialOptions = dialOptions
 
 	cl := commandline{
 		options:        cliopt,
@@ -157,7 +157,7 @@ func (c scIClientMock) Logout(ctx context.Context) error {
 func (c scIClientMock) GetOptions() *client.Options {
 	dialOptions := []grpc.DialOption{}
 	return &client.Options{
-		DialOptions: &dialOptions,
+		DialOptions: dialOptions,
 	}
 }
 
