@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc/metadata"
 )
 
 type Conn struct {
@@ -70,9 +69,6 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 		return nil, driver.ErrBadConn
 	}
 
-	md := metadata.Pairs("authorization", c.Token)
-	ctx = metadata.NewOutgoingContext(ctx, md)
-
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
 		return nil, err
@@ -90,8 +86,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	if !c.conn.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
-	md := metadata.Pairs("authorization", c.Token)
-	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
