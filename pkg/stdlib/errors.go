@@ -20,4 +20,5 @@ import "errors"
 
 var ErrNotImplemented = errors.New("not implemented")
 var ErrFloatValuesNotSupported = errors.New("float values are not yet supported by immudb")
+var ErrTimeValuesNotSupported = errors.New("time values are not yet supported by immudb")
 var ErrBadQueryString = errors.New("bad query string. use format immudb://username:secret@host:port/db")
