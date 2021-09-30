@@ -829,7 +829,7 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		return 0, 0, nil
 	}
 
-	snapshot := t.newSnapshot(0, t.root, false)
+	snapshot := t.newSnapshot(0, t.root)
 
 	// will overwrite partially written and uncommitted data
 	// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
@@ -903,7 +903,7 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 		return nil, err
 	}
 
-	return t.newSnapshot(0, t.root, false), nil
+	return t.newSnapshot(0, t.root), nil
 }
 
 // SnapshotCount returns the number of stored snapshots
@@ -1168,9 +1168,9 @@ func (t *TBtree) Ts() uint64 {
 	return t.root.ts()
 }
 
-func (t *TBtree) UnsafeSnashot() *Snapshot {
+func (t *TBtree) CurrentSnapshot() *Snapshot {
 	t.rwmutex.RLock()
-	return t.newSnapshot(0, t.root, true)
+	return t.newSnapshot(0, t.root)
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
@@ -1205,25 +1205,25 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 
 	t.maxSnapshotID++
 
-	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapRoot, false)
+	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapRoot)
 
 	t.snapshots[snapshot.id] = snapshot
 
 	return snapshot, nil
 }
 
-func (t *TBtree) newSnapshot(snapshotID uint64, root node, unsafe bool) *Snapshot {
+func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 	return &Snapshot{
 		t:       t,
 		id:      snapshotID,
 		root:    root,
-		unsafe:  unsafe,
 		readers: make(map[int]io.Closer),
 	}
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
-	if snapshot.unsafe {
+	// current snapshot
+	if snapshot.id == 0 {
 		t.rwmutex.RUnlock()
 		return nil
 	}

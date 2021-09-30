@@ -35,7 +35,6 @@ type Snapshot struct {
 	t           *TBtree
 	id          uint64
 	root        node
-	unsafe      bool
 	readers     map[int]io.Closer
 	maxReaderID int
 	closed      bool
