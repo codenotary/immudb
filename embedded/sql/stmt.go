@@ -556,6 +556,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		valbuf := bytes.Buffer{}
 
 		for _, col := range table.primaryIndex.cols {
+			if col.MaxLen() > maxKeyLen {
+				return nil, ErrMaxKeyLengthExceeded
+			}
+
 			rval, notNull := valuesByColID[col.id]
 			if !notNull {
 				return nil, ErrPKCanNotBeNull
@@ -564,10 +568,6 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
 			if err != nil {
 				return nil, err
-			}
-
-			if len(encVal) > maxKeyLen {
-				return nil, ErrMaxKeyLengthExceeded
 			}
 
 			_, err = valbuf.Write(encVal)
@@ -658,6 +658,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			encodedValues[2] = EncodeID(index.id)
 
 			for i, col := range index.cols {
+				if col.MaxLen() > maxKeyLen {
+					return nil, ErrMaxKeyLengthExceeded
+				}
+
 				rval, notNull := valuesByColID[col.id]
 				if !notNull {
 					return nil, ErrIndexedColumnCanNotBeNull
@@ -666,10 +670,6 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 				encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
 				if err != nil {
 					return nil, err
-				}
-
-				if len(encVal) > maxKeyLen {
-					return nil, ErrMaxKeyLengthExceeded
 				}
 
 				encodedValues[i+3] = encVal
