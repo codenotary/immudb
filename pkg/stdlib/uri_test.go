@@ -1,6 +1,8 @@
 package stdlib
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
@@ -47,4 +49,15 @@ func TestDriver_OpenSSLRequire(t *testing.T) {
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=require")
 	require.NoError(t, err)
 	require.NotNil(t, conn)
+}
+
+func Test_SQLOpen(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", client.DefaultOptions().Port))
+	}
+	db, err := sql.Open("immudb", "immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	require.NoError(t, err)
 }
