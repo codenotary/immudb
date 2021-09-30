@@ -266,7 +266,7 @@ func TestCreateIndex(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[50], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	db, err := engine.GetDatabaseByName("db1")
