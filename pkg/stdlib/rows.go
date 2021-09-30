@@ -194,17 +194,15 @@ func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, err
 
 	for id, nv := range args {
 		key := "param" + strconv.Itoa(id+1)
+		// nil pointers are here converted in nil value. Immudb expects only plain values
+		if reflect.ValueOf(nv).Kind() == reflect.Ptr && reflect.ValueOf(nv).IsNil() {
+			nv = nil
+		}
 		switch args[id].(type) {
-		case string:
-			vals[key] = nv
 		case time.Time:
-			vals[key] = nv.(time.Time).Unix()
-		case uint:
-			vals[key] = int64(nv.(uint))
+			return nil, ErrTimeValuesNotSupported
 		case float64:
 			return nil, ErrFloatValuesNotSupported
-		case interface{}:
-			vals[key] = nv
 		default:
 			vals[key] = nv
 		}
