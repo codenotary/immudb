@@ -1383,26 +1383,6 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		LastInsertedPKs: make(map[string]int64),
 	}
 
-	lastTxID, _ := e.dataStore.Alh()
-	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	e.snapshot = e.dataStore.UnsafeSnapshot()
-	defer func() {
-		e.snapshot.Close()
-		e.snapshot = nil
-
-		if waitForIndexing {
-			lastTxID, _ := e.dataStore.Alh()
-			e.dataStore.WaitForIndexingUpto(lastTxID, nil)
-
-			lastTxID, _ = e.catalogStore.Alh()
-			e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
-		}
-	}()
-
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
 	if err != nil {
@@ -1424,7 +1404,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.ces) > 0 {
-			txmd, err := e.catalogStore.Commit(txSummary.ces, false)
+			txmd, err := e.catalogStore.Commit(txSummary.ces, waitForIndexing)
 			// TODO (jeroiraz): implement transactional in-memory catalog
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
@@ -1435,7 +1415,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.des) > 0 {
-			txmd, err := e.dataStore.Commit(txSummary.des, false)
+			txmd, err := e.dataStore.Commit(txSummary.des, waitForIndexing)
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
 				return summary, err

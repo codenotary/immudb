@@ -419,6 +419,9 @@ func TestUpsertInto(t *testing.T) {
 		require.Len(t, row.Values, 2)
 		require.Equal(t, int64(20), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
 		require.False(t, row.Values[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("row with pk 1 should have active in true", func(t *testing.T) {
@@ -436,6 +439,9 @@ func TestUpsertInto(t *testing.T) {
 		require.Len(t, row.Values, 2)
 		require.Equal(t, int64(10), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
 		require.True(t, row.Values[EncodeSelector("", "db1", "table1", "active")].Value().(bool))
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, true)

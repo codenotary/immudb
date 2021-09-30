@@ -603,10 +603,10 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
 	}, nil
 }
 
-func (s *ImmuStore) UnsafeSnapshot() *Snapshot {
+func (s *ImmuStore) CurrentSnapshot() *Snapshot {
 	return &Snapshot{
 		st:   s,
-		snap: s.indexer.index.UnsafeSnashot(),
+		snap: s.indexer.index.CurrentSnapshot(),
 	}
 }
 

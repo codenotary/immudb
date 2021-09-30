@@ -761,12 +761,25 @@ func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 		rangesByColID: pkRanges,
 	}
 
-	r, err := e.newRawRowReader(e.snapshot, table, 0, table.name, scanSpecs)
+	lastTxID, _ := e.dataStore.Alh()
+	err := e.dataStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	defer r.Close()
+	snapshot := e.dataStore.CurrentSnapshot()
+	defer func() {
+		snapshot.Close()
+	}()
+
+	r, err := e.newRawRowReader(snapshot, table, 0, table.name, scanSpecs)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		r.Close()
+	}()
 
 	return r.Read()
 }
@@ -804,17 +817,13 @@ func (e *Engine) deleteIndexEntriesFor(
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
-		// some rows might not indexed by every index
-		indexed := true
-
 		// existent index entry is deleted only if it differs from existent one
 		sameIndexKey := true
 
 		for i, col := range index.cols {
 			currVal, notNull := currValuesByColID[col.id]
 			if !notNull {
-				indexed = false
-				break
+				return nil, ErrCorruptedData
 			}
 
 			newVal, notNull := newValuesByColID[col.id]
@@ -830,10 +839,6 @@ func (e *Engine) deleteIndexEntriesFor(
 			encVal, _ := EncodeAsKey(currVal.Value(), col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
-		}
-
-		if !indexed {
-			continue
 		}
 
 		// mark existent index entry as deleted
