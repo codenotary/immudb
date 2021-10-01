@@ -1098,40 +1098,38 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 func intFrom(val interface{}) (int64, error) {
 	intVal, ok := val.(int64)
-	if !ok {
-		str, ok := val.(string)
-		if !ok {
-			return 0, ErrInvalidValue
-		}
+	if ok {
+		return intVal, nil
+	}
 
-		n, err := strconv.Atoi(str)
+	str, ok := val.(string)
+	if ok {
+		intVal, err := strconv.Atoi(str)
 		if err != nil {
 			return 0, ErrInvalidValue
 		}
-
-		intVal = int64(n)
+		return int64(intVal), nil
 	}
 
-	return intVal, nil
+	return 0, ErrInvalidValue
 }
 
 func boolFrom(val interface{}) (bool, error) {
 	boolVal, ok := val.(bool)
-	if !ok {
-		str, ok := val.(string)
-		if !ok {
-			return false, ErrInvalidValue
-		}
+	if ok {
+		return boolVal, nil
+	}
 
-		b, err := strconv.ParseBool(str)
+	str, ok := val.(string)
+	if ok {
+		boolVal, err := strconv.ParseBool(str)
 		if err != nil {
 			return false, ErrInvalidValue
 		}
-
-		boolVal = b
+		return boolVal, nil
 	}
 
-	return boolVal, nil
+	return false, ErrInvalidValue
 }
 
 func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
