@@ -629,3 +629,19 @@ func TestIsConstant(t *testing.T) {
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
 }
+
+func TestComparisonWithTypeConversion(t *testing.T) {
+	r, err := (&Number{val: 0}).Compare(&Varchar{val: "0"})
+	require.NoError(t, err)
+	require.Zero(t, r)
+
+	_, err = (&Number{val: 0}).Compare(&Varchar{val: "invalid"})
+	require.ErrorIs(t, err, ErrNotComparableValues)
+
+	_, err = (&Bool{val: true}).Compare(&Varchar{val: "true"})
+	require.NoError(t, err)
+	require.Zero(t, r)
+
+	_, err = (&Bool{val: true}).Compare(&Varchar{val: "invalid"})
+	require.ErrorIs(t, err, ErrNotComparableValues)
+}

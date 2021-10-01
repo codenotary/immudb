@@ -926,11 +926,22 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	if val.Type() != IntegerType {
+	if val.Type() != IntegerType && val.Type() != VarcharType {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(int64)
+	var rval int64
+
+	if val.Type() == VarcharType {
+		n, err := intFrom(val.Value())
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+
+		rval = n
+	} else {
+		rval = val.Value().(int64)
+	}
 
 	if v.val == rval {
 		return 0, nil
@@ -956,11 +967,27 @@ func (v *Varchar) inferType(cols map[string]*ColDescriptor, params map[string]SQ
 }
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if t != VarcharType {
-		return ErrInvalidTypes
+	if t == VarcharType {
+		return nil
 	}
 
-	return nil
+	if t == IntegerType {
+		_, err := intFrom(v.val)
+		if err != nil {
+			return ErrInvalidTypes
+		}
+		return nil
+	}
+
+	if t == BooleanType {
+		_, err := boolFrom(v.val)
+		if err != nil {
+			return ErrInvalidTypes
+		}
+		return nil
+	}
+
+	return ErrInvalidTypes
 }
 
 func (v *Varchar) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1052,11 +1079,22 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	if val.Type() != BooleanType {
+	if val.Type() != BooleanType && val.Type() != VarcharType {
 		return 0, ErrNotComparableValues
 	}
 
-	rval := val.Value().(bool)
+	var rval bool
+
+	if val.Type() == VarcharType {
+		b, err := boolFrom(val.Value())
+		if err != nil {
+			return 0, ErrNotComparableValues
+		}
+
+		rval = b
+	} else {
+		rval = val.Value().(bool)
+	}
 
 	if v.val == rval {
 		return 0, nil

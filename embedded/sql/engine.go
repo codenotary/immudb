@@ -943,9 +943,9 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case IntegerType:
 		{
-			intVal, ok := val.(int64)
-			if !ok {
-				return nil, ErrInvalidValue
+			intVal, err := intFrom(val)
+			if err != nil {
+				return nil, err
 			}
 
 			// map to unsigned integer space
@@ -958,9 +958,9 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case BooleanType:
 		{
-			boolVal, ok := val.(bool)
-			if !ok {
-				return nil, ErrInvalidValue
+			boolVal, err := boolFrom(val)
+			if err != nil {
+				return nil, err
 			}
 
 			// len(v) + v
@@ -1037,9 +1037,9 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			intVal, ok := val.(int64)
-			if !ok {
-				return nil, ErrInvalidValue
+			intVal, err := intFrom(val)
+			if err != nil {
+				return nil, err
 			}
 
 			// v
@@ -1056,9 +1056,9 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrCorruptedData
 			}
 
-			boolVal, ok := val.(bool)
-			if !ok {
-				return nil, ErrInvalidValue
+			boolVal, err := boolFrom(val)
+			if err != nil {
+				return nil, err
 			}
 
 			// v
@@ -1094,6 +1094,44 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 	*/
 
 	return nil, ErrInvalidValue
+}
+
+func intFrom(val interface{}) (int64, error) {
+	intVal, ok := val.(int64)
+	if !ok {
+		str, ok := val.(string)
+		if !ok {
+			return 0, ErrInvalidValue
+		}
+
+		n, err := strconv.Atoi(str)
+		if err != nil {
+			return 0, ErrInvalidValue
+		}
+
+		intVal = int64(n)
+	}
+
+	return intVal, nil
+}
+
+func boolFrom(val interface{}) (bool, error) {
+	boolVal, ok := val.(bool)
+	if !ok {
+		str, ok := val.(string)
+		if !ok {
+			return false, ErrInvalidValue
+		}
+
+		b, err := strconv.ParseBool(str)
+		if err != nil {
+			return false, ErrInvalidValue
+		}
+
+		boolVal = b
+	}
+
+	return boolVal, nil
 }
 
 func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {

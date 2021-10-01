@@ -379,6 +379,15 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, true)
 	require.NoError(t, err)
 
+	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES ('1', 'some title', 'false')", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES ('invalid', 'some title', 'false')", nil, true)
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES ('1', 'some title', 'invalid')", nil, true)
+	require.Equal(t, ErrInvalidValue, err)
+
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, 'another title', true)", nil, true)
 	require.NoError(t, err)
 
@@ -389,6 +398,9 @@ func TestUpsertInto(t *testing.T) {
 	require.Equal(t, ErrDuplicatedColumn, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES ('1', true)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES ('true', 1)", nil, true)
 	require.Equal(t, ErrInvalidValue, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil, true)
@@ -434,7 +446,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE INDEX ON table1 (payload)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, true)
+	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', 'true', x'00A1')", nil, true)
 	require.NoError(t, err)
 
 	t.Run("varchar key cases", func(t *testing.T) {
@@ -446,7 +458,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	})
 
 	t.Run("boolean key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', 'true', x'00A1')", nil, true)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', 'eurt', x'00A1')", nil, true)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
@@ -3133,6 +3145,10 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
+	params, err = engine.InferParameters("INSERT INTO mytable(id, title, active) VALUES ('1', 'title1', 'false')")
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
 	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1'), (@id2, @title2)")
 	require.NoError(t, err)
 	require.Len(t, params, 2)
@@ -3294,7 +3310,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	_, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, hash blob[32], PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)")
@@ -3314,6 +3330,18 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	_, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@param1, @param1) COMMIT")
 	require.Equal(t, ErrInferredMultipleTypes, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, active) VALUES ('true', 1)")
+	require.Equal(t, ErrInvalidTypes, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, active) VALUES ('1', 1)")
+	require.Equal(t, ErrInvalidTypes, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, active) VALUES (1, 'invalid')")
+	require.Equal(t, ErrInvalidTypes, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, hash) VALUES (1, 'invalid')")
+	require.Equal(t, ErrInvalidTypes, err)
 
 	err = engine.Close()
 	require.NoError(t, err)
