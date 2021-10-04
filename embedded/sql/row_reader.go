@@ -260,7 +260,6 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 
 	if !scanSpecs.index.IsPrimary() && !scanSpecs.index.IsUnique() {
 		// non-unique index entries include encoded pk values as suffix
-
 		if scanSpecs.descOrder {
 			seekKey = append(seekKey, KeyValPrefixUpperBound)
 		} else {

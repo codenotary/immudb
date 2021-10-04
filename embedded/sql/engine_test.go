@@ -306,7 +306,7 @@ func TestUpsertInto(t *testing.T) {
 	})
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, nil)
-	require.ErrorIs(t, err, ErrIndexedColumnCanNotBeNull)
+	require.NoError(t, err)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (Id, Title, Amount, Active) VALUES (1, 'some title', 100, false)", nil, nil)
 	require.NoError(t, err)
@@ -2063,16 +2063,16 @@ func TestOrderBy(t *testing.T) {
 	params := make(map[string]interface{}, 1)
 	params["age"] = nil
 	_, _, err = engine.Exec("INSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params, nil)
-	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
+	require.NoError(t, err)
 
-	_, _, err = engine.Exec("INSERT INTO table1 (id, title) VALUES (1, 'title')", nil, nil)
-	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title) VALUES (2, 'title')", nil, nil)
+	require.NoError(t, err)
 
 	rowCount := 1
 
 	for i := 0; i < rowCount; i++ {
 		params := make(map[string]interface{}, 3)
-		params["id"] = i
+		params["id"] = i + 3
 		params["title"] = fmt.Sprintf("title%d", i)
 		params["age"] = 40 + i
 
@@ -2090,13 +2090,29 @@ func TestOrderBy(t *testing.T) {
 	require.Equal(t, "table1", orderBy[0].Table)
 	require.Equal(t, "db1", orderBy[0].Database)
 
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(2), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, int64(i+3), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, int64(40+i), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
@@ -2107,13 +2123,29 @@ func TestOrderBy(t *testing.T) {
 	r, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY age", nil, nil)
 	require.NoError(t, err)
 
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(2), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, int64(i+3), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, int64(40+i), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
@@ -2130,10 +2162,26 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, int64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, int64(rowCount-1-i+3), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, int64(40-(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(2), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 3)
+
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+	require.Equal(t, "title", row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+	require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2807,6 +2855,59 @@ func TestJoins(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+}
+
+func TestJoinsWithNullIndexes(t *testing.T) {
+	st, err := store.Open("sqldata_join_nullable_index", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_join_nullable_index")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		CREATE TABLE table1 (id INTEGER, fkid2 INTEGER, PRIMARY KEY id);
+		CREATE TABLE table2 (id INTEGER, id2 INTEGER, val INTEGER, PRIMARY KEY id);
+		CREATE INDEX ON table2(id2);
+
+		INSERT INTO table2(id, id2, val) VALUES (1, 1, 100), (2, null, 200);
+		INSERT INTO table1(id, fkid2) VALUES (10, 1), (20, null);
+	`, nil, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query(`
+			SELECT table2.val
+			FROM table1 INNER JOIN table2 ON table1.fkid2 = table2.id2
+			ORDER BY table1.id`, nil, nil)
+	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 1)
+
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	require.Len(t, row.Values, 1)
+	require.EqualValues(t, 100, row.Values[EncodeSelector("", "db1", "table2", "val")].Value())
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	require.Len(t, row.Values, 1)
+	require.EqualValues(t, 200, row.Values[EncodeSelector("", "db1", "table2", "val")].Value())
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = r.Close()
+	require.NoError(t, err)
 }
 
 func TestJoinsWithJointTable(t *testing.T) {
@@ -3791,5 +3892,212 @@ func TestEncodeAsKeyEdgeCases(t *testing.T) {
 
 		_, err = EncodeAsKey([]byte{1, 2, 3}, BLOBType, 2)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
+	})
+}
+
+func TestIndexingNullableColumns(t *testing.T) {
+	st, err := store.Open("catalog_indexing_nullable", store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+	defer os.RemoveAll("catalog_indexing_nullable")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	exec := func(t *testing.T, stmt string) *SQLTx {
+		ret, _, err := engine.Exec(stmt, nil, nil)
+		require.NoError(t, err)
+		return ret
+	}
+	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
+		reader, err := engine.Query(stmt, nil, nil)
+		require.NoError(t, err)
+
+		for _, expectedRow := range expectedRows {
+			row, err := reader.Read()
+			require.NoError(t, err)
+
+			require.EqualValues(t, expectedRow, row)
+		}
+
+		_, err = reader.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = reader.Close()
+		require.NoError(t, err)
+	}
+
+	colVal := func(t *testing.T, v interface{}, tp SQLValueType) TypedValue {
+		switch v := v.(type) {
+		case nil:
+			return &NullValue{t: tp}
+		case int:
+			return &Number{val: int64(v)}
+		case string:
+			return &Varchar{val: v}
+		case []byte:
+			return &Blob{val: v}
+		case bool:
+			return &Bool{val: v}
+		}
+		require.Fail(t, "Unknown type of value")
+		return nil
+	}
+
+	t1Row := func(id int64, v1, v2 interface{}) *Row {
+		return &Row{
+			Values: map[string]TypedValue{
+				EncodeSelector("", "db1", "table1", "id"): &Number{val: id},
+				EncodeSelector("", "db1", "table1", "v1"): colVal(t, v1, IntegerType),
+				EncodeSelector("", "db1", "table1", "v2"): colVal(t, v2, VarcharType),
+			},
+		}
+	}
+
+	t2Row := func(id int64, v1, v2, v3, v4 interface{}) *Row {
+		return &Row{
+			Values: map[string]TypedValue{
+				EncodeSelector("", "db1", "table2", "id"): &Number{val: id},
+				EncodeSelector("", "db1", "table2", "v1"): colVal(t, v1, IntegerType),
+				EncodeSelector("", "db1", "table2", "v2"): colVal(t, v2, VarcharType),
+				EncodeSelector("", "db1", "table2", "v3"): colVal(t, v3, BooleanType),
+				EncodeSelector("", "db1", "table2", "v4"): colVal(t, v4, BLOBType),
+			},
+		}
+	}
+
+	exec(t, `
+		CREATE TABLE table1 (
+			id INTEGER AUTO_INCREMENT,
+			v1 INTEGER,
+			v2 VARCHAR[16],
+			PRIMARY KEY(id)
+		)
+	`)
+	exec(t, "CREATE INDEX ON table1 (v1, v2)")
+	query(t, "SELECT * FROM table1 USE INDEX ON(v1,v2)")
+
+	t.Run("succeed adding non-null columns", func(t *testing.T) {
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(1, '2')")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2)",
+			t1Row(1, 1, "2"),
+		)
+
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(1, '3')")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+	})
+
+	t.Run("succeed adding null columns as the second indexed column", func(t *testing.T) {
+
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(1, null)")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(3, 1, nil),
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(1, null)")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(3, 1, nil),
+			t1Row(4, 1, nil),
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(2, null)")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(3, 1, nil),
+			t1Row(4, 1, nil),
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+	})
+
+	t.Run("succeed adding null columns as the first indexed column", func(t *testing.T) {
+		exec(t, "INSERT INTO table1(v1,v2) VALUES(null, '4')")
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(3, 1, nil),
+			t1Row(4, 1, nil),
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=1 ORDER BY v2",
+			t1Row(3, 1, nil),
+			t1Row(4, 1, nil),
+			t1Row(1, 1, "2"),
+			t1Row(2, 1, "3"),
+		)
+	})
+
+	t.Run("succeed querying null columns using index", func(t *testing.T) {
+		query(t,
+			"SELECT * FROM table1 USE INDEX ON(v1,v2) WHERE v1=null",
+			t1Row(6, nil, "4"),
+		)
+	})
+
+	t.Run("suceed creating table with two indexes", func(t *testing.T) {
+
+		exec(t, `
+			CREATE TABLE table2 (
+				id INTEGER AUTO_INCREMENT,
+				v1 INTEGER,
+				v2 VARCHAR[16],
+				v3 BOOLEAN,
+				v4 BLOB[15],
+				PRIMARY KEY(id)
+			)
+		`)
+
+		exec(t, "CREATE INDEX ON table2(v1, v2)")
+		exec(t, "CREATE UNIQUE INDEX ON table2(v3, v4)")
+
+		query(t, "SELECT * FROM table2 USE INDEX ON(v3,v4)")
+
+	})
+
+	t.Run("succeed inserting data on table with two indexes", func(t *testing.T) {
+		exec(t, "INSERT INTO table2(v1, v2, v3, v4) VALUES(null, null, null, null)")
+		query(t, "SELECT * FROM table2 USE INDEX ON(v1, v2)", t2Row(1, nil, nil, nil, nil))
+		query(t, "SELECT * FROM table2 USE INDEX ON(v3, v4)", t2Row(1, nil, nil, nil, nil))
+	})
+
+	t.Run("fail adding entries with duplicate with nulls", func(t *testing.T) {
+		_, _, err := engine.Exec("INSERT INTO table2(v1, v2, v3, v4) VALUES(1, '2', null, null)", nil, nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
+	})
+
+	t.Run("succeed scanning multiple rows on table with two indexes", func(t *testing.T) {
+		exec(t, `
+			INSERT INTO table2(v1,v2,v3,v4) VALUES
+			(1,'2',true, null),
+			(3,'4',null, x'1234'),
+			(5,'6',false, x'5678')
+		`)
+
+		// Order for boolean must be null -> false -> true
+		query(t, "SELECT * FROM table2 USE INDEX ON(v3, v4)",
+			t2Row(1, nil, nil, nil, nil),
+			t2Row(3, 3, "4", nil, []byte{0x12, 0x34}),
+			t2Row(4, 5, "6", false, []byte{0x56, 0x78}),
+			t2Row(2, 1, "2", true, nil),
+		)
 	})
 }

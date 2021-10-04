@@ -494,6 +494,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
 			if !specified {
+				// TODO: Default values
 				if col.notNull {
 					return nil, ErrNotNullableColumnCannotBeNull
 				}
@@ -675,9 +676,9 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 				return ErrMaxKeyLengthExceeded
 			}
 
-			rval, notNull := valuesByColID[col.id]
-			if !notNull {
-				return ErrIndexedColumnCanNotBeNull
+			rval, isNotNull := valuesByColID[col.id]
+			if !isNotNull {
+				rval = &NullValue{t: col.colType}
 			}
 
 			encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
@@ -801,20 +802,22 @@ func (tx *SQLTx) deprecateIndexEntries(
 		sameIndexKey := true
 
 		for i, col := range index.cols {
-			currVal, notNull := currValuesByColID[col.id]
-			if !notNull {
-				return nil, ErrCorruptedData
+			currVal, isNotNull := currValuesByColID[col.id]
+			if !isNotNull {
+				currVal = &NullValue{t: col.colType}
 			}
 
-			newVal, notNull := newValuesByColID[col.id]
-			if notNull {
-				r, err := currVal.Compare(newVal)
-				if err != nil {
-					return nil, err
-				}
-
-				sameIndexKey = sameIndexKey && r == 0
+			newVal, isNotNull := newValuesByColID[col.id]
+			if !isNotNull {
+				newVal = &NullValue{t: col.colType}
 			}
+
+			r, err := currVal.Compare(newVal)
+			if err != nil {
+				return nil, err
+			}
+
+			sameIndexKey = sameIndexKey && r == 0
 
 			encVal, _ := EncodeAsKey(currVal.Value(), col.colType, col.MaxLen())
 
