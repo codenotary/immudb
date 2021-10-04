@@ -171,100 +171,60 @@ func newRawRowReader(tx *SQLTx, table *Table, asBefore uint64, tableAlias string
 func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
 	prefix := mapKey(sqlPrefix, scanSpecs.index.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
 
-	var seekKey []byte
-	var seekKeyReady bool
+	var loKey []byte
+	var loKeyReady bool
 
-	var endKey []byte
-	var endKeyReady bool
+	var hiKey []byte
+	var hiKeyReady bool
 
-	seekKey = make([]byte, len(prefix))
-	copy(seekKey, prefix)
+	loKey = make([]byte, len(prefix))
+	copy(loKey, prefix)
 
-	endKey = make([]byte, len(prefix))
-	copy(endKey, prefix)
+	hiKey = make([]byte, len(prefix))
+	copy(hiKey, prefix)
 
+	// seekKey and endKey in the loop below are scan prefixes for beginning
+	// and end of the index scanning range. On each index we try to make them more
+	// concrete.
 	for _, col := range scanSpecs.index.cols {
 		colRange, ok := scanSpecs.rangesByColID[col.id]
 		if !ok {
-			if scanSpecs.descOrder {
-				if !seekKeyReady {
-					seekKey = append(seekKey, KeyValPrefixUpperBound)
-				}
-				endKeyReady = true
+			break
+		}
+
+		if !hiKeyReady {
+			if colRange.hRange == nil {
+				hiKeyReady = true
 			} else {
-				if !endKeyReady {
-					endKey = append(endKey, KeyValPrefixUpperBound)
+				encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
+				if err != nil {
+					return nil, err
 				}
-				seekKeyReady = true
-			}
-
-			continue
-		}
-
-		if scanSpecs.descOrder {
-			if !seekKeyReady {
-				if colRange.hRange == nil {
-					seekKey = append(seekKey, KeyValPrefixUpperBound)
-				}
-
-				if colRange.hRange != nil {
-					encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
-					if err != nil {
-						return nil, err
-					}
-					seekKey = append(seekKey, encVal...)
-				}
-			}
-
-			if !endKeyReady {
-				endKeyReady = colRange.lRange == nil
-
-				if colRange.lRange != nil {
-					encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
-					if err != nil {
-						return nil, err
-					}
-					endKey = append(endKey, encVal...)
-				}
+				hiKey = append(hiKey, encVal...)
 			}
 		}
 
-		if !scanSpecs.descOrder {
-			if !seekKeyReady {
-				seekKeyReady = colRange.lRange == nil
-
-				if colRange.lRange != nil {
-					encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
-					if err != nil {
-						return nil, err
-					}
-					seekKey = append(seekKey, encVal...)
+		if !loKeyReady {
+			if colRange.lRange == nil {
+				loKeyReady = true
+			} else {
+				encVal, err := EncodeAsKey(colRange.lRange.val.Value(), col.colType, col.MaxLen())
+				if err != nil {
+					return nil, err
 				}
-			}
-
-			if !endKeyReady {
-				if colRange.hRange == nil {
-					endKey = append(endKey, KeyValPrefixUpperBound)
-				}
-
-				if colRange.hRange != nil {
-					encVal, err := EncodeAsKey(colRange.hRange.val.Value(), col.colType, col.MaxLen())
-					if err != nil {
-						return nil, err
-					}
-					endKey = append(endKey, encVal...)
-				}
+				loKey = append(loKey, encVal...)
 			}
 		}
 	}
 
-	if !scanSpecs.index.IsPrimary() && !scanSpecs.index.IsUnique() {
-		// non-unique index entries include encoded pk values as suffix
-		if scanSpecs.descOrder {
-			seekKey = append(seekKey, KeyValPrefixUpperBound)
-		} else {
-			endKey = append(endKey, KeyValPrefixUpperBound)
-		}
+	// Ensure the hiKey is inclusive regarding all values with that prefix
+	hiKey = append(hiKey, KeyValPrefixUpperBound)
+
+	seekKey := loKey
+	endKey := hiKey
+
+	if scanSpecs.descOrder {
+		seekKey, endKey = endKey, seekKey
 	}
 
 	return &store.KeyReaderSpec{
