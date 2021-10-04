@@ -53,10 +53,10 @@ rebuild: clean build/codegen all
 .PHONY: webconsole
 ifdef WEBCONSOLE
 webconsole: ./webconsole/dist
-	$(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
 else
 webconsole:
-	$(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
+	env -u GOOS -u GOARCH $(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
 endif
 
 # To be called manually to update the default webconsole
