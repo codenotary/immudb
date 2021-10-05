@@ -20,6 +20,8 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsStrongPassword(t *testing.T) {
@@ -40,24 +42,17 @@ func TestIsStrongPassword(t *testing.T) {
 		t.Errorf("IsStrongPassword failed to detect non allowed character")
 	}
 }
+
 func TestDecodeBase64Password(t *testing.T) {
 	pass := "pass"
 	_, err := DecodeBase64Password(pass)
-	if err != err {
-		t.Errorf("DecodeBase64Password error detected wrong password")
-	}
+	require.NoError(t, err)
+
 	pass = "enc:" + base64.StdEncoding.EncodeToString([]byte("password"))
 	decodedPass, err := DecodeBase64Password(pass)
-	if err != err {
-		t.Errorf("DecodeBase64Password %s", err)
-	}
-	if decodedPass != "password" {
-		t.Errorf("DecodeBase64Password error decoding password")
-	}
+	require.NoError(t, err)
+	require.Equal(t, "password", decodedPass)
 
 	_, err = DecodeBase64Password(strings.TrimSuffix(pass, "="))
-	if err != err {
-		t.Errorf("DecodeBase64Password %s", err)
-	}
-
+	require.Error(t, err)
 }
