@@ -36,15 +36,14 @@ type Rows struct {
 }
 
 func (r *Rows) Columns() []string {
+	names := make([]string, 0)
 	if len(r.rows) > 0 {
-		names := make([]string, 0)
 		for _, n := range r.rows[0].Columns {
 			name := n[strings.LastIndex(n, ".")+1 : len(n)-1]
 			names = append(names, string(name))
 		}
-		return names
 	}
-	return nil
+	return names
 }
 
 // ColumnTypeDatabaseTypeName
@@ -119,7 +118,7 @@ func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
 }
 
 // ColumnTypePrecisionScale should return the precision and scale for decimal
-// types. If not applicable, ok should be false.
+// types. If not applicable, variableLenght should be false.
 func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	return 0, 0, false
 }
@@ -145,7 +144,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 		}
 	case *schema.SQLValue_B:
 		{
-			return reflect.TypeOf(false)
+			return reflect.TypeOf(true)
 		}
 	case *schema.SQLValue_Bs:
 		{

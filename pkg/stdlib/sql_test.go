@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
@@ -260,7 +259,7 @@ func TestDriverValuer(t *testing.T) {
 	require.Equal(t, true, isPresent)
 }
 
-func TestDriverConnector_ConnectErr(t *testing.T) {
+func TestImmuConnector_ConnectErr(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
@@ -282,7 +281,7 @@ func TestDriverConnector_ConnectErr(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDriverConnector_ConnectLoginErr(t *testing.T) {
+func TestImmuConnector_ConnectLoginErr(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
@@ -304,7 +303,7 @@ func TestDriverConnector_ConnectLoginErr(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDriverConnector_ConnectUseDatabaseErr(t *testing.T) {
+func TestImmuConnector_ConnectUseDatabaseErr(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
@@ -327,15 +326,7 @@ func TestDriverConnector_ConnectUseDatabaseErr(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestConnector_Driver(t *testing.T) {
-	c := immuConnector{
-		driver: immuDriver,
-	}
-	d := c.Driver()
-	require.IsType(t, &Driver{}, d)
-}
-
-func TestDriverConnector_Driver(t *testing.T) {
+func TestImmuConnector_Driver(t *testing.T) {
 	c := immuConnector{
 		driver: immuDriver,
 	}
@@ -410,49 +401,6 @@ func TestConn_QueryContextErr(t *testing.T) {
 	require.Error(t, err)
 	_, err = db.QueryContext(context.TODO(), "SELECT * FROM myTable")
 	require.Error(t, err)
-}
-
-func TestParseConfig(t *testing.T) {
-	connString := "immudb://immudb:immudb@127.0.0.1:3324/defaultdb"
-	ris, err := ParseConfig(connString)
-	require.NoError(t, err)
-	require.NotNil(t, ris)
-	require.Equal(t, "immudb", ris.Username)
-	require.Equal(t, "immudb", ris.Password)
-	require.Equal(t, "defaultdb", ris.Database)
-	require.Equal(t, "127.0.0.1", ris.Address)
-	require.Equal(t, 3324, ris.Port)
-}
-
-func TestParseConfigErrs(t *testing.T) {
-	connString := "immudb://immudb:immudb@127.0.0.1:aaa/defaultdb"
-	_, err := ParseConfig(connString)
-	require.Error(t, err)
-	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb"
-	_, err = ParseConfig(connString)
-	require.Error(t, err)
-}
-
-func TestRows(t *testing.T) {
-	r := Rows{
-		index: 0,
-		conn:  nil,
-		rows: []*schema.Row{{
-			Columns: []string{"c1"},
-			Values:  []*schema.SQLValue{{Value: nil}},
-		}},
-	}
-
-	ast := r.Columns()
-	require.Equal(t, "c", ast[0])
-	st := r.ColumnTypeDatabaseTypeName(1)
-	require.Equal(t, "", st)
-	num, b := r.ColumnTypeLength(1)
-	require.Equal(t, int64(0), num)
-	require.False(t, b)
-	_, _, _ = r.ColumnTypePrecisionScale(1)
-	ty := r.ColumnTypeScanType(1)
-	require.Nil(t, ty)
 }
 
 /*func TestConn_Ping(t *testing.T) {
