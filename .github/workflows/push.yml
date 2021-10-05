@@ -165,8 +165,3 @@ jobs:
           go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version || true
           cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
           goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
-      - name: Analyze with SonarCloud
-          uses: sonarsource/sonarcloud-github-action@master
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
