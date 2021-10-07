@@ -3205,6 +3205,99 @@ func TestSubQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestJoinsWithSubquery(t *testing.T) {
+	catalogStore, err := store.Open("catalog_subq", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_subq")
+
+	dataStore, err := store.Open("sqldata_subq", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_subq")
+
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt(`
+		CREATE TABLE IF NOT EXISTS customers (
+			id            INTEGER,
+			customer_name VARCHAR[60],
+			email         VARCHAR[150],
+			address       VARCHAR,
+			city          VARCHAR,
+			ip            VARCHAR[40],
+			country       VARCHAR[15],
+			age           INTEGER,
+			active        BOOLEAN,
+			PRIMARY KEY (id)
+		);
+
+		CREATE TABLE customer_review(
+			customerid INTEGER,
+			productid  INTEGER,
+			review     VARCHAR,
+			PRIMARY KEY (customerid, productid)
+		);
+
+		INSERT INTO customers (
+			id, customer_name, email, address,
+			city, ip, country, age, active
+		)
+		VALUES (
+			1,
+			'Isidro Behnen',
+			'ibehnen0@mail.ru',
+			'ibehnen0@chronoengine.com',
+			'Arvika',
+			'127.0.0.15',
+			'SE',
+			24,
+			true
+		);
+		
+		INSERT INTO customer_review (customerid, productid, review)
+		VALUES(1, 1, 'Nice Juice!');
+	`, nil, true)
+	require.NoError(t, err)
+
+	r, err := engine.QueryStmt(`
+		SELECT * FROM (
+			SELECT id, customer_name, age
+			FROM customers
+			AS c
+		)
+		INNER JOIN (
+			SELECT customerid, COUNT() as review_count
+			FROM customer_review
+			AS r
+		) ON r.customerid = c.id
+		WHERE c.age < 30
+		`,
+		nil, true)
+	require.NoError(t, err)
+
+	row, err := r.Read()
+	require.NoError(t, err)
+
+	require.Len(t, row.Values, 5)
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "c", "id")].Value())
+	require.Equal(t, "Isidro Behnen", row.Values[EncodeSelector("", "db1", "c", "customer_name")].Value())
+	require.Equal(t, int64(24), row.Values[EncodeSelector("", "db1", "c", "age")].Value())
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "r", "customerid")].Value())
+	require.Equal(t, int64(1), row.Values[EncodeSelector("", "db1", "r", "review_count")].Value())
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
 func TestInferParameters(t *testing.T) {
 	catalogStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
 	require.NoError(t, err)
