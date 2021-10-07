@@ -2492,17 +2492,9 @@ func (bexp *InListExp) inferType(cols map[string]*ColDescriptor, params map[stri
 	}
 
 	for _, v := range bexp.values {
-		vt, err := v.inferType(cols, params, implicitDB, implicitTable)
+		err = v.requiresType(t, cols, params, implicitDB, implicitTable)
 		if err != nil {
 			return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", err)
-		}
-
-		if t == AnyType || vt == AnyType {
-			continue
-		}
-
-		if t != vt {
-			return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrInvalidTypes)
 		}
 	}
 
@@ -2510,6 +2502,11 @@ func (bexp *InListExp) inferType(cols map[string]*ColDescriptor, params map[stri
 }
 
 func (bexp *InListExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	_, err := bexp.inferType(cols, params, implicitDB, implicitTable)
+	if err != nil {
+		return err
+	}
+
 	if t != BooleanType {
 		return fmt.Errorf("error inferring type in 'IN' clause: %w", ErrInvalidTypes)
 	}
@@ -2568,9 +2565,15 @@ func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTa
 }
 
 func (bexp *InListExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	values := make([]ValueExp, len(bexp.values))
+
+	for i, val := range bexp.values {
+		values[i] = val.reduceSelectors(row, implicitDB, implicitTable)
+	}
+
 	return &InListExp{
 		val:    bexp.val.reduceSelectors(row, implicitDB, implicitTable),
-		values: bexp.values,
+		values: values,
 	}
 }
 
