@@ -70,6 +70,7 @@ var reservedWords = map[string]int{
 	"NOT":            NOT,
 	"LIKE":           LIKE,
 	"EXISTS":         EXISTS,
+	"IN":             IN,
 	"AUTO_INCREMENT": AUTO_INCREMENT,
 	"NULL":           NULL,
 	"IF":             IF,

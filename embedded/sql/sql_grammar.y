@@ -65,7 +65,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token BEGIN TRANSACTION COMMIT
 %token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
-%token NOT LIKE IF EXISTS
+%token NOT LIKE IF EXISTS IN
 %token AUTO_INCREMENT NULL NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -119,7 +119,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
-%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null
+%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
 
 %start sql
     
@@ -699,6 +699,26 @@ exp:
     EXISTS '(' dqlstmt ')'
     {
         $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
+    }
+|
+    selector opt_not IN '(' dqlstmt ')'
+    {
+        $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)}
+    }
+|
+    selector opt_not IN '(' values ')'
+    {
+        $$ = &InListExp{val: $1, notIn: $2, values: $5}
+    }
+
+opt_not:
+    {
+        $$ = false
+    }
+|
+    NOT
+    {
+        $$ = true
     }
 
 binExp:
