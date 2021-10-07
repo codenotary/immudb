@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -2440,5 +2441,144 @@ func (bexp *ExistsBoolExp) isConstant() bool {
 }
 
 func (bexp *ExistsBoolExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+type InSubQueryExp struct {
+	val   ValueExp
+	notIn bool
+	q     *SelectStmt
+}
+
+func (bexp *InSubQueryExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return AnyType, errors.New("not yet supported")
+}
+
+func (bexp *InSubQueryExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	return errors.New("not yet supported")
+}
+
+func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return bexp, nil
+}
+
+func (bexp *InSubQueryExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, errors.New("not yet supported")
+}
+
+func (bexp *InSubQueryExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return bexp
+}
+
+func (bexp *InSubQueryExp) isConstant() bool {
+	return false
+}
+
+func (bexp *InSubQueryExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+// TODO: once InSubQueryExp is supported, this struct may become obsolete by creating a ListDataSource struct
+type InListExp struct {
+	val    ValueExp
+	notIn  bool
+	values []ValueExp
+}
+
+func (bexp *InListExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	t, err := bexp.val.inferType(cols, params, implicitDB, implicitTable)
+	if err != nil {
+		return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", err)
+	}
+
+	for _, v := range bexp.values {
+		vt, err := v.inferType(cols, params, implicitDB, implicitTable)
+		if err != nil {
+			return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", err)
+		}
+
+		if t == AnyType || vt == AnyType {
+			continue
+		}
+
+		if t != vt {
+			return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrInvalidTypes)
+		}
+	}
+
+	return BooleanType, nil
+}
+
+func (bexp *InListExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != BooleanType {
+		return fmt.Errorf("error inferring type in 'IN' clause: %w", ErrInvalidTypes)
+	}
+
+	return nil
+}
+
+func (bexp *InListExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	val, err := bexp.val.substitute(params)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+	}
+
+	values := make([]ValueExp, len(bexp.values))
+
+	for i, val := range bexp.values {
+		values[i], err = val.substitute(params)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+		}
+	}
+
+	return &InListExp{
+		val:    val,
+		notIn:  bexp.notIn,
+		values: values,
+	}, nil
+}
+
+func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	rval, err := bexp.val.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+	}
+
+	var found bool
+
+	for _, v := range bexp.values {
+		rv, err := v.reduce(catalog, row, implicitDB, implicitTable)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+		}
+
+		r, err := rval.Compare(rv)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
+		}
+
+		if r == 0 {
+			found = true
+			break
+		}
+	}
+
+	return &Bool{val: (!found && bexp.notIn) || (found && !bexp.notIn)}, nil
+}
+
+func (bexp *InListExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &InListExp{
+		val:    bexp.val.reduceSelectors(row, implicitDB, implicitTable),
+		values: bexp.values,
+	}
+}
+
+func (bexp *InListExp) isConstant() bool {
+	return false
+}
+
+func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	// TODO: may be determiined by smallest and bigggest value in the list
 	return nil
 }
