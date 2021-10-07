@@ -2326,6 +2326,140 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestQueryWithInClause(t *testing.T) {
+	catalogStore, err := store.Open("catalog_where_in", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_where_in")
+
+	dataStore, err := store.Open("sqldata_where_in", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_where_in")
+
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil, true)
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)
+		`, i, i, i%2 == 0), nil, true)
+		require.NoError(t, err)
+	}
+
+	t.Run("infer parameters without parameters should return an empty list", func(t *testing.T) {
+		params, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')")
+		require.NoError(t, err)
+		require.Empty(t, params)
+	})
+
+	t.Run("infer inference with wrong types should return an error", func(t *testing.T) {
+		_, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE 100 + title IN ('title0', 'title1')")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+	})
+
+	t.Run("infer inference with valid types should succeed", func(t *testing.T) {
+		params, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE active AND title IN ('title0', 'title1')")
+		require.NoError(t, err)
+		require.Empty(t, params)
+	})
+
+	t.Run("infer parameters should return matching type", func(t *testing.T) {
+		params, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE title IN (@param0, @param1)")
+		require.NoError(t, err)
+		require.Len(t, params, 2)
+		require.Equal(t, VarcharType, params["param0"])
+		require.Equal(t, VarcharType, params["param1"])
+	})
+
+	t.Run("infer parameters with type conflicts should return an error", func(t *testing.T) {
+		_, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE active = @param1 and title IN (@param0, @param1)")
+		require.ErrorIs(t, err, ErrInferredMultipleTypes)
+	})
+
+	t.Run("in clause with invalid column should return an error", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE invalidColumn IN (1, 2)", nil, true)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("in clause with invalid type should return an error", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN (1, 2)", nil, true)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("in clause should succeed reading two rows", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')", nil, true)
+		require.NoError(t, err)
+
+		for i := 0; i < 2; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		}
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("in clause should succeed reading rows NOT included in 'IN' clause", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title NOT IN ('title1', 'title0')", nil, true)
+		require.NoError(t, err)
+
+		for i := 2; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		}
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("in clause should succeed reading using 'IN' clause in join condition", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT * FROM (table1 as t1) INNER JOIN (table1 as t2) ON t1.title IN (t2.title) ORDER BY title", nil, true)
+		require.NoError(t, err)
+
+		for i := 0; i < rowCount; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "t1", "title")].Value())
+		}
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	err = engine.Close()
+	require.NoError(t, err)
+}
+
 func TestAggregations(t *testing.T) {
 	catalogStore, err := store.Open("catalog_agg", store.DefaultOptions())
 	require.NoError(t, err)
