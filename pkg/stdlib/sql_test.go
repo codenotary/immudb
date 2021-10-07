@@ -153,6 +153,41 @@ func TestQueryCapabilities(t *testing.T) {
 	require.Equal(t, true, isPresent)
 }
 
+func TestQueryCapabilitiesWithPointers(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+
+	table := getRandomTableName()
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
+	require.NoError(t, err)
+	table1 := getRandomTableName()
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,user_id INTEGER,name VARCHAR,PRIMARY KEY ID)", table1))
+	require.NoError(t, err)
+
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (name,manager_id) VALUES (?,?)", table), "name", 1)
+	require.NoError(t, err)
+	id := uint(1)
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (user_id,name) VALUES (?,?),(?,?) ", table1), &id, "name1", &id, "name2")
+	require.NoError(t, err)
+
+}
+
 func TestNilValues(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -393,9 +428,7 @@ func TestConn_QueryContextErr(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.QueryContext(context.TODO(), "query", 10.5)
-	require.Equal(t, ErrFloatValuesNotSupported, err)
-	_, err = db.ExecContext(context.TODO(), "query", 10.5)
-	require.Equal(t, ErrFloatValuesNotSupported, err)
+	require.Error(t, err)
 
 	_, err = db.ExecContext(context.TODO(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
 	require.Error(t, err)
