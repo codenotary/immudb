@@ -23,6 +23,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestRows(t *testing.T) {
@@ -386,4 +387,36 @@ func TestRowsAffected_RowsAffected(t *testing.T) {
 	rac, err := ra.RowsAffected()
 	require.NoError(t, err)
 	require.Equal(t, int64(0), rac)
+}
+
+func TestRows_convertToPlainVals(t *testing.T) {
+	var tests = []struct {
+		vals map[string]interface{}
+	}{
+		{vals: map[string]interface{}{"v": (*string)(nil)}},
+		{vals: map[string]interface{}{"v": new(int)}},
+		{vals: map[string]interface{}{"v": new(int8)}},
+		{vals: map[string]interface{}{"v": new(int16)}},
+		{vals: map[string]interface{}{"v": new(int32)}},
+		{vals: map[string]interface{}{"v": new(int64)}},
+		{vals: map[string]interface{}{"v": new(uint)}},
+		{vals: map[string]interface{}{"v": new(uint8)}},
+		{vals: map[string]interface{}{"v": new(uint16)}},
+		{vals: map[string]interface{}{"v": new(uint32)}},
+		{vals: map[string]interface{}{"v": new(uint64)}},
+		{vals: map[string]interface{}{"v": new(string)}},
+		{vals: map[string]interface{}{"v": new(bool)}},
+		{vals: map[string]interface{}{"v": new(float32)}},
+		{vals: map[string]interface{}{"v": new(float64)}},
+		{vals: map[string]interface{}{"v": new(complex64)}},
+		{vals: map[string]interface{}{"v": new(complex128)}},
+		{vals: map[string]interface{}{"v": &time.Time{}}},
+		{vals: map[string]interface{}{"v": "default"}},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("rows %d: %s", i, reflect.ValueOf(tt.vals["v"]).Type().String()), func(t *testing.T) {
+			vals := convertToPlainVals(tt.vals)
+			require.False(t, reflect.ValueOf(vals["v"]).Kind() == reflect.Ptr)
+		})
+	}
 }

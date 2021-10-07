@@ -193,20 +193,60 @@ func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, err
 
 	for id, nv := range args {
 		key := "param" + strconv.Itoa(id+1)
-		// nil pointers are here converted in nil value. Immudb expects only plain values
+		vals[key] = nv
+	}
+
+	vals = convertToPlainVals(vals)
+
+	return vals, nil
+}
+
+func convertToPlainVals(vals map[string]interface{}) map[string]interface{} {
+	for key, nv := range vals {
 		if reflect.ValueOf(nv).Kind() == reflect.Ptr && reflect.ValueOf(nv).IsNil() {
 			nv = nil
 		}
-		switch args[id].(type) {
-		case time.Time:
-			return nil, ErrTimeValuesNotSupported
-		case float64:
-			return nil, ErrFloatValuesNotSupported
+		t := nv
+		switch t.(type) {
+		case *uint:
+			vals[key] = *t.(*uint)
+		case *uint8:
+			vals[key] = *t.(*uint8)
+		case *uint16:
+			vals[key] = *t.(*uint16)
+		case *uint32:
+			vals[key] = *t.(*uint32)
+		case *uint64:
+			vals[key] = *t.(*uint64)
+		case *int:
+			vals[key] = *t.(*int)
+		case *int8:
+			vals[key] = *t.(*int8)
+		case *int16:
+			vals[key] = *t.(*int16)
+		case *int32:
+			vals[key] = *t.(*int32)
+		case *int64:
+			vals[key] = *t.(*int64)
+		case *string:
+			vals[key] = *t.(*string)
+		case *bool:
+			vals[key] = *t.(*bool)
+		case *float32:
+			vals[key] = *t.(*float32)
+		case *float64:
+			vals[key] = *t.(*float64)
+		case *complex64:
+			vals[key] = *t.(*complex64)
+		case *complex128:
+			vals[key] = *t.(*complex128)
+		case *time.Time:
+			vals[key] = *t.(*time.Time)
 		default:
 			vals[key] = nv
 		}
 	}
-	return vals, nil
+	return vals
 }
 
 func convertDriverValuers(args []interface{}) ([]interface{}, error) {
