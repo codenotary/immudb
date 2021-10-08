@@ -1659,7 +1659,7 @@ func (sel *ColSelector) inferType(cols map[string]*ColDescriptor, params map[str
 
 	desc, ok := cols[encSel]
 	if !ok {
-		return AnyType, ErrInvalidColumn
+		return AnyType, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
 
 	return desc.Type, nil
@@ -1671,7 +1671,7 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]*ColDescrip
 
 	desc, ok := cols[encSel]
 	if !ok {
-		return ErrInvalidColumn
+		return fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
 
 	if desc.Type != t {
@@ -1880,12 +1880,12 @@ func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable
 
 	nl, isNumber := vl.Value().(int64)
 	if !isNumber {
-		return nil, ErrInvalidValue
+		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
 	nr, isNumber := vr.Value().(int64)
 	if !isNumber {
-		return nil, ErrInvalidValue
+		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 	}
 
 	switch bexp.op {
@@ -2012,13 +2012,15 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 }
 
 func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, ok := row.Values[EncodeSelector(bexp.sel.resolve(implicitDB, implicitTable))]
+	agggFn, db, table, col := bexp.sel.resolve(implicitDB, implicitTable)
+
+	v, ok := row.Values[EncodeSelector(agggFn, db, table, col)]
 	if !ok {
-		return nil, ErrColumnDoesNotExist
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
 
 	if v.Type() != VarcharType {
-		return nil, ErrInvalidColumn
+		return nil, fmt.Errorf("%w (%s)", ErrInvalidTypes, col)
 	}
 
 	matched, err := regexp.MatchString(bexp.pattern, v.Value().(string))
@@ -2338,12 +2340,12 @@ func (bexp *BinBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	bl, isBool := vl.(*Bool)
 	if !isBool {
-		return nil, ErrInvalidValue
+		return nil, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
 	}
 
 	br, isBool := vr.(*Bool)
 	if !isBool {
-		return nil, ErrInvalidValue
+		return nil, fmt.Errorf("%w (expecting boolean value)", ErrInvalidValue)
 	}
 
 	switch bexp.op {
