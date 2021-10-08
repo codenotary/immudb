@@ -791,6 +791,45 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT id, name, table2.status FROM table1 JOIN table2 ON table1.id = table2.id WHERE name = 'John' ORDER BY name DESC",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "name"},
+						&ColSelector{table: "table2", col: "status"},
+					},
+					ds: &tableRef{table: "table1"},
+					joins: []*JoinSpec{
+						{
+							joinType: InnerJoin,
+							ds:       &tableRef{table: "table2"},
+							cond: &CmpBoolExp{
+								op: EQ,
+								left: &ColSelector{
+									table: "table1",
+									col:   "id",
+								},
+								right: &ColSelector{
+									table: "table2",
+									col:   "id",
+								},
+							},
+						},
+					},
+					where: &CmpBoolExp{
+						op:    EQ,
+						left:  &ColSelector{col: "name"},
+						right: &Varchar{val: "John"},
+					},
+					orderBy: []*OrdCol{
+						{sel: &ColSelector{col: "name"}, order: DescOrder},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "SELECT id, name, table2.status FROM table1 LEFT JOIN table2 ON table1.id = table2.id WHERE name = 'John' ORDER BY name DESC",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
