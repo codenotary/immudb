@@ -2435,7 +2435,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause with invalid values should return an error", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('notitle', true + 'title1')", nil, true)
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('title0', true + 'title1')", nil, true)
 		require.NoError(t, err)
 
 		_, err = r.Read()

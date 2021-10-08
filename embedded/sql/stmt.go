@@ -2558,8 +2558,8 @@ func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTa
 		}
 
 		if r == 0 {
-			found = true
-			break
+			// TODO: short-circuit evaluation may be preferred when upfront static type inference is in place
+			found = found || true
 		}
 	}
 
