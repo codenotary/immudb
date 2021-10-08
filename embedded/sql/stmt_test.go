@@ -351,7 +351,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &LikeBoolExp{pattern: &Varchar{val: ""}},
+			exp:           &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -360,7 +360,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &LikeBoolExp{pattern: &Varchar{val: ""}},
+			exp:           &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -600,6 +600,40 @@ func TestYetUnsupportedInSubQueryExp(t *testing.T) {
 	require.False(t, exp.isConstant())
 
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
+}
+
+func TestLikeBoolExpEdgeCases(t *testing.T) {
+	exp := &LikeBoolExp{}
+
+	_, err := exp.inferType(nil, nil, "", "")
+	require.ErrorIs(t, err, ErrInvalidCondition)
+
+	err = exp.requiresType(BooleanType, nil, nil, "", "")
+	require.ErrorIs(t, err, ErrInvalidCondition)
+
+	_, err = exp.substitute(nil)
+	require.ErrorIs(t, err, ErrInvalidCondition)
+
+	_, err = exp.reduce(nil, nil, "", "")
+	require.ErrorIs(t, err, ErrInvalidCondition)
+
+	require.Equal(t, exp, exp.reduceSelectors(nil, "", ""))
+	require.False(t, exp.isConstant())
+	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
+
+	t.Run("like expression with invalid types", func(t *testing.T) {
+		exp := &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Number{}}
+
+		_, err = exp.inferType(nil, nil, "", "")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		err = exp.requiresType(BooleanType, nil, nil, "", "")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		_, err = exp.reduce(nil, &Row{Values: map[string]TypedValue{"(db1.table1.col1)": &NullValue{}}}, "db1", "table1")
+		require.ErrorIs(t, err, ErrInvalidTypes)
+	})
+
 }
 
 func TestAliasing(t *testing.T) {
