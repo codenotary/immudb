@@ -100,20 +100,24 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 	}
 
 	for _, jspec := range jointr.joins {
-		tableRef := jspec.ds.(*tableRef)
-		table, err := tableRef.referencedTable(jointr.e, jointr.implicitDB)
+
+		// TODO (byo) optimize this by getting selector list only or opening all joint readers
+		//            on jointRowReader creation,
+		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
+		//       in column list though
+		rr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
+		if err != nil {
+			return nil, err
+		}
+		defer rr.Close()
+
+		cd, err := rr.colsBySelector()
 		if err != nil {
 			return nil, err
 		}
 
-		for _, c := range table.Cols() {
-			des := &ColDescriptor{
-				Database: table.db.name,
-				Table:    tableRef.Alias(),
-				Column:   c.colName,
-				Type:     c.colType,
-			}
-			colDescriptors[des.Selector()] = des
+		for sel, des := range cd {
+			colDescriptors[sel] = des
 		}
 	}
 
