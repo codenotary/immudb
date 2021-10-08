@@ -2451,11 +2451,11 @@ type InSubQueryExp struct {
 }
 
 func (bexp *InSubQueryExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	return AnyType, errors.New("not yet supported")
+	return AnyType, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
 }
 
 func (bexp *InSubQueryExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	return errors.New("not yet supported")
+	return fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
 }
 
 func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -2463,7 +2463,7 @@ func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (bexp *InSubQueryExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	return nil, errors.New("not yet supported")
+	return nil, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
 }
 
 func (bexp *InSubQueryExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
