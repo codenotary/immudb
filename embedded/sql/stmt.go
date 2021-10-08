@@ -1997,7 +1997,7 @@ type LikeBoolExp struct {
 }
 
 func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	if bexp.pattern == nil {
+	if bexp.sel == nil || bexp.pattern == nil {
 		return AnyType, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
@@ -2010,7 +2010,7 @@ func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[st
 }
 
 func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if bexp.pattern == nil {
+	if bexp.sel == nil || bexp.pattern == nil {
 		return fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
@@ -2027,7 +2027,7 @@ func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescri
 }
 
 func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	if bexp.pattern == nil {
+	if bexp.sel == nil || bexp.pattern == nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
@@ -2044,6 +2044,10 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 }
 
 func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	if bexp.sel == nil || bexp.pattern == nil {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
+	}
+
 	agggFn, db, table, col := bexp.sel.resolve(implicitDB, implicitTable)
 
 	v, ok := row.Values[EncodeSelector(agggFn, db, table, col)]
