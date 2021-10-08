@@ -1992,23 +1992,53 @@ func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[
 
 type LikeBoolExp struct {
 	sel     Selector
-	pattern string
+	pattern ValueExp
 }
 
 func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	if bexp.pattern == nil {
+		return AnyType, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
+	}
+
+	err := bexp.pattern.requiresType(VarcharType, cols, params, implicitDB, implicitTable)
+	if err != nil {
+		return AnyType, fmt.Errorf("error in 'LIKE' clause: %w", err)
+	}
+
 	return BooleanType, nil
 }
 
 func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if bexp.pattern == nil {
+		return fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
+	}
+
 	if t != BooleanType {
 		return ErrInvalidTypes
+	}
+
+	err := bexp.pattern.requiresType(VarcharType, cols, params, implicitDB, implicitTable)
+	if err != nil {
+		return fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	return nil
 }
 
 func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	return bexp, nil
+	if bexp.pattern == nil {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
+	}
+
+	pattern, err := bexp.pattern.substitute(params)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
+	}
+
+	return &LikeBoolExp{
+		sel:     bexp.sel,
+		pattern: pattern,
+	}, nil
 }
 
 func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
@@ -2023,7 +2053,16 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 		return nil, fmt.Errorf("%w (%s)", ErrInvalidTypes, col)
 	}
 
-	matched, err := regexp.MatchString(bexp.pattern, v.Value().(string))
+	rpattern, err := bexp.pattern.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	if rpattern.Type() != VarcharType {
+		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
+	}
+
+	matched, err := regexp.MatchString(rpattern.Value().(string), v.Value().(string))
 	if err != nil {
 		return nil, err
 	}

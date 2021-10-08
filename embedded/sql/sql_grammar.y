@@ -702,7 +702,7 @@ exp:
         $$ = $2
     }
 |
-    selector LIKE VARCHAR
+    selector LIKE exp
     {
         $$ = &LikeBoolExp{sel: $1, pattern: $3}
     }
