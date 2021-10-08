@@ -416,7 +416,7 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
+    SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -429,7 +429,6 @@ dqlstmt:
                 having: $10,
                 orderBy: $11,
                 limit: int($12),
-                as: $13,
             }
     }
 
@@ -500,21 +499,17 @@ col:
     }
 
 ds:
-    tableRef
+    tableRef opt_as_before opt_as
     {
+        $1.asBefore = $2
+        $1.as = $3
         $$ = $1
     }
 |
-    '(' tableRef opt_as_before opt_as ')'
+    '(' dqlstmt ')' opt_as
     {
-        $2.asBefore = $3
-        $2.as = $4
-        $$ = $2
-    }
-|
-    '(' dqlstmt ')'
-    {
-        $$ = $2.(*SelectStmt)
+        $2.(*SelectStmt).as = $4
+        $$ = $2.(DataSource)
     }
 
 tableRef:
@@ -664,6 +659,11 @@ opt_ord:
 opt_as:
     {
         $$ = ""
+    }
+|
+    IDENTIFIER
+    {
+        $$ = $1
     }
 |
     AS IDENTIFIER
