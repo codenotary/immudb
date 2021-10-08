@@ -17,7 +17,7 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jackc/pgx/v4 v4.12.0
-	github.com/jaswdr/faker v1.4.2
+	github.com/jaswdr/faker v1.4.3
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.10.2
 	github.com/mattn/go-isatty v0.0.13 // indirect
