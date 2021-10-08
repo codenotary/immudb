@@ -351,7 +351,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
+			exp:           &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -360,7 +360,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
+			exp:           &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -622,7 +622,7 @@ func TestLikeBoolExpEdgeCases(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 
 	t.Run("like expression with invalid types", func(t *testing.T) {
-		exp := &LikeBoolExp{sel: &ColSelector{col: "col1"}, pattern: &Number{}}
+		exp := &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Number{}}
 
 		_, err = exp.inferType(nil, nil, "", "")
 		require.ErrorIs(t, err, ErrInvalidTypes)

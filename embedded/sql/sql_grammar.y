@@ -112,7 +112,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
-%type <exp> exp opt_where opt_having
+%type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <number> opt_limit opt_max_len
@@ -672,12 +672,7 @@ opt_as:
     }
 
 exp:
-    selector
-    {
-        $$ = $1
-    }
-|
-    val
+    boundexp
     {
         $$ = $1
     }
@@ -697,14 +692,9 @@ exp:
         $$ = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: $2}
     }
 |
-    '(' exp ')'
+    boundexp opt_not LIKE exp
     {
-        $$ = $2
-    }
-|
-    selector opt_not LIKE exp
-    {
-        $$ = &LikeBoolExp{sel: $1, notLike: $2, pattern: $4}
+        $$ = &LikeBoolExp{val: $1, notLike: $2, pattern: $4}
     }
 |
     EXISTS '(' dqlstmt ')'
@@ -712,14 +702,30 @@ exp:
         $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
     }
 |
-    selector opt_not IN '(' dqlstmt ')'
+    boundexp opt_not IN '(' dqlstmt ')'
     {
         $$ = &InSubQueryExp{val: $1, notIn: $2, q: $5.(*SelectStmt)}
     }
 |
-    selector opt_not IN '(' values ')'
+    boundexp opt_not IN '(' values ')'
     {
         $$ = &InListExp{val: $1, notIn: $2, values: $5}
+    }
+
+boundexp:
+    selector
+    {
+        $$ = $1
+    }
+|
+    val
+    {
+        $$ = $1
+    }
+|
+    '(' exp ')'
+    {
+        $$ = $2
     }
 
 opt_not:
