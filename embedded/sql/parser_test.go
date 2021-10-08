@@ -1136,7 +1136,26 @@ func TestExpressions(t *testing.T) {
 							table: "table1",
 							col:   "title",
 						},
-						pattern: "J%O",
+						pattern: &Varchar{val: "J%O"},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE table1.title LIKE @param1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &tableRef{table: "table1"},
+					where: &LikeBoolExp{
+						sel: &ColSelector{
+							table: "table1",
+							col:   "title",
+						},
+						pattern: &Param{id: "param1"},
 					},
 				}},
 			expectedError: nil,
@@ -1177,7 +1196,7 @@ func TestExpressions(t *testing.T) {
 								table: "table1",
 								col:   "title",
 							},
-							pattern: "J%O",
+							pattern: &Varchar{val: "J%O"},
 						},
 					},
 				}},

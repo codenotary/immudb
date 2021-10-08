@@ -351,7 +351,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &LikeBoolExp{},
+			exp:           &LikeBoolExp{pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -360,7 +360,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &LikeBoolExp{},
+			exp:           &LikeBoolExp{pattern: &Varchar{val: ""}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -368,11 +368,20 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			requiredType:  VarcharType,
 			expectedError: ErrInvalidTypes,
 		},
+		{
+			exp:           &LikeBoolExp{},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  VarcharType,
+			expectedError: ErrInvalidCondition,
+		},
 	}
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
