@@ -570,6 +570,29 @@ func TestYetUnsupportedExistsBoolExp(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 }
 
+func TestYetUnsupportedInSubQueryExp(t *testing.T) {
+	exp := &InSubQueryExp{}
+
+	_, err := exp.inferType(nil, nil, "", "")
+	require.ErrorIs(t, err, ErrNoSupported)
+
+	err = exp.requiresType(BooleanType, nil, nil, "", "")
+	require.ErrorIs(t, err, ErrNoSupported)
+
+	rexp, err := exp.substitute(nil)
+	require.NoError(t, err)
+	require.Equal(t, exp, rexp)
+
+	_, err = exp.reduce(nil, nil, "", "")
+	require.ErrorIs(t, err, ErrNoSupported)
+
+	require.Equal(t, exp, exp.reduceSelectors(nil, "", ""))
+
+	require.False(t, exp.isConstant())
+
+	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
+}
+
 func TestAliasing(t *testing.T) {
 	stmt := &SelectStmt{ds: &tableRef{table: "table1"}}
 	require.Equal(t, "table1", stmt.Alias())
