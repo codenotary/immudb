@@ -1992,6 +1992,7 @@ func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[
 
 type LikeBoolExp struct {
 	sel     Selector
+	notLike bool
 	pattern ValueExp
 }
 
@@ -2037,6 +2038,7 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 
 	return &LikeBoolExp{
 		sel:     bexp.sel,
+		notLike: bexp.notLike,
 		pattern: pattern,
 	}, nil
 }
@@ -2067,7 +2069,7 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 		return nil, err
 	}
 
-	return &Bool{val: matched}, nil
+	return &Bool{val: matched != bexp.notLike}, nil
 }
 
 func (bexp *LikeBoolExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
@@ -2602,7 +2604,7 @@ func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTa
 		}
 	}
 
-	return &Bool{val: (!found && bexp.notIn) || (found && !bexp.notIn)}, nil
+	return &Bool{val: found != bexp.notIn}, nil
 }
 
 func (bexp *InListExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {

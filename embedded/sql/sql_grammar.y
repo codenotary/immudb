@@ -702,9 +702,9 @@ exp:
         $$ = $2
     }
 |
-    selector LIKE exp
+    selector opt_not LIKE exp
     {
-        $$ = &LikeBoolExp{sel: $1, pattern: $3}
+        $$ = &LikeBoolExp{sel: $1, notLike: $2, pattern: $4}
     }
 |
     EXISTS '(' dqlstmt ')'
