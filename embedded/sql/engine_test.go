@@ -1000,7 +1000,7 @@ func TestQuery(t *testing.T) {
 
 	t.Run("should resolve every row with two-time table aliasing", func(t *testing.T) {
 		r, err = engine.QueryStmt(fmt.Sprintf(`
-			SELECT * FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1
+			SELECT * FROM table1 AS mytable1 WHERE mytable1.id >= 0 LIMIT %d
 		`, rowCount), nil, true)
 		require.NoError(t, err)
 
@@ -1038,7 +1038,7 @@ func TestQuery(t *testing.T) {
 
 	t.Run("should resolve every row with column and two-time table aliasing", func(t *testing.T) {
 		r, err = engine.QueryStmt(fmt.Sprintf(`
-			SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE t1.id >= 0 LIMIT %d AS mytable1
+			SELECT mytable1.id AS D, ts, Title, payload, Active FROM table1 mytable1 WHERE mytable1.id >= 0 LIMIT %d
 		`, rowCount), nil, true)
 		require.NoError(t, err)
 
@@ -1612,7 +1612,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM (table1 AS t) WHERE t.ts = 1629902962 AND t.ts = 1629902963 ORDER BY t.ts", nil, true)
+		r, err := engine.QueryStmt("SELECT * FROM table1 AS t WHERE t.ts = 1629902962 AND t.ts = 1629902963 ORDER BY t.ts", nil, true)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -2467,7 +2467,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause should succeed reading using 'IN' clause in join condition", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM (table1 as t1) INNER JOIN (table1 as t2) ON t1.title IN (t2.title) ORDER BY title", nil, true)
+		r, err := engine.QueryStmt("SELECT * FROM table1 as t1 INNER JOIN table1 as t2 ON t1.title IN (t2.title) ORDER BY title", nil, true)
 		require.NoError(t, err)
 
 		for i := 0; i < rowCount; i++ {
@@ -2843,9 +2843,9 @@ func TestJoins(t *testing.T) {
 	t.Run("should find one matching row", func(t *testing.T) {
 		r, err := engine.QueryStmt(`
 		SELECT t1.title, t2.amount, t3.age
-		FROM (SELECT id, amount FROM table2 WHERE amount = 1 AS t2)
-		INNER JOIN (table1 as t1) ON t2.id = t1.fkid1 AND t2.amount > 0
-		INNER JOIN (table3 as t3) ON t1.fkid2 = t3.id AND t3.age > 30`, nil, true)
+		FROM (SELECT id, amount FROM table2 WHERE amount = 1) AS t2
+		INNER JOIN table1 AS t1 ON t2.id = t1.fkid1 AND t2.amount > 0
+		INNER JOIN table3 AS t3 ON t1.fkid2 = t3.id AND t3.age > 30`, nil, true)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -2951,12 +2951,11 @@ func TestJoinsWithJointTable(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err := engine.QueryStmt(`
-		SELECT t1.name, t2.amount, t12.active
-		FROM (SELECT * FROM table1 where name = 'name1' AS t1)
-		INNER JOIN (table12 AS t12) on t12.fkid1 = t1.id
-		INNER JOIN (table2 AS t2)  on t12.fkid2 = t2.id
-		WHERE t12.active = true
-		AS q`, nil, true)
+		SELECT q.name, t2.amount, t12.active
+		FROM (SELECT * FROM table1 where name = 'name1') q
+		INNER JOIN table12 t12 on t12.fkid1 = q.id
+		INNER JOIN table2 t2  on t12.fkid2 = t2.id
+		WHERE t12.active = true`, nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -2970,8 +2969,8 @@ func TestJoinsWithJointTable(t *testing.T) {
 		require.Len(t, row.Values, 3)
 
 		require.Equal(t, "name1", row.Values[EncodeSelector("", "db1", "q", "name")].Value())
-		require.Equal(t, int64(20+i*10), row.Values[EncodeSelector("", "db1", "q", "amount")].Value())
-		require.Equal(t, true, row.Values[EncodeSelector("", "db1", "q", "active")].Value())
+		require.Equal(t, int64(20+i*10), row.Values[EncodeSelector("", "db1", "t2", "amount")].Value())
+		require.Equal(t, true, row.Values[EncodeSelector("", "db1", "t12", "active")].Value())
 	}
 
 	err = r.Close()
@@ -3023,9 +3022,9 @@ func TestNestedJoins(t *testing.T) {
 
 	r, err := engine.QueryStmt(`
 		SELECT id, title, t2.amount AS total_amount, t3.age
-		FROM (table1 AS t1)
-		INNER JOIN (table2 as t2) ON (fkid1 = t2.id AND title != NULL)
-		INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id
+		FROM table1 t1
+		INNER JOIN table2 t2 ON (fkid1 = t2.id AND title != NULL)
+		INNER JOIN table3 t3 ON t2.fkid1 = t3.id
 		ORDER BY id DESC`, nil, true)
 	require.NoError(t, err)
 
@@ -3153,9 +3152,9 @@ func TestSubQuery(t *testing.T) {
 	}
 
 	r, err := engine.QueryStmt(`
-		SELECT id, title AS t
-		FROM (SELECT id, title, active FROM table1 AS table2)
-		WHERE active AND table2.id >= 0 AS t2`, nil, true)
+		SELECT id, title t
+		FROM (SELECT id, title, active FROM table1) t2
+		WHERE active AND t2.id >= 0`, nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()

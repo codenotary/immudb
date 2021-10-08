@@ -654,13 +654,12 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1"},
-					as: "t1",
+					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT t1.id, title FROM (db1.table1 AS t1)",
+			input: "SELECT t1.id, title FROM db1.table1 t1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -673,7 +672,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM (db1.table1 AS t1) WHERE payload >= x'AED0393F'",
+			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE payload >= x'AED0393F'",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
