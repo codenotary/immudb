@@ -111,6 +111,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <number> opt_since opt_as_before
 %type <joins> opt_joins joins
 %type <join> join
+%type <joinType> opt_join_type
 %type <exp> exp opt_where opt_having
 %type <binExp> binExp
 %type <cols> opt_groupby
@@ -559,9 +560,19 @@ joins:
     }
 
 join:
-    JOINTYPE JOIN ds opt_indexon ON exp
+    opt_join_type JOIN ds opt_indexon ON exp
     {
         $$ = &JoinSpec{joinType: $1, ds: $3, indexOn: $4, cond: $6}
+    }
+
+opt_join_type:
+    {
+        $$ = InnerJoin
+    }
+|
+    JOINTYPE
+    {
+        $$ = $1
     }
 
 opt_where:
