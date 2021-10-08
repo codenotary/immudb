@@ -71,7 +71,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	_, err = client.SQLExec(ctx, "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
 	require.NoError(t, err)
 
-	res, err := client.SQLQuery(ctx, "SELECT t.id as id, title FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
+	res, err := client.SQLQuery(ctx, "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
