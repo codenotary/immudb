@@ -2359,6 +2359,9 @@ func TestQueryWithInClause(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	inListExp := &InListExp{}
+	require.False(t, inListExp.isConstant())
+
 	t.Run("infer parameters without parameters should return an empty list", func(t *testing.T) {
 		params, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')")
 		require.NoError(t, err)
@@ -2387,6 +2390,11 @@ func TestQueryWithInClause(t *testing.T) {
 	t.Run("infer parameters with type conflicts should return an error", func(t *testing.T) {
 		_, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE active = @param1 and title IN (@param0, @param1)")
 		require.ErrorIs(t, err, ErrInferredMultipleTypes)
+	})
+
+	t.Run("infer parameters with unexistent column should return an error", func(t *testing.T) {
+		_, err := engine.InferParameters("SELECT id, title, active FROM table1 WHERE invalidColumn IN ('title1', 'title2')")
+		require.ErrorIs(t, err, ErrColumnDoesNotExist)
 	})
 
 	t.Run("in clause with invalid column should return an error", func(t *testing.T) {
@@ -2421,6 +2429,17 @@ func TestQueryWithInClause(t *testing.T) {
 			require.NotNil(t, row)
 			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		}
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("in clause with invalid values should return an error", func(t *testing.T) {
+		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('notitle', true + 'title1')", nil, true)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrInvalidValue)
 
 		err = r.Close()
 		require.NoError(t, err)
