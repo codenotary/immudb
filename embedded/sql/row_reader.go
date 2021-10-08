@@ -26,7 +26,7 @@ import (
 type RowReader interface {
 	ImplicitDB() string
 	ImplicitTable() string
-	SetParameters(params map[string]interface{})
+	SetParameters(params map[string]interface{}) error
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
@@ -324,7 +324,8 @@ func (r *rawRowReader) InferParameters(params map[string]SQLValueType) error {
 	return nil
 }
 
-func (r *rawRowReader) SetParameters(params map[string]interface{}) {
+func (r *rawRowReader) SetParameters(params map[string]interface{}) error {
+	return nil
 }
 
 func (r *rawRowReader) Read() (row *Row, err error) {

@@ -165,8 +165,8 @@ func (gr *groupedRowReader) InferParameters(params map[string]SQLValueType) erro
 	return gr.rowReader.InferParameters(params)
 }
 
-func (gr *groupedRowReader) SetParameters(params map[string]interface{}) {
-	gr.rowReader.SetParameters(params)
+func (gr *groupedRowReader) SetParameters(params map[string]interface{}) error {
+	return gr.rowReader.SetParameters(params)
 }
 
 func (gr *groupedRowReader) Read() (*Row, error) {

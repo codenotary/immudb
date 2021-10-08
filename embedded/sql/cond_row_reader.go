@@ -42,9 +42,15 @@ func (cr *conditionalRowReader) ImplicitTable() string {
 	return cr.rowReader.ImplicitTable()
 }
 
-func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) {
-	cr.rowReader.SetParameters(params)
-	cr.params = params
+func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) error {
+	err := cr.rowReader.SetParameters(params)
+	if err != nil {
+		return err
+	}
+
+	cr.params, err = normalizeParams(params)
+
+	return err
 }
 
 func (cr *conditionalRowReader) OrderBy() []*ColDescriptor {

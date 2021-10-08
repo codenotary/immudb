@@ -373,6 +373,12 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, true)
 	require.Equal(t, ErrInvalidValue, err)
 
+	params = make(map[string]interface{}, 1)
+	params["title"] = uint64(1)
+	params["Title"] = uint64(2)
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, true)
+	require.Equal(t, ErrDuplicatedParameters, err)
+
 	_, err = engine.ExecStmt("UPSERT INTO Table1 (id, active) VALUES (1, true)", nil, true)
 	require.NoError(t, err)
 

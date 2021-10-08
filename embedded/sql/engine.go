@@ -76,6 +76,7 @@ var ErrTxDoesNotExist = errors.New("tx does not exist")
 var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
+var ErrDuplicatedParameters = errors.New("duplicated parameters")
 var ErrLimitedIndexCreation = errors.New("index creation is only supported on empty tables")
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = errors.New("sql engine already closed")
@@ -1320,13 +1321,17 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	}
 
 	// TODO: eval params at once
-
-	_, err = stmt.compileUsing(e, implicitDB, params)
+	nparams, err := normalizeParams(params)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snapshot, implicitDB, params, nil)
+	_, err = stmt.compileUsing(e, implicitDB, nparams)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.Resolve(e, snapshot, implicitDB, nparams, nil)
 }
 
 func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
@@ -1379,9 +1384,13 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	// TODO: eval params at once
+	nparams, err := normalizeParams(params)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, stmt := range stmts {
-		txSummary, err := stmt.compileUsing(e, implicitDB, params)
+		txSummary, err := stmt.compileUsing(e, implicitDB, nparams)
 		if err != nil {
 			e.resetCatalog() // in-memory catalog changes needs to be reverted
 			return summary, err
@@ -1425,6 +1434,23 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	e.catalog.mutated = false
 
 	return summary, nil
+}
+
+func normalizeParams(params map[string]interface{}) (map[string]interface{}, error) {
+	nparams := make(map[string]interface{}, len(params))
+
+	for name, value := range params {
+		nname := strings.ToLower(name)
+
+		_, exists := nparams[nname]
+		if exists {
+			return nil, ErrDuplicatedParameters
+		}
+
+		nparams[nname] = value
+	}
+
+	return nparams, nil
 }
 
 func (e *Engine) resetCatalog() {

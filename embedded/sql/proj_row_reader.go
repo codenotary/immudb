@@ -169,8 +169,8 @@ func (pr *projectedRowReader) InferParameters(params map[string]SQLValueType) er
 	return pr.rowReader.InferParameters(params)
 }
 
-func (pr *projectedRowReader) SetParameters(params map[string]interface{}) {
-	pr.rowReader.SetParameters(params)
+func (pr *projectedRowReader) SetParameters(params map[string]interface{}) error {
+	return pr.rowReader.SetParameters(params)
 }
 
 func (pr *projectedRowReader) Read() (*Row, error) {

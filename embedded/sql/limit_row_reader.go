@@ -40,8 +40,8 @@ func (lr *limitRowReader) ImplicitTable() string {
 	return lr.rowReader.ImplicitTable()
 }
 
-func (lr *limitRowReader) SetParameters(params map[string]interface{}) {
-	lr.rowReader.SetParameters(params)
+func (lr *limitRowReader) SetParameters(params map[string]interface{}) error {
+	return lr.rowReader.SetParameters(params)
 }
 
 func (lr *limitRowReader) OrderBy() []*ColDescriptor {
