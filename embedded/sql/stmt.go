@@ -1991,13 +1991,13 @@ func (bexp *NotBoolExp) selectorRanges(table *Table, asTable string, params map[
 }
 
 type LikeBoolExp struct {
-	sel     Selector
+	val     ValueExp
 	notLike bool
 	pattern ValueExp
 }
 
 func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	if bexp.sel == nil || bexp.pattern == nil {
+	if bexp.val == nil || bexp.pattern == nil {
 		return AnyType, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
@@ -2010,12 +2010,12 @@ func (bexp *LikeBoolExp) inferType(cols map[string]*ColDescriptor, params map[st
 }
 
 func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if bexp.sel == nil || bexp.pattern == nil {
+	if bexp.val == nil || bexp.pattern == nil {
 		return fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
 	if t != BooleanType {
-		return ErrInvalidTypes
+		return fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
 	err := bexp.pattern.requiresType(VarcharType, cols, params, implicitDB, implicitTable)
@@ -2027,7 +2027,7 @@ func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescri
 }
 
 func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
-	if bexp.sel == nil || bexp.pattern == nil {
+	if bexp.val == nil || bexp.pattern == nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
@@ -2037,40 +2037,38 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 	}
 
 	return &LikeBoolExp{
-		sel:     bexp.sel,
+		val:     bexp.val,
 		notLike: bexp.notLike,
 		pattern: pattern,
 	}, nil
 }
 
 func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	if bexp.sel == nil || bexp.pattern == nil {
+	if bexp.val == nil || bexp.pattern == nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
-	agggFn, db, table, col := bexp.sel.resolve(implicitDB, implicitTable)
-
-	v, ok := row.Values[EncodeSelector(agggFn, db, table, col)]
-	if !ok {
-		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
+	rval, err := bexp.val.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
-	if v.Type() != VarcharType {
-		return nil, fmt.Errorf("%w (%s)", ErrInvalidTypes, col)
+	if rval.Type() != VarcharType {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
 	rpattern, err := bexp.pattern.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	if rpattern.Type() != VarcharType {
 		return nil, fmt.Errorf("error evaluating 'LIKE' clause: %w", ErrInvalidTypes)
 	}
 
-	matched, err := regexp.MatchString(rpattern.Value().(string), v.Value().(string))
+	matched, err := regexp.MatchString(rpattern.Value().(string), rval.Value().(string))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	return &Bool{val: matched != bexp.notLike}, nil

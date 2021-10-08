@@ -1132,7 +1132,7 @@ func TestExpressions(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &LikeBoolExp{
-						sel: &ColSelector{
+						val: &ColSelector{
 							table: "table1",
 							col:   "title",
 						},
@@ -1151,7 +1151,7 @@ func TestExpressions(t *testing.T) {
 					},
 					ds: &tableRef{table: "table1"},
 					where: &LikeBoolExp{
-						sel: &ColSelector{
+						val: &ColSelector{
 							table: "table1",
 							col:   "title",
 						},
@@ -1192,7 +1192,7 @@ func TestExpressions(t *testing.T) {
 							},
 						},
 						right: &LikeBoolExp{
-							sel: &ColSelector{
+							val: &ColSelector{
 								table: "table1",
 								col:   "title",
 							},
