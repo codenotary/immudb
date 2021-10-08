@@ -48,8 +48,8 @@ func (dr *distinctRowReader) ImplicitTable() string {
 	return dr.rowReader.ImplicitTable()
 }
 
-func (dr *distinctRowReader) SetParameters(params map[string]interface{}) {
-	dr.rowReader.SetParameters(params)
+func (dr *distinctRowReader) SetParameters(params map[string]interface{}) error {
+	return dr.rowReader.SetParameters(params)
 }
 
 func (dr *distinctRowReader) OrderBy() []*ColDescriptor {

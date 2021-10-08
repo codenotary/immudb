@@ -146,9 +146,15 @@ func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) er
 	return err
 }
 
-func (jointr *jointRowReader) SetParameters(params map[string]interface{}) {
-	jointr.rowReader.SetParameters(params)
-	jointr.params = params
+func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error {
+	err := jointr.rowReader.SetParameters(params)
+	if err != nil {
+		return err
+	}
+
+	jointr.params, err = normalizeParams(params)
+
+	return err
 }
 
 func (jointr *jointRowReader) Read() (row *Row, err error) {

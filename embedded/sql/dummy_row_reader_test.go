@@ -58,7 +58,8 @@ func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
 	return nil, nil
 }
 
-func (r *dummyRowReader) SetParameters(params map[string]interface{}) {
+func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
+	return nil
 }
 
 func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
