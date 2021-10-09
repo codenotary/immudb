@@ -32,5 +32,5 @@ func (c immuConnector) Driver() driver.Driver {
 }
 
 func (c immuConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	return c.driver.GetNewConnByOptions(c.cliOptions)
+	return c.driver.GetNewConnByOptions(ctx, c.cliOptions)
 }

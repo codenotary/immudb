@@ -29,7 +29,6 @@ import (
 func TestRows(t *testing.T) {
 	r := Rows{
 		index: 0,
-		conn:  nil,
 		rows: []*schema.Row{{
 			Columns: []string{"c1"},
 			Values:  []*schema.SQLValue{{Value: nil}},
@@ -58,7 +57,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "INTEGER",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -70,7 +68,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "VARCHAR",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: "string"}}},
@@ -82,7 +79,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "BLOB",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Bs{Bs: []byte(`bytes`)}}},
@@ -94,7 +90,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "BOOLEAN",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_B{B: true}}},
@@ -106,7 +101,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "nil",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Null{}}},
@@ -118,7 +112,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "default",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: nil}},
@@ -130,7 +123,6 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			name: "no rows",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows:  nil,
 			},
 			expected: "",
@@ -156,7 +148,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "INTEGER",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -169,7 +160,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "VARCHAR",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: "string"}}},
@@ -182,7 +172,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "BLOB",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Bs{Bs: []byte(`bytes`)}}},
@@ -195,7 +184,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "BOOLEAN",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_B{B: true}}},
@@ -208,7 +196,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "nil",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Null{}}},
@@ -221,7 +208,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "default",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: nil}},
@@ -234,7 +220,6 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			name: "no rows",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows:  nil,
 			},
 			lenght:         0,
@@ -261,7 +246,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "INTEGER",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -273,7 +257,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "VARCHAR",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: "string"}}},
@@ -285,7 +268,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "BLOB",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Bs{Bs: []byte(`bytes`)}}},
@@ -297,7 +279,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "BOOLEAN",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_B{B: true}}},
@@ -309,7 +290,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "nil",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Null{}}},
@@ -321,7 +301,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "default",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
 					Values:  []*schema.SQLValue{{Value: nil}},
@@ -333,7 +312,6 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			name: "no rows",
 			rows: Rows{
 				index: 0,
-				conn:  nil,
 				rows:  nil,
 			},
 			expectedType: nil,

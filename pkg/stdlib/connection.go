@@ -26,17 +26,12 @@ type Conn struct {
 	name    string
 	conn    client.ImmuClient
 	options *client.Options
-	Token   string
 	driver  *Driver
 }
 
 // Conn returns the underlying client.ImmuClient
 func (c *Conn) GetImmuClient() client.ImmuClient {
 	return c.conn
-}
-
-func (c *Conn) GetToken() string {
-	return c.Token
 }
 
 func (c *Conn) GetDriver() *Driver {
@@ -97,7 +92,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 		return nil, err
 	}
 
-	return &Rows{conn: c, rows: queryResult.Rows}, nil
+	return &Rows{rows: queryResult.Rows}, nil
 }
 
 func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {

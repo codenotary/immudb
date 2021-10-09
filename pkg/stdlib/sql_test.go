@@ -373,19 +373,15 @@ func TestConn(t *testing.T) {
 	c := Conn{
 		conn:    client.DefaultClient(),
 		options: client.DefaultOptions(),
-		Token:   "token",
 	}
 	cli := c.GetImmuClient()
 	require.IsType(t, new(client.ImmuClient), &cli)
-	token := c.GetToken()
-	require.Equal(t, "token", token)
 }
 
 func TestConnErr(t *testing.T) {
 	c := Conn{
 		conn:    client.DefaultClient(),
 		options: client.DefaultOptions(),
-		Token:   "token",
 	}
 
 	_, err := c.Prepare("")

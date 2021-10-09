@@ -64,32 +64,32 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 
 func (d *Driver) UnregisterConnection(name string) {
 	d.configMutex.Lock()
+	defer d.configMutex.Unlock()
 	delete(d.configs, name)
-	d.configMutex.Unlock()
 }
 
 func (d *Driver) RegisterConnection(cn *Conn) string {
 	d.configMutex.Lock()
+	defer d.configMutex.Unlock()
 	name := fmt.Sprintf("registeredConnConfig%d", d.seq)
 	d.seq++
 	d.configs[name] = cn
-	d.configMutex.Unlock()
 	return name
 }
 
-func (d *Driver) GetNewConnByOptions(cliOptions *client.Options) (*Conn, error) {
+func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
 	conn, err := client.NewImmuClient(cliOptions)
 	if err != nil {
 		return nil, err
 	}
 	name := GetUri(cliOptions)
 
-	_, err = conn.Login(context.TODO(), []byte(cliOptions.Username), []byte(cliOptions.Password))
+	_, err = conn.Login(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password))
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := conn.UseDatabase(context.TODO(), &schema.Database{DatabaseName: cliOptions.Database})
+	_, err = conn.UseDatabase(ctx, &schema.Database{DatabaseName: cliOptions.Database})
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,6 @@ func (d *Driver) GetNewConnByOptions(cliOptions *client.Options) (*Conn, error) 
 		name:    name,
 		conn:    conn,
 		options: cliOptions,
-		Token:   resp.Token,
 		driver:  d,
 	}
 	return cn, nil

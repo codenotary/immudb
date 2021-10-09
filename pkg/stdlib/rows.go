@@ -31,7 +31,6 @@ import (
 
 type Rows struct {
 	index uint64
-	conn  *Conn
 	rows  []*schema.Row
 }
 
@@ -156,7 +155,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 }
 
 func (r *Rows) Close() error {
-	return r.conn.Close()
+	return nil
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
