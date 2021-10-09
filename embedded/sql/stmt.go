@@ -316,9 +316,10 @@ type ColSpec struct {
 }
 
 type CreateIndexStmt struct {
-	unique bool
-	table  string
-	cols   []string
+	unique      bool
+	ifNotExists bool
+	table       string
+	cols        []string
 }
 
 func (stmt *CreateIndexStmt) inferParameters(e *Engine, implicitDB *Database, params map[string]SQLValueType) error {
@@ -345,24 +346,6 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		return nil, err
 	}
 
-	// check table is empty
-	{
-		lastTxID, _ := e.dataStore.Alh()
-		err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID))
-		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
-		if err != nil {
-			return nil, err
-		}
-		if existKey {
-			return nil, ErrLimitedIndexCreation
-		}
-	}
-
 	colIDs := make([]uint32, len(stmt.cols))
 
 	for i, colName := range stmt.cols {
@@ -379,8 +362,29 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 	}
 
 	index, err := table.newIndex(stmt.unique, colIDs)
+	if err == ErrIndexAlreadyExists && stmt.ifNotExists {
+		return summary, nil
+	}
 	if err != nil {
 		return nil, err
+	}
+
+	// check table is empty
+	{
+		lastTxID, _ := e.dataStore.Alh()
+		err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID))
+		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
+		if err != nil {
+			return nil, err
+		}
+		if existKey {
+			return nil, ErrLimitedIndexCreation
+		}
 	}
 
 	// v={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)}

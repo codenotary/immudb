@@ -120,10 +120,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
-%type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
+%type <boolean> opt_unique opt_if_not_exists opt_auto_increment opt_not_null opt_not
 
 %start sql
-    
+
 %%
 
 sql: sqlstmts
@@ -195,19 +195,24 @@ ddlstmt:
         $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pkColNames: $10}
     }
 |
-    CREATE INDEX ON IDENTIFIER '(' ids ')'
+    CREATE opt_unique INDEX opt_if_not_exists ON IDENTIFIER '(' ids ')'
     {
-        $$ = &CreateIndexStmt{table: $4, cols: $6}
-    }
-|
-    CREATE UNIQUE INDEX ON IDENTIFIER '(' ids ')'
-    {
-        $$ = &CreateIndexStmt{unique: true, table: $5, cols: $7}
+        $$ = &CreateIndexStmt{unique: $2, ifNotExists: $4, table: $6, cols: $8}
     }
 |
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
+    }
+
+opt_unique:
+    {
+        $$ = false
+    }
+|
+    UNIQUE
+    {
+        $$ = true
     }
 
 opt_since:

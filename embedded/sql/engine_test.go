@@ -280,6 +280,9 @@ func TestCreateIndex(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
 	require.NoError(t, err)
 
+	_, err = engine.ExecStmt("CREATE INDEX IF NOT EXISTS ON table1(name)", nil, true)
+	require.NoError(t, err)
+
 	col, err := table.GetColumnByName("name")
 	require.NoError(t, err)
 
@@ -289,6 +292,9 @@ func TestCreateIndex(t *testing.T) {
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(id)", nil, true)
 	require.Equal(t, ErrIndexAlreadyExists, err)
+
+	_, err = engine.ExecStmt("CREATE UNIQUE INDEX IF NOT EXISTS ON table1(id)", nil, true)
+	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
 	require.NoError(t, err)
