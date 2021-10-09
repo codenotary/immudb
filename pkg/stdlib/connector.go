@@ -30,23 +30,21 @@ type driverConnector struct {
 func (c driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	c.driver.configMutex.Lock()
+	defer c.driver.configMutex.Unlock()
 	cn := c.driver.configs[c.name]
-	c.driver.configMutex.Unlock()
 
 	if cn == nil {
 		cliOptions, err := ParseConfig(c.name)
 		if err != nil {
 			return nil, err
 		}
-		cn, err = c.driver.GetNewConnByOptions(cliOptions)
+		cn, err = c.driver.GetNewConnByOptions(ctx, cliOptions)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	c.driver.configMutex.Lock()
 	c.driver.configs[c.name] = cn
-	c.driver.configMutex.Unlock()
 
 	return cn, nil
 }

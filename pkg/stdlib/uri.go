@@ -27,7 +27,7 @@ import (
 )
 
 func ParseConfig(uri string) (*client.Options, error) {
-	if uri != "" && strings.HasPrefix(uri, "immudb://") {
+	if strings.HasPrefix(uri, "immudb://") {
 		url, err := url.Parse(uri)
 		if err != nil {
 			return nil, ErrBadQueryString
