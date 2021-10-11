@@ -65,7 +65,7 @@ func TestJointRowReader(t *testing.T) {
 	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
 	require.NoError(t, err)
 
-	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
+	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1", as: "table2"}}})
 	require.NoError(t, err)
 
 	orderBy := jr.OrderBy()
@@ -76,7 +76,7 @@ func TestJointRowReader(t *testing.T) {
 
 	cols, err := jr.Columns()
 	require.NoError(t, err)
-	require.Len(t, cols, 1)
+	require.Len(t, cols, 2)
 
 	scanSpecs := jr.ScanSpecs()
 	require.NotNil(t, scanSpecs)

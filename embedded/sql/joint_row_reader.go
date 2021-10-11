@@ -17,6 +17,8 @@ limitations under the License.
 package sql
 
 import (
+	"fmt"
+
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -117,6 +119,13 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 		}
 
 		for sel, des := range cd {
+			if _, exists := colDescriptors[sel]; exists {
+				return nil, fmt.Errorf(
+					"error resolving '%s' in a join: %w",
+					sel,
+					ErrAmbiguousSelector,
+				)
+			}
 			colDescriptors[sel] = des
 		}
 	}

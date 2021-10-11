@@ -80,6 +80,7 @@ var ErrDuplicatedParameters = errors.New("duplicated parameters")
 var ErrLimitedIndexCreation = errors.New("index creation is only supported on empty tables")
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = errors.New("sql engine already closed")
+var ErrAmbiguousSelector = errors.New("ambiguous selector")
 
 var maxKeyLen = 256
 var maxKeyVal []byte = greatestKeyOfSize(maxKeyLen)

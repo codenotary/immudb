@@ -3401,7 +3401,7 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["id"])
 
-	params, err = engine.InferParameters("SELECT * FROM mytable INNER JOIN mytable ON id = id WHERE id > @id")
+	params, err = engine.InferParameters("SELECT * FROM mytable t1 INNER JOIN mytable t2 ON t1.id = t2.id WHERE id > @id")
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["id"])
