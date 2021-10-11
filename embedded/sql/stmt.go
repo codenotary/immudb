@@ -2015,7 +2015,7 @@ func (bexp *LikeBoolExp) requiresType(t SQLValueType, cols map[string]*ColDescri
 	}
 
 	if t != BooleanType {
-		return fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
+		return fmt.Errorf("error using the value of the LIKE operator as %s: %w", t, ErrInvalidTypes)
 	}
 
 	err := bexp.pattern.requiresType(VarcharType, cols, params, implicitDB, implicitTable)
@@ -2031,13 +2031,18 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
+	val, err := bexp.val.substitute(params)
+	if err != nil {
+		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
+	}
+
 	pattern, err := bexp.pattern.substitute(params)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
 
 	return &LikeBoolExp{
-		val:     bexp.val,
+		val:     val,
 		notLike: bexp.notLike,
 		pattern: pattern,
 	}, nil
