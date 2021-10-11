@@ -96,9 +96,15 @@ func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
 }
 
 func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
-	colDescriptors, err := jointr.rowReader.colsBySelector()
+	initColDescriptors, err := jointr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
+	}
+
+	// Copy to avoid modifying the original initColDdescriptors
+	colDescriptors := make(map[string]*ColDescriptor, len(initColDescriptors))
+	for sel, des := range initColDescriptors {
+		colDescriptors[sel] = des
 	}
 
 	for _, jspec := range jointr.joins {
