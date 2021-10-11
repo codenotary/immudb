@@ -43,7 +43,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
 		},
 	}
 
@@ -185,7 +185,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
 		},
 		{
 			input:          "CREATE TABLE table1",
