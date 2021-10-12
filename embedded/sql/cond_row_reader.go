@@ -53,7 +53,7 @@ func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) err
 	return err
 }
 
-func (cr *conditionalRowReader) OrderBy() []*ColDescriptor {
+func (cr *conditionalRowReader) OrderBy() []ColDescriptor {
 	return cr.rowReader.OrderBy()
 }
 
@@ -61,11 +61,11 @@ func (cr *conditionalRowReader) ScanSpecs() *ScanSpecs {
 	return cr.rowReader.ScanSpecs()
 }
 
-func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
+func (cr *conditionalRowReader) Columns() ([]ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }
 
-func (cr *conditionalRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
+func (cr *conditionalRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	return cr.rowReader.colsBySelector()
 }
 

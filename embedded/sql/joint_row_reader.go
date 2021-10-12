@@ -70,7 +70,7 @@ func (jointr *jointRowReader) ImplicitTable() string {
 	return jointr.rowReader.ImplicitTable()
 }
 
-func (jointr *jointRowReader) OrderBy() []*ColDescriptor {
+func (jointr *jointRowReader) OrderBy() []ColDescriptor {
 	return jointr.rowReader.OrderBy()
 }
 
@@ -78,13 +78,13 @@ func (jointr *jointRowReader) ScanSpecs() *ScanSpecs {
 	return jointr.rowReader.ScanSpecs()
 }
 
-func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
+func (jointr *jointRowReader) Columns() ([]ColDescriptor, error) {
 	colsBySel, err := jointr.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
 
-	colsByPos := make([]*ColDescriptor, len(colsBySel))
+	colsByPos := make([]ColDescriptor, len(colsBySel))
 
 	i := 0
 	for _, c := range colsBySel {
@@ -95,16 +95,10 @@ func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
 	return colsByPos, nil
 }
 
-func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
-	initColDescriptors, err := jointr.rowReader.colsBySelector()
+func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error) {
+	colDescriptors, err := jointr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
-	}
-
-	// Copy to avoid modifying the original initColDdescriptors
-	colDescriptors := make(map[string]*ColDescriptor, len(initColDescriptors))
-	for sel, des := range initColDescriptors {
-		colDescriptors[sel] = des
 	}
 
 	for _, jspec := range jointr.joins {

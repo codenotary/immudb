@@ -21,7 +21,7 @@ type distinctRowReader struct {
 	e *Engine
 
 	rowReader RowReader
-	cols      []*ColDescriptor
+	cols      []ColDescriptor
 
 	readRows map[[sha256.Size]byte]struct{}
 }
@@ -52,7 +52,7 @@ func (dr *distinctRowReader) SetParameters(params map[string]interface{}) error 
 	return dr.rowReader.SetParameters(params)
 }
 
-func (dr *distinctRowReader) OrderBy() []*ColDescriptor {
+func (dr *distinctRowReader) OrderBy() []ColDescriptor {
 	return dr.rowReader.OrderBy()
 }
 
@@ -60,11 +60,11 @@ func (dr *distinctRowReader) ScanSpecs() *ScanSpecs {
 	return dr.rowReader.ScanSpecs()
 }
 
-func (dr *distinctRowReader) Columns() ([]*ColDescriptor, error) {
+func (dr *distinctRowReader) Columns() ([]ColDescriptor, error) {
 	return dr.rowReader.Columns()
 }
 
-func (dr *distinctRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
+func (dr *distinctRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	return dr.rowReader.colsBySelector()
 }
 

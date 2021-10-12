@@ -65,7 +65,7 @@ func (pr *projectedRowReader) ImplicitTable() string {
 	return pr.tableAlias
 }
 
-func (pr *projectedRowReader) OrderBy() []*ColDescriptor {
+func (pr *projectedRowReader) OrderBy() []ColDescriptor {
 	return pr.rowReader.OrderBy()
 }
 
@@ -73,13 +73,13 @@ func (pr *projectedRowReader) ScanSpecs() *ScanSpecs {
 	return pr.rowReader.ScanSpecs()
 }
 
-func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
+func (pr *projectedRowReader) Columns() ([]ColDescriptor, error) {
 	colsBySel, err := pr.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
 
-	colsByPos := make([]*ColDescriptor, len(pr.selectors))
+	colsByPos := make([]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
 		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
@@ -101,7 +101,7 @@ func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 			}
 		}
 
-		colsByPos[i] = &ColDescriptor{
+		colsByPos[i] = ColDescriptor{
 			AggFn:    aggFn,
 			Database: db,
 			Table:    table,
@@ -116,13 +116,13 @@ func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 	return colsByPos, nil
 }
 
-func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
+func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	dsColDescriptors, err := pr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
 
-	colDescriptors := make(map[string]*ColDescriptor, len(pr.selectors))
+	colDescriptors := make(map[string]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
 		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
@@ -151,7 +151,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error
 			}
 		}
 
-		des := &ColDescriptor{
+		des := ColDescriptor{
 			AggFn:    aggFn,
 			Database: db,
 			Table:    table,

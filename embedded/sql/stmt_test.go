@@ -23,18 +23,18 @@ import (
 )
 
 func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
-	cols := make(map[string]*ColDescriptor)
-	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
-	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
-	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
-	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
-	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+	cols := make(map[string]ColDescriptor)
+	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
 		exp           ValueExp
-		cols          map[string]*ColDescriptor
+		cols          map[string]ColDescriptor
 		params        map[string]SQLValueType
 		implicitDB    string
 		implicitTable string
@@ -137,18 +137,18 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 }
 
 func TestRequiresTypeNumExpValueExp(t *testing.T) {
-	cols := make(map[string]*ColDescriptor)
-	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
-	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
-	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
-	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
-	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+	cols := make(map[string]ColDescriptor)
+	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
 		exp           ValueExp
-		cols          map[string]*ColDescriptor
+		cols          map[string]ColDescriptor
 		params        map[string]SQLValueType
 		implicitDB    string
 		implicitTable string
@@ -206,18 +206,18 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 }
 
 func TestRequiresTypeSimpleValueExp(t *testing.T) {
-	cols := make(map[string]*ColDescriptor)
-	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
-	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
-	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
-	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
-	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+	cols := make(map[string]ColDescriptor)
+	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
 		exp           ValueExp
-		cols          map[string]*ColDescriptor
+		cols          map[string]ColDescriptor
 		params        map[string]SQLValueType
 		implicitDB    string
 		implicitTable string
@@ -392,18 +392,18 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 }
 
 func TestRequiresTypeSysFnValueExp(t *testing.T) {
-	cols := make(map[string]*ColDescriptor)
-	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
-	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
-	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
-	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
-	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+	cols := make(map[string]ColDescriptor)
+	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
 		exp           ValueExp
-		cols          map[string]*ColDescriptor
+		cols          map[string]ColDescriptor
 		params        map[string]SQLValueType
 		implicitDB    string
 		implicitTable string
@@ -452,18 +452,18 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 }
 
 func TestRequiresTypeBinValueExp(t *testing.T) {
-	cols := make(map[string]*ColDescriptor)
-	cols["(db1.mytable.id)"] = &ColDescriptor{Type: IntegerType}
-	cols["(db1.mytable.title)"] = &ColDescriptor{Type: VarcharType}
-	cols["(db1.mytable.active)"] = &ColDescriptor{Type: BooleanType}
-	cols["(db1.mytable.payload)"] = &ColDescriptor{Type: BLOBType}
-	cols["COUNT(db1.mytable.*)"] = &ColDescriptor{Type: IntegerType}
+	cols := make(map[string]ColDescriptor)
+	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
+	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
+	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
+	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
 
 	params := make(map[string]SQLValueType)
 
 	testCases := []struct {
 		exp           ValueExp
-		cols          map[string]*ColDescriptor
+		cols          map[string]ColDescriptor
 		params        map[string]SQLValueType
 		implicitDB    string
 		implicitTable string

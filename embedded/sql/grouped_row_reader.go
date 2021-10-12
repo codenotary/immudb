@@ -57,7 +57,7 @@ func (gr *groupedRowReader) ImplicitTable() string {
 	return gr.rowReader.ImplicitTable()
 }
 
-func (gr *groupedRowReader) OrderBy() []*ColDescriptor {
+func (gr *groupedRowReader) OrderBy() []ColDescriptor {
 	return gr.rowReader.OrderBy()
 }
 
@@ -65,13 +65,13 @@ func (gr *groupedRowReader) ScanSpecs() *ScanSpecs {
 	return gr.rowReader.ScanSpecs()
 }
 
-func (gr *groupedRowReader) Columns() ([]*ColDescriptor, error) {
+func (gr *groupedRowReader) Columns() ([]ColDescriptor, error) {
 	colsBySel, err := gr.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
 
-	colsByPos := make([]*ColDescriptor, len(gr.selectors))
+	colsByPos := make([]ColDescriptor, len(gr.selectors))
 
 	for i, sel := range gr.selectors {
 		encSel := EncodeSelector(sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable()))
@@ -81,7 +81,7 @@ func (gr *groupedRowReader) Columns() ([]*ColDescriptor, error) {
 	return colsByPos, nil
 }
 
-func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
+func (gr *groupedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	colDescriptors, err := gr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) 
 			continue
 		}
 
-		des := &ColDescriptor{
+		des := ColDescriptor{
 			AggFn:    aggFn,
 			Database: db,
 			Table:    table,

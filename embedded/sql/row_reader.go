@@ -29,11 +29,11 @@ type RowReader interface {
 	SetParameters(params map[string]interface{}) error
 	Read() (*Row, error)
 	Close() error
-	Columns() ([]*ColDescriptor, error)
-	OrderBy() []*ColDescriptor
+	Columns() ([]ColDescriptor, error)
+	OrderBy() []ColDescriptor
 	ScanSpecs() *ScanSpecs
 	InferParameters(params map[string]SQLValueType) error
-	colsBySelector() (map[string]*ColDescriptor, error)
+	colsBySelector() (map[string]ColDescriptor, error)
 }
 
 type Row struct {
@@ -68,7 +68,7 @@ func (row *Row) compatible(aRow *Row, selectors []*ColSelector, db, table string
 	return true, nil
 }
 
-func (row *Row) digest(cols []*ColDescriptor) (d [sha256.Size]byte, err error) {
+func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 	h := sha256.New()
 
 	for i, col := range cols {
@@ -102,8 +102,8 @@ type rawRowReader struct {
 	table      *Table
 	asBefore   uint64
 	tableAlias string
-	colsByPos  []*ColDescriptor
-	colsBySel  map[string]*ColDescriptor
+	colsByPos  []ColDescriptor
+	colsBySel  map[string]ColDescriptor
 	scanSpecs  *ScanSpecs
 	reader     *store.KeyReader
 }
@@ -139,11 +139,11 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]*ColDescriptor, len(table.Cols()))
-	colsBySel := make(map[string]*ColDescriptor, len(table.Cols()))
+	colsByPos := make([]ColDescriptor, len(table.Cols()))
+	colsBySel := make(map[string]ColDescriptor, len(table.Cols()))
 
 	for i, c := range table.Cols() {
-		colDescriptor := &ColDescriptor{
+		colDescriptor := ColDescriptor{
 			Database: table.db.name,
 			Table:    tableAlias,
 			Column:   c.colName,
@@ -293,11 +293,11 @@ func (r *rawRowReader) ImplicitTable() string {
 	return r.tableAlias
 }
 
-func (r *rawRowReader) OrderBy() []*ColDescriptor {
-	cols := make([]*ColDescriptor, len(r.scanSpecs.index.cols))
+func (r *rawRowReader) OrderBy() []ColDescriptor {
+	cols := make([]ColDescriptor, len(r.scanSpecs.index.cols))
 
 	for i, col := range r.scanSpecs.index.cols {
-		cols[i] = &ColDescriptor{
+		cols[i] = ColDescriptor{
 			Database: r.table.db.name,
 			Table:    r.tableAlias,
 			Column:   col.colName,
@@ -312,12 +312,20 @@ func (r *rawRowReader) ScanSpecs() *ScanSpecs {
 	return r.scanSpecs
 }
 
-func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
-	return r.colsByPos, nil
+func (r *rawRowReader) Columns() ([]ColDescriptor, error) {
+	ret := make([]ColDescriptor, len(r.colsByPos))
+	for i := range r.colsByPos {
+		ret[i] = r.colsByPos[i]
+	}
+	return ret, nil
 }
 
-func (r *rawRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
-	return r.colsBySel, nil
+func (r *rawRowReader) colsBySelector() (map[string]ColDescriptor, error) {
+	ret := make(map[string]ColDescriptor, len(r.colsBySel))
+	for sel := range r.colsBySel {
+		ret[sel] = r.colsBySel[sel]
+	}
+	return ret, nil
 }
 
 func (r *rawRowReader) InferParameters(params map[string]SQLValueType) error {

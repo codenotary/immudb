@@ -42,7 +42,7 @@ func (r *dummyRowReader) Close() error {
 	return errDummy
 }
 
-func (r *dummyRowReader) OrderBy() []*ColDescriptor {
+func (r *dummyRowReader) OrderBy() []ColDescriptor {
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (r *dummyRowReader) ScanSpecs() *ScanSpecs {
 	return nil
 }
 
-func (r *dummyRowReader) Columns() ([]*ColDescriptor, error) {
+func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
 	if r.failReturningColumns {
 		return nil, errDummy
 	}
@@ -70,6 +70,6 @@ func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
 	return nil
 }
 
-func (r *dummyRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
+func (r *dummyRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	return nil, errDummy
 }
