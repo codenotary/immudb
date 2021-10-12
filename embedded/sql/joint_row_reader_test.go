@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -82,4 +83,82 @@ func TestJointRowReader(t *testing.T) {
 	require.NotNil(t, scanSpecs)
 	require.NotNil(t, scanSpecs.index)
 	require.True(t, scanSpecs.index.IsPrimary())
+
+	t.Run("corner cases", func(t *testing.T) {
+
+		t.Run("detect ambiguous selectors", func(t *testing.T) {
+			jr, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
+			require.NoError(t, err)
+
+			_, err = jr.colsBySelector()
+			require.ErrorIs(t, err, ErrAmbiguousSelector)
+		})
+
+		t.Run("must propagate error from rowReader on colsBySelector", func(t *testing.T) {
+			jr := jointRowReader{
+				rowReader: &dummyRowReader{},
+			}
+
+			cols, err := jr.colsBySelector()
+			require.ErrorIs(t, err, errDummy)
+			require.Nil(t, cols)
+		})
+
+		t.Run("must propagate error from rowReader on InferParameters", func(t *testing.T) {
+			jr := jointRowReader{
+				rowReader: &dummyRowReader{
+					failInferringParams: true,
+				},
+			}
+
+			err := jr.InferParameters(make(map[string]SQLValueType))
+			require.ErrorIs(t, err, errDummy)
+
+			jr.rowReader.(*dummyRowReader).failInferringParams = false
+			err = jr.InferParameters(make(map[string]SQLValueType))
+			require.ErrorIs(t, err, errDummy)
+		})
+
+		t.Run("must propagate error from rowReader on Columns", func(t *testing.T) {
+
+			jr := jointRowReader{
+				rowReader: &dummyRowReader{},
+			}
+
+			cols, err := jr.Columns()
+			require.ErrorIs(t, err, errDummy)
+			require.Nil(t, cols)
+		})
+
+		t.Run("must propagate error from joined reader on colsBySelector", func(t *testing.T) {
+			injectedErr := errors.New("err")
+
+			jr, err := engine.newJointRowReader(db, snap, nil, r,
+				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
+					ResolveFunc: func(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+						return nil, injectedErr
+					},
+				}}})
+			require.NoError(t, err)
+
+			cols, err := jr.colsBySelector()
+			require.ErrorIs(t, err, injectedErr)
+			require.Nil(t, cols)
+		})
+
+		t.Run("must propagate error from joined reader on colsBySelector from Resolve", func(t *testing.T) {
+
+			jr, err := engine.newJointRowReader(db, snap, nil, r,
+				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
+					ResolveFunc: func(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+						return &dummyRowReader{}, nil
+					},
+				}}})
+			require.NoError(t, err)
+
+			cols, err := jr.colsBySelector()
+			require.ErrorIs(t, err, errDummy)
+			require.Nil(t, cols)
+		})
+	})
 }

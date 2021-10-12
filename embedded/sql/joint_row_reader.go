@@ -127,7 +127,9 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 		for sel, des := range cd {
 			if _, exists := colDescriptors[sel]; exists {
 				return nil, fmt.Errorf(
-					"error resolving '%s' in a join: %w",
+					"error resolving '%s' in a join: %w, "+
+						"use aliasing to assign unique names "+
+						"for all tables, sub-queries and columns",
 					sel,
 					ErrAmbiguousSelector,
 				)
@@ -145,13 +147,13 @@ func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) er
 		return err
 	}
 
+	cols, err := jointr.colsBySelector()
+	if err != nil {
+		return err
+	}
+
 	for _, join := range jointr.joins {
 		err = join.ds.inferParameters(jointr.e, jointr.implicitDB, params)
-		if err != nil {
-			return err
-		}
-
-		cols, err := jointr.colsBySelector()
 		if err != nil {
 			return err
 		}
