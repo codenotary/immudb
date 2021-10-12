@@ -1385,7 +1385,7 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	c.Options.CurrentDatabase = db.DatabaseName
 
-	err = c.Tkns.SetToken("defaultdb", result.Token)
+	err = c.Tkns.SetToken(db.DatabaseName, result.Token)
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
