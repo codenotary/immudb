@@ -3272,7 +3272,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 			AS c
 		)
 		INNER JOIN (
-			SELECT customerid, COUNT() as review_count
+			SELECT MAX(customerid) as customerid, COUNT() as review_count
 			FROM customer_review
 			AS r
 		) ON r.customerid = c.id
