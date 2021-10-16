@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -61,6 +62,9 @@ func (cl *commandline) login(cmd *cobra.Command) {
 
 				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass)
 				if err != nil {
+					if err2 := cl.immuClient.Logout(cl.context); err2 != nil {
+						_, _ = fmt.Fprintln(os.Stderr, err.Error())
+					}
 					cl.quit(err)
 					return err
 				}
