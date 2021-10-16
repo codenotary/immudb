@@ -79,20 +79,7 @@ func (jointr *jointRowReader) ScanSpecs() *ScanSpecs {
 }
 
 func (jointr *jointRowReader) Columns() ([]ColDescriptor, error) {
-	colsBySel, err := jointr.colsBySelector()
-	if err != nil {
-		return nil, err
-	}
-
-	colsByPos := make([]ColDescriptor, len(colsBySel))
-
-	i := 0
-	for _, c := range colsBySel {
-		colsByPos[i] = c
-		i++
-	}
-
-	return colsByPos, nil
+	return jointr.colsByPos()
 }
 
 func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error) {
@@ -130,6 +117,35 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 			}
 			colDescriptors[sel] = des
 		}
+	}
+
+	return colDescriptors, nil
+}
+
+func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
+	colDescriptors, err := jointr.rowReader.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, jspec := range jointr.joins {
+
+		// TODO (byo) optimize this by getting selector list only or opening all joint readers
+		//            on jointRowReader creation,
+		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
+		//       in column list though
+		rr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
+		if err != nil {
+			return nil, err
+		}
+		defer rr.Close()
+
+		cd, err := rr.Columns()
+		if err != nil {
+			return nil, err
+		}
+
+		colDescriptors = append(colDescriptors, cd...)
 	}
 
 	return colDescriptors, nil
