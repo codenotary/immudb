@@ -122,7 +122,9 @@ func TestJointRowReader(t *testing.T) {
 		t.Run("must propagate error from rowReader on Columns", func(t *testing.T) {
 
 			jr := jointRowReader{
-				rowReader: &dummyRowReader{},
+				rowReader: &dummyRowReader{
+					failReturningColumns: true,
+				},
 			}
 
 			cols, err := jr.Columns()
