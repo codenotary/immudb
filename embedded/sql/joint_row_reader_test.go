@@ -46,7 +46,7 @@ func TestJointRowReader(t *testing.T) {
 	db, err := engine.catalog.newDatabase(1, "db1")
 	require.NoError(t, err)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
+	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
 	require.NoError(t, err)
 
 	index, err := table.newIndex(true, []uint32{1})
@@ -77,7 +77,15 @@ func TestJointRowReader(t *testing.T) {
 
 	cols, err := jr.Columns()
 	require.NoError(t, err)
-	require.Len(t, cols, 2)
+	require.Len(t, cols, 4)
+	require.Equal(t, cols[0].Table, "table1")
+	require.Equal(t, cols[1].Table, "table1")
+	require.Equal(t, cols[2].Table, "table2")
+	require.Equal(t, cols[3].Table, "table2")
+	require.Equal(t, cols[0].Column, "id")
+	require.Equal(t, cols[1].Column, "number")
+	require.Equal(t, cols[2].Column, "id")
+	require.Equal(t, cols[3].Column, "number")
 
 	scanSpecs := jr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
