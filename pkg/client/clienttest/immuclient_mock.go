@@ -60,7 +60,7 @@ type ImmuClientMock struct {
 	ZScanF                func(context.Context, *schema.ZScanRequest) (*schema.ZEntries, error)
 	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.Entries, error)
 	CountF                func(context.Context, []byte) (*schema.EntryCount, error)
-	CreateDatabaseF       func(context.Context, *schema.Database) error
+	CreateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
 	CreateUserF           func(context.Context, []byte, []byte, uint32, string) error
@@ -237,7 +237,7 @@ func (icm *ImmuClientMock) Count(ctx context.Context, prefix []byte) (*schema.En
 }
 
 // CreateDatabase ...
-func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Database) error {
+func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.DatabaseSettings) error {
 	return icm.CreateDatabaseF(ctx, db)
 }
 
