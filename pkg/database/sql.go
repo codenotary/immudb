@@ -29,7 +29,7 @@ import (
 var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
 
 func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
-	if req == nil {
+	if req == nil || req.SqlGetRequest == nil {
 		return nil, ErrIllegalArguments
 	}
 
