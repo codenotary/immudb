@@ -27,4 +27,5 @@ const (
 	CodDataException                                 Code = "22000"
 	CodInvalidParameterValue                         Code = "22023"
 	CodUndefinedFunction                             Code = "42883"
+	CodInvalidDatabaseName                           Code = "3F000"
 )

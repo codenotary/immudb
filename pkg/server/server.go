@@ -1039,7 +1039,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		//check if database exists
 		dbid = s.dbList.GetId(req.DatabaseName)
 		if dbid < 0 {
-			return nil, status.Errorf(codes.NotFound, fmt.Sprintf("'%s' does not exist", req.DatabaseName))
+			return nil, errors.New(fmt.Sprintf("'%s' does not exist", req.DatabaseName)).WithCode(errors.CodInvalidDatabaseName)
 		}
 	}
 
