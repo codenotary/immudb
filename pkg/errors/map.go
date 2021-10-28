@@ -34,6 +34,8 @@ func mapGRPcErrorCode(code Code) codes.Code {
 		return codes.Internal
 	case CodUndefinedFunction:
 		return codes.Unimplemented
+	case CodInvalidDatabaseName:
+		return codes.InvalidArgument
 	default:
 		return codes.Unknown
 	}
