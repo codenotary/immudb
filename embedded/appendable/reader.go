@@ -116,6 +116,15 @@ func (r *Reader) ReadUint32() (uint32, error) {
 	return binary.BigEndian.Uint32(b[:]), nil
 }
 
+func (r *Reader) ReadUint16() (uint16, error) {
+	var b [2]byte
+	_, err := r.Read(b[:2])
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint16(b[:]), nil
+}
+
 func min(a, b int) int {
 	if a <= b {
 		return a
