@@ -33,9 +33,9 @@ const (
 	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
 	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
-	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={DELETED count (colID valLen val)+})
-	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={DELETED})
-	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={DELETED ({pkVal}{padding}{pkValLen})+})
+	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
+	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
+	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
 )
 
 const PKIndexID = uint32(0)
@@ -101,27 +101,11 @@ const (
 	RightJoin
 )
 
-var deletedOrMustNotExist store.KVConstraint = func(key, currValue []byte, err error) error {
-	if err == store.ErrKeyNotFound {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	// ignore deleted
-	if len(currValue) > 0 && currValue[0] == 1 {
-		return nil
-	}
-
-	return store.ErrKeyAlreadyExists
-}
-
 type TxSummary struct {
 	db *Database
 
-	ces []*store.KV
-	des []*store.KV
+	ces []*store.EntrySpec
+	des []*store.EntrySpec
 
 	updatedRows     int
 	lastInsertedPKs map[string]int64
@@ -209,7 +193,7 @@ func (stmt *CreateDatabaseStmt) compileUsing(e *Engine, implicitDB *Database, pa
 
 	summary = newTxSummary(db)
 
-	kv := &store.KV{
+	kv := &store.EntrySpec{
 		Key:   e.mapKey(catalogDatabasePrefix, EncodeID(db.id)),
 		Value: []byte(stmt.DB),
 	}
@@ -307,14 +291,14 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 
 		copy(v[5:], []byte(col.Name()))
 
-		ce := &store.KV{
+		ce := &store.EntrySpec{
 			Key:   e.mapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(col.id), []byte(col.colType)),
 			Value: v,
 		}
 		summary.ces = append(summary.ces, ce)
 	}
 
-	te := &store.KV{
+	te := &store.EntrySpec{
 		Key:   e.mapKey(catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id)),
 		Value: []byte(table.name),
 	}
@@ -417,7 +401,7 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 		copy(encodedValues[1+i*colSpecLen:], EncodeID(col.id))
 	}
 
-	te := &store.KV{
+	te := &store.EntrySpec{
 		Key:   e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(index.id)),
 		Value: encodedValues,
 	}
@@ -659,16 +643,16 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		var constraint store.KVConstraint
 
 		if stmt.isInsert && !table.autoIncrementPK {
-			constraint = deletedOrMustNotExist
+			constraint = store.MustNotExistOrDeleted
 		}
 
 		if !stmt.isInsert && table.autoIncrementPK {
 			constraint = store.MustExist
 		}
 
-		pke := &store.KV{
+		pke := &store.EntrySpec{
 			Key:        mkey,
-			Value:      append([]byte{0}, valbuf.Bytes()...),
+			Value:      valbuf.Bytes(),
 			Constraint: constraint,
 		}
 		summary.des = append(summary.des, pke)
@@ -693,12 +677,11 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			if index.IsUnique() {
 				prefix = UIndexPrefix
 				encodedValues = make([][]byte, 3+len(index.cols))
-				val = append([]byte{0}, pkEncVals...)
+				val = pkEncVals
 			} else {
 				prefix = SIndexPrefix
 				encodedValues = make([][]byte, 4+len(index.cols))
 				encodedValues[len(encodedValues)-1] = pkEncVals
-				val = []byte{0} // unset deletion flag
 			}
 
 			encodedValues[0] = EncodeID(table.db.id)
@@ -726,10 +709,10 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			var constraint store.KVConstraint
 
 			if index.IsUnique() {
-				constraint = deletedOrMustNotExist
+				constraint = store.MustNotExistOrDeleted
 			}
 
-			ie := &store.KV{
+			ie := &store.EntrySpec{
 				Key:        e.mapKey(prefix, encodedValues...),
 				Value:      val,
 				Constraint: constraint,
@@ -800,17 +783,14 @@ func (e *Engine) deleteIndexEntriesFor(
 
 		var prefix string
 		var encodedValues [][]byte
-		var val []byte
 
 		if index.IsUnique() {
 			prefix = UIndexPrefix
 			encodedValues = make([][]byte, 3+len(index.cols))
-			val = append([]byte{1}, pkEncVals...)
 		} else {
 			prefix = SIndexPrefix
 			encodedValues = make([][]byte, 4+len(index.cols))
 			encodedValues[len(encodedValues)-1] = pkEncVals
-			val = []byte{1} // set deletion flag
 		}
 
 		encodedValues[0] = EncodeID(table.db.id)
@@ -845,9 +825,9 @@ func (e *Engine) deleteIndexEntriesFor(
 		if sameIndexKey {
 			reusableIndexEntries[index.id] = struct{}{}
 		} else {
-			ie := &store.KV{
-				Key:   e.mapKey(prefix, encodedValues...),
-				Value: val,
+			ie := &store.EntrySpec{
+				Key:      e.mapKey(prefix, encodedValues...),
+				Metadata: store.NewKVMetadata().AsDeleted(true),
 			}
 
 			summary.des = append(summary.des, ie)
@@ -1455,10 +1435,9 @@ type SelectStmt struct {
 }
 
 type ScanSpecs struct {
-	index          *Index
-	rangesByColID  map[uint32]*typedValueRange
-	includeDeleted bool
-	descOrder      bool
+	index         *Index
+	rangesByColID map[uint32]*typedValueRange
+	descOrder     bool
 }
 
 func (stmt *SelectStmt) Limit() int {
