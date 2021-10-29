@@ -33,7 +33,7 @@ func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.
 }
 
 // Set ...
-func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.TxMetadata, error) {
+func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.TxHeader, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -63,12 +63,12 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vtx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -106,12 +106,12 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vEntry.VerifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -169,12 +169,12 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vtx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -210,7 +210,7 @@ func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*
 }
 
 // SetReference ...
-func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -240,12 +240,12 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vtx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -261,7 +261,7 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 }
 
 // ZAdd ...
-func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxMetadata, error) {
+func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -301,12 +301,12 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vtx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -342,20 +342,23 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 		return nil, err
 	}
 
-	list := &schema.Entries{}
-
-	for _, key := range req.Keys {
-		e, err := db.Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
-		if err != nil {
-			return nil, err
-		}
-		list.Entries = append(list.Entries, e)
-	}
-
-	return list, nil
+	return db.GetAll(req)
 }
 
-func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+func (s *ImmuServer) DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	db, err := s.getDBFromCtx(ctx, "DeleteAll")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.DeleteAll(req)
+}
+
+func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}

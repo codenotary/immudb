@@ -34,12 +34,12 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(ventry.VerifiableTx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(ventry.VerifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 

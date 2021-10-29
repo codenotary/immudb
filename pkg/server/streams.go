@@ -131,12 +131,12 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(vEntry.VerifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 
@@ -266,12 +266,12 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 	}
 
 	if s.StateSigner != nil {
-		md := schema.TxMetadataFrom(verifiableTx.DualProof.TargetTxMetadata)
-		alh := md.Alh()
+		hdr := schema.TxHeaderFromProto(verifiableTx.DualProof.TargetTxHeader)
+		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
 			Db:     db.GetOptions().GetDBName(),
-			TxId:   md.ID,
+			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
 

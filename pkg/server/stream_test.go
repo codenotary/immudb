@@ -2,10 +2,11 @@ package server
 
 import (
 	"context"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"testing"
 )
 
 func TestImmuServer_StreamGetDbError(t *testing.T) {
@@ -37,7 +38,7 @@ func (s *StreamServerMock) Send(chunk *schema.Chunk) error {
 	return nil
 }
 
-func (s *StreamServerMock) SendAndClose(*schema.TxMetadata) error {
+func (s *StreamServerMock) SendAndClose(*schema.TxHeader) error {
 	return nil
 }
 func (s *StreamServerMock) Recv() (*schema.Chunk, error) {
