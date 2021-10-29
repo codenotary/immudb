@@ -111,6 +111,20 @@ func main() {
 
 	immuStore, err := store.Open(*dataDir, opts)
 
+	st, err := store.Open("data", store.DefaultOptions())
+	// handle error
+
+	defer st.Close()
+
+	tx, err := st.Commit(
+		&store.TxSpec{
+			Entries:         []*store.EntrySpec{{Key: []byte("hello"), Value: []byte("immutable-world!")}},
+			WaitForIndexing: true,
+		})
+	// handle error
+
+	fmt.Printf("key %s successfully set in tx %d", "hello", tx.ID)
+
 	if err != nil {
 		panic(err)
 	}
@@ -139,19 +153,25 @@ func main() {
 			}
 			defer snap.Close()
 
-			v, ts, hc, err := snap.Get([]byte(*key))
+			valRef, err := snap.Get([]byte(*key))
 			if err != nil {
 				panic(err)
 			}
 
-			fmt.Printf("key: %s, value: %s, ts: %d, hc: %d\r\n", *key, base64.StdEncoding.EncodeToString(v), ts, hc)
+			val, err := valRef.Resolve()
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("key: %s, value: %s, ts: %d, hc: %d\r\n", *key, base64.StdEncoding.EncodeToString(val), valRef.Tx(), valRef.HC())
 			return
 		}
 
 		if *action == "set" {
-			_, err := immuStore.Commit([]*store.KV{
-				{Key: []byte(*key), Value: []byte(*value)},
-			}, false)
+			_, err := immuStore.Commit(
+				&store.TxSpec{
+					Entries: []*store.EntrySpec{{Key: []byte(*key), Value: []byte(*value)}},
+				})
 			if err != nil {
 				panic(err)
 			}
@@ -181,10 +201,10 @@ func main() {
 			go func(id int) {
 				fmt.Printf("\r\nCommitter %d is generating kv data...\r\n", id)
 
-				txs := make([][]*store.KV, *txCount)
+				txs := make([][]*store.EntrySpec, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txs[t] = make([]*store.KV, *kvCount)
+					txs[t] = make([]*store.EntrySpec, *kvCount)
 
 					rand.Seed(time.Now().UnixNano())
 
@@ -214,7 +234,7 @@ func main() {
 							rand.Read(v)
 						}
 
-						txs[t][i] = &store.KV{Key: k, Value: v}
+						txs[t][i] = &store.EntrySpec{Key: k, Value: v}
 					}
 				}
 
@@ -227,12 +247,12 @@ func main() {
 				ids := make([]uint64, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txMetadata, err := immuStore.Commit(txs[t], false)
+					txhdr, err := immuStore.Commit(&store.TxSpec{Entries: txs[t]})
 					if err != nil {
 						panic(err)
 					}
 
-					ids[t] = txMetadata.ID
+					ids[t] = txhdr.ID
 
 					if *printAfter > 0 && t%*printAfter == 0 {
 						fmt.Print(".")
@@ -324,7 +344,7 @@ func main() {
 							panic(err)
 						}
 
-						kv := &store.KV{Key: e.Key(), Value: b[:e.VLen()]}
+						kv := &store.EntrySpec{Key: e.Key(), Value: b[:e.VLen()]}
 
 						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 						if !verifies {
