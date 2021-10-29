@@ -86,20 +86,22 @@ message MTLSConfig {
 message KeyValue {
 	bytes key = 1;
 	bytes value = 2;
+	KVMetadata metadata = 3;
 }
 
 message Entry {
 	uint64 tx = 1;
 	bytes key = 2;
 	bytes value = 3;
-
 	Reference referencedBy = 4;
+	KVMetadata metadata = 5;
 }
 
 message Reference {
 	uint64 tx = 1;
 	bytes key = 2;
 	uint64 atTx = 3;
+	KVMetadata metadata = 4;
 }
 
 message Op {
@@ -155,14 +157,19 @@ message Signature {
 	bytes signature = 2;
 }
 
-message TxMetadata {
+message TxHeader {
 	uint64 id = 1;
 	bytes prevAlh = 2;
 	int64 ts = 3;
-	int32 nentries = 4;
-	bytes eH = 5;
-	uint64 blTxId = 6;
-	bytes blRoot = 7;
+	TxMD metadata = 4;
+	int32 nentries = 5;
+	bytes eH = 6;
+	uint64 blTxId = 7;
+	bytes blRoot = 8;
+}
+
+message TxMD {
+	bytes summary = 1;
 }
 
 message LinearProof {
@@ -172,8 +179,8 @@ message LinearProof {
 }
 
 message DualProof {
-	TxMetadata sourceTxMetadata = 1;
-	TxMetadata targetTxMetadata = 2;
+	TxHeader sourceTxHeader = 1;
+	TxHeader targetTxHeader = 2;
 
 	repeated bytes inclusionProof = 3;
 	repeated bytes consistencyProof = 4;
@@ -185,14 +192,19 @@ message DualProof {
 }
 
 message Tx {
-	TxMetadata metadata = 1;
+	TxHeader header = 1;
 	repeated TxEntry entries = 2;
 }
 
 message TxEntry {
 	bytes key = 1;
 	bytes hValue = 2;
-	int32 vLen = 4;
+	int32 vLen = 3;
+	KVMetadata metadata = 4;
+}
+
+message KVMetadata {
+	bool deleted = 1;
 }
 
 message VerifiableTx {
@@ -229,6 +241,12 @@ message KeyRequest {
 message KeyListRequest {
 	repeated bytes keys = 1;
 	uint64 sinceTx = 2;
+}
+
+message DeleteKeysRequest {
+	repeated bytes keys = 1;
+	uint64 sinceTx = 2;
+	bool  noWait = 3;
 }
 
 message VerifiableSetRequest {
@@ -364,6 +382,7 @@ message SQLEntry {
 	uint64 tx = 1;
 	bytes  key = 2;
 	bytes  value = 3;
+	KVMetadata metadata = 4;
 }
 
 message VerifiableSQLEntry {
@@ -432,8 +451,8 @@ message NamedParam {
 }
 
 message SQLExecResult {
-	repeated TxMetadata ctxs = 1;
-	repeated TxMetadata dtxs = 2;
+	repeated TxHeader ctxs = 1;
+	repeated TxHeader dtxs = 2;
 	uint32 updatedRows = 3;
 	map<string, SQLValue> lastInsertedPKs = 4;
 }
@@ -541,7 +560,7 @@ service ImmuService {
 		};
 	};
 
-	rpc Set (SetRequest) returns (TxMetadata){
+	rpc Set (SetRequest) returns (TxHeader){
 		option (google.api.http) = {
 			post: "/db/set"
 			body: "*"
@@ -575,7 +594,14 @@ service ImmuService {
 		};
 	};
 
-	rpc ExecAll (ExecAllRequest) returns (TxMetadata) {
+	rpc DeleteAll(DeleteKeysRequest) returns (TxHeader) {
+		option (google.api.http) = {
+			post: "/db/deletekeys"
+			body: "*"
+		};
+	}
+
+	rpc ExecAll (ExecAllRequest) returns (TxHeader) {
 		option (google.api.http) = {
 			post: "/db/execall"
 			body: "*"
@@ -647,7 +673,7 @@ service ImmuService {
 		};
 	};
 
-	rpc SetReference (ReferenceRequest) returns (TxMetadata){
+	rpc SetReference (ReferenceRequest) returns (TxHeader){
 		option (google.api.http) = {
 			post: "/db/setreference"
 			body: "*"
@@ -661,7 +687,7 @@ service ImmuService {
 		};
 	};
 
-	rpc ZAdd (ZAddRequest) returns (TxMetadata){
+	rpc ZAdd (ZAddRequest) returns (TxHeader){
 		option (google.api.http) = {
 			post: "/db/zadd"
 			body: "*"
@@ -739,17 +765,17 @@ service ImmuService {
 
 	// Streams
 	rpc streamGet(KeyRequest) returns (stream Chunk) {};
-	rpc streamSet(stream Chunk) returns (TxMetadata) {};
+	rpc streamSet(stream Chunk) returns (TxHeader) {};
 	rpc streamVerifiableGet(VerifiableGetRequest) returns (stream Chunk) {};
 	rpc streamVerifiableSet(stream Chunk) returns (VerifiableTx) {};
 	rpc streamScan(ScanRequest) returns (stream Chunk) {};
 	rpc streamZScan(ZScanRequest) returns (stream Chunk) {};
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
-	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
+	rpc streamExecAll(stream Chunk) returns (TxHeader) {};
 
 	// Replication
 	rpc exportTx(TxRequest) returns (stream Chunk) {};
-	rpc replicateTx(stream Chunk) returns (TxMetadata) {};
+	rpc replicateTx(stream Chunk) returns (TxHeader) {};
 
 	// SQL
 	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {

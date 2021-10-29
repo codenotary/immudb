@@ -154,6 +154,38 @@
         ]
       }
     },
+    "/db/deletekeys": {
+      "post": {
+        "operationId": "ImmuService_DeleteAll",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxHeader"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDeleteKeysRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/execall": {
       "post": {
         "operationId": "ImmuService_ExecAll",
@@ -161,7 +193,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
+              "$ref": "#/definitions/schemaTxHeader"
             }
           },
           "default": {
@@ -366,7 +398,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
+              "$ref": "#/definitions/schemaTxHeader"
             }
           },
           "default": {
@@ -398,7 +430,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
+              "$ref": "#/definitions/schemaTxHeader"
             }
           },
           "default": {
@@ -933,7 +965,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
+              "$ref": "#/definitions/schemaTxHeader"
             }
           },
           "default": {
@@ -1439,14 +1471,33 @@
         }
       }
     },
+    "schemaDeleteKeysRequest": {
+      "type": "object",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
+        }
+      }
+    },
     "schemaDualProof": {
       "type": "object",
       "properties": {
-        "sourceTxMetadata": {
-          "$ref": "#/definitions/schemaTxMetadata"
+        "sourceTxHeader": {
+          "$ref": "#/definitions/schemaTxHeader"
         },
-        "targetTxMetadata": {
-          "$ref": "#/definitions/schemaTxMetadata"
+        "targetTxHeader": {
+          "$ref": "#/definitions/schemaTxHeader"
         },
         "inclusionProof": {
           "type": "array",
@@ -1506,6 +1557,9 @@
         },
         "referencedBy": {
           "$ref": "#/definitions/schemaReference"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata"
         }
       }
     },
@@ -1606,6 +1660,14 @@
         }
       }
     },
+    "schemaKVMetadata": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      }
+    },
     "schemaKeyListRequest": {
       "type": "object",
       "properties": {
@@ -1649,6 +1711,9 @@
         "value": {
           "type": "string",
           "format": "byte"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata"
         }
       }
     },
@@ -1756,6 +1821,9 @@
         "atTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata"
         }
       }
     },
@@ -1813,6 +1881,9 @@
         "value": {
           "type": "string",
           "format": "byte"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata"
         }
       }
     },
@@ -1839,13 +1910,13 @@
         "ctxs": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaTxMetadata"
+            "$ref": "#/definitions/schemaTxHeader"
           }
         },
         "dtxs": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaTxMetadata"
+            "$ref": "#/definitions/schemaTxHeader"
           }
         },
         "updatedRows": {
@@ -2023,8 +2094,8 @@
     "schemaTx": {
       "type": "object",
       "properties": {
-        "metadata": {
-          "$ref": "#/definitions/schemaTxMetadata"
+        "header": {
+          "$ref": "#/definitions/schemaTxHeader"
         },
         "entries": {
           "type": "array",
@@ -2048,21 +2119,13 @@
         "vLen": {
           "type": "integer",
           "format": "int32"
+        },
+        "metadata": {
+          "$ref": "#/definitions/schemaKVMetadata"
         }
       }
     },
-    "schemaTxList": {
-      "type": "object",
-      "properties": {
-        "txs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaTx"
-          }
-        }
-      }
-    },
-    "schemaTxMetadata": {
+    "schemaTxHeader": {
       "type": "object",
       "properties": {
         "id": {
@@ -2077,6 +2140,9 @@
           "type": "string",
           "format": "int64"
         },
+        "metadata": {
+          "$ref": "#/definitions/schemaTxMD"
+        },
         "nentries": {
           "type": "integer",
           "format": "int32"
@@ -2090,6 +2156,26 @@
           "format": "uint64"
         },
         "blRoot": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaTxList": {
+      "type": "object",
+      "properties": {
+        "txs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTx"
+          }
+        }
+      }
+    },
+    "schemaTxMD": {
+      "type": "object",
+      "properties": {
+        "summary": {
           "type": "string",
           "format": "byte"
         }
