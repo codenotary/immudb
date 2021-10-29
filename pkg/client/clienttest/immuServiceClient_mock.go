@@ -39,13 +39,13 @@ type ImmuServiceClientMock struct {
 	LoginF            func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error)
 	LogoutF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 
-	SetF           func(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	SetF           func(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxHeader, error)
 	VerifiableSetF func(ctx context.Context, in *schema.VerifiableSetRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	GetF           func(ctx context.Context, in *schema.KeyRequest, opts ...grpc.CallOption) (*schema.Entry, error)
 	VerifiableGetF func(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error)
 
 	GetAllF                 func(ctx context.Context, in *schema.KeyListRequest, opts ...grpc.CallOption) (*schema.Entries, error)
-	ExecAllF                func(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	ExecAllF                func(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxHeader, error)
 	ScanF                   func(ctx context.Context, in *schema.ScanRequest, opts ...grpc.CallOption) (*schema.Entries, error)
 	CountF                  func(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.EntryCount, error)
 	CountAllF               func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.EntryCount, error)
@@ -54,9 +54,9 @@ type ImmuServiceClientMock struct {
 	HistoryF                func(ctx context.Context, in *schema.HistoryRequest, opts ...grpc.CallOption) (*schema.Entries, error)
 	HealthF                 func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error)
 	CurrentStateF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error)
-	SetReferenceF           func(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	SetReferenceF           func(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxHeader, error)
 	VerifiableSetReferenceF func(ctx context.Context, in *schema.VerifiableReferenceRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
-	ZAddF                   func(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	ZAddF                   func(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxHeader, error)
 	VerifiableZAddF         func(ctx context.Context, in *schema.VerifiableZAddRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
 	ZScanF                  func(ctx context.Context, in *schema.ZScanRequest, opts ...grpc.CallOption) (*schema.ZEntries, error)
 	CreateDatabaseF         func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error)
@@ -104,7 +104,7 @@ func (icm *ImmuServiceClientMock) Logout(ctx context.Context, in *empty.Empty, o
 	return icm.LogoutF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) Set(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+func (icm *ImmuServiceClientMock) Set(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxHeader, error) {
 	return icm.SetF(ctx, in, opts...)
 }
 
@@ -124,7 +124,7 @@ func (icm *ImmuServiceClientMock) GetAll(ctx context.Context, in *schema.KeyList
 	return icm.GetAllF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) ExecAll(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+func (icm *ImmuServiceClientMock) ExecAll(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxHeader, error) {
 	return icm.ExecAllF(ctx, in, opts...)
 }
 
@@ -160,7 +160,7 @@ func (icm *ImmuServiceClientMock) CurrentState(ctx context.Context, in *empty.Em
 	return icm.CurrentStateF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) SetReference(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+func (icm *ImmuServiceClientMock) SetReference(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxHeader, error) {
 	return icm.SetReferenceF(ctx, in, opts...)
 }
 
@@ -168,7 +168,7 @@ func (icm *ImmuServiceClientMock) VerifiableSetReference(ctx context.Context, in
 	return icm.VerifiableSetReferenceF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+func (icm *ImmuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxHeader, error) {
 	return icm.ZAddF(ctx, in, opts...)
 }
 

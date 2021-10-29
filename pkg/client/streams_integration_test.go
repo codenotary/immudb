@@ -111,9 +111,9 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	err = kvss.Send(kvs[0])
 	require.NoError(t, err)
 
-	txMeta, err := s.CloseAndRecv()
+	txhdr, err := s.CloseAndRecv()
 	require.NoError(t, err)
-	require.IsType(t, &schema.TxMetadata{}, txMeta)
+	require.IsType(t, &schema.TxHeader{}, txhdr)
 }
 
 func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
@@ -160,9 +160,9 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	err = kvs.Send(kv)
 	require.NoError(t, err)
 
-	txMeta, err := s1.CloseAndRecv()
+	txhdr, err := s1.CloseAndRecv()
 	require.NoError(t, err)
-	require.IsType(t, &schema.TxMetadata{}, txMeta)
+	require.IsType(t, &schema.TxHeader{}, txhdr)
 
 	s2, err := cli.streamSet(ctx)
 	if err != nil {
@@ -188,9 +188,9 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	err = kvs2.Send(kv2)
 	require.NoError(t, err)
 
-	txMeta, err = s2.CloseAndRecv()
+	txhdr, err = s2.CloseAndRecv()
 	require.NoError(t, err)
-	require.IsType(t, &schema.TxMetadata{}, txMeta)
+	require.IsType(t, &schema.TxHeader{}, txhdr)
 
 	s3, err := cli.streamSet(ctx)
 	if err != nil {
