@@ -116,8 +116,8 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return ErrIllegalArguments
 	}
 
-	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
-	dualProof := schema.DualProofFrom(vEntry.VerifiableTx.DualProof)
+	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
+	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
 	var eh [sha256.Size]byte
 
@@ -173,27 +173,27 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return err
 	}
 
-	kv := &store.KV{Key: pkKey, Value: vEntry.SqlEntry.Value}
+	e := &store.EntrySpec{Key: pkKey, Value: vEntry.SqlEntry.Value}
 
 	if state.TxId <= vTx {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
+		eh = schema.DigestFromProto(vEntry.VerifiableTx.DualProof.TargetTxHeader.EH)
 
 		sourceID = state.TxId
-		sourceAlh = schema.DigestFrom(state.TxHash)
+		sourceAlh = schema.DigestFromProto(state.TxHash)
 		targetID = vTx
-		targetAlh = dualProof.TargetTxMetadata.Alh()
+		targetAlh = dualProof.TargetTxHeader.Alh()
 	} else {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
+		eh = schema.DigestFromProto(vEntry.VerifiableTx.DualProof.SourceTxHeader.EH)
 
 		sourceID = vTx
-		sourceAlh = dualProof.SourceTxMetadata.Alh()
+		sourceAlh = dualProof.SourceTxHeader.Alh()
 		targetID = state.TxId
-		targetAlh = schema.DigestFrom(state.TxHash)
+		targetAlh = schema.DigestFromProto(state.TxHash)
 	}
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		kv,
+		e,
 		eh)
 	if !verifies {
 		return store.ErrCorruptedData
@@ -276,7 +276,7 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint32]*schema.SQLValue, c
 }
 
 func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uint32]*schema.SQLValue, error) {
-	off := 1 // ignore DELETED flag during decoding
+	off := 0
 
 	if len(encodedRow) < off+sql.EncLenLen {
 		return nil, sql.ErrCorruptedData

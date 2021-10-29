@@ -21,9 +21,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"github.com/codenotary/immudb/pkg/client/errors"
 	"io"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/errors"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -32,7 +33,7 @@ import (
 )
 
 // StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
-func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	txMeta, err := c._streamSet(ctx, kvs)
 	return txMeta, errors.FromError(err)
 }
@@ -43,9 +44,9 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 	return entry, errors.FromError(err)
 }
 
-func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
-	txMeta, err := c._streamVerifiedSet(ctx, kvs)
-	return txMeta, errors.FromError(err)
+func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
+	txhdr, err := c._streamVerifiedSet(ctx, kvs)
+	return txhdr, errors.FromError(err)
 }
 
 func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
@@ -68,13 +69,13 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 	return entries, errors.FromError(err)
 }
 
-func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
-	txMeta, err := c._streamExecAll(ctx, req)
-	return txMeta, errors.FromError(err)
+func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error) {
+	txhdr, err := c._streamExecAll(ctx, req)
+	return txhdr, errors.FromError(err)
 }
 
 // StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
-func (c *immuClient) _streamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	s, err := c.streamSet(ctx)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func (c *immuClient) _streamGet(ctx context.Context, k *schema.KeyRequest) (*sch
 	}, nil
 }
 
-func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	if len(kvs) == 0 {
 		return nil, errors.New("no key-values specified")
 	}
@@ -197,26 +198,29 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 		return nil, err
 	}
 
-	if verifiableTx.Tx.Metadata.Nentries != int32(len(kvs)) {
+	if verifiableTx.Tx.Header.Nentries != int32(len(kvs)) || len(verifiableTx.Tx.Entries) != len(kvs) {
 		return nil, store.ErrCorruptedData
 	}
 
-	tx := schema.TxFrom(verifiableTx.Tx)
+	tx := schema.TxFromProto(verifiableTx.Tx)
 
 	var verifies bool
 
-	for _, kv := range stdKVs {
+	for i, kv := range stdKVs {
 		inclusionProof, err := tx.Proof(database.EncodeKey(kv.Key))
 		if err != nil {
 			return nil, err
 		}
-		verifies = store.VerifyInclusion(inclusionProof, database.EncodeKV(kv.Key, kv.Value), tx.Eh())
+
+		md := tx.Entries()[i].Metadata()
+
+		verifies = store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(kv.Key, md, kv.Value), tx.Eh())
 		if !verifies {
 			return nil, store.ErrCorruptedData
 		}
 	}
 
-	if tx.Eh() != schema.DigestFrom(verifiableTx.DualProof.TargetTxMetadata.EH) {
+	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -224,13 +228,13 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	var sourceAlh, targetAlh [sha256.Size]byte
 
 	sourceID = state.TxId
-	sourceAlh = schema.DigestFrom(state.TxHash)
+	sourceAlh = schema.DigestFromProto(state.TxHash)
 	targetID = tx.ID
 	targetAlh = tx.Alh
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
-			schema.DualProofFrom(verifiableTx.DualProof),
+			schema.DualProofFromProto(verifiableTx.DualProof),
 			sourceID,
 			targetID,
 			sourceAlh,
@@ -264,7 +268,7 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 		return nil, err
 	}
 
-	return verifiableTx.Tx.Metadata, nil
+	return verifiableTx.Tx.Header, nil
 }
 
 func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
@@ -298,8 +302,8 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 		return nil, err
 	}
 
-	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
-	dualProof := schema.DualProofFrom(vEntry.VerifiableTx.DualProof)
+	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
+	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
 	var eh [sha256.Size]byte
 
@@ -307,31 +311,32 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	var sourceAlh, targetAlh [sha256.Size]byte
 
 	var vTx uint64
-	var kv *store.KV
+	var e *store.EntrySpec
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		kv = database.EncodeKV(req.KeyRequest.Key, vEntry.Entry.Value)
+		e = database.EncodeEntrySpec(req.KeyRequest.Key, schema.KVMetadataFromProto(vEntry.Entry.Metadata), vEntry.Entry.Value)
 	} else {
-		vTx = vEntry.Entry.ReferencedBy.Tx
-		kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
+		ref := vEntry.Entry.ReferencedBy
+		vTx = ref.Tx
+		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx)
 	}
 
 	if state.TxId <= vTx {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
+		eh = schema.DigestFromProto(vEntry.VerifiableTx.DualProof.TargetTxHeader.EH)
 		sourceID = state.TxId
-		sourceAlh = schema.DigestFrom(state.TxHash)
+		sourceAlh = schema.DigestFromProto(state.TxHash)
 		targetID = vTx
-		targetAlh = dualProof.TargetTxMetadata.Alh()
+		targetAlh = dualProof.TargetTxHeader.Alh()
 	} else {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
+		eh = schema.DigestFromProto(vEntry.VerifiableTx.DualProof.SourceTxHeader.EH)
 		sourceID = vTx
-		sourceAlh = dualProof.SourceTxMetadata.Alh()
+		sourceAlh = dualProof.SourceTxHeader.Alh()
 		targetID = state.TxId
-		targetAlh = schema.DigestFrom(state.TxHash)
+		targetAlh = schema.DigestFromProto(state.TxHash)
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, kv, eh)
+	verifies := store.VerifyInclusion(inclusionProof, e, eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
@@ -467,7 +472,7 @@ func (c *immuClient) _streamHistory(ctx context.Context, req *schema.HistoryRequ
 	return &schema.Entries{Entries: entries}, nil
 }
 
-func (c *immuClient) _streamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
+func (c *immuClient) _streamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error) {
 	s, err := c.streamExecAll(ctx)
 	if err != nil {
 		return nil, err

@@ -309,11 +309,11 @@ func (a *defaultAuditor) audit() error {
 		}
 
 		verified = store.VerifyDualProof(
-			schema.DualProofFrom(vtx.DualProof),
+			schema.DualProofFromProto(vtx.DualProof),
 			prevState.TxId,
 			state.TxId,
-			schema.DigestFrom(prevState.TxHash),
-			schema.DigestFrom(state.TxHash),
+			schema.DigestFromProto(prevState.TxHash),
+			schema.DigestFromProto(state.TxHash),
 		)
 
 		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+

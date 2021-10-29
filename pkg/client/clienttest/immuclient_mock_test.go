@@ -61,16 +61,16 @@ func TestImmuClientMock(t *testing.T) {
 		VerifiedGetF: func(context.Context, []byte) (*schema.Entry, error) {
 			return nil, errVerifiedGet
 		},
-		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
+		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
 			return nil, errVerifiedSet
 		},
-		SetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
+		SetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
 			return nil, errSet
 		},
-		VerifiedSetReferenceF: func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error) {
+		VerifiedSetReferenceF: func(context.Context, []byte, []byte, uint64) (*schema.TxHeader, error) {
 			return nil, errVerifiedReference
 		},
-		VerifiedZAddF: func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error) {
+		VerifiedZAddF: func(context.Context, []byte, float64, []byte, uint64) (*schema.TxHeader, error) {
 			return nil, errVerifiedZAdd
 		},
 		HistoryF: func(context.Context, *schema.HistoryRequest) (*schema.Entries, error) {
