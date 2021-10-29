@@ -64,7 +64,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	eCount := 4
 
 	for i := 0; i < txCount; i++ {
-		kvs := make([]*KV, eCount)
+		es := make([]*EntrySpec, eCount)
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -73,12 +73,12 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			kvs[j] = &KV{Key: k, Value: v}
+			es[j] = &EntrySpec{Key: k, Value: v}
 		}
 
-		txMetadata, err := immuStore.Commit(kvs, false)
+		txhdr, err := immuStore.Commit(&TxSpec{Entries: es})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), txMetadata.ID)
+		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
 	sourceTx := immuStore.NewTx()
@@ -103,15 +103,15 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		require.True(t, verifies)
 
 		// Alter proof
-		dproof.SourceTxMetadata.BlTxID++
+		dproof.SourceTxHeader.BlTxID++
 		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.False(t, verifies)
 
 		// Restore proof
-		dproof.SourceTxMetadata.BlTxID--
+		dproof.SourceTxHeader.BlTxID--
 
 		// Alter proof
-		dproof.TargetTxMetadata.BlTxID++
+		dproof.TargetTxHeader.BlTxID++
 		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.False(t, verifies)
 	}
