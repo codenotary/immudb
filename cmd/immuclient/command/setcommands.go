@@ -60,6 +60,28 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(ccmd)
 }
+
+func (cl *commandline) deleteKey(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "delete key value",
+		Short:             "Delete existent entry having the specified key (logical deletion)",
+		Aliases:           []string{"s"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.DeleteKey(args)
+			if err != nil {
+				cl.quit(err)
+			}
+			fprintln(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+
+	cmd.AddCommand(ccmd)
+}
+
 func (cl *commandline) zAdd(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "zadd setname score key",

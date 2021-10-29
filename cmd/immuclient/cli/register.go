@@ -41,6 +41,8 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"safezadd", "Add and verify new key with score to a new or existing sorted set", cli.safeZAdd, []string{"setname", "score", "key"}, false})
 	cli.Register(&command{"zadd", "Add new key with score to a new or existing sorted set", cli.zAdd, []string{"setname", "score", "key"}, false})
 
+	cli.Register(&command{"delete", "Delete item having the specified key", cli.deleteKey, []string{"key"}, false})
+
 	// Current status commands
 	cli.Register(&command{"current", "Return the last tx and hash stored locally", cli.currentState, nil, false})
 

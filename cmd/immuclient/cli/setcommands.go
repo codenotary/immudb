@@ -24,6 +24,10 @@ func (cli *cli) safeset(args []string) (string, error) {
 	return cli.immucl.VerifiedSet(args)
 }
 
+func (cli *cli) deleteKey(args []string) (string, error) {
+	return cli.immucl.DeleteKey(args)
+}
+
 func (cli *cli) zAdd(args []string) (string, error) {
 	return cli.immucl.ZAdd(args)
 }

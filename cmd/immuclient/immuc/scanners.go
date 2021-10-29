@@ -46,7 +46,7 @@ func (i *immuc) ZScan(args []string) (string, error) {
 
 	zEntries := response.(*schema.ZEntries)
 	if len(zEntries.Entries) == 0 {
-		str.WriteString("0")
+		str.WriteString("no entries")
 		return str.String(), nil
 	}
 
@@ -54,7 +54,7 @@ func (i *immuc) ZScan(args []string) (string, error) {
 		if j > 0 {
 			str.WriteString("\n")
 		}
-		str.WriteString(PrintKV(entry.Entry.Key, entry.Entry.Value, entry.Entry.Tx, false, i.valueOnly))
+		str.WriteString(PrintKV(entry.Entry.Key, entry.Entry.Metadata, entry.Entry.Value, entry.Entry.Tx, false, i.valueOnly))
 	}
 
 	return str.String(), nil
@@ -80,7 +80,7 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 
 	entries := response.(*schema.Entries)
 	if len(entries.Entries) == 0 {
-		str.WriteString("0")
+		str.WriteString("no entries")
 		return str.String(), nil
 	}
 
@@ -88,7 +88,7 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 		if j > 0 {
 			str.WriteString("\n")
 		}
-		str.WriteString(PrintKV(entry.Key, entry.Value, entry.Tx, false, i.valueOnly))
+		str.WriteString(PrintKV(entry.Key, entry.Metadata, entry.Value, entry.Tx, false, i.valueOnly))
 	}
 
 	return str.String(), nil

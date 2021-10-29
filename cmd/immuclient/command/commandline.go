@@ -50,6 +50,7 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	// set operations
 	cl.set(rootCmd)
 	cl.safeset(rootCmd)
+	cl.deleteKey(rootCmd)
 	cl.zAdd(rootCmd)
 	cl.safeZAdd(rootCmd)
 	// scanners
