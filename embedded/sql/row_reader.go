@@ -280,6 +280,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		InclusiveEnd:  true,
 		Prefix:        prefix,
 		DescOrder:     scanSpecs.descOrder,
+		Filter:        store.IgnoreDeleted,
 	}, nil
 }
 
@@ -335,101 +336,96 @@ func (r *rawRowReader) SetParameters(params map[string]interface{}) error {
 }
 
 func (r *rawRowReader) Read() (row *Row, err error) {
-	for {
-		var mkey []byte
-		var vref *store.ValueRef
+	var mkey []byte
+	var vref *store.ValueRef
 
-		if r.asBefore > 0 {
-			mkey, vref, _, err = r.reader.ReadAsBefore(r.asBefore)
-		} else {
-			mkey, vref, _, _, err = r.reader.Read()
+	if r.asBefore > 0 {
+		mkey, vref, _, err = r.reader.ReadAsBefore(r.asBefore)
+	} else {
+		mkey, vref, err = r.reader.Read()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var v []byte
+
+	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
+	if r.scanSpecs.index.IsPrimary() {
+		v, err = vref.Resolve()
+		if err != nil {
+			return nil, err
 		}
+	} else {
+		var encPKVals []byte
+
+		v, err = vref.Resolve()
 		if err != nil {
 			return nil, err
 		}
 
-		var v []byte
-
-		//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-		if r.scanSpecs.index.IsPrimary() {
-			v, err = vref.Resolve()
-			if err != nil {
-				return nil, err
-			}
+		if r.scanSpecs.index.IsUnique() {
+			encPKVals = v
 		} else {
-			var encPKVals []byte
-
-			v, err = vref.Resolve()
-			if err != nil {
-				return nil, err
-			}
-
-			if v[0] == 1 && !r.scanSpecs.includeDeleted {
-				continue
-			}
-
-			if r.scanSpecs.index.IsUnique() {
-				encPKVals = v[1:]
-			} else {
-				encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			v, _, _, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
+			encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		values := make(map[string]TypedValue, len(r.table.Cols()))
-
-		for _, col := range r.table.Cols() {
-			values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
+		vref, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
+		if err != nil {
+			return nil, err
 		}
 
-		if len(v) < 1+EncLenLen {
-			return nil, ErrCorruptedData
+		v, err = vref.Resolve()
+		if err != nil {
+			return nil, err
 		}
-
-		if v[0] == 1 && !r.scanSpecs.includeDeleted {
-			continue
-		}
-
-		voff := 1
-
-		cols := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += EncLenLen
-
-		for i := 0; i < cols; i++ {
-			if len(v) < EncIDLen {
-				return nil, ErrCorruptedData
-			}
-
-			colID := binary.BigEndian.Uint32(v[voff:])
-			voff += EncIDLen
-
-			col, err := r.table.GetColumnByID(colID)
-			if err != nil {
-				return nil, ErrCorruptedData
-			}
-
-			val, n, err := DecodeValue(v[voff:], col.colType)
-			if err != nil {
-				return nil, err
-			}
-
-			voff += n
-			values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
-		}
-
-		if len(v)-voff > 0 {
-			return nil, ErrCorruptedData
-		}
-
-		return &Row{Values: values}, nil
 	}
+
+	values := make(map[string]TypedValue, len(r.table.Cols()))
+
+	for _, col := range r.table.Cols() {
+		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
+	}
+
+	if len(v) < EncLenLen {
+		return nil, ErrCorruptedData
+	}
+
+	voff := 0
+
+	cols := int(binary.BigEndian.Uint32(v[voff:]))
+	voff += EncLenLen
+
+	for i := 0; i < cols; i++ {
+		if len(v) < EncIDLen {
+			return nil, ErrCorruptedData
+		}
+
+		colID := binary.BigEndian.Uint32(v[voff:])
+		voff += EncIDLen
+
+		col, err := r.table.GetColumnByID(colID)
+		if err != nil {
+			return nil, ErrCorruptedData
+		}
+
+		val, n, err := DecodeValue(v[voff:], col.colType)
+		if err != nil {
+			return nil, err
+		}
+
+		voff += n
+		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
+	}
+
+	if len(v)-voff > 0 {
+		return nil, ErrCorruptedData
+	}
+
+	return &Row{Values: values}, nil
 }
 
 func (r *rawRowReader) Close() error {

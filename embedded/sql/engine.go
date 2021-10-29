@@ -386,11 +386,11 @@ func (e *Engine) DumpCatalogTo(srcName, dstName string, targetStore *store.ImmuS
 	}
 	defer snap.Close()
 
-	var entries []*store.KV
+	var entries []*store.EntrySpec
 
 	dbKey := e.mapKey(catalogDatabasePrefix, EncodeID(db.ID()))
 
-	entries = append(entries, &store.KV{Key: dbKey, Value: []byte(dstName)})
+	entries = append(entries, &store.EntrySpec{Key: dbKey, Value: []byte(dstName)})
 
 	tableEntries, err := e.entriesWithPrefix(e.mapKey(catalogTablePrefix, EncodeID(db.ID())), snap)
 	if err != nil {
@@ -413,22 +413,27 @@ func (e *Engine) DumpCatalogTo(srcName, dstName string, targetStore *store.ImmuS
 
 	entries = append(entries, idxEntries...)
 
-	_, err = targetStore.Commit(entries, true)
+	_, err = targetStore.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: true})
 
 	return err
 }
 
-func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*store.KV, error) {
-	var entries []*store.KV
+func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*store.EntrySpec, error) {
+	var entries []*store.EntrySpec
 
-	dbReader, err := snap.NewKeyReader(&store.KeyReaderSpec{Prefix: prefix})
+	dbReaderSpec := &store.KeyReaderSpec{
+		Prefix: prefix,
+		Filter: store.IgnoreDeleted,
+	}
+
+	dbReader, err := snap.NewKeyReader(dbReaderSpec)
 	if err != nil {
 		return nil, err
 	}
 	defer dbReader.Close()
 
 	for {
-		mkey, vref, _, _, err := dbReader.Read()
+		mkey, vref, err := dbReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -441,7 +446,7 @@ func (e *Engine) entriesWithPrefix(prefix []byte, snap *store.Snapshot) ([]*stor
 			return nil, err
 		}
 
-		entries = append(entries, &store.KV{Key: mkey, Value: v})
+		entries = append(entries, &store.EntrySpec{Key: mkey, Value: v})
 	}
 
 	return entries, nil
@@ -452,6 +457,7 @@ func (e *Engine) catalogFrom(catalogSnap, dataSnap *store.Snapshot) (*Catalog, e
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: e.mapKey(catalogDatabasePrefix),
+		Filter: store.IgnoreDeleted,
 	}
 
 	dbReader, err := catalogSnap.NewKeyReader(dbReaderSpec)
@@ -461,7 +467,7 @@ func (e *Engine) catalogFrom(catalogSnap, dataSnap *store.Snapshot) (*Catalog, e
 	defer dbReader.Close()
 
 	for {
-		mkey, vref, _, _, err := dbReader.Read()
+		mkey, vref, err := dbReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -496,6 +502,7 @@ func (e *Engine) catalogFrom(catalogSnap, dataSnap *store.Snapshot) (*Catalog, e
 func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot) error {
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: e.mapKey(catalogTablePrefix, EncodeID(db.id)),
+		Filter: store.IgnoreDeleted,
 	}
 
 	tableReader, err := catalogSnap.NewKeyReader(dbReaderSpec)
@@ -505,7 +512,7 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 	defer tableReader.Close()
 
 	for {
-		mkey, vref, _, _, err := tableReader.Read()
+		mkey, vref, err := tableReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -591,7 +598,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 	}
 	defer pkReader.Close()
 
-	mkey, _, _, _, err := pkReader.Read()
+	mkey, _, err := pkReader.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -604,6 +611,7 @@ func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
+		Filter: store.IgnoreDeleted,
 	}
 
 	colSpecReader, err := snap.NewKeyReader(dbReaderSpec)
@@ -615,7 +623,7 @@ func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs
 	specs = make([]*ColSpec, 0)
 
 	for {
-		mkey, vref, _, _, err := colSpecReader.Read()
+		mkey, vref, err := colSpecReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -663,6 +671,7 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 
 	idxReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
+		Filter: store.IgnoreDeleted,
 	}
 
 	idxSpecReader, err := snap.NewKeyReader(idxReaderSpec)
@@ -672,7 +681,7 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 	defer idxSpecReader.Close()
 
 	for {
-		mkey, vref, _, _, err := idxSpecReader.Read()
+		mkey, vref, err := idxSpecReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -1348,8 +1357,8 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForI
 }
 
 type ExecSummary struct {
-	DDTxs []*store.TxMetadata
-	DMTxs []*store.TxMetadata
+	DDTxs []*store.TxHeader
+	DMTxs []*store.TxHeader
 
 	UpdatedRows     int
 	LastInsertedPKs map[string]int64
@@ -1404,7 +1413,10 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.ces) > 0 {
-			txmd, err := e.catalogStore.Commit(txSummary.ces, waitForIndexing)
+			txmd, err := e.catalogStore.Commit(&store.TxSpec{
+				Entries:         txSummary.ces,
+				WaitForIndexing: waitForIndexing,
+			})
 			// TODO (jeroiraz): implement transactional in-memory catalog
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
@@ -1415,7 +1427,10 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if len(txSummary.des) > 0 {
-			txmd, err := e.dataStore.Commit(txSummary.des, waitForIndexing)
+			txmd, err := e.dataStore.Commit(&store.TxSpec{
+				Entries:         txSummary.des,
+				WaitForIndexing: waitForIndexing,
+			})
 			if err != nil {
 				e.resetCatalog() // in-memory catalog changes needs to be reverted
 				return summary, err
