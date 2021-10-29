@@ -689,26 +689,26 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		ProveSinceTx: i1.Id,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), vtx.Tx.Metadata.Id)
+	require.Equal(t, uint64(3), vtx.Tx.Header.Id)
 
 	ekv := EncodeZAdd(req.Set, req.Score, EncodeKey(req.Key), req.AtTx)
 	require.Equal(t, ekv.Key, vtx.Tx.Entries[0].Key)
 	require.Equal(t, int32(0), vtx.Tx.Entries[0].VLen)
 
-	dualProof := schema.DualProofFrom(vtx.DualProof)
+	dualProof := schema.DualProofFromProto(vtx.DualProof)
 
 	verifies := store.VerifyDualProof(
 		dualProof,
 		i1.Id,
-		vtx.Tx.Metadata.Id,
-		schema.TxMetadataFrom(i1).Alh(),
-		dualProof.TargetTxMetadata.Alh(),
+		vtx.Tx.Header.Id,
+		schema.TxHeaderFromProto(i1).Alh(),
+		dualProof.TargetTxHeader.Alh(),
 	)
 	require.True(t, verifies)
 
 	zscanReq := &schema.ZScanRequest{
 		Set:     []byte(`set1`),
-		SinceTx: vtx.Tx.Metadata.Id,
+		SinceTx: vtx.Tx.Header.Id,
 	}
 
 	itemList1, err := db.ZScan(zscanReq)

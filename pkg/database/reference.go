@@ -27,7 +27,7 @@ var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a 
 var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be converted into a reference")
 
 //Reference ...
-func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	if req == nil || len(req.Key) == 0 || len(req.ReferencedKey) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -67,12 +67,16 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	meta, err := d.st.Commit([]*store.KV{EncodeReference(req.Key, req.ReferencedKey, req.AtTx)}, !req.NoWait)
+	hdr, err := d.st.Commit(
+		&store.TxSpec{
+			Entries:         []*store.EntrySpec{EncodeReference(req.Key, nil, req.ReferencedKey, req.AtTx)},
+			WaitForIndexing: !req.NoWait,
+		})
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxMetatadaTo(meta), err
+	return schema.TxHeaderToProto(hdr), err
 }
 
 //SafeReference ...
@@ -120,7 +124,7 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	}
 
 	return &schema.VerifiableTx{
-		Tx:        schema.TxTo(lastTx),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(lastTx),
+		DualProof: schema.DualProofToProto(dualProof),
 	}, nil
 }
