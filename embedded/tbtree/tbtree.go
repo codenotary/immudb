@@ -84,7 +84,6 @@ type TBtree struct {
 	root node
 
 	maxNodeSize           int
-	keyHistorySpace       uint64
 	insertionCount        int
 	flushThld             int
 	maxActiveSnapshots    int
@@ -1517,7 +1516,6 @@ func (n *innerNode) updateTs() {
 			n._ts = n.nodes[i].ts()
 		}
 	}
-	return
 }
 
 ////////////////////////////////////////////////////////////
@@ -1966,53 +1964,54 @@ func (l *leafNode) updateTs() {
 			l._ts = l.values[i].ts
 		}
 	}
-
-	return
 }
 
 func (lv *leafValue) size() int {
 	return 16 + len(lv.key) + len(lv.value)
 }
 
-func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (uint64, error) {
+func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (ts, hc uint64, err error) {
 	if lv.ts < beforeTs {
-		return lv.ts, nil
+		return lv.ts, lv.hCount, nil
 	}
 
 	for _, ts := range lv.tss {
 		if ts < beforeTs {
-			return ts, nil
+			return ts, lv.hCount, nil
 		}
 	}
 
 	hOff := lv.hOff
+	skippedUpdates := uint64(0)
 
 	for i := uint64(0); i < lv.hCount; i++ {
 		r := appendable.NewReaderFrom(hLog, hOff, DefaultMaxNodeSize)
 
 		hc, err := r.ReadUint32()
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 
-		for i := 0; i < int(hc); i++ {
+		for j := 0; j < int(hc); j++ {
 			ts, err := r.ReadUint64()
 			if err != nil {
-				return 0, err
+				return 0, 0, err
 			}
 
 			if ts < beforeTs {
-				return ts, nil
+				return ts, lv.hCount - skippedUpdates, nil
 			}
+
+			skippedUpdates++
 		}
 
 		prevOff, err := r.ReadUint64()
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 
 		hOff = int64(prevOff)
 	}
 
-	return 0, ErrKeyNotFound
+	return 0, 0, ErrKeyNotFound
 }

@@ -40,7 +40,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	_, _, _, _, err = r.Read()
 	require.Equal(t, ErrNoMoreEntries, err)
 
-	_, _, err = r.ReadAsBefore(1)
+	_, _, _, err = r.ReadAsBefore(1)
 	require.Equal(t, ErrNoMoreEntries, err)
 }
 
@@ -184,23 +184,63 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 	require.Equal(t, ErrReadersNotClosed, err)
 
 	for {
-		k, _, err := reader.ReadAsBefore(uint64(1001))
+		k, _, hc, err := reader.ReadAsBefore(uint64(1001))
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 
 		require.True(t, bytes.Compare(reader.seekKey, k) < 1)
+		require.Equal(t, uint64(1), hc)
 	}
 
 	err = reader.Close()
 	require.NoError(t, err)
 
-	_, _, err = reader.ReadAsBefore(0)
+	_, _, _, err = reader.ReadAsBefore(0)
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = reader.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
+}
+
+func TestReaderAsBefore(t *testing.T) {
+	tbtree, err := Open("test_tree_as_before", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_as_before")
+
+	key := []byte{0, 0, 0, 250}
+
+	for i := 0; i < 10; i++ {
+		err = tbtree.Insert(key, key)
+		require.NoError(t, err)
+	}
+
+	_, _, err = tbtree.Flush()
+	require.NoError(t, err)
+
+	snapshot, err := tbtree.Snapshot()
+	require.NotNil(t, snapshot)
+	require.NoError(t, err)
+	defer func() {
+		err := snapshot.Close()
+		require.NoError(t, err)
+	}()
+
+	rspec := &ReaderSpec{
+		Prefix: key,
+	}
+	reader, err := snapshot.NewReader(rspec)
+	require.NoError(t, err)
+
+	k, ts, hc, err := reader.ReadAsBefore(uint64(10))
+	require.NoError(t, err)
+	require.Equal(t, key, k)
+	require.Equal(t, uint64(9), ts)
+	require.Equal(t, uint64(9), hc)
+
+	err = reader.Close()
+	require.NoError(t, err)
 }
 
 func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
@@ -327,13 +367,15 @@ func TestReaderDescendingScanAsBefore(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, err := reader.ReadAsBefore(uint64(keyCount))
+		k, _, hc, err := reader.ReadAsBefore(uint64(keyCount))
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 
 		require.True(t, bytes.Compare(prevk, k) > 0)
+		require.Equal(t, uint64(1), hc)
+
 		prevk = k
 		i++
 	}

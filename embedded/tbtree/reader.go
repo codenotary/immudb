@@ -56,18 +56,18 @@ func (r *Reader) Reset() error {
 	return nil
 }
 
-func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error) {
+func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err error) {
 	if r.closed {
-		return nil, 0, ErrAlreadyClosed
+		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	if r.leafNode == nil {
 		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
 		if err == ErrKeyNotFound {
-			return nil, 0, ErrNoMoreEntries
+			return nil, 0, 0, ErrNoMoreEntries
 		}
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 
 		r.path = path
@@ -79,7 +79,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
 			for {
 				if len(r.path) == 0 {
-					return nil, 0, ErrNoMoreEntries
+					return nil, 0, 0, ErrNoMoreEntries
 				}
 
 				parent := r.path[len(r.path)-1]
@@ -102,7 +102,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 				}
 
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, 0, err
 				}
 
 				r.path = path
@@ -128,18 +128,18 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 			cmp := bytes.Compare(r.endKey, leafValue.key)
 
 			if r.descOrder && (cmp > 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, 0, ErrNoMoreEntries
+				return nil, 0, 0, ErrNoMoreEntries
 			}
 
 			if !r.descOrder && (cmp < 0 || (cmp == 0 && !r.inclusiveEnd)) {
-				return nil, 0, ErrNoMoreEntries
+				return nil, 0, 0, ErrNoMoreEntries
 			}
 		}
 
 		if len(r.prefix) == 0 {
-			ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+			ts, hc, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
 			if err == nil {
-				return cp(leafValue.key), ts, nil
+				return cp(leafValue.key), ts, hc, nil
 			}
 		}
 
@@ -148,16 +148,16 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 
 			// prefix match
 			if bytes.Equal(r.prefix, leafPrefix) {
-				ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+				ts, hc, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
 				if err == nil {
-					return cp(leafValue.key), ts, nil
+					return cp(leafValue.key), ts, hc, nil
 				}
 			}
 		}
 	}
 }
 
-func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err error) {
+func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 	if r.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
