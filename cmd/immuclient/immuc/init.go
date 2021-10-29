@@ -18,9 +18,10 @@ package immuc
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -59,6 +60,7 @@ type Client interface {
 	Count(args []string) (string, error)
 	Set(args []string) (string, error)
 	VerifiedSet(args []string) (string, error)
+	DeleteKey(args []string) (string, error)
 	ZAdd(args []string) (string, error)
 	VerifiedZAdd(args []string) (string, error)
 	CreateDatabase(args []string) (string, error)

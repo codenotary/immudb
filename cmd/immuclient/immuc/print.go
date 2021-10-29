@@ -26,8 +26,8 @@ import (
 )
 
 // PrintKV ...
-func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) string {
-	hash := (&store.KV{Key: key, Value: value}).Digest()
+func PrintKV(key []byte, md *schema.KVMetadata, value []byte, tx uint64, verified, valueOnly bool) string {
+	hash := (&store.EntrySpec{Key: key, Value: value}).Digest()
 
 	if valueOnly {
 		return fmt.Sprintf("%s\n", value)
@@ -37,6 +37,11 @@ func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) stri
 	if !valueOnly {
 		str.WriteString(fmt.Sprintf("tx:		%d \n", tx))
 		str.WriteString(fmt.Sprintf("key:		%s \n", key))
+
+		if md != nil {
+			str.WriteString(fmt.Sprintf("metadata:	{%s} \n", md))
+		}
+
 		str.WriteString(fmt.Sprintf("value:		%s \n", value))
 		str.WriteString(fmt.Sprintf("hash:		%x \n", hash))
 		if verified {
@@ -48,13 +53,13 @@ func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) stri
 }
 
 // PrintSetItem ...
-func PrintSetItem(set []byte, referencedkey []byte, score float64, txMetadata *schema.TxMetadata, verified bool) string {
+func PrintSetItem(set []byte, referencedkey []byte, score float64, txhdr *schema.TxHeader, verified bool) string {
 	return fmt.Sprintf("tx:		%d\nset:		%s\nreferenced key:		%s\nscore:		%f\nhash:		%x\nverified:	%t\n",
-		txMetadata.Id,
+		txhdr.Id,
 		set,
 		referencedkey,
 		score,
-		txMetadata.EH,
+		txhdr.EH,
 		verified)
 }
 
@@ -69,10 +74,10 @@ func PrintState(root *schema.ImmutableState) string {
 // PrintTx ...
 func PrintTx(tx *schema.Tx, verified bool) string {
 	str := strings.Builder{}
-	str.WriteString(fmt.Sprintf("tx:		%d\n", tx.Metadata.Id))
-	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(tx.Metadata.Ts), 0)))
-	str.WriteString(fmt.Sprintf("entries:	%d\n", tx.Metadata.Nentries))
-	str.WriteString(fmt.Sprintf("hash:		%x\n", schema.TxMetadataFrom(tx.Metadata).Alh()))
+	str.WriteString(fmt.Sprintf("tx:		%d\n", tx.Header.Id))
+	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(tx.Header.Ts), 0)))
+	str.WriteString(fmt.Sprintf("entries:	%d\n", tx.Header.Nentries))
+	str.WriteString(fmt.Sprintf("hash:		%x\n", schema.TxHeaderFromProto(tx.Header).Alh()))
 	if verified {
 		str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
 	}

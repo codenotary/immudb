@@ -101,7 +101,7 @@ func (i *immuc) Get(args []string) (string, error) {
 	}
 
 	entry := response.(*schema.Entry)
-	return PrintKV(entry.Key, entry.Value, entry.Tx, false, i.valueOnly), nil
+	return PrintKV(entry.Key, entry.Metadata, entry.Value, entry.Tx, false, i.valueOnly), nil
 }
 
 func (i *immuc) VerifiedGet(args []string) (string, error) {
@@ -122,5 +122,5 @@ func (i *immuc) VerifiedGet(args []string) (string, error) {
 	}
 
 	entry := response.(*schema.Entry)
-	return PrintKV(entry.Key, entry.Value, entry.Tx, true, i.valueOnly), nil
+	return PrintKV(entry.Key, entry.Metadata, entry.Value, entry.Tx, true, i.valueOnly), nil
 }

@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -68,15 +69,15 @@ func (i *immuc) Set(args []string) (string, error) {
 		return "", err
 	}
 
-	txMeta := response.(*schema.TxMetadata)
+	txhdr := response.(*schema.TxHeader)
 	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.GetSince(ctx, key, txMeta.Id)
+		return immuClient.GetSince(ctx, key, txhdr.Id)
 	})
 	if err != nil {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value2, scstr.(*schema.Entry).Tx, false, false), nil
+	return PrintKV([]byte(args[0]), nil, value2, scstr.(*schema.Entry).Tx, false, false), nil
 }
 
 func (i *immuc) VerifiedSet(args []string) (string, error) {
@@ -122,7 +123,27 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value2, vi.(*schema.Entry).Tx, true, false), nil
+	return PrintKV([]byte(args[0]), nil, value2, vi.(*schema.Entry).Tx, true, false), nil
+}
+
+func (i *immuc) DeleteKey(args []string) (string, error) {
+	key := []byte(args[0])
+	ctx := context.Background()
+	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.DeleteAll(ctx, &schema.DeleteKeysRequest{Keys: [][]byte{key}})
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") {
+			return fmt.Sprintf("key not found: %v ", string(key)), nil
+		}
+		rpcerrors := strings.SplitAfter(err.Error(), "=")
+		if len(rpcerrors) > 1 {
+			return rpcerrors[len(rpcerrors)-1], nil
+		}
+		return "", err
+	}
+
+	return "key successfully deleted", nil
 }
 
 func (i *immuc) ZAdd(args []string) (string, error) {
@@ -157,14 +178,14 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	txMeta, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	txhdr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.ZAdd(ctx, set, score, key)
 	})
 	if err != nil {
 		return "", err
 	}
 
-	return PrintSetItem(set, key, score, txMeta.(*schema.TxMetadata), false), nil
+	return PrintSetItem(set, key, score, txhdr.(*schema.TxHeader), false), nil
 }
 
 func (i *immuc) VerifiedZAdd(args []string) (string, error) {
@@ -206,7 +227,7 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 		return "", err
 	}
 
-	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response.(*schema.TxMetadata), true)
+	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response.(*schema.TxHeader), true)
 
 	return resp, nil
 }

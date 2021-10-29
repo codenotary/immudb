@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immuclient "github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc/metadata"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	immuclient "github.com/codenotary/immudb/pkg/client"
+	"google.golang.org/grpc/metadata"
 )
 
 type dbitem struct {
@@ -101,7 +102,7 @@ func check(ctx context.Context, client immuclient.ImmuClient, kvs []dbitem, ptr 
 			break
 		}
 		for i, t := range tx.Txs {
-			log.Printf("IDX %d TX %d:\n", i, t.Metadata.Id)
+			log.Printf("IDX %d TX %d:\n", i, t.Header.Id)
 			log.Printf("\tentries:\n")
 			for _, e := range t.Entries {
 				log.Printf("\t - %s\n", e.Key[1:])
@@ -116,7 +117,7 @@ func check(ctx context.Context, client immuclient.ImmuClient, kvs []dbitem, ptr 
 				kvs[index].seen = true
 			}
 		}
-		txn = int(tx.Txs[len(tx.Txs)-1].Metadata.Id) + 1
+		txn = int(tx.Txs[len(tx.Txs)-1].Header.Id) + 1
 	}
 	for k, v := range kvs {
 		if v.seen == false {
