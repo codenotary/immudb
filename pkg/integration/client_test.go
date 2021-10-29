@@ -18,12 +18,13 @@ package integration
 import (
 	"context"
 	"errors"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	ic "github.com/codenotary/immudb/pkg/client"
 	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
@@ -120,7 +121,7 @@ func testVerifiedZAdd(ctx context.Context, t *testing.T, set []byte, scores []fl
 }
 
 func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
-	var md *schema.TxMetadata
+	var md *schema.TxHeader
 	var err error
 
 	for i := 0; i < len(scores); i++ {
@@ -143,7 +144,7 @@ func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, k
 }
 
 func testZAddAt(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, at uint64, client ic.ImmuClient) {
-	var md *schema.TxMetadata
+	var md *schema.TxHeader
 	var err error
 
 	for i := 0; i < len(scores); i++ {
@@ -203,7 +204,7 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	require.NoError(t, err)
 
 	item1, err3 := client.TxByID(ctx, vi1.Id)
-	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
+	require.Equal(t, vi1.Ts, item1.Header.Ts)
 	require.NoError(t, err3)
 }
 
@@ -212,14 +213,14 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 	require.NoError(t, err)
 
 	item1, err3 := client.VerifiedTxByID(ctx, vi1.Id)
-	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
+	require.Equal(t, vi1.Ts, item1.Header.Ts)
 	require.NoError(t, err3)
 
 	_, err = client.VerifiedSet(ctx, []byte("key-n12"), []byte("val-n12"))
 	require.NoError(t, err)
 
 	item1, err3 = client.VerifiedTxByID(ctx, vi1.Id)
-	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
+	require.Equal(t, vi1.Ts, item1.Header.Ts)
 	require.NoError(t, err3)
 }
 
@@ -286,7 +287,7 @@ func TestImmuClientTampering(t *testing.T) {
 	require.NoError(t, err)
 
 	bs.Server.PostSetFn = func(ctx context.Context,
-		req *schema.SetRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+		req *schema.SetRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
 
 		if err != nil {
 			return res, err
@@ -312,7 +313,7 @@ func TestImmuClientTampering(t *testing.T) {
 			return res, err
 		}
 
-		res.Tx.Metadata.Nentries = 0
+		res.Tx.Header.Nentries = 0
 
 		return res, nil
 	}
@@ -321,7 +322,7 @@ func TestImmuClientTampering(t *testing.T) {
 	require.Equal(t, store.ErrCorruptedData, err)
 
 	bs.Server.PostSetReferenceFn = func(ctx context.Context,
-		req *schema.ReferenceRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+		req *schema.ReferenceRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
 
 		if err != nil {
 			return res, err
@@ -342,7 +343,7 @@ func TestImmuClientTampering(t *testing.T) {
 			return res, err
 		}
 
-		res.Tx.Metadata.Nentries = 0
+		res.Tx.Header.Nentries = 0
 
 		return res, nil
 	}
@@ -351,7 +352,7 @@ func TestImmuClientTampering(t *testing.T) {
 	require.Equal(t, store.ErrCorruptedData, err)
 
 	bs.Server.PostZAddFn = func(ctx context.Context,
-		req *schema.ZAddRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+		req *schema.ZAddRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
 
 		if err != nil {
 			return res, err
@@ -372,7 +373,7 @@ func TestImmuClientTampering(t *testing.T) {
 			return res, err
 		}
 
-		res.Tx.Metadata.Nentries = 0
+		res.Tx.Header.Nentries = 0
 
 		return res, nil
 	}
@@ -381,7 +382,7 @@ func TestImmuClientTampering(t *testing.T) {
 	require.Equal(t, store.ErrCorruptedData, err)
 
 	bs.Server.PostExecAllFn = func(ctx context.Context,
-		req *schema.ExecAllRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+		req *schema.ExecAllRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
 
 		if err != nil {
 			return res, err
