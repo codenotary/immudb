@@ -83,14 +83,14 @@ func TestStoreReference(t *testing.T) {
 	require.Equal(t, []byte(`firstKey`), vitem.Entry.Key)
 	require.Equal(t, []byte(`firstValue`), vitem.Entry.Value)
 
-	inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
+	inclusionProof := schema.InclusionProofFromProto(vitem.InclusionProof)
 
 	var eh [sha256.Size]byte
-	copy(eh[:], vitem.VerifiableTx.Tx.Metadata.EH)
+	copy(eh[:], vitem.VerifiableTx.Tx.Header.EH)
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		EncodeReference([]byte(`myTag`), []byte(`firstKey`), 0),
+		EncodeReference([]byte(`myTag`), nil, []byte(`firstKey`), 0),
 		eh,
 	)
 	require.True(t, verifies)
@@ -362,18 +362,18 @@ func TestStoreVerifiableReference(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, WrapWithPrefix([]byte(`myTag`), SetKeyPrefix), vtx.Tx.Entries[0].Key)
 
-	dualProof := schema.DualProofFrom(vtx.DualProof)
+	dualProof := schema.DualProofFromProto(vtx.DualProof)
 
 	verifies := store.VerifyDualProof(
 		dualProof,
 		meta.Id,
-		vtx.Tx.Metadata.Id,
-		schema.TxMetadataFrom(meta).Alh(),
-		dualProof.TargetTxMetadata.Alh(),
+		vtx.Tx.Header.Id,
+		schema.TxHeaderFromProto(meta).Alh(),
+		dualProof.TargetTxHeader.Alh(),
 	)
 	require.True(t, verifies)
 
-	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: vtx.Tx.Metadata.Id}
+	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: vtx.Tx.Header.Id}
 
 	firstItemRet, err := db.Get(keyReq)
 	require.NoError(t, err)

@@ -169,12 +169,12 @@ func TestSetBatch(t *testing.T) {
 			require.Equal(t, value, vitem.Entry.Value)
 			require.Equal(t, entry.Tx, vitem.Entry.Tx)
 
-			tx := schema.TxFrom(vitem.VerifiableTx.Tx)
+			tx := schema.TxFromProto(vitem.VerifiableTx.Tx)
 
-			inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
+			inclusionProof := schema.InclusionProofFromProto(vitem.InclusionProof)
 			verifies := store.VerifyInclusion(
 				inclusionProof,
-				EncodeKV(vitem.Entry.Key, vitem.Entry.Value),
+				EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value),
 				tx.Eh(),
 			)
 			require.True(t, verifies)

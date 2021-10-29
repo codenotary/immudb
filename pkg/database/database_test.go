@@ -232,25 +232,25 @@ func TestDbSetGet(t *testing.T) {
 	_, err = db.VerifiableGet(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	for i, kv := range kvs {
-		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+	for i, kv := range kvs[:1] {
+		txhdr, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+2), txMetadata.Id)
+		require.Equal(t, uint64(i+2), txhdr.Id)
 
 		if i == 0 {
-			alh := schema.TxMetadataFrom(txMetadata).Alh()
+			alh := schema.TxHeaderFromProto(txhdr).Alh()
 			copy(trustedAlh[:], alh[:])
 			trustedIndex = 2
 		}
 
-		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id}
+		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id}
 
 		item, err := db.Get(keyReq)
 		require.NoError(t, err)
 		require.Equal(t, kv.Key, item.Key)
 		require.Equal(t, kv.Value, item.Value)
 
-		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id, AtTx: txMetadata.Id})
+		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id, AtTx: txhdr.Id})
 		require.Equal(t, ErrIllegalArguments, err)
 
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
@@ -261,30 +261,30 @@ func TestDbSetGet(t *testing.T) {
 		require.Equal(t, kv.Key, vitem.Entry.Key)
 		require.Equal(t, kv.Value, vitem.Entry.Value)
 
-		inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
-		dualProof := schema.DualProofFrom(vitem.VerifiableTx.DualProof)
+		inclusionProof := schema.InclusionProofFromProto(vitem.InclusionProof)
+		dualProof := schema.DualProofFromProto(vitem.VerifiableTx.DualProof)
 
 		var eh [sha256.Size]byte
 		var sourceID, targetID uint64
 		var sourceAlh, targetAlh [sha256.Size]byte
 
 		if trustedIndex <= vitem.Entry.Tx {
-			copy(eh[:], dualProof.TargetTxMetadata.Eh[:])
+			copy(eh[:], dualProof.TargetTxHeader.Eh[:])
 			sourceID = trustedIndex
 			sourceAlh = trustedAlh
 			targetID = vitem.Entry.Tx
-			targetAlh = dualProof.TargetTxMetadata.Alh()
+			targetAlh = dualProof.TargetTxHeader.Alh()
 		} else {
-			copy(eh[:], dualProof.SourceTxMetadata.Eh[:])
+			copy(eh[:], dualProof.SourceTxHeader.Eh[:])
 			sourceID = vitem.Entry.Tx
-			sourceAlh = dualProof.SourceTxMetadata.Alh()
+			sourceAlh = dualProof.SourceTxHeader.Alh()
 			targetID = trustedIndex
 			targetAlh = trustedAlh
 		}
 
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			EncodeKV(vitem.Entry.Key, vitem.Entry.Value),
+			EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value),
 			eh,
 		)
 		require.True(t, verifies)
@@ -308,9 +308,9 @@ func TestCurrentState(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kvs {
-		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		txhdr, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), txMetadata.Id)
+		require.Equal(t, uint64(ind+2), txhdr.Id)
 
 		time.Sleep(1 * time.Second)
 
@@ -387,7 +387,7 @@ func TestSafeSetGet(t *testing.T) {
 		vit, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest: &schema.KeyRequest{
 				Key:     val.SetRequest.KVs[0].Key,
-				SinceTx: vtx.Tx.Metadata.Id,
+				SinceTx: vtx.Tx.Header.Id,
 			},
 		})
 		require.NoError(t, err)
@@ -414,9 +414,9 @@ func TestSetGetAll(t *testing.T) {
 		},
 	}
 
-	txMetadata, err := db.Set(&schema.SetRequest{KVs: kvs})
+	txhdr, err := db.Set(&schema.SetRequest{KVs: kvs})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), txMetadata.Id)
+	require.Equal(t, uint64(2), txhdr.Id)
 
 	err = db.CompactIndex()
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestSetGetAll(t *testing.T) {
 			[]byte("Jean-Claude"),
 			[]byte("Franz"),
 		},
-		SinceTx: txMetadata.Id,
+		SinceTx: txhdr.Id,
 	})
 	require.NoError(t, err)
 
@@ -444,9 +444,9 @@ func TestTxByID(t *testing.T) {
 	require.Error(t, ErrIllegalArguments, err)
 
 	for ind, val := range kvs {
-		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		txhdr, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), txMetadata.Id)
+		require.Equal(t, uint64(ind+2), txhdr.Id)
 	}
 
 	_, err = db.TxByID(&schema.TxRequest{Tx: uint64(1)})

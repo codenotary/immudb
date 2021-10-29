@@ -25,7 +25,7 @@ import (
 // ExecAll like Set it permits many insertions at once.
 // The difference is that is possible to to specify a list of a mix of key value set and zAdd insertions.
 // If zAdd reference is not yet present on disk it's possible to add it as a regular key value and the reference is done onFly
-func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -47,8 +47,8 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	callback := func(txID uint64, index store.KeyIndex) ([]*store.KV, error) {
-		entries := make([]*store.KV, len(req.Operations))
+	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, error) {
+		entries := make([]*store.EntrySpec, len(req.Operations))
 
 		// In order to:
 		// * make a memory efficient check system for keys that need to be referenced
@@ -58,7 +58,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 		for i, op := range req.Operations {
 
-			kv := &store.KV{}
+			e := &store.EntrySpec{}
 
 			switch x := op.Operation.(type) {
 
@@ -69,7 +69,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
-				kv = EncodeKV(x.Kv.Key, x.Kv.Value)
+				e = EncodeEntrySpec(x.Kv.Key, schema.KVMetadataFromProto(x.Kv.Metadata), x.Kv.Value)
 
 			case *schema.Op_Ref:
 				if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {
@@ -104,9 +104,9 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				}
 
 				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
-					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, txID)
+					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, txID)
 				} else {
-					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
+					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, x.Ref.AtTx)
 				}
 
 			case *schema.Op_ZAdd:
@@ -135,22 +135,22 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				key := EncodeKey(x.ZAdd.Key)
 
 				if x.ZAdd.BoundRef && x.ZAdd.AtTx == 0 {
-					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, txID)
+					e = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, txID)
 				} else {
-					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
+					e = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
 				}
 			}
 
-			entries[i] = kv
+			entries[i] = e
 		}
 
 		return entries, nil
 	}
 
-	txMetatadata, err := d.st.CommitWith(callback, !req.NoWait)
+	hdr, err := d.st.CommitWith(callback, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxMetatadaTo(txMetatadata), nil
+	return schema.TxHeaderToProto(hdr), nil
 }

@@ -50,17 +50,21 @@ func EncodeKey(key []byte) []byte {
 	return WrapWithPrefix(key, SetKeyPrefix)
 }
 
-func EncodeKV(key []byte, value []byte) *store.KV {
-	return &store.KV{
-		Key:   WrapWithPrefix(key, SetKeyPrefix),
-		Value: WrapWithPrefix(value, PlainValuePrefix),
+func EncodeEntrySpec(key []byte, md *store.KVMetadata, value []byte) *store.EntrySpec {
+	return &store.EntrySpec{
+		Key:      WrapWithPrefix(key, SetKeyPrefix),
+		Metadata: md,
+		Value:    WrapWithPrefix(value, PlainValuePrefix),
 	}
 }
 
-func EncodeReference(key, referencedKey []byte, atTx uint64) *store.KV {
-	return &store.KV{
-		Key:   WrapWithPrefix(key, SetKeyPrefix),
-		Value: WrapReferenceValueAt(WrapWithPrefix(referencedKey, SetKeyPrefix), atTx),
+func EncodeReference(key []byte, md *store.KVMetadata, referencedKey []byte, atTx uint64) *store.EntrySpec {
+	// Note: metadata record may be used as reference holder, reference resolution would be faster
+	// It may be introduced in a backward-compatible way i.e. if not present in metadata then resolve by reading value
+	return &store.EntrySpec{
+		Key:      WrapWithPrefix(key, SetKeyPrefix),
+		Metadata: md,
+		Value:    WrapReferenceValueAt(WrapWithPrefix(referencedKey, SetKeyPrefix), atTx),
 	}
 }
 
@@ -74,8 +78,8 @@ func WrapReferenceValueAt(key []byte, atTx uint64) []byte {
 	return refVal
 }
 
-func EncodeZAdd(set []byte, score float64, key []byte, atTx uint64) *store.KV {
-	return &store.KV{
+func EncodeZAdd(set []byte, score float64, key []byte, atTx uint64) *store.EntrySpec {
+	return &store.EntrySpec{
 		Key:   WrapZAddReferenceAt(set, score, key, atTx),
 		Value: nil,
 	}

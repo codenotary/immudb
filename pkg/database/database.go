@@ -47,24 +47,25 @@ type DB interface {
 	CurrentState() (*schema.ImmutableState, error)
 	WaitForTx(txID uint64, cancellation <-chan struct{}) error
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
-	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
+	Set(req *schema.SetRequest) (*schema.TxHeader, error)
 	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error)
 	GetAll(req *schema.KeyListRequest) (*schema.Entries, error)
-	ExecAll(operations *schema.ExecAllRequest) (*schema.TxMetadata, error)
+	DeleteAll(req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
+	ExecAll(operations *schema.ExecAllRequest) (*schema.TxHeader, error)
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
 	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(req *schema.TxRequest) ([]byte, error)
-	ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error)
+	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 	History(req *schema.HistoryRequest) (*schema.Entries, error)
-	SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error)
+	SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error)
 	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
-	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
+	ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error)
 	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
@@ -300,7 +301,7 @@ func (d *db) CompactIndex() error {
 }
 
 // Set ...
-func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+func (d *db) Set(req *schema.SetRequest) (*schema.TxHeader, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -311,27 +312,27 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	return d.set(req)
 }
 
-func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	entries := make([]*store.KV, len(req.KVs))
+	entries := make([]*store.EntrySpec, len(req.KVs))
 
 	for i, kv := range req.KVs {
 		if len(kv.Key) == 0 {
 			return nil, ErrIllegalArguments
 		}
 
-		entries[i] = EncodeKV(kv.Key, kv.Value)
+		entries[i] = EncodeEntrySpec(kv.Key, schema.KVMetadataFromProto(kv.Metadata), kv.Value)
 	}
 
-	txMetatadata, err := d.st.Commit(entries, !req.NoWait)
+	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxMetatadaTo(txMetatadata), nil
+	return schema.TxHeaderToProto(hdr), nil
 }
 
 //Get ...
@@ -360,20 +361,31 @@ func (d *db) get(key []byte, index store.KeyIndex, tx *store.Tx) (*schema.Entry,
 }
 
 func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
-	var ktx uint64
+	var txID uint64
 	var val []byte
+	var md *store.KVMetadata
 
 	if atTx == 0 {
-		val, ktx, _, err = index.Get(key)
+		valRef, err := index.Get(key, store.IgnoreDeleted)
+		if err != nil {
+			return nil, err
+		}
+
+		txID = valRef.Tx()
+
+		md = valRef.KVMetadata()
+
+		val, err = valRef.Resolve()
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		val, err = d.readValue(key, atTx, tx)
+		txID = atTx
+
+		md, val, err = d.readValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}
-		ktx = atTx
 	}
 
 	//Reference lookup
@@ -392,21 +404,27 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 		}
 
 		entry.ReferencedBy = &schema.Reference{
-			Tx:   ktx,
-			Key:  TrimPrefix(key),
-			AtTx: atTx,
+			Tx:       txID,
+			Key:      TrimPrefix(key),
+			Metadata: schema.KVMetadataToProto(md),
+			AtTx:     atTx,
 		}
 
 		return entry, nil
 	}
 
-	return &schema.Entry{Key: TrimPrefix(key), Value: TrimPrefix(val), Tx: ktx}, err
+	return &schema.Entry{
+		Tx:       txID,
+		Key:      TrimPrefix(key),
+		Metadata: schema.KVMetadataToProto(md),
+		Value:    TrimPrefix(val),
+	}, err
 }
 
-func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
+func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata, []byte, error) {
 	err := d.st.ReadTx(atTx, tx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return d.st.ReadValue(tx, key)
@@ -446,7 +464,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, ErrIllegalState
 	}
 
-	txMetatadata, err := d.Set(req.SetRequest)
+	txhdr, err := d.Set(req.SetRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +474,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 
 	lastTx := d.tx1
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
+	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -480,8 +498,8 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	}
 
 	return &schema.VerifiableTx{
-		Tx:        schema.TxTo(lastTx),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(lastTx),
+		DualProof: schema.DualProofToProto(dualProof),
 	}, nil
 }
 
@@ -557,14 +575,14 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}
 
 	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxTo(txEntry),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(txEntry),
+		DualProof: schema.DualProofToProto(dualProof),
 	}
 
 	return &schema.VerifiableEntry{
 		Entry:          e,
 		VerifiableTx:   verifiableTx,
-		InclusionProof: schema.InclusionProofTo(inclusionProof),
+		InclusionProof: schema.InclusionProofToProto(inclusionProof),
 	}, nil
 }
 
@@ -600,6 +618,35 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	return list, nil
 }
 
+func (d *db) DeleteAll(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*store.EntrySpec, len(req.Keys))
+
+	for i, k := range req.Keys {
+		if len(k) == 0 {
+			return nil, ErrIllegalArguments
+		}
+
+		entries[i] = EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
+		entries[i].Constraint = store.MustExistAndNotDeleted
+	}
+
+	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxHeaderToProto(hdr), nil
+}
+
 //Size ...
 func (d *db) Size() (uint64, error) {
 	d.mutex.Lock()
@@ -633,7 +680,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, err
 	}
 
-	return schema.TxTo(d.tx1), nil
+	return schema.TxToProto(d.tx1), nil
 }
 
 func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
@@ -647,7 +694,7 @@ func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
 	return d.st.ExportTx(req.Tx, d.tx1)
 }
 
-func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
+func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -655,12 +702,12 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxMetadata, error) {
 		return nil, ErrNotReplica
 	}
 
-	md, err := d.st.ReplicateTx(exportedTx, false)
+	hdr, err := d.st.ReplicateTx(exportedTx, false)
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxMetatadaTo(md), nil
+	return schema.TxHeaderToProto(hdr), nil
 }
 
 //VerifiableTxByID ...
@@ -714,8 +761,8 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}
 
 	return &schema.VerifiableTx{
-		Tx:        schema.TxTo(reqTx),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(reqTx),
+		DualProof: schema.DualProofToProto(dualProof),
 	}, nil
 }
 
@@ -754,7 +801,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			return nil, err
 		}
 
-		txList.Txs = append(txList.Txs, schema.TxTo(tx))
+		txList.Txs = append(txList.Txs, schema.TxToProto(tx))
 	}
 
 	return txList, nil
@@ -801,12 +848,17 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		val, err := d.st.ReadValue(d.tx1, key)
+		md, val, err := d.st.ReadValue(d.tx1, key)
 		if err != nil {
 			return nil, err
 		}
 
-		list.Entries[i] = &schema.Entry{Key: req.Key, Value: TrimPrefix(val), Tx: tx}
+		list.Entries[i] = &schema.Entry{
+			Tx:       tx,
+			Key:      req.Key,
+			Metadata: schema.KVMetadataToProto(md),
+			Value:    TrimPrefix(val),
+		}
 	}
 
 	return list, nil

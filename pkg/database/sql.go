@@ -128,8 +128,8 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	}
 
 	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxTo(txEntry),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(txEntry),
+		DualProof: schema.DualProofToProto(dualProof),
 	}
 
 	colNamesByID := make(map[uint32]string, len(table.Cols()))
@@ -153,7 +153,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	return &schema.VerifiableSQLEntry{
 		SqlEntry:       e,
 		VerifiableTx:   verifiableTx,
-		InclusionProof: schema.InclusionProofTo(inclusionProof),
+		InclusionProof: schema.InclusionProofToProto(inclusionProof),
 		DatabaseId:     table.Database().ID(),
 		TableId:        table.ID(),
 		PKIDs:          pkIDs,
@@ -165,23 +165,39 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 }
 
 func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.Tx) (entry *schema.SQLEntry, err error) {
-	var ktx uint64
+	var txID uint64
+	var md *store.KVMetadata
 	var val []byte
 
 	if atTx == 0 {
-		val, ktx, _, err = index.Get(key)
+		valRef, err := index.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		txID = valRef.Tx()
+
+		md = valRef.KVMetadata()
+
+		val, err = valRef.Resolve()
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		val, err = d.readValue(key, atTx, tx)
+		txID = atTx
+
+		md, val, err = d.readValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}
-		ktx = atTx
 	}
 
-	return &schema.SQLEntry{Key: key, Value: val, Tx: ktx}, err
+	return &schema.SQLEntry{
+		Tx:       txID,
+		Key:      key,
+		Metadata: schema.KVMetadataToProto(md),
+		Value:    val,
+	}, err
 }
 
 func (d *db) ListTables() (*schema.SQLQueryResult, error) {
@@ -343,18 +359,18 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 	}
 
 	res := &schema.SQLExecResult{
-		Ctxs:            make([]*schema.TxMetadata, len(summary.DDTxs)),
-		Dtxs:            make([]*schema.TxMetadata, len(summary.DMTxs)),
+		Ctxs:            make([]*schema.TxHeader, len(summary.DDTxs)),
+		Dtxs:            make([]*schema.TxHeader, len(summary.DMTxs)),
 		UpdatedRows:     uint32(summary.UpdatedRows),
 		LastInsertedPKs: make(map[string]*schema.SQLValue),
 	}
 
-	for i, md := range summary.DDTxs {
-		res.Ctxs[i] = schema.TxMetatadaTo(md)
+	for i, hdr := range summary.DDTxs {
+		res.Ctxs[i] = schema.TxHeaderToProto(hdr)
 	}
 
-	for i, md := range summary.DMTxs {
-		res.Dtxs[i] = schema.TxMetatadaTo(md)
+	for i, hdr := range summary.DMTxs {
+		res.Dtxs[i] = schema.TxHeaderToProto(hdr)
 	}
 
 	for t, pk := range summary.LastInsertedPKs {

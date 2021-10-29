@@ -32,7 +32,7 @@ const txIDLen = 8
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 // If ZAddOptions.index is provided key is optional
-func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
+func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	if req == nil || len(req.Set) == 0 || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -65,9 +65,19 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	meta, err := d.st.Commit([]*store.KV{EncodeZAdd(req.Set, req.Score, key, req.AtTx)}, !req.NoWait)
+	// Note: store.MustNotExist constraint may be specified so to avoid useless updates.
+	// It's not yet included due to potential backward-compatibility issues with existent applications using this API
+	hdr, err := d.st.Commit(
+		&store.TxSpec{
+			Entries:         []*store.EntrySpec{EncodeZAdd(req.Set, req.Score, key, req.AtTx)},
+			WaitForIndexing: !req.NoWait,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	return schema.TxMetatadaTo(meta), err
+	return schema.TxHeaderToProto(hdr), nil
 }
 
 // ZScan ...
@@ -141,6 +151,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			Prefix:        prefix,
 			InclusiveSeek: req.InclusiveSeek,
 			DescOrder:     req.Desc,
+			Filter:        store.IgnoreDeleted,
 		})
 	if err != nil {
 		return nil, err
@@ -151,7 +162,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	i := uint64(0)
 
 	for {
-		zKey, _, _, _, err := r.Read()
+		zKey, _, err := r.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -179,6 +190,13 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
 		e, err := d.getAt(key, atTx, 0, snap, d.tx1)
+		if err == store.ErrKeyNotFound {
+			// ignore deleted ones (referenced key may have been deleted)
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
 
 		zentry := &schema.ZEntry{
 			Set:   req.Set,
@@ -246,7 +264,7 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 	}
 
 	return &schema.VerifiableTx{
-		Tx:        schema.TxTo(lastTx),
-		DualProof: schema.DualProofTo(dualProof),
+		Tx:        schema.TxToProto(lastTx),
+		DualProof: schema.DualProofToProto(dualProof),
 	}, nil
 }
