@@ -84,9 +84,9 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 	lastKv, err := streamutils.GetKeyValuesFromFiles(lastFileName)
 
 	// set and get all but the last one
-	meta, err := client.StreamVerifiedSet(ctx, kvs1)
+	hdr, err := client.StreamVerifiedSet(ctx, kvs1)
 	require.NoError(t, err)
-	require.NotNil(t, meta)
+	require.NotNil(t, hdr)
 
 	for i, fileName := range fileNames1 {
 		entry, err := client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
@@ -98,9 +98,9 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 	}
 
 	// set and get the last one
-	meta, err = client.StreamVerifiedSet(ctx, lastKv)
+	hdr, err = client.StreamVerifiedSet(ctx, lastKv)
 	require.NoError(t, err)
-	require.NotNil(t, meta)
+	require.NotNil(t, hdr)
 
 	entry, err := client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
 		KeyRequest: &schema.KeyRequest{Key: []byte(lastFileName)},
