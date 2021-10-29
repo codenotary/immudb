@@ -119,7 +119,7 @@ func (s *immuServiceReplicateTxServer) Recv() (*schema.Chunk, error) {
 	return nil, errors.New("error")
 }
 
-func (s *immuServiceReplicateTxServer) SendAndClose(md *schema.TxMetadata) error {
+func (s *immuServiceReplicateTxServer) SendAndClose(md *schema.TxHeader) error {
 	return nil
 }
 

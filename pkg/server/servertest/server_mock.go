@@ -27,16 +27,16 @@ import (
 type ServerMock struct {
 	Srv *server.ImmuServer
 
-	PostSetFn           func(context.Context, *schema.SetRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
+	PostSetFn           func(context.Context, *schema.SetRequest, *schema.TxHeader, error) (*schema.TxHeader, error)
 	PostVerifiableSetFn func(context.Context, *schema.VerifiableSetRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
 
-	PostSetReferenceFn           func(context.Context, *schema.ReferenceRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
+	PostSetReferenceFn           func(context.Context, *schema.ReferenceRequest, *schema.TxHeader, error) (*schema.TxHeader, error)
 	PostVerifiableSetReferenceFn func(context.Context, *schema.VerifiableReferenceRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
 
-	PostZAddFn           func(context.Context, *schema.ZAddRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
+	PostZAddFn           func(context.Context, *schema.ZAddRequest, *schema.TxHeader, error) (*schema.TxHeader, error)
 	PostVerifiableZAddFn func(context.Context, *schema.VerifiableZAddRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
 
-	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
+	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxHeader, error) (*schema.TxHeader, error)
 
 	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
@@ -109,7 +109,7 @@ func (s *ServerMock) Logout(ctx context.Context, req *empty.Empty) (*empty.Empty
 	return s.Srv.Logout(ctx, req)
 }
 
-func (s *ServerMock) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxMetadata, error) {
+func (s *ServerMock) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	if s.PostSetFn == nil {
 		return s.Srv.Set(ctx, req)
 	}
@@ -139,7 +139,11 @@ func (s *ServerMock) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 	return s.Srv.GetAll(ctx, req)
 }
 
-func (s *ServerMock) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+func (s *ServerMock) DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+	return s.Srv.DeleteAll(ctx, req)
+}
+
+func (s *ServerMock) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	if s.PostExecAllFn == nil {
 		return s.Srv.ExecAll(ctx, req)
 	}
@@ -184,7 +188,7 @@ func (s *ServerMock) CurrentState(ctx context.Context, req *empty.Empty) (*schem
 	return s.Srv.CurrentState(ctx, req)
 }
 
-func (s *ServerMock) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+func (s *ServerMock) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	if s.PostSetReferenceFn == nil {
 		return s.Srv.SetReference(ctx, req)
 	}
@@ -202,7 +206,7 @@ func (s *ServerMock) VerifiableSetReference(ctx context.Context, req *schema.Ver
 	return s.PostVerifiableSetReferenceFn(ctx, req, rsp, err)
 }
 
-func (s *ServerMock) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxMetadata, error) {
+func (s *ServerMock) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	if s.PostZAddFn == nil {
 		return s.Srv.ZAdd(ctx, req)
 	}
