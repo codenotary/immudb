@@ -22,39 +22,50 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-func TxTo(tx *store.Tx) *Tx {
+func TxToProto(tx *store.Tx) *Tx {
 	entries := make([]*TxEntry, len(tx.Entries()))
 
 	for i, e := range tx.Entries() {
 		hValue := e.HVal()
 
 		entries[i] = &TxEntry{
-			Key:    e.Key(),
-			HValue: hValue[:],
-			VLen:   int32(e.VLen()),
+			Key:      e.Key(),
+			Metadata: KVMetadataToProto(e.Metadata()),
+			HValue:   hValue[:],
+			VLen:     int32(e.VLen()),
 		}
 	}
 
 	return &Tx{
-		Metadata: TxMetatadaTo(tx.Metadata()),
-		Entries:  entries,
+		Header:  TxHeaderToProto(tx.Header()),
+		Entries: entries,
 	}
 }
 
-func TxFrom(stx *Tx) *store.Tx {
+func KVMetadataToProto(md *store.KVMetadata) *KVMetadata {
+	if md == nil {
+		return nil
+	}
+
+	return &KVMetadata{
+		Deleted: md.Deleted(),
+	}
+}
+
+func TxFromProto(stx *Tx) *store.Tx {
 	entries := make([]*store.TxEntry, len(stx.Entries))
 
 	for i, e := range stx.Entries {
-		entries[i] = store.NewTxEntry(e.Key, int(e.VLen), DigestFrom(e.HValue), 0)
+		entries[i] = store.NewTxEntry(e.Key, KVMetadataFromProto(e.Metadata), int(e.VLen), DigestFromProto(e.HValue), 0)
 	}
 
 	tx := store.NewTxWithEntries(entries)
 
-	tx.ID = stx.Metadata.Id
-	tx.PrevAlh = DigestFrom(stx.Metadata.PrevAlh)
-	tx.Ts = stx.Metadata.Ts
-	tx.BlTxID = stx.Metadata.BlTxId
-	tx.BlRoot = DigestFrom(stx.Metadata.BlRoot)
+	tx.ID = stx.Header.Id
+	tx.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
+	tx.Ts = stx.Header.Ts
+	tx.BlTxID = stx.Header.BlTxId
+	tx.BlRoot = DigestFromProto(stx.Header.BlRoot)
 
 	tx.BuildHashTree()
 	tx.CalcAlh()
@@ -62,87 +73,117 @@ func TxFrom(stx *Tx) *store.Tx {
 	return tx
 }
 
-func InclusionProofTo(iproof *htree.InclusionProof) *InclusionProof {
+func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
+	if md == nil {
+		return nil
+	}
+
+	return store.NewKVMetadata().AsDeleted(md.Deleted)
+}
+
+func InclusionProofToProto(iproof *htree.InclusionProof) *InclusionProof {
 	return &InclusionProof{
 		Leaf:  int32(iproof.Leaf),
 		Width: int32(iproof.Width),
-		Terms: DigestsTo(iproof.Terms),
+		Terms: DigestsToProto(iproof.Terms),
 	}
 }
 
-func InclusionProofFrom(iproof *InclusionProof) *htree.InclusionProof {
+func InclusionProofFromProto(iproof *InclusionProof) *htree.InclusionProof {
 	return &htree.InclusionProof{
 		Leaf:  int(iproof.Leaf),
 		Width: int(iproof.Width),
-		Terms: DigestsFrom(iproof.Terms),
+		Terms: DigestsFromProto(iproof.Terms),
 	}
 }
 
-func DualProofTo(dualProof *store.DualProof) *DualProof {
+func DualProofToProto(dualProof *store.DualProof) *DualProof {
 	return &DualProof{
-		SourceTxMetadata:   TxMetatadaTo(dualProof.SourceTxMetadata),
-		TargetTxMetadata:   TxMetatadaTo(dualProof.TargetTxMetadata),
-		InclusionProof:     DigestsTo(dualProof.InclusionProof),
-		ConsistencyProof:   DigestsTo(dualProof.ConsistencyProof),
+		SourceTxHeader:     TxHeaderToProto(dualProof.SourceTxHeader),
+		TargetTxHeader:     TxHeaderToProto(dualProof.TargetTxHeader),
+		InclusionProof:     DigestsToProto(dualProof.InclusionProof),
+		ConsistencyProof:   DigestsToProto(dualProof.ConsistencyProof),
 		TargetBlTxAlh:      dualProof.TargetBlTxAlh[:],
-		LastInclusionProof: DigestsTo(dualProof.LastInclusionProof),
-		LinearProof:        LinearProofTo(dualProof.LinearProof),
+		LastInclusionProof: DigestsToProto(dualProof.LastInclusionProof),
+		LinearProof:        LinearProofToProto(dualProof.LinearProof),
 	}
 }
 
-func TxMetatadaTo(txMetadata *store.TxMetadata) *TxMetadata {
-	return &TxMetadata{
-		Id:       txMetadata.ID,
-		PrevAlh:  txMetadata.PrevAlh[:],
-		Ts:       txMetadata.Ts,
-		Nentries: int32(txMetadata.NEntries),
-		EH:       txMetadata.Eh[:],
-		BlTxId:   txMetadata.BlTxID,
-		BlRoot:   txMetadata.BlRoot[:],
+func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
+	return &TxHeader{
+		Id:       hdr.ID,
+		PrevAlh:  hdr.PrevAlh[:],
+		Ts:       hdr.Ts,
+		Metadata: TxMetadataToProto(hdr.Metadata),
+		Nentries: int32(hdr.NEntries),
+		EH:       hdr.Eh[:],
+		BlTxId:   hdr.BlTxID,
+		BlRoot:   hdr.BlRoot[:],
 	}
 }
 
-func LinearProofTo(linearProof *store.LinearProof) *LinearProof {
+func TxMetadataToProto(md *store.TxMetadata) *TxMD {
+	if md == nil {
+		return nil
+	}
+
+	return &TxMD{
+		Summary: md.Summary(),
+	}
+}
+
+func LinearProofToProto(linearProof *store.LinearProof) *LinearProof {
 	return &LinearProof{
 		SourceTxId: linearProof.SourceTxID,
 		TargetTxId: linearProof.TargetTxID,
-		Terms:      DigestsTo(linearProof.Terms),
+		Terms:      DigestsToProto(linearProof.Terms),
 	}
 }
 
-func DualProofFrom(dproof *DualProof) *store.DualProof {
+func DualProofFromProto(dproof *DualProof) *store.DualProof {
 	return &store.DualProof{
-		SourceTxMetadata:   TxMetadataFrom(dproof.SourceTxMetadata),
-		TargetTxMetadata:   TxMetadataFrom(dproof.TargetTxMetadata),
-		InclusionProof:     DigestsFrom(dproof.InclusionProof),
-		ConsistencyProof:   DigestsFrom(dproof.ConsistencyProof),
-		TargetBlTxAlh:      DigestFrom(dproof.TargetBlTxAlh),
-		LastInclusionProof: DigestsFrom(dproof.LastInclusionProof),
-		LinearProof:        LinearProofFrom(dproof.LinearProof),
+		SourceTxHeader:     TxHeaderFromProto(dproof.SourceTxHeader),
+		TargetTxHeader:     TxHeaderFromProto(dproof.TargetTxHeader),
+		InclusionProof:     DigestsFromProto(dproof.InclusionProof),
+		ConsistencyProof:   DigestsFromProto(dproof.ConsistencyProof),
+		TargetBlTxAlh:      DigestFromProto(dproof.TargetBlTxAlh),
+		LastInclusionProof: DigestsFromProto(dproof.LastInclusionProof),
+		LinearProof:        LinearProofFromProto(dproof.LinearProof),
 	}
 }
 
-func TxMetadataFrom(txMetadata *TxMetadata) *store.TxMetadata {
-	return &store.TxMetadata{
-		ID:       txMetadata.Id,
-		PrevAlh:  DigestFrom(txMetadata.PrevAlh),
-		Ts:       txMetadata.Ts,
-		NEntries: int(txMetadata.Nentries),
-		Eh:       DigestFrom(txMetadata.EH),
-		BlTxID:   txMetadata.BlTxId,
-		BlRoot:   DigestFrom(txMetadata.BlRoot),
+func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
+	return &store.TxHeader{
+		ID:       hdr.Id,
+		PrevAlh:  DigestFromProto(hdr.PrevAlh),
+		Ts:       hdr.Ts,
+		Metadata: TxMetadataFromProto(hdr.Metadata),
+		NEntries: int(hdr.Nentries),
+		Eh:       DigestFromProto(hdr.EH),
+		BlTxID:   hdr.BlTxId,
+		BlRoot:   DigestFromProto(hdr.BlRoot),
 	}
 }
 
-func LinearProofFrom(lproof *LinearProof) *store.LinearProof {
+func TxMetadataFromProto(md *TxMD) *store.TxMetadata {
+	if md == nil {
+		return nil
+	}
+
+	txmd := &store.TxMetadata{}
+
+	return txmd.WithSummary(md.Summary)
+}
+
+func LinearProofFromProto(lproof *LinearProof) *store.LinearProof {
 	return &store.LinearProof{
 		SourceTxID: lproof.SourceTxId,
 		TargetTxID: lproof.TargetTxId,
-		Terms:      DigestsFrom(lproof.Terms),
+		Terms:      DigestsFromProto(lproof.Terms),
 	}
 }
 
-func DigestsTo(terms [][sha256.Size]byte) [][]byte {
+func DigestsToProto(terms [][sha256.Size]byte) [][]byte {
 	slicedTerms := make([][]byte, len(terms))
 
 	for i, t := range terms {
@@ -153,13 +194,13 @@ func DigestsTo(terms [][sha256.Size]byte) [][]byte {
 	return slicedTerms
 }
 
-func DigestFrom(slicedDigest []byte) [sha256.Size]byte {
+func DigestFromProto(slicedDigest []byte) [sha256.Size]byte {
 	var d [sha256.Size]byte
 	copy(d[:], slicedDigest)
 	return d
 }
 
-func DigestsFrom(slicedTerms [][]byte) [][sha256.Size]byte {
+func DigestsFromProto(slicedTerms [][]byte) [][sha256.Size]byte {
 	terms := make([][sha256.Size]byte, len(slicedTerms))
 
 	for i, t := range slicedTerms {
