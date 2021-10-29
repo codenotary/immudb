@@ -106,10 +106,13 @@ func TestMaxIndexWaitees(t *testing.T) {
 	}
 
 	// Store one transaction
-	txm, err := store.Commit([]*KV{{
-		Key:   []byte{1},
-		Value: []byte{2},
-	}}, false)
+	txm, err := store.Commit(
+		&TxSpec{
+			Entries: []*EntrySpec{{
+				Key:   []byte{1},
+				Value: []byte{2},
+			}},
+		})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, txm.ID)
 

@@ -23,8 +23,8 @@ import (
 	"github.com/codenotary/immudb/embedded/htree"
 )
 
-func VerifyInclusion(proof *htree.InclusionProof, kv *KV, root [sha256.Size]byte) bool {
-	return htree.VerifyInclusion(proof, kv.Digest(), root)
+func VerifyInclusion(proof *htree.InclusionProof, e *EntrySpec, root [sha256.Size]byte) bool {
+	return htree.VerifyInclusion(proof, e.Digest(), root)
 }
 
 func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
@@ -47,7 +47,7 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 		var bs [txIDSize + 2*sha256.Size]byte
 		binary.BigEndian.PutUint64(bs[:], proof.SourceTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], proof.Terms[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
+		copy(bs[txIDSize+sha256.Size:], proof.Terms[i][:]) // innerHash = hash(ts + mdLen + md + nentries + eH + blTxID + blRoot)
 		calculatedAlh = sha256.Sum256(bs[:])               // hash(txID + prevAlh + innerHash)
 	}
 
@@ -56,34 +56,34 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 
 func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
 	if proof == nil ||
-		proof.SourceTxMetadata == nil ||
-		proof.TargetTxMetadata == nil ||
-		proof.SourceTxMetadata.ID != sourceTxID ||
-		proof.TargetTxMetadata.ID != targetTxID {
+		proof.SourceTxHeader == nil ||
+		proof.TargetTxHeader == nil ||
+		proof.SourceTxHeader.ID != sourceTxID ||
+		proof.TargetTxHeader.ID != targetTxID {
 		return false
 	}
 
-	if proof.SourceTxMetadata.ID == 0 || proof.SourceTxMetadata.ID > proof.TargetTxMetadata.ID {
+	if proof.SourceTxHeader.ID == 0 || proof.SourceTxHeader.ID > proof.TargetTxHeader.ID {
 		return false
 	}
 
-	cSourceAlh := proof.SourceTxMetadata.Alh()
+	cSourceAlh := proof.SourceTxHeader.Alh()
 	if sourceAlh != cSourceAlh {
 		return false
 	}
 
-	cTargetAlh := proof.TargetTxMetadata.Alh()
+	cTargetAlh := proof.TargetTxHeader.Alh()
 	if targetAlh != cTargetAlh {
 		return false
 	}
 
-	if sourceTxID < proof.TargetTxMetadata.BlTxID {
+	if sourceTxID < proof.TargetTxHeader.BlTxID {
 		verifies := ahtree.VerifyInclusion(
 			proof.InclusionProof,
 			sourceTxID,
-			proof.TargetTxMetadata.BlTxID,
+			proof.TargetTxHeader.BlTxID,
 			leafFor(sourceAlh),
-			proof.TargetTxMetadata.BlRoot,
+			proof.TargetTxHeader.BlRoot,
 		)
 
 		if !verifies {
@@ -91,13 +91,13 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		}
 	}
 
-	if proof.SourceTxMetadata.BlTxID > 0 {
+	if proof.SourceTxHeader.BlTxID > 0 {
 		verfifies := ahtree.VerifyConsistency(
 			proof.ConsistencyProof,
-			proof.SourceTxMetadata.BlTxID,
-			proof.TargetTxMetadata.BlTxID,
-			proof.SourceTxMetadata.BlRoot,
-			proof.TargetTxMetadata.BlRoot,
+			proof.SourceTxHeader.BlTxID,
+			proof.TargetTxHeader.BlTxID,
+			proof.SourceTxHeader.BlRoot,
+			proof.TargetTxHeader.BlRoot,
 		)
 
 		if !verfifies {
@@ -105,12 +105,12 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		}
 	}
 
-	if proof.TargetTxMetadata.BlTxID > 0 {
+	if proof.TargetTxHeader.BlTxID > 0 {
 		verifies := ahtree.VerifyLastInclusion(
 			proof.LastInclusionProof,
-			proof.TargetTxMetadata.BlTxID,
+			proof.TargetTxHeader.BlTxID,
 			leafFor(proof.TargetBlTxAlh),
-			proof.TargetTxMetadata.BlRoot,
+			proof.TargetTxHeader.BlRoot,
 		)
 
 		if !verifies {
@@ -118,8 +118,8 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		}
 	}
 
-	if sourceTxID < proof.TargetTxMetadata.BlTxID {
-		return VerifyLinearProof(proof.LinearProof, proof.TargetTxMetadata.BlTxID, targetTxID, proof.TargetBlTxAlh, targetAlh)
+	if sourceTxID < proof.TargetTxHeader.BlTxID {
+		return VerifyLinearProof(proof.LinearProof, proof.TargetTxHeader.BlTxID, targetTxID, proof.TargetBlTxAlh, targetAlh)
 	}
 
 	return VerifyLinearProof(proof.LinearProof, sourceTxID, targetTxID, sourceAlh, targetAlh)

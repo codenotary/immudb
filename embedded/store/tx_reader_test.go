@@ -38,7 +38,7 @@ func TestTxReader(t *testing.T) {
 	eCount := 10
 
 	for i := 0; i < txCount; i++ {
-		kvs := make([]*KV, eCount)
+		es := make([]*EntrySpec, eCount)
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -47,12 +47,12 @@ func TestTxReader(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i))
 
-			kvs[j] = &KV{Key: k, Value: v}
+			es[j] = &EntrySpec{Key: k, Value: v}
 		}
 
-		txMetadata, err := immuStore.Commit(kvs, false)
+		txhdr, err := immuStore.Commit(&TxSpec{Entries: es})
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), txMetadata.ID)
+		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
 	_, err = immuStore.NewTxReader(0, false, nil)

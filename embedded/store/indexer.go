@@ -331,14 +331,50 @@ func (idx *indexer) indexSince(txID uint64, limit int) error {
 
 		txEntries := tx.Entries()
 
+		var txmd []byte
+
+		if tx.Metadata != nil {
+			txmd = tx.Metadata.Bytes()
+		}
+
+		txmdLen := len(txmd)
+
 		for i, e := range txEntries {
-			var b [szSize + offsetSize + sha256.Size]byte
-			binary.BigEndian.PutUint32(b[:], uint32(e.vLen))
-			binary.BigEndian.PutUint64(b[szSize:], uint64(e.vOff))
-			copy(b[szSize+offsetSize:], e.hVal[:])
+			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
+			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+			o := 0
+
+			binary.BigEndian.PutUint32(b[o:], uint32(e.vLen))
+			o += lszSize
+
+			binary.BigEndian.PutUint64(b[o:], uint64(e.vOff))
+			o += offsetSize
+
+			copy(b[o:], e.hVal[:])
+			o += sha256.Size
+
+			binary.BigEndian.PutUint16(b[o:], uint16(txmdLen))
+			o += sszSize
+
+			copy(b[o:], txmd)
+			o += txmdLen
+
+			var kvmd []byte
+
+			if e.md != nil {
+				kvmd = e.md.Bytes()
+			}
+
+			kvmdLen := len(kvmd)
+
+			binary.BigEndian.PutUint16(b[o:], uint16(kvmdLen))
+			o += sszSize
+
+			copy(b[o:], kvmd)
+			o += kvmdLen
 
 			idx.store._kvs[i].K = e.key()
-			idx.store._kvs[i].V = b[:]
+			idx.store._kvs[i].V = b[:o]
 		}
 
 		err = idx.index.BulkInsert(idx.store._kvs[:len(txEntries)])
