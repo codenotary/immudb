@@ -40,6 +40,8 @@ var (
 	ErrNotLoggedIn                 = errors.New("not logged in")
 	ErrReplicationInProgress       = errors.New("replication already in progress")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
+	ErrCanceled                    = "request canceled by client"
+	ErrDeadlineExceeded            = "request deadline exceeded"
 )
 
 func mapServerError(err error) error {
@@ -56,4 +58,6 @@ func init() {
 	errors.CodeMap[ErrUserNotActive] = errors.CodSqlserverRejectedEstablishmentOfSqlconnection
 	errors.CodeMap[ErrInvalidUsernameOrPassword] = errors.CodSqlserverRejectedEstablishmentOfSqlconnection
 	errors.CodeMap[ErrAuthDisabled] = errors.CodProtocolViolation
+	errors.CodeMap[ErrCanceled] = errors.CodCanceled
+	errors.CodeMap[ErrDeadlineExceeded] = errors.CodDeadlineExceeded
 }

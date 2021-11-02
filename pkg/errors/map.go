@@ -34,6 +34,10 @@ func mapGRPcErrorCode(code Code) codes.Code {
 		return codes.Internal
 	case CodUndefinedFunction:
 		return codes.Unimplemented
+	case CodCanceled:
+		return codes.Canceled
+	case CodDeadlineExceeded:
+		return codes.DeadlineExceeded
 	default:
 		return codes.Unknown
 	}

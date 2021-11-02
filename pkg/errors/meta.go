@@ -18,6 +18,7 @@ package errors
 
 type Code string
 
+// Please refer to https://www.postgresql.org/docs/current/errcodes-appendix.html
 const (
 	CodSuccessCompletion                             Code = "00000"
 	CodInternalError                                 Code = "XX000"
@@ -27,6 +28,8 @@ const (
 	CodDataException                                 Code = "22000"
 	CodInvalidParameterValue                         Code = "22023"
 	CodUndefinedFunction                             Code = "42883"
+	CodCanceled                                      Code = "57014"
+	CodDeadlineExceeded                              Code = "57000"
 )
 
 var (

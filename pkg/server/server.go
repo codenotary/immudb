@@ -206,12 +206,14 @@ func (s *ImmuServer) Initialize() error {
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
 		auth.ServerUnaryInterceptor,
+		ContextHandlerInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
+		StreamContextHandlerInterceptor,
 	}
 	grpcSrvOpts = append(
 		grpcSrvOpts,

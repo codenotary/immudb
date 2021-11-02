@@ -18,6 +18,7 @@ package errors
 
 type Code string
 
+// Please refer to https://www.postgresql.org/docs/current/errcodes-appendix.html
 const (
 	CodSuccessCompletion                             Code = "00000"
 	CodInternalError                                 Code = "XX000"
