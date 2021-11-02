@@ -23,7 +23,6 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DETACHED="false" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
-    IMMUDB_ADMIN_PASSWORD="immudb" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
