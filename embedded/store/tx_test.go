@@ -33,7 +33,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 	r := appendable.NewReaderFrom(a, 0, 1)
 	require.NotNil(t, r)
 
-	tx := NewTx(1, 32)
+	tx := newTx(1, 32)
 
 	// Should fail while reading TxID
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {

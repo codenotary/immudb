@@ -53,6 +53,10 @@ type KeyReaderSpec struct {
 	Filter        FilterFn
 }
 
+func (s *Snapshot) set(key, value []byte) error {
+	return s.snap.Set(key, value)
+}
+
 func (s *Snapshot) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
@@ -106,7 +110,7 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		store:  s.st,
 		reader: r,
 		filter: spec.Filter,
-		_tx:    s.st.NewTx(),
+		_tx:    s.st.NewTxHolder(),
 	}, nil
 }
 
