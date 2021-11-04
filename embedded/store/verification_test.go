@@ -74,7 +74,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 

@@ -45,6 +45,7 @@ var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("store already closed")
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
+var ErrWriteOnlyTx = errors.New("write-only transaction")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
@@ -157,59 +158,31 @@ type refVLog struct {
 	unlockedRef *list.Element // unlockedRef == nil <-> vLog is locked
 }
 
-type KVConstraint func(key []byte, valRef *ValueRef) error
-
-var (
-	MustExist KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil {
-			return ErrKeyNotFound
-		}
-
-		return nil
-	}
-
-	MustNotExist KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil {
-			return nil
-		}
-		return ErrKeyAlreadyExists
-	}
-
-	MustNotExistOrDeleted KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil || (valRef.kvmd != nil && valRef.kvmd.deleted) {
-			return nil
-		}
-
-		return ErrKeyAlreadyExists
-	}
-
-	MustExistAndNotDeleted KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef != nil && (valRef.kvmd == nil || !valRef.kvmd.deleted) {
-			return nil
-		}
-
-		return ErrKeyNotFound
-	}
-)
-
 type OngoingTx struct {
 	st   *ImmuStore
 	snap *Snapshot
 
-	entries []*EntrySpec
+	entries      []*EntrySpec
+	entriesByKey map[[sha256.Size]byte]int
 
-	Metadata *TxMetadata
+	metadata *TxMetadata
 }
 
 type EntrySpec struct {
-	Key        []byte
-	Metadata   *KVMetadata
-	Value      []byte
-	Constraint KVConstraint
+	Key      []byte
+	Metadata *KVMetadata
+	Value    []byte
 }
 
-func (tx *OngoingTx) Add(e *EntrySpec) error {
+func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
+	tx.metadata = md
+	return tx
+}
+
+func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	//TODO: limit the max number of entries
+
+	// validate key is not nil
 
 	if tx.snap != nil {
 		// TODO: constraints, metadata, etc, must be processed before inserting into snapshot
@@ -222,13 +195,31 @@ func (tx *OngoingTx) Add(e *EntrySpec) error {
 		return errors.New("not yet supported")
 	}
 
-	tx.entries = append(tx.entries, e)
+	e := &EntrySpec{
+		Key:      key,
+		Metadata: md,
+		Value:    value,
+	}
+
+	kid := sha256.Sum256(key)
+
+	i, ok := tx.entriesByKey[kid]
+	if ok {
+		tx.entries[i] = e
+	} else {
+		tx.entries = append(tx.entries, e)
+		tx.entriesByKey[kid] = len(tx.entriesByKey)
+	}
 
 	return nil
 }
 
-func (tx *OngoingTx) Snapshot() *Snapshot {
-	return tx.snap
+func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (*ValueRef, error) {
+	if tx.snap == nil {
+		return nil, ErrWriteOnlyTx
+	}
+
+	return tx.snap.Get(key, filters...)
 }
 
 func (tx *OngoingTx) Commit() (*TxHeader, error) {
@@ -978,7 +969,28 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 }
 
 func (s *ImmuStore) NewTx(writeOnly bool) (*OngoingTx, error) {
-	return &OngoingTx{st: s}, nil
+	if writeOnly {
+		return &OngoingTx{
+			st:           s,
+			entriesByKey: make(map[[sha256.Size]byte]int),
+		}, nil
+	}
+
+	err := s.WaitForIndexingUpto(s.committedTxID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	snap, err := s.SnapshotSince(s.committedTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &OngoingTx{
+		st:           s,
+		snap:         snap,
+		entriesByKey: make(map[[sha256.Size]byte]int),
+	}, nil
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
@@ -1021,12 +1033,12 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 			}
 		}
 
-		if otx.Metadata != nil {
-			if !otx.Metadata.Equal(expectedHeader.Metadata) {
+		if otx.metadata != nil {
+			if !otx.metadata.Equal(expectedHeader.Metadata) {
 				return nil, ErrIllegalArguments
 			}
 		} else if expectedHeader.Metadata != nil {
-			if !expectedHeader.Metadata.Equal(otx.Metadata) {
+			if !expectedHeader.Metadata.Equal(otx.metadata) {
 				return nil, ErrIllegalArguments
 			}
 		}
@@ -1050,11 +1062,9 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.Metadata = otx.Metadata
+	tx.Metadata = otx.metadata
 
 	tx.nentries = len(otx.entries)
-
-	constraints := make([]KVConstraint, len(otx.entries))
 
 	for i, e := range otx.entries {
 		txe := tx.entries[i]
@@ -1062,8 +1072,6 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-
-		constraints[i] = e.Constraint
 	}
 
 	err = tx.BuildHashTree()
@@ -1095,7 +1103,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.performCommit(tx, ts, blTxID, constraints)
+	err = s.performCommit(tx, ts, blTxID)
 	if err != nil {
 		s.mutex.Unlock()
 		return nil, err
@@ -1113,7 +1121,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	return tx.Header(), nil
 }
 
-func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64, constraints []KVConstraint) error {
+func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 	if s.blErr != nil {
 		return s.blErr
 	}
@@ -1176,36 +1184,6 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64, constraints [
 
 	for i := 0; i < tx.nentries; i++ {
 		txe := tx.entries[i]
-
-		constraint := constraints[i]
-
-		if constraint != nil {
-			if tx.ID > 1 {
-				err := s.WaitForIndexingUpto(tx.ID-1, nil)
-				if err != nil {
-					return err
-				}
-			}
-
-			ival, tx, hc, err := s.indexer.Get(txe.Key())
-			if err != nil && err != ErrKeyNotFound {
-				return err
-			}
-
-			var valRef *ValueRef
-
-			if err == nil {
-				valRef, err = s.valueRefFrom(tx, hc, ival)
-				if err != nil {
-					return err
-				}
-			}
-
-			err = constraint(txe.Key(), valRef)
-			if err != nil {
-				return err
-			}
-		}
 
 		// tx serialization using pre-allocated buffer
 		// md is stored before key to ensure backward compatibility
@@ -1379,16 +1357,12 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 
 	tx.nentries = len(entries)
 
-	constraints := make([]KVConstraint, len(entries))
-
 	for i, e := range entries {
 		txe := tx.entries[i]
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-
-		constraints[i] = e.Constraint
 	}
 
 	err = tx.BuildHashTree()
@@ -1407,7 +1381,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.performCommit(tx, s.timeFunc().Unix(), s.aht.Size(), constraints)
+	err = s.performCommit(tx, s.timeFunc().Unix(), s.aht.Size())
 	if err != nil {
 		return nil, err
 	}
@@ -1714,7 +1688,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return nil, err
 	}
 
-	txSpec.Metadata = hdr.Metadata
+	txSpec.metadata = hdr.Metadata
 
 	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
@@ -1754,11 +1728,10 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 			return nil, ErrIllegalArguments
 		}
 
-		txSpec.Add(&EntrySpec{
-			Key:      key,
-			Metadata: md,
-			Value:    exportedTx[i : i+vLen],
-		})
+		err = txSpec.Set(key, md, exportedTx[i:i+vLen])
+		if err != nil {
+			return nil, err
+		}
 
 		i += vLen
 	}

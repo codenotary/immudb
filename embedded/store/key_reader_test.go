@@ -43,7 +43,7 @@ func TestImmudbStoreReader(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			err = tx.Add(&EntrySpec{Key: k[:], Value: v[:]})
+			err = tx.Set(k[:], nil, v[:])
 			require.NoError(t, err)
 		}
 
@@ -102,7 +102,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			err = tx.Add(&EntrySpec{Key: k[:], Value: v[:]})
+			err = tx.Set(k[:], nil, v[:])
 			require.NoError(t, err)
 		}
 

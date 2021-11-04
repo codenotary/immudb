@@ -109,7 +109,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	tx, err := store.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte{1}, Value: []byte{2}})
+	err = tx.Set([]byte{1}, nil, []byte{2})
 	require.NoError(t, err)
 
 	hdr, err := tx.Commit()
