@@ -106,15 +106,15 @@ func TestMaxIndexWaitees(t *testing.T) {
 	}
 
 	// Store one transaction
-	txm, err := store.Commit(
-		&TxSpec{
-			Entries: []*EntrySpec{{
-				Key:   []byte{1},
-				Value: []byte{2},
-			}},
-		})
+	tx, err := store.NewTx(true)
 	require.NoError(t, err)
-	require.EqualValues(t, 1, txm.ID)
+
+	err = tx.Add(&EntrySpec{Key: []byte{1}, Value: []byte{2}})
+	require.NoError(t, err)
+
+	hdr, err := tx.Commit()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, hdr.ID)
 
 	// Other goroutine should succeed
 	select {

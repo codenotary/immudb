@@ -52,7 +52,7 @@ type TxHeader struct {
 	BlRoot   [sha256.Size]byte
 }
 
-func NewTx(nentries int, maxKeyLen int) *Tx {
+func newTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*TxEntry, nentries)
 	for i := 0; i < nentries; i++ {
 		entries[i] = &TxEntry{

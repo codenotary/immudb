@@ -64,7 +64,8 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	eCount := 4
 
 	for i := 0; i < txCount; i++ {
-		es := make([]*EntrySpec, eCount)
+		tx, err := immuStore.NewTx(true)
+		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -73,16 +74,17 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			es[j] = &EntrySpec{Key: k, Value: v}
+			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			require.NoError(t, err)
 		}
 
-		txhdr, err := immuStore.Commit(&TxSpec{Entries: es})
+		txhdr, err := tx.AsyncCommit()
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	sourceTx := immuStore.NewTx()
-	targetTx := immuStore.NewTx()
+	sourceTx := immuStore.NewTxHolder()
+	targetTx := immuStore.NewTxHolder()
 
 	targetTxID := uint64(txCount)
 	err = immuStore.ReadTx(targetTxID, targetTx)

@@ -192,10 +192,13 @@ var (
 	}
 )
 
-type TxSpec struct {
-	Entries         []*EntrySpec
-	Metadata        *TxMetadata
-	WaitForIndexing bool
+type OngoingTx struct {
+	st   *ImmuStore
+	snap *Snapshot
+
+	entries []*EntrySpec
+
+	Metadata *TxMetadata
 }
 
 type EntrySpec struct {
@@ -203,6 +206,56 @@ type EntrySpec struct {
 	Metadata   *KVMetadata
 	Value      []byte
 	Constraint KVConstraint
+}
+
+func (tx *OngoingTx) Add(e *EntrySpec) error {
+	//TODO: limit the max number of entries
+
+	if tx.snap != nil {
+		// TODO: constraints, metadata, etc, must be processed before inserting into snapshot
+		// needs to mimic the transaction processing at this point
+		/*
+			err := tx.snap.set(key, value)
+			if err != nil {
+				return err
+			}*/
+		return errors.New("not yet supported")
+	}
+
+	tx.entries = append(tx.entries, e)
+
+	return nil
+}
+
+func (tx *OngoingTx) Snapshot() *Snapshot {
+	return tx.snap
+}
+
+func (tx *OngoingTx) Commit() (*TxHeader, error) {
+	return tx.commit(true)
+}
+
+func (tx *OngoingTx) AsyncCommit() (*TxHeader, error) {
+	return tx.commit(false)
+}
+
+func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
+	if tx.snap != nil {
+		err := tx.snap.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return tx.st.commit(tx, nil, waitForIndexing)
+}
+
+func (tx *OngoingTx) Cancel() error {
+	if tx.snap != nil {
+		return tx.snap.Close()
+	}
+
+	return nil
 }
 
 func (kv *EntrySpec) Digest() [sha256.Size]byte {
@@ -386,7 +439,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	// one extra tx pre-allocation for indexing thread
 	for i := 0; i < opts.MaxConcurrency+1; i++ {
-		txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
+		txs.PushBack(newTx(maxTxEntries, maxKeyLen))
 	}
 
 	txbs := make([]byte, maxTxSize)
@@ -623,8 +676,8 @@ func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 	return nil
 }
 
-func (s *ImmuStore) NewTx() *Tx {
-	return NewTx(s.maxTxEntries, s.maxKeyLen)
+func (s *ImmuStore) NewTxHolder() *Tx {
+	return newTx(s.maxTxEntries, s.maxKeyLen)
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
@@ -924,11 +977,11 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(txSpec *TxSpec) (*TxHeader, error) {
-	return s.commitUsing(txSpec, nil)
+func (s *ImmuStore) NewTx(writeOnly bool) (*OngoingTx, error) {
+	return &OngoingTx{st: s}, nil
 }
 
-func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error) {
+func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
@@ -936,11 +989,11 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	}
 	s.mutex.Unlock()
 
-	if txSpec == nil {
+	if otx == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	err := s.validateEntries(txSpec.Entries)
+	err := s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
 	}
@@ -948,12 +1001,12 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	var ts int64
 	var blTxID uint64
 
-	if hdr == nil {
+	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
 	} else {
-		ts = hdr.Ts
-		blTxID = hdr.BlTxID
+		ts = expectedHeader.Ts
+		blTxID = expectedHeader.BlTxID
 
 		//TxHeader is validated against current store
 
@@ -968,27 +1021,27 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 			}
 		}
 
-		if txSpec.Metadata != nil {
-			if !txSpec.Metadata.Equal(hdr.Metadata) {
+		if otx.Metadata != nil {
+			if !otx.Metadata.Equal(expectedHeader.Metadata) {
 				return nil, ErrIllegalArguments
 			}
-		} else if hdr.Metadata != nil {
-			if !hdr.Metadata.Equal(txSpec.Metadata) {
+		} else if expectedHeader.Metadata != nil {
+			if !expectedHeader.Metadata.Equal(otx.Metadata) {
 				return nil, ErrIllegalArguments
 			}
 		}
 
-		if currTxID != hdr.ID-1 ||
-			currAlh != hdr.PrevAlh ||
-			blRoot != hdr.BlRoot ||
-			len(txSpec.Entries) != hdr.NEntries {
+		if currTxID != expectedHeader.ID-1 ||
+			currAlh != expectedHeader.PrevAlh ||
+			blRoot != expectedHeader.BlRoot ||
+			len(otx.entries) != expectedHeader.NEntries {
 			return nil, ErrIllegalArguments
 		}
 
 	}
 
 	appendableCh := make(chan appendableResult)
-	go s.appendData(txSpec.Entries, appendableCh)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -997,13 +1050,13 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.Metadata = txSpec.Metadata
+	tx.Metadata = otx.Metadata
 
-	tx.nentries = len(txSpec.Entries)
+	tx.nentries = len(otx.entries)
 
-	constraints := make([]KVConstraint, len(txSpec.Entries))
+	constraints := make([]KVConstraint, len(otx.entries))
 
-	for i, e := range txSpec.Entries {
+	for i, e := range otx.entries {
 		txe := tx.entries[i]
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
@@ -1020,7 +1073,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	}
 
 	// TxHeader is validated against current store
-	if hdr != nil && tx.Eh() != hdr.Eh {
+	if expectedHeader != nil && tx.Eh() != expectedHeader.Eh {
 		<-appendableCh // wait for data to be written
 		return nil, ErrIllegalArguments
 	}
@@ -1042,7 +1095,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.commit(tx, ts, blTxID, constraints)
+	err = s.performCommit(tx, ts, blTxID, constraints)
 	if err != nil {
 		s.mutex.Unlock()
 		return nil, err
@@ -1050,7 +1103,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 
 	s.mutex.Unlock()
 
-	if txSpec.WaitForIndexing {
+	if waitForIndexing {
 		err = s.WaitForIndexingUpto(tx.ID, nil)
 		if err != nil {
 			return tx.Header(), err
@@ -1060,7 +1113,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	return tx.Header(), nil
 }
 
-func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVConstraint) error {
+func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64, constraints []KVConstraint) error {
 	if s.blErr != nil {
 		return s.blErr
 	}
@@ -1354,7 +1407,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.commit(tx, s.timeFunc().Unix(), s.aht.Size(), constraints)
+	err = s.performCommit(tx, s.timeFunc().Unix(), s.aht.Size(), constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -1656,9 +1709,14 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	}
 	i += hdrLen
 
-	entries := make([]*EntrySpec, hdr.NEntries)
+	txSpec, err := s.NewTx(true)
+	if err != nil {
+		return nil, err
+	}
 
-	for ei := range entries {
+	txSpec.Metadata = hdr.Metadata
+
+	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
 			return nil, ErrCorruptedData
 		}
@@ -1696,11 +1754,11 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 			return nil, ErrIllegalArguments
 		}
 
-		entries[ei] = &EntrySpec{
+		txSpec.Add(&EntrySpec{
 			Key:      key,
 			Metadata: md,
 			Value:    exportedTx[i : i+vLen],
-		}
+		})
 
 		i += vLen
 	}
@@ -1709,13 +1767,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return nil, ErrIllegalArguments
 	}
 
-	txSpec := &TxSpec{
-		Entries:         entries,
-		Metadata:        hdr.Metadata,
-		WaitForIndexing: waitForIndexing,
-	}
-
-	return s.commitUsing(txSpec, hdr)
+	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
