@@ -68,7 +68,10 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i))
 
-				tx.Add(&EntrySpec{Key: k, Value: v})
+				err = tx.Set(k, nil, v)
+				if err != nil {
+					panic(err)
+				}
 			}
 
 			txhdr, err := tx.AsyncCommit()
@@ -157,7 +160,10 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 					v := make([]byte, 8)
 					binary.BigEndian.PutUint64(v, uint64(c))
 
-					tx.Add(&EntrySpec{Key: k, Value: v})
+					err = tx.Set(k, nil, v)
+					if err != nil {
+						panic(err)
+					}
 				}
 
 				hdr, err := tx.AsyncCommit()
@@ -636,27 +642,6 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	defer os.RemoveAll("data_indexing")
 	require.NotNil(t, immuStore)
 
-	t.Run("latest set value should be committed", func(t *testing.T) {
-		tx, err := immuStore.NewTx(true)
-		require.NoError(t, err)
-
-		err = tx.Add(&EntrySpec{Key: []byte("key"), Value: []byte("value1")})
-		require.NoError(t, err)
-
-		err = tx.Add(&EntrySpec{Key: []byte("key"), Value: []byte("value2")})
-		require.NoError(t, err)
-
-		_, err = tx.Commit()
-		require.NoError(t, err)
-
-		valRef, err := immuStore.Get([]byte("key"))
-		require.NoError(t, err)
-
-		val, err := valRef.Resolve()
-		require.NoError(t, err)
-		require.Equal(t, []byte("value2"), val)
-	})
-
 	txCount := 1000
 	eCount := 10
 
@@ -671,7 +656,8 @@ func TestImmudbStoreIndexing(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i))
 
-			tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
+			require.NoError(t, err)
 		}
 
 		txhdr, err := tx.AsyncCommit()
@@ -774,6 +760,27 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 	wg.Wait()
 
+	t.Run("latest set value should be committed", func(t *testing.T) {
+		tx, err := immuStore.NewTx(true)
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("key"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("key"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		valRef, err := immuStore.Get([]byte("key"))
+		require.NoError(t, err)
+
+		val, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte("value2"), val)
+	})
+
 	err = immuStore.Close()
 	require.NoError(t, err)
 }
@@ -786,18 +793,18 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 	tx, err := immuStore.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}})
+	err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
 	require.NoError(t, err)
 
 	_, err = tx.Commit()
 	require.NoError(t, err)
 
-	t.Run("", func(t *testing.T) {
+	t.Run("cancelled transaction should not produce effects", func(t *testing.T) {
 		tx, err := immuStore.NewTx(true)
 		require.NoError(t, err)
 
-		err = tx.Add(&EntrySpec{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Constraint: MustNotExist})
-		require.ErrorIs(t, err, ErrKeyAlreadyExists)
+		_, err = tx.Get([]byte{1, 2, 3})
+		require.ErrorIs(t, err, ErrWriteOnlyTx)
 
 		err = tx.Cancel()
 		require.NoError(t, err)
@@ -811,24 +818,18 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 		require.Equal(t, []byte{3, 2, 1}, v)
 	})
 
-	t.Run("", func(t *testing.T) {
-		tx, err := immuStore.NewTx(true)
+	t.Run("read-your-own-writes should be possible before commit", func(t *testing.T) {
+		tx, err = immuStore.NewTx(false)
 		require.NoError(t, err)
 
-		err = tx.Add(&EntrySpec{Key: []byte{1}, Value: []byte{1}, Constraint: MustExist})
+		_, err = tx.Get([]byte{0, 0, 0})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		err = tx.Cancel()
+		err = tx.Set([]byte{0, 0, 0}, nil, []byte{1, 1, 1})
 		require.NoError(t, err)
 
-		_, err = immuStore.Get([]byte{1})
-		require.ErrorIs(t, err, ErrKeyNotFound)
-
-		tx, err = immuStore.NewTx(true)
+		_, err = tx.Get([]byte{0, 0, 0})
 		require.NoError(t, err)
-
-		err = tx.Add(&EntrySpec{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Constraint: MustNotExist})
-		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		_, err = tx.Commit()
 		require.NoError(t, err)
@@ -1005,7 +1006,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1111,7 +1112,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		require.NoError(t, err)
 
 		summary := fmt.Sprintf("summary%d", i)
-		tx.Metadata = NewTxMetadata().WithSummary([]byte(summary))
+		tx.WithMetadata(NewTxMetadata().WithSummary([]byte(summary)))
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -1120,7 +1121,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Metadata: NewKVMetadata(), Value: v})
+			err = tx.Set(k, NewKVMetadata(), v)
 			require.NoError(t, err)
 		}
 
@@ -1216,7 +1217,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1282,7 +1283,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1331,7 +1332,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 		require.NoError(t, err)
 
 		summary := fmt.Sprintf("summary%d", i)
-		tx.Metadata = NewTxMetadata().WithSummary([]byte(summary))
+		tx.WithMetadata(NewTxMetadata().WithSummary([]byte(summary)))
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -1340,7 +1341,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1403,7 +1404,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1475,7 +1476,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1570,7 +1571,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				err = tx.Add(&EntrySpec{Key: k, Value: v})
+				err = tx.Set(k, nil, v)
 				require.NoError(t, err)
 			}
 
@@ -1612,7 +1613,7 @@ func TestReOpenningWithCompressionEnabledImmudbStore(t *testing.T) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				err = tx.Add(&EntrySpec{Key: k, Value: v})
+				err = tx.Set(k, nil, v)
 				require.NoError(t, err)
 			}
 
@@ -1690,7 +1691,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(j+1))
 
-			err = tx.Add(&EntrySpec{Key: k, Value: v})
+			err = tx.Set(k, nil, v)
 			require.NoError(t, err)
 		}
 
@@ -1756,9 +1757,9 @@ func TestExportAndReplicateTx(t *testing.T) {
 	tx, err := masterStore.NewTx(true)
 	require.NoError(t, err)
 
-	tx.Metadata = NewTxMetadata()
+	tx.WithMetadata(NewTxMetadata())
 
-	err = tx.Add(&EntrySpec{Key: []byte("key1"), Value: []byte("value1")})
+	err = tx.Set([]byte("key1"), nil, []byte("value1"))
 	require.NoError(t, err)
 
 	hdr, err := tx.Commit()
@@ -1817,7 +1818,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				err = tx.Add(&EntrySpec{Key: k, Value: v})
+				err = tx.Set(k, nil, v)
 				if err != nil {
 					panic(err)
 				}
@@ -1853,7 +1854,7 @@ func BenchmarkAppend(b *testing.B) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				err = tx.Add(&EntrySpec{Key: k, Value: v})
+				err = tx.Set(k, nil, v)
 				if err != nil {
 					panic(err)
 				}
@@ -1878,7 +1879,7 @@ func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	tx, err := immuStore.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte("key1"), Value: []byte("val1")})
+	err = tx.Set([]byte("key1"), nil, []byte("val1"))
 	require.NoError(t, err)
 
 	hdr, err := tx.Commit()
@@ -1938,7 +1939,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	tx, err := immuStore.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte("key1"), Value: []byte("val1")})
+	err = tx.Set([]byte("key1"), nil, []byte("val1"))
 	require.NoError(t, err)
 
 	hdr1, err := tx.Commit()
@@ -1948,7 +1949,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	tx, err = immuStore.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte("key1"), Value: []byte("val2")})
+	err = tx.Set([]byte("key1"), nil, []byte("val2"))
 	require.NoError(t, err)
 
 	hdr2, err := tx.Commit()
@@ -1993,7 +1994,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	tx, err = immuStore.NewTx(true)
 	require.NoError(t, err)
 
-	err = tx.Add(&EntrySpec{Key: []byte("key1"), Value: []byte("val2")})
+	err = tx.Set([]byte("key1"), nil, []byte("val2"))
 	require.NoError(t, err)
 
 	_, err = tx.Commit()
