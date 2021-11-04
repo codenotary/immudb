@@ -828,7 +828,7 @@ func TestSelectStmt(t *testing.T) {
 						right: &Varchar{val: "John"},
 					},
 					orderBy: []*OrdCol{
-						{sel: &ColSelector{col: "name"}, order: DescOrder},
+						{sel: &ColSelector{col: "name"}, descOrder: true},
 					},
 				}},
 			expectedError: nil,
