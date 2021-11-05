@@ -980,15 +980,14 @@ func TestImmuClient_GetAll(t *testing.T) {
 	_, err = client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
 	require.NoError(t, err)
 
-	_, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
-	require.Error(t, err)
+	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
+	require.NoError(t, err)
+	require.Len(t, entries.Entries, 1)
 
 	_, err = client.VerifiedSet(ctx, []byte(`bbb`), []byte(`val`))
 	require.NoError(t, err)
 
-	time.Sleep(10 * time.Millisecond)
-
-	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
+	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 2)
 

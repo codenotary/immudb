@@ -341,11 +341,18 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	if req.AtTx > 0 && req.SinceTx > 0 {
+	currTxID, _ := d.st.Alh()
+
+	if (req.AtTx > 0 && req.SinceTx > 0) || req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx, nil)
+	waitUntilTx := req.SinceTx
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +595,18 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	err := d.WaitForIndexingUpto(req.SinceTx, nil)
+	currTxID, _ := d.st.Alh()
+
+	if req.SinceTx > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := req.SinceTx
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +614,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snapshot, err := d.st.SnapshotSince(req.SinceTx)
+	snapshot, err := d.st.SnapshotSince(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +641,18 @@ func (d *db) DeleteAll(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) 
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx, nil)
+	currTxID, _ := d.st.Alh()
+
+	if req.SinceTx > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := req.SinceTx
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -820,7 +849,18 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx, nil)
+	currTxID, _ := d.st.Alh()
+
+	if req.SinceTx > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := req.SinceTx
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}

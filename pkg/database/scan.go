@@ -33,10 +33,15 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	waitUntilTx := req.SinceTx
+	currTxID, _ := d.st.Alh()
 
+	if req.SinceTx > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := req.SinceTx
 	if waitUntilTx == 0 {
-		waitUntilTx, _ = d.st.Alh()
+		waitUntilTx = currTxID
 	}
 
 	if !req.NoWait {
