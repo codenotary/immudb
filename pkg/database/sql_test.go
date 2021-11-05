@@ -43,12 +43,12 @@ func TestSQLExecAndQuery(t *testing.T) {
 	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"})
 	require.Error(t, err)
 
-	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
+	hdr, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
 		CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
-	require.Len(t, md.Ctxs, 1)
-	require.Len(t, md.Dtxs, 0)
+	require.Len(t, hdr.Ctxs, 1)
+	require.Len(t, hdr.Dtxs, 0)
 
 	res, err := db.ListTables()
 	require.NoError(t, err)
@@ -61,12 +61,12 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 4)
 
-	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
+	hdr, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
 		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD')
 	`})
 	require.NoError(t, err)
-	require.Len(t, md.Ctxs, 0)
-	require.Len(t, md.Dtxs, 1)
+	require.Len(t, hdr.Ctxs, 0)
+	require.Len(t, hdr.Dtxs, 1)
 
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
@@ -151,6 +151,17 @@ func TestSQLExecAndQuery(t *testing.T) {
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+		},
+		ProveSinceTx: 0,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, ve)
+
+	ve, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{
+			Table:    "table1",
+			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
+			AtTx:     hdr.Dtxs[0].Id,
 		},
 		ProveSinceTx: 0,
 	})
