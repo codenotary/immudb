@@ -587,19 +587,19 @@ service ImmuService {
 		};
 	};
 
+	rpc Delete(DeleteKeysRequest) returns (TxHeader) {
+		option (google.api.http) = {
+			post: "/db/delete"
+			body: "*"
+		};
+	}
+	
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/db/getall"
 			body: "*"
 		};
 	};
-
-	rpc DeleteAll(DeleteKeysRequest) returns (TxHeader) {
-		option (google.api.http) = {
-			post: "/db/deletekeys"
-			body: "*"
-		};
-	}
 
 	rpc ExecAll (ExecAllRequest) returns (TxHeader) {
 		option (google.api.http) = {

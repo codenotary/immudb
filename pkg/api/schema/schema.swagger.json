@@ -154,9 +154,9 @@
         ]
       }
     },
-    "/db/deletekeys": {
+    "/db/delete": {
       "post": {
-        "operationId": "ImmuService_DeleteAll",
+        "operationId": "ImmuService_Delete",
         "responses": {
           "200": {
             "description": "A successful response.",

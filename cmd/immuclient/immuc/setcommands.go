@@ -130,7 +130,7 @@ func (i *immuc) DeleteKey(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
 	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.DeleteAll(ctx, &schema.DeleteKeysRequest{Keys: [][]byte{key}})
+		return immuClient.Delete(ctx, &schema.DeleteKeysRequest{Keys: [][]byte{key}})
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {

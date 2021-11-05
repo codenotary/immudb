@@ -52,7 +52,7 @@ type DB interface {
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error)
 	GetAll(req *schema.KeyListRequest) (*schema.Entries, error)
-	DeleteAll(req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
+	Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
 	ExecAll(operations *schema.ExecAllRequest) (*schema.TxHeader, error)
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
@@ -593,6 +593,46 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}, nil
 }
 
+func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	currTxID, _ := d.st.Alh()
+
+	if req.SinceTx > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := req.SinceTx
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*store.EntrySpec, len(req.Keys))
+
+	for i, k := range req.Keys {
+		if len(k) == 0 {
+			return nil, ErrIllegalArguments
+		}
+
+		entries[i] = EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
+		entries[i].Constraint = store.MustExistAndNotDeleted
+	}
+
+	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxHeaderToProto(hdr), nil
+}
+
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	currTxID, _ := d.st.Alh()
@@ -634,46 +674,6 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	}
 
 	return list, nil
-}
-
-func (d *db) DeleteAll(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	currTxID, _ := d.st.Alh()
-
-	if req.SinceTx > currTxID {
-		return nil, ErrIllegalArguments
-	}
-
-	waitUntilTx := req.SinceTx
-	if waitUntilTx == 0 {
-		waitUntilTx = currTxID
-	}
-
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	entries := make([]*store.EntrySpec, len(req.Keys))
-
-	for i, k := range req.Keys {
-		if len(k) == 0 {
-			return nil, ErrIllegalArguments
-		}
-
-		entries[i] = EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
-		entries[i].Constraint = store.MustExistAndNotDeleted
-	}
-
-	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
-	if err != nil {
-		return nil, err
-	}
-
-	return schema.TxHeaderToProto(hdr), nil
 }
 
 //Size ...

@@ -128,7 +128,7 @@ type ImmuClient interface {
 	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxHeader, error)
 	GetAll(ctx context.Context, keys [][]byte) (*schema.Entries, error)
 
-	DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
+	Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
 
 	ExecAll(ctx context.Context, in *schema.ExecAllRequest) (*schema.TxHeader, error)
 
@@ -912,12 +912,12 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries
 	return c.ServiceClient.GetAll(ctx, keyList)
 }
 
-func (c *immuClient) DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+func (c *immuClient) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	return c.ServiceClient.DeleteAll(ctx, req)
+	return c.ServiceClient.Delete(ctx, req)
 }
 
 // TxByID ...
