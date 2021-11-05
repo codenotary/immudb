@@ -1504,8 +1504,8 @@ immudb gRPC &amp; REST service
 | VerifiableSet | [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | Get | [KeyRequest](#immudb.schema.KeyRequest) | [Entry](#immudb.schema.Entry) |  |
 | VerifiableGet | [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest) | [VerifiableEntry](#immudb.schema.VerifiableEntry) |  |
+| Delete | [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
 | GetAll | [KeyListRequest](#immudb.schema.KeyListRequest) | [Entries](#immudb.schema.Entries) |  |
-| DeleteAll | [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
 | ExecAll | [ExecAllRequest](#immudb.schema.ExecAllRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
 | Scan | [ScanRequest](#immudb.schema.ScanRequest) | [Entries](#immudb.schema.Entries) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [EntryCount](#immudb.schema.EntryCount) | NOT YET SUPPORTED |

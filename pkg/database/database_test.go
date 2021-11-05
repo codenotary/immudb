@@ -303,6 +303,61 @@ func TestDbSetGet(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestDelete(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.Delete(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   nil,
+				Value: []byte("value1"),
+			},
+		},
+	})
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	hdr, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key1"),
+				Value: []byte("value1"),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	t.Run("deletion with invalid indexing spec should return an error", func(t *testing.T) {
+		_, err = db.Delete(&schema.DeleteKeysRequest{
+			Keys: [][]byte{
+				[]byte("key1"),
+			},
+			SinceTx: hdr.Id + 1,
+		})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	_, err = db.Get(&schema.KeyRequest{
+		Key: []byte("key1"),
+	})
+	require.NoError(t, err)
+
+	_, err = db.Delete(&schema.DeleteKeysRequest{
+		Keys: [][]byte{
+			[]byte("key1"),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = db.Get(&schema.KeyRequest{
+		Key: []byte("key1"),
+	})
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
+}
+
 func TestCurrentState(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()

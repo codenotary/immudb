@@ -66,6 +66,7 @@ const (
 var methodsPermissions = map[string][]uint32{
 	// readwrite methods
 	"Set":                    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"Delete":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"VerifiableSet":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"StreamSet":              {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"StreamVerifiableSet":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},

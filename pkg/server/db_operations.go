@@ -345,17 +345,17 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 	return db.GetAll(req)
 }
 
-func (s *ImmuServer) DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+func (s *ImmuServer) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	db, err := s.getDBFromCtx(ctx, "DeleteAll")
+	db, err := s.getDBFromCtx(ctx, "Delete")
 	if err != nil {
 		return nil, err
 	}
 
-	return db.DeleteAll(req)
+	return db.Delete(req)
 }
 
 func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {

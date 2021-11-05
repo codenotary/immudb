@@ -139,8 +139,8 @@ func (s *ServerMock) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 	return s.Srv.GetAll(ctx, req)
 }
 
-func (s *ServerMock) DeleteAll(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
-	return s.Srv.DeleteAll(ctx, req)
+func (s *ServerMock) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+	return s.Srv.Delete(ctx, req)
 }
 
 func (s *ServerMock) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
