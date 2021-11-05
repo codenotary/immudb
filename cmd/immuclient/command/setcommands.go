@@ -65,7 +65,7 @@ func (cl *commandline) deleteKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "delete key value",
 		Short:             "Delete existent entry having the specified key (logical deletion)",
-		Aliases:           []string{"s"},
+		Aliases:           []string{"del"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
