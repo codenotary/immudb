@@ -25,18 +25,14 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if req == nil {
+	currTxID, _ := d.st.Alh()
+
+	if req == nil || req.SinceTx > currTxID {
 		return nil, store.ErrIllegalArguments
 	}
 
 	if req.Limit > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
-	}
-
-	currTxID, _ := d.st.Alh()
-
-	if req.SinceTx > currTxID {
-		return nil, ErrIllegalArguments
 	}
 
 	waitUntilTx := req.SinceTx

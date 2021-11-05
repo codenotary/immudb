@@ -235,9 +235,10 @@ func TestExecAllOps(t *testing.T) {
 	})
 	require.Error(t, err)
 
+	batchCount := 10
 	batchSize := 100
 
-	for b := 0; b < 10; b++ {
+	for b := 0; b < batchCount; b++ {
 		atomicOps := make([]*schema.Op, batchSize*2)
 
 		for i := 0; i < batchSize; i++ {
@@ -257,10 +258,10 @@ func TestExecAllOps(t *testing.T) {
 			atomicOps[i+batchSize] = &schema.Op{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
-						Set:   []byte(`mySet`),
-						Score: 0.6,
-						Key:   atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
-						AtTx:  0,
+						Set:      []byte(`mySet`),
+						Score:    0.6,
+						Key:      atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
+						BoundRef: true,
 					},
 				},
 			}
@@ -277,7 +278,7 @@ func TestExecAllOps(t *testing.T) {
 	zList, err := db.ZScan(zScanOpt)
 	require.NoError(t, err)
 	println(len(zList.Entries))
-	require.Len(t, zList.Entries, batchSize)
+	require.Len(t, zList.Entries, batchCount*batchSize)
 }
 
 func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
@@ -410,7 +411,6 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 					Ref: &schema.ReferenceRequest{
 						Key:           []byte("rkey"),
 						ReferencedKey: []byte("key"),
-						AtTx:          0,
 						BoundRef:      true,
 					},
 				},
