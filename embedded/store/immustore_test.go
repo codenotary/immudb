@@ -17,6 +17,7 @@ package store
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -840,15 +841,18 @@ func TestImmudbStoreKVMetadatta(t *testing.T) {
 		})
 	require.NoError(t, err)
 
+	es := []*EntrySpec{
+		{
+			Key:      []byte{1, 2, 3},
+			Value:    []byte{1, 1, 1},
+			Metadata: NewKVMetadata().AsDeleted(true),
+		},
+	}
+
 	_, err = immuStore.Commit(
 		&TxSpec{
-			Entries: []*EntrySpec{
-				{
-					Key:      []byte{1, 2, 3},
-					Value:    []byte{1, 1, 1},
-					Metadata: NewKVMetadata().AsDeleted(true),
-				},
-			},
+			Entries:         es,
+			Metadata:        NewTxMetadata(),
 			WaitForIndexing: true,
 		})
 	require.NoError(t, err)
@@ -860,10 +864,23 @@ func TestImmudbStoreKVMetadatta(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), valRef.Tx())
 	require.True(t, valRef.kvmd.Deleted())
+	require.Equal(t, uint64(2), valRef.HC())
+	require.Equal(t, uint32(3), valRef.Len())
+	require.Equal(t, sha256.Sum256(es[0].Value), valRef.HVal())
+	require.True(t, NewTxMetadata().Equal(valRef.TxMetadata()))
 
 	v, err := valRef.Resolve()
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 1, 1}, v)
+
+	t.Run("read deleted key from snapshot should return key not found", func(t *testing.T) {
+		snap, err := immuStore.Snapshot()
+		require.NoError(t, err)
+		require.NotNil(t, snap)
+
+		_, err = snap.Get([]byte{1, 2, 3}, IgnoreDeleted)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+	})
 
 	_, err = immuStore.Commit(
 		&TxSpec{
