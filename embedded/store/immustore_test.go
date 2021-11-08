@@ -1723,7 +1723,8 @@ func TestExportAndReplicateTx(t *testing.T) {
 
 	md, err := masterStore.Commit(
 		&TxSpec{
-			Entries: []*EntrySpec{{Key: []byte("key1"), Value: []byte("value1")}},
+			Entries:  []*EntrySpec{{Key: []byte("key1"), Value: []byte("value1")}},
+			Metadata: NewTxMetadata(),
 		})
 	require.NoError(t, err)
 	require.NotNil(t, md)
