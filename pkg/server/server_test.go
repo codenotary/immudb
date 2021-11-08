@@ -1726,6 +1726,12 @@ func TestServerMaintenanceMode(t *testing.T) {
 	_, err = s.VerifiableZAdd(context.Background(), nil)
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
+	_, err = s.Delete(context.Background(), nil)
+	require.Contains(t, err.Error(), store.ErrIllegalArguments.Error())
+
+	_, err = s.Delete(context.Background(), &schema.DeleteKeysRequest{})
+	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
+
 	_, err = s.ExecAll(context.Background(), nil)
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 

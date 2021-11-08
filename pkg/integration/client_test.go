@@ -994,6 +994,56 @@ func TestImmuClient_GetAll(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_Delete(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	require.NoError(t, err)
+
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.Delete(ctx, nil)
+	require.Error(t, err)
+
+	deleteRequest := &schema.DeleteKeysRequest{}
+	_, err = client.Delete(ctx, deleteRequest)
+	require.Error(t, err)
+
+	_, err = client.Set(ctx, []byte("1,2,3"), []byte("3,2,1"))
+	require.NoError(t, err)
+
+	i, err := client.Get(ctx, []byte("1,2,3"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("3,2,1"), i.GetValue())
+
+	deleteRequest.Keys = append(deleteRequest.Keys, []byte("1,2,3"))
+	_, err = client.Delete(ctx, deleteRequest)
+	require.NoError(t, err)
+
+	_, err = client.Get(ctx, []byte("1,2,3"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "key not found")
+
+	_, err = client.Delete(ctx, deleteRequest)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "key not found")
+
+	err = client.Disconnect()
+	require.NoError(t, err)
+}
+
 func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
