@@ -1,4 +1,3 @@
-// +build streams
 /*
 Copyright 2021 CodeNotary, Inc. All rights reserved.
 
