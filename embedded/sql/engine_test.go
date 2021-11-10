@@ -707,6 +707,102 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestUpdate(t *testing.T) {
+	catalogStore, err := store.Open("catalog_update", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_update")
+
+	dataStore, err := store.Open("sqldata_update", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_update")
+
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPDATE table1 SET title = 'title11' WHERE title = 'title", nil, true)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+		id INTEGER,
+		title VARCHAR[50],
+		active BOOLEAN,
+		PRIMARY KEY id
+	)`, nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(title)", nil, true)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
+	require.NoError(t, err)
+
+	params, err := engine.InferParameters("UPDATE table1 SET active = @active")
+	require.NoError(t, err)
+	require.NotNil(t, params)
+	require.Len(t, params, 1)
+	require.Equal(t, params["active"], BooleanType)
+
+	_, err = engine.ExecStmt("UPDATE table2 SET active = false", nil, true)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+	_, err = engine.ExecStmt("UPDATE table1 SET name = 'name1'", nil, true)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+	t.Run("update on empty table should complete without issues", func(t *testing.T) {
+		summary, err := engine.ExecStmt("UPDATE table1 SET active = false", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Zero(t, summary.UpdatedRows)
+	})
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		_, err = engine.ExecStmt(fmt.Sprintf(`
+			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)`, i, i, i%2 == 0), nil, true)
+		require.NoError(t, err)
+	}
+
+	t.Run("updating with contradiction should not produce any change", func(t *testing.T) {
+		summary, err := engine.ExecStmt("UPDATE table1 SET active = false WHERE false", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Zero(t, summary.UpdatedRows)
+	})
+
+	t.Run("updating specific row should update only one row", func(t *testing.T) {
+		summary, err := engine.ExecStmt("UPDATE table1 SET active = true WHERE title = @title", map[string]interface{}{"title": "title1"}, true)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, 1, summary.UpdatedRows)
+
+		r, err := engine.QueryStmt("SELECT COUNT() FROM table1", nil, true)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, int64(rowCount), row.Values[EncodeSelector("", "db1", "table1", "col0")].Value())
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		r, err = engine.QueryStmt("SELECT COUNT() FROM table1 WHERE active", nil, true)
+		require.NoError(t, err)
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, int64(rowCount/2+1), row.Values[EncodeSelector("", "db1", "table1", "col0")].Value())
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+}
 func TestTransactions(t *testing.T) {
 	catalogStore, err := store.Open("catalog_tx", store.DefaultOptions())
 	require.NoError(t, err)
