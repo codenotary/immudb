@@ -65,6 +65,24 @@ func NewStateService(cache cache.Cache,
 	}, nil
 }
 
+// NewStateService ...
+func NewStateServiceWithUUID(cache cache.Cache,
+	logger logger.Logger,
+	stateProvider StateProvider,
+	serverUUID string) (StateService, error) {
+
+	if serverUUID == "" {
+		return nil, ErrNoServerUuid
+	}
+
+	return &stateService{
+		stateProvider: stateProvider,
+		cache:         cache,
+		logger:        logger,
+		serverUUID:    serverUUID,
+	}, nil
+}
+
 func (r *stateService) GetState(ctx context.Context, db string) (*schema.ImmutableState, error) {
 	r.Lock()
 	defer r.Unlock()

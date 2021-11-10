@@ -23,7 +23,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
@@ -58,24 +57,36 @@ import (
 type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
+	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
 	WaitForHealthCheck(ctx context.Context) (err error)
+	// Deprecated: grpc protocol is already handling
 	HealthCheck(ctx context.Context) error
+	// Deprecated: connection is handled in OpenSession
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
+	// Deprecated: use OpenSession
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	// Deprecated: use CloseSession
 	Logout(ctx context.Context) error
+
+	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (serverUUID string, sessionID string, err error)
+	CloseSession(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
+	// Deprecated: will be removed in future versions
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
+	// Deprecated: will be removed in future versions
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
 	WithStateService(rs state.StateService) *immuClient
+	// Deprecated: will be removed in future versions
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
+	// Deprecated: will be removed in future versions
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService tokenservice.TokenService) *immuClient
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
@@ -182,7 +193,7 @@ func DefaultClient() *immuClient {
 		Options:              DefaultOptions(),
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
-		Tkns:                 tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
+		Tkns:                 tokenservice.NewInmemoryTokenService(),
 	}
 }
 

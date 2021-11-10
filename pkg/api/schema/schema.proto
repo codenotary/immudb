@@ -81,6 +81,21 @@ message MTLSConfig {
 	bool enabled = 1;
 }
 
+message OpenSessionRequest {
+	bytes user = 1;
+	bytes password = 2;
+	string databaseName = 3;
+}
+
+message OpenSessionResponse {
+	string sessionID = 1;
+	string serverUUID = 2;
+}
+
+message CloseSessionRequest {
+	string sessionID = 1;
+}
+
 ////////////////////////////////////////////////////////
 
 message KeyValue {
@@ -544,10 +559,30 @@ service ImmuService {
 		};
 	};
 
-	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){} // DEPRECATED
-	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){} // DEPRECATED
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+
+	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){
+		option (google.api.http) = {
+			post: "/session/open"
+			body: "*"
+		};
+	};
+
+	rpc CloseSession (CloseSessionRequest) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/session/close"
+			body: "*"
+		};
+	};
+
 
 	rpc Login (LoginRequest) returns (LoginResponse){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/login"
 			body: "*"
@@ -558,6 +593,7 @@ service ImmuService {
 	};
 
 	rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/logout"
 			body: "*"
@@ -597,7 +633,7 @@ service ImmuService {
 			body: "*"
 		};
 	}
-	
+
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/db/getall"

@@ -37,7 +37,7 @@ require (
 	github.com/rogpeppe/go-internal v1.8.0
 	github.com/rs/xid v1.3.0
 	github.com/spf13/cobra v1.2.1
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/takama/daemon v0.12.0
@@ -50,3 +50,5 @@ require (
 )
 
 replace github.com/takama/daemon v0.12.0 => github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4
+
+replace github.com/spf13/afero => github.com/spf13/afero v1.5.1

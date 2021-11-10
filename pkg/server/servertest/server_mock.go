@@ -41,6 +41,14 @@ type ServerMock struct {
 	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
 
+func (s *ServerMock) OpenSession(ctx context.Context, request *schema.OpenSessionRequest) (*schema.OpenSessionResponse, error) {
+	return s.Srv.OpenSession(ctx, request)
+}
+
+func (s *ServerMock) CloseSession(ctx context.Context, request *schema.CloseSessionRequest) (*empty.Empty, error) {
+	return s.Srv.CloseSession(ctx, request)
+}
+
 func (s *ServerMock) StreamExecAll(allServer schema.ImmuService_StreamExecAllServer) error {
 	return s.Srv.StreamExecAll(allServer)
 }
