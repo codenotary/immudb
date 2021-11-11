@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/status"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -57,14 +58,7 @@ func (i *immuc) Login(args []string) (string, error) {
 		}
 		return "", errors.New("username or password is not valid")
 	}
-	if err = i.ts.SetToken("", response.Token); err != nil {
-		return "", err
-	}
-	i.ImmuClient.GetOptions().Auth = true
-	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
-	if err != nil {
-		return "", err
-	}
+
 	i.isLoggedin = true
 	successMsg := "Successfully logged in\n"
 	if len(response.Warning) != 0 {
@@ -74,17 +68,13 @@ func (i *immuc) Login(args []string) (string, error) {
 }
 
 func (i *immuc) Logout(args []string) (string, error) {
-	ok, err := i.ts.IsTokenPresent()
-	if err != nil || !ok {
+	var err error
+	i.isLoggedin = false
+	err = i.ImmuClient.Logout(context.TODO())
+	st, ok := status.FromError(err)
+	if ok && st.Message() == "not logged in" {
 		return "User not logged in", nil
 	}
-	if err := i.ts.DeleteToken(); err != nil {
-		return "", err
-	}
-	i.isLoggedin = false
-	i.ImmuClient.GetOptions().Auth = false
-
-	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
 	if err != nil {
 		return "", err
 	}

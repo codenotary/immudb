@@ -17,12 +17,12 @@ limitations under the License.
 package immuclient
 
 import (
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
@@ -46,11 +46,11 @@ func TestConnect(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

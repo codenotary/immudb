@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"os"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -42,11 +42,11 @@ func TestCurrentState(t *testing.T) {
 	defer os.Remove(".state-")
 	defer os.Remove("testTokenFile")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

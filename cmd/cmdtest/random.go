@@ -14,30 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immutest
+package cmdtest
 
 import (
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/spf13/cobra"
+	"math/rand"
+	"time"
 )
 
-// NewCmd creates a new immutest command
-func NewCmd(
-	pwr c.PasswordReader,
-	tr c.TerminalReader,
-	ts tokenservice.TokenService,
-	onError func(err error)) *cobra.Command {
-	cmd := &cobra.Command{}
-	Init(cmd,
-		&commandline{
-			pwr:     pwr,
-			tr:      tr,
-			tkns:    ts,
-			onError: onError,
-			config:  c.Config{Name: "immutest"},
-		})
-	cmd.AddCommand(version.VersionCmd())
-	return cmd
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func RandString() string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]rune, 10)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

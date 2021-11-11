@@ -710,12 +710,11 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 	defer bs.Stop()
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	client.WithTokenService(ts)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
 		log.Fatal(err)
@@ -754,11 +753,11 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 	defer bs.Stop()
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	client.WithTokenService(ts)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
 		log.Fatal(err)
@@ -797,11 +796,11 @@ func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
 	defer bs.Stop()
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	client.WithTokenService(ts)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
 		log.Fatal(err)
@@ -841,11 +840,11 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	defer bs.Stop()
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	client.WithTokenService(ts)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
 		log.Fatal(err)
@@ -869,11 +868,11 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	client.Disconnect()
 
 	ts = tokenservice.NewInmemoryTokenService()
-	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	client.WithTokenService(ts)
 	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
 		log.Fatal(err)
@@ -950,11 +949,11 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	}
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	if err != nil {
 		log.Fatal(err)
 	}
-	client.WithStreamServiceFactory(sfm)
+	client.WithStreamServiceFactory(sfm).WithTokenService(ts)
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {
@@ -1057,11 +1056,11 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 	}
 
 	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	if err != nil {
 		log.Fatal(err)
 	}
-	client.WithStreamServiceFactory(sfm)
+	client.WithStreamServiceFactory(sfm).WithTokenService(ts)
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package immuc_test
 
 import (
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"testing"
 
@@ -47,4 +48,5 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	imc.WithFileTokenService(tokenservice.NewInmemoryTokenService())
 }

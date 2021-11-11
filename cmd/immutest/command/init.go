@@ -37,13 +37,12 @@ import (
 )
 
 type commandline struct {
-	immuClient    client.ImmuClient
-	newImmuClient func(*client.Options) (client.ImmuClient, error)
-	pwr           c.PasswordReader
-	tr            c.TerminalReader
-	tkns          tokenservice.TokenService
-	config        c.Config
-	onError       func(err error)
+	immuClient client.ImmuClient
+	pwr        c.PasswordReader
+	tr         c.TerminalReader
+	tkns       tokenservice.TokenService
+	config     c.Config
+	onError    func(err error)
 }
 
 const defaultNbEntries = 100
@@ -141,12 +140,8 @@ func login(
 	defaultPassword string,
 	onSuccess func()) {
 	if user == defaultUser {
-		response, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
+		_, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
 		if err == nil {
-			if err := tkns.SetToken("", response.GetToken()); err != nil {
-				cl.onError(err)
-				return
-			}
 			onSuccess()
 			return
 		}
@@ -175,12 +170,8 @@ func selectDb(
 	tkns tokenservice.TokenService,
 	db string,
 	onSuccess func()) {
-	response, err := immuClient.UseDatabase(ctx, &schema.Database{DatabaseName: db})
+	_, err := immuClient.UseDatabase(ctx, &schema.Database{DatabaseName: db})
 	if err != nil {
-		cl.onError(err)
-		return
-	}
-	if err := tkns.SetToken(db, response.GetToken()); err != nil {
 		cl.onError(err)
 		return
 	}
@@ -270,7 +261,7 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.immuClient, err = cl.newImmuClient(options()); err != nil {
+	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
 		cl.onError(err)
 		return
 	}

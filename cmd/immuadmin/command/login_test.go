@@ -19,14 +19,14 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/cmd/helper"
 
@@ -97,12 +97,13 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	}
 	cliopt := Options()
 	cliopt.DialOptions = dialOptions
+	tkf := cmdtest.RandString()
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin"),
+		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
@@ -152,15 +153,14 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	}
 	cliopt := Options().WithDialOptions(dialOptions)
 
-	cliopt.Tkns = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin")
+	tkf := cmdtest.RandString()
 	cmdl := commandline{
 		config:         helper.Config{Name: "immuadmin"},
 		options:        cliopt,
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin"),
-		newImmuClient:  client.NewImmuClient,
+		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(tkf),
 	}
 	cmdl.login(cmd)
 
@@ -179,14 +179,13 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Contains(t, string(out), "logged in")
-
 	cmdlo := commandline{
 		config:         helper.Config{Name: "immuadmin"},
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName("token_admin"),
+		ts:             tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(tkf),
 	}
 	b1 := bytes.NewBufferString("")
 	cl = commandline{}
@@ -238,7 +237,8 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl1 := new(commandline)
 	cl1.context = context.Background()
 	cl1.passwordReader = pwReaderMock
-	cl1.ts = tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin")
+	tkf := cmdtest.RandString()
+	cl1.ts = tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf)
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}

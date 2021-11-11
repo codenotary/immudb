@@ -52,7 +52,6 @@ type commandline struct {
 	options        *client.Options
 	config         c.Config
 	immuClient     client.ImmuClient
-	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
 	context        context.Context
 	ts             tokenservice.TokenService
@@ -63,7 +62,6 @@ type commandline struct {
 func NewCommandLine() *commandline {
 	cl := &commandline{}
 	cl.config.Name = "immuadmin"
-	cl.newImmuClient = client.NewImmuClient
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 	//
@@ -110,16 +108,12 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.newImmuClient == nil {
-		if cl.immuClient, err = client.NewImmuClient(cl.options.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))); err != nil {
-			cl.quit(err)
-		}
-		return
-	}
-	if cl.immuClient, err = cl.newImmuClient(cl.options.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))); err != nil {
+	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
 		cl.quit(err)
 	}
+	cl.immuClient.WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName("token_admin"))
 	return
+
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {

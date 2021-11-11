@@ -18,11 +18,11 @@ package server
 
 import (
 	"fmt"
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
@@ -161,7 +161,7 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	s.metricFuncComputeDBSizes()
 
 	// non-existent dir
-	s.Options.Dir = fmt.Sprintf("%d", time.Now().UnixNano())
+	s.Options.Dir = cmdtest.RandString()
 	s.metricFuncComputeDBSizes()
 
 	// test warning paths (when dbList and sysDB are nil)

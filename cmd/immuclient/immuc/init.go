@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -36,7 +35,6 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
-	ts             tokenservice.TokenService
 }
 
 // Client ...
@@ -77,29 +75,24 @@ type Client interface {
 	SQLQuery(args []string) (string, error)
 	ListTables() (string, error)
 	DescribeTable(args []string) (string, error)
+
+	WithFileTokenService(tkns tokenservice.TokenService) Client
 }
 
 // Init ...
-func Init(opts *client.Options) (Client, error) {
+func Init(opts *client.Options) (*immuc, error) {
 	ic := new(immuc)
 	ic.passwordReader = opts.PasswordReader
-	ic.ts = opts.Tkns
 	ic.options = opts
 	return ic, nil
 }
 
-func (i *immuc) Connect(args []string) error {
-	ok, err := i.ts.IsTokenPresent()
-	if err != nil || !ok {
-		i.options.Auth = false
-	} else {
-		i.options.Auth = true
-	}
-
-	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil || i.ImmuClient == nil {
+func (i *immuc) Connect(args []string) (err error) {
+	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil {
 		return err
 	}
 
+	i.options.Auth = true
 	i.valueOnly = viper.GetBool("value-only")
 
 	return nil
@@ -159,6 +152,13 @@ func (i *immuc) SetValueOnly(v bool) {
 	return
 }
 
+func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
+	if i.ImmuClient != nil {
+		i.ImmuClient.WithTokenService(tkns)
+	}
+	return i
+}
+
 func Options() *client.Options {
 	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
 	options := client.DefaultOptions().
@@ -169,7 +169,6 @@ func Options() *client.Options {
 		WithDatabase(viper.GetString("database")).
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
-		WithTokenService(tokenservice.NewFileTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(homedir.NewHomedirService())).
 		WithServerSigningPubKey(viper.GetString("server-signing-pub-key"))
 
 	if viper.GetBool("mtls") {

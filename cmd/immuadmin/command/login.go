@@ -19,7 +19,6 @@ package immuadmin
 import (
 	"context"
 	"fmt"
-
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/spf13/cobra"
@@ -48,7 +47,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				return err
 			}
 
-			responseWarning, err := cl.loginAndRenewClient(ctx, user, pass)
+			responseWarning, err := cl.loginClient(ctx, user, pass)
 			if err != nil {
 				cl.quit(err)
 				return err
@@ -65,7 +64,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 					return err
 				}
 
-				if _, err := cl.loginAndRenewClient(ctx, user, newPass); err != nil {
+				if _, err := cl.loginClient(ctx, user, newPass); err != nil {
 					cl.quit(err)
 					return err
 				}
@@ -80,19 +79,13 @@ func (cl *commandline) login(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) loginAndRenewClient(
+func (cl *commandline) loginClient(
 	ctx context.Context,
 	user []byte,
 	pass []byte,
 ) (string, error) {
 	response, err := cl.immuClient.Login(ctx, user, pass)
 	if err != nil {
-		return "", err
-	}
-	if err = cl.ts.SetToken("", response.Token); err != nil {
-		return "", err
-	}
-	if cl.immuClient, err = cl.newImmuClient(cl.immuClient.GetOptions()); err != nil {
 		return "", err
 	}
 	return string(response.GetWarning()), nil

@@ -43,7 +43,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
-	cli := cliIf.(*immuClient)
+	cli := cliIf
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -79,7 +79,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
-	cli := cliIf.(*immuClient)
+	cli := cliIf
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -124,7 +124,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
-	cli := cliIf.(*immuClient)
+	cli := cliIf
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
