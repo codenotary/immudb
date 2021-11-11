@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
@@ -113,13 +114,15 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions
 
 	cli, _ := client.NewImmuClient(cliopt)
+	cli.WithTokenService(ts)
 	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
 	require.NoError(t, err)
 
@@ -177,13 +180,15 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions
 
 	cli, _ := client.NewImmuClient(cliopt)
+	cli.WithTokenService(ts)
 	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
 	require.NoError(t, err)
 
@@ -275,13 +280,15 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions
 
 	cli, _ := client.NewImmuClient(cliopt)
+	cli.WithTokenService(ts)
 	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
 	require.NoError(t, err)
 

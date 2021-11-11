@@ -66,22 +66,28 @@ func NewDefaultClientTest() *clientTest {
 }
 func NewClientTest(pr helper.PasswordReader, tkns tokenservice.TokenService) *clientTest {
 	return &clientTest{
-		Ts: tkns,
-		Pr: pr,
+		Ts:      tkns,
+		Pr:      pr,
+		Options: *client.DefaultOptions(),
 	}
+}
+
+func (ct *clientTest) WithTokenFileService(tkns tokenservice.TokenService) *clientTest {
+	ct.Imc.WithFileTokenService(tkns)
+	return ct
 }
 
 func (ct *clientTest) WithOptions(opts *client.Options) *clientTest {
 	ct.Options = *opts
 	return ct
 }
+
 func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
 	}
 
-	ic, err := immuc.Init(c.Options.WithDialOptions(dialOptions).WithPasswordReader(c.Pr).
-		WithTokenService(c.Ts))
+	ic, err := immuc.Init(c.Options.WithDialOptions(dialOptions).WithPasswordReader(c.Pr))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,6 +95,9 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	ic.WithFileTokenService(c.Ts)
+
 	c.Imc = ic
 }
 

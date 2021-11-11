@@ -26,7 +26,7 @@ import (
 )
 
 func TestImmuClient_Errors(t *testing.T) {
-	client := DefaultClient().(*immuClient)
+	client := DefaultClient()
 	ctx := context.TODO()
 
 	_, err := client.StreamVerifiedSet(ctx, nil)

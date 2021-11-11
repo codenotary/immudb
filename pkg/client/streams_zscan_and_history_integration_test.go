@@ -44,8 +44,7 @@ func skipTestIfNoImmudbServer(t *testing.T) {
 }
 
 func newImmuClient(t *testing.T) (ImmuClient, context.Context) {
-	cliIF, err := NewImmuClient(DefaultOptions())
-	cli := cliIF.(*immuClient)
+	cli, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
@@ -57,7 +56,7 @@ func newImmuClient(t *testing.T) (ImmuClient, context.Context) {
 
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
-	return cliIF, ctx
+	return cli, ctx
 }
 
 func inputTestFileToStreamKV(

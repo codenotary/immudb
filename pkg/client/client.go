@@ -23,13 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -177,24 +177,24 @@ type immuClient struct {
 }
 
 // DefaultClient ...
-func DefaultClient() ImmuClient {
+func DefaultClient() *immuClient {
 	return &immuClient{
 		Dir:                  "",
 		Options:              DefaultOptions(),
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
+		Tkns:                 tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
 	}
 }
 
 // NewImmuClient ...
-func NewImmuClient(options *Options) (c ImmuClient, err error) {
+func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
 
-	c = DefaultClient()
+	c := DefaultClient()
 	c.WithOptions(options)
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
-	c.WithTokenService(options.Tkns)
 
 	if options.ServerSigningPubKey != "" {
 		pk, err := signer.ParsePublicKeyFile(options.ServerSigningPubKey)
@@ -205,7 +205,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	}
 
 	options.DialOptions = c.SetupDialOptions(options)
-	if db, err := options.Tkns.GetDatabase(); err == nil && len(db) > 0 {
+	if db, err := c.Tkns.GetDatabase(); err == nil && len(db) > 0 {
 		options.CurrentDatabase = db
 	}
 
@@ -215,8 +215,8 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 
 	c.WithOptions(options)
 
-	var clientConn *grpc.ClientConn
-	if clientConn, err = c.Connect(ctx); err != nil {
+	clientConn, err := c.Connect(ctx)
+	if err != nil {
 		return nil, err
 	}
 

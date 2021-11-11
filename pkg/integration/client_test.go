@@ -234,9 +234,9 @@ func TestImmuClient(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService())
+	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	require.NoError(t, err)
 	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
@@ -274,10 +274,10 @@ func TestImmuClientTampering(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService())
+	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", resp.Token)
@@ -420,9 +420,9 @@ func TestReplica(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -466,9 +466,9 @@ func TestDatabasesSwitching(t *testing.T) {
 
 	client, err := ic.NewImmuClient(
 		ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-			WithTokenService(tokenservice.NewInmemoryTokenService()))
+			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
@@ -527,10 +527,9 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 
 	client, err := ic.NewImmuClient(
 		ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-			WithTokenService(tokenservice.NewInmemoryTokenService()))
+			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
-
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	_, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
@@ -577,10 +576,10 @@ func TestImmuClientDisconnect(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService())
+	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -698,9 +697,9 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	client.Disconnect()
 	err = client.Disconnect()
@@ -718,9 +717,9 @@ func TestWaitForHealthCheck(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	err = client.WaitForHealthCheck(context.TODO())
 	require.Nil(t, err)
 }
@@ -767,10 +766,11 @@ func TestUserManagement(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
@@ -857,9 +857,10 @@ func TestDatabaseManagement(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -886,9 +887,10 @@ func TestImmuClient_History(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -918,9 +920,9 @@ func TestImmuClient_SetAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -969,9 +971,10 @@ func TestImmuClient_GetAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1004,8 +1007,8 @@ func TestImmuClient_Delete(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	require.NoError(t, err)
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
@@ -1054,9 +1057,9 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1093,9 +1096,9 @@ func TestImmuClient_Scan(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1123,11 +1126,11 @@ func TestImmuClient_TxScan(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
 	defer client.Disconnect()
 
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1206,13 +1209,13 @@ func TestImmuClient_Logout(t *testing.T) {
 
 	for i, expect := range expectations {
 		clientOpts := ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-			WithTokenService(tokenServices[i])
+			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 		client, err := ic.NewImmuClient(clientOpts)
 		if err != nil {
 			expect(err)
 			continue
 		}
+		client.WithTokenService(tokenServices[i])
 
 		lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 		if err != nil {
@@ -1238,9 +1241,10 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	cli := client.GetServiceClient()
 	require.Implements(t, (*schema.ImmuServiceClient)(nil), cli)
@@ -1263,9 +1267,9 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1290,9 +1294,9 @@ func TestImmuClient_Count(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1312,9 +1316,9 @@ func TestImmuClient_CountAll(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1442,9 +1446,9 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1515,8 +1519,9 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 	defer bs.Stop()
 
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+		WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1537,10 +1542,10 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService())
+	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1579,9 +1584,9 @@ func TestImmuClient_VerifiedGetSince(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithTokenService(tokenservice.NewInmemoryTokenService()))
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)

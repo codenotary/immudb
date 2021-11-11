@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/fs"
 	"os"
@@ -55,11 +56,11 @@ func TestRunCommand(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -89,11 +90,11 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -122,11 +123,11 @@ func TestRunMissingArgs(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -156,11 +157,11 @@ func TestRunWrongCommand(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -189,11 +190,11 @@ func TestCheckCommand(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(client.DefaultOptions())
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -250,8 +251,8 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	cliOpts := client.DefaultOptions()
 	cliOpts.CurrentDatabase = client.DefaultDB
 
-	ts := tokenservice.NewFileTokenService().WithTokenFileName("testTokenFile").
-		WithHds(&test.HomedirServiceMock{Token: tokenservice.BuildToken("database", "fakeToken")})
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
 
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},

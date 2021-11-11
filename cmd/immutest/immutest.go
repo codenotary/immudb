@@ -25,12 +25,10 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	immutest "github.com/codenotary/immudb/cmd/immutest/command"
 	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/client"
 )
 
 func main() {
 	err := execute(
-		client.NewImmuClient,
 		c.DefaultPasswordReader,
 		c.NewTerminalReader(os.Stdin),
 		tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(viper.GetString("tokenfile")),
@@ -43,7 +41,6 @@ func main() {
 }
 
 func execute(
-	newImmuClient func(*client.Options) (client.ImmuClient, error),
 	pwr c.PasswordReader,
 	tr c.TerminalReader,
 	ts tokenservice.TokenService,
@@ -51,7 +48,7 @@ func execute(
 	args []string,
 ) error {
 	version.App = "immutest"
-	cmd := immutest.NewCmd(newImmuClient, pwr, tr, ts, onError)
+	cmd := immutest.NewCmd(pwr, tr, ts, onError)
 	if args != nil {
 		cmd.SetArgs(args)
 	}

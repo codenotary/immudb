@@ -18,8 +18,6 @@ package client
 
 import (
 	"encoding/json"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/stream"
@@ -51,7 +49,6 @@ type Options struct {
 	Password       string
 	Database       string
 	//<--
-	Tkns                tokenservice.TokenService
 	Metrics             bool
 	PidPath             string
 	LogFileName         string
@@ -70,10 +67,8 @@ func DefaultOptions() *Options {
 		Auth:                true,
 		MaxRecvMsgSize:      4 * 1024 * 1024, //4Mb
 		Config:              "configs/immuclient.toml",
-		TokenFileName:       "token",
 		DialOptions:         []grpc.DialOption{grpc.WithInsecure()},
 		PasswordReader:      c.DefaultPasswordReader,
-		Tkns:                tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
 		Metrics:             true,
 		PidPath:             "",
 		LogFileName:         "",
@@ -194,12 +189,6 @@ func (o *Options) WithPassword(password string) *Options {
 // WithDatabase sets the database for the client
 func (o *Options) WithDatabase(database string) *Options {
 	o.Database = database
-	return o
-}
-
-// WithTokenService sets the TokenService for the client
-func (o *Options) WithTokenService(tkns tokenservice.TokenService) *Options {
-	o.Tkns = tkns
 	return o
 }
 

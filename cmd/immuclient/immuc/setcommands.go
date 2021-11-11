@@ -281,7 +281,7 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	resp, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.UseDatabase(ctx, &schema.Database{
 			DatabaseName: dbname,
 		})
@@ -291,10 +291,6 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	}
 
 	i.ImmuClient.GetOptions().CurrentDatabase = dbname
-
-	if err = i.ts.SetToken(dbname, resp.(*schema.UseDatabaseReply).Token); err != nil {
-		return "", err
-	}
 
 	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
 	if err != nil {
