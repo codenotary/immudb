@@ -189,13 +189,14 @@ type immuClient struct {
 
 // DefaultClient ...
 func DefaultClient() *immuClient {
-	return &immuClient{
+	c := &immuClient{
 		Dir:                  "",
 		Options:              DefaultOptions(),
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 		Tkns:                 tokenservice.NewInmemoryTokenService(),
 	}
+	return c
 }
 
 // NewImmuClient ...
