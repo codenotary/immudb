@@ -34,7 +34,6 @@ const (
 type Snapshot struct {
 	t           *TBtree
 	id          uint64
-	ts          uint64
 	root        node
 	readers     map[int]io.Closer
 	maxReaderID int
@@ -52,7 +51,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 	v := make([]byte, len(value))
 	copy(v, value)
 
-	ts := s.ts + 1
+	ts := s.root.ts() + 1
 
 	n1, n2, err := s.root.insertAt(k, v, ts)
 	if err != nil {
@@ -117,7 +116,7 @@ func (s *Snapshot) Ts() uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.ts
+	return s.root.ts()
 }
 
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
