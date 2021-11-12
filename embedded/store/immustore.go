@@ -167,6 +167,9 @@ type OngoingTx struct {
 	entriesByKey map[[sha256.Size]byte]int
 
 	metadata *TxMetadata
+
+	closed  bool
+	rwmutex sync.RWMutex
 }
 
 type EntrySpec struct {
@@ -177,7 +180,7 @@ type EntrySpec struct {
 
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 	tx.metadata = md
-	return tx
+	return nil
 }
 
 func (tx *OngoingTx) IsWriteOnly() bool {
@@ -185,6 +188,13 @@ func (tx *OngoingTx) IsWriteOnly() bool {
 }
 
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
+	tx.rwmutex.Lock()
+	defer tx.rwmutex.Unlock()
+
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
 	if len(key) == 0 {
 		return ErrIllegalArguments
 	}
@@ -223,6 +233,13 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 }
 
 func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
+	tx.rwmutex.RLock()
+	defer tx.rwmutex.RUnlock()
+
+	if tx.closed {
+		return nil, ErrAlreadyClosed
+	}
+
 	if tx.IsWriteOnly() {
 		return nil, ErrWriteOnlyTx
 	}
@@ -239,6 +256,15 @@ func (tx *OngoingTx) AsyncCommit() (*TxHeader, error) {
 }
 
 func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
+	tx.rwmutex.Lock()
+	defer tx.rwmutex.Unlock()
+
+	if tx.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	tx.closed = true
+
 	if !tx.IsWriteOnly() {
 		err := tx.snap.Close()
 		if err != nil {
@@ -250,6 +276,15 @@ func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 }
 
 func (tx *OngoingTx) Cancel() error {
+	tx.rwmutex.Lock()
+	defer tx.rwmutex.Unlock()
+
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
+	tx.closed = true
+
 	if !tx.IsWriteOnly() {
 		return tx.snap.Close()
 	}

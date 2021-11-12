@@ -787,8 +787,8 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 func TestImmudbStoreKVConstraints(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_kv_constraints", opts)
-	defer os.RemoveAll("data_kv_constraints")
+	immuStore, _ := Open("data_tx", opts)
+	defer os.RemoveAll("data_tx")
 
 	tx, err := immuStore.NewWriteOnlyTx()
 	require.NoError(t, err)
@@ -799,6 +799,12 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 	_, err = tx.Commit()
 	require.NoError(t, err)
 
+	_, err = tx.Commit()
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	err = tx.Cancel()
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
 	t.Run("cancelled transaction should not produce effects", func(t *testing.T) {
 		tx, err := immuStore.NewWriteOnlyTx()
 		require.NoError(t, err)
@@ -808,6 +814,12 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 
 		err = tx.Cancel()
 		require.NoError(t, err)
+
+		err = tx.Cancel()
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+
+		_, err = tx.Commit()
+		require.ErrorIs(t, err, ErrAlreadyClosed)
 
 		valRef, err := immuStore.Get([]byte{1, 2, 3})
 		require.NoError(t, err)
