@@ -106,13 +106,13 @@ func TestMaxIndexWaitees(t *testing.T) {
 	}
 
 	// Store one transaction
-	tx, err := store.NewTx(true)
+	tx, err := store.NewWriteOnlyTx()
 	require.NoError(t, err)
 
 	err = tx.Set([]byte{1}, nil, []byte{2})
 	require.NoError(t, err)
 
-	hdr, err := tx.Commit()
+	hdr, err := tx.AsyncCommit()
 	require.NoError(t, err)
 	require.EqualValues(t, 1, hdr.ID)
 

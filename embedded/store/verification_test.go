@@ -64,7 +64,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	eCount := 4
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewTx(true)
+		tx, err := immuStore.NewWriteOnlyTx()
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {

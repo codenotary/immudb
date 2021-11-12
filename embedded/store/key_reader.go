@@ -24,23 +24,27 @@ import (
 )
 
 type Snapshot struct {
-	st   *ImmuStore
-	snap *tbtree.Snapshot
+	st             *ImmuStore
+	snap           *tbtree.Snapshot
+	refInterceptor valueRefInterceptor
 }
 
-type FilterFn func(valRef *ValueRef) bool
+type valueRefInterceptor func(key []byte, valRef ValueRef) ValueRef
+
+type FilterFn func(valRef ValueRef) bool
 
 var (
-	IgnoreDeleted FilterFn = func(valRef *ValueRef) bool {
-		return valRef.kvmd == nil || !valRef.kvmd.deleted
+	IgnoreDeleted FilterFn = func(valRef ValueRef) bool {
+		return valRef.KVMetadata() == nil || !valRef.KVMetadata().deleted
 	}
 )
 
 type KeyReader struct {
-	store  *ImmuStore
-	reader *tbtree.Reader
-	filter FilterFn
-	_tx    *Tx
+	store          *ImmuStore
+	reader         *tbtree.Reader
+	filter         FilterFn
+	refInterceptor valueRefInterceptor
+	_tx            *Tx
 }
 
 type KeyReaderSpec struct {
@@ -57,7 +61,7 @@ func (s *Snapshot) set(key, value []byte) error {
 	return s.snap.Set(key, value)
 }
 
-func (s *Snapshot) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
+func (s *Snapshot) Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
 		return nil, err
@@ -72,6 +76,10 @@ func (s *Snapshot) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err e
 		if !filter(valRef) {
 			return nil, ErrKeyNotFound
 		}
+	}
+
+	if s.refInterceptor != nil {
+		return s.refInterceptor(key, valRef), nil
 	}
 
 	return valRef, nil
@@ -106,15 +114,36 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		return nil, err
 	}
 
+	var refInterceptor valueRefInterceptor
+
+	if s.refInterceptor == nil {
+		refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
+			return valRef
+		}
+	} else {
+		refInterceptor = s.refInterceptor
+	}
+
 	return &KeyReader{
-		store:  s.st,
-		reader: r,
-		filter: spec.Filter,
-		_tx:    s.st.NewTxHolder(),
+		store:          s.st,
+		reader:         r,
+		filter:         spec.Filter,
+		refInterceptor: refInterceptor,
+		_tx:            s.st.NewTxHolder(),
 	}, nil
 }
 
-type ValueRef struct {
+type ValueRef interface {
+	Resolve() (val []byte, err error)
+	Tx() uint64
+	HC() uint64
+	TxMetadata() *TxMetadata
+	KVMetadata() *KVMetadata
+	HVal() [sha256.Size]byte
+	Len() uint32
+}
+
+type valueRef struct {
 	tx     uint64
 	hc     uint64 // version
 	hVal   [32]byte
@@ -125,7 +154,7 @@ type ValueRef struct {
 	st     *ImmuStore
 }
 
-func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (*ValueRef, error) {
+func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, error) {
 	// vLen + vOff + vHash
 	const valrLen = lszSize + offsetSize + sha256.Size
 
@@ -138,7 +167,7 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (*ValueRef, 
 	valLen := binary.BigEndian.Uint32(indexedVal[i:])
 	i += lszSize
 
-	vOff := binary.BigEndian.Uint64(indexedVal[i:])
+	vOff := int64(binary.BigEndian.Uint64(indexedVal[i:]))
 	i += offsetSize
 
 	var hVal [sha256.Size]byte
@@ -194,11 +223,11 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (*ValueRef, 
 		return nil, ErrCorruptedIndex
 	}
 
-	return &ValueRef{
+	return &valueRef{
 		tx:     tx,
 		hc:     hc,
 		hVal:   hVal,
-		vOff:   int64(vOff),
+		vOff:   vOff,
 		valLen: valLen,
 		txmd:   txmd,
 		kvmd:   kvmd,
@@ -207,37 +236,39 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (*ValueRef, 
 }
 
 // Resolve ...
-func (v *ValueRef) Resolve() ([]byte, error) {
+func (v *valueRef) Resolve() (val []byte, err error) {
 	refVal := make([]byte, v.valLen)
-	_, err := v.st.ReadValueAt(refVal, v.vOff, v.hVal)
+
+	_, err = v.st.ReadValueAt(refVal, v.vOff, v.hVal)
+
 	return refVal, err
 }
 
-func (v *ValueRef) Tx() uint64 {
+func (v *valueRef) Tx() uint64 {
 	return v.tx
 }
 
-func (v *ValueRef) HC() uint64 {
+func (v *valueRef) HC() uint64 {
 	return v.hc
 }
 
-func (v *ValueRef) TxMetadata() *TxMetadata {
+func (v *valueRef) TxMetadata() *TxMetadata {
 	return v.txmd
 }
 
-func (v *ValueRef) KVMetadata() *KVMetadata {
+func (v *valueRef) KVMetadata() *KVMetadata {
 	return v.kvmd
 }
 
-func (v *ValueRef) HVal() [sha256.Size]byte {
+func (v *valueRef) HVal() [sha256.Size]byte {
 	return v.hVal
 }
 
-func (v *ValueRef) Len() uint32 {
+func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val *ValueRef, tx uint64, err error) {
+func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint64, err error) {
 	key, ktxID, hc, err := r.reader.ReadAsBefore(txID)
 	if err != nil {
 		return nil, nil, 0, err
@@ -250,7 +281,7 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val *ValueRef, tx uin
 
 	for _, e := range r._tx.Entries() {
 		if bytes.Equal(e.key(), key) {
-			val = &ValueRef{
+			val = &valueRef{
 				tx:     r._tx.ID,
 				hc:     hc,
 				hVal:   e.hVal,
@@ -265,14 +296,14 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val *ValueRef, tx uin
 				return nil, nil, 0, ErrKeyNotFound
 			}
 
-			return key, val, ktxID, nil
+			return key, r.refInterceptor(key, val), ktxID, nil
 		}
 	}
 
 	return nil, nil, 0, ErrUnexpectedError
 }
 
-func (r *KeyReader) Read() (key []byte, val *ValueRef, err error) {
+func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
@@ -288,7 +319,7 @@ func (r *KeyReader) Read() (key []byte, val *ValueRef, err error) {
 			continue
 		}
 
-		return key, val, nil
+		return key, r.refInterceptor(key, val), nil
 	}
 }
 
