@@ -43,9 +43,10 @@ import (
 
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("store already closed")
-var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
+var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrWriteOnlyTx = errors.New("write-only transaction")
+var ErrTxReadConflict = errors.New("tx read conflict")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
@@ -179,6 +180,10 @@ func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 	return tx
 }
 
+func (tx *OngoingTx) IsWriteOnly() bool {
+	return tx.snap == nil
+}
+
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	if len(key) == 0 {
 		return ErrIllegalArguments
@@ -191,7 +196,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 		return ErrorMaxTxEntriesLimitExceeded
 	}
 
-	if tx.snap != nil {
+	if !tx.IsWriteOnly() {
 		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
@@ -218,7 +223,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 }
 
 func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
-	if tx.snap == nil {
+	if tx.IsWriteOnly() {
 		return nil, ErrWriteOnlyTx
 	}
 
@@ -234,7 +239,7 @@ func (tx *OngoingTx) AsyncCommit() (*TxHeader, error) {
 }
 
 func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
-	if tx.snap != nil {
+	if !tx.IsWriteOnly() {
 		err := tx.snap.Close()
 		if err != nil {
 			return nil, err
@@ -245,7 +250,7 @@ func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 }
 
 func (tx *OngoingTx) Cancel() error {
-	if tx.snap != nil {
+	if !tx.IsWriteOnly() {
 		return tx.snap.Close()
 	}
 
@@ -1058,6 +1063,10 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 
 	if otx == nil {
 		return nil, ErrIllegalArguments
+	}
+
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		return nil, ErrTxReadConflict
 	}
 
 	err := s.validateEntries(otx.entries)

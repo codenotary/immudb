@@ -851,6 +851,35 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("value1"), v)
 	})
+
+	t.Run("second ongoing tx after the first commit should fail", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key1"), nil, []byte("value1_tx1"))
+		require.NoError(t, err)
+
+		err = tx2.Set([]byte("key1"), nil, []byte("value1_tx2"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+
+		valRef, err := immuStore.Get([]byte("key1"))
+		require.NoError(t, err)
+		require.NotNil(t, valRef)
+		require.Equal(t, uint64(3), valRef.Tx())
+
+		v, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte("value1_tx1"), v)
+	})
 }
 
 /*
