@@ -7,10 +7,29 @@ import (
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/client/state"
+	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc"
 )
 
 func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (serverUUID string, sessionID string, err error) {
+	c.Options.DialOptions = c.SetupDialOptions(c.Options)
+	if db, e := c.Tkns.GetDatabase(); e == nil && len(db) > 0 {
+		c.Options.CurrentDatabase = db
+	}
+
+	if c.Options.ServerSigningPubKey != "" {
+		pk, e := signer.ParsePublicKeyFile(c.Options.ServerSigningPubKey)
+		if e != nil {
+			return "", "", e
+		}
+		c.WithServerSigningPubKey(pk)
+	}
+
+	if c.Options.StreamChunkSize < stream.MinChunkSize {
+		return "", "", errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
+	}
+
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		return "", "", err
 	}

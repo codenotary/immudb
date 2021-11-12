@@ -45,4 +45,9 @@ func TestSession_OpenCloseSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, serverUUID)
 	require.NotNil(t, sessionID)
+
+	client.Set(context.TODO(), []byte("my"), []byte("session"))
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
 }

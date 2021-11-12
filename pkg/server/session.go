@@ -5,7 +5,9 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/session"
 	"github.com/golang/protobuf/ptypes/empty"
+	"time"
 )
 
 func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionRequest) (*schema.OpenSessionResponse, error) {
@@ -35,11 +37,27 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, err
 	}
 
+	if _, ok := s.sessions[token]; ok {
+		return nil, ErrSessionAlreadyPresent
+	}
+
 	if u.Username == auth.SysAdminUsername {
 		u.IsSysAdmin = true
 	}
 
 	s.addUserToLoginList(u)
+
+	s.sessionMux.Lock()
+	defer s.sessionMux.Unlock()
+	now := time.Now()
+	newSession := &session.Session{
+		User:               r.User,
+		Database:           r.DatabaseName,
+		CreationTime:       now,
+		LastActivityTime:   now,
+		OngoingTransaction: false,
+	}
+	s.sessions[token] = newSession
 
 	return &schema.OpenSessionResponse{
 		SessionID:  token,
@@ -60,6 +78,10 @@ func (s *ImmuServer) CloseSession(ctx context.Context, request *schema.CloseSess
 	s.removeUserFromLoginList(user.Username)
 
 	_, err = auth.DropTokenKeysForCtx(ctx)
+
+	s.sessionMux.Lock()
+	delete(s.sessions, request.SessionID)
+	defer s.sessionMux.Unlock()
 
 	return new(empty.Empty), err
 }
