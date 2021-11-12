@@ -180,19 +180,25 @@ func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 }
 
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
-	//TODO: limit the max number of entries
+	if len(key) == 0 {
+		return ErrIllegalArguments
+	}
 
-	// validate key is not nil
+	kid := sha256.Sum256(key)
+	keyRef, isKeyUpdate := tx.entriesByKey[kid]
+
+	if !isKeyUpdate && len(tx.entries) > tx.st.maxTxEntries {
+		return ErrorMaxTxEntriesLimitExceeded
+	}
 
 	if tx.snap != nil {
-		// TODO: constraints, metadata, etc, must be processed before inserting into snapshot
-		// needs to mimic the transaction processing at this point
-		/*
-			err := tx.snap.set(key, value)
-			if err != nil {
-				return err
-			}*/
-		return errors.New("not yet supported")
+		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
+		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
+
+		err := tx.snap.set(key, indexedValue[:])
+		if err != nil {
+			return err
+		}
 	}
 
 	e := &EntrySpec{
@@ -201,11 +207,8 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 		Value:    value,
 	}
 
-	kid := sha256.Sum256(key)
-
-	i, ok := tx.entriesByKey[kid]
-	if ok {
-		tx.entries[i] = e
+	if isKeyUpdate {
+		tx.entries[keyRef] = e
 	} else {
 		tx.entries = append(tx.entries, e)
 		tx.entriesByKey[kid] = len(tx.entriesByKey)
@@ -214,7 +217,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
-func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (*ValueRef, error) {
+func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
 	if tx.snap == nil {
 		return nil, ErrWriteOnlyTx
 	}
@@ -630,7 +633,7 @@ func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool,
 	return s.indexer.ExistKeyWith(prefix, neq, smaller)
 }
 
-func (s *ImmuStore) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
+func (s *ImmuStore) Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.indexer.Get(key)
 	if err != nil {
 		return nil, err
@@ -968,12 +971,17 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) NewTx(writeOnly bool) (*OngoingTx, error) {
-	if writeOnly {
-		return &OngoingTx{
-			st:           s,
-			entriesByKey: make(map[[sha256.Size]byte]int),
-		}, nil
+func (s *ImmuStore) NewWriteOnlyTx() (*OngoingTx, error) {
+	return &OngoingTx{
+		st:           s,
+		entriesByKey: make(map[[sha256.Size]byte]int),
+	}, nil
+}
+
+func (s *ImmuStore) NewTx() (*OngoingTx, error) {
+	tx := &OngoingTx{
+		st:           s,
+		entriesByKey: make(map[[sha256.Size]byte]int),
 	}
 
 	err := s.WaitForIndexingUpto(s.committedTxID, nil)
@@ -981,16 +989,63 @@ func (s *ImmuStore) NewTx(writeOnly bool) (*OngoingTx, error) {
 		return nil, err
 	}
 
-	snap, err := s.SnapshotSince(s.committedTxID)
+	tx.snap, err = s.SnapshotSince(s.committedTxID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &OngoingTx{
-		st:           s,
-		snap:         snap,
-		entriesByKey: make(map[[sha256.Size]byte]int),
-	}, nil
+	tx.snap.refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
+		keyRef, ok := tx.entriesByKey[sha256.Sum256(key)]
+		if !ok {
+			return valRef
+		}
+
+		entrySpec := tx.entries[keyRef]
+
+		return &ongoingValRef{
+			hc:    valRef.HC(),
+			value: entrySpec.Value,
+			txmd:  tx.metadata,
+			kvmd:  entrySpec.Metadata,
+		}
+	}
+
+	return tx, nil
+}
+
+type ongoingValRef struct {
+	value []byte
+	hc    uint64
+	txmd  *TxMetadata
+	kvmd  *KVMetadata
+}
+
+func (oref *ongoingValRef) Resolve() (val []byte, err error) {
+	return oref.value, nil
+}
+
+func (oref *ongoingValRef) Tx() uint64 {
+	return 0
+}
+
+func (oref *ongoingValRef) HC() uint64 {
+	return oref.hc
+}
+
+func (oref *ongoingValRef) TxMetadata() *TxMetadata {
+	return oref.txmd
+}
+
+func (oref *ongoingValRef) KVMetadata() *KVMetadata {
+	return oref.kvmd
+}
+
+func (oref *ongoingValRef) HVal() [sha256.Size]byte {
+	return sha256.Sum256(oref.value)
+}
+
+func (oref *ongoingValRef) Len() uint32 {
+	return uint32(len(oref.value))
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
@@ -1306,14 +1361,14 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*En
 }
 
 type KeyIndex interface {
-	Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error)
+	Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
 }
 
 type unsafeIndex struct {
 	st *ImmuStore
 }
 
-func (index *unsafeIndex) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
+func (index *unsafeIndex) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
 	return index.st.Get(key, filters...)
 }
 
@@ -1683,7 +1738,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	}
 	i += hdrLen
 
-	txSpec, err := s.NewTx(true)
+	txSpec, err := s.NewWriteOnlyTx()
 	if err != nil {
 		return nil, err
 	}
