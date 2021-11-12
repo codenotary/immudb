@@ -819,6 +819,9 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 	})
 
 	t.Run("read-your-own-writes should be possible before commit", func(t *testing.T) {
+		_, err = immuStore.Get([]byte("key1"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
 		tx, err = immuStore.NewTx()
 		require.NoError(t, err)
 
@@ -832,6 +835,9 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
 		require.Equal(t, uint64(0), valRef.Tx())
+
+		_, err = immuStore.Get([]byte("key1"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		_, err = tx.Commit()
 		require.NoError(t, err)
