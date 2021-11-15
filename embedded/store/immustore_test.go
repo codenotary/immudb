@@ -17,6 +17,7 @@ package store
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -923,38 +924,24 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 	})
 }
 
-/*
 func TestImmudbStoreKVMetadata(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, _ := Open("data_kv_metadata", opts)
 	defer os.RemoveAll("data_kv_metadata")
 
-	_, err := immuStore.Commit(
-		&TxSpec{
-			Entries: []*EntrySpec{
-				{
-					Key:   []byte{1, 2, 3},
-					Value: []byte{3, 2, 1},
-				},
-			},
-			WaitForIndexing: true,
-		})
+	tx, err := immuStore.NewTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	tx.WithMetadata(NewTxMetadata())
+
+	err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
 	require.NoError(t, err)
 
-	es := []*EntrySpec{
-		{
-			Key:      []byte{1, 2, 3},
-			Value:    []byte{1, 1, 1},
-			Metadata: NewKVMetadata().AsDeleted(true),
-		},
-	}
+	err = tx.Set([]byte{1, 2, 3}, NewKVMetadata().AsDeleted(true), []byte{3, 2, 1})
+	require.NoError(t, err)
 
-	_, err = immuStore.Commit(
-		&TxSpec{
-			Entries:         es,
-			Metadata:        NewTxMetadata(),
-			WaitForIndexing: true,
-		})
+	_, err = tx.Commit()
 	require.NoError(t, err)
 
 	_, err = immuStore.Get([]byte{1, 2, 3}, IgnoreDeleted)
@@ -962,16 +949,16 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 
 	valRef, err := immuStore.Get([]byte{1, 2, 3})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), valRef.Tx())
-	require.True(t, valRef.kvmd.Deleted())
-	require.Equal(t, uint64(2), valRef.HC())
+	require.Equal(t, uint64(1), valRef.Tx())
+	require.True(t, valRef.KVMetadata().Deleted())
+	require.Equal(t, uint64(1), valRef.HC())
 	require.Equal(t, uint32(3), valRef.Len())
-	require.Equal(t, sha256.Sum256(es[0].Value), valRef.HVal())
+	require.Equal(t, sha256.Sum256([]byte{3, 2, 1}), valRef.HVal())
 	require.True(t, NewTxMetadata().Equal(valRef.TxMetadata()))
 
 	v, err := valRef.Resolve()
 	require.NoError(t, err)
-	require.Equal(t, []byte{1, 1, 1}, v)
+	require.Equal(t, []byte{3, 2, 1}, v)
 
 	t.Run("read deleted key from snapshot should return key not found", func(t *testing.T) {
 		snap, err := immuStore.Snapshot()
@@ -982,41 +969,25 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 
-	_, err = immuStore.Commit(
-		&TxSpec{
-			Entries: []*EntrySpec{
-				{
-					Key:        []byte{1, 2, 3},
-					Value:      []byte{0},
-					Constraint: MustExistAndNotDeleted,
-				},
-			},
-			WaitForIndexing: true,
-		})
+	tx, err = immuStore.NewTx()
+	require.NoError(t, err)
+
+	_, err = tx.Get([]byte{1, 2, 3}, IgnoreDeleted)
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
-	_, err = immuStore.Commit(
-		&TxSpec{
-			Entries: []*EntrySpec{
-				{
-					Key:        []byte{1, 2, 3},
-					Value:      []byte{1, 1, 1},
-					Constraint: MustNotExistOrDeleted,
-				},
-			},
-			WaitForIndexing: true,
-		})
+	err = tx.Set([]byte{1, 2, 3}, nil, []byte{1, 1, 1})
 	require.NoError(t, err)
 
+	_, err = tx.Commit()
+	require.NoError(t, err)
 	valRef, err = immuStore.Get([]byte{1, 2, 3})
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), valRef.Tx())
+	require.Equal(t, uint64(2), valRef.Tx())
 
 	v, err = valRef.Resolve()
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 1, 1}, v)
 }
-*/
 
 func TestImmudbStoreCommitWith(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
