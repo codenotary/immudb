@@ -383,14 +383,14 @@ func (stmt *CreateIndexStmt) compileUsing(e *Engine, implicitDB *Database, param
 
 	// check table is empty
 	{
-		lastTxID, _ := e.dataStore.Alh()
-		err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+		lastTxID, _ := e.store.Alh()
+		err = e.store.WaitForIndexingUpto(lastTxID, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		pkPrefix := e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID))
-		existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
+		existKey, err := e.store.ExistKeyWith(pkPrefix, pkPrefix, false)
 		if err != nil {
 			return nil, err
 		}
@@ -505,7 +505,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 		return nil, err
 	}
 
-	if len(stmt.rows)*len(table.indexes) > e.dataStore.MaxTxEntries() {
+	if len(stmt.rows)*len(table.indexes) > e.store.MaxTxEntries() {
 		return nil, ErrTooManyRows
 	}
 
@@ -776,13 +776,13 @@ func (e *Engine) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 		rangesByColID: pkRanges,
 	}
 
-	lastTxID, _ := e.dataStore.Alh()
-	err := e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+	lastTxID, _ := e.store.Alh()
+	err := e.store.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot := e.dataStore.CurrentSnapshot()
+	snapshot := e.store.CurrentSnapshot()
 	defer func() {
 		snapshot.Close()
 	}()
@@ -980,7 +980,7 @@ func (stmt *UpdateStmt) compileUsing(e *Engine, implicitDB *Database, params map
 	summary = newTxSummary(implicitDB)
 
 	for {
-		if summary.updatedRows*len(table.indexes) > e.dataStore.MaxTxEntries() {
+		if summary.updatedRows*len(table.indexes) > e.store.MaxTxEntries() {
 			return nil, ErrTooManyRows
 		}
 
@@ -1077,7 +1077,7 @@ func (stmt *DeleteFromStmt) compileUsing(e *Engine, implicitDB *Database, params
 	summary = newTxSummary(implicitDB)
 
 	for {
-		if summary.updatedRows*len(table.indexes) > e.dataStore.MaxTxEntries() {
+		if summary.updatedRows*len(table.indexes) > e.store.MaxTxEntries() {
 			return nil, ErrTooManyRows
 		}
 
