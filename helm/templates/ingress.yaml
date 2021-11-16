@@ -1,0 +1,97 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "immudb.fullname" . -}}
+{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+  {{- end }}
+{{- end }}
+
+
+apiVersion: {{ include "immudb.chart.ingressapiversion" . }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-http
+  labels:
+    {{- include "immudb.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ $.Values.ingress.hostname | quote }}
+      http:
+        paths:
+          - path: /
+            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
+            pathType: Prefix
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullName }}-http
+                port:
+                  number: {{ $.Values.service.ports.http }}
+              {{- else }}
+              serviceName: {{ $fullName }}
+              servicePort: {{ $.Values.service.ports.http }}
+              {{- end }}
+            {{- end }}
+---
+apiVersion: {{ include "immudb.chart.ingressapiversion" . }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-grpc
+  labels:
+    {{- include "immudb.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ $.Values.ingress.hostname | quote }}
+      http:
+        paths:
+          - path: /immudb.schema.ImmuService/
+            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
+            pathType: Prefix
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullName }}-grpc
+                port:
+                  number: {{ $.Values.service.ports.grpc }}
+              {{- else }}
+              serviceName: {{ $fullName }}
+              servicePort: {{ $.Values.service.ports.grpc }}
+              {{- end }}
+            {{- end }}
+            
+{{- end }}
