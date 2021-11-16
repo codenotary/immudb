@@ -1167,11 +1167,6 @@ func (t *TBtree) Ts() uint64 {
 	return t.root.ts()
 }
 
-func (t *TBtree) CurrentSnapshot() *Snapshot {
-	t.rwmutex.RLock()
-	return t.newSnapshot(0, t.root)
-}
-
 func (t *TBtree) Snapshot() (*Snapshot, error) {
 	return t.SnapshotSince(0)
 }
@@ -1221,12 +1216,6 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
-	// current snapshot
-	if snapshot.id == 0 {
-		t.rwmutex.RUnlock()
-		return nil
-	}
-
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
