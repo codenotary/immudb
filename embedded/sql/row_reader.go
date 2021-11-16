@@ -331,7 +331,7 @@ func (r *rawRowReader) SetParameters(params map[string]interface{}) error {
 
 func (r *rawRowReader) Read() (row *Row, err error) {
 	var mkey []byte
-	var vref *store.ValueRef
+	var vref store.ValueRef
 
 	if r.asBefore > 0 {
 		mkey, vref, _, err = r.reader.ReadAsBefore(r.asBefore)

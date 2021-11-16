@@ -24,15 +24,11 @@ import (
 )
 
 func TestGroupedRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_grouped_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_grouped_reader")
-
-	dataStore, err := store.Open("sqldata_grouped_reader", store.DefaultOptions())
+	st, err := store.Open("sqldata_grouped_reader", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_grouped_reader")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)

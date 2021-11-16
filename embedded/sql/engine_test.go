@@ -32,15 +32,11 @@ import (
 var sqlPrefix = []byte{2}
 
 func TestCreateDatabase(t *testing.T) {
-	catalogStore, err := store.Open("catalog_create_db", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_create_db")
-
-	dataStore, err := store.Open("sqldata_create_db", store.DefaultOptions())
+	st, err := store.Open("sqldata_create_db", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_db")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)
@@ -69,15 +65,11 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestUseDatabase(t *testing.T) {
-	catalogStore, err := store.Open("catalog_use_db", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_use_db")
-
-	dataStore, err := store.Open("sqldata_use_db", store.DefaultOptions())
+	st, err := store.Open("sqldata_use_db", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_use_db")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.UseDatabase("db1")
@@ -114,15 +106,11 @@ func TestUseDatabase(t *testing.T) {
 }
 
 func TestCreateTable(t *testing.T) {
-	catalogStore, err := store.Open("catalog_create_table", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_create_table")
-
-	dataStore, err := store.Open("sqldata_create_table", store.DefaultOptions())
+	st, err := store.Open("sqldata_create_table", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_table")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -163,15 +151,11 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestDumpCatalogTo(t *testing.T) {
-	catalogStore, err := store.Open("dump_catalog_catalog", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("dump_catalog_catalog")
-
-	dataStore, err := store.Open("dump_catalog_data", store.DefaultOptions())
+	st, err := store.Open("dump_catalog_data", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("dump_catalog_data")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -202,7 +186,7 @@ func TestDumpCatalogTo(t *testing.T) {
 	err = engine.DumpCatalogTo("db1", "db2", dumpedCatalogStore)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	engine, err = NewEngine(dumpedCatalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err = NewEngine(dumpedCatalogStore, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)
@@ -221,15 +205,11 @@ func TestDumpCatalogTo(t *testing.T) {
 }
 
 func TestAddColumn(t *testing.T) {
-	catalogStore, err := store.Open("catalog_add_column", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_add_column")
-
-	dataStore, err := store.Open("sqldata_add_column", store.DefaultOptions())
+	st, err := store.Open("sqldata_add_column", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_add_column")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -249,15 +229,11 @@ func TestAddColumn(t *testing.T) {
 }
 
 func TestCreateIndex(t *testing.T) {
-	catalogStore, err := store.Open("catalog_create_index", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_create_index")
-
-	dataStore, err := store.Open("sqldata_create_index", store.DefaultOptions())
+	st, err := store.Open("sqldata_create_index", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_create_index")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -326,15 +302,11 @@ func TestCreateIndex(t *testing.T) {
 }
 
 func TestUpsertInto(t *testing.T) {
-	catalogStore, err := store.Open("catalog_upsert", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_upsert")
-
-	dataStore, err := store.Open("sqldata_upsert", store.DefaultOptions())
+	st, err := store.Open("sqldata_upsert", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_upsert")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -476,15 +448,11 @@ func TestUpsertInto(t *testing.T) {
 }
 
 func TestInsertIntoEdgeCases(t *testing.T) {
-	catalogStore, err := store.Open("catalog_insert", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_insert")
-
-	dataStore, err := store.Open("sqldata_insert", store.DefaultOptions())
+	st, err := store.Open("sqldata_insert", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_insert")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -534,15 +502,11 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 }
 
 func TestAutoIncrementPK(t *testing.T) {
-	catalogStore, err := store.Open("catalog_auto_inc", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_auto_inc")
-
-	dataStore, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
+	st, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_auto_inc")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -611,15 +575,11 @@ func TestAutoIncrementPK(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	catalogStore, err := store.Open("catalog_delete", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_delete")
-
-	dataStore, err := store.Open("sqldata_delete", store.DefaultOptions())
+	st, err := store.Open("sqldata_delete", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_delete")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -708,15 +668,11 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	catalogStore, err := store.Open("catalog_update", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_update")
-
-	dataStore, err := store.Open("sqldata_update", store.DefaultOptions())
+	st, err := store.Open("sqldata_update", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_update")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -804,15 +760,11 @@ func TestUpdate(t *testing.T) {
 	})
 }
 func TestTransactions(t *testing.T) {
-	catalogStore, err := store.Open("catalog_tx", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_tx")
-
-	dataStore, err := store.Open("sqldata_tx", store.DefaultOptions())
+	st, err := store.Open("sqldata_tx", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_tx")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -861,15 +813,11 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestUseSnapshot(t *testing.T) {
-	catalogStore, err := store.Open("catalog_snap", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_snap")
-
-	dataStore, err := store.Open("sqldata_snap", store.DefaultOptions())
+	st, err := store.Open("sqldata_snap", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_snap")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1065,18 +1013,14 @@ func TestEncodeValue(t *testing.T) {
 }
 
 func TestClosing(t *testing.T) {
-	catalogStore, err := store.Open("catalog_closing", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_closing")
-
-	dataStore, err := store.Open("sqldata_closing", store.DefaultOptions())
+	st, err := store.Open("sqldata_closing", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_closing")
 
-	_, err = NewEngine(nil, nil, nil)
+	_, err = NewEngine(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.Close()
@@ -1123,15 +1067,11 @@ func TestClosing(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	catalogStore, err := store.Open("catalog_q", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_q")
-
-	dataStore, err := store.Open("sqldata_q", store.DefaultOptions())
+	st, err := store.Open("sqldata_q", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_q")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
@@ -1490,16 +1430,12 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryDistinct(t *testing.T) {
-	catalogStore, err := store.Open("catalog_qd", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_qd")
-
-	dataStore, err := store.Open("sqldata_qd", store.DefaultOptions())
+	st, err := store.Open("sqldata_qd", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_qd")
 
 	opts := DefaultOptions().WithPrefix(sqlPrefix).WithDistinctLimit(4)
-	engine, err := NewEngine(catalogStore, dataStore, opts)
+	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -1702,15 +1638,11 @@ func TestQueryDistinct(t *testing.T) {
 }
 
 func TestIndexing(t *testing.T) {
-	catalogStore, err := store.Open("catalog_indexing", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_indexing")
-
-	dataStore, err := store.Open("sqldata_indexing", store.DefaultOptions())
+	st, err := store.Open("sqldata_indexing", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_indexing")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2246,15 +2178,11 @@ func TestIndexing(t *testing.T) {
 }
 
 func TestExecCornerCases(t *testing.T) {
-	catalogStore, err := store.Open("catalog_q", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_q")
-
-	dataStore, err := store.Open("sqldata_q", store.DefaultOptions())
+	st, err := store.Open("sqldata_q", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_q")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	summary, err := engine.ExecStmt("INVALID STATEMENT", nil, false)
@@ -2270,15 +2198,11 @@ func TestExecCornerCases(t *testing.T) {
 }
 
 func TestQueryWithNullables(t *testing.T) {
-	catalogStore, err := store.Open("catalog_nullable", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_nullable")
-
-	dataStore, err := store.Open("sqldata_nullable", store.DefaultOptions())
+	st, err := store.Open("sqldata_nullable", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_nullable")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2328,15 +2252,11 @@ func TestQueryWithNullables(t *testing.T) {
 }
 
 func TestOrderBy(t *testing.T) {
-	catalogStore, err := store.Open("catalog_orderby", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_orderby")
-
-	dataStore, err := store.Open("sqldata_orderby", store.DefaultOptions())
+	st, err := store.Open("sqldata_orderby", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_orderby")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2458,15 +2378,11 @@ func TestOrderBy(t *testing.T) {
 }
 
 func TestQueryWithRowFiltering(t *testing.T) {
-	catalogStore, err := store.Open("catalog_where", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_where")
-
-	dataStore, err := store.Open("sqldata_where", store.DefaultOptions())
+	st, err := store.Open("sqldata_where", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_where")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2591,15 +2507,11 @@ func TestQueryWithRowFiltering(t *testing.T) {
 }
 
 func TestQueryWithInClause(t *testing.T) {
-	catalogStore, err := store.Open("catalog_where_in", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_where_in")
-
-	dataStore, err := store.Open("sqldata_where_in", store.DefaultOptions())
+	st, err := store.Open("sqldata_where_in", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_where_in")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2744,15 +2656,11 @@ func TestQueryWithInClause(t *testing.T) {
 }
 
 func TestAggregations(t *testing.T) {
-	catalogStore, err := store.Open("catalog_agg", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_agg")
-
-	dataStore, err := store.Open("sqldata_agg", store.DefaultOptions())
+	st, err := store.Open("sqldata_agg", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_agg")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2848,15 +2756,11 @@ func TestAggregations(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	catalogStore, err := store.Open("catalog_agg", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_agg")
-
-	dataStore, err := store.Open("sqldata_agg", store.DefaultOptions())
+	st, err := store.Open("sqldata_agg", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_agg")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -2908,15 +2812,11 @@ func TestCount(t *testing.T) {
 }
 
 func TestGroupByHaving(t *testing.T) {
-	catalogStore, err := store.Open("catalog_having", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_having")
-
-	dataStore, err := store.Open("sqldata_having", store.DefaultOptions())
+	st, err := store.Open("sqldata_having", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_having")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3043,15 +2943,11 @@ func TestGroupByHaving(t *testing.T) {
 }
 
 func TestJoins(t *testing.T) {
-	catalogStore, err := store.Open("catalog_innerjoin", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_innerjoin")
-
-	dataStore, err := store.Open("sqldata_innerjoin", store.DefaultOptions())
+	st, err := store.Open("sqldata_innerjoin", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_innerjoin")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3167,15 +3063,11 @@ func TestJoins(t *testing.T) {
 }
 
 func TestJoinsWithJointTable(t *testing.T) {
-	catalogStore, err := store.Open("catalog_innerjoin_joint", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_innerjoin_joint")
-
-	dataStore, err := store.Open("sqldata_innerjoin_joint", store.DefaultOptions())
+	st, err := store.Open("sqldata_innerjoin_joint", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_innerjoin_joint")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3239,15 +3131,11 @@ func TestJoinsWithJointTable(t *testing.T) {
 }
 
 func TestNestedJoins(t *testing.T) {
-	catalogStore, err := store.Open("catalog_nestedjoins", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_nestedjoins")
-
-	dataStore, err := store.Open("sqldata_nestedjoins", store.DefaultOptions())
+	st, err := store.Open("sqldata_nestedjoins", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_nestedjoins")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3310,15 +3198,11 @@ func TestNestedJoins(t *testing.T) {
 }
 
 func TestReOpening(t *testing.T) {
-	catalogStore, err := store.Open("catalog_reopening", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_reopening")
-
-	dataStore, err := store.Open("sqldata_reopening", store.DefaultOptions())
+	st, err := store.Open("sqldata_reopening", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_reopening")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3330,7 +3214,7 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1; CREATE INDEX ON table1(name)", nil, true)
 	require.NoError(t, err)
 
-	engine, err = NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExistDatabase("db1")
@@ -3379,15 +3263,11 @@ func TestReOpening(t *testing.T) {
 }
 
 func TestSubQuery(t *testing.T) {
-	catalogStore, err := store.Open("catalog_subq", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_subq")
-
-	dataStore, err := store.Open("sqldata_subq", store.DefaultOptions())
+	st, err := store.Open("sqldata_subq", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_subq")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3458,15 +3338,11 @@ func TestSubQuery(t *testing.T) {
 }
 
 func TestJoinsWithSubquery(t *testing.T) {
-	catalogStore, err := store.Open("catalog_subq", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_subq")
-
-	dataStore, err := store.Open("sqldata_subq", store.DefaultOptions())
+	st, err := store.Open("sqldata_subq", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_subq")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3551,15 +3427,11 @@ func TestJoinsWithSubquery(t *testing.T) {
 }
 
 func TestInferParameters(t *testing.T) {
-	catalogStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	st, err := store.Open("catalog_infer_params", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params")
 
-	dataStore, err := store.Open("catalog_infer_params", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	stmt := "CREATE DATABASE db1"
@@ -3696,15 +3568,11 @@ func TestInferParameters(t *testing.T) {
 }
 
 func TestInferParametersPrepared(t *testing.T) {
-	catalogStore, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
+	st, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_prepared")
 
-	dataStore, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params_prepared")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3729,15 +3597,11 @@ func TestInferParametersPrepared(t *testing.T) {
 }
 
 func TestInferParametersUnbounded(t *testing.T) {
-	catalogStore, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
+	st, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_unbounded")
 
-	dataStore, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params_unbounded")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
@@ -3786,15 +3650,11 @@ func TestInferParametersUnbounded(t *testing.T) {
 }
 
 func TestInferParametersInvalidCases(t *testing.T) {
-	catalogStore, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
+	st, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog_infer_params_invalid")
 
-	dataStore, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_infer_params_invalid")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)

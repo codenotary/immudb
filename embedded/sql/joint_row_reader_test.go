@@ -26,15 +26,11 @@ import (
 )
 
 func TestJointRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_joint_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_joint_reader")
-
-	dataStore, err := store.Open("sqldata_joint_reader", store.DefaultOptions())
+	st, err := store.Open("sqldata_joint_reader", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_joint_reader")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
 	err = engine.EnsureCatalogReady(nil)
