@@ -6,9 +6,11 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 )
 
@@ -47,8 +49,9 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return "", "", errors.FromError(err)
 	}
 
-	err = c.Tkns.SetToken(database, resp.GetSessionID())
-	if err != nil {
+	c.SessionID = resp.GetSessionID()
+
+	if err = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient).KeepAlive(); err != nil {
 		return "", "", errors.FromError(err)
 	}
 
@@ -68,25 +71,9 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
-
-	sessIDExists, err := c.Tkns.IsTokenPresent()
+	_, err := c.ServiceClient.CloseSession(ctx, new(empty.Empty))
 	if err != nil {
 		return errors.FromError(err)
 	}
-
-	if !sessIDExists {
-		errors.New("no session open")
-	}
-
-	sessionID, err := c.Tkns.GetToken()
-	if err != nil {
-		return errors.FromError(err)
-	}
-
-	_, err = c.ServiceClient.CloseSession(ctx, &schema.CloseSessionRequest{SessionID: sessionID})
-	if err = c.Tkns.DeleteToken(); err != nil {
-		return errors.FromError(fmt.Errorf("error clearing sessionID when closing session: %v", err))
-	}
-
 	return nil
 }
