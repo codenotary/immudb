@@ -185,6 +185,7 @@ type immuClient struct {
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
+	TransactionID        string
 	sync.RWMutex
 }
 
