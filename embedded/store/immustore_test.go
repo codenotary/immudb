@@ -786,7 +786,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestImmudbStoreKVConstraints(t *testing.T) {
+func TestImmudbStoreRWTransactions(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, _ := Open("data_tx", opts)
 	defer os.RemoveAll("data_tx")
@@ -849,6 +849,10 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 		require.NotNil(t, valRef)
 		require.Equal(t, uint64(0), valRef.Tx())
 
+		v, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte("value1"), v)
+
 		_, err = immuStore.Get([]byte("key1"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
@@ -860,7 +864,7 @@ func TestImmudbStoreKVConstraints(t *testing.T) {
 		require.NotNil(t, valRef)
 		require.Equal(t, uint64(2), valRef.Tx())
 
-		v, err := valRef.Resolve()
+		v, err = valRef.Resolve()
 		require.NoError(t, err)
 		require.Equal(t, []byte("value1"), v)
 	})
