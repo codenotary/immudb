@@ -92,10 +92,6 @@ message OpenSessionResponse {
 	string serverUUID = 2;
 }
 
-message CloseSessionRequest {
-	string sessionID = 1;
-}
-
 ////////////////////////////////////////////////////////
 
 message KeyValue {
@@ -562,20 +558,11 @@ service ImmuService {
 		option deprecated = true;
 	} // DEPRECATED
 
-	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){
-		option (google.api.http) = {
-			post: "/session/open"
-			body: "*"
-		};
-	};
+	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){};
 
-	rpc CloseSession (CloseSessionRequest) returns (google.protobuf.Empty){
-		option (google.api.http) = {
-			post: "/session/close"
-			body: "*"
-		};
-	};
+	rpc CloseSession (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
+	rpc KeepAlive (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option deprecated = true;

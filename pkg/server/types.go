@@ -17,7 +17,7 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/session"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"math"
 	"net"
 	"net/http"
@@ -79,8 +79,7 @@ type ImmuServer struct {
 
 	remoteStorage remotestorage.Storage
 
-	sessionMux sync.Mutex
-	sessions   map[string]*session.Session
+	SessManager sessions.Manager
 }
 
 // DefaultServer ...
@@ -95,7 +94,6 @@ func DefaultServer() *ImmuServer {
 		userdata:             &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 		GrpcServer:           grpc.NewServer(),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
-		sessions:             make(map[string]*session.Session),
 	}
 }
 

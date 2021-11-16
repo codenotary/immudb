@@ -40,8 +40,8 @@ var (
 	ErrNotLoggedIn                 = errors.New("not logged in")
 	ErrReplicationInProgress       = errors.New("replication already in progress")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
-	ErrSessionAlreadyPresent       = errors.New("session already present")
-	ErrNoSessionIDPresent          = errors.New("no sessionID provided")
+	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
+	ErrSessionNotFound             = errors.New("session not found").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
 )
 
 func mapServerError(err error) error {

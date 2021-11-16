@@ -184,6 +184,8 @@ type immuClient struct {
 	Tkns                 tokenservice.TokenService
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
+	SessionID            string
+	TransactionID        string
 	sync.RWMutex
 }
 
@@ -200,6 +202,7 @@ func DefaultClient() *immuClient {
 }
 
 // NewImmuClient ...
+// Deprecated: use DefaultClient instead.
 func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
 
@@ -327,16 +330,18 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		token, err := c.Tkns.GetToken()
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
+			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
+			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
 		}
 	}
-	uic = append(uic, c.TokenInterceptor)
+	uic = append(uic, c.TokenInterceptor, c.SessionIDInjectorInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return opts
 }
 
+// Deprecated: use DefaultClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
@@ -345,6 +350,7 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 	return c.clientConn, nil
 }
 
+// Deprecated: use DefaultClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
 	start := time.Now()
 

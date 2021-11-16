@@ -19,14 +19,18 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	ic "github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc"
-	"os"
-	"testing"
-
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"math/rand"
+	"os"
+	"sync"
+	"testing"
+	"time"
 )
 
 func TestSession_OpenCloseSession(t *testing.T) {
@@ -50,4 +54,47 @@ func TestSession_OpenCloseSession(t *testing.T) {
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)
+}
+
+func TestSession_OpenCloseSessionMulti(t *testing.T) {
+	sessOptions := &sessions.Options{
+		SessionGuardCheckInterval: time.Millisecond * 100,
+		MaxSessionIdle:            time.Millisecond * 2000,
+		MaxSessionAge:             time.Millisecond * 4000,
+		Timeout:                   time.Millisecond * 2000,
+	}
+	options := server.DefaultOptions().WithSessionOptions(sessOptions)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(i int) {
+			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().
+				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+				WithHeartBeatFrequency(time.Millisecond * 100))
+			serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			require.NoError(t, err)
+			require.NotNil(t, serverUUID)
+			require.NotNil(t, sessionID)
+
+			min := 10
+			max := 100
+			time.Sleep(time.Millisecond * time.Duration(rand.Intn(max-min)+min))
+
+			client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i)))
+
+			err = client.CloseSession(context.TODO())
+			require.NoError(t, err)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	require.Equal(t, 0, bs.Server.Srv.SessManager.CountSession())
 }

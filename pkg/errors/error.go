@@ -33,7 +33,7 @@ import (
 //
 // or
 //
-// u, err := s.getValidatedUser(r.User, r.Password)
+// u, err := s.getValidatedUser(r.user, r.Password)
 // if err != nil {
 //    return nil, errors.Wrap(err, "invalid user name or password").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
 // }

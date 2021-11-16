@@ -91,7 +91,7 @@ func (i *immuc) Connect(args []string) (err error) {
 	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil {
 		return err
 	}
-
+	i.WithFileTokenService(tokenservice.NewFileTokenService())
 	i.options.Auth = true
 	i.valueOnly = viper.GetBool("value-only")
 

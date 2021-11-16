@@ -21,9 +21,8 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/errors"
-	"github.com/codenotary/immudb/pkg/session"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/o1egl/paseto"
 	"github.com/rs/xid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -144,10 +144,15 @@ func verifyToken(token string) (*JSONToken, error) {
 }
 
 func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
-	token, err := session.GetSessionID(ctx)
-	if err != nil {
-		return nil, err
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "no headers found on request")
 	}
+	authHeader, ok := md["authorization"]
+	if !ok || len(authHeader) < 1 {
+		return nil, status.Errorf(codes.Unauthenticated, "no Authorization header found on request")
+	}
+	token := strings.TrimPrefix(authHeader[0], "Bearer ")
 	jsonToken, err := verifyToken(token)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {

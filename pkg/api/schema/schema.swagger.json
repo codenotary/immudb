@@ -1110,70 +1110,6 @@
         ]
       }
     },
-    "/session/close": {
-      "post": {
-        "operationId": "ImmuService_CloseSession",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaCloseSessionRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/session/open": {
-      "post": {
-        "operationId": "ImmuService_OpenSession",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaOpenSessionResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaOpenSessionRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/user": {
       "post": {
         "operationId": "ImmuService_CreateUser",
@@ -1436,14 +1372,6 @@
         "content": {
           "type": "string",
           "format": "byte"
-        }
-      }
-    },
-    "schemaCloseSessionRequest": {
-      "type": "object",
-      "properties": {
-        "sessionID": {
-          "type": "string"
         }
       }
     },
@@ -1856,22 +1784,6 @@
         },
         "ref": {
           "$ref": "#/definitions/schemaReferenceRequest"
-        }
-      }
-    },
-    "schemaOpenSessionRequest": {
-      "type": "object",
-      "properties": {
-        "user": {
-          "type": "string",
-          "format": "byte"
-        },
-        "password": {
-          "type": "string",
-          "format": "byte"
-        },
-        "databaseName": {
-          "type": "string"
         }
       }
     },
