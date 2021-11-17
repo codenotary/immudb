@@ -260,6 +260,21 @@ func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
 	return tx.snap.Get(key, filters...)
 }
 
+func (tx *OngoingTx) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
+	tx.rwmutex.RLock()
+	defer tx.rwmutex.RUnlock()
+
+	if tx.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	if tx.IsWriteOnly() {
+		return nil, ErrWriteOnlyTx
+	}
+
+	return tx.snap.NewKeyReader(spec)
+}
+
 func (tx *OngoingTx) Commit() (*TxHeader, error) {
 	return tx.commit(true)
 }
@@ -276,14 +291,14 @@ func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	tx.closed = true
-
 	if !tx.IsWriteOnly() {
 		err := tx.snap.Close()
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	tx.closed = true
 
 	return tx.st.commit(tx, nil, waitForIndexing)
 }
