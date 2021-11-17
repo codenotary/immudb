@@ -42,6 +42,15 @@ Then run:
 make CHANGELOG.md.next-tag
 ```
 
+Be sure to also bump version of the helm chart, in `helm/Chart.yaml`
+```
+[...]
+version: a.b.c
+appVersion: "X.Y.Z"
+```
+The first line (`version`) is the version of the helm chart, the second the version of immudb.
+We may want to keep them aligned.
+
 ## 3. Commit and tag (locally)
 
 Add the files modified above to the git index:
