@@ -926,6 +926,28 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("value1_tx2"), v)
 	})
+
+	t.Run("deleted keys should not be reachable", func(t *testing.T) {
+		tx, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx.Delete([]byte{1, 2, 3})
+		require.NoError(t, err)
+
+		err = tx.Delete([]byte{1, 2, 3})
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		_, err = immuStore.Get([]byte{1, 2, 3}, IgnoreDeleted)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		valRef, err := immuStore.Get([]byte{1, 2, 3})
+		require.NoError(t, err)
+		require.NotNil(t, valRef)
+		require.True(t, valRef.KVMetadata().Deleted())
+	})
 }
 
 func TestImmudbStoreKVMetadata(t *testing.T) {

@@ -232,6 +232,19 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
+func (tx *OngoingTx) Delete(key []byte) error {
+	valRef, err := tx.Get(key)
+	if err != nil {
+		return err
+	}
+
+	if valRef.KVMetadata() != nil && valRef.KVMetadata().Deleted() {
+		return ErrKeyNotFound
+	}
+
+	return tx.Set(key, NewKVMetadata().AsDeleted(true), nil)
+}
+
 func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
 	tx.rwmutex.RLock()
 	defer tx.rwmutex.RUnlock()
