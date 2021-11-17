@@ -43,10 +43,9 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hostname: immudb-example.localhost
-  tls: []
-    #- secretName: immudb-example-tls
-      #hosts:
-        #- immudb-example.local
+  tls:
+    enabled: false
+    secretName: immudb-tls
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

@@ -45,6 +45,7 @@ spec:
             httpGet:
               path: /readyz
               port: metrics
+              failureThreshold: 9
           readinessProbe:
             httpGet:
               path: /readyz
