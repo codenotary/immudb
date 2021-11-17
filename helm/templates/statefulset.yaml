@@ -1,3 +1,6 @@
+{{- if gt .Values.replicaCount 1 }}
+{{- fail "At the moment, you can just have 1 instance of immudb. We are working to raise that limit."}}
+{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
