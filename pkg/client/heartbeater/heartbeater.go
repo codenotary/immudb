@@ -25,8 +25,6 @@ import (
 	"time"
 )
 
-const KeepAliveInterval = time.Second * 1
-
 type heartBeater struct {
 	sessionID     string
 	logger        logger.Logger
@@ -35,38 +33,48 @@ type heartBeater struct {
 	t             *time.Ticker
 }
 
-func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient) *heartBeater {
+type HeartBeater interface {
+	KeepAlive(ctx context.Context)
+	Stop()
+}
+
+func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration) *heartBeater {
 	return &heartBeater{
 		sessionID:     sessionID,
 		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),
 		serviceClient: sc,
 		done:          make(chan bool),
-		t:             time.NewTicker(KeepAliveInterval),
+		t:             time.NewTicker(keepAliveInterval),
 	}
 }
 
-func (hb *heartBeater) KeepAlive() (err error) {
-	go func() error {
+func (hb *heartBeater) KeepAlive(ctx context.Context) {
+	go func() {
 		for {
 			select {
 			case <-hb.done:
-				return nil
+				return
 			case t := <-hb.t.C:
 				hb.logger.Debugf("keep alive for %d at %s\n", hb.sessionID, t.String())
-				err = hb.keepAliveRequest()
+				err := hb.keepAliveRequest(ctx)
 				if err != nil {
-					return err
+					hb.logger.Errorf("an error is occurred on keep alive  %d at %s: %v\n", hb.sessionID, t.String(), err)
 				}
 			}
 		}
 	}()
-	return err
 }
 
-func (hb *heartBeater) keepAliveRequest() error {
-	_, err := hb.serviceClient.KeepAlive(context.TODO(), new(empty.Empty))
+func (hb *heartBeater) Stop() {
+	hb.done <- true
+}
+
+func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
+	defer cancel()
+	_, err := hb.serviceClient.KeepAlive(ctx, new(empty.Empty))
 	if err != nil {
 		return err
 	}
-	return nil
+	return err
 }

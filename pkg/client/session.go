@@ -51,9 +51,8 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 
 	c.SessionID = resp.GetSessionID()
 
-	if err = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient).KeepAlive(); err != nil {
-		return "", "", errors.FromError(err)
-	}
+	c.HeartBeater = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient, c.Options.HeartBeatFrequency)
+	c.HeartBeater.KeepAlive(ctx)
 
 	stateProvider := state.NewStateProvider(serviceClient)
 
@@ -75,5 +74,8 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	if err != nil {
 		return errors.FromError(err)
 	}
+
+	c.HeartBeater.Stop()
+
 	return nil
 }

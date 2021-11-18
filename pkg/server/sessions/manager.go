@@ -149,6 +149,8 @@ func (sm *manager) StopSessionsGuard() error {
 }
 
 func (sm *manager) expireSessions() {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
 	if sm.Running {
 		now := time.Now()
 		sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))

@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
@@ -59,7 +60,6 @@ type ImmuClient interface {
 	IsConnected() bool
 	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
 	WaitForHealthCheck(ctx context.Context) (err error)
-	// Deprecated: grpc protocol is already handling
 	HealthCheck(ctx context.Context) error
 	// Deprecated: connection is handled in OpenSession
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
@@ -185,7 +185,7 @@ type immuClient struct {
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
-	TransactionID        string
+	HeartBeater          heartbeater.HeartBeater
 	sync.RWMutex
 }
 
