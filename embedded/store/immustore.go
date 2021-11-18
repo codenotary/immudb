@@ -245,7 +245,11 @@ func (tx *OngoingTx) Delete(key []byte) error {
 	return tx.Set(key, NewKVMetadata().AsDeleted(true), nil)
 }
 
-func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
+func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
+	return tx.GetWith(key, IgnoreDeleted)
+}
+
+func (tx *OngoingTx) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
 	tx.rwmutex.RLock()
 	defer tx.rwmutex.RUnlock()
 
@@ -257,7 +261,7 @@ func (tx *OngoingTx) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
-	return tx.snap.Get(key, filters...)
+	return tx.snap.GetWith(key, filters...)
 }
 
 func (tx *OngoingTx) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
@@ -701,7 +705,11 @@ func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool,
 	return s.indexer.ExistKeyWith(prefix, neq, smaller)
 }
 
-func (s *ImmuStore) Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
+	return s.GetWith(key, IgnoreDeleted)
+}
+
+func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.indexer.Get(key)
 	if err != nil {
 		return nil, err
@@ -1426,15 +1434,20 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*En
 }
 
 type KeyIndex interface {
-	Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
+	Get(key []byte) (valRef ValueRef, err error)
+	GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
 }
 
 type unsafeIndex struct {
 	st *ImmuStore
 }
 
-func (index *unsafeIndex) Get(key []byte, filters ...FilterFn) (ValueRef, error) {
-	return index.st.Get(key, filters...)
+func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
+	return index.GetWith(key, IgnoreDeleted)
+}
+
+func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
+	return index.st.GetWith(key, filters...)
 }
 
 func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error)) (*TxHeader, error) {

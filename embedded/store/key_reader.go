@@ -61,7 +61,11 @@ func (s *Snapshot) set(key, value []byte) error {
 	return s.snap.Set(key, value)
 }
 
-func (s *Snapshot) Get(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
+	return s.GetWith(key, IgnoreDeleted)
+}
+
+func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
 		return nil, err
