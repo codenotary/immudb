@@ -39,8 +39,5 @@ func (c *immuClient) populateCtx(ctx context.Context) context.Context {
 	if c.SessionID != "" {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("sessionid", c.SessionID))
 	}
-	if c.TransactionID != "" {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("txid", c.TransactionID))
-	}
 	return ctx
 }
