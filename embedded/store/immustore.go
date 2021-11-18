@@ -303,14 +303,14 @@ func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
+	tx.closed = true
+
 	if !tx.IsWriteOnly() {
 		err := tx.snap.Close()
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	tx.closed = true
 
 	return tx.st.commit(tx, nil, waitForIndexing)
 }
