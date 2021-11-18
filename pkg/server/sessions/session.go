@@ -19,6 +19,7 @@ package sessions
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/server/transactions"
 	"google.golang.org/grpc/metadata"
 	"sync"
 	"time"
@@ -40,19 +41,20 @@ type Session struct {
 	creationTime       time.Time
 	lastActivityTime   time.Time
 	lastHeartBeat      time.Time
-	ongoingTransaction bool
+	readWriteTxOngoing bool
+	transactions       map[string]*transactions.Transaction
 }
 
-func NewSession(user *auth.User, databaseID int64, ongoingTransaction bool) *Session {
+func NewSession(user *auth.User, databaseID int64) *Session {
 	now := time.Now()
 	return &Session{
-		state:              ACTIVE,
-		user:               user,
-		databaseID:         databaseID,
-		creationTime:       now,
-		lastActivityTime:   now,
-		lastHeartBeat:      now,
-		ongoingTransaction: ongoingTransaction,
+		state:            ACTIVE,
+		user:             user,
+		databaseID:       databaseID,
+		creationTime:     now,
+		lastActivityTime: now,
+		lastHeartBeat:    now,
+		transactions:     make(map[string]*transactions.Transaction),
 	}
 }
 
@@ -100,4 +102,43 @@ func (s *Session) GetStatus() Status {
 	s.Lock()
 	defer s.Unlock()
 	return s.state
+}
+
+func (s *Session) GetReadWriteTxOngoing() bool {
+	s.Lock()
+	defer s.Unlock()
+	return s.readWriteTxOngoing
+}
+
+func (s *Session) SetReadWriteTxOngoing(ongoing bool) {
+	s.Lock()
+	defer s.Unlock()
+	s.readWriteTxOngoing = ongoing
+}
+
+func (s *Session) TransactionPresent(transactionID string) bool {
+	s.Lock()
+	defer s.Unlock()
+	if _, ok := s.transactions[transactionID]; ok {
+		return true
+	}
+	return false
+}
+
+func (s *Session) RemoveTransaction(transactionID string) {
+	s.Lock()
+	defer s.Unlock()
+	delete(s.transactions, transactionID)
+}
+
+func (s *Session) AddTransaction(transactionID string, readWrite bool) {
+	s.Lock()
+	defer s.Unlock()
+	s.transactions[transactionID] = &transactions.Transaction{ReadWrite: readWrite}
+}
+
+func (s *Session) GetTransaction(transactionID string) *transactions.Transaction {
+	s.Lock()
+	defer s.Unlock()
+	return s.transactions[transactionID]
 }

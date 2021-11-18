@@ -42,7 +42,7 @@ var (
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
 	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
 	ErrSessionNotFound             = errors.New("session not found").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
-	ErrSessionAlreadyPresent       = errors.New("session already present")
+	ErrReadWriteTxOngoing          = errors.New("read write transaction already ongoing").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
 	ErrNoSessionIDPresent          = errors.New("no sessionID provided")
 	ErrTxNotProperlyClosed         = errors.New("tx not properly closed")
 )

@@ -5,6 +5,8 @@
 
 - [schema.proto](#schema.proto)
     - [AuthConfig](#immudb.schema.AuthConfig)
+    - [BeginTxRequest](#immudb.schema.BeginTxRequest)
+    - [BeginTxResponse](#immudb.schema.BeginTxResponse)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
@@ -62,10 +64,14 @@
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxHeader](#immudb.schema.TxHeader)
+    - [TxKeyRequest](#immudb.schema.TxKeyRequest)
     - [TxList](#immudb.schema.TxList)
     - [TxMD](#immudb.schema.TxMD)
     - [TxRequest](#immudb.schema.TxRequest)
     - [TxScanRequest](#immudb.schema.TxScanRequest)
+    - [TxScanneReponse](#immudb.schema.TxScanneReponse)
+    - [TxScannerRequest](#immudb.schema.TxScannerRequest)
+    - [TxSetRequest](#immudb.schema.TxSetRequest)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest)
     - [User](#immudb.schema.User)
@@ -113,6 +119,36 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.BeginTxRequest"></a>
+
+### BeginTxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| readWrite | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.BeginTxResponse"></a>
+
+### BeginTxResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| transactionID | [string](#string) |  |  |
 
 
 
@@ -1080,6 +1116,21 @@
 
 
 
+<a name="immudb.schema.TxKeyRequest"></a>
+
+### TxKeyRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.TxList"></a>
 
 ### TxList
@@ -1136,6 +1187,55 @@
 | initialTx | [uint64](#uint64) |  |  |
 | limit | [uint32](#uint32) |  |  |
 | desc | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxScanneReponse"></a>
+
+### TxScanneReponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| kv | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxScannerRequest"></a>
+
+### TxScannerRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| seekKey | [bytes](#bytes) |  |  |
+| prefix | [bytes](#bytes) |  |  |
+| desc | [bool](#bool) |  |  |
+| limit | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxSetRequest"></a>
+
+### TxSetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
 
 
 
@@ -1552,6 +1652,12 @@ immudb gRPC &amp; REST service
 | OpenSession | [OpenSessionRequest](#immudb.schema.OpenSessionRequest) | [OpenSessionResponse](#immudb.schema.OpenSessionResponse) |  |
 | CloseSession | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | KeepAlive | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| BeginTx | [BeginTxRequest](#immudb.schema.BeginTxRequest) | [BeginTxResponse](#immudb.schema.BeginTxResponse) |  |
+| Commit | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| Rollback | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| TxSet | [TxSetRequest](#immudb.schema.TxSetRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| TxGet | [TxKeyRequest](#immudb.schema.TxKeyRequest) | [KeyValue](#immudb.schema.KeyValue) |  |
+| TxScanner | [TxScannerRequest](#immudb.schema.TxScannerRequest) | [TxScanneReponse](#immudb.schema.TxScanneReponse) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [SetRequest](#immudb.schema.SetRequest) | [TxHeader](#immudb.schema.TxHeader) |  |

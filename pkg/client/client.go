@@ -169,6 +169,8 @@ type ImmuClient interface {
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
+
+	BeginTx(ctx context.Context, opts *TxOptions) (Tx, error)
 }
 
 const DefaultDB = "defaultdb"

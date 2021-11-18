@@ -46,7 +46,7 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
-	newSession := sessions.NewSession(u, databaseID, false)
+	newSession := sessions.NewSession(u, databaseID)
 
 	sessionID := xid.New().String()
 	if s.SessManager.SessionPresent(sessionID) {

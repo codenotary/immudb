@@ -1292,6 +1292,14 @@
         }
       }
     },
+    "schemaBeginTxResponse": {
+      "type": "object",
+      "properties": {
+        "transactionID": {
+          "type": "string"
+        }
+      }
+    },
     "schemaChangePasswordRequest": {
       "type": "object",
       "properties": {
@@ -2171,6 +2179,17 @@
         },
         "desc": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaTxScanneReponse": {
+      "type": "object",
+      "properties": {
+        "kv": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKeyValue"
+          }
         }
       }
     },
