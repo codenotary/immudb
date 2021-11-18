@@ -940,7 +940,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = tx.Commit()
 		require.NoError(t, err)
 
-		_, err = immuStore.Get([]byte{1, 2, 3}, IgnoreDeleted)
+		_, err = immuStore.Get([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		valRef, err := immuStore.Get([]byte{1, 2, 3})
@@ -970,7 +970,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	_, err = tx.Commit()
 	require.NoError(t, err)
 
-	_, err = immuStore.Get([]byte{1, 2, 3}, IgnoreDeleted)
+	_, err = immuStore.Get([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	valRef, err := immuStore.Get([]byte{1, 2, 3})
@@ -991,14 +991,14 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, snap)
 
-		_, err = snap.Get([]byte{1, 2, 3}, IgnoreDeleted)
+		_, err = snap.Get([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 
 	tx, err = immuStore.NewTx()
 	require.NoError(t, err)
 
-	_, err = tx.Get([]byte{1, 2, 3}, IgnoreDeleted)
+	_, err = tx.Get([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	err = tx.Set([]byte{1, 2, 3}, nil, []byte{1, 1, 1})
