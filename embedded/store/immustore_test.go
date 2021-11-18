@@ -943,7 +943,10 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = immuStore.Get([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		valRef, err := immuStore.Get([]byte{1, 2, 3})
+		_, err = immuStore.GetWith([]byte{1, 2, 3}, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		valRef, err := immuStore.GetWith([]byte{1, 2, 3})
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
 		require.True(t, valRef.KVMetadata().Deleted())
@@ -973,7 +976,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	_, err = immuStore.Get([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
-	valRef, err := immuStore.Get([]byte{1, 2, 3})
+	valRef, err := immuStore.GetWith([]byte{1, 2, 3})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), valRef.Tx())
 	require.True(t, valRef.KVMetadata().Deleted())
