@@ -199,6 +199,14 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 		return ErrIllegalArguments
 	}
 
+	if len(key) > tx.st.maxKeyLen {
+		return ErrorMaxKeyLenExceeded
+	}
+
+	if len(value) > tx.st.maxValueLen {
+		return ErrorMaxValueLenExceeded
+	}
+
 	kid := sha256.Sum256(key)
 	keyRef, isKeyUpdate := tx.entriesByKey[kid]
 
@@ -721,6 +729,9 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 	}
 
 	for _, filter := range filters {
+		if filter == nil {
+			return nil, ErrIllegalArguments
+		}
 		if !filter(valRef) {
 			return nil, ErrKeyNotFound
 		}
