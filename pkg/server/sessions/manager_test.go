@@ -19,9 +19,21 @@ package sessions
 import (
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestNewManager(t *testing.T) {
 	m := NewManager(nil)
 	require.IsType(t, new(manager), m)
+}
+
+func TestSessionGuard(t *testing.T) {
+	m := NewManager(nil)
+	go func() {
+		err := m.StartSessionsGuard()
+		require.NoError(t, err)
+	}()
+	time.Sleep(time.Second * 1)
+	err := m.StopSessionsGuard()
+	require.NoError(t, err)
 }
