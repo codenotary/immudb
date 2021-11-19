@@ -1,8 +1,13 @@
-1. You can access immudb web console by running these commands:
 {{- if .Values.ingress.enabled }}
-  curl http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hostname }}/
-  immuclient status -a {{ .Values.ingress.hostname }} -p 80 
-{{- else if contains "NodePort" .Values.service.type }}
+The web interface is at this address:
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hostname }}/
+  
+You can also access immudb web console and grpc interface by running these commands
+{{- else }}
+You can access immudb web console and grpc interface by running these commands
+{{- end }}
+
+{{- if contains "NodePort" .Values.service.type }}
   export NODE_PORT0=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "immudb.fullname" . }}-http)
   export NODE_PORT1=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "immudb.fullname" . }}-grpc)
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")

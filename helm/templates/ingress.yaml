@@ -49,49 +49,4 @@ spec:
               servicePort: {{ $.Values.service.ports.http }}
               {{- end }}
             {{- end }}
----
-apiVersion: {{ include "immudb.chart.ingressapiversion" . }}
-kind: Ingress
-metadata:
-  name: {{ $fullName }}-grpc
-  labels:
-    {{- include "immudb.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
-    {{- toYaml . | nindent 4 }}
-    {{- if .Values.ingress.tls.enabled }}
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    {{- end }}
-  {{- end }}
-spec:
-  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-  {{- if .Values.ingress.tls.enabled }}
-  tls:
-    - hosts:
-        - {{ $.Values.ingress.hostname | quote }}
-      secretName: {{ .Values.ingress.tls.secretName }}
-  {{- end }}
-  rules:
-    - host: {{ $.Values.ingress.hostname | quote }}
-      http:
-        paths:
-          - path: /immudb.schema.ImmuService/
-            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
-            pathType: Prefix
-            backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ $fullName }}-grpc
-                port:
-                  number: {{ $.Values.service.ports.grpc }}
-              {{- else }}
-              serviceName: {{ $fullName }}
-              servicePort: {{ $.Values.service.ports.grpc }}
-              {{- end }}
-            {{- end }}
-            
 {{- end }}
