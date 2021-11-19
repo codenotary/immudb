@@ -82,16 +82,15 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ include "immudb.fullname" . }}
-  labels:
-    {{- include "immudb.labels" . | nindent 4 }}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .Values.volumeSize }}
+  volumeClaimTemplates:
+  - metadata:
+      name: immudb-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.volume.Class }}
+      storageClassName: {{ .Values.volume.Class | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.volume.size }}

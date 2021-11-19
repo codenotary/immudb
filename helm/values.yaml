@@ -13,7 +13,9 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-volumeSize: 5Gi
+volume:
+  class: ""
+  size: 5Gi
 adminPassword: ""
 
 podAnnotations: {}
