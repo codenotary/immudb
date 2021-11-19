@@ -4151,7 +4151,7 @@ func TestUnmapIndexEntry(t *testing.T) {
 	require.Nil(t, encPKVals)
 
 	encPKVals, err = e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, []byte(
-		"e-prefix.P.a",
+		"e-prefix.P.\x80a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Nil(t, encPKVals)
@@ -4161,8 +4161,10 @@ func TestUnmapIndexEntry(t *testing.T) {
 		0x01, 0x02, 0x03, 0x04,
 		0x11, 0x12, 0x13, 0x14,
 		0x00, 0x00, 0x00, 0x02,
+		0x80,
 		'a', 'b', 'c', 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 3,
+		0x80,
 		'w', 'x', 'y', 'z',
 		0, 0, 0, 4,
 	)
@@ -4191,7 +4193,7 @@ func TestUnmapIndexEntry(t *testing.T) {
 
 	encPKVals, err = e.unmapIndexEntry(sIndex, fullValue)
 	require.NoError(t, err)
-	require.EqualValues(t, []byte{'w', 'x', 'y', 'z', 0, 0, 0, 4}, encPKVals)
+	require.EqualValues(t, []byte{0x80, 'w', 'x', 'y', 'z', 0, 0, 0, 4}, encPKVals)
 }
 
 func TestEncodeAsKeyEdgeCases(t *testing.T) {

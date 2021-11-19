@@ -83,7 +83,6 @@ var ErrAlreadyClosed = errors.New("sql engine already closed")
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
 
 var maxKeyLen = 256
-var maxKeyVal []byte = greatestKeyOfSize(maxKeyLen)
 
 const EncIDLen = 4
 const EncLenLen = 4
@@ -124,14 +123,6 @@ func NewEngine(catalogStore, dataStore *store.ImmuStore, opts *Options) (*Engine
 	copy(e.prefix, opts.prefix)
 
 	return e, nil
-}
-
-func greatestKeyOfSize(size int) []byte {
-	k := make([]byte, size)
-	for i := 0; i < size; i++ {
-		k[i] = 0xFF
-	}
-	return k
 }
 
 // TODO (jeroiraz); this operation won't be needed with a transactional in-memory catalog
@@ -563,14 +554,18 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 				return err
 			}
 
-			if len(encMaxPK) != 8 {
+			if len(encMaxPK) != 9 {
+				return ErrCorruptedData
+			}
+
+			if encMaxPK[0] != KeyValPrefixNotNull {
 				return ErrCorruptedData
 			}
 
 			// map to signed integer space
-			encMaxPK[0] ^= 0x80
+			encMaxPK[1] ^= 0x80
 
-			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK))
+			table.maxPK = int64(binary.BigEndian.Uint64(encMaxPK[1:]))
 		}
 	}
 
@@ -859,6 +854,11 @@ func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, e
 	if !index.IsPrimary() {
 		//read index values
 		for _, col := range index.cols {
+			if enc[off] != KeyValPrefixNotNull {
+				return nil, ErrCorruptedData
+			}
+			off += 1
+
 			maxLen := col.MaxLen()
 			if variableSized(col.colType) {
 				maxLen += EncLenLen
@@ -916,20 +916,6 @@ func EncodeID(id uint32) []byte {
 	var encID [EncIDLen]byte
 	binary.BigEndian.PutUint32(encID[:], id)
 	return encID[:]
-}
-
-func maxKeyValOf(colType SQLValueType) []byte {
-	switch colType {
-	case BooleanType:
-		{
-			return maxKeyVal[:1]
-		}
-	case IntegerType:
-		{
-			return maxKeyVal[:8]
-		}
-	}
-	return maxKeyVal[:]
 }
 
 func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
@@ -1015,6 +1001,13 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 	return nil, ErrInvalidValue
 }
 
+const (
+	// values < KeyValPrefixNotNull are reserved for alternative values
+	// such as nulls that should end up before normal values
+	KeyValPrefixNotNull    byte = 0x80
+	KeyValPrefixUpperBound byte = 0xFF
+)
+
 func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	if val == nil || maxLen <= 0 {
 		return nil, ErrInvalidValue
@@ -1035,9 +1028,10 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrMaxLengthExceeded
 			}
 
-			// value + padding + len(value)
-			encv := make([]byte, maxLen+EncLenLen)
-			copy(encv, []byte(strVal))
+			// notnull + value + padding + len(value)
+			encv := make([]byte, 1+maxLen+EncLenLen)
+			encv[0] = KeyValPrefixNotNull
+			copy(encv[1:], []byte(strVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(strVal)))
 
 			return encv, nil
@@ -1054,10 +1048,11 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			}
 
 			// v
-			// map to unsigned integer space
-			var encv [8]byte
-			binary.BigEndian.PutUint64(encv[:], uint64(intVal))
-			encv[0] ^= 0x80
+			var encv [9]byte
+			encv[0] = KeyValPrefixNotNull
+			binary.BigEndian.PutUint64(encv[1:], uint64(intVal))
+			// map to unsigned integer space for lexical sorting order
+			encv[1] ^= 0x80
 
 			return encv[:], nil
 		}
@@ -1073,9 +1068,10 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			}
 
 			// v
-			var encv [1]byte
+			var encv [2]byte
+			encv[0] = KeyValPrefixNotNull
 			if boolVal {
-				encv[0] = 1
+				encv[1] = 1
 			}
 
 			return encv[:], nil
@@ -1091,9 +1087,10 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				return nil, ErrMaxLengthExceeded
 			}
 
-			// value + padding + len(value)
-			encv := make([]byte, maxLen+EncLenLen)
-			copy(encv, []byte(blobVal))
+			// notnull + value + padding + len(value)
+			encv := make([]byte, 1+maxLen+EncLenLen)
+			encv[0] = KeyValPrefixNotNull
+			copy(encv[1:], []byte(blobVal))
 			binary.BigEndian.PutUint32(encv[len(encv)-EncLenLen:], uint32(len(blobVal)))
 
 			return encv, nil

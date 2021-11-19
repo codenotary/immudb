@@ -187,12 +187,12 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		if !ok {
 			if scanSpecs.descOrder {
 				if !seekKeyReady {
-					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
+					seekKey = append(seekKey, KeyValPrefixUpperBound)
 				}
 				endKeyReady = true
 			} else {
 				if !endKeyReady {
-					endKey = append(endKey, maxKeyValOf(col.colType)...)
+					endKey = append(endKey, KeyValPrefixUpperBound)
 				}
 				seekKeyReady = true
 			}
@@ -203,7 +203,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		if scanSpecs.descOrder {
 			if !seekKeyReady {
 				if colRange.hRange == nil {
-					seekKey = append(seekKey, maxKeyValOf(col.colType)...)
+					seekKey = append(seekKey, KeyValPrefixUpperBound)
 				}
 
 				if colRange.hRange != nil {
@@ -243,7 +243,7 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 
 			if !endKeyReady {
 				if colRange.hRange == nil {
-					endKey = append(endKey, maxKeyValOf(col.colType)...)
+					endKey = append(endKey, KeyValPrefixUpperBound)
 				}
 
 				if colRange.hRange != nil {
@@ -261,15 +261,9 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 		// non-unique index entries include encoded pk values as suffix
 
 		if scanSpecs.descOrder {
-			for _, col := range table.primaryIndex.cols {
-				seekKey = append(seekKey, maxKeyValOf(col.colType)...)
-			}
-		}
-
-		if !scanSpecs.descOrder {
-			for _, col := range table.primaryIndex.cols {
-				endKey = append(endKey, maxKeyValOf(col.colType)...)
-			}
+			seekKey = append(seekKey, KeyValPrefixUpperBound)
+		} else {
+			endKey = append(endKey, KeyValPrefixUpperBound)
 		}
 	}
 
