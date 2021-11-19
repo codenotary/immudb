@@ -67,7 +67,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 	require.Zero(t, snap)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	exists, err := indexer.ExistKeyWith(nil, nil, false)
+	exists, err := indexer.ExistKeyWith(nil, nil)
 	require.Zero(t, exists)
 	require.Equal(t, ErrAlreadyClosed, err)
 
@@ -199,7 +199,7 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, err, ErrAlreadyClosed)
 
-	_, err = i.ExistKeyWith(dummy, dummy, false)
+	_, err = i.ExistKeyWith(dummy, dummy)
 	assert.Error(t, err)
 	assert.Equal(t, err, ErrAlreadyClosed)
 

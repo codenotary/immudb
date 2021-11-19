@@ -1311,7 +1311,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 
 		var k0 [8]byte
-		exists, err := immuStore.ExistKeyWith(k0[:], nil, false)
+		exists, err := immuStore.ExistKeyWith(k0[:], nil)
 		require.NoError(t, err)
 		require.True(t, exists)
 	}

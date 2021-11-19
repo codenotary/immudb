@@ -709,8 +709,8 @@ func (s *ImmuStore) IndexInfo() uint64 {
 	return s.indexer.Ts()
 }
 
-func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
-	return s.indexer.ExistKeyWith(prefix, neq, smaller)
+func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
+	return s.indexer.ExistKeyWith(prefix, neq)
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
