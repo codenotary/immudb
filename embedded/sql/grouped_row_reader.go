@@ -18,8 +18,6 @@ package sql
 import "github.com/codenotary/immudb/embedded/store"
 
 type groupedRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	selectors []Selector
@@ -30,7 +28,7 @@ type groupedRowReader struct {
 	nonEmpty bool
 }
 
-func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
+func newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
 	if rowReader == nil || len(selectors) == 0 || len(groupBy) > 1 {
 		return nil, ErrIllegalArguments
 	}
@@ -42,11 +40,14 @@ func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, 
 	}
 
 	return &groupedRowReader{
-		e:         e,
 		rowReader: rowReader,
 		selectors: selectors,
 		groupBy:   groupBy,
 	}, nil
+}
+
+func (gr *groupedRowReader) Tx() *SQLTx {
+	return gr.rowReader.Tx()
 }
 
 func (gr *groupedRowReader) ImplicitDB() string {

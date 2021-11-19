@@ -18,8 +18,6 @@ package sql
 import "fmt"
 
 type projectedRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	tableAlias string
@@ -27,7 +25,7 @@ type projectedRowReader struct {
 	selectors []Selector
 }
 
-func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
+func newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
 	// case: SELECT *
 	if len(selectors) == 0 {
 		cols, err := rowReader.Columns()
@@ -46,11 +44,14 @@ func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, s
 	}
 
 	return &projectedRowReader{
-		e:          e,
 		rowReader:  rowReader,
 		tableAlias: tableAlias,
 		selectors:  selectors,
 	}, nil
+}
+
+func (pr *projectedRowReader) Tx() *SQLTx {
+	return pr.rowReader.Tx()
 }
 
 func (pr *projectedRowReader) ImplicitDB() string {

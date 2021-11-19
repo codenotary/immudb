@@ -24,6 +24,7 @@ import (
 )
 
 type RowReader interface {
+	Tx() *SQLTx
 	ImplicitDB() string
 	ImplicitTable() string
 	SetParameters(params map[string]interface{}) error
@@ -97,8 +98,7 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 }
 
 type rawRowReader struct {
-	e          *Engine
-	snap       *store.Snapshot
+	tx         *SQLTx
 	table      *Table
 	asBefore   uint64
 	tableAlias string
@@ -120,17 +120,17 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
-	if snap == nil || table == nil || scanSpecs == nil || scanSpecs.index == nil {
+func newRawRowReader(tx *SQLTx, table *Table, asBefore uint64, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
+	if table == nil || scanSpecs == nil || scanSpecs.index == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	rSpec, err := keyReaderSpecFrom(e, table, scanSpecs)
+	rSpec, err := keyReaderSpecFrom(tx.engine.prefix, table, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := snap.NewKeyReader(rSpec)
+	r, err := tx.newKeyReader(rSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +155,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 	}
 
 	return &rawRowReader{
-		e:          e,
-		snap:       snap,
+		tx:         tx,
 		table:      table,
 		asBefore:   asBefore,
 		tableAlias: tableAlias,
@@ -167,8 +166,8 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 	}, nil
 }
 
-func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
-	prefix := e.mapKey(scanSpecs.index.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
+func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (spec *store.KeyReaderSpec, err error) {
+	prefix := mapKey(sqlPrefix, scanSpecs.index.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(scanSpecs.index.id))
 
 	var seekKey []byte
 	var seekKeyReady bool
@@ -278,6 +277,10 @@ func keyReaderSpecFrom(e *Engine, table *Table, scanSpecs *ScanSpecs) (spec *sto
 	}, nil
 }
 
+func (r *rawRowReader) Tx() *SQLTx {
+	return r.tx
+}
+
 func (r *rawRowReader) ImplicitDB() string {
 	return r.table.db.name
 }
@@ -361,13 +364,13 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		if r.scanSpecs.index.IsUnique() {
 			encPKVals = v
 		} else {
-			encPKVals, err = r.e.unmapIndexEntry(r.scanSpecs.index, mkey)
+			encPKVals, err = unmapIndexEntry(r.scanSpecs.index, r.tx.engine.prefix, mkey)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		vref, err = r.snap.Get(r.e.mapKey(PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
+		vref, err = r.tx.get(mapKey(r.tx.engine.prefix, PIndexPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(PKIndexID), encPKVals))
 		if err != nil {
 			return nil, err
 		}

@@ -16,24 +16,15 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLimitRowReader(t *testing.T) {
-	st, err := store.Open("catalog_limit_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_limit_row_reader")
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := engine.newLimitRowReader(dummyr, 1)
+	rowReader, err := newLimitRowReader(dummyr, 1)
 	require.NoError(t, err)
 
 	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())

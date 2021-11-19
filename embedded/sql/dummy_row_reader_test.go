@@ -26,6 +26,10 @@ type dummyRowReader struct {
 	failInferringParams  bool
 }
 
+func (r *dummyRowReader) Tx() *SQLTx {
+	return nil
+}
+
 func (r *dummyRowReader) ImplicitDB() string {
 	return "db1"
 }

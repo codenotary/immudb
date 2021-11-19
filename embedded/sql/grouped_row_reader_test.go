@@ -31,13 +31,13 @@ func TestGroupedRowReader(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	err = engine.EnsureCatalogReady(nil)
-	require.NoError(t, err)
-
-	_, err = engine.newGroupedRowReader(nil, nil, nil)
+	_, err = newGroupedRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	db, err := engine.catalog.newDatabase(1, "db1")
+	tx, err := engine.NewTx()
+	require.NoError(t, err)
+
+	db, err := tx.catalog.newDatabase(1, "db1")
 	require.NoError(t, err)
 
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
@@ -48,13 +48,10 @@ func TestGroupedRowReader(t *testing.T) {
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
 
-	snap, err := engine.getSnapshot()
+	r, err := newRawRowReader(tx, table, 0, "", &ScanSpecs{index: table.primaryIndex})
 	require.NoError(t, err)
 
-	r, err := engine.newRawRowReader(snap, table, 0, "", &ScanSpecs{index: table.primaryIndex})
-	require.NoError(t, err)
-
-	gr, err := engine.newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
+	gr, err := newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
 	require.NoError(t, err)
 
 	orderBy := gr.OrderBy()
