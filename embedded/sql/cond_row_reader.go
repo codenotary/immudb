@@ -16,8 +16,6 @@ limitations under the License.
 package sql
 
 type conditionalRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	condition ValueExp
@@ -25,13 +23,16 @@ type conditionalRowReader struct {
 	params map[string]interface{}
 }
 
-func (e *Engine) newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
+func newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
 	return &conditionalRowReader{
-		e:         e,
 		rowReader: rowReader,
 		condition: condition,
 		params:    params,
 	}, nil
+}
+
+func (cr *conditionalRowReader) Tx() *SQLTx {
+	return cr.rowReader.Tx()
 }
 
 func (cr *conditionalRowReader) ImplicitDB() string {
@@ -97,7 +98,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cond.reduce(cr.e.catalog, row, cr.rowReader.ImplicitDB(), cr.rowReader.ImplicitTable())
+		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.ImplicitDB(), cr.rowReader.ImplicitTable())
 		if err != nil {
 			return nil, err
 		}

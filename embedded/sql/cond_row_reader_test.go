@@ -16,24 +16,15 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConditionalRowReader(t *testing.T) {
-	st, err := store.Open("catalog_cond_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_cond_row_reader")
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
 	dummyr := &dummyRowReader{failReturningColumns: true}
 
-	rowReader, err := engine.newConditionalRowReader(dummyr, &Bool{val: true}, nil)
+	rowReader, err := newConditionalRowReader(dummyr, &Bool{val: true}, nil)
 	require.NoError(t, err)
 
 	_, err = rowReader.Columns()

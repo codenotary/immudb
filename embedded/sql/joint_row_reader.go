@@ -20,16 +20,12 @@ import (
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/multierr"
-	"github.com/codenotary/immudb/embedded/store"
 )
 
 type jointRowReader struct {
-	e          *Engine
-	implicitDB *Database
-
-	snap *store.Snapshot
-
 	rowReader RowReader
+
+	implicitDB *Database
 
 	joins []*JoinSpec
 
@@ -39,8 +35,8 @@ type jointRowReader struct {
 	params map[string]interface{}
 }
 
-func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params map[string]interface{}, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
-	if db == nil || snap == nil || rowReader == nil || len(joins) == 0 {
+func newJointRowReader(rowReader RowReader, joins []*JoinSpec, implicitDB *Database, params map[string]interface{}) (*jointRowReader, error) {
+	if implicitDB == nil || rowReader == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -51,15 +47,17 @@ func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params ma
 	}
 
 	return &jointRowReader{
-		e:                e,
-		implicitDB:       db,
-		snap:             snap,
+		implicitDB:       implicitDB,
 		params:           params,
 		rowReader:        rowReader,
 		joins:            joins,
 		rowReaders:       []RowReader{rowReader},
 		rowReadersValues: make([]map[string]TypedValue, 1+len(joins)),
 	}, nil
+}
+
+func (jointr *jointRowReader) Tx() *SQLTx {
+	return jointr.rowReader.Tx()
 }
 
 func (jointr *jointRowReader) ImplicitDB() string {
@@ -94,7 +92,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +132,7 @@ func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), jointr.implicitDB, nil, &ScanSpecs{index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +161,7 @@ func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) er
 	}
 
 	for _, join := range jointr.joins {
-		err = join.ds.inferParameters(jointr.e, jointr.implicitDB, params)
+		err = join.ds.inferParameters(jointr.Tx(), jointr.implicitDB, params)
 		if err != nil {
 			return err
 		}
@@ -239,7 +237,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				indexOn: jspec.indexOn,
 			}
 
-			reader, err := jointq.Resolve(jointr.e, jointr.snap, jointr.implicitDB, jointr.params, nil)
+			reader, err := jointq.Resolve(jointr.Tx(), jointr.implicitDB, jointr.params, nil)
 			if err != nil {
 				return nil, err
 			}

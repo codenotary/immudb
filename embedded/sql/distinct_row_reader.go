@@ -18,26 +18,27 @@ package sql
 import "crypto/sha256"
 
 type distinctRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 	cols      []ColDescriptor
 
 	readRows map[[sha256.Size]byte]struct{}
 }
 
-func (e *Engine) newDistinctRowReader(rowReader RowReader) (*distinctRowReader, error) {
+func newDistinctRowReader(rowReader RowReader) (*distinctRowReader, error) {
 	cols, err := rowReader.Columns()
 	if err != nil {
 		return nil, err
 	}
 
 	return &distinctRowReader{
-		e:         e,
 		rowReader: rowReader,
 		cols:      cols,
 		readRows:  make(map[[sha256.Size]byte]struct{}),
 	}, nil
+}
+
+func (dr *distinctRowReader) Tx() *SQLTx {
+	return dr.rowReader.Tx()
 }
 
 func (dr *distinctRowReader) ImplicitDB() string {
@@ -74,7 +75,7 @@ func (dr *distinctRowReader) InferParameters(params map[string]SQLValueType) err
 
 func (dr *distinctRowReader) Read() (*Row, error) {
 	for {
-		if len(dr.readRows) == dr.e.distinctLimit {
+		if len(dr.readRows) == dr.rowReader.Tx().distinctLimit() {
 			return nil, ErrTooManyRows
 		}
 

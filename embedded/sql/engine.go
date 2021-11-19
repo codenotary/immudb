@@ -20,13 +20,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 var ErrNoSupported = errors.New("not yet supported")
@@ -95,18 +93,29 @@ type Engine struct {
 	prefix        []byte
 	distinctLimit int
 
+	mutex sync.RWMutex
+}
+
+type SQLTx struct {
+	engine *Engine
+
+	tx *store.OngoingTx
+
+	currentDB *Database
+	catalog   *Catalog // in-mem catalog
+
+	summary *ExecSummary
+
 	closed bool
 
 	mutex sync.RWMutex
 }
 
-type SQLTx struct {
-	implicitDB string
+type ExecSummary struct {
+	TxHeader *store.TxHeader
 
-	catalog *Catalog // in-mem catalog
-
-	tx             *store.OngoingTx
-	snapAsBeforeTx uint64
+	UpdatedRows     int
+	LastInsertedPKs map[string]int64
 }
 
 func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
@@ -126,189 +135,90 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 }
 
 func (e *Engine) NewTx() (*SQLTx, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	if e.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	tx, err := e.store.NewTx()
 	if err != nil {
 		return nil, err
 	}
 
-	catalog, err := e.catalogFrom(snap)
+	catalog := newCatalog()
+
+	err = catalog.loadFrom(e.prefix, tx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &SQLTx{
+		engine:  e,
 		tx:      tx,
 		catalog: catalog,
+		summary: &ExecSummary{
+			LastInsertedPKs: make(map[string]int64),
+		},
 	}, nil
 }
 
-func (tx *SQLTx) Cancel() error {
-	return tx.Cancel()
-}
+func (sqlTx *SQLTx) UseDatabase(dbName string) error {
+	sqlTx.mutex.Lock()
+	defer sqlTx.mutex.Unlock()
 
-func (sqlTx *SQLTx) Commit() error {
-	return sqlTx.tx.Commit()
-}
-
-func greatestKeyOfSize(size int) []byte {
-	k := make([]byte, size)
-	for i := 0; i < size; i++ {
-		k[i] = 0xFF
-	}
-	return k
-}
-
-func (e *Engine) Close() error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	if e.closed {
+	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
 
-	if e.snapshot != nil {
-		err := e.snapshot.Close()
-		if err != nil {
-			return err
-		}
-	}
-
-	e.closed = true
-
-	return nil
-}
-
-func (e *Engine) UseDatabase(dbName string) error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	if e.closed {
-		return ErrAlreadyClosed
-	}
-
-	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-	if e.catalog == nil {
-		return ErrCatalogNotReady
-	}
-
-	db, err := e.catalog.GetDatabaseByName(dbName)
+	db, err := sqlTx.catalog.GetDatabaseByName(dbName)
 	if err != nil {
 		return err
 	}
 
-	e.implicitDB = db.name
+	sqlTx.currentDB = db
 
 	return nil
 }
 
-func (e *Engine) DatabaseInUse() (*Database, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+func (sqlTx *SQLTx) Database() (*Database, error) {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
 
-	if e.closed {
+	if sqlTx.closed {
 		return nil, ErrAlreadyClosed
 	}
 
-	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	return e.databaseInUse()
+	return sqlTx.currentDB, nil
 }
 
-func (e *Engine) databaseInUse() (*Database, error) {
-	if e.implicitDB == "" {
-		return nil, ErrNoDatabaseSelected
-	}
-
-	return e.catalog.GetDatabaseByName(e.implicitDB)
+func (sqlTx *SQLTx) sqlPrefix() []byte {
+	return sqlTx.engine.prefix
 }
 
-func (e *Engine) UseSnapshot(sinceTx uint64, asBeforeTx uint64) error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	if e.closed {
-		return ErrAlreadyClosed
-	}
-
-	return e.useSnapshot(sinceTx, asBeforeTx)
+func (sqlTx *SQLTx) distinctLimit() int {
+	return sqlTx.engine.distinctLimit
 }
 
-func (e *Engine) useSnapshot(sinceTx uint64, asBeforeTx uint64) error {
-	if sinceTx > 0 && sinceTx < asBeforeTx {
-		return ErrIllegalArguments
-	}
-
-	txID, _ := e.store.Alh()
-	if txID < sinceTx || txID < asBeforeTx {
-		return ErrTxDoesNotExist
-	}
-
-	err := e.store.WaitForIndexingUpto(sinceTx, nil)
-	if err != nil {
-		return err
-	}
-
-	if sinceTx == 0 {
-		sinceTx = math.MaxUint64
-	}
-
-	if e.snapshot == nil || e.snapshot.Ts() < sinceTx {
-		if e.snapshot != nil {
-			err = e.snapshot.Close()
-			if err != nil {
-				return err
-			}
-		}
-
-		e.snapshot, err = e.store.SnapshotSince(sinceTx)
-		if err != nil {
-			return err
-		}
-	}
-
-	e.snapAsBeforeTx = asBeforeTx
-
-	return nil
+func (sqlTx *SQLTx) newKeyReader(rSpec *store.KeyReaderSpec) (*store.KeyReader, error) {
+	return sqlTx.tx.NewKeyReader(rSpec)
 }
 
-func (e *Engine) CloseSnapshot() error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	if e.closed {
-		return ErrAlreadyClosed
-	}
-
-	if e.snapshot != nil {
-		err := e.snapshot.Close()
-		e.snapshot = nil
-		return err
-	}
-
-	return nil
+func (sqlTx *SQLTx) get(key []byte) (store.ValueRef, error) {
+	return sqlTx.tx.Get(key)
 }
 
-func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
-	catalog := newCatalog()
+func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) error {
+	return sqlTx.tx.Set(key, metadata, value)
+}
 
+func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
+	return sqlTx.tx.ExistKeyWith(prefix, neq)
+}
+
+func (c *Catalog) loadFrom(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: e.mapKey(catalogDatabasePrefix),
+		Prefix: mapKey(sqlPrefix, catalogDatabasePrefix),
 		Filter: store.IgnoreDeleted,
 	}
 
-	dbReader, err := snap.NewKeyReader(dbReaderSpec)
+	dbReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer dbReader.Close()
 
@@ -318,40 +228,40 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		id, err := e.unmapDatabaseID(mkey)
+		id, err := unmapDatabaseID(sqlPrefix, mkey)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		v, err := vref.Resolve()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		db, err := catalog.newDatabase(id, string(v))
+		db, err := c.newDatabase(id, string(v))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		err = e.loadTables(db, snap)
+		err = db.loadTables(sqlPrefix, tx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return catalog, nil
+	return nil
 }
 
-func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
+func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: e.mapKey(catalogTablePrefix, EncodeID(db.id)),
+		Prefix: mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
 		Filter: store.IgnoreDeleted,
 	}
 
-	tableReader, err := snap.NewKeyReader(dbReaderSpec)
+	tableReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
 		return err
 	}
@@ -366,7 +276,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			return err
 		}
 
-		dbID, tableID, err := e.unmapTableID(mkey)
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -375,7 +285,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			return ErrCorruptedData
 		}
 
-		colSpecs, err := e.loadColSpecs(db.id, tableID, snap)
+		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
 		if err != nil {
 			return err
 		}
@@ -394,13 +304,13 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			return ErrCorruptedData
 		}
 
-		err = e.loadIndexes(table, snap)
+		err = table.loadIndexes(sqlPrefix, tx)
 		if err != nil {
 			return err
 		}
 
 		if table.autoIncrementPK {
-			encMaxPK, err := e.loadMaxPK(snap, table)
+			encMaxPK, err := loadMaxPK(sqlPrefix, tx, table)
 			if err == store.ErrNoMoreEntries {
 				continue
 			}
@@ -426,6 +336,14 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 	return nil
 }
 
+func greatestKeyOfSize(size int) []byte {
+	k := make([]byte, size)
+	for i := 0; i < size; i++ {
+		k[i] = 0xFF
+	}
+	return k
+}
+
 func indexKeyFrom(cols []*Column) string {
 	var buf bytes.Buffer
 
@@ -436,13 +354,13 @@ func indexKeyFrom(cols []*Column) string {
 	return buf.String()
 }
 
-func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, error) {
+func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
 
-	pkReader, err := dataSnap.NewKeyReader(pkReaderSpec)
+	pkReader, err := tx.NewKeyReader(pkReaderSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -453,18 +371,18 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 		return nil, err
 	}
 
-	return e.unmapIndexEntry(table.primaryIndex, mkey)
+	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs []*ColSpec, err error) {
-	initialKey := e.mapKey(catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
 		Filter: store.IgnoreDeleted,
 	}
 
-	colSpecReader, err := snap.NewKeyReader(dbReaderSpec)
+	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +399,7 @@ func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs
 			return nil, err
 		}
 
-		mdbID, mtableID, colID, colType, err := e.unmapColSpec(mkey)
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
 			return nil, err
 		}
@@ -516,15 +434,15 @@ func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs
 	return
 }
 
-func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
-	initialKey := e.mapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
+func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
 
 	idxReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
 		Filter: store.IgnoreDeleted,
 	}
 
-	idxSpecReader, err := snap.NewKeyReader(idxReaderSpec)
+	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
 	if err != nil {
 		return err
 	}
@@ -539,7 +457,7 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 			return err
 		}
 
-		dbID, tableID, indexID, err := e.unmapIndex(mkey)
+		dbID, tableID, indexID, err := unmapIndex(sqlPrefix, mkey)
 		if err != nil {
 			return err
 		}
@@ -586,18 +504,18 @@ func (e *Engine) loadIndexes(table *Table, snap *store.Snapshot) error {
 	return nil
 }
 
-func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
-	if len(e.prefix)+len(mappingPrefix) > len(mkey) ||
-		!bytes.Equal(e.prefix, mkey[:len(e.prefix)]) ||
-		!bytes.Equal(mappingPrefix, mkey[len(e.prefix):len(e.prefix)+len(mappingPrefix)]) {
+func trimPrefix(prefix, mkey []byte, mappingPrefix []byte) ([]byte, error) {
+	if len(prefix)+len(mappingPrefix) > len(mkey) ||
+		!bytes.Equal(prefix, mkey[:len(prefix)]) ||
+		!bytes.Equal(mappingPrefix, mkey[len(prefix):len(prefix)+len(mappingPrefix)]) {
 		return nil, ErrIllegalMappedKey
 	}
 
-	return mkey[len(e.prefix)+len(mappingPrefix):], nil
+	return mkey[len(prefix)+len(mappingPrefix):], nil
 }
 
-func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint32, err error) {
-	encID, err := e.trimPrefix(mkey, []byte(catalogDatabasePrefix))
+func unmapDatabaseID(prefix, mkey []byte) (dbID uint32, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(catalogDatabasePrefix))
 	if err != nil {
 		return 0, err
 	}
@@ -609,8 +527,8 @@ func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint32, err error) {
 	return binary.BigEndian.Uint32(encID), nil
 }
 
-func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID uint32, err error) {
-	encID, err := e.trimPrefix(mkey, []byte(catalogTablePrefix))
+func unmapTableID(prefix, mkey []byte) (dbID, tableID uint32, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(catalogTablePrefix))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -625,8 +543,8 @@ func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID uint32, err error) {
 	return
 }
 
-func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
-	encID, err := e.trimPrefix(mkey, []byte(catalogColumnPrefix))
+func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQLValueType, err error) {
+	encID, err := trimPrefix(prefix, mkey, []byte(catalogColumnPrefix))
 	if err != nil {
 		return 0, 0, 0, "", err
 	}
@@ -659,8 +577,8 @@ func asType(t string) (SQLValueType, error) {
 	return t, ErrCorruptedData
 }
 
-func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint32, err error) {
-	encID, err := e.trimPrefix(mkey, []byte(catalogIndexPrefix))
+func unmapIndex(sqlPrefix, mkey []byte) (dbID, tableID, indexID uint32, err error) {
+	encID, err := trimPrefix(sqlPrefix, mkey, []byte(catalogIndexPrefix))
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -676,12 +594,12 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, indexID uint32, err err
 	return
 }
 
-func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, err error) {
+func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, err error) {
 	if index == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	enc, err := e.trimPrefix(mkey, []byte(index.prefix()))
+	enc, err := trimPrefix(sqlPrefix, mkey, []byte(index.prefix()))
 	if err != nil {
 		return nil, ErrCorruptedData
 	}
@@ -737,8 +655,8 @@ func variableSized(sqlType SQLValueType) bool {
 	return sqlType == VarcharType || sqlType == BLOBType
 }
 
-func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
-	return MapKey(e.prefix, mappingPrefix, encValues...)
+func mapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
+	return MapKey(prefix, mappingPrefix, encValues...)
 }
 
 func MapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
@@ -1012,74 +930,19 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	return nil, 0, ErrCorruptedData
 }
 
-func (e *Engine) ExistDatabase(db string) (bool, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+func (sqlTx *SQLTx) InferParameters(sql string) (map[string]SQLValueType, error) {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
 
-	if e.closed {
-		return false, ErrAlreadyClosed
-	}
-
-	if e.catalog == nil {
-		return false, ErrCatalogNotReady
-	}
-
-	return e.catalog.ExistDatabase(db), nil
-}
-
-func (e *Engine) GetDatabaseByName(db string) (*Database, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	if e.closed {
+	if sqlTx.closed {
 		return nil, ErrAlreadyClosed
 	}
 
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	return e.catalog.GetDatabaseByName(db)
+	return sqlTx.inferParametersFrom(strings.NewReader(sql))
 }
 
-func (e *Engine) GetTableByName(dbName, tableName string) (*Table, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	if e.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	return e.catalog.GetTableByName(dbName, tableName)
-}
-
-func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	if e.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	return e.inferParametersFrom(strings.NewReader(sql))
-}
-
-func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, error) {
+func (sqlTx *SQLTx) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, error) {
 	stmts, err := Parse(r)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	implicitDB, err := e.databaseInUse()
 	if err != nil {
 		return nil, err
 	}
@@ -1087,7 +950,7 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 	params := make(map[string]SQLValueType)
 
 	for _, stmt := range stmts {
-		err = stmt.inferParameters(e, implicitDB, params)
+		err = stmt.inferParameters(sqlTx, sqlTx.currentDB, params)
 		if err != nil {
 			return nil, err
 		}
@@ -1096,41 +959,63 @@ func (e *Engine) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, 
 	return params, nil
 }
 
-func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
+func (sqlTx *SQLTx) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
 
-	if e.closed {
+	if sqlTx.closed {
 		return nil, ErrAlreadyClosed
-	}
-
-	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	implicitDB, err := e.databaseInUse()
-	if err != nil {
-		return nil, err
 	}
 
 	params := make(map[string]SQLValueType)
 
-	err = stmt.inferParameters(e, implicitDB, params)
+	err := stmt.inferParameters(sqlTx, sqlTx.currentDB, params)
 
 	return params, err
 }
 
-// exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
-func (e *Engine) QueryStmt(sql string, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
-	return e.Query(strings.NewReader(sql), params, renewSnapshot)
+func (sqlTx *SQLTx) Cancel() error {
+	sqlTx.mutex.Lock()
+	defer sqlTx.mutex.Unlock()
+
+	if sqlTx.closed {
+		return ErrAlreadyClosed
+	}
+
+	sqlTx.closed = true
+
+	return sqlTx.tx.Cancel()
 }
 
-func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
+func (sqlTx *SQLTx) Commit() (*ExecSummary, error) {
+	sqlTx.mutex.Lock()
+	defer sqlTx.mutex.Unlock()
+
+	if sqlTx.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	sqlTx.closed = true
+
+	hdr, err := sqlTx.tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	sqlTx.summary.TxHeader = hdr
+
+	return sqlTx.summary, nil
+}
+
+func (sqlTx *SQLTx) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
+	return sqlTx.Query(strings.NewReader(sql), params)
+}
+
+func (sqlTx *SQLTx) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, err
@@ -1144,41 +1029,19 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}, renewSn
 		return nil, ErrExpectingDQLStmt
 	}
 
-	return e.QueryPreparedStmt(stmt, params, renewSnapshot)
+	return sqlTx.QueryPreparedStmt(stmt, params)
 }
 
-func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
+func (sqlTx *SQLTx) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
 
-	if e.closed {
+	if sqlTx.closed {
 		return nil, ErrAlreadyClosed
-	}
-
-	// TODO (jeroiraz): won't be needed when in-memory catalog becomes transactional
-	if e.catalog == nil {
-		return nil, ErrCatalogNotReady
-	}
-
-	if renewSnapshot {
-		err := e.renewSnapshot()
-		if err != nil && err != tbtree.ErrReadersNotClosed {
-			return nil, err
-		}
-	}
-
-	snapshot, err := e.getSnapshot()
-	if err != nil {
-		return nil, err
-	}
-
-	implicitDB, err := e.databaseInUse()
-	if err != nil {
-		return nil, err
 	}
 
 	// TODO: eval params at once
@@ -1187,138 +1050,53 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	_, err = stmt.compileUsing(e, implicitDB, nparams)
+	err = stmt.compileUsing(sqlTx, sqlTx.currentDB, nparams)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snapshot, implicitDB, nparams, nil)
+	return stmt.Resolve(sqlTx, sqlTx.currentDB, nparams, nil)
 }
 
-func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
-	return e.Exec(strings.NewReader(sql), params, waitForIndexing)
+func (sqlTx *SQLTx) ExecStmt(sql string, params map[string]interface{}) error {
+	return sqlTx.Exec(strings.NewReader(sql), params)
 }
 
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
+func (sqlTx *SQLTx) Exec(sql io.ByteReader, params map[string]interface{}) error {
 	stmts, err := Parse(sql)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return e.ExecPreparedStmts(stmts, params, waitForIndexing)
+	return sqlTx.ExecPreparedStmts(stmts, params)
 }
 
-type ExecSummary struct {
-	DDTxs []*store.TxHeader
-	DMTxs []*store.TxHeader
-
-	UpdatedRows     int
-	LastInsertedPKs map[string]int64
-}
-
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, waitForIndexing bool) (summary *ExecSummary, err error) {
+func (sqlTx *SQLTx) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) error {
 	if len(stmts) == 0 {
-		return nil, ErrIllegalArguments
+		return ErrIllegalArguments
 	}
 
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+	sqlTx.mutex.Lock()
+	defer sqlTx.mutex.Unlock()
 
-	if e.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	if e.catalog == nil {
-		err := e.loadCatalog(nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	implicitDB, err := e.databaseInUse()
-	if err != nil && err != ErrNoDatabaseSelected {
-		return nil, err
-	}
-
-	summary = &ExecSummary{
-		LastInsertedPKs: make(map[string]int64),
+	if sqlTx.closed {
+		return ErrAlreadyClosed
 	}
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, stmt := range stmts {
-		txSummary, err := stmt.compileUsing(e, implicitDB, nparams)
+		err := stmt.compileUsing(sqlTx, sqlTx.currentDB, nparams)
 		if err != nil {
-			e.resetCatalog() // in-memory catalog changes needs to be reverted
-			return summary, err
-		}
-
-		implicitDB = txSummary.db
-
-		if len(txSummary.ces) > 0 && len(txSummary.des) > 0 {
-			e.resetCatalog() // in-memory catalog changes needs to be reverted
-			return summary, ErrDDLorDMLTxOnly
-		}
-
-		if len(txSummary.ces) > 0 {
-			tx, err := e.store.NewTx()
-			if err != nil {
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			for _, ce := range txSummary.ces {
-				err = tx.Set(ce.Key, ce.Metadata, ce.Value)
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			txmd, err := tx.Commit()
-			// TODO (jeroiraz): implement transactional in-memory catalog
-			if err != nil {
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			summary.DDTxs = append(summary.DDTxs, txmd)
-		}
-
-		if len(txSummary.des) > 0 {
-			tx, err := e.store.NewTx()
-			if err != nil {
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			for _, de := range txSummary.des {
-				err = tx.Set(de.Key, de.Metadata, de.Value)
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			txmd, err := tx.Commit()
-			if err != nil {
-				e.resetCatalog() // in-memory catalog changes needs to be reverted
-				return summary, err
-			}
-
-			summary.DMTxs = append(summary.DMTxs, txmd)
-		}
-
-		summary.UpdatedRows += txSummary.updatedRows
-
-		for t, pk := range txSummary.lastInsertedPKs {
-			summary.LastInsertedPKs[t] = pk
+			return err
 		}
 	}
 
-	e.catalog.mutated = false
-
-	return summary, nil
+	return nil
 }
 
 func normalizeParams(params map[string]interface{}) (map[string]interface{}, error) {
@@ -1336,12 +1114,4 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	}
 
 	return nparams, nil
-}
-
-func (e *Engine) resetCatalog() {
-	if !e.catalog.mutated {
-		return
-	}
-
-	e.catalog = nil
 }
