@@ -17,7 +17,7 @@ limitations under the License.
 package client
 
 import (
-	"errors"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -16,9 +16,6 @@ import (
 
 func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (serverUUID string, sessionID string, err error) {
 	c.Options.DialOptions = c.SetupDialOptions(c.Options)
-	if db, e := c.Tkns.GetDatabase(); e == nil && len(db) > 0 {
-		c.Options.CurrentDatabase = db
-	}
 
 	if c.Options.ServerSigningPubKey != "" {
 		pk, e := signer.ParsePublicKeyFile(c.Options.ServerSigningPubKey)
@@ -36,9 +33,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return "", "", err
 	}
 
-	serviceClient := schema.NewImmuServiceClient(c.clientConn)
-	// todo remove WithServiceClient
-	c.WithServiceClient(serviceClient)
+	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
 
 	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
 		User:         user,
@@ -54,7 +49,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.HeartBeater = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient, c.Options.HeartBeatFrequency)
 	c.HeartBeater.KeepAlive(ctx)
 
-	stateProvider := state.NewStateProvider(serviceClient)
+	stateProvider := state.NewStateProvider(c.ServiceClient)
 
 	stateService, err := state.NewStateServiceWithUUID(cache.NewFileCache(c.Options.Dir), c.Logger, stateProvider, resp.GetServerUUID())
 	if err != nil {
@@ -62,6 +57,8 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	}
 
 	c.WithStateService(stateService)
+
+	c.Options.CurrentDatabase = database
 
 	return resp.GetServerUUID(), resp.GetSessionID(), nil
 }
