@@ -13,7 +13,7 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
+volumeSize: 5Gi
 adminPassword: ""
 
 podAnnotations: {}
@@ -25,6 +25,7 @@ securityContext:
    capabilities:
      drop:
      - ALL
+   readOnlyRootFilesystem: true
    runAsNonRoot: true
    runAsUser: 3322
    runAsGroup: 3322

@@ -28,6 +28,10 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      - name: immudb-storage
+        persistentVolumeClaim:
+          claimName: {{ include "immudb.fullname" . }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -63,6 +67,9 @@ spec:
           {{- end}}      
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - mountPath: /var/lib/immudb
+            name: immudb-storage
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -75,3 +82,16 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "immudb.fullname" . }}
+  labels:
+    {{- include "immudb.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.volumeSize }}
