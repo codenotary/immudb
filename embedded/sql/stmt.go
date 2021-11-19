@@ -33,9 +33,21 @@ const (
 	catalogTablePrefix    = "CTL.TABLE."    // (key=CTL.TABLE.{dbID}{tableID}, value={tableNAME})
 	catalogColumnPrefix   = "CTL.COLUMN."   // (key=CTL.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={(auto_incremental | nullable){maxLen}{colNAME}})
 	catalogIndexPrefix    = "CTL.INDEX."    // (key=CTL.INDEX.{dbID}{tableID}{indexID}, value={unique {colID1}(ASC|DESC)...{colIDN}(ASC|DESC)})
-	PIndexPrefix          = "P."            // (key=P.{dbID}{tableID}{0}({pkVal}{padding}{pkValLen})+, value={count (colID valLen val)+})
-	SIndexPrefix          = "S."            // (key=S.{dbID}{tableID}{indexID}({val}{padding}{valLen})+({pkVal}{padding}{pkValLen})+, value={})
-	UIndexPrefix          = "U."            // (key=U.{dbID}{tableID}{indexID}({val}{padding}{valLen})+, value={({pkVal}{padding}{pkValLen})+})
+	PIndexPrefix          = "R."            // (key=R.{dbID}{tableID}{0}({null}({pkVal}{padding}{pkValLen})?)+, value={count (colID valLen val)+})
+	SIndexPrefix          = "E."            // (key=E.{dbID}{tableID}{indexID}({null}({val}{padding}{valLen})?)+({pkVal}{padding}{pkValLen})+, value={})
+	UIndexPrefix          = "N."            // (key=N.{dbID}{tableID}{indexID}({null}({val}{padding}{valLen})?)+, value={({pkVal}{padding}{pkValLen})+})
+
+	// Old prefixes that must not be reused:
+	//  `CATALOG.DATABASE.`
+	//  `CATALOG.TABLE.`
+	//  `CATALOG.COLUMN.`
+	//  `CATALOG.INDEX.`
+	//  `P.` 				primary indexes without null support
+	//  `S.` 				secondary indexes without null support
+	//  `U.` 				secondary unique indexes without null support
+	//  `PINDEX.` 			single-column primary indexes
+	//  `SINDEX.` 			single-column secondary indexes
+	//  `UINDEX.` 			single-column secondary unique indexes
 )
 
 const PKIndexID = uint32(0)

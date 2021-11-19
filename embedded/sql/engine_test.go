@@ -4151,13 +4151,13 @@ func TestUnmapIndexEntry(t *testing.T) {
 	require.Nil(t, encPKVals)
 
 	encPKVals, err = e.unmapIndexEntry(&Index{id: PKIndexID, unique: true}, []byte(
-		"e-prefix.P.\x80a",
+		"e-prefix.R.\x80a",
 	))
 	require.ErrorIs(t, err, ErrCorruptedData)
 	require.Nil(t, encPKVals)
 
 	fullValue := append(
-		[]byte("e-prefix.S."),
+		[]byte("e-prefix.E."),
 		0x01, 0x02, 0x03, 0x04,
 		0x11, 0x12, 0x13, 0x14,
 		0x00, 0x00, 0x00, 0x02,
