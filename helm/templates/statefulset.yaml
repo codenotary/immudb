@@ -38,11 +38,11 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-            - name: metrics
-              containerPort: 9497
-              protocol: TCP
             - name: grpc
               containerPort: 3322
+              protocol: TCP
+            - name: metrics
+              containerPort: 9497
               protocol: TCP
           livenessProbe:
             httpGet:
