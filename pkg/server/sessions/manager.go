@@ -32,6 +32,7 @@ var guard *manager
 type manager struct {
 	Running    bool
 	sessionMux sync.Mutex
+	guardMux   sync.Mutex
 	sessions   map[string]*Session
 	ticker     *time.Ticker
 	done       chan bool
@@ -57,6 +58,7 @@ func NewManager(options *Options) *manager {
 	}
 	guard = &manager{
 		sessionMux: sync.Mutex{},
+		guardMux:   sync.Mutex{},
 		sessions:   make(map[string]*Session),
 		ticker:     time.NewTicker(options.SessionGuardCheckInterval),
 		done:       make(chan bool),
@@ -119,12 +121,12 @@ func (sm *manager) CountSession() int {
 }
 
 func (sm *manager) StartSessionsGuard() error {
-	sm.sessionMux.Lock()
+	sm.guardMux.Lock()
 	if sm.Running == true {
 		return ErrGuardAlreadyRunning
 	}
 	sm.Running = true
-	sm.sessionMux.Unlock()
+	sm.guardMux.Unlock()
 	for {
 		select {
 		case <-sm.done:
@@ -136,12 +138,12 @@ func (sm *manager) StartSessionsGuard() error {
 }
 
 func (sm *manager) StopSessionsGuard() error {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+	sm.guardMux.Lock()
 	if sm.Running == false {
 		return ErrGuardNotRunning
 	}
 	sm.Running = false
+	sm.guardMux.Unlock()
 	sm.ticker.Stop()
 	sm.done <- true
 	sm.logger.Debugf("shutdown")
