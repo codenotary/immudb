@@ -240,6 +240,10 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
+func (tx *OngoingTx) ExistKeyWith(prefix, neq []byte) (bool, error) {
+	return tx.snap.snap.ExistKeyWith(prefix, neq)
+}
+
 func (tx *OngoingTx) Delete(key []byte) error {
 	valRef, err := tx.Get(key)
 	if err != nil {
