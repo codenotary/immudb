@@ -38,7 +38,7 @@ type Snapshot struct {
 	readers     map[int]io.Closer
 	maxReaderID int
 	closed      bool
-	mutex       sync.Mutex
+	mutex       sync.RWMutex
 }
 
 func (s *Snapshot) Set(key, value []byte) error {
@@ -78,8 +78,8 @@ func (s *Snapshot) Set(key, value []byte) error {
 }
 
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	if s.closed {
 		return nil, 0, 0, ErrAlreadyClosed
@@ -94,8 +94,8 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 }
 
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	if s.closed {
 		return nil, ErrAlreadyClosed
@@ -113,15 +113,40 @@ func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int)
 }
 
 func (s *Snapshot) Ts() uint64 {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	return s.root.ts()
 }
 
+func (s *Snapshot) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.closed {
+		return false, ErrAlreadyClosed
+	}
+
+	_, leaf, off, err := s.root.findLeafNode(prefix, nil, neq, false)
+	if err == ErrKeyNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	v := leaf.values[off]
+
+	if len(prefix) > len(v.key) {
+		return false, nil
+	}
+
+	return bytes.Equal(prefix, v.key[:len(prefix)]), nil
+}
+
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	if s.closed {
 		return nil, ErrAlreadyClosed

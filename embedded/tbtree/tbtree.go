@@ -745,7 +745,7 @@ func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (
 	return t.root.history(key, offset, descOrder, limit)
 }
 
-func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
+func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
@@ -753,7 +753,7 @@ func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, er
 		return false, ErrAlreadyClosed
 	}
 
-	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, smaller)
+	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, false)
 	if err == ErrKeyNotFound {
 		return false, nil
 	}

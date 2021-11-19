@@ -109,6 +109,9 @@ func TestSnapshotClosing(t *testing.T) {
 	_, err = snapshot.History([]byte{}, 0, false, 1)
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	_, err = snapshot.ExistKeyWith([]byte{}, nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	_, err = snapshot.NewReader(nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 
@@ -163,6 +166,14 @@ func TestSnapshotIsolation(t *testing.T) {
 
 		_, _, _, err = snap2.Get([]byte("key1"))
 		require.NoError(t, err)
+
+		exists, err := snap1.ExistKeyWith([]byte("key"), nil)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		exists, err = snap1.ExistKeyWith([]byte("key3"), []byte("key3"))
+		require.NoError(t, err)
+		require.False(t, exists)
 	})
 
 	err = tbtree.Insert([]byte("key2"), []byte("value2"))
