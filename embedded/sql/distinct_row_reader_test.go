@@ -16,24 +16,15 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDistinctRowReader(t *testing.T) {
-	st, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_distinct_row_reader")
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := engine.newDistinctRowReader(dummyr)
+	rowReader, err := newDistinctRowReader(dummyr)
 	require.NoError(t, err)
 
 	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())

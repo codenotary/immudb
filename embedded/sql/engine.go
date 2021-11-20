@@ -93,6 +93,8 @@ type Engine struct {
 	prefix        []byte
 	distinctLimit int
 
+	defaultDatabase *Database
+
 	mutex sync.RWMutex
 }
 
@@ -134,7 +136,30 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	return e, nil
 }
 
+func (e *Engine) DefaultDatabase(dbName string) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	tx, err := e.NewTx()
+	if err != nil {
+		return err
+	}
+	defer tx.Cancel()
+
+	db, exists := tx.catalog.dbsByName[dbName]
+	if !exists {
+		return ErrDatabaseDoesNotExist
+	}
+
+	e.defaultDatabase = db
+
+	return nil
+}
+
 func (e *Engine) NewTx() (*SQLTx, error) {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
 	tx, err := e.store.NewTx()
 	if err != nil {
 		return nil, err
@@ -148,23 +173,17 @@ func (e *Engine) NewTx() (*SQLTx, error) {
 	}
 
 	return &SQLTx{
-		engine:  e,
-		tx:      tx,
-		catalog: catalog,
+		engine:    e,
+		tx:        tx,
+		catalog:   catalog,
+		currentDB: e.defaultDatabase,
 		summary: &ExecSummary{
 			LastInsertedPKs: make(map[string]int64),
 		},
 	}, nil
 }
 
-func (sqlTx *SQLTx) UseDatabase(dbName string) error {
-	sqlTx.mutex.Lock()
-	defer sqlTx.mutex.Unlock()
-
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
+func (sqlTx *SQLTx) useDatabase(dbName string) error {
 	db, err := sqlTx.catalog.GetDatabaseByName(dbName)
 	if err != nil {
 		return err
@@ -1002,6 +1021,9 @@ func (sqlTx *SQLTx) Commit() (*ExecSummary, error) {
 	sqlTx.closed = true
 
 	hdr, err := sqlTx.tx.Commit()
+	if err == store.ErrorNoEntriesProvided {
+		return &ExecSummary{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1114,4 +1136,32 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	}
 
 	return nparams, nil
+}
+
+func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (*ExecSummary, error) {
+	return e.Exec(strings.NewReader(sql), params)
+}
+
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*ExecSummary, error) {
+	stmts, err := Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.ExecPreparedStmts(stmts, params)
+}
+
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (*ExecSummary, error) {
+	tx, err := e.NewTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	err = tx.ExecPreparedStmts(stmts, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Commit()
 }
