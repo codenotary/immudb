@@ -583,14 +583,23 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 	// create primary index entry
 	mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
 
-	var constraint store.KVConstraint
-
 	if isInsert && !table.autoIncrementPK {
-		constraint = store.MustNotExistOrDeleted
+		// mkey must not exist
+		_, err := tx.get(mkey)
+		if err == nil {
+			return store.ErrKeyAlreadyExists
+		}
+		if err != store.ErrKeyNotFound {
+			return err
+		}
 	}
 
 	if !isInsert && table.autoIncrementPK {
-		constraint = store.MustExist
+		// mkey must exist
+		_, err := tx.get(mkey)
+		if err != nil {
+			return err
+		}
 	}
 
 	valbuf := bytes.Buffer{}
@@ -628,12 +637,10 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		}
 	}
 
-	pke := &store.EntrySpec{
-		Key:        mkey,
-		Value:      valbuf.Bytes(),
-		Constraint: constraint,
+	err = tx.set(mkey, nil, valbuf.Bytes())
+	if err != nil {
+		return err
 	}
-	summary.des = append(summary.des, pke)
 
 	// create entries for secondary indexes
 	for _, index := range table.indexes {
@@ -684,22 +691,26 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 			encodedValues[i+3] = encVal
 		}
 
-		var constraint store.KVConstraint
+		mKey := mapKey(tx.sqlPrefix(), prefix, encodedValues...)
 
 		if index.IsUnique() {
-			constraint = store.MustNotExistOrDeleted
+			// mkey must not exist
+			_, err := tx.get(mkey)
+			if err == nil {
+				return store.ErrKeyAlreadyExists
+			}
+			if err != store.ErrKeyNotFound {
+				return err
+			}
 		}
 
-		ie := &store.EntrySpec{
-			Key:        e.mapKey(prefix, encodedValues...),
-			Value:      val,
-			Constraint: constraint,
+		err = tx.set(mKey, nil, val)
+		if err != nil {
+			return err
 		}
-
-		summary.des = append(summary.des, ie)
 	}
 
-	summary.updatedRows++
+	tx.summary.UpdatedRows++
 
 	return nil
 }
@@ -902,7 +913,7 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 
 func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
 	if implicitDB == nil {
-		return nil, ErrNoDatabaseSelected
+		return ErrNoDatabaseSelected
 	}
 
 	selectStmt := &SelectStmt{
@@ -914,7 +925,7 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 
 	rowReader, err := selectStmt.Resolve(tx, implicitDB, params, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rowReader.Close()
 
@@ -922,21 +933,15 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 
 	err = stmt.validate(table)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	cols, err := rowReader.colsBySelector()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	summary = newTxSummary(implicitDB)
-
 	for {
-		if summary.updatedRows*len(table.indexes) > e.store.MaxTxEntries() {
-			return nil, ErrTooManyRows
-		}
-
 		row, err := rowReader.Read()
 		if err == ErrNoMoreRows {
 			break
@@ -952,22 +957,22 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 		for _, update := range stmt.updates {
 			col, err := table.GetColumnByName(update.col)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			sval, err := update.val.substitute(params)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			rval, err := sval.reduce(tx.catalog, row, table.db.name, table.name)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			err = rval.requiresType(col.colType, cols, nil, table.db.name, table.name)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			valuesByColID[col.id] = rval
@@ -975,16 +980,16 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, false, summary)
+		err = tx.doUpsert(pkEncVals, valuesByColID, table, false)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return summary, nil
+	return nil
 }
 
 type DeleteFromStmt struct {
@@ -1023,10 +1028,6 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, implicitDB *Database, params
 	table := rowReader.ScanSpecs().index.table
 
 	for {
-		if summary.updatedRows*len(table.indexes) > e.store.MaxTxEntries() {
-			return nil, ErrTooManyRows
-		}
-
 		row, err := rowReader.Read()
 		if err == ErrNoMoreRows {
 			break
@@ -1041,27 +1042,21 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, implicitDB *Database, params
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		err = deleteIndexEntries(tx.sqlPrefix(), pkEncVals, valuesByColID, table, summary)
+		err = tx.deleteIndexEntries(pkEncVals, valuesByColID, table)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		summary.updatedRows++
+		tx.summary.UpdatedRows++
 	}
 
-	return summary, nil
+	return nil
 }
 
-func deleteIndexEntries(
-	sqlPrefix []byte,
-	pkEncVals []byte,
-	valuesByColID map[uint32]TypedValue,
-	table *Table,
-	summary *TxSummary) error {
-
+func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	for _, index := range table.indexes {
 		var prefix string
 		var encodedValues [][]byte
@@ -1103,12 +1098,10 @@ func deleteIndexEntries(
 			continue
 		}
 
-		ie := &store.EntrySpec{
-			Key:      mapKey(sqlPrefix, prefix, encodedValues...),
-			Metadata: store.NewKVMetadata().AsDeleted(true),
+		err := sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), store.NewKVMetadata().AsDeleted(true), nil)
+		if err != nil {
+			return err
 		}
-
-		summary.des = append(summary.des, ie)
 	}
 
 	return nil
