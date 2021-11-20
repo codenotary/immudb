@@ -646,11 +646,11 @@ func TestAliasing(t *testing.T) {
 
 func TestEdgeCases(t *testing.T) {
 	exp := &CreateIndexStmt{}
-	_, err := exp.compileUsing(nil, nil, nil)
+	err := exp.compileUsing(nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	exp.cols = make([]string, MaxNumberOfColumnsInIndex+1)
-	_, err = exp.compileUsing(nil, nil, nil)
+	err = exp.compileUsing(nil, nil, nil)
 	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }
 

@@ -213,7 +213,7 @@ func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, implicitDB *Database, pa
 }
 
 func (stmt *UseDatabaseStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	return tx.UseDatabase(stmt.DB)
+	return tx.useDatabase(stmt.DB)
 }
 
 type UseSnapshotStmt struct {
