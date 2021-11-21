@@ -136,10 +136,7 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	return e, nil
 }
 
-func (e *Engine) DefaultDatabase(dbName string) error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
+func (e *Engine) SetDefaultDatabase(dbName string) error {
 	tx, err := e.NewTx()
 	if err != nil {
 		return err
@@ -151,9 +148,19 @@ func (e *Engine) DefaultDatabase(dbName string) error {
 		return ErrDatabaseDoesNotExist
 	}
 
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	e.defaultDatabase = db
 
 	return nil
+}
+
+func (e *Engine) DefaultDatabase() *Database {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	return e.defaultDatabase
 }
 
 func (e *Engine) NewTx() (*SQLTx, error) {
