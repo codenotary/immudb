@@ -257,19 +257,19 @@ func TestUpsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params)
 	require.Equal(t, ErrDuplicatedParameters, err)
 
-	summary, err := engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
+	tx, err := engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
 	require.NoError(t, err)
-	require.NotNil(t, summary)
-	require.Equal(t, summary.UpdatedRows, 1)
+	require.NotNil(t, tx)
+	require.Equal(t, tx.UpdatedRows(), 1)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (2, 10, true)", nil)
 	require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
 	t.Run("row with pk 1 should have active in false", func(t *testing.T) {
-		summary, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 20, false)", nil)
+		tx, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 20, false)", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Equal(t, summary.UpdatedRows, 1)
+		require.NotNil(t, tx)
+		require.Equal(t, tx.UpdatedRows(), 1)
 
 		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil)
 		require.NoError(t, err)
@@ -286,10 +286,10 @@ func TestUpsertInto(t *testing.T) {
 	})
 
 	t.Run("row with pk 1 should have active in true", func(t *testing.T) {
-		summary, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
+		tx, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Equal(t, summary.UpdatedRows, 1)
+		require.NotNil(t, tx)
+		require.Equal(t, tx.UpdatedRows(), 1)
 
 		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil)
 		require.NoError(t, err)
@@ -415,11 +415,12 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
-	summary, err := engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil)
+	tx, err := engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil)
 	require.NoError(t, err)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
+	require.NotNil(t, tx)
+	require.True(t, tx.Closed())
+	require.Equal(t, int64(1), tx.LastInsertedPK("table1"))
+	require.Equal(t, 1, tx.UpdatedRows())
 
 	_, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil)
 	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
@@ -430,22 +431,24 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil)
 	require.NoError(t, err)
 
-	summary, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name2')", nil)
+	tx, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name2')", nil)
 	require.NoError(t, err)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
+	require.NotNil(t, tx)
+	require.True(t, tx.Closed())
+	require.Equal(t, int64(2), tx.LastInsertedPK("table1"))
+	require.Equal(t, 1, tx.UpdatedRows())
 
-	summary, err = engine.ExecStmt(`
+	tx, err = engine.ExecStmt(`
 		BEGIN TRANSACTION
 			INSERT INTO table1(title) VALUES ('name3');
 			INSERT INTO table1(title) VALUES ('name4');
 		COMMIT
 	`, nil)
 	require.NoError(t, err)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 2, summary.UpdatedRows)
+	require.NotNil(t, tx)
+	require.True(t, tx.Closed())
+	require.Equal(t, int64(4), tx.LastInsertedPK("table1"))
+	require.Equal(t, 2, tx.UpdatedRows())
 }
 
 func TestDelete(t *testing.T) {
@@ -492,10 +495,10 @@ func TestDelete(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	t.Run("delete on empty table should complete without issues", func(t *testing.T) {
-		summary, err := engine.ExecStmt("DELETE FROM table1", nil)
+		tx, err := engine.ExecStmt("DELETE FROM table1", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Zero(t, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Zero(t, tx.UpdatedRows())
 	})
 
 	rowCount := 10
@@ -507,17 +510,17 @@ func TestDelete(t *testing.T) {
 	}
 
 	t.Run("deleting with contradiction should not produce any change", func(t *testing.T) {
-		summary, err := engine.ExecStmt("DELETE FROM table1 WHERE false", nil)
+		tx, err := engine.ExecStmt("DELETE FROM table1 WHERE false", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Zero(t, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Zero(t, tx.UpdatedRows())
 	})
 
 	t.Run("deleting active rows should remove half of the rows", func(t *testing.T) {
-		summary, err := engine.ExecStmt("DELETE FROM table1 WHERE active = @active", map[string]interface{}{"active": true})
+		tx, err := engine.ExecStmt("DELETE FROM table1 WHERE active = @active", map[string]interface{}{"active": true})
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Equal(t, rowCount/2, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Equal(t, rowCount/2, tx.UpdatedRows())
 
 		r, err := engine.QueryStmt("SELECT COUNT() FROM table1", nil)
 		require.NoError(t, err)
@@ -585,10 +588,10 @@ func TestUpdate(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	t.Run("update on empty table should complete without issues", func(t *testing.T) {
-		summary, err := engine.ExecStmt("UPDATE table1 SET active = false", nil)
+		tx, err := engine.ExecStmt("UPDATE table1 SET active = false", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Zero(t, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Zero(t, tx.UpdatedRows())
 	})
 
 	rowCount := 10
@@ -600,17 +603,17 @@ func TestUpdate(t *testing.T) {
 	}
 
 	t.Run("updating with contradiction should not produce any change", func(t *testing.T) {
-		summary, err := engine.ExecStmt("UPDATE table1 SET active = false WHERE false", nil)
+		tx, err := engine.ExecStmt("UPDATE table1 SET active = false WHERE false", nil)
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Zero(t, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Zero(t, tx.UpdatedRows())
 	})
 
 	t.Run("updating specific row should update only one row", func(t *testing.T) {
-		summary, err := engine.ExecStmt("UPDATE table1 SET active = true WHERE title = @title", map[string]interface{}{"title": "title1"})
+		tx, err := engine.ExecStmt("UPDATE table1 SET active = true WHERE title = @title", map[string]interface{}{"title": "title1"})
 		require.NoError(t, err)
-		require.NotNil(t, summary)
-		require.Equal(t, 1, summary.UpdatedRows)
+		require.NotNil(t, tx)
+		require.Equal(t, 1, tx.UpdatedRows())
 
 		r, err := engine.QueryStmt("SELECT COUNT() FROM table1", nil)
 		require.NoError(t, err)
@@ -1957,9 +1960,9 @@ func TestExecCornerCases(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	summary, err := engine.ExecStmt("INVALID STATEMENT", nil)
+	tx, err := engine.ExecStmt("INVALID STATEMENT", nil)
 	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
-	require.Nil(t, summary)
+	require.Nil(t, tx)
 }
 
 func TestQueryWithNullables(t *testing.T) {

@@ -507,7 +507,7 @@ func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, params map[string]interface{
 
 			valuesByColID[pkCol.id] = &Number{val: table.maxPK}
 
-			tx.summary.LastInsertedPKs[table.name] = table.maxPK
+			tx.lastInsertedPKs[table.name] = table.maxPK
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
@@ -678,7 +678,7 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		}
 	}
 
-	tx.summary.UpdatedRows++
+	tx.updatedRows++
 
 	return nil
 }
@@ -1022,7 +1022,7 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, params map[string]interface{
 			return err
 		}
 
-		tx.summary.UpdatedRows++
+		tx.updatedRows++
 	}
 
 	return nil

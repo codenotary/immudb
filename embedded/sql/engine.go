@@ -105,18 +105,16 @@ type SQLTx struct {
 	currentDB *Database
 	catalog   *Catalog // in-mem catalog
 
-	summary *ExecSummary
+	explicitClose bool
+
+	updatedRows     int
+	lastInsertedPKs map[string]int64
+
+	txHeader *store.TxHeader // header is set once tx is committed
 
 	closed bool
 
 	mutex sync.RWMutex
-}
-
-type ExecSummary struct {
-	TxHeader *store.TxHeader
-
-	UpdatedRows     int
-	LastInsertedPKs map[string]int64
 }
 
 func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
@@ -190,13 +188,11 @@ func (e *Engine) NewTx() (*SQLTx, error) {
 	}
 
 	return &SQLTx{
-		engine:    e,
-		tx:        tx,
-		catalog:   catalog,
-		currentDB: currentDB,
-		summary: &ExecSummary{
-			LastInsertedPKs: make(map[string]int64),
-		},
+		engine:          e,
+		tx:              tx,
+		catalog:         catalog,
+		currentDB:       currentDB,
+		lastInsertedPKs: make(map[string]int64),
 	}, nil
 }
 
@@ -215,10 +211,6 @@ func (sqlTx *SQLTx) Database() (*Database, error) {
 	sqlTx.mutex.RLock()
 	defer sqlTx.mutex.RUnlock()
 
-	if sqlTx.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	return sqlTx.currentDB, nil
 }
 
@@ -228,6 +220,39 @@ func (sqlTx *SQLTx) sqlPrefix() []byte {
 
 func (sqlTx *SQLTx) distinctLimit() int {
 	return sqlTx.engine.distinctLimit
+}
+
+func (sqlTx *SQLTx) UpdatedRows() int {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
+
+	return sqlTx.updatedRows
+}
+
+func (sqlTx *SQLTx) LastInsertedPK(table string) int64 {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
+
+	pk, ok := sqlTx.lastInsertedPKs[table]
+	if !ok {
+		return 0
+	}
+
+	return pk
+}
+
+func (sqlTx *SQLTx) TxHeader() *store.TxHeader {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
+
+	return sqlTx.txHeader
+}
+
+func (sqlTx *SQLTx) Closed() bool {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
+
+	return sqlTx.closed
 }
 
 func (sqlTx *SQLTx) newKeyReader(rSpec *store.KeyReaderSpec) (*store.KeyReader, error) {
@@ -1023,7 +1048,7 @@ func (sqlTx *SQLTx) Cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) Commit() (*ExecSummary, error) {
+func (sqlTx *SQLTx) Commit() (*SQLTx, error) {
 	sqlTx.mutex.Lock()
 	defer sqlTx.mutex.Unlock()
 
@@ -1034,16 +1059,13 @@ func (sqlTx *SQLTx) Commit() (*ExecSummary, error) {
 	sqlTx.closed = true
 
 	hdr, err := sqlTx.tx.Commit()
-	if err == store.ErrorNoEntriesProvided {
-		return &ExecSummary{}, nil
-	}
-	if err != nil {
+	if err != nil && err != store.ErrorNoEntriesProvided {
 		return nil, err
 	}
 
-	sqlTx.summary.TxHeader = hdr
+	sqlTx.txHeader = hdr
 
-	return sqlTx.summary, nil
+	return sqlTx, nil
 }
 
 func (sqlTx *SQLTx) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
@@ -1151,11 +1173,11 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	return nparams, nil
 }
 
-func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (*ExecSummary, error) {
+func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (*SQLTx, error) {
 	return e.Exec(strings.NewReader(sql), params)
 }
 
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*ExecSummary, error) {
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*SQLTx, error) {
 	stmts, err := Parse(sql)
 	if err != nil {
 		return nil, err
@@ -1164,16 +1186,20 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*ExecSu
 	return e.ExecPreparedStmts(stmts, params)
 }
 
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (*ExecSummary, error) {
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (*SQLTx, error) {
 	tx, err := e.NewTx()
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Cancel()
 
 	err = tx.ExecPreparedStmts(stmts, params)
 	if err != nil {
+		tx.Cancel()
 		return nil, err
+	}
+
+	if tx.explicitClose {
+		return tx, nil
 	}
 
 	return tx.Commit()
