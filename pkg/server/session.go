@@ -8,7 +8,6 @@ import (
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/rs/xid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -46,14 +45,7 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
-	newSession := sessions.NewSession(u, databaseID)
-
-	sessionID := xid.New().String()
-	if s.SessManager.SessionPresent(sessionID) {
-		return nil, ErrSessionAlreadyPresent
-	}
-
-	s.SessManager.AddSession(sessionID, newSession)
+	sessionID := s.SessManager.NewSession(u, databaseID)
 
 	return &schema.OpenSessionResponse{
 		SessionID:  sessionID,
@@ -69,7 +61,7 @@ func (s *ImmuServer) CloseSession(ctx context.Context, e *empty.Empty) (*empty.E
 	if err != nil {
 		return nil, err
 	}
-	s.SessManager.RemoveSession(sessionID)
+	s.SessManager.DeleteSession(sessionID)
 	s.Logger.Debugf("closing session %s", sessionID)
 	return new(empty.Empty), nil
 }

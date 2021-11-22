@@ -23,3 +23,4 @@ import (
 var ErrSessionAlreadyPresent = errors.New("session already present").WithCode(errors.CodInternalError)
 var ErrNoSessionIDPresent = errors.New("no sessionID provided").WithCode(errors.CodInvalidAuthorizationSpecification)
 var ErrNoSessionAuthDataProvided = errors.New("no session auth data provided").WithCode(errors.CodInvalidAuthorizationSpecification)
+var ErrSessionNotFound = errors.New("no session found").WithCode(errors.CodInvalidParameterValue)

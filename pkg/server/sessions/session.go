@@ -19,7 +19,9 @@ package sessions
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/transactions"
+	"github.com/rs/xid"
 	"google.golang.org/grpc/metadata"
 	"sync"
 	"time"
@@ -35,6 +37,7 @@ const (
 
 type Session struct {
 	sync.Mutex
+	id                 string
 	state              Status
 	user               *auth.User
 	databaseID         int64
@@ -42,19 +45,22 @@ type Session struct {
 	lastActivityTime   time.Time
 	lastHeartBeat      time.Time
 	readWriteTxOngoing bool
-	transactions       map[string]*transactions.Transaction
+	transactions       map[string]transactions.Transaction
+	log                logger.Logger
 }
 
-func NewSession(user *auth.User, databaseID int64) *Session {
+func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.Logger) *Session {
 	now := time.Now()
 	return &Session{
+		id:               sessionID,
 		state:            ACTIVE,
 		user:             user,
 		databaseID:       databaseID,
 		creationTime:     now,
 		lastActivityTime: now,
 		lastHeartBeat:    now,
-		transactions:     make(map[string]*transactions.Transaction),
+		transactions:     make(map[string]transactions.Transaction),
+		log:              log,
 	}
 }
 
@@ -125,19 +131,30 @@ func (s *Session) TransactionPresent(transactionID string) bool {
 	return false
 }
 
-func (s *Session) RemoveTransaction(transactionID string) {
+func (s *Session) DeleteTransactions() {
 	s.Lock()
 	defer s.Unlock()
-	delete(s.transactions, transactionID)
+	for _, tx := range s.transactions {
+		tx.Delete()
+	}
+}
+
+func (s *Session) NewTransaction(readWrite bool) transactions.Transaction {
+	s.Lock()
+	defer s.Unlock()
+	transactionID := xid.New().String()
+	tx := transactions.NewTransaction(transactionID, readWrite, s.log)
+	s.transactions[transactionID] = tx
+	return tx
 }
 
 func (s *Session) AddTransaction(transactionID string, readWrite bool) {
 	s.Lock()
 	defer s.Unlock()
-	s.transactions[transactionID] = &transactions.Transaction{ReadWrite: readWrite}
+	s.transactions[transactionID] = transactions.NewTransaction(transactionID, readWrite, s.log)
 }
 
-func (s *Session) GetTransaction(transactionID string) *transactions.Transaction {
+func (s *Session) GetTransaction(transactionID string) transactions.Transaction {
 	s.Lock()
 	defer s.Unlock()
 	return s.transactions[transactionID]

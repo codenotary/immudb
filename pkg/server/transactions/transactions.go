@@ -16,6 +16,52 @@ limitations under the License.
 
 package transactions
 
-type Transaction struct {
-	ReadWrite bool
+import (
+	"github.com/codenotary/immudb/pkg/logger"
+	"sync"
+)
+
+type transaction struct {
+	sync.Mutex
+	transactionID     string
+	log               logger.Logger
+	readWrite         bool
+	onDeleteCallbacks map[string]func() error
+}
+
+type Transaction interface {
+	GetID() string
+	AddOnDeleteCallback(name string, f func() error)
+	Delete()
+}
+
+func NewTransaction(transactionID string, readWrite bool, log logger.Logger) *transaction {
+	return &transaction{
+		transactionID:     transactionID,
+		log:               log,
+		readWrite:         readWrite,
+		onDeleteCallbacks: make(map[string]func() error),
+	}
+}
+
+func (tx *transaction) GetID() string {
+	return tx.transactionID
+}
+
+func (tx *transaction) AddOnDeleteCallback(name string, f func() error) {
+	tx.Lock()
+	defer tx.Unlock()
+	tx.onDeleteCallbacks[name] = f
+}
+
+func (tx *transaction) Delete() {
+	tx.Lock()
+	defer tx.Unlock()
+	for cName, c := range tx.onDeleteCallbacks {
+		go func(callbackName string, callback func() error) {
+			if err := callback(); err != nil {
+				tx.log.Errorf("error on callback %s on transaction ID %s: %v", callbackName, tx.transactionID, err)
+			}
+		}(cName, c)
+	}
 }

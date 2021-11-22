@@ -21,7 +21,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/rs/xid"
 )
 
 func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
@@ -36,9 +35,17 @@ func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest
 		}
 		s.SessManager.GetSession(sessionID).SetReadWriteTxOngoing(true)
 	}
-	txID := xid.New().String()
-	sess.AddTransaction(txID, request.ReadWrite)
-	return &schema.BeginTxResponse{TransactionID: txID}, nil
+
+	tx := sess.NewTransaction(request.ReadWrite)
+
+	rollback := func() error {
+		println("ROLLBACK!")
+		return nil
+	}
+
+	tx.AddOnDeleteCallback("rollback", rollback)
+
+	return &schema.BeginTxResponse{TransactionID: tx.GetID()}, nil
 }
 
 func (s *ImmuServer) TxScanner(ctx context.Context, request *schema.TxScannerRequest) (*schema.TxScanneReponse, error) {

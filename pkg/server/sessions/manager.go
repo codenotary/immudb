@@ -17,8 +17,10 @@ limitations under the License.
 package sessions
 
 import (
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/rs/xid"
 	"os"
 	"sync"
 	"time"
@@ -41,9 +43,9 @@ type manager struct {
 }
 
 type Manager interface {
+	NewSession(user *auth.User, databaseID int64) string
 	SessionPresent(sessionID string) bool
-	AddSession(sessionID string, sess *Session)
-	RemoveSession(sessionID string)
+	DeleteSession(sessionID string) error
 	UpdateSessionActivityTime(sessionID string)
 	UpdateHeartBeatTime(sessionID string)
 	StartSessionsGuard() error
@@ -68,6 +70,15 @@ func NewManager(options *Options) *manager {
 	return guard
 }
 
+func (sm *manager) NewSession(user *auth.User, databaseID int64) string {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+	sessionID := xid.New().String()
+	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger)
+	sm.logger.Debugf("created session %s", sessionID)
+	return sessionID
+}
+
 func (sm *manager) SessionPresent(sessionID string) bool {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
@@ -77,11 +88,15 @@ func (sm *manager) SessionPresent(sessionID string) bool {
 	return false
 }
 
-func (sm *manager) AddSession(sessionID string, sess *Session) {
+func (sm *manager) AddSession(sessionID string, sess *Session) error {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
+	if sm.SessionPresent(sessionID) {
+		return ErrSessionAlreadyPresent
+	}
 	sm.sessions[sessionID] = sess
 	sm.logger.Debugf("created session %s", sessionID)
+	return nil
 }
 
 func (sm *manager) GetSession(sessionID string) *Session {
@@ -90,10 +105,16 @@ func (sm *manager) GetSession(sessionID string) *Session {
 	return sm.sessions[sessionID]
 }
 
-func (sm *manager) RemoveSession(sessionID string) {
+func (sm *manager) DeleteSession(sessionID string) error {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
+	sess, ok := sm.sessions[sessionID]
+	if !ok {
+		return ErrSessionNotFound
+	}
+	sess.DeleteTransactions()
 	delete(sm.sessions, sessionID)
+	return nil
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
@@ -180,7 +201,7 @@ func (sm *manager) expireSessions() {
 				}
 			}
 			if sess.state == DEAD {
-				sm.RemoveSession(ID)
+				sm.DeleteSession(ID)
 				sm.logger.Debugf("removed DEAD session %s", ID)
 			}
 		}
