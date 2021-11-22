@@ -113,54 +113,18 @@ const (
 	RightJoin
 )
 
-type TxSummary struct {
-	db *Database
-
-	ces []*store.EntrySpec
-	des []*store.EntrySpec
-
-	updatedRows     int
-	lastInsertedPKs map[string]int64
-}
-
-func newTxSummary(db *Database) *TxSummary {
-	return &TxSummary{
-		db:              db,
-		lastInsertedPKs: make(map[string]int64),
-	}
-}
-
-func (s *TxSummary) add(summary *TxSummary) error {
-	if summary == nil {
-		return ErrIllegalArguments
-	}
-
-	s.db = summary.db
-
-	s.updatedRows += summary.updatedRows
-
-	s.ces = append(s.ces, summary.ces...)
-	s.des = append(s.des, summary.des...)
-
-	for t, pk := range summary.lastInsertedPKs {
-		s.lastInsertedPKs[t] = pk
-	}
-
-	return nil
-}
-
 type SQLStmt interface {
-	compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error
-	inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error
+	compileUsing(tx *SQLTx, params map[string]interface{}) error
+	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
 }
 
 type TxStmt struct {
 	stmts []SQLStmt
 }
 
-func (stmt *TxStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *TxStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	for _, stmt := range stmt.stmts {
-		err := stmt.inferParameters(tx, implicitDB, params)
+		err := stmt.inferParameters(tx, params)
 		if err != nil {
 			return err
 		}
@@ -169,9 +133,9 @@ func (stmt *TxStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[
 	return nil
 }
 
-func (stmt *TxStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *TxStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	for _, stmt := range stmt.stmts {
-		err := stmt.compileUsing(tx, implicitDB, params)
+		err := stmt.compileUsing(tx, params)
 		if err != nil {
 			return err
 		}
@@ -184,11 +148,11 @@ type CreateDatabaseStmt struct {
 	DB string
 }
 
-func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateDatabaseStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *CreateDatabaseStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	id := uint32(len(tx.catalog.dbsByID) + 1)
 
 	db, err := tx.catalog.newDatabase(id, stmt.DB)
@@ -208,11 +172,11 @@ type UseDatabaseStmt struct {
 	DB string
 }
 
-func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseDatabaseStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *UseDatabaseStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	return tx.useDatabase(stmt.DB)
 }
 
@@ -221,11 +185,11 @@ type UseSnapshotStmt struct {
 	asBefore uint64
 }
 
-func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseSnapshotStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *UseSnapshotStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	return ErrNoSupported
 }
 
@@ -236,26 +200,26 @@ type CreateTableStmt struct {
 	pkColNames  []string
 }
 
-func (stmt *CreateTableStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *CreateTableStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	if implicitDB == nil {
+func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
-	if stmt.ifNotExists && implicitDB.ExistTable(stmt.table) {
+	if stmt.ifNotExists && tx.currentDB.ExistTable(stmt.table) {
 		return nil
 	}
 
-	table, err := implicitDB.newTable(stmt.table, stmt.colsSpec)
+	table, err := tx.currentDB.newTable(stmt.table, stmt.colsSpec)
 	if err != nil {
 		return err
 	}
 
 	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
-	err = createIndexStmt.compileUsing(tx, implicitDB, params)
+	err = createIndexStmt.compileUsing(tx, params)
 	if err != nil {
 		return err
 	}
@@ -283,7 +247,7 @@ func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, implicitDB *Database, param
 		mappedKey := mapKey(
 			tx.sqlPrefix(),
 			catalogColumnPrefix,
-			EncodeID(implicitDB.id),
+			EncodeID(tx.currentDB.id),
 			EncodeID(table.id),
 			EncodeID(col.id),
 			[]byte(col.colType),
@@ -295,7 +259,7 @@ func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, implicitDB *Database, param
 		}
 	}
 
-	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id))
+	mappedKey := mapKey(tx.sqlPrefix(), catalogTablePrefix, EncodeID(tx.currentDB.id), EncodeID(table.id))
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
@@ -320,11 +284,11 @@ type CreateIndexStmt struct {
 	cols        []string
 }
 
-func (stmt *CreateIndexStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *CreateIndexStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	if len(stmt.cols) < 1 {
 		return ErrIllegalArguments
 	}
@@ -333,11 +297,11 @@ func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, implicitDB *Database, param
 		return ErrMaxNumberOfColumnsInIndexExceeded
 	}
 
-	if implicitDB == nil {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
-	table, err := implicitDB.GetTableByName(stmt.table)
+	table, err := tx.currentDB.GetTableByName(stmt.table)
 	if err != nil {
 		return err
 	}
@@ -406,11 +370,11 @@ type AddColumnStmt struct {
 	colSpec *ColSpec
 }
 
-func (stmt *AddColumnStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *AddColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *AddColumnStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
+func (stmt *AddColumnStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
 	return ErrNoSupported
 }
 
@@ -425,14 +389,18 @@ type RowSpec struct {
 	Values []ValueExp
 }
 
-func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	if tx.currentDB == nil {
+		return ErrNoDatabaseSelected
+	}
+
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
 			return ErrIllegalArguments
 		}
 
 		for i, val := range row.Values {
-			table, err := stmt.tableRef.referencedTable(tx, implicitDB)
+			table, err := stmt.tableRef.referencedTable(tx)
 			if err != nil {
 				return err
 			}
@@ -442,7 +410,7 @@ func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, implicitDB *Database, par
 				return err
 			}
 
-			err = val.requiresType(col.colType, make(map[string]ColDescriptor), params, implicitDB.name, table.name)
+			err = val.requiresType(col.colType, make(map[string]ColDescriptor), params, tx.currentDB.name, table.name)
 			if err != nil {
 				return err
 			}
@@ -472,12 +440,12 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 	return selPosByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	if implicitDB == nil {
+func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
-	table, err := stmt.tableRef.referencedTable(tx, implicitDB)
+	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return err
 	}
@@ -514,7 +482,7 @@ func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, implicitDB *Database, params
 				return err
 			}
 
-			rval, err := val.reduce(tx.catalog, nil, implicitDB.name, table.name)
+			rval, err := val.reduce(tx.catalog, nil, tx.currentDB.name, table.name)
 			if err != nil {
 				return err
 			}
@@ -691,7 +659,7 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 			encodedValues[i+3] = encVal
 		}
 
-		mKey := mapKey(tx.sqlPrefix(), prefix, encodedValues...)
+		mkey := mapKey(tx.sqlPrefix(), prefix, encodedValues...)
 
 		if index.IsUnique() {
 			// mkey must not exist
@@ -704,7 +672,7 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 			}
 		}
 
-		err = tx.set(mKey, nil, val)
+		err = tx.set(mkey, nil, val)
 		if err != nil {
 			return err
 		}
@@ -852,18 +820,22 @@ type colUpdate struct {
 	val ValueExp
 }
 
-func (stmt *UpdateStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *UpdateStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	if tx.currentDB == nil {
+		return ErrNoDatabaseSelected
+	}
+
 	selectStmt := &SelectStmt{
 		ds:    stmt.tableRef,
 		where: stmt.where,
 	}
 
-	err := selectStmt.inferParameters(tx, implicitDB, params)
+	err := selectStmt.inferParameters(tx, params)
 	if err != nil {
 		return err
 	}
 
-	table, err := stmt.tableRef.referencedTable(tx, implicitDB)
+	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return err
 	}
@@ -874,7 +846,7 @@ func (stmt *UpdateStmt) inferParameters(tx *SQLTx, implicitDB *Database, params 
 			return err
 		}
 
-		err = update.val.requiresType(col.colType, make(map[string]ColDescriptor), params, implicitDB.name, table.name)
+		err = update.val.requiresType(col.colType, make(map[string]ColDescriptor), params, tx.currentDB.name, table.name)
 		if err != nil {
 			return err
 		}
@@ -911,8 +883,8 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 	return nil
 }
 
-func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	if implicitDB == nil {
+func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
@@ -923,7 +895,7 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 		limit:   stmt.limit,
 	}
 
-	rowReader, err := selectStmt.Resolve(tx, implicitDB, params, nil)
+	rowReader, err := selectStmt.Resolve(tx, params, nil)
 	if err != nil {
 		return err
 	}
@@ -999,16 +971,16 @@ type DeleteFromStmt struct {
 	limit    int
 }
 
-func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	selectStmt := &SelectStmt{
 		ds:    stmt.tableRef,
 		where: stmt.where,
 	}
-	return selectStmt.inferParameters(tx, implicitDB, params)
+	return selectStmt.inferParameters(tx, params)
 }
 
-func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	if implicitDB == nil {
+func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
@@ -1019,7 +991,7 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, implicitDB *Database, params
 		limit:   stmt.limit,
 	}
 
-	rowReader, err := selectStmt.Resolve(tx, implicitDB, params, nil)
+	rowReader, err := selectStmt.Resolve(tx, params, nil)
 	if err != nil {
 		return err
 	}
@@ -1685,8 +1657,8 @@ const (
 )
 
 type DataSource interface {
-	inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error
-	Resolve(tx *SQLTx, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
+	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
+	Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
 
@@ -1714,14 +1686,14 @@ func (stmt *SelectStmt) Limit() int {
 	return stmt.limit
 }
 
-func (stmt *SelectStmt) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
-	err := stmt.compileUsing(tx, implicitDB, nil)
+func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	err := stmt.compileUsing(tx, nil)
 	if err != nil {
 		return err
 	}
 
 	// TODO (jeroiraz) may be optimized so to resolve the query statement just once
-	rowReader, err := stmt.Resolve(tx, implicitDB, nil, nil)
+	rowReader, err := stmt.Resolve(tx, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -1730,8 +1702,8 @@ func (stmt *SelectStmt) inferParameters(tx *SQLTx, implicitDB *Database, params 
 	return rowReader.InferParameters(params)
 }
 
-func (stmt *SelectStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map[string]interface{}) error {
-	if implicitDB == nil {
+func (stmt *SelectStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
 
@@ -1753,7 +1725,7 @@ func (stmt *SelectStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 			return ErrLimitedOrderBy
 		}
 
-		table, err := tableRef.referencedTable(tx, implicitDB)
+		table, err := tableRef.referencedTable(tx)
 		if err != nil {
 			return err
 		}
@@ -1772,19 +1744,19 @@ func (stmt *SelectStmt) compileUsing(tx *SQLTx, implicitDB *Database, params map
 	return nil
 }
 
-func (stmt *SelectStmt) Resolve(tx *SQLTx, implicitDB *Database, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
-	scanSpecs, err := stmt.genScanSpecs(tx, implicitDB, params)
+func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err = stmt.ds.Resolve(tx, implicitDB, params, scanSpecs)
+	rowReader, err = stmt.ds.Resolve(tx, params, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = newJointRowReader(rowReader, stmt.joins, implicitDB, params)
+		rowReader, err = newJointRowReader(rowReader, stmt.joins, params)
 		if err != nil {
 			return nil, err
 		}
@@ -1851,13 +1823,13 @@ func (stmt *SelectStmt) Alias() string {
 	return stmt.as
 }
 
-func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, implicitDB *Database, params map[string]interface{}) (*ScanSpecs, error) {
+func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (*ScanSpecs, error) {
 	tableRef, isTableRef := stmt.ds.(*tableRef)
 	if !isTableRef {
 		return nil, nil
 	}
 
-	table, err := tableRef.referencedTable(tx, implicitDB)
+	table, err := tableRef.referencedTable(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -1939,7 +1911,7 @@ type tableRef struct {
 	as       string
 }
 
-func (stmt *tableRef) referencedTable(tx *SQLTx, implicitDB *Database) (*Table, error) {
+func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
 	var db *Database
 
 	if stmt.db != "" {
@@ -1952,11 +1924,11 @@ func (stmt *tableRef) referencedTable(tx *SQLTx, implicitDB *Database) (*Table, 
 	}
 
 	if db == nil {
-		if implicitDB == nil {
+		if tx.currentDB == nil {
 			return nil, ErrNoDatabaseSelected
 		}
 
-		db = implicitDB
+		db = tx.currentDB
 	}
 
 	table, err := db.GetTableByName(stmt.table)
@@ -1967,16 +1939,16 @@ func (stmt *tableRef) referencedTable(tx *SQLTx, implicitDB *Database) (*Table, 
 	return table, nil
 }
 
-func (stmt *tableRef) inferParameters(tx *SQLTx, implicitDB *Database, params map[string]SQLValueType) error {
+func (stmt *tableRef) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *tableRef) Resolve(tx *SQLTx, implicitDB *Database, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
 	if tx == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	table, err := stmt.referencedTable(tx, implicitDB)
+	table, err := stmt.referencedTable(tx)
 	if err != nil {
 		return nil, err
 	}

@@ -29,16 +29,20 @@ func newLimitRowReader(rowReader RowReader, limit int) (*limitRowReader, error) 
 	}, nil
 }
 
+func (lr *limitRowReader) onClose(callback func()) {
+	lr.rowReader.onClose(callback)
+}
+
 func (lr *limitRowReader) Tx() *SQLTx {
 	return lr.rowReader.Tx()
 }
 
-func (lr *limitRowReader) ImplicitDB() string {
-	return lr.rowReader.ImplicitDB()
+func (lr *limitRowReader) Database() *Database {
+	return lr.rowReader.Database()
 }
 
-func (lr *limitRowReader) ImplicitTable() string {
-	return lr.rowReader.ImplicitTable()
+func (lr *limitRowReader) TableAlias() string {
+	return lr.rowReader.TableAlias()
 }
 
 func (lr *limitRowReader) SetParameters(params map[string]interface{}) error {

@@ -25,8 +25,8 @@ import (
 
 type RowReader interface {
 	Tx() *SQLTx
-	ImplicitDB() string
-	ImplicitTable() string
+	Database() *Database
+	TableAlias() string
 	SetParameters(params map[string]interface{}) error
 	Read() (*Row, error)
 	Close() error
@@ -35,6 +35,7 @@ type RowReader interface {
 	ScanSpecs() *ScanSpecs
 	InferParameters(params map[string]SQLValueType) error
 	colsBySelector() (map[string]ColDescriptor, error)
+	onClose(func())
 }
 
 type Row struct {
@@ -98,14 +99,15 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 }
 
 type rawRowReader struct {
-	tx         *SQLTx
-	table      *Table
-	asBefore   uint64
-	tableAlias string
-	colsByPos  []ColDescriptor
-	colsBySel  map[string]ColDescriptor
-	scanSpecs  *ScanSpecs
-	reader     *store.KeyReader
+	tx              *SQLTx
+	table           *Table
+	asBefore        uint64
+	tableAlias      string
+	colsByPos       []ColDescriptor
+	colsBySel       map[string]ColDescriptor
+	scanSpecs       *ScanSpecs
+	reader          *store.KeyReader
+	onCloseCallback func()
 }
 
 type ColDescriptor struct {
@@ -277,15 +279,19 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 	}, nil
 }
 
+func (r *rawRowReader) onClose(callback func()) {
+	r.onCloseCallback = callback
+}
+
 func (r *rawRowReader) Tx() *SQLTx {
 	return r.tx
 }
 
-func (r *rawRowReader) ImplicitDB() string {
-	return r.table.db.name
+func (r *rawRowReader) Database() *Database {
+	return r.table.db
 }
 
-func (r *rawRowReader) ImplicitTable() string {
+func (r *rawRowReader) TableAlias() string {
 	return r.tableAlias
 }
 
@@ -426,5 +432,9 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 }
 
 func (r *rawRowReader) Close() error {
+	if r.onCloseCallback != nil {
+		r.onCloseCallback()
+	}
+
 	return r.reader.Close()
 }

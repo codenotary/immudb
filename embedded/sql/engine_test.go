@@ -366,23 +366,23 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("varchar key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title123456789', true, x'00A1')", nil)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title123456789', true, x'00A1')", nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 10, true, '00A1')", nil)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 10, true, '00A1')", nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
 	t.Run("boolean key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', 'true', x'00A1')", nil)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', 'true', x'00A1')", nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
 	t.Run("blob key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A100A2')", nil)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, x'00A100A2')", nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, '00A100A2')", nil)
+		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, '00A100A2')", nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 }
@@ -633,6 +633,7 @@ func TestUpdate(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
 func TestTransactions(t *testing.T) {
 	st, err := store.Open("sqldata_tx", store.DefaultOptions())
 	require.NoError(t, err)
@@ -683,7 +684,7 @@ func TestTransactions(t *testing.T) {
 			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40);
 		COMMIT
 		`, nil)
-	require.Equal(t, ErrDDLorDMLTxOnly, err)
+	require.NoError(t, err)
 }
 
 func TestUseSnapshot(t *testing.T) {
@@ -868,7 +869,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
-	require.Equal(t, ErrCatalogNotReady, err)
+	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
 	require.NoError(t, err)
@@ -949,8 +950,8 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.ImplicitDB())
-		require.Equal(t, "table1", r.ImplicitTable())
+		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "table1", r.TableAlias())
 
 		cols, err := r.Columns()
 		require.NoError(t, err)
@@ -999,8 +1000,8 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.ImplicitDB())
-		require.Equal(t, "mytable1", r.ImplicitTable())
+		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "mytable1", r.TableAlias())
 
 		cols, err := r.Columns()
 		require.NoError(t, err)
@@ -1037,8 +1038,8 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.ImplicitDB())
-		require.Equal(t, "mytable1", r.ImplicitTable())
+		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "mytable1", r.TableAlias())
 
 		cols, err := r.Columns()
 		require.NoError(t, err)
@@ -1454,7 +1455,7 @@ func TestIndexing(t *testing.T) {
 
 	t.Run("should fail due to unique index", func(t *testing.T) {
 		_, err = engine.ExecStmt("INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil)
-		require.ErrorIs(t, err, store.ErrDuplicatedKey)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 	})
 
 	t.Run("should fail due non-available index", func(t *testing.T) {
@@ -3135,20 +3136,27 @@ func TestInferParameters(t *testing.T) {
 
 	stmt := "CREATE DATABASE db1"
 
-	_, err = engine.InferParameters(stmt)
-	require.ErrorIs(t, err, ErrCatalogNotReady)
+	params, err := engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Empty(t, params)
 
-	_, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
-	require.ErrorIs(t, err, ErrCatalogNotReady)
+	params, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
+	require.NoError(t, err)
+	require.Empty(t, params)
 
-	_, err = engine.InferParameters(stmt)
-	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+	params, err = engine.InferParameters(stmt)
+	require.NoError(t, err)
+	require.Empty(t, params)
 
-	_, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
-	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+	params, err = engine.InferParametersPreparedStmt(&CreateDatabaseStmt{})
+	require.NoError(t, err)
+	require.Empty(t, params)
 
 	_, err = engine.ExecStmt(stmt, nil)
 	require.NoError(t, err)
+
+	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@id, @title);")
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
@@ -3159,7 +3167,7 @@ func TestInferParameters(t *testing.T) {
 	_, err = engine.InferParametersPreparedStmt(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	params, err := engine.InferParameters(stmt)
+	params, err = engine.InferParameters(stmt)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 

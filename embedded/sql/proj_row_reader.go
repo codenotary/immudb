@@ -50,17 +50,21 @@ func newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []S
 	}, nil
 }
 
+func (pr *projectedRowReader) onClose(callback func()) {
+	pr.rowReader.onClose(callback)
+}
+
 func (pr *projectedRowReader) Tx() *SQLTx {
 	return pr.rowReader.Tx()
 }
 
-func (pr *projectedRowReader) ImplicitDB() string {
-	return pr.rowReader.ImplicitDB()
+func (pr *projectedRowReader) Database() *Database {
+	return pr.rowReader.Database()
 }
 
-func (pr *projectedRowReader) ImplicitTable() string {
+func (pr *projectedRowReader) TableAlias() string {
 	if pr.tableAlias == "" {
-		return pr.rowReader.ImplicitTable()
+		return pr.rowReader.TableAlias()
 	}
 
 	return pr.tableAlias
@@ -83,10 +87,10 @@ func (pr *projectedRowReader) Columns() ([]ColDescriptor, error) {
 	colsByPos := make([]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
 
 		if pr.tableAlias != "" {
-			db = pr.ImplicitDB()
+			db = pr.Database().Name()
 			table = pr.tableAlias
 		}
 
@@ -126,7 +130,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 	colDescriptors := make(map[string]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
@@ -136,7 +140,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		}
 
 		if pr.tableAlias != "" {
-			db = pr.ImplicitDB()
+			db = pr.Database().Name()
 			table = pr.tableAlias
 		}
 
@@ -185,7 +189,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	}
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
@@ -195,7 +199,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 		}
 
 		if pr.tableAlias != "" {
-			db = pr.ImplicitDB()
+			db = pr.Database().Name()
 			table = pr.tableAlias
 		}
 
