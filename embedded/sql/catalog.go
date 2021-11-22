@@ -33,17 +33,18 @@ type Database struct {
 }
 
 type Table struct {
-	db              *Database
-	id              uint32
-	name            string
-	cols            []*Column
-	colsByID        map[uint32]*Column
-	colsByName      map[string]*Column
-	indexes         map[string]*Index
-	indexesByColID  map[uint32][]*Index
-	primaryIndex    *Index
-	autoIncrementPK bool
-	maxPK           int64
+	db               *Database
+	id               uint32
+	name             string
+	cols             []*Column
+	colsByID         map[uint32]*Column
+	colsByName       map[string]*Column
+	indexes          map[string]*Index
+	indexesByColID   map[uint32][]*Index
+	primaryIndex     *Index
+	autoIncrementPK  bool
+	autoIncrementCol *Column
+	maxPK            int64
 }
 
 type Index struct {
@@ -383,12 +384,21 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	// having a direct way to get the indexes by colID
 	for _, col := range index.cols {
 		t.indexesByColID[col.id] = append(t.indexesByColID[col.id], index)
+
+		if col.autoIncrement {
+			// cannot technically happen if the table creation, was properly handled. But it's better to handle the error
+			if t.autoIncrementPK {
+				return nil, ErrAutoIncrementMultiple
+			}
+			t.autoIncrementPK = true
+			t.autoIncrementCol = col
+		}
 	}
 
 	if index.id == PKIndexID {
 		t.primaryIndex = index
-		t.autoIncrementPK = len(index.cols) == 1 && index.cols[0].autoIncrement
 	}
+
 
 	t.db.catalog.mutated = true
 

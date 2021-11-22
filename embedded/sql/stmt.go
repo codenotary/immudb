@@ -276,8 +276,20 @@ func (stmt *CreateTableStmt) compileUsing(e *Engine, implicitDB *Database, param
 		v := make([]byte, 1+4+len(col.colName))
 
 		if col.autoIncrement {
+			// in case the auto incremental key is not a primary key
 			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
-				return nil, ErrLimitedAutoIncrement
+				// creates a new unique index
+				createAutoIncrementIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: []string{col.colName}}
+				autoIncrementIndexSummary, err := createAutoIncrementIndexStmt.compileUsing(e, implicitDB, params)
+
+				if err != nil {
+					return nil, err
+				}
+
+				err = summary.add(autoIncrementIndexSummary)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			v[0] = v[0] | autoIncrementFlag
@@ -551,9 +563,7 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 			table.maxPK++
 			e.catalog.mutated = true // TODO: implement transactional in-memory catalog
 
-			pkCol := table.primaryIndex.cols[0]
-
-			valuesByColID[pkCol.id] = &Number{val: table.maxPK}
+			valuesByColID[table.autoIncrementCol.id] = &Number{val: table.maxPK}
 
 			summary.lastInsertedPKs[table.name] = table.maxPK
 		}
@@ -696,6 +706,8 @@ func (stmt *UpsertIntoStmt) compileUsing(e *Engine, implicitDB *Database, params
 
 		summary.updatedRows++
 	}
+
+
 
 	return summary, nil
 }
