@@ -33,13 +33,16 @@ func TestJointRowReader(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = newJointRowReader(nil, nil, nil, nil)
+	_, err = newJointRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	tx, err := engine.NewTx()
 	require.NoError(t, err)
 
 	db, err := tx.catalog.newDatabase(1, "db1")
+	require.NoError(t, err)
+
+	err = tx.useDatabase("db1")
 	require.NoError(t, err)
 
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
@@ -53,13 +56,13 @@ func TestJointRowReader(t *testing.T) {
 	r, err := newRawRowReader(tx, table, 0, "", &ScanSpecs{index: table.primaryIndex})
 	require.NoError(t, err)
 
-	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}}, nil, nil)
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}}, nil)
 	require.Equal(t, ErrUnsupportedJoinType, err)
 
-	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}}, nil, nil)
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}}, nil)
 	require.NoError(t, err)
 
-	jr, err := newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1", as: "table2"}}}, nil, nil)
+	jr, err := newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1", as: "table2"}}}, nil)
 	require.NoError(t, err)
 
 	orderBy := jr.OrderBy()
@@ -88,7 +91,7 @@ func TestJointRowReader(t *testing.T) {
 	t.Run("corner cases", func(t *testing.T) {
 
 		t.Run("detect ambiguous selectors", func(t *testing.T) {
-			jr, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}}, db, nil)
+			jr, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}}, nil)
 			require.NoError(t, err)
 
 			_, err = jr.colsBySelector()
@@ -138,10 +141,10 @@ func TestJointRowReader(t *testing.T) {
 
 			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(tx *SQLTx, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return nil, injectedErr
 					},
-				}}}, nil, nil)
+				}}}, nil)
 			require.NoError(t, err)
 
 			cols, err := jr.colsBySelector()
@@ -153,10 +156,10 @@ func TestJointRowReader(t *testing.T) {
 
 			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(tx *SQLTx, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return &dummyRowReader{}, nil
 					},
-				}}}, nil, nil)
+				}}}, nil)
 			require.NoError(t, err)
 
 			cols, err := jr.colsBySelector()

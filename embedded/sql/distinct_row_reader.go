@@ -37,16 +37,20 @@ func newDistinctRowReader(rowReader RowReader) (*distinctRowReader, error) {
 	}, nil
 }
 
+func (dr *distinctRowReader) onClose(callback func()) {
+	dr.rowReader.onClose(callback)
+}
+
 func (dr *distinctRowReader) Tx() *SQLTx {
 	return dr.rowReader.Tx()
 }
 
-func (dr *distinctRowReader) ImplicitDB() string {
-	return dr.rowReader.ImplicitDB()
+func (dr *distinctRowReader) Database() *Database {
+	return dr.rowReader.Database()
 }
 
-func (dr *distinctRowReader) ImplicitTable() string {
-	return dr.rowReader.ImplicitTable()
+func (dr *distinctRowReader) TableAlias() string {
+	return dr.rowReader.TableAlias()
 }
 
 func (dr *distinctRowReader) SetParameters(params map[string]interface{}) error {

@@ -58,7 +58,6 @@ var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
 var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
-var ErrCatalogNotReady = errors.New("catalog not ready")
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrInvalidTypes = errors.New("invalid types")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
@@ -93,7 +92,7 @@ type Engine struct {
 	prefix        []byte
 	distinctLimit int
 
-	defaultDatabase *Database
+	defaultDatabase string
 
 	mutex sync.RWMutex
 }
@@ -151,12 +150,12 @@ func (e *Engine) SetDefaultDatabase(dbName string) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	e.defaultDatabase = db
+	e.defaultDatabase = db.name
 
 	return nil
 }
 
-func (e *Engine) DefaultDatabase() *Database {
+func (e *Engine) DefaultDatabase() string {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
@@ -179,11 +178,22 @@ func (e *Engine) NewTx() (*SQLTx, error) {
 		return nil, err
 	}
 
+	var currentDB *Database
+
+	if e.defaultDatabase != "" {
+		defaultDatabase, exists := catalog.dbsByName[e.defaultDatabase]
+		if !exists {
+			return nil, ErrDatabaseDoesNotExist
+		}
+
+		currentDB = defaultDatabase
+	}
+
 	return &SQLTx{
 		engine:    e,
 		tx:        tx,
 		catalog:   catalog,
-		currentDB: e.defaultDatabase,
+		currentDB: currentDB,
 		summary: &ExecSummary{
 			LastInsertedPKs: make(map[string]int64),
 		},
@@ -972,7 +982,7 @@ func (sqlTx *SQLTx) InferParameters(sql string) (map[string]SQLValueType, error)
 	params := make(map[string]SQLValueType)
 
 	for _, stmt := range stmts {
-		err = stmt.inferParameters(sqlTx, sqlTx.currentDB, params)
+		err = stmt.inferParameters(sqlTx, params)
 		if err != nil {
 			return nil, err
 		}
@@ -995,7 +1005,7 @@ func (sqlTx *SQLTx) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLVal
 
 	params := make(map[string]SQLValueType)
 
-	err := stmt.inferParameters(sqlTx, sqlTx.currentDB, params)
+	err := stmt.inferParameters(sqlTx, params)
 
 	return params, err
 }
@@ -1075,12 +1085,12 @@ func (sqlTx *SQLTx) QueryPreparedStmt(stmt *SelectStmt, params map[string]interf
 		return nil, err
 	}
 
-	err = stmt.compileUsing(sqlTx, sqlTx.currentDB, nparams)
+	err = stmt.compileUsing(sqlTx, nparams)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.Resolve(sqlTx, sqlTx.currentDB, nparams, nil)
+	return stmt.Resolve(sqlTx, nparams, nil)
 }
 
 func (sqlTx *SQLTx) ExecStmt(sql string, params map[string]interface{}) error {
@@ -1115,7 +1125,7 @@ func (sqlTx *SQLTx) ExecPreparedStmts(stmts []SQLStmt, params map[string]interfa
 	}
 
 	for _, stmt := range stmts {
-		err := stmt.compileUsing(sqlTx, sqlTx.currentDB, nparams)
+		err := stmt.compileUsing(sqlTx, nparams)
 		if err != nil {
 			return err
 		}
@@ -1195,9 +1205,15 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Cancel()
 
-	return tx.QueryPreparedStmt(stmt, params)
+	r, err := tx.QueryPreparedStmt(stmt, params)
+	if err != nil {
+		return nil, err
+	}
+
+	r.onClose(func() { tx.Cancel() })
+
+	return r, nil
 }
 
 func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {

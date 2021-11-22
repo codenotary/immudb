@@ -27,8 +27,8 @@ func TestDistinctRowReader(t *testing.T) {
 	rowReader, err := newDistinctRowReader(dummyr)
 	require.NoError(t, err)
 
-	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())
-	require.Equal(t, dummyr.ImplicitTable(), rowReader.ImplicitTable())
+	require.Equal(t, dummyr.Database(), rowReader.Database())
+	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
 
