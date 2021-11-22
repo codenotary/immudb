@@ -964,11 +964,7 @@ func (sqlTx *SQLTx) InferParameters(sql string) (map[string]SQLValueType, error)
 		return nil, ErrAlreadyClosed
 	}
 
-	return sqlTx.inferParametersFrom(strings.NewReader(sql))
-}
-
-func (sqlTx *SQLTx) inferParametersFrom(r io.ByteReader) (map[string]SQLValueType, error) {
-	stmts, err := Parse(r)
+	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, err
 	}
@@ -1171,4 +1167,56 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	return tx.Commit()
+}
+
+func (e *Engine) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
+	return e.Query(strings.NewReader(sql), params)
+}
+
+func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
+	stmts, err := Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+	if len(stmts) != 1 {
+		return nil, ErrExpectingDQLStmt
+	}
+
+	stmt, ok := stmts[0].(*SelectStmt)
+	if !ok {
+		return nil, ErrExpectingDQLStmt
+	}
+
+	return e.QueryPreparedStmt(stmt, params)
+}
+
+func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
+	tx, err := e.NewTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	return tx.QueryPreparedStmt(stmt, params)
+}
+
+func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
+	tx, err := e.NewTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	return tx.InferParameters(sql)
+
+}
+
+func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
+	tx, err := e.NewTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	return tx.InferParametersPreparedStmt(stmt)
 }

@@ -417,9 +417,6 @@ func TestAutoIncrementPK(t *testing.T) {
 
 	summary, err := engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil)
 	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(1), summary.DMTxs[0].ID)
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 1, summary.UpdatedRows)
@@ -435,9 +432,6 @@ func TestAutoIncrementPK(t *testing.T) {
 
 	summary, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name2')", nil)
 	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(3), summary.DMTxs[0].ID)
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 1, summary.UpdatedRows)
@@ -449,9 +443,6 @@ func TestAutoIncrementPK(t *testing.T) {
 		COMMIT
 	`, nil)
 	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(4), summary.DMTxs[0].ID)
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 2, summary.UpdatedRows)
@@ -2535,7 +2526,7 @@ func TestCount(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 3; j++ {
-			_, err = engine.ExecStmt("INSERT INTO t1(val1) VALUES($1)", map[string]interface{}{"param1": j}, true)
+			_, err = engine.ExecStmt("INSERT INTO t1(val1) VALUES($1)", map[string]interface{}{"param1": j})
 			require.NoError(t, err)
 		}
 	}
@@ -3117,7 +3108,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 		) ON r.customerid = c.id
 		WHERE c.age < 30
 		`,
-		nil, true)
+		nil)
 	require.NoError(t, err)
 
 	row, err := r.Read()
