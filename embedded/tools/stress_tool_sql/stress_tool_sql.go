@@ -48,7 +48,6 @@ type cfg struct {
 	rdCount           int
 	readDelay         int
 	readPause         int
-	readRenew         bool
 }
 
 func parseConfig() (c cfg) {
@@ -71,7 +70,6 @@ func parseConfig() (c cfg) {
 	flag.IntVar(&c.rdCount, "rdCount", 100, "number of reads for each readers")
 	flag.IntVar(&c.readDelay, "readDelay", 100, "Readers start delay (ms)")
 	flag.IntVar(&c.readPause, "readPause", 0, "Readers pause at every cycle")
-	flag.BoolVar(&c.readRenew, "readRenew", false, "renew snapshots on read")
 
 	flag.Parse()
 
@@ -155,7 +153,7 @@ func main() {
 		panic(err)
 	}
 
-	err = engine.DefaultDatabase("defaultdb")
+	err = engine.SetDefaultDatabase("defaultdb")
 	if err != nil {
 		panic(err)
 	}
@@ -219,7 +217,7 @@ func main() {
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, c.readRenew)
+				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i})
 				if err != nil {
 					log.Printf("Error querying val %d: %s", i, err.Error())
 					panic(err)
@@ -245,7 +243,7 @@ func main() {
 	wg.Wait()
 	log.Printf("All committers done...\r\n")
 
-	r, err := engine.QueryStmt("SELECT count() FROM  entries;", map[string]interface{}{}, true)
+	r, err := engine.QueryStmt("SELECT count() FROM  entries;", map[string]interface{}{})
 	if err != nil {
 		panic(err)
 	}
