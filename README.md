@@ -85,7 +85,7 @@ Your own temporary immudb web console access to start using immudb in an [online
 ## Quickstart
 
 
-### Getting immudb running
+### Getting immudb running: binary
 
 You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
@@ -101,13 +101,17 @@ chmod +x immudb
 ./immudb -d
 ```
 
-Or just use Docker to run immudb in a ready-to-use container:
+### Getting immudb running: Docker
+
+Use Docker to run immudb in a ready-to-use container:
 
 ```bash
 docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 ```
 
 If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
+
+### Getting immudb running: Kubernetes
 
 In kubernetes, use helm for an easy deployment: just add our repository and install immudb with these simple commands:
 ```bash
