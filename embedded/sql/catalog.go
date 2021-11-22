@@ -304,7 +304,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		}
 
 		if cs.autoIncrement && cs.colType != IntegerType {
-			return nil, ErrLimitedAutoIncrement
+			return nil, ErrAutoIncrementWrongType
 		}
 
 		if cs.colType == TimestampType {
