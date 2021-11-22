@@ -21,6 +21,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://www.codenotary.com/join)
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
 
 ```
 Don't forget to ⭐ this repo if you like immudb!
@@ -107,6 +108,13 @@ docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 ```
 
 If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
+
+In kubernetes, use helm for an easy deployment: just add our repository and install immudb with these simple commands:
+```bash
+helm repo add immudb https://packages.codenotary.org/helm
+helm repo update
+helm install immudb --generate-name
+```
 
 ### Enabling S3 storage
 
