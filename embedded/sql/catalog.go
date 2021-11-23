@@ -33,18 +33,19 @@ type Database struct {
 }
 
 type Table struct {
-	db               *Database
-	id               uint32
-	name             string
-	cols             []*Column
-	colsByID         map[uint32]*Column
-	colsByName       map[string]*Column
-	indexes          map[string]*Index
-	indexesByColID   map[uint32][]*Index
-	primaryIndex     *Index
-	autoIncrementPK  bool
-	autoIncrementCol *Column
-	maxPK            int64
+	db                 *Database
+	id                 uint32
+	name               string
+	cols               []*Column
+	colsByID           map[uint32]*Column
+	colsByName         map[string]*Column
+	indexes            map[string]*Index
+	indexesByColID     map[uint32][]*Index
+	primaryIndex       *Index
+	autoIncrementIndex *Index
+	autoIncrementPK    bool
+	autoIncrementCol   *Column
+	maxPK              int64
 }
 
 type Index struct {
@@ -233,6 +234,10 @@ func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
 
+func (i *Index) IsAutoIncrement() bool {
+	return len(i.cols) == 1 && i.cols[0].autoIncrement
+}
+
 func (i *Index) IsUnique() bool {
 	return i.unique
 }
@@ -392,6 +397,7 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 			}
 			t.autoIncrementPK = true
 			t.autoIncrementCol = col
+			t.autoIncrementIndex = index
 		}
 	}
 

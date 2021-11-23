@@ -583,7 +583,7 @@ func indexKeyFrom(cols []*Column) string {
 
 func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    e.mapKey(table.autoIncrementIndex.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.autoIncrementIndex.id)),
 		DescOrder: true,
 	}
 
@@ -598,7 +598,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 		return nil, err
 	}
 
-	return e.unmapIndexEntry(table.primaryIndex, mkey)
+	return e.unmapIndexEntry(table.autoIncrementIndex, mkey)
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs []*ColSpec, err error) {
@@ -848,7 +848,7 @@ func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, e
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() {
+	if !index.IsPrimary() && !index.IsAutoIncrement() {
 		//read index values
 		for _, col := range index.cols {
 			maxLen := col.MaxLen()
