@@ -64,7 +64,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
-%token BEGIN TRANSACTION COMMIT
+%token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN
@@ -93,9 +93,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left  '.'
 %right STMT_SEPARATOR
 
-%type <stmts> sql
-%type <stmts> sqlstmts dstmts
-%type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
+%type <stmts> sql sqlstmts
+%type <stmt> sqlstmt ddlstmt dqlstmt dmlstmt
 %type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids one_or_more_ids opt_ids
@@ -142,11 +141,6 @@ sqlstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    dqlstmt opt_separator
-    {
-        $$ = []SQLStmt{$1}
-    }
-|
     sqlstmt STMT_SEPARATOR sqlstmts
     {
         $$ = append([]SQLStmt{$1}, $3...)
@@ -154,31 +148,24 @@ sqlstmts:
 
 opt_separator: {} | STMT_SEPARATOR
 
-sqlstmt:
-    dstmt
-    {
-        $$ = $1
-    }
-|
-    BEGIN TRANSACTION dstmts COMMIT
-    {
-        $$ = &TxStmt{stmts: $3}
-    }
-
-dstmt: ddlstmt | dmlstmt
-
-dstmts:
-    dstmt opt_separator
-    {
-        $$ = []SQLStmt{$1}
-    }
-|
-    dstmt STMT_SEPARATOR dstmts
-    {
-        $$ = append([]SQLStmt{$1}, $3...)
-    }
+sqlstmt: ddlstmt | dmlstmt | dqlstmt
 
 ddlstmt:
+    BEGIN TRANSACTION
+    {
+        $$ = &BeginTransactionStmt{}
+    }
+|
+    COMMIT
+    {
+        $$ = &CommitStmt{}
+    }
+|
+    ROLLBACK
+    {
+        $$ = &RollbackStmt{}
+    }
+|
     CREATE DATABASE IDENTIFIER
     {
         $$ = &CreateDatabaseStmt{DB: $3}

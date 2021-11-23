@@ -20,6 +20,7 @@ var defultDistinctLimit = 1 << 20 // ~ 1mi rows
 type Options struct {
 	prefix        []byte
 	distinctLimit int
+	autocommit    bool
 }
 
 func DefaultOptions() *Options {
@@ -39,5 +40,10 @@ func (opts *Options) WithPrefix(prefix []byte) *Options {
 
 func (opts *Options) WithDistinctLimit(distinctLimit int) *Options {
 	opts.distinctLimit = distinctLimit
+	return opts
+}
+
+func (opts *Options) WithAutocommit(autocommit bool) *Options {
+	opts.autocommit = autocommit
 	return opts
 }

@@ -439,10 +439,10 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Equal(t, 1, tx.UpdatedRows())
 
 	tx, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
+		BEGIN TRANSACTION;
 			INSERT INTO table1(title) VALUES ('name3');
 			INSERT INTO table1(title) VALUES ('name4');
-		COMMIT
+		COMMIT;
 	`, nil)
 	require.NoError(t, err)
 	require.NotNil(t, tx)
@@ -659,33 +659,33 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
-			CREATE INDEX ON table2(title)
-		COMMIT
+		BEGIN TRANSACTION;
+			CREATE INDEX ON table2(title);
+		COMMIT;
 		`, nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
 	_, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
+		BEGIN TRANSACTION;
 			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
 			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
-		COMMIT
+		COMMIT;
 		`, nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
+		BEGIN TRANSACTION;
 			CREATE TABLE table2 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id);
 			CREATE INDEX ON table2(title);
-		COMMIT
+		COMMIT;
 		`, nil)
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
+		BEGIN TRANSACTION;
 			CREATE INDEX ON table2(age);
 			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40);
-		COMMIT
+		COMMIT;
 		`, nil)
 	require.NoError(t, err)
 }
@@ -711,10 +711,10 @@ func TestUseSnapshot(t *testing.T) {
 	require.Equal(t, ErrNoSupported, err)
 
 	_, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
+		BEGIN TRANSACTION;
 			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
 			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
-		COMMIT
+		COMMIT;
 		`, nil)
 	require.NoError(t, err)
 }
@@ -3048,7 +3048,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_subq")
 
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithAutocommit(true))
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
@@ -3211,7 +3211,7 @@ func TestInferParameters(t *testing.T) {
 	_, err = engine.ExecStmt(stmt, nil)
 	require.NoError(t, err)
 
-	params, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@id, @title); COMMIT")
+	params, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@id, @title); COMMIT;")
 	require.NoError(t, err)
 	require.Len(t, params, 2)
 	require.Equal(t, IntegerType, params["id"])
@@ -3379,7 +3379,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
 	require.Equal(t, ErrInferredMultipleTypes, err)
 
-	_, err = engine.InferParameters("BEGIN TRANSACTION INSERT INTO mytable(id, title) VALUES (@param1, @param1) COMMIT")
+	_, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@param1, @param1); COMMIT;")
 	require.Equal(t, ErrInferredMultipleTypes, err)
 }
 

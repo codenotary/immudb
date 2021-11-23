@@ -70,6 +70,8 @@ var ErrMaxLengthExceeded = errors.New("max length exceeded")
 var ErrColumnIsNotAnAggregation = errors.New("column is not an aggregation")
 var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT()")
 var ErrTxDoesNotExist = errors.New("tx does not exist")
+var ErrNestedTxNotSupported = errors.New("nested tx are not supported")
+var ErrNoOngoingTx = errors.New("no ongoing transaction")
 var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
@@ -91,6 +93,7 @@ type Engine struct {
 
 	prefix        []byte
 	distinctLimit int
+	autocommit    bool
 
 	defaultDatabase string
 
@@ -126,6 +129,7 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		store:         store,
 		prefix:        make([]byte, len(opts.prefix)),
 		distinctLimit: opts.distinctLimit,
+		autocommit:    opts.autocommit,
 	}
 
 	copy(e.prefix, opts.prefix)
@@ -253,6 +257,13 @@ func (sqlTx *SQLTx) Closed() bool {
 	defer sqlTx.mutex.RUnlock()
 
 	return sqlTx.closed
+}
+
+func (sqlTx *SQLTx) ExplicitClose() bool {
+	sqlTx.mutex.RLock()
+	defer sqlTx.mutex.RUnlock()
+
+	return sqlTx.explicitClose
 }
 
 func (sqlTx *SQLTx) newKeyReader(rSpec *store.KeyReaderSpec) (*store.KeyReader, error) {
@@ -1039,6 +1050,10 @@ func (sqlTx *SQLTx) Cancel() error {
 	sqlTx.mutex.Lock()
 	defer sqlTx.mutex.Unlock()
 
+	return sqlTx.cancel()
+}
+
+func (sqlTx *SQLTx) cancel() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
@@ -1048,24 +1063,28 @@ func (sqlTx *SQLTx) Cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) Commit() (*SQLTx, error) {
+func (sqlTx *SQLTx) Commit() error {
 	sqlTx.mutex.Lock()
 	defer sqlTx.mutex.Unlock()
 
+	return sqlTx.commit()
+}
+
+func (sqlTx *SQLTx) commit() error {
 	if sqlTx.closed {
-		return nil, ErrAlreadyClosed
+		return ErrAlreadyClosed
 	}
 
 	sqlTx.closed = true
 
 	hdr, err := sqlTx.tx.Commit()
 	if err != nil && err != store.ErrorNoEntriesProvided {
-		return nil, err
+		return err
 	}
 
 	sqlTx.txHeader = hdr
 
-	return sqlTx, nil
+	return nil
 }
 
 func (sqlTx *SQLTx) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
@@ -1186,23 +1205,41 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*SQLTx,
 	return e.ExecPreparedStmts(stmts, params)
 }
 
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (*SQLTx, error) {
-	tx, err := e.NewTx()
-	if err != nil {
-		return nil, err
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (tx *SQLTx, err error) {
+	if len(stmts) == 0 {
+		return nil, ErrIllegalArguments
 	}
 
-	err = tx.ExecPreparedStmts(stmts, params)
-	if err != nil {
-		tx.Cancel()
-		return nil, err
+	for _, stmt := range stmts {
+		if tx == nil || tx.Closed() {
+			tx, err = e.NewTx()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		err = tx.ExecPreparedStmts([]SQLStmt{stmt}, params)
+		if err != nil {
+			tx.Cancel()
+			return nil, err
+		}
+
+		if !tx.ExplicitClose() && e.autocommit {
+			err = tx.Commit()
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	if tx.explicitClose {
-		return tx, nil
+	if !tx.Closed() && !tx.ExplicitClose() {
+		err = tx.Commit()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return tx.Commit()
+	return tx, nil
 }
 
 func (e *Engine) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
