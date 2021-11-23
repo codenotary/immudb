@@ -36,5 +36,8 @@ func TestOptions(t *testing.T) {
 	opts.WithPrefix([]byte("sqlPrefix"))
 	require.Equal(t, []byte("sqlPrefix"), opts.prefix)
 
+	opts.WithAutocommit(true)
+	require.True(t, opts.autocommit)
+
 	require.True(t, ValidOpts(opts))
 }

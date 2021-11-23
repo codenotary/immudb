@@ -534,31 +534,29 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10) COMMIT;",
+			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10); COMMIT;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table2"},
-							cols:     []string{"id"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 10}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table2"},
+					cols:     []string{"id"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 10}}},
+					},
+				},
+				&CommitStmt{},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -568,54 +566,40 @@ func TestTxStmt(t *testing.T) {
 					},
 					pkColNames: []string{"id"},
 				},
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&CommitStmt{},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{
-					stmts: []SQLStmt{
-						&CreateTableStmt{
-							table: "table1",
-							colsSpec: []*ColSpec{
-								{colName: "id", colType: IntegerType},
-								{colName: "label", colType: VarcharType, notNull: true},
-							},
-							pkColNames: []string{"id"},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+						{colName: "label", colType: VarcharType, notNull: true},
+					},
+					pkColNames: []string{"id"},
+				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&CommitStmt{},
 			},
 			expectedError: nil,
-		},
-		{
-			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1');",
-			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
-		},
-		{
-			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id) COMMIT; COMMIT",
-			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
 	}
 
@@ -1266,7 +1250,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			CREATE TABLE table1 (id INTEGER, name VARCHAR NULL, ts TIMESTAMP NOT NULL, active BOOLEAN, content BLOB, PRIMARY KEY id);
 
-			BEGIN TRANSACTION
+			BEGIN TRANSACTION;
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1');
 				
 				UPSERT INTO table2 (id) VALUES (10);
@@ -1288,24 +1272,22 @@ func TestMultiLineStmts(t *testing.T) {
 					},
 					pkColNames: []string{"id"},
 				},
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table2"},
-							cols:     []string{"id"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 10}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table2"},
+					cols:     []string{"id"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 10}}},
+					},
+				},
+				&CommitStmt{},
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{

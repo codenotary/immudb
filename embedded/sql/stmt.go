@@ -118,30 +118,51 @@ type SQLStmt interface {
 	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
 }
 
-type TxStmt struct {
-	stmts []SQLStmt
+type BeginTransactionStmt struct {
 }
 
-func (stmt *TxStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	for _, stmt := range stmt.stmts {
-		err := stmt.inferParameters(tx, params)
-		if err != nil {
-			return err
-		}
+func (stmt *BeginTransactionStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *BeginTransactionStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.explicitClose {
+		return ErrNestedTxNotSupported
 	}
+
+	tx.explicitClose = true
 
 	return nil
 }
 
-func (stmt *TxStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
-	for _, stmt := range stmt.stmts {
-		err := stmt.compileUsing(tx, params)
-		if err != nil {
-			return err
-		}
+type CommitStmt struct {
+}
+
+func (stmt *CommitStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *CommitStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if !tx.explicitClose {
+		return ErrNoOngoingTx
 	}
 
+	return tx.commit()
+}
+
+type RollbackStmt struct {
+}
+
+func (stmt *RollbackStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
+}
+
+func (stmt *RollbackStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+	if tx.explicitClose {
+		return ErrNoOngoingTx
+	}
+
+	return tx.cancel()
 }
 
 type CreateDatabaseStmt struct {
