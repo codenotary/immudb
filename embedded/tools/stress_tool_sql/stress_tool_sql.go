@@ -148,7 +148,7 @@ func main() {
 	}
 	log.Printf("SQL engine successfully initialized!\r\n")
 
-	_, err = engine.ExecStmt("CREATE DATABASE defaultdb;", map[string]interface{}{})
+	_, _, err = engine.Exec("CREATE DATABASE defaultdb;", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -159,7 +159,7 @@ func main() {
 	}
 
 	log.Printf("Creating tables\r\n")
-	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{})
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -199,8 +199,8 @@ func main() {
 			log.Printf("Committer %d is inserting data...\r\n", id)
 			for i := 0; i < c.kvCount; i++ {
 				entry := <-entries
-				_, err = engine.ExecStmt("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
-					map[string]interface{}{"id": entry.id, "value": entry.value})
+				_, _, err = engine.Exec("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+					map[string]interface{}{"id": entry.id, "value": entry.value}, nil)
 				if err != nil {
 					panic(err)
 				}
@@ -217,7 +217,7 @@ func main() {
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i})
+				r, err := engine.Query("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, nil)
 				if err != nil {
 					log.Printf("Error querying val %d: %s", i, err.Error())
 					panic(err)
@@ -243,7 +243,7 @@ func main() {
 	wg.Wait()
 	log.Printf("All committers done...\r\n")
 
-	r, err := engine.QueryStmt("SELECT count() FROM  entries;", map[string]interface{}{})
+	r, err := engine.Query("SELECT count() FROM  entries;", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}

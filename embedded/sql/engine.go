@@ -116,8 +116,6 @@ type SQLTx struct {
 
 	committed bool
 	closed    bool
-
-	mutex sync.RWMutex
 }
 
 func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
@@ -212,24 +210,15 @@ func (sqlTx *SQLTx) useDatabase(dbName string) error {
 	return nil
 }
 
-func (sqlTx *SQLTx) Database() (*Database, error) {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	return sqlTx.currentDB, nil
+func (sqlTx *SQLTx) Database() *Database {
+	return sqlTx.currentDB
 }
 
 func (sqlTx *SQLTx) UpdatedRows() int {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
 	return sqlTx.updatedRows
 }
 
 func (sqlTx *SQLTx) LastInsertedPK(table string) int64 {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
 	pk, ok := sqlTx.lastInsertedPKs[table]
 	if !ok {
 		return 0
@@ -239,9 +228,6 @@ func (sqlTx *SQLTx) LastInsertedPK(table string) int64 {
 }
 
 func (sqlTx *SQLTx) TxHeader() *store.TxHeader {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
 	return sqlTx.txHeader
 }
 
@@ -989,50 +975,6 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	return nil, 0, ErrCorruptedData
 }
 
-func (sqlTx *SQLTx) InferParameters(sql string) (map[string]SQLValueType, error) {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	if sqlTx.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	stmts, err := Parse(strings.NewReader(sql))
-	if err != nil {
-		return nil, err
-	}
-
-	params := make(map[string]SQLValueType)
-
-	for _, stmt := range stmts {
-		err = stmt.inferParameters(sqlTx, params)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return params, nil
-}
-
-func (sqlTx *SQLTx) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
-	if stmt == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	if sqlTx.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	params := make(map[string]SQLValueType)
-
-	err := stmt.inferParameters(sqlTx, params)
-
-	return params, err
-}
-
 func (sqlTx *SQLTx) cancel() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
@@ -1147,7 +1089,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	return currTx, committedTxs, nil
 }
 
-func (e *Engine) Query(sql string, params map[string]interface{}) (RowReader, error) {
+func (e *Engine) Query(sql string, params map[string]interface{}, tx *SQLTx) (RowReader, error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, err
@@ -1161,17 +1103,21 @@ func (e *Engine) Query(sql string, params map[string]interface{}) (RowReader, er
 		return nil, ErrExpectingDQLStmt
 	}
 
-	return e.QueryPreparedStmt(stmt, params)
+	return e.QueryPreparedStmt(stmt, params, tx)
 }
 
-func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
+func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}, tx *SQLTx) (rowReader RowReader, err error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := e.newTx(false)
-	if err != nil {
-		return nil, err
+	qtx := tx
+
+	if qtx == nil {
+		qtx, err = e.newTx(false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO: eval params at once
@@ -1180,42 +1126,57 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	_, err = stmt.execAt(tx, nparams)
+	_, err = stmt.execAt(qtx, nparams)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := stmt.Resolve(tx, nparams, nil)
+	r, err := stmt.Resolve(qtx, nparams, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	r.onClose(func() { tx.cancel() })
+	if tx == nil {
+		r.onClose(func() {
+			qtx.cancel()
+		})
+	}
 
 	return r, nil
 }
 
-func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
-	tx, err := e.newTx(false)
+func (e *Engine) InferParameters(sql string, tx *SQLTx) (params map[string]SQLValueType, err error) {
+	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, err
 	}
-	defer tx.cancel()
 
-	return tx.InferParameters(sql)
-
+	return e.InferParametersPreparedStmts(stmts, tx)
 }
 
-func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
-	if stmt == nil {
+func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (params map[string]SQLValueType, err error) {
+	if len(stmts) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := e.newTx(false)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.cancel()
+	qtx := tx
 
-	return tx.InferParametersPreparedStmt(stmt)
+	if qtx == nil {
+		qtx, err = e.newTx(false)
+		if err != nil {
+			return nil, err
+		}
+		defer qtx.cancel()
+	}
+
+	params = make(map[string]SQLValueType)
+
+	for _, stmt := range stmts {
+		err = stmt.inferParameters(qtx, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return params, nil
 }
