@@ -47,9 +47,10 @@ type Session struct {
 	readWriteTxOngoing bool
 	transactions       map[string]transactions.Transaction
 	log                logger.Logger
+	callbacksWG        *sync.WaitGroup
 }
 
-func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.Logger) *Session {
+func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.Logger, callbacksWG *sync.WaitGroup) *Session {
 	now := time.Now()
 	return &Session{
 		id:               sessionID,
@@ -61,6 +62,7 @@ func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.
 		lastHeartBeat:    now,
 		transactions:     make(map[string]transactions.Transaction),
 		log:              log,
+		callbacksWG:      callbacksWG,
 	}
 }
 
@@ -143,15 +145,9 @@ func (s *Session) NewTransaction(readWrite bool) transactions.Transaction {
 	s.Lock()
 	defer s.Unlock()
 	transactionID := xid.New().String()
-	tx := transactions.NewTransaction(transactionID, readWrite, s.log)
+	tx := transactions.NewTransaction(transactionID, readWrite, s.log, s.callbacksWG)
 	s.transactions[transactionID] = tx
 	return tx
-}
-
-func (s *Session) AddTransaction(transactionID string, readWrite bool) {
-	s.Lock()
-	defer s.Unlock()
-	s.transactions[transactionID] = transactions.NewTransaction(transactionID, readWrite, s.log)
 }
 
 func (s *Session) GetTransaction(transactionID string) transactions.Transaction {

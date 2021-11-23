@@ -58,7 +58,7 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 				hb.logger.Debugf("keep alive for %d at %s\n", hb.sessionID, t.String())
 				err := hb.keepAliveRequest(ctx)
 				if err != nil {
-					hb.logger.Errorf("an error is occurred on keep alive  %d at %s: %v\n", hb.sessionID, t.String(), err)
+					hb.logger.Errorf("an error is occurred on keep alive  %s at %s: %v\n", hb.sessionID, t.String(), err)
 				}
 			}
 		}

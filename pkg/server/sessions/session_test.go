@@ -19,13 +19,16 @@ package sessions
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+	stdos "os"
+	"sync"
 	"testing"
 )
 
 func TestNewSession(t *testing.T) {
-	sess := NewSession(&auth.User{}, 0, false)
+	sess := NewSession("sessID", &auth.User{}, 0, logger.NewSimpleLogger("test", stdos.Stdout), &sync.WaitGroup{})
 	sess.SetStatus(IDLE)
 	sess.SetDatabaseID(1)
 	st := sess.GetStatus()

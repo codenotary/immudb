@@ -32,14 +32,15 @@ var ErrGuardNotRunning = errors.New("session guard not running")
 var guard *manager
 
 type manager struct {
-	Running    bool
-	sessionMux sync.Mutex
-	guardMux   sync.Mutex
-	sessions   map[string]*Session
-	ticker     *time.Ticker
-	done       chan bool
-	logger     logger.Logger
-	options    *Options
+	Running     bool
+	callbacksWG sync.WaitGroup
+	sessionMux  sync.Mutex
+	guardMux    sync.Mutex
+	sessions    map[string]*Session
+	ticker      *time.Ticker
+	done        chan bool
+	logger      logger.Logger
+	options     *Options
 }
 
 type Manager interface {
@@ -59,13 +60,14 @@ func NewManager(options *Options) *manager {
 		options = DefaultOptions()
 	}
 	guard = &manager{
-		sessionMux: sync.Mutex{},
-		guardMux:   sync.Mutex{},
-		sessions:   make(map[string]*Session),
-		ticker:     time.NewTicker(options.SessionGuardCheckInterval),
-		done:       make(chan bool),
-		logger:     logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:    options,
+		callbacksWG: sync.WaitGroup{},
+		sessionMux:  sync.Mutex{},
+		guardMux:    sync.Mutex{},
+		sessions:    make(map[string]*Session),
+		ticker:      time.NewTicker(options.SessionGuardCheckInterval),
+		done:        make(chan bool),
+		logger:      logger.NewSimpleLogger("immudb session guard", os.Stdout),
+		options:     options,
 	}
 	return guard
 }
@@ -74,7 +76,7 @@ func (sm *manager) NewSession(user *auth.User, databaseID int64) string {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 	sessionID := xid.New().String()
-	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger)
+	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger, &sm.callbacksWG)
 	sm.logger.Debugf("created session %s", sessionID)
 	return sessionID
 }
@@ -164,6 +166,10 @@ func (sm *manager) StopSessionsGuard() error {
 		return ErrGuardNotRunning
 	}
 	sm.Running = false
+	for ID, _ := range sm.sessions {
+		sm.DeleteSession(ID)
+	}
+	sm.callbacksWG.Wait()
 	sm.guardMux.Unlock()
 	sm.ticker.Stop()
 	sm.done <- true

@@ -49,10 +49,8 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	err = tx.Set(context.TODO(), []byte(`key`), []byte(`val`))
 	require.NoError(t, err)
-	kv, err := tx.Get(context.TODO(), []byte(`key`))
+	_, err = tx.Get(context.TODO(), []byte(`key`))
 	require.NoError(t, err)
-	require.Equal(t, []byte(`key`), kv.Key)
-	require.Equal(t, []byte(`val`), kv.Value)
 	tx.Commit(context.TODO())
 
 	err = client.CloseSession(context.TODO())

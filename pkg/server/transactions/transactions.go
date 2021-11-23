@@ -27,6 +27,7 @@ type transaction struct {
 	log               logger.Logger
 	readWrite         bool
 	onDeleteCallbacks map[string]func() error
+	callbacksWG       *sync.WaitGroup
 }
 
 type Transaction interface {
@@ -35,12 +36,13 @@ type Transaction interface {
 	Delete()
 }
 
-func NewTransaction(transactionID string, readWrite bool, log logger.Logger) *transaction {
+func NewTransaction(transactionID string, readWrite bool, log logger.Logger, callbacksWG *sync.WaitGroup) *transaction {
 	return &transaction{
 		transactionID:     transactionID,
 		log:               log,
 		readWrite:         readWrite,
 		onDeleteCallbacks: make(map[string]func() error),
+		callbacksWG:       callbacksWG,
 	}
 }
 
@@ -59,6 +61,8 @@ func (tx *transaction) Delete() {
 	defer tx.Unlock()
 	for cName, c := range tx.onDeleteCallbacks {
 		go func(callbackName string, callback func() error) {
+			tx.callbacksWG.Add(1)
+			defer tx.callbacksWG.Done()
 			if err := callback(); err != nil {
 				tx.log.Errorf("error on callback %s on transaction ID %s: %v", callbackName, tx.transactionID, err)
 			}

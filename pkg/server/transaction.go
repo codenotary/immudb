@@ -49,21 +49,21 @@ func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest
 }
 
 func (s *ImmuServer) TxScanner(ctx context.Context, request *schema.TxScannerRequest) (*schema.TxScanneReponse, error) {
-	panic("implement me")
+	return &schema.TxScanneReponse{}, nil
 }
 
-func (s *ImmuServer) Commit(ctx context.Context, empty *empty.Empty) (*empty.Empty, error) {
-	panic("implement me")
+func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) Rollback(ctx context.Context, empty *empty.Empty) (*empty.Empty, error) {
-	panic("implement me")
+func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+	return new(empty.Empty), nil
 }
 
 func (s *ImmuServer) TxSet(ctx context.Context, request *schema.TxSetRequest) (*empty.Empty, error) {
-	panic("implement me")
+	return new(empty.Empty), nil
 }
 
 func (s *ImmuServer) TxGet(ctx context.Context, request *schema.TxKeyRequest) (*schema.KeyValue, error) {
-	panic("implement me")
+	return &schema.KeyValue{}, nil
 }
