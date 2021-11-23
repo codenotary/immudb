@@ -40,7 +40,10 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
-var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
+var ErrAutoIncrementWrongType = errors.New("auto incremented column need to be INTEGER type")
+var ErrAutoIncrementMultiple = errors.New("several auto incremental column were found. Wrong schema")
+ar ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
+var ErrLimitedUpsert = errors.New("upsert is only supported in tables without secondary indexes")
 var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
 var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
 var ErrDuplicatedColumn = errors.New("duplicated column")
@@ -589,7 +592,7 @@ func indexKeyFrom(cols []*Column) string {
 
 func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    e.mapKey(table.autoIncrementIndex.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.autoIncrementIndex.id)),
 		DescOrder: true,
 	}
 
@@ -604,7 +607,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 		return nil, err
 	}
 
-	return e.unmapIndexEntry(table.primaryIndex, mkey)
+	return e.unmapIndexEntry(table.autoIncrementIndex, mkey)
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs []*ColSpec, err error) {
@@ -856,7 +859,7 @@ func (e *Engine) unmapIndexEntry(index *Index, mkey []byte) (encPKVals []byte, e
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() {
+	if !index.IsPrimary() && !index.IsAutoIncrement() {
 		//read index values
 		for _, col := range index.cols {
 			maxLen := col.MaxLen()

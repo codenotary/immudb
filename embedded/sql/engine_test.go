@@ -350,7 +350,7 @@ func TestUpsertInto(t *testing.T) {
 	require.Equal(t, ErrTableDoesNotExist, err)
 
 	_, err = engine.ExecStmt(`CREATE TABLE table1 (
-								id INTEGER, 
+								id INTEGER,
 								title VARCHAR,
 								amount INTEGER,
 								active BOOLEAN NOT NULL,
@@ -551,15 +551,9 @@ func TestAutoIncrementPK(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	t.Run("invalid use of auto-increment", func(t *testing.T) {
-		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
-		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
-
-		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil, true)
-		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
-
+	t.Run("invalid use of auto-increment type", func(t *testing.T) {
 		_, err = engine.ExecStmt("CREATE TABLE table1 (id VARCHAR AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
-		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
 	})
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, true)
@@ -608,6 +602,89 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Len(t, summary.LastInsertedPKs, 1)
 	require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
 	require.Equal(t, 2, summary.UpdatedRows)
+}
+
+func TestAutoIncrementUniqueIndex(t *testing.T) {
+	catalogStore, err := store.Open("catalog_auto_inc", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_auto_inc")
+
+	dataStore, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_auto_inc")
+
+	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	err = engine.UseDatabase("db1")
+	require.NoError(t, err)
+
+	t.Run("invalid use of auto-increment type", func(t *testing.T) {
+		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number VARCHAR AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
+		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
+	})
+
+	t.Run("create table", func(t *testing.T) {
+		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
+		require.NoError(t, err)
+	})
+
+	t.Run("insert into newly created table", func(t *testing.T) {
+		summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('AE1R', 'Jhon')", nil, true)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(1), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 1, summary.UpdatedRows)
+	})
+
+	t.Run("test bad use of insertion", func(t *testing.T) {
+		_, err := engine.ExecStmt("INSERT INTO table1(uid, number, name) VALUES ('XAPGH', 2, 'Jhon')", nil, true)
+		require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
+
+		_, err = engine.ExecStmt("UPSERT INTO table1(uid, number, name) VALUES ('FZAK', 1, 'Ben')", nil, true)
+		require.ErrorIs(t, err, ErrLimitedUpsert)
+
+		//_, err = engine.ExecStmt("UPSERT INTO table1(uid, name) VALUES ('FZAK', 'Ben')", nil, true)
+		//require.NoError(t, err)
+	})
+
+	t.Run("reload catalog", func(t *testing.T) {
+		err := engine.ReloadCatalog(nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("insert one entry after catalog reload", func(t *testing.T) {
+		summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('BEKZ', 'Marc')", nil, true)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(2), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 1, summary.UpdatedRows)
+	})
+
+	t.Run("insert two entries inside transaction", func(t *testing.T) {
+		summary, err := engine.ExecStmt(`
+		BEGIN TRANSACTION
+			INSERT INTO table1(uid, name) VALUES ('VBKZ', 'name3');
+			INSERT INTO table1(uid, name) VALUES ('FZKB', 'name4');
+		COMMIT
+	`, nil, true)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(3), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 2, summary.UpdatedRows)
+	})
 }
 
 func TestDelete(t *testing.T) {
@@ -822,8 +899,8 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt(`CREATE TABLE table1 (
-									id INTEGER, 
-									title VARCHAR, 
+									id INTEGER,
+									title VARCHAR,
 									PRIMARY KEY id
 								)`, nil, true)
 	require.NoError(t, err)
@@ -1516,7 +1593,7 @@ func TestQueryDistinct(t *testing.T) {
 								PRIMARY KEY id)`, nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`INSERT INTO table1 (title, amount, active) VALUES 
+	_, err = engine.ExecStmt(`INSERT INTO table1 (title, amount, active) VALUES
 								('title1', 100, NULL),
 								('title2', 200, false),
 								('title3', 200, true),
@@ -1720,12 +1797,12 @@ func TestIndexing(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt(`CREATE TABLE table1 (
-								id INTEGER AUTO_INCREMENT, 
-								ts INTEGER, 
-								title VARCHAR[20], 
+								id INTEGER AUTO_INCREMENT,
+								ts INTEGER,
+								title VARCHAR[20],
 								active BOOLEAN,
 								amount INTEGER,
-								payload BLOB, 
+								payload BLOB,
 								PRIMARY KEY id
 							)`, nil, true)
 	require.NoError(t, err)
@@ -3003,11 +3080,11 @@ func TestGroupByHaving(t *testing.T) {
 		SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age)
 		FROM table1
 		GROUP BY active
-		HAVING COUNT() <= SUM(age)   AND 
-				MIN(age) <= MAX(age) AND 
-				AVG(age) <= MAX(age) AND 
-				MAX(age) < SUM(age)  AND 
-				AVG(age) >= MIN(age) AND 
+		HAVING COUNT() <= SUM(age)   AND
+				MIN(age) <= MAX(age) AND
+				AVG(age) <= MAX(age) AND
+				MAX(age) < SUM(age)  AND
+				AVG(age) >= MIN(age) AND
 				SUM(age) > 0
 		ORDER BY active DESC`, nil, true)
 
@@ -3119,8 +3196,8 @@ func TestJoins(t *testing.T) {
 
 	t.Run("should resolve every inserted row", func(t *testing.T) {
 		r, err := engine.QueryStmt(`
-			SELECT id, title, table2.amount, table3.age 
-			FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id 
+			SELECT id, title, table2.amount, table3.age
+			FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id
 			INNER JOIN table3 ON table1.fkid2 = table3.id
 			WHERE table1.id >= 0 AND table3.age >= 30
 			ORDER BY id DESC`, nil, true)
@@ -3511,7 +3588,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 			24,
 			true
 		);
-		
+
 		INSERT INTO customer_review (customerid, productid, review)
 		VALUES(1, 1, 'Nice Juice!');
 	`, nil, true)

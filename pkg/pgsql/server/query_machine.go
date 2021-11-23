@@ -336,7 +336,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 			return nil, nil, err
 		}
 		for _, c := range cols {
-			resCols = append(resCols, &schema.Column{Name: c.Selector(), Type: c.Type})
+			resCols = append(resCols, &schema.Column{Name: c.Column, Type: c.Type})
 		}
 	}
 
