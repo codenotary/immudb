@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -115,7 +114,8 @@ type SQLTx struct {
 
 	txHeader *store.TxHeader // header is set once tx is committed
 
-	closed bool
+	committed bool
+	closed    bool
 
 	mutex sync.RWMutex
 }
@@ -138,11 +138,11 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 }
 
 func (e *Engine) SetDefaultDatabase(dbName string) error {
-	tx, err := e.NewTx()
+	tx, err := e.newTx(false)
 	if err != nil {
 		return err
 	}
-	defer tx.Cancel()
+	defer tx.cancel()
 
 	db, exists := tx.catalog.dbsByName[dbName]
 	if !exists {
@@ -164,7 +164,7 @@ func (e *Engine) DefaultDatabase() string {
 	return e.defaultDatabase
 }
 
-func (e *Engine) NewTx() (*SQLTx, error) {
+func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
@@ -197,6 +197,7 @@ func (e *Engine) NewTx() (*SQLTx, error) {
 		catalog:         catalog,
 		currentDB:       currentDB,
 		lastInsertedPKs: make(map[string]int64),
+		explicitClose:   explicitClose,
 	}, nil
 }
 
@@ -216,14 +217,6 @@ func (sqlTx *SQLTx) Database() (*Database, error) {
 	defer sqlTx.mutex.RUnlock()
 
 	return sqlTx.currentDB, nil
-}
-
-func (sqlTx *SQLTx) sqlPrefix() []byte {
-	return sqlTx.engine.prefix
-}
-
-func (sqlTx *SQLTx) distinctLimit() int {
-	return sqlTx.engine.distinctLimit
 }
 
 func (sqlTx *SQLTx) UpdatedRows() int {
@@ -252,18 +245,12 @@ func (sqlTx *SQLTx) TxHeader() *store.TxHeader {
 	return sqlTx.txHeader
 }
 
-func (sqlTx *SQLTx) Closed() bool {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	return sqlTx.closed
+func (sqlTx *SQLTx) sqlPrefix() []byte {
+	return sqlTx.engine.prefix
 }
 
-func (sqlTx *SQLTx) ExplicitClose() bool {
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	return sqlTx.explicitClose
+func (sqlTx *SQLTx) distinctLimit() int {
+	return sqlTx.engine.distinctLimit
 }
 
 func (sqlTx *SQLTx) newKeyReader(rSpec *store.KeyReaderSpec) (*store.KeyReader, error) {
@@ -1046,13 +1033,6 @@ func (sqlTx *SQLTx) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLVal
 	return params, err
 }
 
-func (sqlTx *SQLTx) Cancel() error {
-	sqlTx.mutex.Lock()
-	defer sqlTx.mutex.Unlock()
-
-	return sqlTx.cancel()
-}
-
 func (sqlTx *SQLTx) cancel() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
@@ -1063,18 +1043,12 @@ func (sqlTx *SQLTx) cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) Commit() error {
-	sqlTx.mutex.Lock()
-	defer sqlTx.mutex.Unlock()
-
-	return sqlTx.commit()
-}
-
 func (sqlTx *SQLTx) commit() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
 
+	sqlTx.committed = true
 	sqlTx.closed = true
 
 	hdr, err := sqlTx.tx.Commit()
@@ -1083,94 +1057,6 @@ func (sqlTx *SQLTx) commit() error {
 	}
 
 	sqlTx.txHeader = hdr
-
-	return nil
-}
-
-func (sqlTx *SQLTx) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
-	return sqlTx.Query(strings.NewReader(sql), params)
-}
-
-func (sqlTx *SQLTx) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
-	stmts, err := Parse(sql)
-	if err != nil {
-		return nil, err
-	}
-	if len(stmts) != 1 {
-		return nil, ErrExpectingDQLStmt
-	}
-
-	stmt, ok := stmts[0].(*SelectStmt)
-	if !ok {
-		return nil, ErrExpectingDQLStmt
-	}
-
-	return sqlTx.QueryPreparedStmt(stmt, params)
-}
-
-func (sqlTx *SQLTx) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
-	if stmt == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	sqlTx.mutex.RLock()
-	defer sqlTx.mutex.RUnlock()
-
-	if sqlTx.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	// TODO: eval params at once
-	nparams, err := normalizeParams(params)
-	if err != nil {
-		return nil, err
-	}
-
-	err = stmt.compileUsing(sqlTx, nparams)
-	if err != nil {
-		return nil, err
-	}
-
-	return stmt.Resolve(sqlTx, nparams, nil)
-}
-
-func (sqlTx *SQLTx) ExecStmt(sql string, params map[string]interface{}) error {
-	return sqlTx.Exec(strings.NewReader(sql), params)
-}
-
-func (sqlTx *SQLTx) Exec(sql io.ByteReader, params map[string]interface{}) error {
-	stmts, err := Parse(sql)
-	if err != nil {
-		return err
-	}
-
-	return sqlTx.ExecPreparedStmts(stmts, params)
-}
-
-func (sqlTx *SQLTx) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) error {
-	if len(stmts) == 0 {
-		return ErrIllegalArguments
-	}
-
-	sqlTx.mutex.Lock()
-	defer sqlTx.mutex.Unlock()
-
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
-	// TODO: eval params at once
-	nparams, err := normalizeParams(params)
-	if err != nil {
-		return err
-	}
-
-	for _, stmt := range stmts {
-		err := stmt.compileUsing(sqlTx, nparams)
-		if err != nil {
-			return err
-		}
-	}
 
 	return nil
 }
@@ -1192,62 +1078,77 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	return nparams, nil
 }
 
-func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (*SQLTx, error) {
-	return e.Exec(strings.NewReader(sql), params)
-}
-
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (*SQLTx, error) {
-	stmts, err := Parse(sql)
+func (e *Engine) Exec(sql string, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
+	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return e.ExecPreparedStmts(stmts, params)
+	return e.ExecPreparedStmts(stmts, params, tx)
 }
 
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}) (tx *SQLTx, err error) {
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
 	if len(stmts) == 0 {
-		return nil, ErrIllegalArguments
+		return nil, nil, ErrIllegalArguments
 	}
+
+	// TODO: eval params at once
+	nparams, err := normalizeParams(params)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	currTx := tx
 
 	for _, stmt := range stmts {
-		if tx == nil || tx.Closed() {
-			tx, err = e.NewTx()
+		if stmt == nil {
+			return nil, nil, ErrIllegalArguments
+		}
+
+		if currTx == nil || currTx.closed {
+			// begin tx with implicit commit
+			currTx, err = e.newTx(false)
 			if err != nil {
-				return nil, err
+				return nil, committedTxs, err
 			}
 		}
 
-		err = tx.ExecPreparedStmts([]SQLStmt{stmt}, params)
+		ntx, err := stmt.execAt(currTx, nparams)
 		if err != nil {
-			tx.Cancel()
-			return nil, err
+			currTx.cancel()
+			return nil, committedTxs, err
 		}
 
-		if !tx.ExplicitClose() && e.autocommit {
-			err = tx.Commit()
+		if !ntx.explicitClose && e.autocommit {
+			err = currTx.commit()
 			if err != nil {
-				return nil, err
+				return nil, committedTxs, err
 			}
 		}
-	}
 
-	if !tx.Closed() && !tx.ExplicitClose() {
-		err = tx.Commit()
-		if err != nil {
-			return nil, err
+		if currTx.committed {
+			committedTxs = append(committedTxs, currTx)
 		}
+
+		currTx = ntx
 	}
 
-	return tx, nil
+	if !currTx.closed && !currTx.explicitClose {
+		err = currTx.commit()
+		if err != nil {
+			return nil, committedTxs, err
+		}
+
+		committedTxs = append(committedTxs, currTx)
+
+		return nil, committedTxs, nil
+	}
+
+	return currTx, committedTxs, nil
 }
 
-func (e *Engine) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
-	return e.Query(strings.NewReader(sql), params)
-}
-
-func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
-	stmts, err := Parse(sql)
+func (e *Engine) Query(sql string, params map[string]interface{}) (RowReader, error) {
+	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, err
 	}
@@ -1264,38 +1165,57 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowRea
 }
 
 func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
-	tx, err := e.NewTx()
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	tx, err := e.newTx(false)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := tx.QueryPreparedStmt(stmt, params)
+	// TODO: eval params at once
+	nparams, err := normalizeParams(params)
 	if err != nil {
 		return nil, err
 	}
 
-	r.onClose(func() { tx.Cancel() })
+	_, err = stmt.execAt(tx, nparams)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := stmt.Resolve(tx, nparams, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	r.onClose(func() { tx.cancel() })
 
 	return r, nil
 }
 
 func (e *Engine) InferParameters(sql string) (map[string]SQLValueType, error) {
-	tx, err := e.NewTx()
+	tx, err := e.newTx(false)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Cancel()
+	defer tx.cancel()
 
 	return tx.InferParameters(sql)
 
 }
 
 func (e *Engine) InferParametersPreparedStmt(stmt SQLStmt) (map[string]SQLValueType, error) {
-	tx, err := e.NewTx()
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	tx, err := e.newTx(false)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Cancel()
+	defer tx.cancel()
 
 	return tx.InferParametersPreparedStmt(stmt)
 }

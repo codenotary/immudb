@@ -39,13 +39,13 @@ func TestCreateDatabase(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.Equal(t, ErrDatabaseAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db2", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db2", nil, nil)
 	require.NoError(t, err)
 }
 
@@ -57,13 +57,13 @@ func TestUseDatabase(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1", nil)
+	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db2", nil)
+	_, _, err = engine.Exec("USE DATABASE db2", nil, nil)
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 }
 
@@ -75,40 +75,40 @@ func TestCreateTable(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
 	require.ErrorIs(t, err, ErrNoSupported)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil)
+	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, nil)
 	require.ErrorIs(t, err, ErrLimitedKeyType)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil)
+	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil, nil)
 	require.ErrorIs(t, err, ErrLimitedKeyType)
 
-	_, err = engine.ExecStmt("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil)
+	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrTableAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 }
 
@@ -120,19 +120,19 @@ func TestAddColumn(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil)
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil, nil)
 	require.Equal(t, ErrNoSupported, err)
 }
 
@@ -144,49 +144,49 @@ func TestCreateIndex(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX IF NOT EXISTS ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX IF NOT EXISTS ON table1(name)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
 	require.Equal(t, ErrIndexAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(id)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(id)", nil, nil)
 	require.Equal(t, ErrIndexAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX IF NOT EXISTS ON table1(id)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX IF NOT EXISTS ON table1(id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(age)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
 	require.Equal(t, ErrIndexAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table2(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table2(name)", nil, nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil)
+	_, _, err = engine.Exec("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1(name, age) VALUES ('name2', 10)", nil)
+	_, _, err = engine.Exec("INSERT INTO table1(name, age) VALUES ('name2', 10)", nil, nil)
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
 	require.Equal(t, ErrLimitedIndexCreation, err)
 }
 
@@ -198,80 +198,80 @@ func TestUpsertInto(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 								id INTEGER,
 								title VARCHAR,
 								amount INTEGER,
 								active BOOLEAN NOT NULL,
-								PRIMARY KEY id)`, nil)
+								PRIMARY KEY id)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(amount, active)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(amount, active)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
 	require.Equal(t, ErrNotNullableColumnCannotBeNull, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, age) VALUES (1, 50)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, age) VALUES (1, 50)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", nil, nil)
 	require.Equal(t, ErrMissingParameter, err)
 
 	params := make(map[string]interface{}, 1)
 	params["id"] = [4]byte{1, 2, 3, 4}
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params, nil)
 	require.Equal(t, ErrUnsupportedParameter, err)
 
 	params = make(map[string]interface{}, 1)
 	params["id"] = []byte{1, 2, 3}
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params, nil)
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, false)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (1, @title, false)", nil, nil)
 	require.Equal(t, ErrMissingParameter, err)
 
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, nil)
 	require.Equal(t, ErrInvalidValue, err)
 
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
 	params["Title"] = uint64(2)
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params, nil)
 	require.Equal(t, ErrDuplicatedParameters, err)
 
-	tx, err := engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
+	_, ctxs, err := engine.Exec("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil, nil)
 	require.NoError(t, err)
-	require.NotNil(t, tx)
-	require.Equal(t, tx.UpdatedRows(), 1)
+	require.Len(t, ctxs, 1)
+	require.Equal(t, ctxs[0].UpdatedRows(), 1)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (2, 10, true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, amount, active) VALUES (2, 10, true)", nil, nil)
 	require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
 	t.Run("row with pk 1 should have active in false", func(t *testing.T) {
-		tx, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 20, false)", nil)
+		_, ctxs, err = engine.Exec("UPSERT INTO table1 (id, amount, active) VALUES (1, 20, false)", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, tx.UpdatedRows(), 1)
+		require.Len(t, ctxs, 1)
+		require.Equal(t, ctxs[0].UpdatedRows(), 1)
 
-		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil)
+		r, err := engine.Query("SELECT amount, active FROM table1 WHERE id = 1", nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -286,12 +286,12 @@ func TestUpsertInto(t *testing.T) {
 	})
 
 	t.Run("row with pk 1 should have active in true", func(t *testing.T) {
-		tx, err = engine.ExecStmt("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
+		_, ctxs, err = engine.Exec("UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, tx.UpdatedRows(), 1)
+		require.Len(t, ctxs, 1)
+		require.Equal(t, ctxs[0].UpdatedRows(), 1)
 
-		r, err := engine.QueryStmt("SELECT amount, active FROM table1 WHERE id = 1", nil)
+		r, err := engine.Query("SELECT amount, active FROM table1 WHERE id = 1", nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -305,34 +305,34 @@ func TestUpsertInto(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, nil)
 	require.ErrorIs(t, err, ErrIndexedColumnCanNotBeNull)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Amount, Active) VALUES (1, 'some title', 100, false)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (Id, Title, Amount, Active) VALUES (1, 'some title', 100, false)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, amount, active) VALUES (2, 'another title', 200, true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, amount, active) VALUES (2, 'another title', 200, true)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id) VALUES (1, 'yat')", nil, nil)
 	require.Equal(t, ErrInvalidNumberOfValues, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, id) VALUES (1, 2)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, id) VALUES (1, 2)", nil, nil)
 	require.Equal(t, ErrDuplicatedColumn, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES ('1', true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, active) VALUES ('1', true)", nil, nil)
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil, nil)
 	require.Equal(t, ErrPKCanNotBeNull, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, NULL, true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (2, NULL, true)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (title, active) VALUES ('interesting title', true)", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (title, active) VALUES ('interesting title', true)", nil, nil)
 	require.Equal(t, ErrPKCanNotBeNull, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 }
 
@@ -344,45 +344,45 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1 (title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (title)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1 (active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (active)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1 (payload)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (payload)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil)
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, nil)
 	require.NoError(t, err)
 
 	t.Run("varchar key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title123456789', true, x'00A1')", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title123456789', true, x'00A1')", nil, nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 10, true, '00A1')", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 10, true, '00A1')", nil, nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
 	t.Run("boolean key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', 'true', x'00A1')", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', 'true', x'00A1')", nil, nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 
 	t.Run("blob key cases", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, x'00A100A2')", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, x'00A100A2')", nil, nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, '00A100A2')", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, '00A100A2')", nil, nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
 }
@@ -395,60 +395,60 @@ func TestAutoIncrementPK(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
 	t.Run("invalid use of auto-increment", func(t *testing.T) {
-		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil)
+		_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, nil)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 
-		_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil)
+		_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil, nil)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 
-		_, err = engine.ExecStmt("CREATE TABLE table1 (id VARCHAR AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil)
+		_, _, err = engine.Exec("CREATE TABLE table1 (id VARCHAR AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 	})
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	tx, err := engine.ExecStmt("INSERT INTO table1(title) VALUES ('name1')", nil)
+	_, ctxs, err := engine.Exec("INSERT INTO table1(title) VALUES ('name1')", nil, nil)
 	require.NoError(t, err)
-	require.NotNil(t, tx)
-	require.True(t, tx.Closed())
-	require.Equal(t, int64(1), tx.LastInsertedPK("table1"))
-	require.Equal(t, 1, tx.UpdatedRows())
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(1), ctxs[0].LastInsertedPK("table1"))
+	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-	_, err = engine.ExecStmt("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
 	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil, nil)
 	require.NoError(t, err)
 
-	tx, err = engine.ExecStmt("INSERT INTO table1(title) VALUES ('name2')", nil)
+	_, ctxs, err = engine.Exec("INSERT INTO table1(title) VALUES ('name2')", nil, nil)
 	require.NoError(t, err)
-	require.NotNil(t, tx)
-	require.True(t, tx.Closed())
-	require.Equal(t, int64(2), tx.LastInsertedPK("table1"))
-	require.Equal(t, 1, tx.UpdatedRows())
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(2), ctxs[0].LastInsertedPK("table1"))
+	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-	tx, err = engine.ExecStmt(`
+	_, ctxs, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			INSERT INTO table1(title) VALUES ('name3');
 			INSERT INTO table1(title) VALUES ('name4');
 		COMMIT;
-	`, nil)
+	`, nil, nil)
 	require.NoError(t, err)
-	require.NotNil(t, tx)
-	require.True(t, tx.Closed())
-	require.Equal(t, int64(4), tx.LastInsertedPK("table1"))
-	require.Equal(t, 2, tx.UpdatedRows())
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(4), ctxs[0].LastInsertedPK("table1"))
+	require.Equal(t, 2, ctxs[0].UpdatedRows())
 }
 
 func TestDelete(t *testing.T) {
@@ -459,27 +459,27 @@ func TestDelete(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("DELETE FROM table1", nil)
+	_, _, err = engine.Exec("DELETE FROM table1", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 		id INTEGER,
 		title VARCHAR[50],
 		active BOOLEAN,
 		PRIMARY KEY id
-	)`, nil)
+	)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(title)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
 	require.NoError(t, err)
 
 	params, err := engine.InferParameters("DELETE FROM table1 WHERE active = @active")
@@ -488,41 +488,41 @@ func TestDelete(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, params["active"], BooleanType)
 
-	_, err = engine.ExecStmt("DELETE FROM table2", nil)
+	_, _, err = engine.Exec("DELETE FROM table2", nil, nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = engine.ExecStmt("DELETE FROM table1 WHERE name = 'name1'", nil)
+	_, _, err = engine.Exec("DELETE FROM table1 WHERE name = 'name1'", nil, nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	t.Run("delete on empty table should complete without issues", func(t *testing.T) {
-		tx, err := engine.ExecStmt("DELETE FROM table1", nil)
+		_, ctxs, err := engine.Exec("DELETE FROM table1", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Zero(t, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
 	})
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf(`
-			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)`, i, i, i%2 == 0), nil)
+		_, _, err = engine.Exec(fmt.Sprintf(`
+			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)`, i, i, i%2 == 0), nil, nil)
 		require.NoError(t, err)
 	}
 
 	t.Run("deleting with contradiction should not produce any change", func(t *testing.T) {
-		tx, err := engine.ExecStmt("DELETE FROM table1 WHERE false", nil)
+		_, ctxs, err := engine.Exec("DELETE FROM table1 WHERE false", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Zero(t, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
 	})
 
 	t.Run("deleting active rows should remove half of the rows", func(t *testing.T) {
-		tx, err := engine.ExecStmt("DELETE FROM table1 WHERE active = @active", map[string]interface{}{"active": true})
+		_, ctxs, err := engine.Exec("DELETE FROM table1 WHERE active = @active", map[string]interface{}{"active": true}, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, rowCount/2, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Equal(t, rowCount/2, ctxs[0].UpdatedRows())
 
-		r, err := engine.QueryStmt("SELECT COUNT() FROM table1", nil)
+		r, err := engine.Query("SELECT COUNT() FROM table1", nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -532,7 +532,7 @@ func TestDelete(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 
-		r, err = engine.QueryStmt("SELECT COUNT() FROM table1 WHERE active", nil)
+		r, err = engine.Query("SELECT COUNT() FROM table1 WHERE active", nil)
 		require.NoError(t, err)
 
 		row, err = r.Read()
@@ -552,27 +552,27 @@ func TestUpdate(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPDATE table1 SET title = 'title11' WHERE title = 'title", nil)
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'title11' WHERE title = 'title", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 		id INTEGER,
 		title VARCHAR[50],
 		active BOOLEAN,
 		PRIMARY KEY id
-	)`, nil)
+	)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(title)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
 	require.NoError(t, err)
 
 	params, err := engine.InferParameters("UPDATE table1 SET active = @active")
@@ -581,41 +581,41 @@ func TestUpdate(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, params["active"], BooleanType)
 
-	_, err = engine.ExecStmt("UPDATE table2 SET active = false", nil)
+	_, _, err = engine.Exec("UPDATE table2 SET active = false", nil, nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
-	_, err = engine.ExecStmt("UPDATE table1 SET name = 'name1'", nil)
+	_, _, err = engine.Exec("UPDATE table1 SET name = 'name1'", nil, nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	t.Run("update on empty table should complete without issues", func(t *testing.T) {
-		tx, err := engine.ExecStmt("UPDATE table1 SET active = false", nil)
+		_, ctxs, err := engine.Exec("UPDATE table1 SET active = false", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Zero(t, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
 	})
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf(`
-			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)`, i, i, i%2 == 0), nil)
+		_, _, err = engine.Exec(fmt.Sprintf(`
+			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)`, i, i, i%2 == 0), nil, nil)
 		require.NoError(t, err)
 	}
 
 	t.Run("updating with contradiction should not produce any change", func(t *testing.T) {
-		tx, err := engine.ExecStmt("UPDATE table1 SET active = false WHERE false", nil)
+		_, ctxs, err := engine.Exec("UPDATE table1 SET active = false WHERE false", nil, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Zero(t, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
 	})
 
 	t.Run("updating specific row should update only one row", func(t *testing.T) {
-		tx, err := engine.ExecStmt("UPDATE table1 SET active = true WHERE title = @title", map[string]interface{}{"title": "title1"})
+		_, ctxs, err := engine.Exec("UPDATE table1 SET active = true WHERE title = @title", map[string]interface{}{"title": "title1"}, nil)
 		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, 1, tx.UpdatedRows())
+		require.Len(t, ctxs, 1)
+		require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-		r, err := engine.QueryStmt("SELECT COUNT() FROM table1", nil)
+		r, err := engine.Query("SELECT COUNT() FROM table1", nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -625,7 +625,7 @@ func TestUpdate(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 
-		r, err = engine.QueryStmt("SELECT COUNT() FROM table1 WHERE active", nil)
+		r, err = engine.Query("SELECT COUNT() FROM table1 WHERE active", nil)
 		require.NoError(t, err)
 
 		row, err = r.Read()
@@ -645,48 +645,48 @@ func TestTransactions(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 									id INTEGER,
 									title VARCHAR,
 									PRIMARY KEY id
-								)`, nil)
+								)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			CREATE INDEX ON table2(title);
 		COMMIT;
-		`, nil)
+		`, nil, nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
 			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
 		COMMIT;
-		`, nil)
+		`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			CREATE TABLE table2 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id);
 			CREATE INDEX ON table2(title);
 		COMMIT;
-		`, nil)
+		`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			CREATE INDEX ON table2(age);
 			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40);
 		COMMIT;
-		`, nil)
+		`, nil, nil)
 	require.NoError(t, err)
 }
 
@@ -698,24 +698,24 @@ func TestUseSnapshot(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1", nil)
+	_, _, err = engine.Exec("USE SNAPSHOT SINCE TX 1", nil, nil)
 	require.Equal(t, ErrNoSupported, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
 			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
 		COMMIT;
-		`, nil)
+		`, nil, nil)
 	require.NoError(t, err)
 }
 
@@ -871,43 +871,43 @@ func TestQuery(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
+	_, err = engine.Query("SELECT id FROM table1", nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
+	_, err = engine.Query("SELECT id FROM table1", nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.QueryStmt("SELECT * FROM table1", nil)
+	_, err = engine.Query("SELECT * FROM table1", nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.ExecStmt("SELECT id FROM table1", nil)
+	_, _, err = engine.Exec("SELECT id FROM table1", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM db2.table1", nil)
+	_, err = engine.Query("SELECT id FROM db2.table1", nil)
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
+	_, err = engine.Query("SELECT id FROM table1", nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 								id INTEGER,
 								ts INTEGER,
 								title VARCHAR,
 								active BOOLEAN,
 								payload BLOB,
-								PRIMARY KEY id)`, nil)
+								PRIMARY KEY id)`, nil, nil)
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
 	params["id"] = 0
 
-	r, err := engine.QueryStmt("SELECT id FROM db1.table1 WHERE id >= @id", nil)
+	r, err := engine.Query("SELECT id FROM db1.table1 WHERE id >= @id", nil)
 	require.NoError(t, err)
 
 	orderBy := r.OrderBy()
@@ -923,7 +923,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT * FROM db1.table1", nil)
+	r, err = engine.Query("SELECT * FROM db1.table1", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -938,15 +938,15 @@ func TestQuery(t *testing.T) {
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf(`
+		_, _, err = engine.Exec(fmt.Sprintf(`
 			UPSERT INTO table1 (id, ts, title, active, payload)
 			VALUES (%d, NOW(), 'title%d', %v, x'%s')
-		`, i, i, i%2 == 0, encPayload), nil)
+		`, i, i, i%2 == 0, encPayload), nil, nil)
 		require.NoError(t, err)
 	}
 
 	t.Run("should resolve every row", func(t *testing.T) {
-		r, err = engine.QueryStmt("SELECT * FROM table1", nil)
+		r, err = engine.Query("SELECT * FROM table1", nil)
 		require.NoError(t, err)
 
 		colsBySel, err := r.colsBySelector()
@@ -982,7 +982,7 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should fail reading due to non-existent column", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id1 FROM table1", nil)
+		r, err := engine.Query("SELECT id1 FROM table1", nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -994,7 +994,7 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should resolve every row with two-time table aliasing", func(t *testing.T) {
-		r, err = engine.QueryStmt(fmt.Sprintf(`
+		r, err = engine.Query(fmt.Sprintf(`
 			SELECT * FROM table1 AS mytable1 WHERE mytable1.id >= 0 LIMIT %d
 		`, rowCount), nil)
 		require.NoError(t, err)
@@ -1032,7 +1032,7 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("should resolve every row with column and two-time table aliasing", func(t *testing.T) {
-		r, err = engine.QueryStmt(fmt.Sprintf(`
+		r, err = engine.Query(fmt.Sprintf(`
 			SELECT mytable1.id AS D, ts, Title, payload, Active FROM table1 mytable1 WHERE mytable1.id >= 0 LIMIT %d
 		`, rowCount), nil)
 		require.NoError(t, err)
@@ -1069,11 +1069,11 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY title", nil)
+	r, err = engine.Query("SELECT id, title, active, payload FROM table1 ORDER BY title", nil)
 	require.Equal(t, ErrLimitedOrderBy, err)
 	require.Nil(t, r)
 
-	r, err = engine.QueryStmt("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
+	r, err = engine.Query("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -1093,7 +1093,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE id", nil)
+	r, err = engine.Query("SELECT id FROM table1 WHERE id", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1105,7 +1105,7 @@ func TestQuery(t *testing.T) {
 	params = make(map[string]interface{})
 	params["some_param1"] = true
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil)
+	r, err = engine.Query("SELECT id FROM table1 WHERE active = @some_param1", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1125,7 +1125,7 @@ func TestQuery(t *testing.T) {
 
 	encPayloadPrefix := hex.EncodeToString([]byte("blob"))
 
-	r, err = engine.QueryStmt(fmt.Sprintf(`
+	r, err = engine.Query(fmt.Sprintf(`
 		SELECT id, title, active
 		FROM table1
 		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't`, encPayloadPrefix), params)
@@ -1145,7 +1145,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT * FROM table1 WHERE id = 0", nil)
+	r, err = engine.Query("SELECT * FROM table1 WHERE id = 0", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1159,7 +1159,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id / 0", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id / 0", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1168,7 +1168,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1177,7 +1177,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1186,15 +1186,15 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("INVALID QUERY", nil)
+	r, err = engine.Query("INVALID QUERY", nil)
 	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
 	require.Nil(t, r)
 
-	r, err = engine.QueryStmt("UPSERT INTO table1 (id) VALUES(1)", nil)
+	r, err = engine.Query("UPSERT INTO table1 (id) VALUES(1)", nil)
 	require.ErrorIs(t, err, ErrExpectingDQLStmt)
 	require.Nil(t, r)
 
-	r, err = engine.QueryStmt("UPSERT INTO table1 (id) VALUES(1); UPSERT INTO table1 (id) VALUES(1)", nil)
+	r, err = engine.Query("UPSERT INTO table1 (id) VALUES(1); UPSERT INTO table1 (id) VALUES(1)", nil)
 	require.ErrorIs(t, err, ErrExpectingDQLStmt)
 	require.Nil(t, r)
 
@@ -1205,7 +1205,7 @@ func TestQuery(t *testing.T) {
 	params = make(map[string]interface{})
 	params["null_param"] = nil
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @null_param", params)
+	r, err = engine.Query("SELECT id FROM table1 WHERE active = @null_param", params)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1224,32 +1224,32 @@ func TestQueryDistinct(t *testing.T) {
 	engine, err := NewEngine(st, opts)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 								id INTEGER AUTO_INCREMENT,
 								title VARCHAR,
 								amount INTEGER,
 								active BOOLEAN,
-								PRIMARY KEY id)`, nil)
+								PRIMARY KEY id)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`INSERT INTO table1 (title, amount, active) VALUES
+	_, _, err = engine.Exec(`INSERT INTO table1 (title, amount, active) VALUES
 								('title1', 100, NULL),
 								('title2', 200, false),
 								('title3', 200, true),
-								('title4', 300, NULL)`, nil)
+								('title4', 300, NULL)`, nil, nil)
 	require.NoError(t, err)
 
 	t.Run("should return all titles", func(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.QueryStmt("SELECT DISTINCT title FROM table1 WHERE id <= @id", nil)
+		r, err := engine.Query("SELECT DISTINCT title FROM table1 WHERE id <= @id", nil)
 		require.NoError(t, err)
 
 		r.SetParameters(params)
@@ -1277,7 +1277,7 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.QueryStmt("SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2", nil)
+		r, err := engine.Query("SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2", nil)
 		require.NoError(t, err)
 
 		r.SetParameters(params)
@@ -1305,7 +1305,7 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.QueryStmt("SELECT DISTINCT amount FROM table1 WHERE id <= @id", params)
+		r, err := engine.Query("SELECT DISTINCT amount FROM table1 WHERE id <= @id", params)
 		require.NoError(t, err)
 
 		cols, err := r.Columns()
@@ -1331,7 +1331,7 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.QueryStmt("SELECT DISTINCT active FROM table1 WHERE id <= @id", params)
+		r, err := engine.Query("SELECT DISTINCT active FROM table1 WHERE id <= @id", params)
 		require.NoError(t, err)
 
 		cols, err := r.Columns()
@@ -1363,7 +1363,7 @@ func TestQueryDistinct(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
 
-		r, err := engine.QueryStmt("SELECT DISTINCT amount, active FROM table1 WHERE id <= @id", params)
+		r, err := engine.Query("SELECT DISTINCT amount, active FROM table1 WHERE id <= @id", params)
 		require.NoError(t, err)
 
 		cols, err := r.Columns()
@@ -1395,7 +1395,7 @@ func TestQueryDistinct(t *testing.T) {
 	})
 
 	t.Run("should return too many rows error", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT DISTINCT id FROM table1", nil)
+		r, err := engine.Query("SELECT DISTINCT id FROM table1", nil)
 		require.NoError(t, err)
 
 		cols, err := r.Columns()
@@ -1427,13 +1427,13 @@ func TestIndexing(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`CREATE TABLE table1 (
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
 								id INTEGER AUTO_INCREMENT,
 								ts INTEGER,
 								title VARCHAR[20],
@@ -1441,33 +1441,33 @@ func TestIndexing(t *testing.T) {
 								amount INTEGER,
 								payload BLOB,
 								PRIMARY KEY id
-							)`, nil)
+							)`, nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1 (ts)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (ts)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1 (title, amount)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1 (title, amount)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1 (active, title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (active, title)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE UNIQUE INDEX ON table1 (title)", nil)
+	_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1 (title)", nil, nil)
 	require.NoError(t, err)
 
 	t.Run("should fail due to unique index", func(t *testing.T) {
-		_, err = engine.ExecStmt("INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil)
+		_, _, err = engine.Exec("INSERT INTO table1 (ts, title, amount, active) VALUES (1, 'title1', 10, true), (2, 'title1', 10, false)", nil, nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 	})
 
 	t.Run("should fail due non-available index", func(t *testing.T) {
-		_, err = engine.QueryStmt("SELECT * FROM table1 ORDER BY amount DESC", nil)
+		_, err = engine.Query("SELECT * FROM table1 ORDER BY amount DESC", nil)
 		require.ErrorIs(t, err, ErrNoAvailableIndex)
 	})
 
 	t.Run("should use primary index by default", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1", nil)
+		r, err := engine.Query("SELECT * FROM table1", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1487,7 +1487,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use primary index in descending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 ORDER BY id DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 ORDER BY id DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1507,7 +1507,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` ascending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 ORDER BY ts", nil)
+		r, err := engine.Query("SELECT * FROM table1 ORDER BY ts", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1529,7 +1529,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` descending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 ORDER BY ts DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 ORDER BY ts DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1551,7 +1551,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts = 1629902962 OR ts < 1629902963 ORDER BY ts", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE ts = 1629902962 OR ts < 1629902963 ORDER BY ts", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1580,7 +1580,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 AS t WHERE t.ts = 1629902962 AND t.ts = 1629902963 ORDER BY t.ts", nil)
+		r, err := engine.Query("SELECT * FROM table1 AS t WHERE t.ts = 1629902962 AND t.ts = 1629902963 ORDER BY t.ts", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1611,7 +1611,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` with specific value", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE ts > 1629902962 AND ts < 1629902963 ORDER BY ts", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE ts > 1629902962 AND ts < 1629902963 ORDER BY ts", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1642,7 +1642,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title, amount` in asc order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title, amount) ORDER BY title", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title, amount) ORDER BY title", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1665,7 +1665,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title` in asc order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title) ORDER BY title", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title) ORDER BY title", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1687,7 +1687,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` in default order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (ts)", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (ts)", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1709,12 +1709,12 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should fail using index on `ts` when ordering by `title`", func(t *testing.T) {
-		_, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (ts) ORDER BY title", nil)
+		_, err := engine.Query("SELECT * FROM table1 USE INDEX ON (ts) ORDER BY title", nil)
 		require.ErrorIs(t, err, ErrNoAvailableIndex)
 	})
 
 	t.Run("should use index on `title` with max value in desc order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' ORDER BY title DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' ORDER BY title DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1743,7 +1743,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title,amount` in desc order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title = 'title1' ORDER BY amount DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE title = 'title1' ORDER BY amount DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1775,7 +1775,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` ascending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' ORDER BY ts ASC", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE title > 'title10' ORDER BY ts ASC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1804,7 +1804,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `ts` descending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY ts DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY ts DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1833,7 +1833,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title` descending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY title DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 WHERE title > 'title10' or title = 'title1' ORDER BY title DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1863,7 +1863,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title` ascending order starting with 'title1'", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title) WHERE title > 'title10' or title = 'title1' ORDER BY title", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title) WHERE title > 'title10' or title = 'title1' ORDER BY title", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1892,7 +1892,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title` ascending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' or title = 'title1' ORDER BY title", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' or title = 'title1' ORDER BY title", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1921,7 +1921,7 @@ func TestIndexing(t *testing.T) {
 	})
 
 	t.Run("should use index on `title` descending order", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' and title = 'title1' ORDER BY title DESC", nil)
+		r, err := engine.Query("SELECT * FROM table1 USE INDEX ON (title) WHERE title < 'title10' and title = 'title1' ORDER BY title DESC", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -1960,7 +1960,7 @@ func TestExecCornerCases(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	tx, err := engine.ExecStmt("INVALID STATEMENT", nil)
+	tx, _, err := engine.Exec("INVALID STATEMENT", nil, nil)
 	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
 	require.Nil(t, tx)
 }
@@ -1973,16 +1973,16 @@ func TestQueryWithNullables(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1 (id, ts, title) VALUES (1, TIME(), 'title1')", nil)
+	_, _, err = engine.Exec("INSERT INTO table1 (id, ts, title) VALUES (1, TIME(), 'title1')", nil, nil)
 	require.Equal(t, ErrNoSupported, err)
 
 	rowCount := 10
@@ -1990,11 +1990,11 @@ func TestQueryWithNullables(t *testing.T) {
 	start := time.Now().UnixNano()
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, ts, title) VALUES (%d, NOW(), 'title%d')", i, i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table1 (id, ts, title) VALUES (%d, NOW(), 'title%d')", i, i), nil, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1 WHERE NOT(active != NULL)", nil)
+	r, err := engine.Query("SELECT id, ts, title, active FROM table1 WHERE NOT(active != NULL)", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -2024,48 +2024,48 @@ func TestOrderBy(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil)
+	_, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil)
+	_, err = engine.Query("SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
+	_, err = engine.Query("SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table2 ORDER BY title", nil)
+	_, err = engine.Query("SELECT id, title, age FROM table2 ORDER BY title", nil)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY amount", nil)
+	_, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY amount", nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil)
+	_, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY age", nil)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(age)", nil, nil)
 	require.NoError(t, err)
 
 	params := make(map[string]interface{}, 1)
 	params["age"] = nil
-	_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params)
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title, age) VALUES (1, 'title', @age)", params, nil)
 	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1 (id, title) VALUES (1, 'title')", nil)
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title) VALUES (1, 'title')", nil, nil)
 	require.Equal(t, ErrIndexedColumnCanNotBeNull, err)
 
 	rowCount := 1
@@ -2076,11 +2076,11 @@ func TestOrderBy(t *testing.T) {
 		params["title"] = fmt.Sprintf("title%d", i)
 		params["age"] = 40 + i
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY title", nil)
+	r, err := engine.Query("SELECT id, title, age FROM table1 ORDER BY title", nil)
 	require.NoError(t, err)
 
 	orderBy := r.OrderBy()
@@ -2104,7 +2104,7 @@ func TestOrderBy(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil)
+	r, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY age", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -2121,7 +2121,7 @@ func TestOrderBy(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age DESC", nil)
+	r, err = engine.Query("SELECT id, title, age FROM table1 ORDER BY age DESC", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -2147,26 +2147,26 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf(`
+		_, _, err = engine.Exec(fmt.Sprintf(`
 			UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')
-		`, i, i, i%2 == 0, encPayload), nil)
+		`, i, i, i%2 == 0, encPayload), nil, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false", nil)
+	r, err := engine.Query("SELECT id, title, active FROM table1 WHERE false", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2175,7 +2175,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false OR true", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE false OR true", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -2186,7 +2186,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 < 2", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE 1 < 2", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -2197,7 +2197,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 >= 2", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE 1 >= 2", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2206,7 +2206,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 = true", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE 1 = true", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2215,7 +2215,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE NOT table1.active", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE NOT table1.active", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i++ {
@@ -2229,7 +2229,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE table1.id > 4", nil)
+	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE table1.id > 4", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i++ {
@@ -2243,10 +2243,10 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title) VALUES (%d, 'title%d')", rowCount, rowCount), nil)
+	_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table1 (id, title) VALUES (%d, 'title%d')", rowCount, rowCount), nil, nil)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null", nil)
+	r, err = engine.Query("SELECT id, title FROM table1 WHERE active = null AND payload = null", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2255,7 +2255,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null AND active = payload", nil)
+	r, err = engine.Query("SELECT id, title FROM table1 WHERE active = null AND payload = null AND active = payload", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2273,24 +2273,24 @@ func TestQueryWithInClause(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf(`
+		_, _, err = engine.Exec(fmt.Sprintf(`
 			INSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)
-		`, i, i, i%2 == 0), nil)
+		`, i, i, i%2 == 0), nil, nil)
 		require.NoError(t, err)
 	}
 
@@ -2333,7 +2333,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause with invalid column should return an error", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE invalidColumn IN (1, 2)", nil)
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE invalidColumn IN (1, 2)", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read()
@@ -2344,7 +2344,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause with invalid type should return an error", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN (1, 2)", nil)
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE title IN (1, 2)", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read()
@@ -2355,7 +2355,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause should succeed reading two rows", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')", nil)
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE title IN ('title0', 'title1')", nil)
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
@@ -2370,7 +2370,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause with invalid values should return an error", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title IN ('title0', true + 'title1')", nil)
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE title IN ('title0', true + 'title1')", nil)
 		require.NoError(t, err)
 
 		_, err = r.Read()
@@ -2381,7 +2381,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause should succeed reading rows NOT included in 'IN' clause", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE title NOT IN ('title1', 'title0')", nil)
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE title NOT IN ('title1', 'title0')", nil)
 		require.NoError(t, err)
 
 		for i := 2; i < rowCount; i++ {
@@ -2396,7 +2396,7 @@ func TestQueryWithInClause(t *testing.T) {
 	})
 
 	t.Run("in clause should succeed reading using 'IN' clause in join condition", func(t *testing.T) {
-		r, err := engine.QueryStmt("SELECT * FROM table1 as t1 INNER JOIN table1 as t2 ON t1.title IN (t2.title) ORDER BY title", nil)
+		r, err := engine.Query("SELECT * FROM table1 as t1 INNER JOIN table1 as t2 ON t1.title IN (t2.title) ORDER BY title", nil)
 		require.NoError(t, err)
 
 		for i := 0; i < rowCount; i++ {
@@ -2419,16 +2419,16 @@ func TestAggregations(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(age)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -2440,11 +2440,11 @@ func TestAggregations(t *testing.T) {
 		params["title"] = fmt.Sprintf("title%d", i)
 		params["age"] = base + i
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT() FROM table1 WHERE id < i", nil)
+	r, err := engine.Query("SELECT COUNT() FROM table1 WHERE id < i", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2453,7 +2453,7 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE false", nil)
+	r, err = engine.Query("SELECT id FROM table1 WHERE false", nil)
 	require.NoError(t, err)
 
 	row, err := r.Read()
@@ -2463,7 +2463,7 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt(`
+	r, err = engine.Query(`
 		SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload)
 		FROM table1 WHERE false`, nil)
 	require.NoError(t, err)
@@ -2479,7 +2479,7 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
+	r, err = engine.Query("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -2516,26 +2516,26 @@ func TestCount(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON t1(val1)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON t1(val1)", nil, nil)
 	require.NoError(t, err)
 
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 3; j++ {
-			_, err = engine.ExecStmt("INSERT INTO t1(val1) VALUES($1)", map[string]interface{}{"param1": j})
+			_, _, err = engine.Exec("INSERT INTO t1(val1) VALUES($1)", map[string]interface{}{"param1": j}, nil)
 			require.NoError(t, err)
 		}
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT() as c FROM t1", nil)
+	r, err := engine.Query("SELECT COUNT() as c FROM t1", nil)
 	require.NoError(t, err)
 
 	row, err := r.Read()
@@ -2545,10 +2545,10 @@ func TestCount(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT COUNT() as c FROM t1 GROUP BY val1", nil)
+	_, err = engine.Query("SELECT COUNT() as c FROM t1 GROUP BY val1", nil)
 	require.ErrorIs(t, err, ErrLimitedGroupBy)
 
-	r, err = engine.QueryStmt("SELECT COUNT() as c FROM t1 GROUP BY val1 ORDER BY val1", nil)
+	r, err = engine.Query("SELECT COUNT() as c FROM t1 GROUP BY val1 ORDER BY val1", nil)
 	require.NoError(t, err)
 
 	for j := 0; j < 3; j++ {
@@ -2572,16 +2572,16 @@ func TestGroupByHaving(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -2594,14 +2594,14 @@ func TestGroupByHaving(t *testing.T) {
 		params["age"] = base + i
 		params["active"] = i%2 == 0
 
-		_, err = engine.ExecStmt("INSERT INTO table1 (id, title, age, active) VALUES (@id, @title, @age, @active)", params)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, age, active) VALUES (@id, @title, @age, @active)", params, nil)
 		require.NoError(t, err)
 	}
 
-	_, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil)
+	_, err = engine.Query("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil)
 	require.Equal(t, ErrHavingClauseRequiresGroupClause, err)
 
-	r, err := engine.QueryStmt(`
+	r, err := engine.Query(`
 		SELECT active, COUNT(), SUM(age1)
 		FROM table1
 		WHERE active != null
@@ -2618,7 +2618,7 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt(`
+	r, err = engine.Query(`
 		SELECT active, COUNT(), SUM(age1)
 		FROM table1
 		WHERE AVG(age) >= MIN(age)
@@ -2629,7 +2629,7 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active ORDER BY active", nil)
+	r, err = engine.Query("SELECT active, COUNT(id) FROM table1 GROUP BY active ORDER BY active", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2638,7 +2638,7 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt(`
+	r, err = engine.Query(`
 		SELECT active, COUNT()
 		FROM table1
 		GROUP BY active
@@ -2652,7 +2652,7 @@ func TestGroupByHaving(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt(`
+	r, err = engine.Query(`
 		SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age)
 		FROM table1
 		GROUP BY active
@@ -2700,37 +2700,37 @@ func TestJoins(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf(`
-			UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)`, i, i, rowCount-1-i, i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf(`
+			UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)`, i, i, rowCount-1-i, i), nil, nil)
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i), nil, nil)
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i), nil, nil)
 		require.NoError(t, err)
 	}
 
 	t.Run("should not find any matching row", func(t *testing.T) {
-		r, err := engine.QueryStmt(`
+		r, err := engine.Query(`
 		SELECT table1.title, table2.amount, table3.age
 		FROM (SELECT * FROM table2 WHERE amount = 1)
 		INNER JOIN table1 ON table2.id = table1.fkid1 AND (table2.amount > 0 OR table2.amount > 0+1)
@@ -2745,7 +2745,7 @@ func TestJoins(t *testing.T) {
 	})
 
 	t.Run("should find one matching row", func(t *testing.T) {
-		r, err := engine.QueryStmt(`
+		r, err := engine.Query(`
 		SELECT t1.title, t2.amount, t3.age
 		FROM (SELECT id, amount FROM table2 WHERE amount = 1) AS t2
 		INNER JOIN table1 AS t1 ON t2.id = t1.fkid1 AND t2.amount > 0
@@ -2764,7 +2764,7 @@ func TestJoins(t *testing.T) {
 	})
 
 	t.Run("should resolve every inserted row", func(t *testing.T) {
-		r, err := engine.QueryStmt(`
+		r, err := engine.Query(`
 			SELECT id, title, table2.amount, table3.age
 			FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id
 			INNER JOIN table3 ON table1.fkid2 = table3.id
@@ -2795,7 +2795,7 @@ func TestJoins(t *testing.T) {
 	})
 
 	t.Run("should return error when joining nonexistent table", func(t *testing.T) {
-		r, err := engine.QueryStmt(`
+		r, err := engine.Query(`
 		SELECT title
 		FROM table1
 		INNER JOIN table22 ON table1.id = table11.fkid1`, nil)
@@ -2817,37 +2817,37 @@ func TestJoinsWithJointTable(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, amount INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, amount INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table12 (id INTEGER AUTO_INCREMENT, fkid1 INTEGER, fkid2 INTEGER, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table12 (id INTEGER AUTO_INCREMENT, fkid1 INTEGER, fkid2 INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table1 (name) VALUES ('name1'), ('name2'), ('name3')", nil)
+	_, _, err = engine.Exec("INSERT INTO table1 (name) VALUES ('name1'), ('name2'), ('name3')", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table2 (amount) VALUES (10), (20), (30)", nil)
+	_, _, err = engine.Exec("INSERT INTO table2 (amount) VALUES (10), (20), (30)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (1,1,false),(1,2,true),(1,3,true)", nil)
+	_, _, err = engine.Exec("INSERT INTO table12 (fkid1, fkid2, active) VALUES (1,1,false),(1,2,true),(1,3,true)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (2,1,false),(2,2,false),(2,3,true)", nil)
+	_, _, err = engine.Exec("INSERT INTO table12 (fkid1, fkid2, active) VALUES (2,1,false),(2,2,false),(2,3,true)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("INSERT INTO table12 (fkid1, fkid2, active) VALUES (3,1,false),(3,2,false),(3,3,false)", nil)
+	_, _, err = engine.Exec("INSERT INTO table12 (fkid1, fkid2, active) VALUES (3,1,false),(3,2,false),(3,3,false)", nil, nil)
 	require.NoError(t, err)
 
-	r, err := engine.QueryStmt(`
+	r, err := engine.Query(`
 		SELECT q.name, t2.amount, t12.active
 		FROM (SELECT * FROM table1 where name = 'name1') q
 		INNER JOIN table12 t12 on t12.fkid1 = q.id
@@ -2882,35 +2882,35 @@ func TestNestedJoins(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1) VALUES (%d, 'title%d', %d)", i, i, rowCount-1-i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1) VALUES (%d, 'title%d', %d)", i, i, rowCount-1-i), nil, nil)
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount, fkid1) VALUES (%d, %d, %d)", rowCount-1-i, i*i, i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table2 (id, amount, fkid1) VALUES (%d, %d, %d)", rowCount-1-i, i*i, i), nil, nil)
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i), nil)
+		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i), nil, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt(`
+	r, err := engine.Query(`
 		SELECT id, title, t2.amount AS total_amount, t3.age
 		FROM table1 t1
 		INNER JOIN table2 t2 ON (fkid1 = t2.id AND title != NULL)
@@ -2946,16 +2946,16 @@ func TestReOpening(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
 	require.NoError(t, err)
 
 	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
@@ -2964,10 +2964,10 @@ func TestReOpening(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
 	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
 	require.ErrorIs(t, err, ErrIndexAlreadyExists)
 }
 
@@ -2979,26 +2979,26 @@ func TestSubQuery(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf(`
+		_, _, err = engine.Exec(fmt.Sprintf(`
 			UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, x'%s')
-		`, i, i, i%2 == 0, encPayload), nil)
+		`, i, i, i%2 == 0, encPayload), nil, nil)
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt(`
+	r, err := engine.Query(`
 		SELECT id, title t
 		FROM (SELECT id, title, active FROM table1) t2
 		WHERE active AND t2.id >= 0`, nil)
@@ -3021,10 +3021,10 @@ func TestSubQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (0, 'title0')", nil)
+	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (0, 'title0')", nil, nil)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE active", nil)
+	r, err = engine.Query("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE active", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -3033,7 +3033,7 @@ func TestSubQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE title", nil)
+	r, err = engine.Query("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE title", nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -3051,13 +3051,13 @@ func TestJoinsWithSubquery(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithAutocommit(true))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(`
+	_, _, err = engine.Exec(`
 		CREATE TABLE IF NOT EXISTS customers (
 			id            INTEGER,
 			customer_name VARCHAR[60],
@@ -3096,10 +3096,10 @@ func TestJoinsWithSubquery(t *testing.T) {
 
 		INSERT INTO customer_review (customerid, productid, review)
 		VALUES(1, 1, 'Nice Juice!');
-	`, nil)
+	`, nil, nil)
 	require.NoError(t, err)
 
-	r, err := engine.QueryStmt(`
+	r, err := engine.Query(`
 		SELECT * FROM (
 			SELECT id, customer_name, age
 			FROM customers
@@ -3155,7 +3155,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, params)
 
-	_, err = engine.ExecStmt(stmt, nil)
+	_, _, err = engine.Exec(stmt, nil, nil)
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@id, @title);")
@@ -3195,7 +3195,7 @@ func TestInferParameters(t *testing.T) {
 	_, err = engine.InferParametersPreparedStmt(pstmt[0])
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(stmt, nil)
+	_, _, err = engine.Exec(stmt, nil, nil)
 	require.NoError(t, err)
 
 	params, err = engine.InferParameters("ALTER TABLE mytableSE ADD COLUMN note VARCHAR")
@@ -3208,7 +3208,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	_, err = engine.ExecStmt(stmt, nil)
+	_, _, err = engine.Exec(stmt, nil, nil)
 	require.NoError(t, err)
 
 	params, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@id, @title); COMMIT;")
@@ -3279,7 +3279,7 @@ func TestInferParametersPrepared(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
@@ -3293,7 +3293,7 @@ func TestInferParametersPrepared(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
-	_, err = engine.ExecPreparedStmts(stmts, nil)
+	_, _, err = engine.ExecPreparedStmts(stmts, nil, nil)
 	require.NoError(t, err)
 }
 
@@ -3305,13 +3305,13 @@ func TestInferParametersUnbounded(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	params, err := engine.InferParameters("SELECT * FROM mytable WHERE @param1 = @param2")
@@ -3355,13 +3355,13 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)")
