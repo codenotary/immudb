@@ -565,54 +565,68 @@ func TestAutoIncrementUniqueIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("invalid use of auto-increment type", func(t *testing.T) {
-		_, err = engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number VARCHAR AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
+		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number VARCHAR AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
 		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
 	})
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
-	require.NoError(t, err)
+	t.Run("create table", func(t *testing.T) {
+		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[256], number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
+		require.NoError(t, err)
+	})
 
+	t.Run("insert into newly created table", func(t *testing.T) {
+		summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('AE1R', 'Jhon')", nil, true)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(1), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 1, summary.UpdatedRows)
+	})
 
-	summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('AE1R', 'Jhon')", nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(1), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
+	t.Run("test bad use of insertion", func(t *testing.T) {
+		_, err := engine.ExecStmt("INSERT INTO table1(uid, number, name) VALUES ('XAPGH', 2, 'Jhon')", nil, true)
+		require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
 
-	_, err = engine.ExecStmt("INSERT INTO table1(uid, number, name) VALUES ('XAPGH', 2, 'Jhon')", nil, true)
-	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
+		_, err = engine.ExecStmt("UPSERT INTO table1(uid, number, name) VALUES ('FZAK', 1, 'Ben')", nil, true)
+		require.ErrorIs(t, err, ErrLimitedUpsert)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1(uid, number, name) VALUES ('FZAK', 1, 'Ben')", nil, true)
-	require.NoError(t, err)
+		//_, err = engine.ExecStmt("UPSERT INTO table1(uid, name) VALUES ('FZAK', 'Ben')", nil, true)
+		//require.NoError(t, err)
+	})
 
-	err = engine.ReloadCatalog(nil)
-	require.NoError(t, err)
+	t.Run("reload catalog", func(t *testing.T) {
+		err := engine.ReloadCatalog(nil)
+		require.NoError(t, err)
+	})
 
-	summary, err = engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('BEKZ', 'Marc')", nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(3), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
+	t.Run("insert one entry after catalog reload", func(t *testing.T) {
+		summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('BEKZ', 'Marc')", nil, true)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(2), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 1, summary.UpdatedRows)
+	})
 
-	summary, err = engine.ExecStmt(`
+	t.Run("insert two entries inside transaction", func(t *testing.T) {
+		summary, err := engine.ExecStmt(`
 		BEGIN TRANSACTION
 			INSERT INTO table1(uid, name) VALUES ('VBKZ', 'name3');
 			INSERT INTO table1(uid, name) VALUES ('FZKB', 'name4');
 		COMMIT
 	`, nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(4), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 2, summary.UpdatedRows)
+		require.NoError(t, err)
+		require.Empty(t, summary.DDTxs)
+		require.Len(t, summary.DMTxs, 1)
+		require.Equal(t, uint64(3), summary.DMTxs[0].ID)
+		require.Len(t, summary.LastInsertedPKs, 1)
+		require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
+		require.Equal(t, 2, summary.UpdatedRows)
+	})
 }
 
 func TestTransactions(t *testing.T) {
