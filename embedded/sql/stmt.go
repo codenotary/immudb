@@ -114,7 +114,7 @@ const (
 )
 
 type SQLStmt interface {
-	compileUsing(tx *SQLTx, params map[string]interface{}) error
+	execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
 	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
 }
 
@@ -125,14 +125,29 @@ func (stmt *BeginTransactionStmt) inferParameters(tx *SQLTx, params map[string]S
 	return nil
 }
 
-func (stmt *BeginTransactionStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.explicitClose {
-		return ErrNestedTxNotSupported
+		return nil, ErrNestedTxNotSupported
 	}
 
-	tx.explicitClose = true
+	if tx.updatedRows == 0 {
+		tx.explicitClose = true
+		return tx, nil
+	}
 
-	return nil
+	err := tx.commit()
+	if err != nil {
+		return nil, err
+	}
+
+	ntx, err := tx.engine.newTx(true)
+	if err != nil {
+		return nil, err
+	}
+
+	ntx.explicitClose = true
+
+	return ntx, nil
 }
 
 type CommitStmt struct {
@@ -142,12 +157,12 @@ func (stmt *CommitStmt) inferParameters(tx *SQLTx, params map[string]SQLValueTyp
 	return nil
 }
 
-func (stmt *CommitStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *CommitStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.explicitClose {
-		return ErrNoOngoingTx
+		return nil, ErrNoOngoingTx
 	}
 
-	return tx.commit()
+	return tx, tx.commit()
 }
 
 type RollbackStmt struct {
@@ -157,12 +172,12 @@ func (stmt *RollbackStmt) inferParameters(tx *SQLTx, params map[string]SQLValueT
 	return nil
 }
 
-func (stmt *RollbackStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *RollbackStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.explicitClose {
-		return ErrNoOngoingTx
+		return nil, ErrNoOngoingTx
 	}
 
-	return tx.cancel()
+	return tx, tx.cancel()
 }
 
 type CreateDatabaseStmt struct {
@@ -173,20 +188,22 @@ func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQL
 	return nil
 }
 
-func (stmt *CreateDatabaseStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	id := uint32(len(tx.catalog.dbsByID) + 1)
 
 	db, err := tx.catalog.newDatabase(id, stmt.DB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = tx.set(mapKey(tx.sqlPrefix(), catalogDatabasePrefix, EncodeID(db.id)), nil, []byte(stmt.DB))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	tx.updatedRows++
+
+	return tx, nil
 }
 
 type UseDatabaseStmt struct {
@@ -197,8 +214,8 @@ func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 	return nil
 }
 
-func (stmt *UseDatabaseStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
-	return tx.useDatabase(stmt.DB)
+func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, tx.useDatabase(stmt.DB)
 }
 
 type UseSnapshotStmt struct {
@@ -210,8 +227,8 @@ func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 	return nil
 }
 
-func (stmt *UseSnapshotStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
-	return ErrNoSupported
+func (stmt *UseSnapshotStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return nil, ErrNoSupported
 }
 
 type CreateTableStmt struct {
@@ -225,24 +242,24 @@ func (stmt *CreateTableStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 	return nil
 }
 
-func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	if stmt.ifNotExists && tx.currentDB.ExistTable(stmt.table) {
-		return nil
+		return tx, nil
 	}
 
 	table, err := tx.currentDB.newTable(stmt.table, stmt.colsSpec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
-	err = createIndexStmt.compileUsing(tx, params)
+	_, err = createIndexStmt.execAt(tx, params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, col := range table.Cols() {
@@ -251,7 +268,7 @@ func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, params map[string]interface
 
 		if col.autoIncrement {
 			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
-				return ErrLimitedAutoIncrement
+				return nil, ErrLimitedAutoIncrement
 			}
 
 			v[0] = v[0] | autoIncrementFlag
@@ -276,7 +293,7 @@ func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, params map[string]interface
 
 		err = tx.set(mappedKey, nil, v)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -284,10 +301,12 @@ func (stmt *CreateTableStmt) compileUsing(tx *SQLTx, params map[string]interface
 
 	err = tx.set(mappedKey, nil, []byte(table.name))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	tx.updatedRows++
+
+	return tx, nil
 }
 
 type ColSpec struct {
@@ -309,22 +328,22 @@ func (stmt *CreateIndexStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 	return nil
 }
 
-func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *CreateIndexStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if len(stmt.cols) < 1 {
-		return ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if len(stmt.cols) > MaxNumberOfColumnsInIndex {
-		return ErrMaxNumberOfColumnsInIndexExceeded
+		return nil, ErrMaxNumberOfColumnsInIndexExceeded
 	}
 
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	table, err := tx.currentDB.GetTableByName(stmt.table)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	colIDs := make([]uint32, len(stmt.cols))
@@ -332,11 +351,11 @@ func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface
 	for i, colName := range stmt.cols {
 		col, err := table.GetColumnByName(colName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if variableSized(col.colType) && (col.MaxLen() == 0 || col.MaxLen() > maxKeyLen) {
-			return ErrLimitedKeyType
+			return nil, ErrLimitedKeyType
 		}
 
 		colIDs[i] = col.id
@@ -344,10 +363,10 @@ func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface
 
 	index, err := table.newIndex(stmt.unique, colIDs)
 	if err == ErrIndexAlreadyExists && stmt.ifNotExists {
-		return nil
+		return tx, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// check table is empty
@@ -355,10 +374,10 @@ func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface
 		pkPrefix := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID))
 		existKey, err := tx.existKeyWith(pkPrefix, pkPrefix)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if existKey {
-			return ErrLimitedIndexCreation
+			return nil, ErrLimitedIndexCreation
 		}
 	}
 
@@ -380,10 +399,12 @@ func (stmt *CreateIndexStmt) compileUsing(tx *SQLTx, params map[string]interface
 
 	err = tx.set(mappedKey, nil, encodedValues)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	tx.updatedRows++
+
+	return tx, nil
 }
 
 type AddColumnStmt struct {
@@ -395,8 +416,8 @@ func (stmt *AddColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValue
 	return nil
 }
 
-func (stmt *AddColumnStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
-	return ErrNoSupported
+func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return nil, ErrNoSupported
 }
 
 type UpsertIntoStmt struct {
@@ -461,24 +482,24 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 	return selPosByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	selPosByColID, err := stmt.validate(table)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, row := range stmt.rows {
 		if len(row.Values) != len(stmt.cols) {
-			return ErrInvalidNumberOfValues
+			return nil, ErrInvalidNumberOfValues
 		}
 
 		valuesByColID := make(map[uint32]TypedValue)
@@ -487,31 +508,31 @@ func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, params map[string]interface{
 			colPos, specified := selPosByColID[colID]
 			if !specified {
 				if col.notNull {
-					return ErrNotNullableColumnCannotBeNull
+					return nil, ErrNotNullableColumnCannotBeNull
 				}
 				continue
 			}
 
 			if stmt.isInsert && col.autoIncrement {
-				return ErrNoValueForAutoIncrementalColumn
+				return nil, ErrNoValueForAutoIncrementalColumn
 			}
 
 			cVal := row.Values[colPos]
 
 			val, err := cVal.substitute(params)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			rval, err := val.reduce(tx.catalog, nil, tx.currentDB.name, table.name)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			_, isNull := rval.(*NullValue)
 			if isNull {
 				if col.notNull {
-					return ErrNotNullableColumnCannotBeNull
+					return nil, ErrNotNullableColumnCannotBeNull
 				}
 
 				continue
@@ -533,16 +554,16 @@ func (stmt *UpsertIntoStmt) compileUsing(tx *SQLTx, params map[string]interface{
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = tx.doUpsert(pkEncVals, valuesByColID, table, stmt.isInsert)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return tx, nil
 }
 
 func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, isInsert bool) error {
@@ -904,9 +925,9 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 	return nil
 }
 
-func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	selectStmt := &SelectStmt{
@@ -918,7 +939,7 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) e
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rowReader.Close()
 
@@ -926,12 +947,12 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) e
 
 	err = stmt.validate(table)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cols, err := rowReader.colsBySelector()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for {
@@ -950,22 +971,22 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) e
 		for _, update := range stmt.updates {
 			col, err := table.GetColumnByName(update.col)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			sval, err := update.val.substitute(params)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			rval, err := sval.reduce(tx.catalog, row, table.db.name, table.name)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			err = rval.requiresType(col.colType, cols, nil, table.db.name, table.name)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			valuesByColID[col.id] = rval
@@ -973,16 +994,16 @@ func (stmt *UpdateStmt) compileUsing(tx *SQLTx, params map[string]interface{}) e
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = tx.doUpsert(pkEncVals, valuesByColID, table, false)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return tx, nil
 }
 
 type DeleteFromStmt struct {
@@ -1000,9 +1021,9 @@ func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, params map[string]SQLValu
 	return selectStmt.inferParameters(tx, params)
 }
 
-func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	selectStmt := &SelectStmt{
@@ -1014,7 +1035,7 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, params map[string]interface{
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rowReader.Close()
 
@@ -1035,18 +1056,18 @@ func (stmt *DeleteFromStmt) compileUsing(tx *SQLTx, params map[string]interface{
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = tx.deleteIndexEntries(pkEncVals, valuesByColID, table)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		tx.updatedRows++
 	}
 
-	return nil
+	return tx, nil
 }
 
 func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
@@ -1708,7 +1729,7 @@ func (stmt *SelectStmt) Limit() int {
 }
 
 func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	err := stmt.compileUsing(tx, nil)
+	_, err := stmt.execAt(tx, nil)
 	if err != nil {
 		return err
 	}
@@ -1723,46 +1744,46 @@ func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueTyp
 	return rowReader.InferParameters(params)
 }
 
-func (stmt *SelectStmt) compileUsing(tx *SQLTx, params map[string]interface{}) error {
+func (stmt *SelectStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
-		return ErrNoDatabaseSelected
+		return nil, ErrNoDatabaseSelected
 	}
 
 	if stmt.groupBy == nil && stmt.having != nil {
-		return ErrHavingClauseRequiresGroupClause
+		return nil, ErrHavingClauseRequiresGroupClause
 	}
 
 	if len(stmt.groupBy) > 1 {
-		return ErrLimitedGroupBy
+		return nil, ErrLimitedGroupBy
 	}
 
 	if len(stmt.orderBy) > 1 {
-		return ErrLimitedOrderBy
+		return nil, ErrLimitedOrderBy
 	}
 
 	if len(stmt.orderBy) > 0 {
 		tableRef, ok := stmt.ds.(*tableRef)
 		if !ok {
-			return ErrLimitedOrderBy
+			return nil, ErrLimitedOrderBy
 		}
 
 		table, err := tableRef.referencedTable(tx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		_, indexed := table.indexesByColID[col.id]
 		if !indexed {
-			return ErrLimitedOrderBy
+			return nil, ErrLimitedOrderBy
 		}
 	}
 
-	return nil
+	return tx, nil
 }
 
 func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {

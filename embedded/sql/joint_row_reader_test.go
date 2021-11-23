@@ -36,7 +36,7 @@ func TestJointRowReader(t *testing.T) {
 	_, err = newJointRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	tx, err := engine.NewTx()
+	tx, err := engine.newTx(false)
 	require.NoError(t, err)
 
 	db, err := tx.catalog.newDatabase(1, "db1")
