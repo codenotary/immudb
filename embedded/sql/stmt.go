@@ -201,8 +201,6 @@ func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{})
 		return nil, err
 	}
 
-	tx.updatedRows++
-
 	return tx, nil
 }
 
@@ -304,8 +302,6 @@ func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 		return nil, err
 	}
 
-	tx.updatedRows++
-
 	return tx, nil
 }
 
@@ -401,8 +397,6 @@ func (stmt *CreateIndexStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	if err != nil {
 		return nil, err
 	}
-
-	tx.updatedRows++
 
 	return tx, nil
 }
