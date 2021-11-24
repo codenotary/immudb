@@ -76,16 +76,15 @@ type DB interface {
 	UseTimeFunc(timeFunc store.TimeFunc) error
 	CompactIndex() error
 	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
-	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
-	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error)
-	InferParameters(sql string) (map[string]sql.SQLValueType, error)
-	InferParametersPrepared(stmt sql.SQLStmt) (map[string]sql.SQLValueType, error)
-	UseSnapshot(req *schema.UseSnapshotRequest) error
-	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
-	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error)
-	SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.RowReader, error)
-	ListTables() (*schema.SQLQueryResult, error)
-	DescribeTable(table string) (*schema.SQLQueryResult, error)
+	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
+	InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
+	SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error)
+	ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
 	GetName() string
 }
 
@@ -97,8 +96,7 @@ type db struct {
 	sqlInitCancel chan (struct{})
 	sqlInit       sync.WaitGroup
 
-	tx1, tx2 *store.Tx
-	mutex    sync.RWMutex
+	mutex sync.RWMutex
 
 	Logger  logger.Logger
 	options *Options
@@ -130,10 +128,7 @@ func OpenDB(op *Options, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.tx1 = dbi.st.NewTx()
-	dbi.tx2 = dbi.st.NewTx()
-
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
 		return nil, err
 	}
@@ -170,17 +165,12 @@ func (d *db) path() string {
 }
 
 func (d *db) initSQLEngine() error {
-	err := d.sqlEngine.EnsureCatalogReady(d.sqlInitCancel)
-	if err != nil {
-		return err
-	}
-
 	// Warn about existent SQL data
 	for _, prefix := range []string{
 		"CATALOG.TABLE.",
 		"P.",
 	} {
-		exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte(prefix)...), nil, false)
+		exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte(prefix)...), nil)
 		if err != nil {
 			return err
 		}
@@ -193,38 +183,24 @@ func (d *db) initSQLEngine() error {
 		}
 	}
 
-	err = d.sqlEngine.UseDatabase(dbInstanceName)
+	err := d.sqlEngine.SetDefaultDatabase(dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
 	}
 
 	if err == sql.ErrDatabaseDoesNotExist {
-		_, err = d.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
+		_, _, err = d.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
 		if err != nil {
 			return logErr(d.Logger, "Unable to open store: %s", err)
 		}
 
-		err = d.sqlEngine.UseDatabase(dbInstanceName)
+		err = d.sqlEngine.SetDefaultDatabase(dbInstanceName)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (d *db) reloadSQLCatalog() error {
-	err := d.sqlEngine.ReloadCatalog(nil)
-	if err != nil {
-		return err
-	}
-
-	err = d.sqlEngine.UseDatabase(dbInstanceName)
-	if err == sql.ErrDatabaseDoesNotExist {
-		return ErrSQLNotReady
-	}
-
-	return err
 }
 
 // NewDB Creates a new Database along with it's directories and files
@@ -254,21 +230,18 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.tx1 = dbi.st.NewTx()
-	dbi.tx2 = dbi.st.NewTx()
-
-	dbi.sqlEngine, err = sql.NewEngine(dbi.st, dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
+	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
 	if !op.replica {
-		_, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, true)
+		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		err = dbi.sqlEngine.UseDatabase(dbInstanceName)
+		err = dbi.sqlEngine.SetDefaultDatabase(dbInstanceName)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
@@ -285,28 +258,12 @@ func (d *db) isReplica() bool {
 
 // UseTimeFunc ...
 func (d *db) UseTimeFunc(timeFunc store.TimeFunc) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	return d.st.UseTimeFunc(timeFunc)
 }
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	err := d.sqlEngine.CloseSnapshot()
-	if err != nil {
-		return err
-	}
-
-	err = d.st.CompactIndex()
-	if err != nil {
-		return err
-	}
-
-	return d.sqlEngine.RenewSnapshot()
+	return d.st.CompactIndex()
 }
 
 // Set ...
@@ -336,7 +293,26 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 		entries[i] = EncodeEntrySpec(kv.Key, schema.KVMetadataFromProto(kv.Metadata), kv.Value)
 	}
 
-	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
+	tx, err := d.st.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	for _, e := range entries {
+		err = tx.Set(e.Key, e.Metadata, e.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var hdr *store.TxHeader
+
+	if req.NoWait {
+		hdr, err = tx.AsyncCommit()
+	} else {
+		hdr, err = tx.Commit()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -366,10 +342,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
+	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
 }
 
 func (d *db) get(key []byte, index store.KeyIndex, tx *store.Tx) (*schema.Entry, error) {
@@ -382,7 +355,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 	var md *store.KVMetadata
 
 	if atTx == 0 {
-		valRef, err := index.Get(key, store.IgnoreDeleted)
+		valRef, err := index.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -448,9 +421,6 @@ func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata
 
 // CurrentState ...
 func (d *db) CurrentState() (*schema.ImmutableState, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	lastTxID, lastTxAlh := d.st.Alh()
 
 	return &schema.ImmutableState{
@@ -485,10 +455,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	lastTx := d.tx1
+	lastTx := d.st.NewTxHolder()
 
 	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
 	if err != nil {
@@ -500,7 +467,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	if req.ProveSinceTx == 0 {
 		prevTx = lastTx
 	} else {
-		prevTx = d.tx2
+		prevTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
 		if err != nil {
@@ -535,10 +502,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	txEntry := d.tx1
+	tx := d.st.NewTxHolder()
 
 	var vTxID uint64
 	var vKey []byte
@@ -552,12 +516,12 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(vTxID, txEntry)
+	err = d.st.ReadTx(vTxID, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx1.Proof(EncodeKey(vKey))
+	inclusionProof, err := tx.Proof(EncodeKey(vKey))
 	if err != nil {
 		return nil, err
 	}
@@ -565,9 +529,9 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	var rootTx *store.Tx
 
 	if req.ProveSinceTx == 0 {
-		rootTx = txEntry
+		rootTx = tx
 	} else {
-		rootTx = d.tx2
+		rootTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
@@ -579,9 +543,9 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	if req.ProveSinceTx <= vTxID {
 		sourceTx = rootTx
-		targetTx = txEntry
+		targetTx = tx
 	} else {
-		sourceTx = txEntry
+		sourceTx = tx
 		targetTx = rootTx
 	}
 
@@ -591,7 +555,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}
 
 	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxToProto(txEntry),
+		Tx:        schema.TxToProto(tx),
 		DualProof: schema.DualProofToProto(dualProof),
 	}
 
@@ -605,6 +569,13 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
+	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		return nil, ErrIsReplica
 	}
 
 	currTxID, _ := d.st.Alh()
@@ -623,18 +594,31 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 		return nil, err
 	}
 
-	entries := make([]*store.EntrySpec, len(req.Keys))
+	tx, err := d.st.NewTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
 
-	for i, k := range req.Keys {
+	for _, k := range req.Keys {
 		if len(k) == 0 {
 			return nil, ErrIllegalArguments
 		}
 
-		entries[i] = EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
-		entries[i].Constraint = store.MustExistAndNotDeleted
+		e := EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
+
+		err = tx.Delete(e.Key)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	hdr, err := d.st.Commit(&store.TxSpec{Entries: entries, WaitForIndexing: !req.NoWait})
+	var hdr *store.TxHeader
+	if req.NoWait {
+		hdr, err = tx.AsyncCommit()
+	} else {
+		hdr, err = tx.Commit()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -660,9 +644,6 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	snapshot, err := d.st.SnapshotSince(waitUntilTx)
 	if err != nil {
 		return nil, err
@@ -671,8 +652,10 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 
 	list := &schema.Entries{}
 
+	txHolder := d.st.NewTxHolder()
+
 	for _, key := range req.Keys {
-		e, err := d.get(EncodeKey(key), snapshot, d.tx1)
+		e, err := d.get(EncodeKey(key), snapshot, txHolder)
 		if err == nil || err == store.ErrKeyNotFound {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
@@ -687,9 +670,6 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 
 //Size ...
 func (d *db) Size() (uint64, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	return d.st.TxCount(), nil
 }
 
@@ -705,36 +685,32 @@ func (d *db) CountAll() (*schema.EntryCount, error) {
 
 // TxByID ...
 func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
+	tx := d.st.NewTxHolder()
+
 	// key-value inclusion proof
-	err := d.st.ReadTx(req.Tx, d.tx1)
+	err := d.st.ReadTx(req.Tx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxToProto(d.tx1), nil
+	return schema.TxToProto(tx), nil
 }
 
 func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	return d.st.ExportTx(req.Tx, d.tx1)
+	return d.st.ExportTx(req.Tx, d.st.NewTxHolder())
 }
 
 func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	if !d.isReplica() {
 		return nil, ErrNotReplica
@@ -750,9 +726,6 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 
 //VerifiableTxByID ...
 func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -763,7 +736,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}
 
 	// key-value inclusion proof
-	reqTx := d.tx1
+	reqTx := d.st.NewTxHolder()
 
 	err := d.st.ReadTx(req.Tx, reqTx)
 	if err != nil {
@@ -777,7 +750,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	if req.ProveSinceTx == 0 {
 		rootTx = reqTx
 	} else {
-		rootTx = d.tx2
+		rootTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
@@ -806,9 +779,6 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 //TxScan ...
 func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -823,7 +793,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		limit = MaxKeyScanLimit
 	}
 
-	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, d.tx1)
+	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, d.st.NewTxHolder())
 	if err != nil {
 		return nil, err
 	}
@@ -847,9 +817,6 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 
 //History ...
 func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -891,19 +858,21 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		Entries: make([]*schema.Entry, len(txs)),
 	}
 
-	for i, tx := range txs {
-		err = d.st.ReadTx(tx, d.tx1)
+	tx := d.st.NewTxHolder()
+
+	for i, txID := range txs {
+		err = d.st.ReadTx(txID, tx)
 		if err != nil {
 			return nil, err
 		}
 
-		md, val, err := d.st.ReadValue(d.tx1, key)
+		md, val, err := d.st.ReadValue(tx, key)
 		if err != nil {
 			return nil, err
 		}
 
 		list.Entries[i] = &schema.Entry{
-			Tx:       tx,
+			Tx:       txID,
 			Key:      req.Key,
 			Metadata: schema.KVMetadataToProto(md),
 			Value:    TrimPrefix(val),
@@ -915,19 +884,11 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 //Close ...
 func (d *db) Close() error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if d.sqlInitCancel != nil {
 		close(d.sqlInitCancel)
 	}
 
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
-
-	err := d.sqlEngine.Close()
-	if err != nil {
-		return err
-	}
 
 	return d.st.Close()
 }
@@ -946,6 +907,7 @@ func (d *db) AsReplica(asReplica bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	// TODO: store plain option values in db struct to prevent data races
 	d.options.replica = asReplica
 }
 

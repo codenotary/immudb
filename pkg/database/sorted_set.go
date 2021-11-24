@@ -57,7 +57,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	// check referenced key exists and it's not a reference
 	key := EncodeKey(req.Key)
 
-	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.st.NewTxHolder())
 	if err != nil {
 		return nil, err
 	}
@@ -65,14 +65,26 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	// Note: store.MustNotExist constraint may be specified so to avoid useless updates.
-	// It's not yet included due to potential backward-compatibility issues with existent applications using this API
-	hdr, err := d.st.Commit(
-		&store.TxSpec{
-			Entries:         []*store.EntrySpec{EncodeZAdd(req.Set, req.Score, key, req.AtTx)},
-			WaitForIndexing: !req.NoWait,
-		},
-	)
+	tx, err := d.st.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	e := EncodeZAdd(req.Set, req.Score, key, req.AtTx)
+
+	err = tx.Set(e.Key, e.Metadata, e.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	var hdr *store.TxHeader
+
+	if req.NoWait {
+		hdr, err = tx.AsyncCommit()
+	} else {
+		hdr, err = tx.Commit()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +94,6 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 
 // ZScan ...
 func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil || len(req.Set) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -166,6 +175,8 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	var entries []*schema.ZEntry
 	i := uint64(0)
 
+	tx := d.st.NewTxHolder()
+
 	for {
 		zKey, _, err := r.Read()
 		if err == store.ErrNoMoreEntries {
@@ -194,7 +205,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAt(key, atTx, 0, snap, d.tx1)
+		e, err := d.getAt(key, atTx, 0, snap, tx)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
@@ -240,10 +251,7 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	lastTx := d.tx1
+	lastTx := d.st.NewTxHolder()
 
 	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {
@@ -255,7 +263,7 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 	if req.ProveSinceTx == 0 {
 		prevTx = lastTx
 	} else {
-		prevTx = d.tx2
+		prevTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
 		if err != nil {
