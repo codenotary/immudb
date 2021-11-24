@@ -522,7 +522,7 @@ func TestDelete(t *testing.T) {
 		require.Len(t, ctxs, 1)
 		require.Equal(t, rowCount/2, ctxs[0].UpdatedRows())
 
-		r, err := engine.Query("SELECT COUNT() FROM table1", nil, nil)
+		r, err := engine.Query("SELECT COUNT(*) FROM table1", nil, nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -532,7 +532,7 @@ func TestDelete(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 
-		r, err = engine.Query("SELECT COUNT() FROM table1 WHERE active", nil, nil)
+		r, err = engine.Query("SELECT COUNT(*) FROM table1 WHERE active", nil, nil)
 		require.NoError(t, err)
 
 		row, err = r.Read()
@@ -615,7 +615,7 @@ func TestUpdate(t *testing.T) {
 		require.Len(t, ctxs, 1)
 		require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-		r, err := engine.Query("SELECT COUNT() FROM table1", nil, nil)
+		r, err := engine.Query("SELECT COUNT(*) FROM table1", nil, nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -625,7 +625,7 @@ func TestUpdate(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 
-		r, err = engine.Query("SELECT COUNT() FROM table1 WHERE active", nil, nil)
+		r, err = engine.Query("SELECT COUNT(*) FROM table1 WHERE active", nil, nil)
 		require.NoError(t, err)
 
 		row, err = r.Read()
@@ -2444,7 +2444,7 @@ func TestAggregations(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.Query("SELECT COUNT() FROM table1 WHERE id < i", nil, nil)
+	r, err := engine.Query("SELECT COUNT(*) FROM table1 WHERE id < i", nil, nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -2464,7 +2464,7 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query(`
-		SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload)
+		SELECT COUNT(*), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload)
 		FROM table1 WHERE false`, nil, nil)
 	require.NoError(t, err)
 
@@ -2479,7 +2479,7 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.Query("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, nil)
+	r, err = engine.Query("SELECT COUNT(*) AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -2535,7 +2535,7 @@ func TestCount(t *testing.T) {
 		}
 	}
 
-	r, err := engine.Query("SELECT COUNT() as c FROM t1", nil, nil)
+	r, err := engine.Query("SELECT COUNT(*) as c FROM t1", nil, nil)
 	require.NoError(t, err)
 
 	row, err := r.Read()
@@ -2545,10 +2545,10 @@ func TestCount(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.Query("SELECT COUNT() as c FROM t1 GROUP BY val1", nil, nil)
+	_, err = engine.Query("SELECT COUNT(*) as c FROM t1 GROUP BY val1", nil, nil)
 	require.ErrorIs(t, err, ErrLimitedGroupBy)
 
-	r, err = engine.Query("SELECT COUNT() as c FROM t1 GROUP BY val1 ORDER BY val1", nil, nil)
+	r, err = engine.Query("SELECT COUNT(*) as c FROM t1 GROUP BY val1 ORDER BY val1", nil, nil)
 	require.NoError(t, err)
 
 	for j := 0; j < 3; j++ {
@@ -2598,11 +2598,11 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err = engine.Query("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil, nil)
+	_, err = engine.Query("SELECT active, COUNT(*), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil, nil)
 	require.Equal(t, ErrHavingClauseRequiresGroupClause, err)
 
 	r, err := engine.Query(`
-		SELECT active, COUNT(), SUM(age1)
+		SELECT active, COUNT(*), SUM(age1)
 		FROM table1
 		WHERE active != null
 		GROUP BY active
@@ -2619,7 +2619,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query(`
-		SELECT active, COUNT(), SUM(age1)
+		SELECT active, COUNT(*), SUM(age1)
 		FROM table1
 		WHERE AVG(age) >= MIN(age)
 		GROUP BY active
@@ -2639,7 +2639,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query(`
-		SELECT active, COUNT()
+		SELECT active, COUNT(*)
 		FROM table1
 		GROUP BY active
 		HAVING AVG(age) >= MIN(age1)
@@ -2653,10 +2653,10 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query(`
-		SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age)
+		SELECT active, COUNT(*) as c, MIN(age), MAX(age), AVG(age), SUM(age)
 		FROM table1
 		GROUP BY active
-		HAVING COUNT() <= SUM(age)   AND
+		HAVING COUNT(*) <= SUM(age)   AND
 				MIN(age) <= MAX(age) AND
 				AVG(age) <= MAX(age) AND
 				MAX(age) < SUM(age)  AND
@@ -3106,7 +3106,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 			AS c
 		)
 		INNER JOIN (
-			SELECT MAX(customerid) as customerid, COUNT() as review_count
+			SELECT MAX(customerid) as customerid, COUNT(*) as review_count
 			FROM customer_review
 			AS r
 		) ON r.customerid = c.id
@@ -3255,12 +3255,12 @@ func TestInferParameters(t *testing.T) {
 	require.Equal(t, BooleanType, params["param1"])
 	require.Equal(t, IntegerType, params["param2"])
 
-	params, err = engine.InferParameters("SELECT COUNT() FROM mytable GROUP BY active HAVING @param1 = COUNT() ORDER BY active", nil)
+	params, err = engine.InferParameters("SELECT COUNT(*) FROM mytable GROUP BY active HAVING @param1 = COUNT(*) ORDER BY active", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])
 
-	params, err = engine.InferParameters("SELECT COUNT(), MIN(id) FROM mytable GROUP BY active HAVING @param1 < MIN(id) ORDER BY active", nil)
+	params, err = engine.InferParameters("SELECT COUNT(*), MIN(id) FROM mytable GROUP BY active HAVING @param1 < MIN(id) ORDER BY active", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, IntegerType, params["param1"])
