@@ -162,6 +162,16 @@ func (e *Engine) DefaultDatabase() string {
 	return e.defaultDatabase
 }
 
+func (e *Engine) Catalog() (*Catalog, error) {
+	tx, err := e.newTx(false)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.cancel()
+
+	return tx.catalog, nil
+}
+
 func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
