@@ -490,7 +490,7 @@ selector:
         $$ = $1
     }
 |
-    AGGREGATE_FUNC '(' ')'
+    AGGREGATE_FUNC '(' '*' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
     }

@@ -67,7 +67,7 @@ var ErrUnexpected = errors.New("unexpected error")
 var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
 var ErrMaxLengthExceeded = errors.New("max length exceeded")
 var ErrColumnIsNotAnAggregation = errors.New("column is not an aggregation")
-var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT()")
+var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT(*)")
 var ErrTxDoesNotExist = errors.New("tx does not exist")
 var ErrNestedTxNotSupported = errors.New("nested tx are not supported")
 var ErrNoOngoingTx = errors.New("no ongoing transaction")
@@ -160,16 +160,6 @@ func (e *Engine) DefaultDatabase() string {
 	defer e.mutex.RUnlock()
 
 	return e.defaultDatabase
-}
-
-func (e *Engine) Catalog() (*Catalog, error) {
-	tx, err := e.newTx(false)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.cancel()
-
-	return tx.catalog, nil
 }
 
 func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
@@ -1153,6 +1143,20 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 	}
 
 	return r, nil
+}
+
+func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
+	qtx := tx
+
+	if qtx == nil {
+		qtx, err = e.newTx(false)
+		if err != nil {
+			return nil, err
+		}
+		defer qtx.cancel()
+	}
+
+	return qtx.catalog, nil
 }
 
 func (e *Engine) InferParameters(sql string, tx *SQLTx) (params map[string]SQLValueType, err error) {
