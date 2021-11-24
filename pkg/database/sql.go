@@ -28,6 +28,15 @@ import (
 
 var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
 
+func (d *db) reloadSQLCatalog() error {
+	err := d.sqlEngine.SetDefaultDatabase(dbInstanceName)
+	if err == sql.ErrDatabaseDoesNotExist {
+		return ErrSQLNotReady
+	}
+
+	return err
+}
+
 func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	if req == nil || req.SqlGetRequest == nil {
 		return nil, ErrIllegalArguments
@@ -38,8 +47,8 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, ErrIllegalState
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
@@ -48,14 +57,12 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
+	catalog, err := d.sqlEngine.Catalog(nil)
 	if err != nil {
 		return nil, err
 	}
 
-	txEntry := d.tx1
-
-	table, err := d.sqlEngine.GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
+	table, err := catalog.GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +81,8 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
+	tx := d.st.NewTxHolder()
+
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
@@ -83,18 +92,18 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, txEntry)
+	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, tx)
 	if err != nil {
 		return nil, err
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(e.Tx, txEntry)
+	err = d.st.ReadTx(e.Tx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx1.Proof(e.Key)
+	inclusionProof, err := tx.Proof(e.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +111,9 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	var rootTx *store.Tx
 
 	if req.ProveSinceTx == 0 {
-		rootTx = txEntry
+		rootTx = tx
 	} else {
-		rootTx = d.tx2
+		rootTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
@@ -116,9 +125,9 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	if req.ProveSinceTx <= e.Tx {
 		sourceTx = rootTx
-		targetTx = txEntry
+		targetTx = tx
 	} else {
-		sourceTx = txEntry
+		sourceTx = tx
 		targetTx = rootTx
 	}
 
@@ -128,7 +137,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	}
 
 	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxToProto(txEntry),
+		Tx:        schema.TxToProto(tx),
 		DualProof: schema.DualProofToProto(dualProof),
 	}
 
@@ -200,7 +209,7 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.T
 	}, err
 }
 
-func (d *db) ListTables() (*schema.SQLQueryResult, error) {
+func (d *db) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -211,12 +220,12 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
+	catalog, err := d.sqlEngine.Catalog(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	db, err := d.sqlEngine.GetDatabaseByName(dbInstanceName)
+	db, err := catalog.GetDatabaseByName(dbInstanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +239,7 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 	return res, nil
 }
 
-func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
+func (d *db) DescribeTable(tableName string, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -241,12 +250,12 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		}
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
+	catalog, err := d.sqlEngine.Catalog(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	table, err := d.sqlEngine.GetTableByName(dbInstanceName, tableName)
+	table, err := catalog.GetTableByName(dbInstanceName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -304,42 +313,42 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 	return res, nil
 }
 
-func (d *db) SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
+func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	if req == nil {
-		return nil, ErrIllegalArguments
+		return nil, nil, ErrIllegalArguments
 	}
 
 	stmts, err := sql.Parse(strings.NewReader(req.Sql))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for _, stmt := range stmts {
 		switch stmt.(type) {
 		case *sql.UseDatabaseStmt:
 			{
-				return nil, errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
+				return nil, nil, errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
 			}
 		case *sql.CreateDatabaseStmt:
 			{
-				return nil, errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
+				return nil, nil, errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
 			}
 		}
 	}
 
-	return d.SQLExecPrepared(stmts, req.Params, !req.NoWait)
+	return d.SQLExecPrepared(stmts, req.Params, tx)
 }
 
-func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error) {
+func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	if len(stmts) == 0 {
-		return nil, ErrIllegalArguments
+		return nil, nil, ErrIllegalArguments
 	}
 
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		return nil, ErrIsReplica
+		return nil, nil, ErrIsReplica
 	}
 
 	params := make(map[string]interface{})
@@ -348,57 +357,10 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	summary, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
-	if err != nil {
-		return nil, err
-	}
-
-	res := &schema.SQLExecResult{
-		Ctxs:            make([]*schema.TxHeader, len(summary.DDTxs)),
-		Dtxs:            make([]*schema.TxHeader, len(summary.DMTxs)),
-		UpdatedRows:     uint32(summary.UpdatedRows),
-		LastInsertedPKs: make(map[string]*schema.SQLValue),
-	}
-
-	for i, hdr := range summary.DDTxs {
-		res.Ctxs[i] = schema.TxHeaderToProto(hdr)
-	}
-
-	for i, hdr := range summary.DMTxs {
-		res.Dtxs[i] = schema.TxHeaderToProto(hdr)
-	}
-
-	for t, pk := range summary.LastInsertedPKs {
-		res.LastInsertedPKs[t] = &schema.SQLValue{Value: &schema.SQLValue_N{N: pk}}
-	}
-
-	return res, nil
+	return d.sqlEngine.ExecPreparedStmts(stmts, params, nil)
 }
 
-func (d *db) UseSnapshot(req *schema.UseSnapshotRequest) error {
-	if req == nil {
-		return ErrIllegalArguments
-	}
-
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
-	if d.isReplica() {
-		err := d.reloadSQLCatalog()
-		if err != nil {
-			return err
-		}
-	}
-
-	return d.sqlEngine.UseSnapshot(req.SinceTx, req.AsBeforeTx)
-}
-
-func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -413,10 +375,10 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		return nil, ErrIllegalArguments
 	}
 
-	return d.SQLQueryPrepared(stmt, req.Params, !req.ReuseSnapshot)
+	return d.SQLQueryPrepared(stmt, req.Params, tx)
 }
 
-func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
 		if err != nil {
@@ -424,7 +386,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		}
 	}
 
-	r, err := d.SQLQueryRowReader(stmt, renewSnapshot)
+	r, err := d.SQLQueryRowReader(stmt, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +453,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	return res, nil
 }
 
-func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.RowReader, error) {
+func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -500,39 +462,35 @@ func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, renewSnapshot bool) (sql.Ro
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
-	err := d.sqlEngine.EnsureCatalogReady(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.sqlEngine.QueryPreparedStmt(stmt, nil, renewSnapshot)
+	return d.sqlEngine.QueryPreparedStmt(stmt, nil, tx)
 }
 
-func (d *db) InferParameters(sql string) (map[string]sql.SQLValueType, error) {
+func (d *db) InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
-	if err != nil {
-		return nil, err
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return d.sqlEngine.InferParameters(sql)
+	return d.sqlEngine.InferParameters(sql, tx)
 }
 
-func (d *db) InferParametersPrepared(stmt sql.SQLStmt) (map[string]sql.SQLValueType, error) {
+func (d *db) InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	err := d.sqlEngine.EnsureCatalogReady(nil)
-	if err != nil {
-		return nil, err
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return d.sqlEngine.InferParametersPreparedStmt(stmt)
+	return d.sqlEngine.InferParametersPreparedStmts([]sql.SQLStmt{stmt}, tx)
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {

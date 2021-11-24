@@ -28,73 +28,67 @@ func TestSQLExecAndQuery(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	_, err := db.SQLExecPrepared(nil, nil, false)
+	_, _, err := db.SQLExecPrepared(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = db.SQLExec(nil)
+	_, _, err = db.SQLExec(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "invalid sql statement"})
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "invalid sql statement"}, nil)
 	require.Error(t, err)
 
-	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"})
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
 	require.Error(t, err)
 
-	_, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"})
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
 	require.Error(t, err)
 
-	hdr, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
+	ntx, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
 		CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
-	`})
+	`}, nil)
 	require.NoError(t, err)
-	require.Len(t, hdr.Ctxs, 1)
-	require.Len(t, hdr.Dtxs, 0)
+	require.Nil(t, ntx)
+	require.Len(t, ctxs, 1)
 
-	res, err := db.ListTables()
+	res, err := db.ListTables(nil)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 
-	_, err = db.DescribeTable("table2")
+	_, err = db.DescribeTable("table2", nil)
 	require.Equal(t, sql.ErrTableDoesNotExist, err)
 
-	res, err = db.DescribeTable("table1")
+	res, err = db.DescribeTable("table1", nil)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 4)
 
-	hdr, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
+	ntx, ctxs, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
 		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD')
-	`})
+	`}, nil)
 	require.NoError(t, err)
-	require.Len(t, hdr.Ctxs, 0)
-	require.Len(t, hdr.Dtxs, 1)
+	require.Nil(t, ntx)
+	require.Len(t, ctxs, 1)
 
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
-	err = db.UseSnapshot(nil)
+	_, err = db.SQLQueryPrepared(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	err = db.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 0})
-	require.NoError(t, err)
-
-	_, err = db.SQLQueryPrepared(nil, nil, false)
+	_, err = db.SQLQuery(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = db.SQLQuery(nil)
-	require.Equal(t, ErrIllegalArguments, err)
-
-	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "invalid sql statement"})
+	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "invalid sql statement"}, nil)
 	require.Error(t, err)
 
-	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
+	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"}, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	q := "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params})
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 
-	inferredParams, err := db.InferParameters(q)
+	inferredParams, err := db.InferParameters(q, nil)
 	require.NoError(t, err)
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
@@ -103,7 +97,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
-	inferredParams, err = db.InferParametersPrepared(stmts[0])
+	inferredParams, err = db.InferParametersPrepared(stmts[0], nil)
 	require.NoError(t, err)
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
@@ -161,7 +155,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
-			AtTx:     hdr.Dtxs[0].Id,
+			AtTx:     ctxs[0].TxHeader().ID,
 		},
 		ProveSinceTx: 0,
 	})
