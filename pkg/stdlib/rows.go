@@ -25,7 +25,6 @@ import (
 	"math"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -37,10 +36,7 @@ type Rows struct {
 func (r *Rows) Columns() []string {
 	names := make([]string, 0)
 	if len(r.rows) > 0 {
-		for _, n := range r.rows[0].Columns {
-			name := n[strings.LastIndex(n, ".")+1 : len(n)-1]
-			names = append(names, string(name))
-		}
+		return r.rows[0].Columns
 	}
 	return names
 }

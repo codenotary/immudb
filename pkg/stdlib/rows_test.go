@@ -36,7 +36,7 @@ func TestRows(t *testing.T) {
 	}
 
 	ast := r.Columns()
-	require.Equal(t, "c", ast[0])
+	require.Equal(t, "c1", ast[0])
 	st := r.ColumnTypeDatabaseTypeName(1)
 	require.Equal(t, "", st)
 	num, b := r.ColumnTypeLength(1)
