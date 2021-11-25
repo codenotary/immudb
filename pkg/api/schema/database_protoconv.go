@@ -110,6 +110,10 @@ func DualProofToProto(dualProof *store.DualProof) *DualProof {
 }
 
 func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
+	if hdr == nil {
+		return nil
+	}
+
 	return &TxHeader{
 		Id:       hdr.ID,
 		PrevAlh:  hdr.PrevAlh[:],
