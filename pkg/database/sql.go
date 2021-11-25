@@ -453,7 +453,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 			Column:   c.Column,
 			Type:     c.Type,
 		}
-		cols[i] = &schema.Column{Name: des.Column, Type: des.Type}
+		cols[i] = &schema.Column{Name: des.Selector(), Type: des.Type}
 	}
 
 	res := &schema.SQLQueryResult{Columns: cols}
