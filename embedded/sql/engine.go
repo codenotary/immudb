@@ -140,7 +140,7 @@ func (e *Engine) SetDefaultDatabase(dbName string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.cancel()
+	defer tx.Cancel()
 
 	db, exists := tx.catalog.dbsByName[dbName]
 	if !exists {
@@ -970,7 +970,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	return nil, 0, ErrCorruptedData
 }
 
-func (sqlTx *SQLTx) cancel() error {
+func (sqlTx *SQLTx) Cancel() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
@@ -996,6 +996,10 @@ func (sqlTx *SQLTx) commit() error {
 	sqlTx.txHeader = hdr
 
 	return nil
+}
+
+func (sqlTx *SQLTx) Closed() bool {
+	return sqlTx.closed
 }
 
 func normalizeParams(params map[string]interface{}) (map[string]interface{}, error) {
@@ -1052,7 +1056,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 		ntx, err := stmt.execAt(currTx, nparams)
 		if err != nil {
-			currTx.cancel()
+			currTx.Cancel()
 			return nil, committedTxs, err
 		}
 
@@ -1133,7 +1137,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 
 	if tx == nil {
 		r.onClose(func() {
-			qtx.cancel()
+			qtx.Cancel()
 		})
 	}
 
@@ -1148,7 +1152,7 @@ func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
 		if err != nil {
 			return nil, err
 		}
-		defer qtx.cancel()
+		defer qtx.Cancel()
 	}
 
 	return qtx.catalog, nil
@@ -1175,7 +1179,7 @@ func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (param
 		if err != nil {
 			return nil, err
 		}
-		defer qtx.cancel()
+		defer qtx.Cancel()
 	}
 
 	params = make(map[string]SQLValueType)
