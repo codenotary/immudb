@@ -1144,13 +1144,13 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrIllegalArguments
 	}
 
-	if !otx.IsWriteOnly() && otx.snap.Ts() < s.committedTxID {
-		return nil, ErrTxReadConflict
-	}
-
 	err := s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
+	}
+
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		return nil, ErrTxReadConflict
 	}
 
 	var ts int64
