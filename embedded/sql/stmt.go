@@ -162,7 +162,7 @@ func (stmt *CommitStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 		return nil, ErrNoOngoingTx
 	}
 
-	return tx, tx.commit()
+	return nil, tx.commit()
 }
 
 type RollbackStmt struct {

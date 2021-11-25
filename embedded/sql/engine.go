@@ -1060,7 +1060,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			return nil, committedTxs, err
 		}
 
-		if !ntx.explicitClose && e.autocommit {
+		if !currTx.closed && !currTx.explicitClose && e.autocommit {
 			err = currTx.commit()
 			if err != nil {
 				return nil, committedTxs, err
@@ -1074,7 +1074,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		currTx = ntx
 	}
 
-	if !currTx.closed && !currTx.explicitClose {
+	if currTx != nil && !currTx.closed && !currTx.explicitClose {
 		err = currTx.commit()
 		if err != nil {
 			return nil, committedTxs, err
