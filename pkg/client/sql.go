@@ -44,15 +44,6 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 	return c.ServiceClient.SQLExec(ctx, &schema.SQLExecRequest{Sql: sql, Params: namedParams})
 }
 
-func (c *immuClient) UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error {
-	if !c.IsConnected() {
-		return ErrNotConnected
-	}
-
-	_, err := c.ServiceClient.UseSnapshot(ctx, &schema.UseSnapshotRequest{SinceTx: sinceTx, AsBeforeTx: asBeforeTx})
-	return err
-}
-
 func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)

@@ -9,6 +9,8 @@
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
     - [Column](#immudb.schema.Column)
+    - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
+    - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
@@ -45,7 +47,6 @@
     - [SQLEntry](#immudb.schema.SQLEntry)
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
-    - [SQLExecResult.LastInsertedPKsEntry](#immudb.schema.SQLExecResult.LastInsertedPKsEntry)
     - [SQLGetRequest](#immudb.schema.SQLGetRequest)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
     - [SQLQueryResult](#immudb.schema.SQLQueryResult)
@@ -176,6 +177,39 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | type | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.CommittedSQLTx"></a>
+
+### CommittedSQLTx
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| header | [TxHeader](#immudb.schema.TxHeader) |  |  |
+| updatedRows | [uint32](#uint32) |  |  |
+| lastInsertedPKs | [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.CommittedSQLTx.LastInsertedPKsEntry"></a>
+
+### CommittedSQLTx.LastInsertedPKsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
 
 
 
@@ -779,26 +813,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| ctxs | [TxHeader](#immudb.schema.TxHeader) | repeated |  |
-| dtxs | [TxHeader](#immudb.schema.TxHeader) | repeated |  |
-| updatedRows | [uint32](#uint32) |  |  |
-| lastInsertedPKs | [SQLExecResult.LastInsertedPKsEntry](#immudb.schema.SQLExecResult.LastInsertedPKsEntry) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.SQLExecResult.LastInsertedPKsEntry"></a>
-
-### SQLExecResult.LastInsertedPKsEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
+| txs | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) | repeated |  |
+| ongoingTx | [bool](#bool) |  |  |
 
 
 
@@ -1539,7 +1555,6 @@ immudb gRPC &amp; REST service
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
 | exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
 | replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
-| UseSnapshot | [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) | SQL |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |

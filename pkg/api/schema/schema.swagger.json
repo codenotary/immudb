@@ -721,45 +721,6 @@
         ]
       }
     },
-    "/db/usesnapshot": {
-      "get": {
-        "summary": "SQL",
-        "operationId": "ImmuService_UseSnapshot",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "sinceTx",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "uint64"
-          },
-          {
-            "name": "asBeforeTx",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/db/verifiable/get": {
       "post": {
         "operationId": "ImmuService_VerifiableGet",
@@ -1386,6 +1347,24 @@
         }
       }
     },
+    "schemaCommittedSQLTx": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "$ref": "#/definitions/schemaTxHeader"
+        },
+        "updatedRows": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastInsertedPKs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/schemaSQLValue"
+          }
+        }
+      }
+    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1907,27 +1886,14 @@
     "schemaSQLExecResult": {
       "type": "object",
       "properties": {
-        "ctxs": {
+        "txs": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaTxHeader"
+            "$ref": "#/definitions/schemaCommittedSQLTx"
           }
         },
-        "dtxs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaTxHeader"
-          }
-        },
-        "updatedRows": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "lastInsertedPKs": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/schemaSQLValue"
-          }
+        "ongoingTx": {
+          "type": "boolean"
         }
       }
     },

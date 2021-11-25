@@ -451,10 +451,14 @@ message NamedParam {
 }
 
 message SQLExecResult {
-	repeated TxHeader ctxs = 1;
-	repeated TxHeader dtxs = 2;
-	uint32 updatedRows = 3;
-	map<string, SQLValue> lastInsertedPKs = 4;
+	repeated CommittedSQLTx txs = 5;
+	bool ongoingTx = 6;
+}
+
+message CommittedSQLTx {
+	TxHeader header = 1;
+	uint32 updatedRows = 2;
+	map<string, SQLValue> lastInsertedPKs = 3;
 }
 
 message SQLQueryResult {
@@ -776,13 +780,6 @@ service ImmuService {
 	// Replication
 	rpc exportTx(TxRequest) returns (stream Chunk) {};
 	rpc replicateTx(stream Chunk) returns (TxHeader) {};
-
-	// SQL
-	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {
-		option (google.api.http) = {
-			get: "/db/usesnapshot"
-		};
-	}
 
 	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
 		option (google.api.http) = {

@@ -18,6 +18,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -160,10 +161,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "title2-updated", res.Rows[0].Values[0].GetS())
 
-	err = client.UseSnapshot(ctx, 0, tx2.Dtxs[0].Id)
-	require.NoError(t, err)
-
-	res, err = client.SQLQuery(ctx, "SELECT title FROM table1 WHERE id=2", nil, true)
+	res, err = client.SQLQuery(ctx, fmt.Sprintf("SELECT title FROM table1 BEFORE TX %d WHERE id=2", tx2.Txs[0].Header.Id), nil, true)
 	require.NoError(t, err)
 	require.Equal(t, "title2", res.Rows[0].Values[0].GetS())
 }
@@ -204,9 +202,6 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.SQLExec(context.Background(), "", nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
-
-	err = client.UseSnapshot(context.Background(), 1, 2)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.SQLQuery(context.Background(), "", nil, false)

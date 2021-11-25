@@ -20,13 +20,14 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"io"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 type Rows struct {
@@ -308,14 +309,25 @@ type RowsAffected struct {
 }
 
 func (rows RowsAffected) LastInsertId() (int64, error) {
-	if rows.er != nil && rows.er.LastInsertedPKs != nil && len(rows.er.LastInsertedPKs) == 1 {
-		for _, v := range rows.er.LastInsertedPKs {
+	// TODO: consider the case when multiple txs are committed
+	if len(rows.er.Txs) == 0 {
+		return 0, nil
+	}
+
+	if rows.er != nil && rows.er.Txs[0].LastInsertedPKs != nil && len(rows.er.Txs[0].LastInsertedPKs) == 1 {
+		for _, v := range rows.er.Txs[0].LastInsertedPKs {
 			return v.GetN(), nil
 		}
 	}
+
 	return 0, errors.New("unable to retrieve LastInsertId")
 }
 
 func (rows RowsAffected) RowsAffected() (int64, error) {
-	return int64(rows.er.UpdatedRows), nil
+	if len(rows.er.Txs) == 0 {
+		return 0, nil
+	}
+
+	// TODO: consider the case when multiple txs are committed
+	return int64(rows.er.Txs[0].UpdatedRows), nil
 }
