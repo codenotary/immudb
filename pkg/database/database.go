@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -283,23 +284,28 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	entries := make([]*store.EntrySpec, len(req.KVs))
-
-	for i, kv := range req.KVs {
-		if len(kv.Key) == 0 {
-			return nil, ErrIllegalArguments
-		}
-
-		entries[i] = EncodeEntrySpec(kv.Key, schema.KVMetadataFromProto(kv.Metadata), kv.Value)
-	}
-
 	tx, err := d.st.NewWriteOnlyTx()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Cancel()
 
-	for _, e := range entries {
+	keys := make(map[[sha256.Size]byte]struct{}, len(req.KVs))
+
+	for _, kv := range req.KVs {
+		if len(kv.Key) == 0 {
+			return nil, ErrIllegalArguments
+		}
+
+		kid := sha256.Sum256(kv.Key)
+		_, ok := keys[kid]
+		if ok {
+			return nil, schema.ErrDuplicatedKeysNotSupported
+		}
+		keys[kid] = struct{}{}
+
+		e := EncodeEntrySpec(kv.Key, schema.KVMetadataFromProto(kv.Metadata), kv.Value)
+
 		err = tx.Set(e.Key, e.Metadata, e.Value)
 		if err != nil {
 			return nil, err

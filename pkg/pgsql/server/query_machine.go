@@ -259,7 +259,7 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 }
 
 func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	res, err := s.database.SQLQueryPrepared(st, parameters, true)
+	res, err := s.database.SQLQueryPrepared(st, parameters, nil)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 }
 
 func (s *session) exec(st sql.SQLStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	if _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, parameters, true); err != nil {
+	if _, _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, parameters, nil); err != nil {
 		return err
 	}
 	return nil
@@ -327,7 +327,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(sel, true)
+		rr, err := s.database.SQLQueryRowReader(sel, nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -340,7 +340,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 		}
 	}
 
-	r, err := s.database.InferParametersPrepared(stmt)
+	r, err := s.database.InferParametersPrepared(stmt, nil)
 	if err != nil {
 		return nil, nil, err
 	}
