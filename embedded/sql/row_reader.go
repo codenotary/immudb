@@ -433,7 +433,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 func (r *rawRowReader) Close() error {
 	if r.onCloseCallback != nil {
-		r.onCloseCallback()
+		defer r.onCloseCallback()
 	}
 
 	return r.reader.Close()
