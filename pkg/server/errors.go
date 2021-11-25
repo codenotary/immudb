@@ -40,6 +40,7 @@ var (
 	ErrNotLoggedIn                 = errors.New("not logged in")
 	ErrReplicationInProgress       = errors.New("replication already in progress")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
+	ErrTxNotProperlyClosed         = errors.New("tx not properly closed")
 )
 
 func mapServerError(err error) error {
