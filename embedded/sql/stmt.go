@@ -177,7 +177,7 @@ func (stmt *RollbackStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQL
 		return nil, ErrNoOngoingTx
 	}
 
-	return tx, tx.cancel()
+	return tx, tx.Cancel()
 }
 
 type CreateDatabaseStmt struct {
