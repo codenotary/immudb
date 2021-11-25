@@ -185,15 +185,15 @@ func TestOpenDB(t *testing.T) {
 
 func TestOpenV1_0_1_DB(t *testing.T) {
 	copier := fs.NewStandardCopier()
-	require.NoError(t, copier.CopyDir("../../test/data_v1.0.1", "data_v1.0.1"))
+	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", "data_v1.1.0"))
 
-	defer os.RemoveAll("data_v1.0.1")
+	defer os.RemoveAll("data_v1.1.0")
 
-	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.0.1")
+	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.1.0")
 	sysDB, err := OpenDB(sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.0.1")
+	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.1.0")
 	db, err := OpenDB(dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
