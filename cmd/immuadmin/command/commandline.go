@@ -121,7 +121,7 @@ func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err err
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
-		err = fmt.Errorf("please login first")
+		err = fmt.Errorf("please login first. If elevated privileges are required to execute requested action remember to execute login as super user. Eg. sudo login immudb")
 		cl.quit(err)
 	}
 	return
