@@ -18,12 +18,13 @@ package stdlib
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/require"
 	"math"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRows(t *testing.T) {
@@ -328,12 +329,7 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 
 func TestRowsAffected_LastInsertId(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: map[string]*schema.SQLValue{"first": nil},
-		},
+		er: &schema.SQLExecResult{},
 	}
 	lID, err := ra.LastInsertId()
 	require.NoError(t, err)
@@ -342,12 +338,7 @@ func TestRowsAffected_LastInsertId(t *testing.T) {
 
 func TestRowsAffected_LastInsertIdErr(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: nil,
-		},
+		er: &schema.SQLExecResult{},
 	}
 	_, err := ra.LastInsertId()
 	require.Error(t, err)
@@ -355,12 +346,7 @@ func TestRowsAffected_LastInsertIdErr(t *testing.T) {
 
 func TestRowsAffected_RowsAffected(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: nil,
-		},
+		er: &schema.SQLExecResult{},
 	}
 	rac, err := ra.RowsAffected()
 	require.NoError(t, err)

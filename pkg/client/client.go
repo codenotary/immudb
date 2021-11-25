@@ -153,7 +153,6 @@ type ImmuClient interface {
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
-	UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)

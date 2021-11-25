@@ -49,9 +49,6 @@ func TestSQLInteraction(t *testing.T) {
 	_, err = s.SQLQuery(ctx, nil)
 	require.Error(t, err)
 
-	_, err = s.UseSnapshot(ctx, nil)
-	require.Error(t, err)
-
 	_, err = s.DescribeTable(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
@@ -78,8 +75,7 @@ func TestSQLInteraction(t *testing.T) {
 
 	xres, err := s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)"})
 	require.NoError(t, err)
-	require.Len(t, xres.Ctxs, 1)
-	require.Len(t, xres.Dtxs, 0)
+	require.Len(t, xres.Txs, 1)
 
 	res, err = s.DescribeTable(ctx, &schema.Table{TableName: "table1"})
 	require.NoError(t, err)
@@ -87,11 +83,7 @@ func TestSQLInteraction(t *testing.T) {
 
 	xres, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "INSERT INTO table1 (id) VALUES (1),(2),(3)"})
 	require.NoError(t, err)
-	require.Len(t, xres.Ctxs, 0)
-	require.Len(t, xres.Dtxs, 1)
-
-	_, err = s.UseSnapshot(ctx, &schema.UseSnapshotRequest{SinceTx: 1})
-	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
 
 	res, err = s.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: "SELECT * FROM table1"})
 	require.NoError(t, err)

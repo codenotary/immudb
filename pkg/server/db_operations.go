@@ -90,7 +90,7 @@ func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.E
 		return nil, err
 	}
 
-	return db.Get(req, nil)
+	return db.Get(req)
 }
 
 // VerifiableGet ...
