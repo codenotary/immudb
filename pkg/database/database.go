@@ -45,48 +45,76 @@ var ErrIsReplica = errors.New("database is read-only because it's a replica")
 var ErrNotReplica = errors.New("database is NOT a replica")
 
 type DB interface {
+	GetName() string
+
+	// Setttings
+	GetOptions() *Options
+
+	AsReplica(asReplica bool)
+	IsReplica() bool
+
+	UseTimeFunc(timeFunc store.TimeFunc) error
+
+	// State
 	CurrentState() (*schema.ImmutableState, error)
-	WaitForTx(txID uint64, cancellation <-chan struct{}) error
-	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
+	Size() (uint64, error)
+
+	// Key-Value
 	Set(req *schema.SetRequest) (*schema.TxHeader, error)
-	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
+
+	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error)
 	GetAll(req *schema.KeyListRequest) (*schema.Entries, error)
+
 	Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
+
+	SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error)
+	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
+
+	Scan(req *schema.ScanRequest) (*schema.Entries, error)
+
+	History(req *schema.HistoryRequest) (*schema.Entries, error)
+
 	ExecAll(operations *schema.ExecAllRequest) (*schema.TxHeader, error)
-	Size() (uint64, error)
+
 	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
 	CountAll() (*schema.EntryCount, error)
+
+	ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error)
+	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
+	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
+
+	// SQL-related
+	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+
+	InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
+	InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
+
+	SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error)
+
+	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
+
+	ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+
+	// Transactional layer
+	WaitForTx(txID uint64, cancellation <-chan struct{}) error
+	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
+
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(req *schema.TxRequest) ([]byte, error)
 	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
-	History(req *schema.HistoryRequest) (*schema.Entries, error)
-	SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error)
-	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
-	ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error)
-	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
-	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
-	Scan(req *schema.ScanRequest) (*schema.Entries, error)
-	Close() error
-	GetOptions() *Options
-	AsReplica(asReplica bool)
-	IsReplica() bool
-	UseTimeFunc(timeFunc store.TimeFunc) error
+
+	// Maintenance
 	CompactIndex() error
-	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
-	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
-	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
-	InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
-	InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
-	SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error)
-	ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	GetName() string
+
+	Close() error
 }
 
 //IDB database instance
