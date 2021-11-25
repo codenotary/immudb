@@ -329,11 +329,19 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 
 func TestRowsAffected_LastInsertId(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{},
+		er: &schema.SQLExecResult{
+			Txs: []*schema.CommittedSQLTx{
+				{
+					LastInsertedPKs: map[string]*schema.SQLValue{
+						"table1": {Value: &schema.SQLValue_N{N: 1}},
+					},
+				},
+			},
+		},
 	}
 	lID, err := ra.LastInsertId()
 	require.NoError(t, err)
-	require.Equal(t, int64(0), lID)
+	require.Equal(t, int64(1), lID)
 }
 
 func TestRowsAffected_LastInsertIdErr(t *testing.T) {
