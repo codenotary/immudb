@@ -218,13 +218,8 @@ func (sqlTx *SQLTx) UpdatedRows() int {
 	return sqlTx.updatedRows
 }
 
-func (sqlTx *SQLTx) LastInsertedPK(table string) int64 {
-	pk, ok := sqlTx.lastInsertedPKs[table]
-	if !ok {
-		return 0
-	}
-
-	return pk
+func (sqlTx *SQLTx) LastInsertedPKs() map[string]int64 {
+	return sqlTx.lastInsertedPKs
 }
 
 func (sqlTx *SQLTx) TxHeader() *store.TxHeader {
