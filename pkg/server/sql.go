@@ -69,9 +69,14 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 		return nil, err
 	}
 
+	if tx != nil {
+		tx.Cancel()
+		err = ErrTxNotProperlyClosed
+	}
+
 	res := &schema.SQLExecResult{
 		Txs:       make([]*schema.CommittedSQLTx, len(ctxs)),
-		OngoingTx: tx != nil,
+		OngoingTx: tx != nil && !tx.Closed(),
 	}
 
 	for i, ctx := range ctxs {
@@ -88,7 +93,7 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 		}
 	}
 
-	return res, nil
+	return res, err
 }
 
 func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
