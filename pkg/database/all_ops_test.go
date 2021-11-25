@@ -212,7 +212,7 @@ func TestSetBatchDuplicatedKey(t *testing.T) {
 			},
 		}},
 	)
-	require.Equal(t, store.ErrDuplicatedKey, err)
+	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
 func TestExecAllOps(t *testing.T) {
