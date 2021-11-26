@@ -47,8 +47,8 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, ErrIllegalState
 	}
 
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
@@ -210,8 +210,8 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.T
 }
 
 func (d *db) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
@@ -240,8 +240,8 @@ func (d *db) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 }
 
 func (d *db) DescribeTable(tableName string, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
 		err := d.reloadSQLCatalog()
@@ -379,13 +379,6 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQu
 }
 
 func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
-	if d.isReplica() {
-		err := d.reloadSQLCatalog()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	r, err := d.SQLQueryRowReader(stmt, tx)
 	if err != nil {
 		return nil, err
@@ -460,6 +453,16 @@ func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowRead
 
 	if stmt.Limit() > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if d.isReplica() {
+		err := d.reloadSQLCatalog()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return d.sqlEngine.QueryPreparedStmt(stmt, nil, tx)

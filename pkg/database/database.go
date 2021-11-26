@@ -247,7 +247,7 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 	dbDir := filepath.Join(op.GetDBRootPath(), op.GetDBName())
 
 	if _, dbErr := os.Stat(dbDir); dbErr == nil {
-		return nil, fmt.Errorf("Database directories already exist")
+		return nil, fmt.Errorf("Database directories already exist: %s", dbDir)
 	}
 
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
@@ -918,6 +918,9 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 //Close ...
 func (d *db) Close() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if d.sqlInitCancel != nil {
 		close(d.sqlInitCancel)
 	}
@@ -929,11 +932,17 @@ func (d *db) Close() error {
 
 // GetName ...
 func (d *db) GetName() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	return d.name
 }
 
 //GetOptions ...
 func (d *db) GetOptions() *Options {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	return d.options
 }
 
@@ -941,7 +950,6 @@ func (d *db) AsReplica(asReplica bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	// TODO: store plain option values in db struct to prevent data races
 	d.options.replica = asReplica
 }
 
