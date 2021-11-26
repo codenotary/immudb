@@ -357,7 +357,7 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	return d.sqlEngine.ExecPreparedStmts(stmts, params, nil)
+	return d.sqlEngine.ExecPreparedStmts(stmts, params, tx)
 }
 
 func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
