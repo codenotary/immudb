@@ -22,6 +22,9 @@ import (
 
 //Scan ...
 func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	currTxID, _ := d.st.Alh()
 
 	if req == nil || req.SinceTx > currTxID {

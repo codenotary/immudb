@@ -108,6 +108,9 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		limit = MaxKeyScanLimit
 	}
 
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	currTxID, _ := d.st.Alh()
 
 	if req.SinceTx > currTxID {
