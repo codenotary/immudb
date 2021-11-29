@@ -325,7 +325,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
 		}
 
-		committedAlh = tx.Alh
+		committedAlh = tx.header.Alh()
 	}
 
 	vLogsMap := make(map[byte]*refVLog, len(vLogs))
@@ -648,11 +648,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 			return err
 		}
 
-		alh := tx.Alh
+		alh := tx.header.Alh()
 		s.aht.Append(alh[:])
 
-		if tx.ID%1000 == 0 {
-			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.ID)
+		if tx.header.ID%1000 == 0 {
+			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
 		}
 	}
 
@@ -928,9 +928,9 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.Metadata = otx.metadata
+	tx.header.Metadata = otx.metadata
 
-	tx.nentries = len(otx.entries)
+	tx.header.NEntries = len(otx.entries)
 
 	for i, e := range otx.entries {
 		txe := tx.entries[i]
@@ -947,7 +947,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	}
 
 	// TxHeader is validated against current store
-	if expectedHeader != nil && tx.Eh() != expectedHeader.Eh {
+	if expectedHeader != nil && tx.header.Eh != expectedHeader.Eh {
 		<-appendableCh // wait for data to be written
 		return nil, ErrIllegalArguments
 	}
@@ -965,7 +965,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrAlreadyClosed
 	}
 
-	for i := 0; i < tx.nentries; i++ {
+	for i := 0; i < tx.header.NEntries; i++ {
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
@@ -978,7 +978,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	s.mutex.Unlock()
 
 	if waitForIndexing {
-		err = s.WaitForIndexingUpto(tx.ID, nil)
+		err = s.WaitForIndexingUpto(tx.header.ID, nil)
 		if err != nil {
 			return tx.Header(), err
 		}
@@ -1000,43 +1000,43 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return fmt.Errorf("commit log: could not set offset: %w", err)
 	}
 
-	tx.ID = committedTxID + 1
-	tx.Ts = ts
+	tx.header.ID = committedTxID + 1
+	tx.header.Ts = ts
 
-	tx.BlTxID = blTxID
+	tx.header.BlTxID = blTxID
 
 	if blTxID > 0 {
 		blRoot, err := s.aht.RootAt(blTxID)
 		if err != nil && err != ahtree.ErrEmptyTree {
 			return err
 		}
-		tx.BlRoot = blRoot
+		tx.header.BlRoot = blRoot
 	}
 
-	if tx.ID <= tx.BlTxID {
+	if tx.header.ID <= tx.header.BlTxID {
 		return ErrUnexpectedLinkingError
 	}
 
-	tx.PrevAlh = committedAlh
+	tx.header.PrevAlh = committedAlh
 
 	txSize := 0
 
 	// tx serialization into pre-allocated buffer
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ID))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.ID))
 	txSize += txIDSize
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.Ts))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.Ts))
 	txSize += tsSize
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.BlTxID))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.BlTxID))
 	txSize += txIDSize
-	copy(s._txbs[txSize:], tx.BlRoot[:])
+	copy(s._txbs[txSize:], tx.header.BlRoot[:])
 	txSize += sha256.Size
-	copy(s._txbs[txSize:], tx.PrevAlh[:])
+	copy(s._txbs[txSize:], tx.header.PrevAlh[:])
 	txSize += sha256.Size
 
 	var txmdbs []byte
 
-	if tx.Metadata != nil {
-		txmdbs = tx.Metadata.Bytes()
+	if tx.header.Metadata != nil {
+		txmdbs = tx.header.Metadata.Bytes()
 	}
 
 	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
@@ -1045,10 +1045,10 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 	copy(s._txbs[txSize:], txmdbs)
 	txSize += len(txmdbs)
 
-	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.nentries))
+	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.NEntries))
 	txSize += sszSize
 
-	for i := 0; i < tx.nentries; i++ {
+	for i := 0; i < tx.header.NEntries; i++ {
 		txe := tx.entries[i]
 
 		// tx serialization using pre-allocated buffer
@@ -1075,10 +1075,10 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 		txSize += sha256.Size
 	}
 
-	tx.CalcAlh()
-
 	// tx serialization using pre-allocated buffer
-	copy(s._txbs[txSize:], tx.Alh[:])
+	alh := tx.header.Alh()
+
+	copy(s._txbs[txSize:], alh[:])
 	txSize += sha256.Size
 
 	txbs := make([]byte, txSize)
@@ -1089,7 +1089,7 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
-	_, _, err = s.txLogCache.Put(tx.ID, txbs)
+	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
 	if err != nil {
 		return err
 	}
@@ -1104,12 +1104,12 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 		if err != nil {
 			return err
 		}
-		_, _, err := s.aht.Append(tx.Alh[:])
+		_, _, err := s.aht.Append(alh[:])
 		if err != nil {
 			return err
 		}
 	} else {
-		s.blBuffer <- tx.Alh
+		s.blBuffer <- alh
 	}
 
 	// will overwrite partially written and uncommitted data
@@ -1131,7 +1131,7 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
-	committedTxID = s.advanceCommitState(tx.Alh, int64(txSize))
+	committedTxID = s.advanceCommitState(alh, int64(txSize))
 	s.wHub.DoneUpto(committedTxID)
 
 	return nil
@@ -1226,7 +1226,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.nentries = len(entries)
+	tx.header.NEntries = len(entries)
 
 	for i, e := range entries {
 		txe := tx.entries[i]
@@ -1248,7 +1248,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	for i := 0; i < tx.nentries; i++ {
+	for i := 0; i < tx.header.NEntries; i++ {
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
@@ -1280,7 +1280,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		return nil, ErrIllegalArguments
 	}
 
-	if sourceTx.ID > targetTx.ID {
+	if sourceTx.header.ID > targetTx.header.ID {
 		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
@@ -1289,20 +1289,21 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		TargetTxHeader: targetTx.Header(),
 	}
 
-	if sourceTx.ID < targetTx.BlTxID {
-		binInclusionProof, err := s.aht.InclusionProof(sourceTx.ID, targetTx.BlTxID) // must match targetTx.BlRoot
+	if sourceTx.header.ID < targetTx.header.BlTxID {
+		binInclusionProof, err := s.aht.InclusionProof(sourceTx.header.ID, targetTx.header.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
 		proof.InclusionProof = binInclusionProof
 	}
 
-	if sourceTx.BlTxID > targetTx.BlTxID {
+	if sourceTx.header.BlTxID > targetTx.header.BlTxID {
 		return nil, ErrorCorruptedTxData
 	}
 
-	if sourceTx.BlTxID > 0 {
-		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.BlTxID, targetTx.BlTxID) // first root sourceTx.BlRoot, second one targetTx.BlRoot
+	if sourceTx.header.BlTxID > 0 {
+		// first root sourceTx.BlRoot, second one targetTx.BlRoot
+		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.header.BlTxID, targetTx.header.BlTxID)
 		if err != nil {
 			return nil, err
 		}
@@ -1312,21 +1313,21 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 
 	var targetBlTx *Tx
 
-	if targetTx.BlTxID > 0 {
+	if targetTx.header.BlTxID > 0 {
 		targetBlTx, err = s.fetchAllocTx()
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.ReadTx(targetTx.BlTxID, targetBlTx)
+		err = s.ReadTx(targetTx.header.BlTxID, targetBlTx)
 		if err != nil {
 			return nil, err
 		}
 
-		proof.TargetBlTxAlh = targetBlTx.Alh
+		proof.TargetBlTxAlh = targetBlTx.header.Alh()
 
 		// Used to validate targetTx.BlRoot is calculated with alh@targetTx.BlTxID as last leaf
-		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.BlTxID, targetTx.BlTxID) // must match targetTx.BlRoot
+		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.header.BlTxID, targetTx.header.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
@@ -1337,7 +1338,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		s.releaseAllocTx(targetBlTx)
 	}
 
-	lproof, err := s.LinearProof(maxUint64(sourceTx.ID, targetTx.BlTxID), targetTx.ID)
+	lproof, err := s.LinearProof(maxUint64(sourceTx.header.ID, targetTx.header.BlTxID), targetTx.header.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -1379,7 +1380,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	}
 
 	proof := make([][sha256.Size]byte, targetTxID-sourceTxID+1)
-	proof[0] = tx.Alh
+	proof[0] = tx.header.Alh()
 
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()

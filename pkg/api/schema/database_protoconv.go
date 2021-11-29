@@ -61,14 +61,15 @@ func TxFromProto(stx *Tx) *store.Tx {
 
 	tx := store.NewTxWithEntries(entries)
 
-	tx.ID = stx.Header.Id
-	tx.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
-	tx.Ts = stx.Header.Ts
-	tx.BlTxID = stx.Header.BlTxId
-	tx.BlRoot = DigestFromProto(stx.Header.BlRoot)
+	hdr := tx.Header()
+
+	hdr.ID = stx.Header.Id
+	hdr.Ts = stx.Header.Ts
+	hdr.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
+	hdr.BlTxID = stx.Header.BlTxId
+	hdr.BlRoot = DigestFromProto(stx.Header.BlRoot)
 
 	tx.BuildHashTree()
-	tx.CalcAlh()
 
 	return tx
 }

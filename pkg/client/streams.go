@@ -214,13 +214,13 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 
 		md := tx.Entries()[i].Metadata()
 
-		verifies = store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(kv.Key, md, kv.Value), tx.Eh())
+		verifies = store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(kv.Key, md, kv.Value), tx.Header().Eh)
 		if !verifies {
 			return nil, store.ErrCorruptedData
 		}
 	}
 
-	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -229,8 +229,8 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(

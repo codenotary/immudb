@@ -73,7 +73,7 @@ func TestTxReader(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		require.Equal(t, currTxID, tx.ID)
+		require.Equal(t, currTxID, tx.header.ID)
 		currTxID++
 	}
 
@@ -89,7 +89,7 @@ func TestTxReader(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		require.Equal(t, currTxID, tx.ID)
+		require.Equal(t, currTxID, tx.header.ID)
 		currTxID--
 	}
 

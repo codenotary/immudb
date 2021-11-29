@@ -175,7 +175,7 @@ func TestSetBatch(t *testing.T) {
 			verifies := store.VerifyInclusion(
 				inclusionProof,
 				EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value),
-				tx.Eh(),
+				tx.Header().Eh,
 			)
 			require.True(t, verifies)
 		}
