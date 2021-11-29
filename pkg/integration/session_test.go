@@ -20,6 +20,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -125,4 +126,48 @@ func TestSession_OpenSessionNotConnected(t *testing.T) {
 	client := ic.DefaultClient()
 	err := client.CloseSession(context.TODO())
 	require.ErrorIs(t, ic.ErrNotConnected, err)
+}
+
+func TestSession_ExpireSessions(t *testing.T) {
+	sessOptions := &sessions.Options{
+		SessionGuardCheckInterval: time.Millisecond * 100,
+		MaxSessionIdle:            time.Millisecond * 200,
+		MaxSessionAge:             time.Millisecond * 900,
+		Timeout:                   time.Millisecond * 100,
+	}
+	options := server.DefaultOptions().WithSessionOptions(sessOptions)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	rand.Seed(time.Now().UnixNano())
+	wg := sync.WaitGroup{}
+	for i := 1; i <= 1000; i++ {
+		wg.Add(1)
+		go func() {
+			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+			serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			require.NoError(t, err)
+			require.NotNil(t, serverUUID)
+			require.NotNil(t, sessionID)
+
+			tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+			require.NoError(t, err)
+
+			time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+
+			tx.Commit(context.TODO())
+
+			err = client.CloseSession(context.TODO())
+			require.NoError(t, err)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }

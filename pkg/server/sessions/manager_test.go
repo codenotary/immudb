@@ -19,8 +19,10 @@ package sessions
 import (
 	"fmt"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -42,47 +44,138 @@ func TestSessionGuard(t *testing.T) {
 	require.NoError(t, err)
 }
 
-type firms struct {
-	sync.Mutex
-	firms map[string]string
-}
+const SGUARD_CHECK_INTERVAL = time.Millisecond * 250
+const MAX_SESSION_IDLE = time.Millisecond * 2000
+const MAX_SESSION_AGE = time.Millisecond * 3000
+const TIMEOUT = time.Millisecond * 1000
+const KEEPSTATUS = time.Millisecond * 300
+const WORK_TIME = time.Millisecond * 1000
 
-func (f *firms) set(s string) {
-	f.Lock()
-	defer f.Unlock()
-	f.firms[s] = s
-}
+func TestManager_ExpireSessions(t *testing.T) {
+	const SESS_NUMBER = 60
+	const KEEP_ACTIVE = 20
+	const KEEP_HEARTBEAT = 20
+	const KEEP_INFINITE = 20
 
-func TestCallback(t *testing.T) {
-
-	f := &firms{
-		firms: make(map[string]string),
+	sessOptions := &Options{
+		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
+		MaxSessionIdle:            MAX_SESSION_IDLE,
+		MaxSessionAge:             MAX_SESSION_AGE,
+		Timeout:                   TIMEOUT,
 	}
 
-	m := NewManager(nil)
-	go func() {
-		err := m.StartSessionsGuard()
+	m := NewManager(sessOptions)
+	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout) //.CloneWithLevel(logger.LogDebug)
+	go func(mng *manager) {
+		err := mng.StartSessionsGuard()
 		require.NoError(t, err)
-	}()
+	}(m)
 
 	rand.Seed(time.Now().UnixNano())
-	counter := 0
-	for i := 1; i <= 100; i++ {
-		sessID := m.NewSession(&auth.User{
-			Username: fmt.Sprintf("%d", i),
-		}, 0)
-		for j := 1; j <= 100; j++ {
-			sess := m.GetSession(sessID).NewTransaction(true)
-			counter++
-			name := fmt.Sprintf("callback-%d", counter)
-			sess.AddOnDeleteCallback(name, func() error {
-				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
-				f.set(name)
-				return nil
-			})
+
+	sessIDs := make(chan string, SESS_NUMBER)
+
+	wg := sync.WaitGroup{}
+	for i := 1; i <= SESS_NUMBER; i++ {
+		wg.Add(1)
+		go func(u int, cs chan string, w *sync.WaitGroup) {
+			lid := m.NewSession(&auth.User{
+				Username: fmt.Sprintf("%d", u),
+			}, 0)
+			cs <- lid
+			w.Done()
+		}(i, sessIDs, &wg)
+	}
+
+	wg.Wait()
+	require.Equal(t, SESS_NUMBER, m.CountSession())
+
+	activeDone := make(chan bool)
+	idleDone := make(chan bool)
+	infiniteDone := make(chan bool)
+	// keep active
+	for ac := 0; ac < KEEP_ACTIVE; ac++ {
+		select {
+		case sessID := <-sessIDs:
+			go keepActive(sessID, m, activeDone)
 		}
 	}
+	for alc := 0; alc < KEEP_INFINITE; alc++ {
+		select {
+		case sessID := <-sessIDs:
+			go keepActive(sessID, m, infiniteDone)
+		}
+	}
+	for ic := 0; ic < KEEP_HEARTBEAT; ic++ {
+		select {
+		case sessID := <-sessIDs:
+			go keepIdle(sessID, m, idleDone)
+		}
+	}
+
+	fIdleC := 0
+	fActiveC := 0
+	time.Sleep(WORK_TIME)
+	m.sessionMux.Lock()
+	for _, s := range m.sessions {
+		switch s.GetStatus() {
+		case ACTIVE:
+			fActiveC++
+		case IDLE:
+			fIdleC++
+		}
+	}
+	m.sessionMux.Unlock()
+
+	require.Equal(t, SESS_NUMBER, fActiveC)
+	require.Equal(t, 0, fIdleC)
+
+	idleDone <- true
+	activeDone <- true
+
+	time.Sleep(MAX_SESSION_AGE + TIMEOUT)
+	fIdleC = 0
+	fActiveC = 0
+
+	m.sessionMux.Lock()
+	for _, s := range m.sessions {
+		switch s.GetStatus() {
+		case ACTIVE:
+			fActiveC++
+		case IDLE:
+			fIdleC++
+		}
+	}
+	m.sessionMux.Unlock()
+
+	require.Equal(t, 0, fActiveC)
+	require.Equal(t, 0, fIdleC)
+
 	err := m.StopSessionsGuard()
 	require.NoError(t, err)
-	require.Equal(t, 10000, len(f.firms))
+}
+
+func keepActive(id string, m *manager, done chan bool) {
+	t := time.NewTicker(KEEPSTATUS)
+	for {
+		select {
+		case <-t.C:
+			m.UpdateSessionActivityTime(id)
+			m.UpdateHeartBeatTime(id)
+		case <-done:
+			return
+		}
+	}
+}
+
+func keepIdle(id string, m *manager, done chan bool) {
+	t := time.NewTicker(KEEPSTATUS)
+	for {
+		select {
+		case <-t.C:
+			m.UpdateHeartBeatTime(id)
+		case <-done:
+			return
+		}
+	}
 }

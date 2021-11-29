@@ -36,8 +36,15 @@ func (c *immuClient) SessionIDInjectorStreamInterceptor(ctx context.Context, des
 }
 
 func (c *immuClient) populateCtx(ctx context.Context) context.Context {
-	if c.SessionID != "" {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("sessionid", c.SessionID))
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		md = metadata.New(nil)
 	}
-	return ctx
+	if c.SessionID != "" {
+		md.Set("sessionid", c.SessionID)
+	}
+	if c.TransactionID != "" {
+		md.Set("transactionid", c.TransactionID)
+	}
+	return metadata.NewOutgoingContext(ctx, md)
 }

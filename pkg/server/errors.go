@@ -20,6 +20,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -42,9 +43,10 @@ var (
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
 	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
 	ErrSessionNotFound             = errors.New("session not found").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
-	ErrReadWriteTxOngoing          = errors.New("read write transaction already ongoing").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
+	ErrReadWriteTxOngoing          = sessions.ErrReadWriteTxOngoing
 	ErrNoSessionIDPresent          = errors.New("no sessionID provided")
 	ErrTxNotProperlyClosed         = errors.New("tx not properly closed")
+	ErrReadWriteTxNotOngoing       = errors.New("read write transaction not ongoing")
 )
 
 func mapServerError(err error) error {

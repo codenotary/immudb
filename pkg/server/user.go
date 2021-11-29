@@ -601,8 +601,11 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
-	if sessionID, err := sessions.GetSessionIDFromContext(ctx); err == nil && s.SessManager.SessionPresent(sessionID) {
-		sess := s.SessManager.GetSession(sessionID)
+	if sessionID, err := sessions.GetSessionIDFromContext(ctx); err == nil {
+		sess, e := s.SessManager.GetSession(sessionID)
+		if e != nil {
+			return 0, nil, e
+		}
 		return sess.GetDatabaseID(), sess.GetUser(), nil
 	}
 	jsUser, err := auth.GetLoggedInUser(ctx)

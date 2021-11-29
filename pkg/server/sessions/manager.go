@@ -32,15 +32,15 @@ var ErrGuardNotRunning = errors.New("session guard not running")
 var guard *manager
 
 type manager struct {
-	Running     bool
-	callbacksWG sync.WaitGroup
-	sessionMux  sync.Mutex
-	guardMux    sync.Mutex
-	sessions    map[string]*Session
-	ticker      *time.Ticker
-	done        chan bool
-	logger      logger.Logger
-	options     *Options
+	Running            bool
+	sessionMux         sync.Mutex
+	guardMux           sync.Mutex
+	sessions           map[string]*Session
+	ticker             *time.Ticker
+	done               chan bool
+	logger             logger.Logger
+	options            *Options
+	readWriteTxOngoing bool
 }
 
 type Manager interface {
@@ -51,8 +51,11 @@ type Manager interface {
 	UpdateHeartBeatTime(sessionID string)
 	StartSessionsGuard() error
 	StopSessionsGuard() error
-	GetSession(sessionID string) *Session
+	GetSession(sessionID string) (*Session, error)
 	CountSession() int
+	SetReadWriteTxOngoing(bool)
+	GetReadWriteTxOngoing() bool
+	//NewTransaction(sessionID string, sqlTx *sql.SQLTx, mode schema.TxMode) (transactions.Transaction, error)
 }
 
 func NewManager(options *Options) *manager {
@@ -60,14 +63,13 @@ func NewManager(options *Options) *manager {
 		options = DefaultOptions()
 	}
 	guard = &manager{
-		callbacksWG: sync.WaitGroup{},
-		sessionMux:  sync.Mutex{},
-		guardMux:    sync.Mutex{},
-		sessions:    make(map[string]*Session),
-		ticker:      time.NewTicker(options.SessionGuardCheckInterval),
-		done:        make(chan bool),
-		logger:      logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:     options,
+		sessionMux: sync.Mutex{},
+		guardMux:   sync.Mutex{},
+		sessions:   make(map[string]*Session),
+		ticker:     time.NewTicker(options.SessionGuardCheckInterval),
+		done:       make(chan bool),
+		logger:     logger.NewSimpleLogger("immudb session guard", os.Stdout),
+		options:    options,
 	}
 	return guard
 }
@@ -76,10 +78,27 @@ func (sm *manager) NewSession(user *auth.User, databaseID int64) string {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 	sessionID := xid.New().String()
-	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger, &sm.callbacksWG)
+	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
 	return sessionID
 }
+
+/*func (sm *manager) NewTransaction(sessionID string, sqlTx *sql.SQLTx, mode schema.TxMode) (transactions.Transaction, error) {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+	sess, ok := sm.sessions[sessionID]
+	if !ok {
+		return nil, ErrSessionNotFound
+	}
+	if mode == schema.TxMode_READ_WRITE {
+		if sm.readWriteTxOngoing{
+			return nil, ErrReadWriteTxOngoing
+		}
+		sm.readWriteTxOngoing = true
+	}
+	tx := sess.NewTransaction(sqlTx, mode)
+	return tx, nil
+}*/
 
 func (sm *manager) SessionPresent(sessionID string) bool {
 	sm.sessionMux.Lock()
@@ -93,7 +112,7 @@ func (sm *manager) SessionPresent(sessionID string) bool {
 func (sm *manager) AddSession(sessionID string, sess *Session) error {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
-	if sm.SessionPresent(sessionID) {
+	if _, ok := sm.sessions[sessionID]; ok {
 		return ErrSessionAlreadyPresent
 	}
 	sm.sessions[sessionID] = sess
@@ -101,10 +120,13 @@ func (sm *manager) AddSession(sessionID string, sess *Session) error {
 	return nil
 }
 
-func (sm *manager) GetSession(sessionID string) *Session {
+func (sm *manager) GetSession(sessionID string) (*Session, error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
-	return sm.sessions[sessionID]
+	if _, ok := sm.sessions[sessionID]; !ok {
+		return nil, ErrSessionNotFound
+	}
+	return sm.sessions[sessionID], nil
 }
 
 func (sm *manager) DeleteSession(sessionID string) error {
@@ -114,17 +136,35 @@ func (sm *manager) DeleteSession(sessionID string) error {
 	if !ok {
 		return ErrSessionNotFound
 	}
-	sess.DeleteTransactions()
+	sess.RollbackTransactions()
+
+	if sess.GetReadWriteTxOngoing() {
+		sm.readWriteTxOngoing = false
+	}
+
 	delete(sm.sessions, sessionID)
 	return nil
+}
+
+func (sm *manager) GetReadWriteTxOngoing() bool {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+	return sm.readWriteTxOngoing
+}
+
+func (sm *manager) SetReadWriteTxOngoing(ongoing bool) {
+	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+	sm.readWriteTxOngoing = ongoing
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 	if sess, ok := sm.sessions[sessionID]; ok {
-		sess.lastActivityTime = time.Now()
-		sm.logger.Debugf("updated last activity time for %s", sessionID)
+		now := time.Now()
+		sess.SetLastActivityTime(now)
+		sm.logger.Debugf("updated last activity time for %s at %s", sessionID, now.Format(time.UnixDate))
 	}
 }
 
@@ -132,8 +172,9 @@ func (sm *manager) UpdateHeartBeatTime(sessionID string) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 	if sess, ok := sm.sessions[sessionID]; ok {
-		sess.lastHeartBeat = time.Now()
-		sm.logger.Debugf("updated last heart beat time for %s", sessionID)
+		now := time.Now()
+		sess.SetLastHeartBeat(now)
+		sm.logger.Debugf("updated last heart beat time for %s at %s", sessionID, now.Format(time.UnixDate))
 	}
 }
 
@@ -162,15 +203,16 @@ func (sm *manager) StartSessionsGuard() error {
 
 func (sm *manager) StopSessionsGuard() error {
 	sm.guardMux.Lock()
+	defer sm.guardMux.Unlock()
+	sm.sessionMux.Lock()
 	if sm.Running == false {
 		return ErrGuardNotRunning
 	}
 	sm.Running = false
+	sm.sessionMux.Unlock()
 	for ID, _ := range sm.sessions {
 		sm.DeleteSession(ID)
 	}
-	sm.callbacksWG.Wait()
-	sm.guardMux.Unlock()
 	sm.ticker.Stop()
 	sm.done <- true
 	sm.logger.Debugf("shutdown")
@@ -179,37 +221,39 @@ func (sm *manager) StopSessionsGuard() error {
 
 func (sm *manager) expireSessions() {
 	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
-	if sm.Running {
-		now := time.Now()
-		sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
-		for ID, sess := range sm.sessions {
-			if sess.lastHeartBeat.Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
-				sess.SetStatus(IDLE)
-				sm.logger.Debugf("session %s became IDLE, no more heartbeat received", ID)
-			}
-			if sess.lastActivityTime.Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
-				sess.SetStatus(IDLE)
-				sm.logger.Debugf("session %s became IDLE due to max inactivity time", ID)
-			}
-			if sess.creationTime.Add(sm.options.MaxSessionAge).Before(now) {
+	if !sm.Running {
+		return
+	}
+	sm.sessionMux.Unlock()
+
+	now := time.Now()
+	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
+	for ID, sess := range sm.sessions {
+		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
+			sess.SetStatus(IDLE)
+			sm.logger.Debugf("session %s became IDLE, no more heartbeat received", ID)
+		}
+		if sess.GetLastActivityTime().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
+			sess.SetStatus(IDLE)
+			sm.logger.Debugf("session %s became IDLE due to max inactivity time", ID)
+		}
+		if sess.GetCreationTime().Add(sm.options.MaxSessionAge).Before(now) {
+			sess.SetStatus(DEAD)
+			sm.logger.Debugf("session %s exceeded MaxSessionAge and became DEAD", ID)
+		}
+		if sess.GetStatus() == IDLE {
+			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
 				sess.SetStatus(DEAD)
-				sm.logger.Debugf("session %s exceeded MaxSessionAge and became DEAD", ID)
+				sm.logger.Debugf("IDLE session %s is DEAD", ID)
 			}
-			if sess.state == IDLE {
-				if sess.lastActivityTime.Add(sm.options.Timeout).Before(now) {
-					sess.SetStatus(DEAD)
-					sm.logger.Debugf("IDLE session %s is DEAD", ID)
-				}
-				if sess.lastHeartBeat.Add(sm.options.Timeout).Before(now) {
-					sess.SetStatus(DEAD)
-					sm.logger.Debugf("IDLE session %s is DEAD", ID)
-				}
+			if sess.GetLastHeartBeat().Add(sm.options.Timeout).Before(now) {
+				sess.SetStatus(DEAD)
+				sm.logger.Debugf("IDLE session %s is DEAD", ID)
 			}
-			if sess.state == DEAD {
-				sm.DeleteSession(ID)
-				sm.logger.Debugf("removed DEAD session %s", ID)
-			}
+		}
+		if sess.GetStatus() == DEAD {
+			sm.DeleteSession(ID)
+			sm.logger.Debugf("removed DEAD session %s", ID)
 		}
 	}
 }

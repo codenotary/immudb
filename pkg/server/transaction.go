@@ -23,47 +23,200 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
+// BeginTx creates a new transaction. Only one read-write transaction per session can be active at a time.
 func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
 	sessionID, err := sessions.GetSessionIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	sess := s.SessManager.GetSession(sessionID)
-	if request.ReadWrite {
-		if sess.GetReadWriteTxOngoing() {
-			return nil, ErrReadWriteTxOngoing
-		}
-		s.SessManager.GetSession(sessionID).SetReadWriteTxOngoing(true)
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
 	}
 
-	tx := sess.NewTransaction(request.ReadWrite)
-
-	rollback := func() error {
-		println("ROLLBACK!")
-		return nil
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return nil, err
 	}
 
-	tx.AddOnDeleteCallback("rollback", rollback)
+	SQLTx, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := sess.NewTransaction(SQLTx, request.Mode)
+	if err != nil {
+		return nil, err
+	}
 
 	return &schema.BeginTxResponse{TransactionID: tx.GetID()}, nil
 }
 
-func (s *ImmuServer) TxScanner(ctx context.Context, request *schema.TxScannerRequest) (*schema.TxScanneReponse, error) {
-	return &schema.TxScanneReponse{}, nil
-}
+func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*schema.CommittedSQLTx, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
 
-func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
-	return new(empty.Empty), nil
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := sess.GetTransaction(transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return nil, err
+	}
+
+	_, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.GetSQLTx())
+	if err != nil {
+		return nil, err
+	}
+
+	commitedTx := ctxs[0]
+	lastPKs := make(map[string]*schema.SQLValue, len(commitedTx.LastInsertedPKs()))
+
+	for k, n := range commitedTx.LastInsertedPKs() {
+		lastPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
+	}
+
+	sess.RemoveTransaction(transactionID)
+
+	return &schema.CommittedSQLTx{
+		Header:          schema.TxHeaderToProto(commitedTx.TxHeader()),
+		UpdatedRows:     uint32(commitedTx.UpdatedRows()),
+		LastInsertedPKs: lastPKs,
+	}, nil
 }
 
 func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := sess.GetTransaction(transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "ROLLBACK;"}, tx.GetSQLTx())
+	if err != nil {
+		return nil, err
+	}
+
 	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) TxSet(ctx context.Context, request *schema.TxSetRequest) (*empty.Empty, error) {
+func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+	if s.Options.GetMaintenance() {
+		return new(empty.Empty), ErrNotAllowedInMaintenanceMode
+	}
+
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+
+	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+
+	tx, err := sess.GetTransaction(transactionID)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+
+	if tx.GetMode() != schema.TxMode_READ_WRITE {
+		return new(empty.Empty), ErrReadWriteTxNotOngoing
+	}
+
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return new(empty.Empty), err
+	}
+
+	ntx, _, err := db.SQLExec(request, tx.GetSQLTx())
+	if err != nil {
+		return new(empty.Empty), err
+	}
+	tx.SetSQLTx(ntx)
+
 	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) TxGet(ctx context.Context, request *schema.TxKeyRequest) (*schema.KeyValue, error) {
-	return &schema.KeyValue{}, nil
+func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	if s.Options.GetMaintenance() {
+		return nil, ErrNotAllowedInMaintenanceMode
+	}
+
+	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sess, err := s.SessManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := sess.GetTransaction(transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return nil, err
+	}
+
+	return db.SQLQuery(request, tx.GetSQLTx())
 }

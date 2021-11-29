@@ -349,17 +349,6 @@ message TxScanRequest {
 	uint32 limit = 2;
     bool   desc = 3;
 }
-message TxScannerRequest {
-	bytes seekKey = 1;
-	bytes prefix = 2;
-	bool desc = 3;
-	uint64 limit = 4;
-	uint64 sinceTx = 5;
-}
-
-message TxScanneReponse {
-	repeated KeyValue kv = 1;
-}
 
 message TxList {
 	repeated Tx txs = 1;
@@ -508,21 +497,20 @@ message SQLValue {
 	}
 }
 
+enum TxMode {
+	READ_ONLY = 0;
+	WRITE_ONLY = 1;
+	READ_WRITE = 2;
+}
+
 message BeginTxRequest {
-	bool readWrite = 1;
+	TxMode mode = 1;
 }
 
 message BeginTxResponse {
 	string transactionID = 1;
 }
 
-message TxSetRequest {
-	repeated KeyValue KVs = 1;
-}
-
-message TxKeyRequest {
-	bytes key = 1;
-}
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
@@ -590,18 +578,15 @@ service ImmuService {
 	} // DEPRECATED
 
 	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){};
-
 	rpc CloseSession (google.protobuf.Empty) returns (google.protobuf.Empty){};
-
 	rpc KeepAlive (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
 	rpc BeginTx (BeginTxRequest) returns (BeginTxResponse){};
-	rpc Commit (google.protobuf.Empty) returns (google.protobuf.Empty){};
+	rpc Commit (google.protobuf.Empty) returns (CommittedSQLTx){};
 	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
-	rpc TxSet (TxSetRequest) returns (google.protobuf.Empty){};
-	rpc TxGet (TxKeyRequest) returns (KeyValue){};
-	rpc TxScanner (TxScannerRequest) returns (TxScanneReponse){};
+	rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {};
+	rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {};
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option deprecated = true;

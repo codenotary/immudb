@@ -19,20 +19,20 @@ package client
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/golang/protobuf/ptypes/empty"
-	"google.golang.org/grpc/metadata"
 )
 
 type TxOptions struct {
-	ReadWrite bool
+	TxMode schema.TxMode
 }
 
 type Tx interface {
-	Set(ctx context.Context, key []byte, value []byte) error
-	Get(ctx context.Context, key []byte) (*schema.KeyValue, error)
-	Scan(ctx context.Context, req *schema.TxScannerRequest) (*schema.TxScanneReponse, error)
-	Commit(ctx context.Context) (*schema.TxHeader, error)
+	Commit(ctx context.Context) (*schema.CommittedSQLTx, error)
 	Rollback(ctx context.Context) error
+
+	TxSQLExec(ctx context.Context, sql string, params map[string]interface{}) error
+	TxSQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
 }
 
 type tx struct {
@@ -40,44 +40,28 @@ type tx struct {
 	transactionID string
 }
 
-func (c *tx) Get(ctx context.Context, key []byte) (*schema.KeyValue, error) {
-	ctx = c.populateContext(ctx)
-	return c.ic.ServiceClient.TxGet(ctx, &schema.TxKeyRequest{Key: key})
-}
-
-func (c *tx) Set(ctx context.Context, key []byte, value []byte) error {
-	ctx = c.populateContext(ctx)
-	_, err := c.ic.ServiceClient.TxSet(ctx, &schema.TxSetRequest{KVs: []*schema.KeyValue{{
-		Key:   key,
-		Value: value,
-	}}})
-	return err
-}
-
-func (c *tx) Scan(ctx context.Context, request *schema.TxScannerRequest) (*schema.TxScanneReponse, error) {
-	ctx = c.populateContext(ctx)
-	return c.ic.ServiceClient.TxScanner(ctx, request)
-}
-
-func (c *tx) Commit(ctx context.Context) (*schema.TxHeader, error) {
-	ctx = c.populateContext(ctx)
-	_, err := c.ic.ServiceClient.Commit(ctx, new(empty.Empty))
-	return nil, err
+func (c *tx) Commit(ctx context.Context) (*schema.CommittedSQLTx, error) {
+	cmtx, err := c.ic.ServiceClient.Commit(ctx, new(empty.Empty))
+	return cmtx, errors.FromError(err)
 }
 
 func (c *tx) Rollback(ctx context.Context) error {
-	ctx = c.populateContext(ctx)
 	_, err := c.ic.ServiceClient.Rollback(ctx, new(empty.Empty))
-	return err
+	return errors.FromError(err)
 }
 
 func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error) {
+	if options.TxMode == schema.TxMode_WRITE_ONLY {
+		// only in key-value mode, in sql we read catalog and write to it
+		return nil, ErrWriteOnlyTXNotAllowed
+	}
 	r, err := c.ServiceClient.BeginTx(ctx, &schema.BeginTxRequest{
-		ReadWrite: options.ReadWrite,
+		Mode: options.TxMode,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.FromError(err)
 	}
+	c.TransactionID = r.TransactionID
 	tx := &tx{
 		ic:            c,
 		transactionID: r.TransactionID,
@@ -85,9 +69,27 @@ func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error
 	return tx, nil
 }
 
-func (c *tx) populateContext(ctx context.Context) context.Context {
-	if c.transactionID != "" {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("txid", c.transactionID))
+func (c *tx) TxSQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
+	namedParams, err := schema.EncodeParams(params)
+	if err != nil {
+		return errors.FromError(err)
 	}
-	return ctx
+	_, err = c.ic.ServiceClient.TxSQLExec(ctx, &schema.SQLExecRequest{
+		Sql:    sql,
+		Params: namedParams,
+	})
+	return errors.FromError(err)
+}
+
+func (c *tx) TxSQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
+	namedParams, err := schema.EncodeParams(params)
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+	res, err := c.ic.ServiceClient.TxSQLQuery(ctx, &schema.SQLQueryRequest{
+		Sql:           sql,
+		Params:        namedParams,
+		ReuseSnapshot: !renewSnapshot,
+	})
+	return res, errors.FromError(err)
 }

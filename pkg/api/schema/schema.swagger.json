@@ -2166,6 +2166,15 @@
         }
       }
     },
+    "schemaTxMode": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY",
+        "WRITE_ONLY",
+        "READ_WRITE"
+      ],
+      "default": "READ_ONLY"
+    },
     "schemaTxScanRequest": {
       "type": "object",
       "properties": {
@@ -2179,17 +2188,6 @@
         },
         "desc": {
           "type": "boolean"
-        }
-      }
-    },
-    "schemaTxScanneReponse": {
-      "type": "object",
-      "properties": {
-        "kv": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaKeyValue"
-          }
         }
       }
     },

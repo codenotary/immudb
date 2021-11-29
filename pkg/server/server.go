@@ -1078,7 +1078,10 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		if err != nil {
 			return nil, err
 		}
-		sess := s.SessManager.GetSession(sessionID)
+		sess, err := s.SessManager.GetSession(sessionID)
+		if err != nil {
+			return nil, err
+		}
 		sess.SetDatabaseID(dbid)
 	}
 

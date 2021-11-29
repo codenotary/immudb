@@ -37,4 +37,5 @@ var (
 	ErrSrvIllegalArguments   = status.Error(codes.InvalidArgument, "illegal arguments")
 	ErrSrvIllegalState       = status.Error(codes.InvalidArgument, "illegal state")
 	ErrSrvEmptyAdminPassword = status.Error(codes.InvalidArgument, "Admin password cannot be empty")
+	ErrWriteOnlyTXNotAllowed = status.Error(codes.InvalidArgument, "write only transaction not allowed")
 )

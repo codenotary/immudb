@@ -41,28 +41,24 @@ type ServerMock struct {
 	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
 
+func (s *ServerMock) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+	return s.Srv.TxSQLExec(ctx, request)
+}
+
+func (s *ServerMock) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	return s.Srv.TxSQLQuery(ctx, request)
+}
+
 func (s *ServerMock) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
 	return s.Srv.BeginTx(ctx, request)
 }
 
-func (s *ServerMock) Commit(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+func (s *ServerMock) Commit(ctx context.Context, e *empty.Empty) (*schema.CommittedSQLTx, error) {
 	return s.Srv.Commit(ctx, e)
 }
 
 func (s *ServerMock) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
 	return s.Srv.Rollback(ctx, e)
-}
-
-func (s *ServerMock) TxSet(ctx context.Context, request *schema.TxSetRequest) (*empty.Empty, error) {
-	return s.Srv.TxSet(ctx, request)
-}
-
-func (s *ServerMock) TxGet(ctx context.Context, request *schema.TxKeyRequest) (*schema.KeyValue, error) {
-	return s.Srv.TxGet(ctx, request)
-}
-
-func (s *ServerMock) TxScanner(ctx context.Context, request *schema.TxScannerRequest) (*schema.TxScanneReponse, error) {
-	return s.Srv.TxScanner(ctx, request)
 }
 
 func (s *ServerMock) KeepAlive(ctx context.Context, request *empty.Empty) (*empty.Empty, error) {

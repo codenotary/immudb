@@ -14,13 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sessions
+package transactions
 
-import (
-	"github.com/codenotary/immudb/pkg/errors"
-)
+import "github.com/codenotary/immudb/pkg/errors"
 
-var ErrSessionAlreadyPresent = errors.New("session already present").WithCode(errors.CodInternalError)
-var ErrNoSessionIDPresent = errors.New("no sessionID provided").WithCode(errors.CodInvalidAuthorizationSpecification)
-var ErrNoSessionAuthDataProvided = errors.New("no session auth data provided").WithCode(errors.CodInvalidAuthorizationSpecification)
-var ErrSessionNotFound = errors.New("no session found").WithCode(errors.CodInvalidParameterValue)
+var ErrTransactionNotFound = errors.New("no transaction found").WithCode(errors.CodInvalidParameterValue)
