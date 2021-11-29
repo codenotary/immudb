@@ -25,6 +25,14 @@ import (
 )
 
 type Tx struct {
+	header *TxHeader
+
+	entries []*TxEntry
+
+	htree *htree.HTree
+}
+
+type TxHeader struct {
 	ID      uint64
 	Ts      int64
 	BlTxID  uint64
@@ -33,23 +41,8 @@ type Tx struct {
 
 	Metadata *TxMetadata
 
-	nentries int
-	entries  []*TxEntry
-
-	htree *htree.HTree
-
-	Alh [sha256.Size]byte
-}
-
-type TxHeader struct {
-	ID       uint64
-	PrevAlh  [sha256.Size]byte
-	Ts       int64
-	Metadata *TxMetadata
 	NEntries int
 	Eh       [sha256.Size]byte
-	BlTxID   uint64
-	BlRoot   [sha256.Size]byte
 }
 
 func newTx(nentries int, maxKeyLen int) *Tx {
@@ -67,24 +60,14 @@ func NewTxWithEntries(entries []*TxEntry) *Tx {
 	htree, _ := htree.New(len(entries))
 
 	return &Tx{
-		ID:       0,
-		entries:  entries,
-		nentries: len(entries),
-		htree:    htree,
+		header:  &TxHeader{NEntries: len(entries)},
+		entries: entries,
+		htree:   htree,
 	}
 }
 
 func (tx *Tx) Header() *TxHeader {
-	return &TxHeader{
-		ID:       tx.ID,
-		PrevAlh:  tx.PrevAlh,
-		Ts:       tx.Ts,
-		Metadata: tx.Metadata,
-		NEntries: tx.nentries,
-		Eh:       tx.Eh(),
-		BlTxID:   tx.BlTxID,
-		BlRoot:   tx.BlRoot,
-	}
+	return tx.header
 }
 
 func (hdr *TxHeader) Bytes() []byte {
@@ -128,7 +111,7 @@ func (hdr *TxHeader) Bytes() []byte {
 	return b[:i]
 }
 
-func (md *TxHeader) ReadFrom(b []byte) error {
+func (hdr *TxHeader) ReadFrom(b []byte) error {
 	// Minimum length with an empty metadata record
 	if len(b) < txIDSize+sha256.Size+tsSize+2*sszSize+sha256.Size+txIDSize+sha256.Size {
 		return ErrIllegalArguments
@@ -136,13 +119,13 @@ func (md *TxHeader) ReadFrom(b []byte) error {
 
 	i := 0
 
-	md.ID = binary.BigEndian.Uint64(b[i:])
+	hdr.ID = binary.BigEndian.Uint64(b[i:])
 	i += txIDSize
 
-	copy(md.PrevAlh[:], b[i:])
+	copy(hdr.PrevAlh[:], b[i:])
 	i += sha256.Size
 
-	md.Ts = int64(binary.BigEndian.Uint64(b[i:]))
+	hdr.Ts = int64(binary.BigEndian.Uint64(b[i:]))
 	i += tsSize
 
 	mdLen := int(binary.BigEndian.Uint16(b[i:]))
@@ -153,25 +136,25 @@ func (md *TxHeader) ReadFrom(b []byte) error {
 			return ErrCorruptedData
 		}
 
-		md.Metadata = &TxMetadata{}
+		hdr.Metadata = &TxMetadata{}
 
-		err := md.Metadata.ReadFrom(b[i : i+mdLen])
+		err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
 		if err != nil {
 			return err
 		}
 		i += mdLen
 	}
 
-	md.NEntries = int(binary.BigEndian.Uint16(b[i:]))
+	hdr.NEntries = int(binary.BigEndian.Uint16(b[i:]))
 	i += sszSize
 
-	copy(md.Eh[:], b[i:])
+	copy(hdr.Eh[:], b[i:])
 	i += sha256.Size
 
-	md.BlTxID = binary.BigEndian.Uint64(b[i:])
+	hdr.BlTxID = binary.BigEndian.Uint64(b[i:])
 	i += txIDSize
 
-	copy(md.BlRoot[:], b[i:])
+	copy(hdr.BlRoot[:], b[i:])
 	i += sha256.Size
 
 	return nil
@@ -213,6 +196,9 @@ func (hdr *TxHeader) innerHash() [sha256.Size]byte {
 	return sha256.Sum256(b[:i])
 }
 
+// Alh calculates the Accumulative Linear Hash up to this transaction
+// Alh is calculated as hash(txID + prevAlh + hash(ts + nentries + eH + blTxID + blRoot))
+// Inner hash is calculated so to reduce the length of linear proofs
 func (hdr *TxHeader) Alh() [sha256.Size]byte {
 	// txID + prevAlh + innerHash
 	var bi [txIDSize + 2*sha256.Size]byte
@@ -228,29 +214,29 @@ func (hdr *TxHeader) Alh() [sha256.Size]byte {
 }
 
 func (tx *Tx) BuildHashTree() error {
-	digests := make([][sha256.Size]byte, tx.nentries)
+	digests := make([][sha256.Size]byte, tx.header.NEntries)
 
 	for i, e := range tx.Entries() {
 		digests[i] = e.Digest()
 	}
 
-	return tx.htree.BuildWith(digests)
+	err := tx.htree.BuildWith(digests)
+	if err != nil {
+		return err
+	}
+
+	root, err := tx.htree.Root()
+	if err != nil {
+		return err
+	}
+
+	tx.header.Eh = root
+
+	return nil
 }
 
 func (tx *Tx) Entries() []*TxEntry {
-	return tx.entries[:tx.nentries]
-}
-
-// Alh calculates the Accumulative Linear Hash up to this transaction
-// Alh is calculated as hash(txID + prevAlh + hash(ts + nentries + eH + blTxID + blRoot))
-// Inner hash is calculated so to reduce the length of linear proofs
-func (tx *Tx) CalcAlh() {
-	tx.Alh = tx.Header().Alh()
-}
-
-func (tx *Tx) Eh() [sha256.Size]byte {
-	root, _ := tx.htree.Root()
-	return root
+	return tx.entries[:tx.header.NEntries]
 }
 
 func (tx *Tx) IndexOf(key []byte) (int, error) {
@@ -272,30 +258,32 @@ func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
 }
 
 func (tx *Tx) readFrom(r *appendable.Reader) error {
+	tx.header = &TxHeader{}
+
 	id, err := r.ReadUint64()
 	if err != nil {
 		return err
 	}
-	tx.ID = id
+	tx.header.ID = id
 
 	ts, err := r.ReadUint64()
 	if err != nil {
 		return err
 	}
-	tx.Ts = int64(ts)
+	tx.header.Ts = int64(ts)
 
 	blTxID, err := r.ReadUint64()
 	if err != nil {
 		return err
 	}
-	tx.BlTxID = blTxID
+	tx.header.BlTxID = blTxID
 
-	_, err = r.Read(tx.BlRoot[:])
+	_, err = r.Read(tx.header.BlRoot[:])
 	if err != nil {
 		return err
 	}
 
-	_, err = r.Read(tx.PrevAlh[:])
+	_, err = r.Read(tx.header.PrevAlh[:])
 	if err != nil {
 		return err
 	}
@@ -327,13 +315,13 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		}
 	}
 
-	tx.Metadata = txmd
+	tx.header.Metadata = txmd
 
 	nentries, err := r.ReadUint16()
 	if err != nil {
 		return err
 	}
-	tx.nentries = int(nentries)
+	tx.header.NEntries = int(nentries)
 
 	for i := 0; i < int(nentries); i++ {
 		// md is stored before key to ensure backward compatibility
@@ -402,9 +390,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		return err
 	}
 
-	tx.CalcAlh()
-
-	if tx.Alh != alh {
+	if tx.header.Alh() != alh {
 		return ErrorCorruptedTxData
 	}
 

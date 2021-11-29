@@ -111,12 +111,12 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 					panic(err)
 				}
 
-				if tx.ID == uint64(txCount) {
+				if tx.header.ID == uint64(txCount) {
 					wg.Done()
 					return
 				}
 
-				txID = tx.ID
+				txID = tx.header.ID
 			}
 		}
 	}()
@@ -577,9 +577,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.Equal(t, ErrIllegalArguments, err)
 
 	sourceTx := newTx(1, 1)
-	sourceTx.ID = 2
+	sourceTx.header.ID = 2
 	targetTx := newTx(1, 1)
-	targetTx.ID = 1
+	targetTx.header.ID = 1
 	_, err = immuStore.DualProof(sourceTx, targetTx)
 	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
@@ -1261,7 +1261,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 
 			e := &EntrySpec{Key: key, Metadata: NewKVMetadata(), Value: value}
 
-			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.Eh())
+			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.header.Eh)
 			require.True(t, verifies)
 
 			_, v, err = immuStore.ReadValue(tx, key)
@@ -1330,12 +1330,12 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 	for i := 0; i < txCount; i++ {
 		err := immuStore.ReadTx(uint64(i+1), tx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), tx.ID)
+		require.Equal(t, uint64(i+1), tx.header.ID)
 
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh
+		alh := tx.header.Alh()
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -1385,12 +1385,12 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 	for i := 0; i < txCount; i++ {
 		err := immuStore.ReadTx(uint64(i+1), tx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), tx.ID)
+		require.Equal(t, uint64(i+1), tx.header.ID)
 
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh
+		alh := tx.header.Alh()
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -1437,22 +1437,22 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 
 		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), sourceTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		summary := fmt.Sprintf("summary%d", i)
-		require.Equal(t, []byte(summary), sourceTx.Metadata.Summary())
+		require.Equal(t, []byte(summary), sourceTx.header.Metadata.Summary())
 
 		for j := i; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
 			err := immuStore.ReadTx(targetTxID, targetTx)
 			require.NoError(t, err)
-			require.Equal(t, uint64(j+1), targetTx.ID)
+			require.Equal(t, uint64(j+1), targetTx.header.ID)
 
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
 		}
 	}
@@ -1507,19 +1507,19 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 	targetTxID := uint64(txCount)
 	err = immuStore.ReadTx(targetTxID, targetTx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(txCount), targetTx.ID)
+	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
 		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), sourceTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 		require.True(t, verifies)
 	}
 
@@ -1589,7 +1589,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 		txi, err := ri.Read()
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), txi.ID)
+		require.Equal(t, uint64(i+1), txi.header.ID)
 	}
 
 	sourceTx := immuStore.NewTxHolder()
@@ -1600,25 +1600,25 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), sourceTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		for j := i + 1; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
 			err := immuStore.ReadTx(targetTxID, targetTx)
 			require.NoError(t, err)
-			require.Equal(t, uint64(j+1), targetTx.ID)
+			require.Equal(t, uint64(j+1), targetTx.header.ID)
 
 			lproof, err := immuStore.LinearProof(sourceTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
 
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
 		}
 	}
@@ -1810,7 +1810,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 			e := &EntrySpec{Key: txe.key(), Value: value}
 
-			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.Eh())
+			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.header.Eh)
 			require.True(t, verifies)
 		}
 	}

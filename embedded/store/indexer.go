@@ -333,8 +333,8 @@ func (idx *indexer) indexSince(txID uint64, limit int) error {
 
 		var txmd []byte
 
-		if tx.Metadata != nil {
-			txmd = tx.Metadata.Bytes()
+		if tx.header.Metadata != nil {
+			txmd = tx.header.Metadata.Bytes()
 		}
 
 		txmdLen := len(txmd)

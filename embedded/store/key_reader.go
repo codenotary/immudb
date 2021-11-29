@@ -290,12 +290,12 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 	for _, e := range r._tx.Entries() {
 		if bytes.Equal(e.key(), key) {
 			val = &valueRef{
-				tx:     r._tx.ID,
+				tx:     r._tx.header.ID,
 				hc:     hc,
 				hVal:   e.hVal,
 				vOff:   int64(e.vOff),
 				valLen: uint32(e.vLen),
-				txmd:   r._tx.Metadata,
+				txmd:   r._tx.header.Metadata,
 				kvmd:   e.md,
 				st:     r.store,
 			}

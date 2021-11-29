@@ -375,7 +375,7 @@ func main() {
 
 						kv := &store.EntrySpec{Key: e.Key(), Value: b[:e.VLen()]}
 
-						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
+						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Header().Eh)
 						if !verifies {
 							panic("kv does not verify")
 						}

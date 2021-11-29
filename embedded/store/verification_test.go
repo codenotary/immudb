@@ -89,33 +89,28 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	targetTxID := uint64(txCount)
 	err = immuStore.ReadTx(targetTxID, targetTx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(txCount), targetTx.ID)
+	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
 		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), sourceTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 		require.True(t, verifies)
 
 		// Alter proof
 		dproof.SourceTxHeader.BlTxID++
-		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 		require.False(t, verifies)
 
 		// Restore proof
 		dproof.SourceTxHeader.BlTxID--
-
-		// Alter proof
-		dproof.TargetTxHeader.BlTxID++
-		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
-		require.False(t, verifies)
 	}
 
 	err = immuStore.Close()

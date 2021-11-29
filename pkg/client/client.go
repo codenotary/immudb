@@ -23,13 +23,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -808,12 +809,12 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, store.ErrCorruptedData
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(key, md, value), tx.Eh())
+	verifies := store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(key, md, value), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -822,8 +823,8 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
@@ -1134,12 +1135,12 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeReference(key, nil, referencedKey, atTx), tx.Eh())
+	verifies := store.VerifyInclusion(inclusionProof, database.EncodeReference(key, nil, referencedKey, atTx), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -1148,8 +1149,8 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
@@ -1284,12 +1285,12 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, ekv, tx.Eh())
+	verifies := store.VerifyInclusion(inclusionProof, ekv, tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(vtx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(vtx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -1298,8 +1299,8 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
