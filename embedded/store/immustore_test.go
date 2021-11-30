@@ -1233,6 +1233,10 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 
+		entrySpecDigest, err := EntrySpecDigestFor(tx.header.Version)
+		require.NoError(t, err)
+		require.NotNil(t, entrySpecDigest)
+
 		txEntries := tx.Entries()
 		assert.Equal(t, eCount, len(txEntries))
 
@@ -1261,7 +1265,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 
 			e := &EntrySpec{Key: key, Metadata: NewKVMetadata(), Value: value}
 
-			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.header.Eh)
+			verifies := htree.VerifyInclusion(proof, entrySpecDigest(e), tx.header.Eh)
 			require.True(t, verifies)
 
 			_, v, err = immuStore.ReadValue(tx, key)
@@ -1797,6 +1801,10 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 
+		entrySpecDigest, err := EntrySpecDigestFor(tx.header.Version)
+		require.NoError(t, err)
+		require.NotNil(t, entrySpecDigest)
+
 		txEntries := tx.Entries()
 		assert.Equal(t, eCount, len(txEntries))
 
@@ -1810,7 +1818,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 			e := &EntrySpec{Key: txe.key(), Value: value}
 
-			verifies := htree.VerifyInclusion(proof, e.Digest(), tx.header.Eh)
+			verifies := htree.VerifyInclusion(proof, entrySpecDigest(e), tx.header.Eh)
 			require.True(t, verifies)
 		}
 	}

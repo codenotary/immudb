@@ -107,6 +107,11 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		return ErrIllegalArguments
 	}
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(int(vEntry.VerifiableTx.Tx.Header.Version))
+	if err != nil {
+		return err
+	}
+
 	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
 	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
@@ -184,7 +189,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		e,
+		entrySpecDigest(e),
 		eh)
 	if !verifies {
 		return store.ErrCorruptedData

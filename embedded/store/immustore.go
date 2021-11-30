@@ -85,6 +85,7 @@ const sszSize = 2
 const offsetSize = 8
 
 const Version = 1
+const TxHeaderVersion = 1
 
 const (
 	metaVersion      = "VERSION"

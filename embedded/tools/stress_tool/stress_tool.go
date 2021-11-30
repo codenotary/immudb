@@ -361,6 +361,11 @@ func main() {
 					panic(err)
 				}
 
+				entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+				if err != nil {
+					panic(err)
+				}
+
 				if *kvInclusion {
 					for _, e := range tx.Entries() {
 						proof, err := tx.Proof(e.Key())
@@ -375,7 +380,7 @@ func main() {
 
 						kv := &store.EntrySpec{Key: e.Key(), Value: b[:e.VLen()]}
 
-						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Header().Eh)
+						verifies := htree.VerifyInclusion(proof, entrySpecDigest(kv), tx.Header().Eh)
 						if !verifies {
 							panic("kv does not verify")
 						}
