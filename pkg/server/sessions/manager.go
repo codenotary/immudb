@@ -17,9 +17,11 @@ limitations under the License.
 package sessions
 
 import (
+	"context"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
 	"os"
 	"sync"
@@ -55,7 +57,8 @@ type Manager interface {
 	CountSession() int
 	SetReadWriteTxOngoing(bool)
 	GetReadWriteTxOngoing() bool
-	//NewTransaction(sessionID string, sqlTx *sql.SQLTx, mode schema.TxMode) (transactions.Transaction, error)
+	GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error)
+	DeleteTransaction(transactions.Transaction) error
 }
 
 func NewManager(options *Options) *manager {
@@ -82,23 +85,6 @@ func (sm *manager) NewSession(user *auth.User, databaseID int64) string {
 	sm.logger.Debugf("created session %s", sessionID)
 	return sessionID
 }
-
-/*func (sm *manager) NewTransaction(sessionID string, sqlTx *sql.SQLTx, mode schema.TxMode) (transactions.Transaction, error) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
-	sess, ok := sm.sessions[sessionID]
-	if !ok {
-		return nil, ErrSessionNotFound
-	}
-	if mode == schema.TxMode_READ_WRITE {
-		if sm.readWriteTxOngoing{
-			return nil, ErrReadWriteTxOngoing
-		}
-		sm.readWriteTxOngoing = true
-	}
-	tx := sess.NewTransaction(sqlTx, mode)
-	return tx, nil
-}*/
 
 func (sm *manager) SessionPresent(sessionID string) bool {
 	sm.sessionMux.Lock()
@@ -256,4 +242,33 @@ func (sm *manager) expireSessions() {
 			sm.logger.Debugf("removed DEAD session %s", ID)
 		}
 	}
+}
+
+func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error) {
+	sessionID, err := GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sess, err := sm.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionID, err := GetTransactionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return sess.GetTransaction(transactionID)
+}
+
+func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
+	sessionID := tx.GetParentSessionID()
+	sess, err := sm.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	sess.RemoveTransaction(tx.GetID())
+	return nil
 }

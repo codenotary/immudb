@@ -19,14 +19,17 @@ package transactions
 import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/database"
 	"sync"
 )
 
 type transaction struct {
 	sync.Mutex
-	transactionID string
-	sqlTx         *sql.SQLTx
-	txMode        schema.TxMode
+	transactionID   string
+	sqlTx           *sql.SQLTx
+	txMode          schema.TxMode
+	db              database.DB
+	parentSessionID string
 }
 
 type Transaction interface {
@@ -34,14 +37,19 @@ type Transaction interface {
 	GetSQLTx() *sql.SQLTx
 	SetSQLTx(tx *sql.SQLTx)
 	GetMode() schema.TxMode
+	SetDB(db database.DB)
+	GetDB() database.DB
 	Rollback() error
+	GetParentSessionID() string
 }
 
-func NewTransaction(sqlTx *sql.SQLTx, transactionID string, mode schema.TxMode) *transaction {
+func NewTransaction(sqlTx *sql.SQLTx, transactionID string, mode schema.TxMode, db database.DB, sessionID string) *transaction {
 	return &transaction{
-		sqlTx:         sqlTx,
-		transactionID: transactionID,
-		txMode:        mode,
+		sqlTx:           sqlTx,
+		transactionID:   transactionID,
+		txMode:          mode,
+		db:              db,
+		parentSessionID: sessionID,
 	}
 }
 
@@ -73,4 +81,21 @@ func (tx *transaction) Rollback() error {
 	tx.Lock()
 	defer tx.Unlock()
 	return tx.sqlTx.Cancel()
+}
+
+func (tx *transaction) SetDB(db database.DB) {
+	tx.Lock()
+	defer tx.Unlock()
+	tx.db = db
+}
+
+func (tx *transaction) GetDB() database.DB {
+	tx.Lock()
+	defer tx.Unlock()
+	return tx.db
+}
+func (tx *transaction) GetParentSessionID() string {
+	tx.Lock()
+	defer tx.Unlock()
+	return tx.parentSessionID
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
@@ -66,7 +67,7 @@ func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.
 	}
 }
 
-func (s *Session) NewTransaction(sqlTx *sql.SQLTx, mode schema.TxMode) (transactions.Transaction, error) {
+func (s *Session) NewTransaction(sqlTx *sql.SQLTx, mode schema.TxMode, db database.DB) (transactions.Transaction, error) {
 	s.Lock()
 	defer s.Unlock()
 	if mode == schema.TxMode_READ_WRITE {
@@ -76,7 +77,7 @@ func (s *Session) NewTransaction(sqlTx *sql.SQLTx, mode schema.TxMode) (transact
 		s.readWriteTxOngoing = true
 	}
 	transactionID := xid.New().String()
-	tx := transactions.NewTransaction(sqlTx, transactionID, mode)
+	tx := transactions.NewTransaction(sqlTx, transactionID, mode, db, s.id)
 	s.transactions[transactionID] = tx
 	return tx, nil
 }

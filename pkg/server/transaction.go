@@ -48,7 +48,7 @@ func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest
 		return nil, err
 	}
 
-	tx, err := sess.NewTransaction(SQLTx, request.Mode)
+	tx, err := sess.NewTransaction(SQLTx, request.Mode, db)
 	if err != nil {
 		return nil, err
 	}
@@ -61,30 +61,12 @@ func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*schema.Commit
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	sess, err := s.SessManager.GetSession(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := sess.GetTransaction(transactionID)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := s.getDBFromCtx(ctx, "SQLExec")
-	if err != nil {
-		return nil, err
-	}
+	db := tx.GetDB()
 
 	_, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.GetSQLTx())
 	if err != nil {
@@ -98,7 +80,10 @@ func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*schema.Commit
 		lastPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
 	}
 
-	sess.RemoveTransaction(transactionID)
+	err = s.SessManager.DeleteTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &schema.CommittedSQLTx{
 		Header:          schema.TxHeaderToProto(commitedTx.TxHeader()),
@@ -112,37 +97,22 @@ func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	sess, err := s.SessManager.GetSession(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := sess.GetTransaction(transactionID)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := s.getDBFromCtx(ctx, "SQLExec")
-	if err != nil {
-		return nil, err
-	}
+	db := tx.GetDB()
 
 	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "ROLLBACK;"}, tx.GetSQLTx())
 	if err != nil {
 		return nil, err
 	}
 
-	sess.RemoveTransaction(transactionID)
+	err = s.SessManager.DeleteTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
 
 	return new(empty.Empty), nil
 }
@@ -152,22 +122,7 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 		return new(empty.Empty), ErrNotAllowedInMaintenanceMode
 	}
 
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
-	if err != nil {
-		return new(empty.Empty), err
-	}
-
-	sess, err := s.SessManager.GetSession(sessionID)
-	if err != nil {
-		return new(empty.Empty), err
-	}
-
-	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
-	if err != nil {
-		return new(empty.Empty), err
-	}
-
-	tx, err := sess.GetTransaction(transactionID)
+	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
 		return new(empty.Empty), err
 	}
@@ -176,10 +131,7 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 		return new(empty.Empty), ErrReadWriteTxNotOngoing
 	}
 
-	db, err := s.getDBFromCtx(ctx, "SQLExec")
-	if err != nil {
-		return new(empty.Empty), err
-	}
+	db := tx.GetDB()
 
 	ntx, _, err := db.SQLExec(request, tx.GetSQLTx())
 	if err != nil {
@@ -196,30 +148,12 @@ func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryReq
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
+	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	sess, err := s.SessManager.GetSession(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	transactionID, err := sessions.GetTransactionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := sess.GetTransaction(transactionID)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := s.getDBFromCtx(ctx, "SQLExec")
-	if err != nil {
-		return nil, err
-	}
+	db := tx.GetDB()
 
 	return db.SQLQuery(request, tx.GetSQLTx())
 }
