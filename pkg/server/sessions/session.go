@@ -121,12 +121,6 @@ func (s *Session) GetTransaction(transactionID string) (transactions.Transaction
 	return tx, nil
 }
 
-func (s *Session) SetTransaction(transactionID string, tx transactions.Transaction) {
-	s.Lock()
-	defer s.Unlock()
-	s.transactions[transactionID] = tx
-}
-
 func GetSessionIDFromContext(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -219,29 +213,8 @@ func (s *Session) GetCreationTime() time.Time {
 	return s.creationTime
 }
 
-func (s *Session) SetCreationTime(t time.Time) {
-	s.Lock()
-	defer s.Unlock()
-	s.creationTime = t
-}
-
 func (s *Session) GetReadWriteTxOngoing() bool {
 	s.RLock()
 	defer s.RUnlock()
 	return s.readWriteTxOngoing
-}
-
-func (s *Session) SetReadWriteTxOngoing(ongoing bool) {
-	s.Lock()
-	defer s.Unlock()
-	s.readWriteTxOngoing = ongoing
-}
-
-func (s *Session) TransactionPresent(transactionID string) bool {
-	s.RLock()
-	defer s.RUnlock()
-	if _, ok := s.transactions[transactionID]; ok {
-		return true
-	}
-	return false
 }
