@@ -132,6 +132,9 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 
 	copy(e.prefix, opts.prefix)
 
+	// TODO: find a better way to handle parsing errors
+	yyErrorVerbose = true
+
 	return e, nil
 }
 
