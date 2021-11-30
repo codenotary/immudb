@@ -172,7 +172,6 @@ func ParseString(sql string) ([]SQLStmt, error) {
 
 func Parse(r io.ByteReader) ([]SQLStmt, error) {
 	lexer := newLexer(r)
-	yyErrorVerbose = true
 
 	yyParse(lexer)
 
