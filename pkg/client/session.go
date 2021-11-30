@@ -44,7 +44,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return "", "", errors.FromError(err)
 	}
 
-	c.SessionID = resp.GetSessionID()
+	c.SetSessionID(resp.GetSessionID())
 
 	c.HeartBeater = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient, c.Options.HeartBeatFrequency)
 	c.HeartBeater.KeepAlive(ctx)
@@ -67,12 +67,25 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
+
+	c.HeartBeater.Stop()
+
 	_, err := c.ServiceClient.CloseSession(ctx, new(empty.Empty))
 	if err != nil {
 		return errors.FromError(err)
 	}
 
-	c.HeartBeater.Stop()
-
 	return nil
+}
+
+func (c *immuClient) GetSessionID() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.SessionID
+}
+
+func (c *immuClient) SetSessionID(sessionID string) {
+	c.Lock()
+	defer c.Unlock()
+	c.SessionID = sessionID
 }

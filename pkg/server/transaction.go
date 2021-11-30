@@ -183,6 +183,7 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 	if err != nil {
 		return new(empty.Empty), err
 	}
+
 	tx.SetSQLTx(ntx)
 
 	return new(empty.Empty), nil

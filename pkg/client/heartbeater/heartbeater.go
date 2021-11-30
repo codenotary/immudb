@@ -70,9 +70,9 @@ func (hb *heartBeater) Stop() {
 }
 
 func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
+	c, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
-	_, err := hb.serviceClient.KeepAlive(ctx, new(empty.Empty))
+	_, err := hb.serviceClient.KeepAlive(c, new(empty.Empty))
 	if err != nil {
 		return err
 	}

@@ -146,7 +146,7 @@ func TestSession_ExpireSessions(t *testing.T) {
 
 	rand.Seed(time.Now().UnixNano())
 	wg := sync.WaitGroup{}
-	for i := 1; i <= 1000; i++ {
+	for i := 1; i <= 100; i++ {
 		wg.Add(1)
 		go func() {
 			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))

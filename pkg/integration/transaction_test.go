@@ -79,6 +79,45 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestTransaction_Rollback(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	_, _, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+
+	tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+	require.NoError(t, err)
+	err = tx.TxSQLExec(context.TODO(), `CREATE TABLE table1(
+		id INTEGER,
+		PRIMARY KEY id
+		);`, nil)
+	require.NoError(t, err)
+
+	err = tx.Rollback(context.TODO())
+	require.NoError(t, err)
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+
+	tx, err = client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+	require.NoError(t, err)
+
+	res, err := tx.TxSQLQuery(context.TODO(), "SELECT * FROM table1", nil, true)
+	require.Error(t, err)
+	require.NotNil(t, res)
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+}
+
 func TestTransaction_MultipleReadWriteError(t *testing.T) {
 	options := server.DefaultOptions()
 	bs := servertest.NewBufconnServer(options)

@@ -61,7 +61,7 @@ func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
-	c.TransactionID = r.TransactionID
+	c.SetTransactionID(r.TransactionID)
 	tx := &tx{
 		ic:            c,
 		transactionID: r.TransactionID,
@@ -92,4 +92,16 @@ func (c *tx) TxSQLQuery(ctx context.Context, sql string, params map[string]inter
 		ReuseSnapshot: !renewSnapshot,
 	})
 	return res, errors.FromError(err)
+}
+
+func (c *immuClient) GetTransactionID() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.TransactionID
+}
+
+func (c *immuClient) SetTransactionID(transactionID string) {
+	c.Lock()
+	defer c.Unlock()
+	c.TransactionID = transactionID
 }
