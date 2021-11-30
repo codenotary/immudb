@@ -68,6 +68,8 @@ func TxFromProto(stx *Tx) *store.Tx {
 	hdr.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
 	hdr.BlTxID = stx.Header.BlTxId
 	hdr.BlRoot = DigestFromProto(stx.Header.BlRoot)
+	hdr.Version = int(stx.Header.Version)
+	hdr.Metadata = TxMetadataFromProto(stx.Header.Metadata)
 
 	tx.BuildHashTree()
 
@@ -119,6 +121,7 @@ func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
 		Id:       hdr.ID,
 		PrevAlh:  hdr.PrevAlh[:],
 		Ts:       hdr.Ts,
+		Version:  int32(hdr.Version),
 		Metadata: TxMetadataToProto(hdr.Metadata),
 		Nentries: int32(hdr.NEntries),
 		EH:       hdr.Eh[:],
@@ -162,6 +165,7 @@ func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
 		ID:       hdr.Id,
 		PrevAlh:  DigestFromProto(hdr.PrevAlh),
 		Ts:       hdr.Ts,
+		Version:  int(hdr.Version),
 		Metadata: TxMetadataFromProto(hdr.Metadata),
 		NEntries: int(hdr.Nentries),
 		Eh:       DigestFromProto(hdr.EH),

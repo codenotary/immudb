@@ -73,15 +73,9 @@ func (tx *Tx) Header() *TxHeader {
 }
 
 func (hdr *TxHeader) Bytes() []byte {
-	// ID + PrevAlh + Ts + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
-	var b [txIDSize + sha256.Size + tsSize + sszSize + maxTxMetadataLen + sszSize + sha256.Size + txIDSize + sha256.Size]byte
+	// ID + Ts + PrevAlh + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
+	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + sszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
-
-	var mdbs []byte
-
-	if hdr.Metadata != nil {
-		mdbs = hdr.Metadata.Bytes()
-	}
 
 	binary.BigEndian.PutUint64(b[i:], hdr.ID)
 	i += txIDSize
@@ -92,11 +86,22 @@ func (hdr *TxHeader) Bytes() []byte {
 	binary.BigEndian.PutUint64(b[i:], uint64(hdr.Ts))
 	i += tsSize
 
-	binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+	binary.BigEndian.PutUint16(b[i:], uint16(hdr.Version))
 	i += sszSize
 
-	copy(b[i:], mdbs)
-	i += len(mdbs)
+	if hdr.Version > 0 {
+		var mdbs []byte
+
+		if hdr.Metadata != nil {
+			mdbs = hdr.Metadata.Bytes()
+		}
+
+		binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+		i += sszSize
+
+		copy(b[i:], mdbs)
+		i += len(mdbs)
+	}
 
 	binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
 	i += sszSize
@@ -149,13 +154,15 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 				return ErrCorruptedData
 			}
 
-			hdr.Metadata = &TxMetadata{}
+			if mdLen > 0 {
+				hdr.Metadata = &TxMetadata{}
 
-			err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
-			if err != nil {
-				return err
+				err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
+				if err != nil {
+					return err
+				}
+				i += mdLen
 			}
-			i += mdLen
 		}
 	default:
 		{
@@ -189,7 +196,7 @@ func (hdr *TxHeader) innerHash() [sha256.Size]byte {
 	binary.BigEndian.PutUint16(b[i:], uint16(hdr.Version))
 	i += sszSize
 
-	if hdr.Version == 1 {
+	if hdr.Version > 0 {
 		var mdbs []byte
 
 		if hdr.Metadata != nil {
@@ -215,7 +222,7 @@ func (hdr *TxHeader) innerHash() [sha256.Size]byte {
 	copy(b[i:], hdr.BlRoot[:])
 	i += sha256.Size
 
-	// hash(ts + mdLen + md + nentries + eH + blTxID + blRoot)
+	// hash(ts + version + (mdLen + md) + nentries + eH + blTxID + blRoot)
 	return sha256.Sum256(b[:i])
 }
 
@@ -327,34 +334,42 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		return err
 	}
 
-	mdLen, err := r.ReadUint16()
+	version, err := r.ReadUint16()
 	if err != nil {
 		return err
 	}
+	tx.header.Version = int(version)
 
-	var txmd *TxMetadata
+	if tx.header.Version > 0 {
+		mdLen, err := r.ReadUint16()
+		if err != nil {
+			return err
+		}
 
-	if mdLen > 0 {
 		if mdLen > maxTxMetadataLen {
 			return ErrCorruptedData
 		}
 
-		var mdBs [maxTxMetadataLen]byte
+		var txmd *TxMetadata
 
-		_, err = r.Read(mdBs[:mdLen])
-		if err != nil {
-			return err
+		if mdLen > 0 {
+			var mdBs [maxTxMetadataLen]byte
+
+			_, err = r.Read(mdBs[:mdLen])
+			if err != nil {
+				return err
+			}
+
+			txmd = &TxMetadata{}
+
+			err = txmd.ReadFrom(mdBs[:mdLen])
+			if err != nil {
+				return err
+			}
 		}
 
-		txmd = &TxMetadata{}
-
-		err = txmd.ReadFrom(mdBs[:mdLen])
-		if err != nil {
-			return err
-		}
+		tx.header.Metadata = txmd
 	}
-
-	tx.header.Metadata = txmd
 
 	nentries, err := r.ReadUint16()
 	if err != nil {
