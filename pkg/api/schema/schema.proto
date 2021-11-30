@@ -161,6 +161,7 @@ message TxHeader {
 	uint64 id = 1;
 	bytes prevAlh = 2;
 	int64 ts = 3;
+	int32 version = 9;
 	TxMD metadata = 4;
 	int32 nentries = 5;
 	bytes eH = 6;

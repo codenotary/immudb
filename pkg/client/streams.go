@@ -204,6 +204,11 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 
 	tx := schema.TxFromProto(verifiableTx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	var verifies bool
 
 	for i, kv := range stdKVs {
@@ -213,8 +218,9 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 		}
 
 		md := tx.Entries()[i].Metadata()
+		e := database.EncodeEntrySpec(kv.Key, md, kv.Value)
 
-		verifies = store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(kv.Key, md, kv.Value), tx.Header().Eh)
+		verifies = store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 		if !verifies {
 			return nil, store.ErrCorruptedData
 		}
@@ -302,6 +308,11 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 		return nil, err
 	}
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(int(vEntry.VerifiableTx.Tx.Header.Version))
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
 	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
@@ -336,7 +347,7 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 		targetAlh = schema.DigestFromProto(state.TxHash)
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, e, eh)
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}

@@ -2106,6 +2106,10 @@
           "type": "string",
           "format": "int64"
         },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
         "metadata": {
           "$ref": "#/definitions/schemaTxMD"
         },

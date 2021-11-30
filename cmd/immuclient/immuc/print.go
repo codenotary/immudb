@@ -21,14 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 // PrintKV ...
 func PrintKV(key []byte, md *schema.KVMetadata, value []byte, tx uint64, verified, valueOnly bool) string {
-	hash := (&store.EntrySpec{Key: key, Value: value}).Digest()
-
 	if valueOnly {
 		return fmt.Sprintf("%s\n", value)
 	}
@@ -43,7 +40,7 @@ func PrintKV(key []byte, md *schema.KVMetadata, value []byte, tx uint64, verifie
 		}
 
 		str.WriteString(fmt.Sprintf("value:		%s \n", value))
-		str.WriteString(fmt.Sprintf("hash:		%x \n", hash))
+
 		if verified {
 			str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
 		}

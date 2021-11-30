@@ -39,6 +39,8 @@ type TxHeader struct {
 	BlRoot  [sha256.Size]byte
 	PrevAlh [sha256.Size]byte
 
+	Version int
+
 	Metadata *TxMetadata
 
 	NEntries int
@@ -112,7 +114,7 @@ func (hdr *TxHeader) Bytes() []byte {
 }
 
 func (hdr *TxHeader) ReadFrom(b []byte) error {
-	// Minimum length with an empty metadata record
+	// Minimum length with version record
 	if len(b) < txIDSize+sha256.Size+tsSize+2*sszSize+sha256.Size+txIDSize+sha256.Size {
 		return ErrIllegalArguments
 	}
@@ -128,21 +130,37 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 	hdr.Ts = int64(binary.BigEndian.Uint64(b[i:]))
 	i += tsSize
 
-	mdLen := int(binary.BigEndian.Uint16(b[i:]))
+	hdr.Version = int(binary.BigEndian.Uint16(b[i:]))
 	i += sszSize
 
-	if mdLen > 0 {
-		if len(b) < i+mdLen || mdLen > maxTxMetadataLen {
+	switch hdr.Version {
+	case 0:
+		{
+			// first version does not include metadata record
+			break
+		}
+	case 1:
+		{
+			mdLen := int(binary.BigEndian.Uint16(b[i:]))
+			i += sszSize
+
+			// nentries follows metadata
+			if len(b) < i+mdLen+sszSize || mdLen > maxTxMetadataLen {
+				return ErrCorruptedData
+			}
+
+			hdr.Metadata = &TxMetadata{}
+
+			err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
+			if err != nil {
+				return err
+			}
+			i += mdLen
+		}
+	default:
+		{
 			return ErrCorruptedData
 		}
-
-		hdr.Metadata = &TxMetadata{}
-
-		err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
-		if err != nil {
-			return err
-		}
-		i += mdLen
 	}
 
 	hdr.NEntries = int(binary.BigEndian.Uint16(b[i:]))
@@ -161,24 +179,29 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 }
 
 func (hdr *TxHeader) innerHash() [sha256.Size]byte {
-	// ts + mdLen + md + nentries + eH + blTxID + blRoot
-	var b [tsSize + sszSize + maxTxMetadataLen + sszSize + sha256.Size + txIDSize + sha256.Size]byte
+	// ts + version + (mdLen + md)? + nentries + eH + blTxID + blRoot
+	var b [tsSize + sszSize + (sszSize + maxTxMetadataLen) + sszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
-
-	var mdbs []byte
-
-	if hdr.Metadata != nil {
-		mdbs = hdr.Metadata.Bytes()
-	}
 
 	binary.BigEndian.PutUint64(b[i:], uint64(hdr.Ts))
 	i += tsSize
 
-	binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+	binary.BigEndian.PutUint16(b[i:], uint16(hdr.Version))
 	i += sszSize
 
-	copy(b[i:], mdbs)
-	i += len(mdbs)
+	if hdr.Version == 1 {
+		var mdbs []byte
+
+		if hdr.Metadata != nil {
+			mdbs = hdr.Metadata.Bytes()
+		}
+
+		binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+		i += sszSize
+
+		copy(b[i:], mdbs)
+		i += len(mdbs)
+	}
 
 	binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
 	i += sszSize
@@ -205,7 +228,7 @@ func (hdr *TxHeader) Alh() [sha256.Size]byte {
 	binary.BigEndian.PutUint64(bi[:], hdr.ID)
 	copy(bi[txIDSize:], hdr.PrevAlh[:])
 
-	// hash(ts + mdLen + md + nentries + eH + blTxID + blRoot)
+	// hash(ts + version + (mdLen + md)? + nentries + eH + blTxID + blRoot)
 	innerHash := hdr.innerHash()
 	copy(bi[txIDSize+sha256.Size:], innerHash[:])
 
@@ -213,14 +236,30 @@ func (hdr *TxHeader) Alh() [sha256.Size]byte {
 	return sha256.Sum256(bi[:])
 }
 
+func (tx *Tx) TxEntryDigest() (TxEntryDigest, error) {
+	switch tx.header.Version {
+	case 0:
+		return TxEntryDigest_v1_1, nil
+	case 1:
+		return TxEntryDigest_v1_2, nil
+	}
+
+	return nil, ErrCorruptedData
+}
+
 func (tx *Tx) BuildHashTree() error {
 	digests := make([][sha256.Size]byte, tx.header.NEntries)
 
-	for i, e := range tx.Entries() {
-		digests[i] = e.Digest()
+	txEntryDigest, err := tx.TxEntryDigest()
+	if err != nil {
+		return err
 	}
 
-	err := tx.htree.BuildWith(digests)
+	for i, e := range tx.Entries() {
+		digests[i] = txEntryDigest(e)
+	}
+
+	err = tx.htree.BuildWith(digests)
 	if err != nil {
 		return err
 	}
@@ -452,7 +491,18 @@ func (e *TxEntry) VLen() int {
 	return e.vLen
 }
 
-func (e *TxEntry) Digest() [sha256.Size]byte {
+type TxEntryDigest func(e *TxEntry) [sha256.Size]byte
+
+func TxEntryDigest_v1_1(e *TxEntry) [sha256.Size]byte {
+	b := make([]byte, e.kLen+sha256.Size)
+
+	copy(b[:], e.k[:e.kLen])
+	copy(b[e.kLen:], e.hVal[:])
+
+	return sha256.Sum256(b)
+}
+
+func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
 	var mdbs []byte
 
 	if e.md != nil {
@@ -464,14 +514,11 @@ func (e *TxEntry) Digest() [sha256.Size]byte {
 	b := make([]byte, sszSize+mdLen+e.kLen+sha256.Size)
 	i := 0
 
-	if mdLen > 0 {
-		// md is only written if present for backward-compatibility
-		binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
-		i += sszSize
+	binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
+	i += sszSize
 
-		copy(b[i:], mdbs)
-		i += mdLen
-	}
+	copy(b[i:], mdbs)
+	i += mdLen
 
 	copy(b[i:], e.k[:e.kLen])
 	i += e.kLen

@@ -282,9 +282,15 @@ func TestDbSetGet(t *testing.T) {
 			targetAlh = trustedAlh
 		}
 
+		entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value)
+
+		entrySpecDigest, err := store.EntrySpecDigestFor(int(txhdr.Version))
+		require.NoError(t, err)
+		require.NotNil(t, entrySpecDigest)
+
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value),
+			entrySpecDigest(entrySpec),
 			eh,
 		)
 		require.True(t, verifies)

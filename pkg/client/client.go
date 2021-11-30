@@ -595,6 +595,11 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 		return nil, err
 	}
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(int(vEntry.VerifiableTx.Tx.Header.Version))
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
 	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
@@ -633,7 +638,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		e,
+		entrySpecDigest(e),
 		eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
@@ -798,6 +803,11 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	tx := schema.TxFromProto(verifiableTx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
 		return nil, err
@@ -809,7 +819,9 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, store.ErrCorruptedData
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(key, md, value), tx.Header().Eh)
+	e := database.EncodeEntrySpec(key, md, value)
+
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
@@ -1130,12 +1142,19 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 
 	tx := schema.TxFromProto(verifiableTx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeReference(key, nil, referencedKey, atTx), tx.Header().Eh)
+	e := database.EncodeReference(key, nil, referencedKey, atTx)
+
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
@@ -1274,6 +1293,11 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 	tx := schema.TxFromProto(vtx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	ekv := database.EncodeZAdd(req.ZAddRequest.Set,
 		req.ZAddRequest.Score,
 		database.EncodeKey(req.ZAddRequest.Key),
@@ -1285,7 +1309,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, ekv, tx.Header().Eh)
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(ekv), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
