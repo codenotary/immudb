@@ -879,13 +879,16 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 
 	var ts int64
 	var blTxID uint64
+	var version int
 
 	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
+		version = TxHeaderVersion
 	} else {
 		ts = expectedHeader.Ts
 		blTxID = expectedHeader.BlTxID
+		version = expectedHeader.Version
 
 		//TxHeader is validated against current store
 
@@ -929,6 +932,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	}
 	defer s.releaseAllocTx(tx)
 
+	tx.header.Version = version
 	tx.header.Metadata = otx.metadata
 
 	tx.header.NEntries = len(otx.entries)
@@ -1034,17 +1038,22 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 	copy(s._txbs[txSize:], tx.header.PrevAlh[:])
 	txSize += sha256.Size
 
-	var txmdbs []byte
-
-	if tx.header.Metadata != nil {
-		txmdbs = tx.header.Metadata.Bytes()
-	}
-
-	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
+	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.Version))
 	txSize += sszSize
 
-	copy(s._txbs[txSize:], txmdbs)
-	txSize += len(txmdbs)
+	if tx.header.Version > 0 {
+		var txmdbs []byte
+
+		if tx.header.Metadata != nil {
+			txmdbs = tx.header.Metadata.Bytes()
+		}
+
+		binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
+		txSize += sszSize
+
+		copy(s._txbs[txSize:], txmdbs)
+		txSize += len(txmdbs)
+	}
 
 	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.NEntries))
 	txSize += sszSize
@@ -1227,6 +1236,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	}
 	defer s.releaseAllocTx(tx)
 
+	tx.header.Version = TxHeaderVersion
 	tx.header.NEntries = len(entries)
 
 	for i, e := range entries {
