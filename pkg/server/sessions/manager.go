@@ -34,15 +34,14 @@ var ErrGuardNotRunning = errors.New("session guard not running")
 var guard *manager
 
 type manager struct {
-	Running            bool
-	sessionMux         sync.Mutex
-	guardMux           sync.Mutex
-	sessions           map[string]*Session
-	ticker             *time.Ticker
-	done               chan bool
-	logger             logger.Logger
-	options            *Options
-	readWriteTxOngoing bool
+	Running    bool
+	sessionMux sync.Mutex
+	guardMux   sync.Mutex
+	sessions   map[string]*Session
+	ticker     *time.Ticker
+	done       chan bool
+	logger     logger.Logger
+	options    *Options
 }
 
 type Manager interface {
@@ -55,8 +54,6 @@ type Manager interface {
 	StopSessionsGuard() error
 	GetSession(sessionID string) (*Session, error)
 	CountSession() int
-	SetReadWriteTxOngoing(bool)
-	GetReadWriteTxOngoing() bool
 	GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error)
 	DeleteTransaction(transactions.Transaction) error
 }
@@ -95,17 +92,6 @@ func (sm *manager) SessionPresent(sessionID string) bool {
 	return false
 }
 
-func (sm *manager) AddSession(sessionID string, sess *Session) error {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
-	if _, ok := sm.sessions[sessionID]; ok {
-		return ErrSessionAlreadyPresent
-	}
-	sm.sessions[sessionID] = sess
-	sm.logger.Debugf("created session %s", sessionID)
-	return nil
-}
-
 func (sm *manager) GetSession(sessionID string) (*Session, error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
@@ -124,24 +110,8 @@ func (sm *manager) DeleteSession(sessionID string) error {
 	}
 	sess.RollbackTransactions()
 
-	if sess.GetReadWriteTxOngoing() {
-		sm.readWriteTxOngoing = false
-	}
-
 	delete(sm.sessions, sessionID)
 	return nil
-}
-
-func (sm *manager) GetReadWriteTxOngoing() bool {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
-	return sm.readWriteTxOngoing
-}
-
-func (sm *manager) SetReadWriteTxOngoing(ongoing bool) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
-	sm.readWriteTxOngoing = ongoing
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
