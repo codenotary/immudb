@@ -161,7 +161,10 @@ func TestSession_ExpireSessions(t *testing.T) {
 
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
 
-			tx.Commit(context.TODO())
+			th, err := tx.Commit(context.TODO())
+			require.NoError(t, err)
+			require.Nil(t, th.Header)
+			require.Equal(t, uint32(0), th.UpdatedRows)
 
 			err = client.CloseSession(context.TODO())
 			require.NoError(t, err)
