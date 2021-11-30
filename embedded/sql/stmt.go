@@ -173,11 +173,11 @@ func (stmt *RollbackStmt) inferParameters(tx *SQLTx, params map[string]SQLValueT
 }
 
 func (stmt *RollbackStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if tx.explicitClose {
+	if !tx.explicitClose {
 		return nil, ErrNoOngoingTx
 	}
 
-	return tx, tx.Cancel()
+	return nil, tx.Cancel()
 }
 
 type CreateDatabaseStmt struct {
