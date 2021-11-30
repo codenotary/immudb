@@ -17,14 +17,15 @@ limitations under the License.
 package cli
 
 import (
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"os"
-	"strings"
-	"testing"
 )
 
 func TestReference(t *testing.T) {
@@ -53,7 +54,7 @@ func TestReference(t *testing.T) {
 	if err != nil {
 		t.Fatal("Reference fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("Reference failed: %s", msg)
 	}
 }
@@ -85,7 +86,7 @@ func _TestSafeReference(t *testing.T) {
 	if err != nil {
 		t.Fatal("SafeReference fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("SafeReference failed: %s", msg)
 	}
 }

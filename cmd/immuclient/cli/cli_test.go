@@ -17,13 +17,14 @@ limitations under the License.
 package cli
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/codenotary/immudb/pkg/fs"
 	"os"
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/pkg/fs"
 
 	"github.com/codenotary/immudb/pkg/client"
 
@@ -69,7 +70,7 @@ func TestRunCommand(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value"})
 	})
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatal(msg)
 	}
 }

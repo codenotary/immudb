@@ -17,11 +17,12 @@ limitations under the License.
 package cli
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -62,7 +63,7 @@ func TestZScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("ZScan fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("ZScan failed: %s", msg)
 	}
 }
@@ -96,7 +97,7 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("Scan fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("Scan failed: %s", msg)
 	}
 }

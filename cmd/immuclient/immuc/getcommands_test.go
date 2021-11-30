@@ -17,14 +17,15 @@ limitations under the License.
 package immuc_test
 
 import (
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"os"
-	"strings"
-	"testing"
 )
 
 func TestGetTxByID(t *testing.T) {
@@ -80,7 +81,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatal("GetKey fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("GetKey failed: %s", msg)
 	}
 }
@@ -109,7 +110,7 @@ func TestVerifiedGet(t *testing.T) {
 	if err != nil {
 		t.Fatal("VerifiedGet fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("VerifiedGet failed: %s", msg)
 	}
 }
