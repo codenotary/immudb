@@ -104,15 +104,13 @@ func TestTransaction_Rollback(t *testing.T) {
 	err = tx.Rollback(context.TODO())
 	require.NoError(t, err)
 
-	err = client.CloseSession(context.TODO())
+	tx1, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
 
-	tx, err = client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
-	require.NoError(t, err)
-
-	res, err := tx.TxSQLQuery(context.TODO(), "SELECT * FROM table1", nil, true)
+	res, err := tx1.TxSQLQuery(context.TODO(), "SELECT * FROM table1", nil, true)
 	require.Error(t, err)
-	require.NotNil(t, res)
+	require.Equal(t, "table does not exist", err.Error())
+	require.Nil(t, res)
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)

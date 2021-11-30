@@ -142,6 +142,8 @@ func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty
 		return nil, err
 	}
 
+	sess.RemoveTransaction(transactionID)
+
 	return new(empty.Empty), nil
 }
 
