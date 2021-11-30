@@ -534,7 +534,7 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10); COMMIT;",
+			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10); ROLLBACK;",
 			expectedOutput: []SQLStmt{
 				&BeginTransactionStmt{},
 				&UpsertIntoStmt{
@@ -551,7 +551,7 @@ func TestTxStmt(t *testing.T) {
 						{Values: []ValueExp{&Number{val: 10}}},
 					},
 				},
-				&CommitStmt{},
+				&RollbackStmt{},
 			},
 			expectedError: nil,
 		},
