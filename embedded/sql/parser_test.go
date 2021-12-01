@@ -579,6 +579,25 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "BEGIN TRANSACTION; UPDATE table1 SET label = 'label1' WHERE id = 100; COMMIT;",
+			expectedOutput: []SQLStmt{
+				&BeginTransactionStmt{},
+				&UpdateStmt{
+					tableRef: &tableRef{table: "table1"},
+					updates: []*colUpdate{
+						{col: "label", op: EQ, val: &Varchar{val: "label1"}},
+					},
+					where: &CmpBoolExp{
+						op:    EQ,
+						left:  &ColSelector{col: "id"},
+						right: &Number{val: 100},
+					},
+				},
+				&CommitStmt{},
+			},
+			expectedError: nil,
+		},
+		{
 			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&BeginTransactionStmt{},
