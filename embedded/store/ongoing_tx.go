@@ -17,7 +17,6 @@ package store
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 )
 
 //OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
@@ -266,35 +265,4 @@ func (tx *OngoingTx) Cancel() error {
 	tx.closed = true
 
 	return nil
-}
-
-func (kv *EntrySpec) Digest() [sha256.Size]byte {
-	var mdbs []byte
-
-	if kv.Metadata != nil {
-		mdbs = kv.Metadata.Bytes()
-	}
-
-	mdLen := len(mdbs)
-
-	b := make([]byte, sszSize+mdLen+len(kv.Key)+sha256.Size)
-	i := 0
-
-	if mdLen > 0 {
-		// md is only written if present for backward-compatibility
-		binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
-		i += sszSize
-
-		copy(b[i:], mdbs)
-		i += mdLen
-	}
-
-	copy(b[i:], kv.Key)
-	i += len(kv.Key)
-
-	hvalue := sha256.Sum256(kv.Value)
-	copy(b[i:], hvalue[:])
-	i += sha256.Size
-
-	return sha256.Sum256(b[:i])
 }

@@ -164,8 +164,9 @@ func EntrySpecDigest_v1_2(kv *EntrySpec) [sha256.Size]byte {
 	}
 
 	mdLen := len(mdbs)
+	kLen := len(kv.Key)
 
-	b := make([]byte, sszSize+mdLen+len(kv.Key)+sha256.Size)
+	b := make([]byte, sszSize+mdLen+sszSize+kLen+sha256.Size)
 	i := 0
 
 	binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
@@ -173,6 +174,9 @@ func EntrySpecDigest_v1_2(kv *EntrySpec) [sha256.Size]byte {
 
 	copy(b[i:], mdbs)
 	i += mdLen
+
+	binary.BigEndian.PutUint16(b[i:], uint16(kLen))
+	i += sszSize
 
 	copy(b[i:], kv.Key)
 	i += len(kv.Key)
