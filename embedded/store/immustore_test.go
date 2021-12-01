@@ -791,20 +791,54 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 	immuStore, _ := Open("data_tx", opts)
 	defer os.RemoveAll("data_tx")
 
-	tx, err := immuStore.NewWriteOnlyTx()
-	require.NoError(t, err)
+	t.Run("after closing write-only tx edge cases", func(t *testing.T) {
+		tx, err := immuStore.NewWriteOnlyTx()
+		require.NoError(t, err)
 
-	err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
-	require.NoError(t, err)
+		require.Nil(t, tx.Metadata())
 
-	_, err = tx.Commit()
-	require.NoError(t, err)
+		err = tx.Set(nil, nil, []byte{3, 2, 1})
+		require.ErrorIs(t, err, ErrNullKey)
 
-	_, err = tx.Commit()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
+		err = tx.Set(make([]byte, immuStore.maxKeyLen+1), nil, []byte{3, 2, 1})
+		require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
 
-	err = tx.Cancel()
-	require.ErrorIs(t, err, ErrAlreadyClosed)
+		err = tx.Set([]byte{1, 2, 3}, nil, make([]byte, immuStore.maxValueLen+1))
+		require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
+
+		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
+		require.NoError(t, err)
+
+		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1, 0})
+		require.NoError(t, err)
+
+		_, err = tx.Get([]byte{1, 2, 3})
+		require.ErrorIs(t, err, ErrWriteOnlyTx)
+
+		_, err = tx.ExistKeyWith([]byte{1}, []byte{1})
+		require.ErrorIs(t, err, ErrWriteOnlyTx)
+
+		err = tx.Delete([]byte{1, 2, 3})
+		require.ErrorIs(t, err, ErrWriteOnlyTx)
+
+		_, err = tx.NewKeyReader(&KeyReaderSpec{})
+		require.ErrorIs(t, err, ErrWriteOnlyTx)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1, 0})
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+
+		_, err = tx.NewKeyReader(&KeyReaderSpec{})
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+
+		_, err = tx.Commit()
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+
+		err = tx.Cancel()
+		require.ErrorIs(t, err, ErrAlreadyClosed)
+	})
 
 	t.Run("cancelled transaction should not produce effects", func(t *testing.T) {
 		tx, err := immuStore.NewWriteOnlyTx()
@@ -825,17 +859,22 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		valRef, err := immuStore.Get([]byte{1, 2, 3})
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), valRef.Tx())
+		require.Equal(t, uint64(1), valRef.HC())
+		require.Equal(t, uint32(4), valRef.Len())
+		require.Nil(t, valRef.KVMetadata())
+		require.Nil(t, valRef.TxMetadata())
+		require.Equal(t, sha256.Sum256([]byte{3, 2, 1, 0}), valRef.HVal())
 
 		v, err := valRef.Resolve()
 		require.NoError(t, err)
-		require.Equal(t, []byte{3, 2, 1}, v)
+		require.Equal(t, []byte{3, 2, 1, 0}, v)
 	})
 
 	t.Run("read-your-own-writes should be possible before commit", func(t *testing.T) {
-		_, err = immuStore.Get([]byte("key1"))
+		_, err := immuStore.Get([]byte("key1"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		tx, err = immuStore.NewTx()
+		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
 
 		_, err = tx.Get([]byte("key1"))
@@ -844,10 +883,32 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Set([]byte("key1"), nil, []byte("value1"))
 		require.NoError(t, err)
 
+		exists, err := tx.ExistKeyWith([]byte("key1"), []byte("key"))
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		r, err := tx.NewKeyReader(&KeyReaderSpec{Prefix: []byte("key")})
+		require.NoError(t, err)
+		require.NotNil(t, r)
+
+		k, _, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, []byte("key1"), k)
+
+		_, err = tx.Commit()
+		require.ErrorIs(t, err, tbtree.ErrReadersNotClosed)
+
+		err = r.Close()
+		require.NoError(t, err)
+
 		valRef, err := tx.Get([]byte("key1"))
 		require.NoError(t, err)
-		require.NotNil(t, valRef)
 		require.Equal(t, uint64(0), valRef.Tx())
+		require.Equal(t, uint64(1), valRef.HC())
+		require.Equal(t, uint32(6), valRef.Len())
+		require.Nil(t, valRef.KVMetadata())
+		require.Nil(t, valRef.TxMetadata())
+		require.Equal(t, sha256.Sum256([]byte("value1")), valRef.HVal())
 
 		v, err := valRef.Resolve()
 		require.NoError(t, err)
@@ -858,6 +919,9 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 
 		_, err = tx.Commit()
 		require.NoError(t, err)
+
+		_, err = tx.ExistKeyWith([]byte("key1"), []byte("key1"))
+		require.ErrorIs(t, err, ErrAlreadyClosed)
 
 		valRef, err = immuStore.Get([]byte("key1"))
 		require.NoError(t, err)

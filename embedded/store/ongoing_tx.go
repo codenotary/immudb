@@ -62,6 +62,8 @@ func newReadWriteTx(s *ImmuStore) (*OngoingTx, error) {
 		return nil, err
 	}
 
+	// using an "interceptor" to construct the valueRef from current entries
+	// so to avoid storing more data into the snapshot
 	tx.snap.refInterceptor = func(key []byte, valRef ValueRef) ValueRef {
 		keyRef, ok := tx.entriesByKey[sha256.Sum256(key)]
 		if !ok {
@@ -135,7 +137,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	}
 
 	if len(key) == 0 {
-		return ErrIllegalArguments
+		return ErrNullKey
 	}
 
 	if len(key) > tx.st.maxKeyLen {
@@ -153,7 +155,8 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 		return ErrorMaxTxEntriesLimitExceeded
 	}
 
-	if !tx.IsWriteOnly() {
+	// updates are not needed because valueRef are resolved with the "interceptor"
+	if !tx.IsWriteOnly() && !isKeyUpdate {
 		// vLen=0 + vOff=0 + vHash=0 + txmdLen=0 + kvmdLen=0
 		var indexedValue [lszSize + offsetSize + sha256.Size + sszSize + sszSize]byte
 
@@ -182,6 +185,10 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 func (tx *OngoingTx) ExistKeyWith(prefix, neq []byte) (bool, error) {
 	if tx.closed {
 		return false, ErrAlreadyClosed
+	}
+
+	if tx.IsWriteOnly() {
+		return false, ErrWriteOnlyTx
 	}
 
 	return tx.snap.ExistKeyWith(prefix, neq)
