@@ -71,7 +71,7 @@ var ErrUnexpectedError = errors.New("unexpected error")
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
-var ErrCompactionUnsupported = errors.New("comapction is unsupported when remote storage is used")
+var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
