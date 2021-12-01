@@ -140,7 +140,7 @@ func TestTransaction_MultipleReadWriteError(t *testing.T) {
 	require.Nil(t, tx2)
 }
 
-func TestTransaction_MultipleReadAnsOneReasWrite(t *testing.T) {
+func TestTransaction_MultipleReadAndOneReadWrite(t *testing.T) {
 	options := server.DefaultOptions()
 	bs := servertest.NewBufconnServer(options)
 
@@ -178,5 +178,57 @@ func TestTransaction_MultipleReadAnsOneReasWrite(t *testing.T) {
 	tx3, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_ONLY})
 	require.NoError(t, err)
 	_, err = tx3.TxSQLQuery(context.TODO(), "SELECT * FROM table1;", nil, true)
+	require.NoError(t, err)
+}
+
+func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	_, _, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+	txDefaultDB, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+	err = txDefaultDB.TxSQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
+	require.NoError(t, err)
+
+	client2 := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	_, _, err = client2.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+	err = client2.CreateDatabase(context.TODO(), &schema.DatabaseSettings{DatabaseName: "db2"})
+	require.NoError(t, err)
+	_, err = client2.UseDatabase(context.TODO(), &schema.Database{DatabaseName: "db2"})
+	require.NoError(t, err)
+	txDb2, err := client2.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+	require.NoError(t, err)
+	err = txDb2.TxSQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
+	require.NoError(t, err)
+	err = txDb2.TxSQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
+	require.NoError(t, err)
+
+	txh1, err := txDefaultDB.Commit(context.TODO())
+	require.NoError(t, err)
+	require.NotNil(t, txh1.Header.Ts)
+
+	txh2, err := txDb2.Commit(context.TODO())
+	require.NoError(t, err)
+	require.NotNil(t, txh2.Header.Ts)
+
+	_, err = client.UseDatabase(context.TODO(), &schema.Database{DatabaseName: "db2"})
+	require.NoError(t, err)
+	ris, err := client.SQLQuery(context.TODO(), `SELECT * FROM tableDB2;`, nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(ris.Rows))
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+	err = client2.CloseSession(context.TODO())
 	require.NoError(t, err)
 }
