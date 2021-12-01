@@ -99,6 +99,7 @@ type Engine struct {
 	mutex sync.RWMutex
 }
 
+//SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
 	engine *Engine
 
@@ -110,7 +111,7 @@ type SQLTx struct {
 	explicitClose bool
 
 	updatedRows     int
-	lastInsertedPKs map[string]int64
+	lastInsertedPKs map[string]int64 // last inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
 
@@ -176,7 +177,7 @@ func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
 
 	catalog := newCatalog()
 
-	err = catalog.loadFrom(e.prefix, tx)
+	err = catalog.load(e.prefix, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +254,39 @@ func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
 	return sqlTx.tx.ExistKeyWith(prefix, neq)
 }
 
-func (c *Catalog) loadFrom(sqlPrefix []byte, tx *store.OngoingTx) error {
+func (sqlTx *SQLTx) Cancel() error {
+	if sqlTx.closed {
+		return ErrAlreadyClosed
+	}
+
+	sqlTx.closed = true
+
+	return sqlTx.tx.Cancel()
+}
+
+func (sqlTx *SQLTx) commit() error {
+	if sqlTx.closed {
+		return ErrAlreadyClosed
+	}
+
+	sqlTx.committed = true
+	sqlTx.closed = true
+
+	hdr, err := sqlTx.tx.Commit()
+	if err != nil && err != store.ErrorNoEntriesProvided {
+		return err
+	}
+
+	sqlTx.txHeader = hdr
+
+	return nil
+}
+
+func (sqlTx *SQLTx) Closed() bool {
+	return sqlTx.closed
+}
+
+func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: mapKey(sqlPrefix, catalogDatabasePrefix),
 		Filter: store.IgnoreDeleted,
@@ -377,14 +410,6 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	}
 
 	return nil
-}
-
-func greatestKeyOfSize(size int) []byte {
-	k := make([]byte, size)
-	for i := 0; i < size; i++ {
-		k[i] = 0xFF
-	}
-	return k
 }
 
 func indexKeyFrom(cols []*Column) string {
@@ -971,38 +996,6 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	}
 
 	return nil, 0, ErrCorruptedData
-}
-
-func (sqlTx *SQLTx) Cancel() error {
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
-	sqlTx.closed = true
-
-	return sqlTx.tx.Cancel()
-}
-
-func (sqlTx *SQLTx) commit() error {
-	if sqlTx.closed {
-		return ErrAlreadyClosed
-	}
-
-	sqlTx.committed = true
-	sqlTx.closed = true
-
-	hdr, err := sqlTx.tx.Commit()
-	if err != nil && err != store.ErrorNoEntriesProvided {
-		return err
-	}
-
-	sqlTx.txHeader = hdr
-
-	return nil
-}
-
-func (sqlTx *SQLTx) Closed() bool {
-	return sqlTx.closed
 }
 
 func normalizeParams(params map[string]interface{}) (map[string]interface{}, error) {
