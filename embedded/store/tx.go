@@ -526,7 +526,7 @@ func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
 
 	mdLen := len(mdbs)
 
-	b := make([]byte, sszSize+mdLen+e.kLen+sha256.Size)
+	b := make([]byte, sszSize+mdLen+sszSize+e.kLen+sha256.Size)
 	i := 0
 
 	binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
@@ -534,6 +534,9 @@ func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
 
 	copy(b[i:], mdbs)
 	i += mdLen
+
+	binary.BigEndian.PutUint16(b[i:], uint16(e.kLen))
+	i += sszSize
 
 	copy(b[i:], e.k[:e.kLen])
 	i += e.kLen
