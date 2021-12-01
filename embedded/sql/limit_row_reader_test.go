@@ -32,6 +32,11 @@ func TestLimitRowReader(t *testing.T) {
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
 
+	require.Nil(t, rowReader.Tx())
+
+	_, err = rowReader.Read()
+	require.Equal(t, errDummy, err)
+
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()
 	require.Equal(t, errDummy, err)

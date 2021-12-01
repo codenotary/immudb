@@ -24,6 +24,12 @@ import (
 func TestDistinctRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
+	dummyr.failReturningColumns = true
+	_, err := newDistinctRowReader(dummyr)
+	require.Equal(t, errDummy, err)
+
+	dummyr.failReturningColumns = false
+
 	rowReader, err := newDistinctRowReader(dummyr)
 	require.NoError(t, err)
 
@@ -31,6 +37,11 @@ func TestDistinctRowReader(t *testing.T) {
 	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
+
+	require.Nil(t, rowReader.Tx())
+
+	_, err = rowReader.colsBySelector()
+	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()

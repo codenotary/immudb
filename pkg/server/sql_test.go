@@ -73,6 +73,9 @@ func TestSQLInteraction(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, res.Rows)
 
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "BEGIN TRANSACTION"})
+	require.ErrorIs(t, err, ErrTxNotProperlyClosed)
+
 	xres, err := s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)"})
 	require.NoError(t, err)
 	require.Len(t, xres.Txs, 1)
