@@ -284,9 +284,5 @@ func (jointr *jointRowReader) Close() error {
 		merr.Append(err)
 	}
 
-	if merr.HasErrors() {
-		return merr
-	}
-
-	return nil
+	return merr.Reduce()
 }

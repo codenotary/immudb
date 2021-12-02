@@ -1070,11 +1070,7 @@ func (t *TBtree) Close() error {
 	err = t.cLog.Close()
 	merrors.Append(err)
 
-	if merrors.HasErrors() {
-		return merrors
-	}
-
-	return nil
+	return merrors.Reduce()
 }
 
 type KV struct {

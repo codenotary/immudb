@@ -59,6 +59,7 @@ func TestMultiErr(t *testing.T) {
 	require.NotNil(t, merr)
 	require.False(t, merr.HasErrors())
 	require.Empty(t, merr.Errors())
+	require.Nil(t, merr.Reduce())
 
 	merr.Append(includedErrors[0]).
 		Append(includedErrors[1]).
@@ -80,6 +81,8 @@ func TestMultiErr(t *testing.T) {
 	require.Contains(t, merr.Error(), "includedErrorA2")
 	require.Contains(t, merr.Error(), "includedErrorB1")
 	require.NotContains(t, merr.Error(), "excludedError1")
+
+	require.Equal(t, merr, merr.Reduce())
 
 	var iErrA *includedErrA
 	require.ErrorAs(t, merr, &iErrA)
