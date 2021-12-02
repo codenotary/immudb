@@ -90,12 +90,12 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
     - [TxMode](#immudb.schema.TxMode)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -953,6 +953,7 @@
 | s | [string](#string) |  |  |
 | b | [bool](#bool) |  |  |
 | bs | [bytes](#bytes) |  |  |
+| ts | [int64](#int64) |  |  |
 
 
 
@@ -1552,7 +1553,7 @@
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1579,9 +1580,9 @@
 | ReadWrite | 2 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1651,7 +1652,7 @@ immudb gRPC &amp; REST service
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
-
+ 
 
 
 
@@ -1674,3 +1675,4 @@ immudb gRPC &amp; REST service
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+

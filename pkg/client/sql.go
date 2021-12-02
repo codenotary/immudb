@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -325,6 +326,10 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	case sql.BLOBType:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.Value().([]byte)}}
+		}
+	case sql.TimestampType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: tv.Value().(time.Time).UnixNano()}}
 		}
 	}
 	return nil
