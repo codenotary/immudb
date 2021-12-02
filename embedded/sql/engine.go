@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -844,11 +845,23 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
-	}
+	case TimestampType:
+		{
+			intVal, ok := val.(time.Time)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a timestamp: %w", ErrInvalidValue,
+				)
+			}
 
-	/*
-		time
-	*/
+			// len(v) + v
+			var encv [EncLenLen + 8]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal.UnixNano()))
+
+			return encv[:], nil
+		}
+	}
 
 	return nil, ErrInvalidValue
 }
@@ -958,11 +971,30 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv, nil
 		}
-	}
+	case TimestampType:
+		{
+			if maxLen != 8 {
+				return nil, ErrCorruptedData
+			}
 
-	/*
-		time
-	*/
+			timeVal, ok := val.(time.Time)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a timestamp: %w", ErrInvalidValue,
+				)
+			}
+
+			// v
+			var encv [9]byte
+			encv[0] = KeyValPrefixNotNull
+			binary.BigEndian.PutUint64(encv[1:], uint64(timeVal.UnixNano()))
+			// map to unsigned integer space for lexical sorting order
+			encv[1] ^= 0x80
+
+			return encv[:], nil
+		}
+
+	}
 
 	return nil, ErrInvalidValue
 }
@@ -1015,6 +1047,17 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			voff += vlen
 
 			return &Blob{val: v}, voff, nil
+		}
+	case TimestampType:
+		{
+			if vlen != 8 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			v := binary.BigEndian.Uint64(b[voff:])
+			voff += vlen
+
+			return &Timestamp{val: time.Unix(0, int64(v)).UTC()}, voff, nil
 		}
 	}
 

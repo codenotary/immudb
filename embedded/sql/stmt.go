@@ -1359,6 +1359,73 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
+type Timestamp struct {
+	val time.Time
+}
+
+func (v *Timestamp) Type() SQLValueType {
+	return TimestampType
+}
+
+func (v *Timestamp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return TimestampType, nil
+}
+
+func (v *Timestamp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != TimestampType {
+		return ErrInvalidTypes
+	}
+
+	return nil
+}
+
+func (v *Timestamp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Timestamp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
+}
+
+func (v *Timestamp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *Timestamp) isConstant() bool {
+	return true
+}
+
+func (v *Timestamp) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *Timestamp) Value() interface{} {
+	return v.val
+}
+
+func (v *Timestamp) Compare(val TypedValue) (int, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 1, nil
+	}
+
+	if val.Type() != TimestampType {
+		return 0, ErrNotComparableValues
+	}
+
+	rval := val.Value().(time.Time)
+
+	if v.val.Before(rval) {
+		return -1, nil
+	}
+
+	if v.val.After(rval) {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
 type Varchar struct {
 	val string
 }
@@ -1550,7 +1617,7 @@ type SysFn struct {
 
 func (v *SysFn) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	if strings.ToUpper(v.fn) == "NOW" {
-		return IntegerType, nil
+		return TimestampType, nil
 	}
 
 	return AnyType, ErrIllegalArguments
@@ -1558,7 +1625,7 @@ func (v *SysFn) inferType(cols map[string]ColDescriptor, params map[string]SQLVa
 
 func (v *SysFn) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if strings.ToUpper(v.fn) == "NOW" {
-		if t != IntegerType {
+		if t != TimestampType {
 			return ErrInvalidTypes
 		}
 
@@ -1574,7 +1641,7 @@ func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
 
 func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if strings.ToUpper(v.fn) == "NOW" {
-		return &Number{val: time.Now().UnixNano()}, nil
+		return &Timestamp{val: time.Now().UTC()}, nil
 	}
 
 	return nil, errors.New("not yet supported")
@@ -1656,6 +1723,10 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	case []byte:
 		{
 			return &Blob{val: v}, nil
+		}
+	case time.Time:
+		{
+			return &Timestamp{val: v}, nil
 		}
 	}
 

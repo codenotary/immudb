@@ -18,6 +18,7 @@ package sql
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -416,7 +417,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			params:        params,
 			implicitDB:    "db1",
 			implicitTable: "mytable",
-			requiredType:  IntegerType,
+			requiredType:  TimestampType,
 			expectedError: nil,
 		},
 		{
@@ -694,4 +695,60 @@ func TestIsConstant(t *testing.T) {
 	require.False(t, (&SysFn{}).isConstant())
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
+}
+
+func TestTimestmapType(t *testing.T) {
+
+	ts := &Timestamp{val: time.Date(2021, 12, 6, 11, 53, 0, 0, time.UTC)}
+
+	t.Run("comparison functions", func(t *testing.T) {
+
+		cmp, err := ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 53, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Equal(t, 0, cmp)
+
+		cmp, err = ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 52, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Greater(t, cmp, 0)
+
+		cmp, err = ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 54, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Less(t, cmp, 0)
+
+		cmp, err = ts.Compare(&NullValue{t: TimestampType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = ts.Compare(&NullValue{t: AnyType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = (&NullValue{t: TimestampType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+
+		cmp, err = (&NullValue{t: AnyType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+	})
+
+	it, err := ts.inferType(map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+	require.Equal(t, TimestampType, it)
+
+	err = ts.requiresType(TimestampType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+
+	err = ts.requiresType(IntegerType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	v, err := ts.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, ts, v)
+
+	v = ts.reduceSelectors(&Row{}, "", "")
+	require.Equal(t, ts, v)
+
+	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
 }

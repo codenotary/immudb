@@ -15,8 +15,6 @@ limitations under the License.
 */
 package sql
 
-import "fmt"
-
 type Catalog struct {
 	dbsByID   map[uint32]*Database
 	dbsByName map[string]*Database
@@ -303,10 +301,6 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 
 		if cs.autoIncrement && cs.colType != IntegerType {
 			return nil, ErrLimitedAutoIncrement
-		}
-
-		if cs.colType == TimestampType {
-			return nil, fmt.Errorf("%w (%v)", ErrNoSupported, TimestampType)
 		}
 
 		if !validMaxLenForType(cs.maxLen, cs.colType) {

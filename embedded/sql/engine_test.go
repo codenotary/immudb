@@ -81,9 +81,6 @@ func TestCreateTable(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
-	require.ErrorIs(t, err, ErrNoSupported)
-
 	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
@@ -110,6 +107,138 @@ func TestCreateTable(t *testing.T) {
 
 	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
+}
+
+func TestTimestampType(t *testing.T) {
+	st, err := store.Open("timestamp", store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+	defer os.RemoveAll("timestamp")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	sel := EncodeSelector("", "db1", "timestamp_table", "ts")
+
+	t.Run("must accept NOW() as a timestamp", func(t *testing.T) {
+		tsBefore := time.Now().UTC()
+
+		_, _, err = engine.Exec("INSERT INTO timestamp_table(ts) VALUES(NOW())", nil, nil)
+		require.NoError(t, err)
+
+		tsAfter := time.Now().UTC()
+
+		r, err := engine.Query("SELECT ts FROM timestamp_table ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, TimestampType, row.Values[sel].Type())
+		require.False(t, tsBefore.After(row.Values[sel].Value().(time.Time)))
+		require.False(t, tsAfter.Before(row.Values[sel].Value().(time.Time)))
+	})
+
+	t.Run("must accept time.Time as timestamp parameter", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO timestamp_table(ts) VALUES(@ts)", map[string]interface{}{
+				"ts": time.Date(2021, 12, 1, 18, 06, 14, 0, time.UTC),
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ts FROM timestamp_table ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, TimestampType, row.Values[sel].Type())
+		require.Equal(t, time.Date(2021, 12, 1, 18, 06, 14, 0, time.UTC), row.Values[sel].Value())
+	})
+
+	t.Run("must correctly validate timestamp equality", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO timestamp_table(ts) VALUES(@ts)", map[string]interface{}{
+				"ts": time.Date(2021, 12, 6, 10, 14, 0, 0, time.UTC),
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ts FROM timestamp_table WHERE ts = @ts ORDER BY id", map[string]interface{}{
+			"ts": time.Date(2021, 12, 6, 10, 14, 0, 0, time.UTC),
+		}, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, TimestampType, row.Values[sel].Type())
+		require.Equal(t, time.Date(2021, 12, 6, 10, 14, 0, 0, time.UTC), row.Values[sel].Value())
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+		r.Close()
+
+		r, err = engine.Query("SELECT ts FROM timestamp_table WHERE ts = @ts ORDER BY id", map[string]interface{}{
+			"ts": "2021-12-06 10:14",
+		}, nil)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+		r.Close()
+	})
+}
+
+func TestTimestampIndex(t *testing.T) {
+	st, err := store.Open("timestamp_index", store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+	defer os.RemoveAll("timestamp_index")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_index (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON timestamp_index(ts)", nil, nil)
+	require.NoError(t, err)
+
+	for i := 100; i > 0; i-- {
+		_, _, err = engine.Exec("INSERT INTO timestamp_index(ts) VALUES(@ts)", map[string]interface{}{"ts": time.Unix(int64(i), 0)}, nil)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query("SELECT * FROM timestamp_index ORDER BY ts", nil, nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	for i := 100; i > 0; i-- {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.EqualValues(t, i, row.Values[EncodeSelector("", "db1", "timestamp_index", "id")].Value())
+	}
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
 func TestAddColumn(t *testing.T) {
@@ -864,6 +993,14 @@ func TestEncodeValue(t *testing.T) {
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2,
 	}}).Value(), BLOBType, 256)
 	require.NoError(t, err)
+
+	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1)}).Value(), TimestampType, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
+
+	b, err = EncodeValue((&Number{val: 1}).Value(), TimestampType, 0)
+	require.ErrorIs(t, err, ErrInvalidValue)
+	require.Nil(t, b)
 }
 
 func TestQuery(t *testing.T) {
@@ -900,7 +1037,7 @@ func TestQuery(t *testing.T) {
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
 								id INTEGER,
-								ts INTEGER,
+								ts TIMESTAMP,
 								title VARCHAR,
 								active BOOLEAN,
 								payload BLOB,
@@ -937,7 +1074,7 @@ func TestQuery(t *testing.T) {
 
 	rowCount := 10
 
-	start := time.Now().UnixNano()
+	start := time.Now()
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
@@ -968,7 +1105,7 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.Values, 5)
-			require.Less(t, int64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
+			require.False(t, start.After(row.Values[EncodeSelector("", "db1", "table1", "ts")].Value().(time.Time)))
 			require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
@@ -1018,7 +1155,7 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.Values, 5)
-			require.Less(t, int64(start), row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value())
+			require.False(t, start.After(row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value().(time.Time)))
 			require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "mytable1", "id")].Value())
 			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "mytable1", "title")].Value())
 			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "mytable1", "active")].Value())
@@ -1056,7 +1193,7 @@ func TestQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.Len(t, row.Values, 5)
-			require.Less(t, int64(start), row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value())
+			require.False(t, start.After(row.Values[EncodeSelector("", "db1", "mytable1", "ts")].Value().(time.Time)))
 			require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "mytable1", "d")].Value())
 			require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "mytable1", "title")].Value())
 			require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "mytable1", "active")].Value())
@@ -1982,7 +2119,7 @@ func TestQueryWithNullables(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("INSERT INTO table1 (id, ts, title) VALUES (1, TIME(), 'title1')", nil, nil)
@@ -1990,7 +2127,7 @@ func TestQueryWithNullables(t *testing.T) {
 
 	rowCount := 10
 
-	start := time.Now().UnixNano()
+	start := time.Now()
 
 	for i := 0; i < rowCount; i++ {
 		_, _, err = engine.Exec(fmt.Sprintf("UPSERT INTO table1 (id, ts, title) VALUES (%d, NOW(), 'title%d')", i, i), nil, nil)
@@ -2009,7 +2146,7 @@ func TestQueryWithNullables(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
-		require.Less(t, int64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
+		require.False(t, start.After(row.Values[EncodeSelector("", "db1", "table1", "ts")].Value().(time.Time)))
 		require.Equal(t, int64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, &NullValue{t: BooleanType}, row.Values[EncodeSelector("", "db1", "table1", "active")])
@@ -3507,6 +3644,9 @@ func TestDecodeValueFailures(t *testing.T) {
 		},
 		{
 			"Too large integer", []byte{0, 0, 0, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9}, IntegerType,
+		},
+		{
+			"Too large timestamp", []byte{0, 0, 0, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9}, TimestampType,
 		},
 		{
 			"Zero-length boolean", []byte{0, 0, 0, 0}, BooleanType,
