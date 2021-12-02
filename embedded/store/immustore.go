@@ -1803,11 +1803,7 @@ func (s *ImmuStore) Close() error {
 	err = s.aht.Close()
 	merr.Append(err)
 
-	if merr.HasErrors() {
-		return merr
-	}
-
-	return nil
+	return merr.Reduce()
 }
 
 func (s *ImmuStore) wrapAppendableErr(err error, action string) error {
