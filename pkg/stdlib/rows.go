@@ -80,6 +80,10 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 		{
 			return "BLOB"
 		}
+	case *schema.SQLValue_Ts:
+		{
+			return "TIMESTAMP"
+		}
 	default:
 		return "ANY"
 	}
@@ -112,13 +116,17 @@ func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
 		{
 			return math.MaxInt64, true
 		}
+	case *schema.SQLValue_Ts:
+		{
+			return math.MaxInt64, true
+		}
 	default:
 		return math.MaxInt64, true
 	}
 }
 
 // ColumnTypePrecisionScale should return the precision and scale for decimal
-// types. If not applicable, variableLenght should be false.
+// types. If not applicable, variableLength should be false.
 func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	return 0, 0, false
 }
@@ -149,6 +157,10 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	case *schema.SQLValue_Bs:
 		{
 			return reflect.TypeOf([]byte{})
+		}
+	case *schema.SQLValue_Ts:
+		{
+			return reflect.TypeOf(time.Time{})
 		}
 	default:
 		return reflect.TypeOf("")
@@ -297,6 +309,10 @@ func RenderValue(op interface{}) interface{} {
 	case *schema.SQLValue_Bs:
 		{
 			return v.Bs
+		}
+	case *schema.SQLValue_Ts:
+		{
+			return time.Unix(0, v.Ts).UTC()
 		}
 	}
 	return []byte(fmt.Sprintf("%v", op))
