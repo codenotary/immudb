@@ -140,14 +140,7 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 		return nil, err
 	}
 
-	ntx, err := tx.engine.newTx(true)
-	if err != nil {
-		return nil, err
-	}
-
-	ntx.explicitClose = true
-
-	return ntx, nil
+	return tx.engine.newTx(true)
 }
 
 type CommitStmt struct {
