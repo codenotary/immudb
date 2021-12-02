@@ -1789,9 +1789,10 @@ func (s *ImmuStore) Close() error {
 		close(s.blBuffer)
 	}
 
-	s.wHub.Close()
+	err := s.wHub.Close()
+	merr.Append(err)
 
-	err := s.indexer.Close()
+	err = s.indexer.Close()
 	merr.Append(err)
 
 	err = s.txLog.Close()
