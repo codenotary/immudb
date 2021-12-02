@@ -372,7 +372,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQu
 
 	stmt, ok := stmts[0].(*sql.SelectStmt)
 	if !ok {
-		return nil, ErrIllegalArguments
+		return nil, sql.ErrExpectingDQLStmt
 	}
 
 	return d.SQLQueryPrepared(stmt, req.Params, tx)
