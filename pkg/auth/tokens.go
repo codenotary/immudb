@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	immuerror "github.com/codenotary/immudb/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -158,8 +159,7 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
 			return nil, err
 		}
-		return nil, status.Error(
-			codes.Unauthenticated, "invalid token")
+		return nil, immuerror.Wrap(err, "invalid token")
 	}
 	return jsonToken, nil
 }

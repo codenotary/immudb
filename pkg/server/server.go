@@ -228,7 +228,10 @@ func (s *ImmuServer) Initialize() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
-	s.SessManager = sessions.NewManager(s.Options.SessionsOptions)
+	s.SessManager, err = sessions.NewManager(s.Options.SessionsOptions)
+	if err != nil {
+		return err
+	}
 
 	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Address(s.Options.Address), pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDB), pgsqlsrv.TlsConfig(s.Options.TLSConfig), pgsqlsrv.Logger(s.Logger))
 	if s.Options.PgsqlServer {
@@ -1082,7 +1085,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		if err != nil {
 			return nil, err
 		}
-		sess.SetDatabaseID(dbid)
+		sess.SetDatabase(s.dbList.GetByIndex(dbid))
 	}
 
 	return &schema.UseDatabaseReply{
@@ -1110,7 +1113,7 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 		if s.Options.GetMaintenance() && !s.Options.auth {
 			return nil, fmt.Errorf("please select database first")
 		}
-		return nil, ErrNotLoggedIn
+		return nil, err
 	}
 
 	if ind < 0 {

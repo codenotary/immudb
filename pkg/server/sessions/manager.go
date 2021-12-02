@@ -18,8 +18,9 @@ package sessions
 
 import (
 	"context"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
@@ -28,14 +29,11 @@ import (
 	"time"
 )
 
-var ErrGuardAlreadyRunning = errors.New("session guard already launched")
-var ErrGuardNotRunning = errors.New("session guard not running")
-
-var guard *manager
+const MaxSessions = 100
 
 type manager struct {
-	Running    bool
-	sessionMux sync.Mutex
+	running    bool
+	sessionMux sync.RWMutex
 	guardMux   sync.Mutex
 	sessions   map[string]*Session
 	ticker     *time.Ticker
@@ -45,7 +43,7 @@ type manager struct {
 }
 
 type Manager interface {
-	NewSession(user *auth.User, databaseID int64) string
+	NewSession(user *auth.User, db database.DB) (*Session, error)
 	SessionPresent(sessionID string) bool
 	DeleteSession(sessionID string) error
 	UpdateSessionActivityTime(sessionID string)
@@ -53,39 +51,44 @@ type Manager interface {
 	StartSessionsGuard() error
 	StopSessionsGuard() error
 	GetSession(sessionID string) (*Session, error)
-	CountSession() int
+	SessionCount() int
 	GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error)
+	GetSessionFromContext(ctx context.Context) (*Session, error)
 	DeleteTransaction(transactions.Transaction) error
+	CommitTransaction(transaction transactions.Transaction) ([]*sql.SQLTx, error)
+	RollbackTransaction(transaction transactions.Transaction) error
 }
 
-func NewManager(options *Options) *manager {
+func NewManager(options *Options) (*manager, error) {
 	if options == nil {
-		options = DefaultOptions()
+		return nil, ErrInvalidOptionsProvided
 	}
-	guard = &manager{
-		sessionMux: sync.Mutex{},
-		guardMux:   sync.Mutex{},
-		sessions:   make(map[string]*Session),
-		ticker:     time.NewTicker(options.SessionGuardCheckInterval),
-		done:       make(chan bool),
-		logger:     logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:    options,
+	guard := &manager{
+		sessions: make(map[string]*Session),
+		ticker:   time.NewTicker(options.SessionGuardCheckInterval),
+		done:     make(chan bool),
+		logger:   logger.NewSimpleLogger("immudb session guard", os.Stdout),
+		options:  options,
 	}
-	return guard
+	return guard, nil
 }
 
-func (sm *manager) NewSession(user *auth.User, databaseID int64) string {
+func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 	sessionID := xid.New().String()
-	sm.sessions[sessionID] = NewSession(sessionID, user, databaseID, sm.logger)
+	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
-	return sessionID
+	if len(sm.sessions) > MaxSessions {
+		sm.logger.Warningf("max sessions reached, deleting oldest session")
+		return nil, ErrMaxSessionsReached
+	}
+	return sm.sessions[sessionID], nil
 }
 
 func (sm *manager) SessionPresent(sessionID string) bool {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+	sm.sessionMux.RLock()
+	defer sm.sessionMux.RUnlock()
 	if _, ok := sm.sessions[sessionID]; ok {
 		return true
 	}
@@ -93,8 +96,8 @@ func (sm *manager) SessionPresent(sessionID string) bool {
 }
 
 func (sm *manager) GetSession(sessionID string) (*Session, error) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+	sm.sessionMux.RLock()
+	defer sm.sessionMux.RUnlock()
 	if _, ok := sm.sessions[sessionID]; !ok {
 		return nil, ErrSessionNotFound
 	}
@@ -134,18 +137,18 @@ func (sm *manager) UpdateHeartBeatTime(sessionID string) {
 	}
 }
 
-func (sm *manager) CountSession() int {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) SessionCount() int {
+	sm.sessionMux.RLock()
+	defer sm.sessionMux.RUnlock()
 	return len(sm.sessions)
 }
 
 func (sm *manager) StartSessionsGuard() error {
 	sm.guardMux.Lock()
-	if sm.Running == true {
+	if sm.IsRunning() {
 		return ErrGuardAlreadyRunning
 	}
-	sm.Running = true
+	sm.running = true
 	sm.guardMux.Unlock()
 	for {
 		select {
@@ -157,14 +160,20 @@ func (sm *manager) StartSessionsGuard() error {
 	}
 }
 
+func (sm *manager) IsRunning() bool {
+	sm.sessionMux.RLock()
+	defer sm.sessionMux.RUnlock()
+	return sm.running
+}
+
 func (sm *manager) StopSessionsGuard() error {
 	sm.guardMux.Lock()
 	defer sm.guardMux.Unlock()
 	sm.sessionMux.Lock()
-	if sm.Running == false {
+	if !sm.running {
 		return ErrGuardNotRunning
 	}
-	sm.Running = false
+	sm.running = false
 	sm.sessionMux.Unlock()
 	for ID, _ := range sm.sessions {
 		sm.DeleteSession(ID)
@@ -177,7 +186,7 @@ func (sm *manager) StopSessionsGuard() error {
 
 func (sm *manager) expireSessions() {
 	sm.sessionMux.Lock()
-	if !sm.Running {
+	if !sm.running {
 		return
 	}
 	sm.sessionMux.Unlock()
@@ -185,31 +194,31 @@ func (sm *manager) expireSessions() {
 	now := time.Now()
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
-		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
-			sess.SetStatus(IDLE)
-			sm.logger.Debugf("session %s became IDLE, no more heartbeat received", ID)
+		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != Idle {
+			sess.setStatus(Idle)
+			sm.logger.Debugf("session %s became Idle, no more heartbeat received", ID)
 		}
-		if sess.GetLastActivityTime().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != IDLE {
-			sess.SetStatus(IDLE)
-			sm.logger.Debugf("session %s became IDLE due to max inactivity time", ID)
+		if sess.GetLastActivityTime().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != Idle {
+			sess.setStatus(Idle)
+			sm.logger.Debugf("session %s became Idle due to max inactivity time", ID)
 		}
 		if sess.GetCreationTime().Add(sm.options.MaxSessionAge).Before(now) {
-			sess.SetStatus(DEAD)
-			sm.logger.Debugf("session %s exceeded MaxSessionAge and became DEAD", ID)
+			sess.setStatus(Dead)
+			sm.logger.Debugf("session %s exceeded MaxSessionAge and became Dead", ID)
 		}
-		if sess.GetStatus() == IDLE {
+		if sess.GetStatus() == Idle {
 			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
-				sess.SetStatus(DEAD)
-				sm.logger.Debugf("IDLE session %s is DEAD", ID)
+				sess.setStatus(Dead)
+				sm.logger.Debugf("Idle session %s is Dead", ID)
 			}
 			if sess.GetLastHeartBeat().Add(sm.options.Timeout).Before(now) {
-				sess.SetStatus(DEAD)
-				sm.logger.Debugf("IDLE session %s is DEAD", ID)
+				sess.setStatus(Dead)
+				sm.logger.Debugf("Idle session %s is Dead", ID)
 			}
 		}
-		if sess.GetStatus() == DEAD {
+		if sess.GetStatus() == Dead {
 			sm.DeleteSession(ID)
-			sm.logger.Debugf("removed DEAD session %s", ID)
+			sm.logger.Debugf("removed Dead session %s", ID)
 		}
 	}
 }
@@ -233,12 +242,45 @@ func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.
 	return sess.GetTransaction(transactionID)
 }
 
+func (sm *manager) GetSessionFromContext(ctx context.Context) (*Session, error) {
+	sessionID, err := GetSessionIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return sm.GetSession(sessionID)
+}
+
 func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
-	sessionID := tx.GetParentSessionID()
+	sessionID := tx.GetSessionID()
 	sess, err := sm.GetSession(sessionID)
 	if err != nil {
 		return err
 	}
 	sess.RemoveTransaction(tx.GetID())
+	return nil
+}
+
+func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx, error) {
+	cTxs, err := tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	err = sm.DeleteTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	return cTxs, nil
+}
+
+func (sm *manager) RollbackTransaction(tx transactions.Transaction) error {
+	err := tx.Rollback()
+	if err != nil {
+		return err
+	}
+	err = sm.DeleteTransaction(tx)
+	if err != nil {
+		return err
+	}
 	return nil
 }

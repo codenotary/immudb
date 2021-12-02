@@ -25,31 +25,30 @@ import (
 
 type transaction struct {
 	sync.Mutex
-	transactionID   string
-	sqlTx           *sql.SQLTx
-	txMode          schema.TxMode
-	db              database.DB
-	parentSessionID string
+	transactionID string
+	sqlTx         *sql.SQLTx
+	txMode        schema.TxMode
+	db            database.DB
+	sessionID     string
 }
 
 type Transaction interface {
 	GetID() string
-	GetSQLTx() *sql.SQLTx
-	SetSQLTx(tx *sql.SQLTx)
 	GetMode() schema.TxMode
-	SetDB(db database.DB)
-	GetDB() database.DB
 	Rollback() error
-	GetParentSessionID() string
+	Commit() ([]*sql.SQLTx, error)
+	GetSessionID() string
+	SQLExec(request *schema.SQLExecRequest) error
+	SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 }
 
 func NewTransaction(sqlTx *sql.SQLTx, transactionID string, mode schema.TxMode, db database.DB, sessionID string) *transaction {
 	return &transaction{
-		sqlTx:           sqlTx,
-		transactionID:   transactionID,
-		txMode:          mode,
-		db:              db,
-		parentSessionID: sessionID,
+		sqlTx:         sqlTx,
+		transactionID: transactionID,
+		txMode:        mode,
+		db:            db,
+		sessionID:     sessionID,
 	}
 }
 
@@ -59,22 +58,10 @@ func (tx *transaction) GetID() string {
 	return tx.transactionID
 }
 
-func (tx *transaction) GetSQLTx() *sql.SQLTx {
-	tx.Lock()
-	defer tx.Unlock()
-	return tx.sqlTx
-}
-
 func (tx *transaction) GetMode() schema.TxMode {
 	tx.Lock()
 	defer tx.Unlock()
 	return tx.txMode
-}
-
-func (tx *transaction) SetSQLTx(sqlTx *sql.SQLTx) {
-	tx.Lock()
-	defer tx.Unlock()
-	tx.sqlTx = sqlTx
 }
 
 func (tx *transaction) Rollback() error {
@@ -82,20 +69,36 @@ func (tx *transaction) Rollback() error {
 	defer tx.Unlock()
 	return tx.sqlTx.Cancel()
 }
-
-func (tx *transaction) SetDB(db database.DB) {
+func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 	tx.Lock()
 	defer tx.Unlock()
-	tx.db = db
+	ntx, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
+	if err != nil {
+		return nil, err
+	}
+	tx.sqlTx = ntx
+	return cTxs, nil
 }
 
-func (tx *transaction) GetDB() database.DB {
+func (tx *transaction) GetSessionID() string {
 	tx.Lock()
 	defer tx.Unlock()
-	return tx.db
+	return tx.sessionID
 }
-func (tx *transaction) GetParentSessionID() string {
+
+func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
 	tx.Lock()
 	defer tx.Unlock()
-	return tx.parentSessionID
+	ntx, _, err := tx.db.SQLExec(request, tx.sqlTx)
+	if err != nil {
+		return err
+	}
+	tx.sqlTx = ntx
+	return err
+}
+
+func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	tx.Lock()
+	defer tx.Unlock()
+	return tx.db.SQLQuery(request, tx.sqlTx)
 }

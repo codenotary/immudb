@@ -18,12 +18,18 @@ package sessions
 
 import (
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 )
 
 var ErrSessionAlreadyPresent = errors.New("session already present").WithCode(errors.CodInternalError)
 var ErrNoSessionIDPresent = errors.New("no sessionID provided").WithCode(errors.CodInvalidAuthorizationSpecification)
 var ErrNoSessionAuthDataProvided = errors.New("no session auth data provided").WithCode(errors.CodInvalidAuthorizationSpecification)
 var ErrSessionNotFound = errors.New("no session found").WithCode(errors.CodInvalidParameterValue)
-var ErrReadWriteTxOngoing = errors.New("only 1 read write transaction supported at once").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
+var ErrOngoingReadWriteTx = errors.New("only 1 read write transaction supported at once").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
 var ErrNoTransactionIDPresent = errors.New("no transactionID provided").WithCode(errors.CodInvalidAuthorizationSpecification)
 var ErrNoTransactionAuthDataProvided = errors.New("no transaction auth data provided").WithCode(errors.CodInvalidAuthorizationSpecification)
+var ErrInvalidOptionsProvided = errors.New("invalid options provided")
+var ErrTransactionNotFound = transactions.ErrTransactionNotFound
+var ErrGuardAlreadyRunning = errors.New("session guard already launched")
+var ErrGuardNotRunning = errors.New("session guard not running")
+var ErrMaxSessionsReached = errors.New("max sessions reached")

@@ -97,7 +97,7 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	require.Equal(t, 0, bs.Server.Srv.SessManager.CountSession())
+	require.Equal(t, 0, bs.Server.Srv.SessManager.SessionCount())
 }
 
 func TestSession_OpenCloseSessionWithStateSigner(t *testing.T) {

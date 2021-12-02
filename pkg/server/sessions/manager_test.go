@@ -29,18 +29,20 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager(nil)
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
 	require.IsType(t, new(manager), m)
 }
 
 func TestSessionGuard(t *testing.T) {
-	m := NewManager(nil)
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
 	go func() {
 		err := m.StartSessionsGuard()
 		require.NoError(t, err)
 	}()
 	time.Sleep(time.Second * 1)
-	err := m.StopSessionsGuard()
+	err = m.StopSessionsGuard()
 	require.NoError(t, err)
 }
 
@@ -63,8 +65,9 @@ func TestManager_ExpireSessions(t *testing.T) {
 		MaxSessionAge:             MAX_SESSION_AGE,
 		Timeout:                   TIMEOUT,
 	}
+	m, err := NewManager(sessOptions)
+	require.NoError(t, err)
 
-	m := NewManager(sessOptions)
 	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout) //.CloneWithLevel(logger.LogDebug)
 	go func(mng *manager) {
 		err := mng.StartSessionsGuard()
@@ -79,53 +82,45 @@ func TestManager_ExpireSessions(t *testing.T) {
 	for i := 1; i <= SESS_NUMBER; i++ {
 		wg.Add(1)
 		go func(u int, cs chan string, w *sync.WaitGroup) {
-			lid := m.NewSession(&auth.User{
+			lid, err := m.NewSession(&auth.User{
 				Username: fmt.Sprintf("%d", u),
-			}, 0)
-			cs <- lid
+			}, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			cs <- lid.GetID()
 			w.Done()
 		}(i, sessIDs, &wg)
 	}
 
 	wg.Wait()
-	require.Equal(t, SESS_NUMBER, m.CountSession())
+	require.Equal(t, SESS_NUMBER, m.SessionCount())
 
 	activeDone := make(chan bool)
 	idleDone := make(chan bool)
 	infiniteDone := make(chan bool)
 	// keep active
 	for ac := 0; ac < KEEP_ACTIVE; ac++ {
-		select {
-		case sessID := <-sessIDs:
-			go keepActive(sessID, m, activeDone)
-		}
+		go keepActive(<-sessIDs, m, activeDone)
 	}
 	for alc := 0; alc < KEEP_INFINITE; alc++ {
-		select {
-		case sessID := <-sessIDs:
-			go keepActive(sessID, m, infiniteDone)
-		}
+		go keepActive(<-sessIDs, m, infiniteDone)
 	}
 	for ic := 0; ic < KEEP_HEARTBEAT; ic++ {
-		select {
-		case sessID := <-sessIDs:
-			go keepIdle(sessID, m, idleDone)
-		}
+		go keepIdle(<-sessIDs, m, idleDone)
 	}
 
 	fIdleC := 0
 	fActiveC := 0
 	time.Sleep(WORK_TIME)
-	m.sessionMux.Lock()
 	for _, s := range m.sessions {
 		switch s.GetStatus() {
-		case ACTIVE:
+		case Active:
 			fActiveC++
-		case IDLE:
+		case Idle:
 			fIdleC++
 		}
 	}
-	m.sessionMux.Unlock()
 
 	require.Equal(t, SESS_NUMBER, fActiveC)
 	require.Equal(t, 0, fIdleC)
@@ -137,21 +132,19 @@ func TestManager_ExpireSessions(t *testing.T) {
 	fIdleC = 0
 	fActiveC = 0
 
-	m.sessionMux.Lock()
 	for _, s := range m.sessions {
 		switch s.GetStatus() {
-		case ACTIVE:
+		case Active:
 			fActiveC++
-		case IDLE:
+		case Idle:
 			fIdleC++
 		}
 	}
-	m.sessionMux.Unlock()
 
 	require.Equal(t, 0, fActiveC)
 	require.Equal(t, 0, fIdleC)
 
-	err := m.StopSessionsGuard()
+	err = m.StopSessionsGuard()
 	require.NoError(t, err)
 }
 

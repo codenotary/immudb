@@ -13,6 +13,9 @@ import (
 )
 
 func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionRequest) (*schema.OpenSessionResponse, error) {
+	if r == nil {
+		return nil, ErrIllegalArguments
+	}
 	if !s.Options.auth {
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
@@ -45,15 +48,18 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
-	sessionID := s.SessManager.NewSession(u, databaseID)
+	session, err := s.SessManager.NewSession(u, s.dbList.GetByIndex(databaseID))
+	if err != nil {
+		return nil, err
+	}
 
 	return &schema.OpenSessionResponse{
-		SessionID:  sessionID,
+		SessionID:  session.GetID(),
 		ServerUUID: s.UUID.String(),
 	}, nil
 }
 
-func (s *ImmuServer) CloseSession(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+func (s *ImmuServer) CloseSession(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
 	if !s.Options.auth {
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
@@ -61,7 +67,10 @@ func (s *ImmuServer) CloseSession(ctx context.Context, e *empty.Empty) (*empty.E
 	if err != nil {
 		return nil, err
 	}
-	s.SessManager.DeleteSession(sessionID)
+	err = s.SessManager.DeleteSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
 	s.Logger.Debugf("closing session %s", sessionID)
 	return new(empty.Empty), nil
 }

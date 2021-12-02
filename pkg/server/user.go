@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/server/sessions"
-	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -606,14 +605,11 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 		if e != nil {
 			return 0, nil, e
 		}
-		return sess.GetDatabaseID(), sess.GetUser(), nil
+		return s.dbList.GetId(sess.GetDatabase().GetName()), sess.GetUser(), nil
 	}
 	jsUser, err := auth.GetLoggedInUser(ctx)
 	if err != nil {
-		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
-			return -1, nil, err
-		}
-		return -1, nil, ErrNotLoggedIn
+		return -1, nil, err
 	}
 
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)

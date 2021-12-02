@@ -19,36 +19,24 @@ package server
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
 // BeginTx creates a new transaction. Only one read-write transaction per session can be active at a time.
 func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
+	if request == nil {
+		return nil, ErrIllegalArguments
+	}
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
-	sessionID, err := sessions.GetSessionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	sess, err := s.SessManager.GetSession(sessionID)
+	sess, err := s.SessManager.GetSessionFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	db, err := s.getDBFromCtx(ctx, "SQLExec")
-	if err != nil {
-		return nil, err
-	}
-
-	SQLTx, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := sess.NewTransaction(SQLTx, request.Mode, db)
+	tx, err := sess.NewTransaction(request.Mode)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +44,7 @@ func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest
 	return &schema.BeginTxResponse{TransactionID: tx.GetID()}, nil
 }
 
-func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*schema.CommittedSQLTx, error) {
+func (s *ImmuServer) Commit(ctx context.Context, _ *empty.Empty) (*schema.CommittedSQLTx, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -66,33 +54,25 @@ func (s *ImmuServer) Commit(ctx context.Context, e *empty.Empty) (*schema.Commit
 		return nil, err
 	}
 
-	db := tx.GetDB()
-
-	_, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.GetSQLTx())
+	cTxs, err := s.SessManager.CommitTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	commitedTx := ctxs[0]
-	lastPKs := make(map[string]*schema.SQLValue, len(commitedTx.LastInsertedPKs()))
-
-	for k, n := range commitedTx.LastInsertedPKs() {
+	cTx := cTxs[0]
+	lastPKs := make(map[string]*schema.SQLValue, len(cTx.LastInsertedPKs()))
+	for k, n := range cTx.LastInsertedPKs() {
 		lastPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
 	}
 
-	err = s.SessManager.DeleteTransaction(tx)
-	if err != nil {
-		return nil, err
-	}
-
 	return &schema.CommittedSQLTx{
-		Header:          schema.TxHeaderToProto(commitedTx.TxHeader()),
-		UpdatedRows:     uint32(commitedTx.UpdatedRows()),
+		Header:          schema.TxHeaderToProto(cTx.TxHeader()),
+		UpdatedRows:     uint32(cTx.UpdatedRows()),
 		LastInsertedPKs: lastPKs,
 	}, nil
 }
 
-func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+func (s *ImmuServer) Rollback(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -102,22 +82,14 @@ func (s *ImmuServer) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty
 		return nil, err
 	}
 
-	db := tx.GetDB()
-
-	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "ROLLBACK;"}, tx.GetSQLTx())
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.SessManager.DeleteTransaction(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	return new(empty.Empty), nil
+	return new(empty.Empty), s.SessManager.RollbackTransaction(tx)
 }
 
 func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+	if request == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	if s.Options.GetMaintenance() {
 		return new(empty.Empty), ErrNotAllowedInMaintenanceMode
 	}
@@ -131,19 +103,13 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 		return new(empty.Empty), ErrReadWriteTxNotOngoing
 	}
 
-	db := tx.GetDB()
-
-	ntx, _, err := db.SQLExec(request, tx.GetSQLTx())
-	if err != nil {
-		return new(empty.Empty), err
-	}
-
-	tx.SetSQLTx(ntx)
-
-	return new(empty.Empty), nil
+	return new(empty.Empty), tx.SQLExec(request)
 }
 
 func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	if request == nil {
+		return nil, ErrIllegalArguments
+	}
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
@@ -153,7 +119,5 @@ func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryReq
 		return nil, err
 	}
 
-	db := tx.GetDB()
-
-	return db.SQLQuery(request, tx.GetSQLTx())
+	return tx.SQLQuery(request)
 }

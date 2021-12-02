@@ -18,7 +18,6 @@ package sessions
 
 import (
 	"context"
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -33,17 +32,17 @@ import (
 type Status int64
 
 const (
-	ACTIVE Status = iota
-	IDLE
-	DEAD
+	Active Status = iota
+	Idle
+	Dead
 )
 
 type Session struct {
-	sync.RWMutex
+	mux                sync.RWMutex
 	id                 string
 	state              Status
 	user               *auth.User
-	databaseID         int64
+	database           database.DB
 	creationTime       time.Time
 	lastActivityTime   time.Time
 	lastHeartBeat      time.Time
@@ -52,13 +51,13 @@ type Session struct {
 	log                logger.Logger
 }
 
-func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.Logger) *Session {
+func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
 	now := time.Now()
 	return &Session{
 		id:               sessionID,
-		state:            ACTIVE,
+		state:            Active,
 		user:             user,
-		databaseID:       databaseID,
+		database:         db,
 		creationTime:     now,
 		lastActivityTime: now,
 		lastHeartBeat:    now,
@@ -67,53 +66,67 @@ func NewSession(sessionID string, user *auth.User, databaseID int64, log logger.
 	}
 }
 
-func (s *Session) NewTransaction(sqlTx *sql.SQLTx, mode schema.TxMode, db database.DB) (transactions.Transaction, error) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	sqlTx, _, err := s.database.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
+	if err != nil {
+		return nil, err
+	}
 	if mode == schema.TxMode_READ_WRITE {
 		if s.readWriteTxOngoing {
-			return nil, ErrReadWriteTxOngoing
+			return nil, ErrOngoingReadWriteTx
 		}
 		s.readWriteTxOngoing = true
 	}
 	transactionID := xid.New().String()
-	tx := transactions.NewTransaction(sqlTx, transactionID, mode, db, s.id)
+	tx := transactions.NewTransaction(sqlTx, transactionID, mode, s.database, s.id)
 	s.transactions[transactionID] = tx
 	return tx, nil
 }
 
-func (s *Session) RemoveTransaction(transactionID string) {
-	s.Lock()
-	defer s.Unlock()
-	if _, ok := s.transactions[transactionID]; ok {
-		s.removeTransaction(transactionID)
-	}
+func (s *Session) RemoveTransaction(transactionID string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	return s.removeTransaction(transactionID)
 }
 
 // not thread safe
-func (s *Session) removeTransaction(transactionID string) {
+func (s *Session) removeTransaction(transactionID string) error {
 	if tx, ok := s.transactions[transactionID]; ok {
 		if tx.GetMode() == schema.TxMode_READ_WRITE {
 			s.readWriteTxOngoing = false
 		}
 		delete(s.transactions, transactionID)
 	}
+	return ErrTransactionNotFound
 }
 
 func (s *Session) RollbackTransactions() {
-	s.Lock()
-	defer s.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	for _, tx := range s.transactions {
 		s.log.Debugf("Deleting transaction %s", tx.GetID())
-		err := tx.Rollback()
-		s.log.Errorf("transaction %s cancelled with error %v", tx.GetID(), err)
-		s.removeTransaction(tx.GetID())
+		if err := tx.Rollback(); err != nil {
+			s.log.Errorf("Error while rolling back transaction %s: %v", tx.GetID(), err)
+			continue
+		}
+		if err := s.removeTransaction(tx.GetID()); err != nil {
+			s.log.Errorf("Error while removing transaction %s: %v", tx.GetID(), err)
+			continue
+		}
 	}
 }
 
+func (s *Session) GetID() string {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	return s.id
+}
+
 func (s *Session) GetTransaction(transactionID string) (transactions.Transaction, error) {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	tx, ok := s.transactions[transactionID]
 	if !ok {
 		return nil, transactions.ErrTransactionNotFound
@@ -146,75 +159,75 @@ func GetTransactionIDFromContext(ctx context.Context) (string, error) {
 	if !ok || len(authHeader) < 1 {
 		return "", ErrNoTransactionAuthDataProvided
 	}
-	sessionID := authHeader[0]
-	if sessionID == "" {
+	transactionID := authHeader[0]
+	if transactionID == "" {
 		return "", ErrNoTransactionIDPresent
 	}
-	return sessionID, nil
+	return transactionID, nil
 }
 
 func (s *Session) GetUser() *auth.User {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.user
 }
 
-func (s *Session) GetDatabaseID() int64 {
-	s.RLock()
-	defer s.RUnlock()
-	return s.databaseID
+func (s *Session) GetDatabase() database.DB {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.database
 }
 
-func (s *Session) SetDatabaseID(databaseID int64) {
-	s.Lock()
-	defer s.Unlock()
-	s.databaseID = databaseID
+func (s *Session) SetDatabase(db database.DB) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.database = db
 }
 
-func (s *Session) SetStatus(st Status) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Session) setStatus(st Status) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	s.state = st
 }
 
 func (s *Session) GetStatus() Status {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.state
 }
 
 func (s *Session) GetLastActivityTime() time.Time {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.lastActivityTime
 }
 
 func (s *Session) SetLastActivityTime(t time.Time) {
-	s.Lock()
-	defer s.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	s.lastActivityTime = t
 }
 
 func (s *Session) GetLastHeartBeat() time.Time {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.lastHeartBeat
 }
 
 func (s *Session) SetLastHeartBeat(t time.Time) {
-	s.Lock()
-	defer s.Unlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	s.lastHeartBeat = t
 }
 
 func (s *Session) GetCreationTime() time.Time {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.creationTime
 }
 
 func (s *Session) GetReadWriteTxOngoing() bool {
-	s.RLock()
-	defer s.RUnlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return s.readWriteTxOngoing
 }

@@ -27,12 +27,9 @@ import (
 )
 
 func TestNewSession(t *testing.T) {
-	sess := NewSession("sessID", &auth.User{}, 0, logger.NewSimpleLogger("test", stdos.Stdout))
-	sess.SetStatus(IDLE)
-	sess.SetDatabaseID(1)
+	sess := NewSession("sessID", &auth.User{}, nil, logger.NewSimpleLogger("test", stdos.Stdout))
 	st := sess.GetStatus()
-	require.Equal(t, IDLE, st)
-	require.Equal(t, int64(1), sess.GetDatabaseID())
+	require.Equal(t, Active, st)
 }
 
 func TestGetSessionIDFromContext(t *testing.T) {

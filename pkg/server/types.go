@@ -73,7 +73,6 @@ type ImmuServer struct {
 	webServer            *http.Server
 	mux                  sync.Mutex
 	pgsqlMux             sync.Mutex
-	txMux                sync.Mutex
 	StateSigner          StateSigner
 	StreamServiceFactory stream.ServiceFactory
 	PgsqlSrv             pgsqlsrv.Server
