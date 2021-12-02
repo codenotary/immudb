@@ -1239,6 +1239,46 @@ func TestExpressions(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT id FROM clients WHERE deleted_at IS NULL",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &tableRef{table: "clients"},
+					where: &CmpBoolExp{
+						left: &ColSelector{
+							col: "deleted_at",
+						},
+						op: EQ,
+						right: &NullValue{
+							t: AnyType,
+						},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM clients WHERE deleted_at IS NOT NULL",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &tableRef{table: "clients"},
+					where: &CmpBoolExp{
+						left: &ColSelector{
+							col: "deleted_at",
+						},
+						op: NE,
+						right: &NullValue{
+							t: AnyType,
+						},
+					},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {

@@ -78,6 +78,7 @@ var reservedWords = map[string]int{
 	"AUTO_INCREMENT": AUTO_INCREMENT,
 	"NULL":           NULL,
 	"IF":             IF,
+	"IS":             IS,
 }
 
 var joinTypes = map[string]JoinType{

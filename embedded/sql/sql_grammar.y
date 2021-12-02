@@ -67,7 +67,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
-%token NOT LIKE IF EXISTS IN
+%token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -92,6 +92,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left '*' '/'
 %left  '.'
 %right STMT_SEPARATOR
+%left IS
 
 %type <stmts> sql sqlstmts
 %type <stmt> sqlstmt ddlstmt dqlstmt dmlstmt
@@ -785,4 +786,14 @@ binExp:
     exp CMPOP exp
     {
         $$ = &CmpBoolExp{left: $1, op: $2, right: $3}
+    }
+|
+    exp IS NULL
+    {
+        $$ = &CmpBoolExp{left: $1, op: EQ, right: &NullValue{t: AnyType}}
+    }
+|
+    exp IS NOT NULL
+    {
+        $$ = &CmpBoolExp{left: $1, op: NE, right: &NullValue{t: AnyType}}
     }
