@@ -24,7 +24,7 @@ import (
 )
 
 func (s *ImmuServer) SessionAuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if auth.GetAuthTypeFromContext(ctx) == auth.SESSION_AUTH && info.FullMethod != "/immudb.schema.ImmuService/OpenSession" {
+	if auth.GetAuthTypeFromContext(ctx) == auth.SessionAuth && info.FullMethod != "/immudb.schema.ImmuService/OpenSession" {
 		sessionID, err := sessions.GetSessionIDFromContext(ctx)
 		if err != nil {
 			return nil, err

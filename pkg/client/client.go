@@ -169,7 +169,7 @@ type ImmuClient interface {
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
 
-	BeginTx(ctx context.Context, opts *TxOptions) (Tx, error)
+	NewTx(ctx context.Context, opts *TxOptions) (Tx, error)
 }
 
 const DefaultDB = "defaultdb"
@@ -186,7 +186,6 @@ type immuClient struct {
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
-	TransactionID        string
 }
 
 // DefaultClient ...

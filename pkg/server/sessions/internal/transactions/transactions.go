@@ -24,7 +24,7 @@ import (
 )
 
 type transaction struct {
-	sync.Mutex
+	mutex         sync.RWMutex
 	transactionID string
 	sqlTx         *sql.SQLTx
 	txMode        schema.TxMode
@@ -53,25 +53,25 @@ func NewTransaction(sqlTx *sql.SQLTx, transactionID string, mode schema.TxMode, 
 }
 
 func (tx *transaction) GetID() string {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	return tx.transactionID
 }
 
 func (tx *transaction) GetMode() schema.TxMode {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	return tx.txMode
 }
 
 func (tx *transaction) Rollback() error {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	return tx.sqlTx.Cancel()
 }
 func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	ntx, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
 	if err != nil {
 		return nil, err
@@ -81,14 +81,14 @@ func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 }
 
 func (tx *transaction) GetSessionID() string {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.RLock()
+	defer tx.mutex.RUnlock()
 	return tx.sessionID
 }
 
 func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	ntx, _, err := tx.db.SQLExec(request, tx.sqlTx)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
 }
 
 func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	tx.Lock()
-	defer tx.Unlock()
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
 	return tx.db.SQLQuery(request, tx.sqlTx)
 }

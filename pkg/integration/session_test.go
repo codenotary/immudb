@@ -153,7 +153,7 @@ func TestSession_ExpireSessions(t *testing.T) {
 			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 			require.NoError(t, err)
 
-			tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
+			tx, err := client.NewTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_ReadWrite})
 			require.NoError(t, err)
 
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))

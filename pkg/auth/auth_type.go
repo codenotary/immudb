@@ -5,26 +5,26 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type AUTH_TYPE int
+type AuthType int
 
 const (
-	TOKEN_AUTH AUTH_TYPE = iota
-	SESSION_AUTH
-	NONE
+	TokenAuth AuthType = iota
+	SessionAuth
+	None
 )
 
-func GetAuthTypeFromContext(ctx context.Context) AUTH_TYPE {
+func GetAuthTypeFromContext(ctx context.Context) AuthType {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return NONE
+		return None
 	}
 	authHeader, ok := md["sessionid"]
 	if ok && len(authHeader) >= 1 {
-		return SESSION_AUTH
+		return SessionAuth
 	}
 	authHeader, ok = md["authorization"]
 	if ok && len(authHeader) >= 1 {
-		return TOKEN_AUTH
+		return TokenAuth
 	}
-	return NONE
+	return None
 }

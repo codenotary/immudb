@@ -5,8 +5,6 @@
 
 - [schema.proto](#schema.proto)
     - [AuthConfig](#immudb.schema.AuthConfig)
-    - [BeginTxRequest](#immudb.schema.BeginTxRequest)
-    - [BeginTxResponse](#immudb.schema.BeginTxResponse)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
@@ -40,6 +38,8 @@
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
     - [NamedParam](#immudb.schema.NamedParam)
+    - [NewTxRequest](#immudb.schema.NewTxRequest)
+    - [NewTxResponse](#immudb.schema.NewTxResponse)
     - [Op](#immudb.schema.Op)
     - [OpenSessionRequest](#immudb.schema.OpenSessionRequest)
     - [OpenSessionResponse](#immudb.schema.OpenSessionResponse)
@@ -116,36 +116,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.BeginTxRequest"></a>
-
-### BeginTxRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| mode | [TxMode](#immudb.schema.TxMode) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.BeginTxResponse"></a>
-
-### BeginTxResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| transactionID | [string](#string) |  |  |
 
 
 
@@ -698,6 +668,36 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | value | [SQLValue](#immudb.schema.SQLValue) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NewTxRequest"></a>
+
+### NewTxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| mode | [TxMode](#immudb.schema.TxMode) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NewTxResponse"></a>
+
+### NewTxResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| transactionID | [string](#string) |  |  |
 
 
 
@@ -1574,9 +1574,9 @@
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| READ_ONLY | 0 |  |
-| WRITE_ONLY | 1 |  |
-| READ_WRITE | 2 |  |
+| ReadOnly | 0 |  |
+| WriteOnly | 1 |  |
+| ReadWrite | 2 |  |
 
 
 
@@ -1599,7 +1599,7 @@ immudb gRPC &amp; REST service
 | OpenSession | [OpenSessionRequest](#immudb.schema.OpenSessionRequest) | [OpenSessionResponse](#immudb.schema.OpenSessionResponse) |  |
 | CloseSession | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | KeepAlive | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| BeginTx | [BeginTxRequest](#immudb.schema.BeginTxRequest) | [BeginTxResponse](#immudb.schema.BeginTxResponse) |  |
+| NewTx | [NewTxRequest](#immudb.schema.NewTxRequest) | [NewTxResponse](#immudb.schema.NewTxResponse) |  |
 | Commit | [.google.protobuf.Empty](#google.protobuf.Empty) | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) |  |
 | Rollback | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | TxSQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

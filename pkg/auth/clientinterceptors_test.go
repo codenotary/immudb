@@ -25,7 +25,7 @@ import (
 )
 
 func TestTokenAuth(t *testing.T) {
-	token := TokenAuth{
+	token := TokenAuthStruct{
 		Token: "123456",
 	}
 	m, err := token.GetRequestMetadata(context.Background(), "")

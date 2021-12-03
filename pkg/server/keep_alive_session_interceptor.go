@@ -24,7 +24,7 @@ import (
 )
 
 func (s *ImmuServer) KeepALiveSessionStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if auth.GetAuthTypeFromContext(ss.Context()) == auth.SESSION_AUTH {
+	if auth.GetAuthTypeFromContext(ss.Context()) == auth.SessionAuth {
 		if err := s.updateSessActivityTime(ss.Context()); err != nil {
 			return err
 		}
@@ -33,7 +33,7 @@ func (s *ImmuServer) KeepALiveSessionStreamInterceptor(srv interface{}, ss grpc.
 }
 
 func (s *ImmuServer) KeepAliveSessionInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if auth.GetAuthTypeFromContext(ctx) == auth.SESSION_AUTH &&
+	if auth.GetAuthTypeFromContext(ctx) == auth.SessionAuth &&
 		info.FullMethod != "/immudb.schema.ImmuService/OpenSession" {
 		sessionID, err := sessions.GetSessionIDFromContext(ctx)
 		if err != nil {

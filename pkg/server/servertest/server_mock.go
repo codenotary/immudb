@@ -49,8 +49,8 @@ func (s *ServerMock) TxSQLQuery(ctx context.Context, request *schema.SQLQueryReq
 	return s.Srv.TxSQLQuery(ctx, request)
 }
 
-func (s *ServerMock) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
-	return s.Srv.BeginTx(ctx, request)
+func (s *ServerMock) NewTx(ctx context.Context, request *schema.NewTxRequest) (*schema.NewTxResponse, error) {
+	return s.Srv.NewTx(ctx, request)
 }
 
 func (s *ServerMock) Commit(ctx context.Context, e *empty.Empty) (*schema.CommittedSQLTx, error) {

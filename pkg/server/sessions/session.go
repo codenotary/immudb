@@ -70,7 +70,7 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if mode == schema.TxMode_WRITE_ONLY {
+	if mode == schema.TxMode_WriteOnly {
 		// only in key-value mode, in sql we read catalog and write to it
 		return nil, ErrWriteOnlyTXNotAllowed
 	}
@@ -78,7 +78,7 @@ func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, 
 	if err != nil {
 		return nil, err
 	}
-	if mode == schema.TxMode_READ_WRITE {
+	if mode == schema.TxMode_ReadWrite {
 		if s.readWriteTxOngoing {
 			return nil, ErrOngoingReadWriteTx
 		}
@@ -99,7 +99,7 @@ func (s *Session) RemoveTransaction(transactionID string) error {
 // not thread safe
 func (s *Session) removeTransaction(transactionID string) error {
 	if tx, ok := s.transactions[transactionID]; ok {
-		if tx.GetMode() == schema.TxMode_READ_WRITE {
+		if tx.GetMode() == schema.TxMode_ReadWrite {
 			s.readWriteTxOngoing = false
 		}
 		delete(s.transactions, transactionID)

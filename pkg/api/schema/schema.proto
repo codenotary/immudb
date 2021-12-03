@@ -499,16 +499,16 @@ message SQLValue {
 }
 
 enum TxMode {
-	READ_ONLY = 0;
-	WRITE_ONLY = 1;
-	READ_WRITE = 2;
+	ReadOnly = 0;
+	WriteOnly = 1;
+	ReadWrite = 2;
 }
 
-message BeginTxRequest {
+message NewTxRequest {
 	TxMode mode = 1;
 }
 
-message BeginTxResponse {
+message NewTxResponse {
 	string transactionID = 1;
 }
 
@@ -582,7 +582,7 @@ service ImmuService {
 	rpc CloseSession (google.protobuf.Empty) returns (google.protobuf.Empty){};
 	rpc KeepAlive (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
-	rpc BeginTx (BeginTxRequest) returns (BeginTxResponse){};
+	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
 	rpc Commit (google.protobuf.Empty) returns (CommittedSQLTx){};
 	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
 

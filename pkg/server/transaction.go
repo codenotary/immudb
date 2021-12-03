@@ -23,7 +23,7 @@ import (
 )
 
 // BeginTx creates a new transaction. Only one read-write transaction per session can be active at a time.
-func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest) (*schema.BeginTxResponse, error) {
+func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*schema.NewTxResponse, error) {
 	if request == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -41,7 +41,7 @@ func (s *ImmuServer) BeginTx(ctx context.Context, request *schema.BeginTxRequest
 		return nil, err
 	}
 
-	return &schema.BeginTxResponse{TransactionID: tx.GetID()}, nil
+	return &schema.NewTxResponse{TransactionID: tx.GetID()}, nil
 }
 
 func (s *ImmuServer) Commit(ctx context.Context, _ *empty.Empty) (*schema.CommittedSQLTx, error) {
@@ -99,7 +99,7 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 		return new(empty.Empty), err
 	}
 
-	if tx.GetMode() != schema.TxMode_READ_WRITE {
+	if tx.GetMode() != schema.TxMode_ReadWrite {
 		return new(empty.Empty), ErrReadWriteTxNotOngoing
 	}
 

@@ -1076,7 +1076,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		return nil, err
 	}
 
-	if auth.GetAuthTypeFromContext(ctx) == auth.SESSION_AUTH {
+	if auth.GetAuthTypeFromContext(ctx) == auth.SessionAuth {
 		sessionID, err := sessions.GetSessionIDFromContext(ctx)
 		if err != nil {
 			return nil, err

@@ -78,6 +78,8 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 		return errors.FromError(err)
 	}
 
+	c.SessionID = ""
+
 	return nil
 }
 

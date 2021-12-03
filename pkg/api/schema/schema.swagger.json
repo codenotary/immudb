@@ -1292,14 +1292,6 @@
         }
       }
     },
-    "schemaBeginTxResponse": {
-      "type": "object",
-      "properties": {
-        "transactionID": {
-          "type": "string"
-        }
-      }
-    },
     "schemaChangePasswordRequest": {
       "type": "object",
       "properties": {
@@ -1760,6 +1752,14 @@
         }
       }
     },
+    "schemaNewTxResponse": {
+      "type": "object",
+      "properties": {
+        "transactionID": {
+          "type": "string"
+        }
+      }
+    },
     "schemaOp": {
       "type": "object",
       "properties": {
@@ -2173,11 +2173,11 @@
     "schemaTxMode": {
       "type": "string",
       "enum": [
-        "READ_ONLY",
-        "WRITE_ONLY",
-        "READ_WRITE"
+        "ReadOnly",
+        "WriteOnly",
+        "ReadWrite"
       ],
-      "default": "READ_ONLY"
+      "default": "ReadOnly"
     },
     "schemaTxScanRequest": {
       "type": "object",

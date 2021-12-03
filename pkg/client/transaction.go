@@ -21,6 +21,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc/metadata"
 )
 
 type TxOptions struct {
@@ -41,28 +42,28 @@ type tx struct {
 }
 
 func (c *tx) Commit(ctx context.Context) (*schema.CommittedSQLTx, error) {
+	c.populateCtx(ctx)
 	cmtx, err := c.ic.ServiceClient.Commit(ctx, new(empty.Empty))
 	return cmtx, errors.FromError(err)
 }
 
 func (c *tx) Rollback(ctx context.Context) error {
+	c.populateCtx(ctx)
 	_, err := c.ic.ServiceClient.Rollback(ctx, new(empty.Empty))
 	return errors.FromError(err)
 }
 
-func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error) {
-
-	if options.TxMode == schema.TxMode_WRITE_ONLY {
+func (c *immuClient) NewTx(ctx context.Context, options *TxOptions) (Tx, error) {
+	if options.TxMode == schema.TxMode_WriteOnly {
 		// only in key-value mode, in sql we read catalog and write to it
 		return nil, ErrWriteOnlyTXNotAllowed
 	}
-	r, err := c.ServiceClient.BeginTx(ctx, &schema.BeginTxRequest{
+	r, err := c.ServiceClient.NewTx(ctx, &schema.NewTxRequest{
 		Mode: options.TxMode,
 	})
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
-	c.TransactionID = r.TransactionID
 	tx := &tx{
 		ic:            c,
 		transactionID: r.TransactionID,
@@ -71,6 +72,7 @@ func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error
 }
 
 func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
+	c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return errors.FromError(err)
@@ -83,6 +85,7 @@ func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interfac
 }
 
 func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
+	c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, errors.FromError(err)
@@ -94,6 +97,18 @@ func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interfa
 	return res, errors.FromError(err)
 }
 
-func (c *immuClient) GetTransactionID() string {
-	return c.TransactionID
+func (c *tx) GetTransactionID() string {
+	return c.transactionID
+}
+
+func (tx *tx) populateCtx(ctx context.Context) context.Context {
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.New(nil)
+	}
+
+	if tx.GetTransactionID() != "" {
+		md.Set("transactionid", tx.GetTransactionID())
+	}
+	return metadata.NewOutgoingContext(ctx, md)
 }
