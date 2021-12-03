@@ -154,6 +154,9 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 		return nil, ErrNotLoggedIn
 	}
 	token := strings.TrimPrefix(authHeader[0], "Bearer ")
+	if token == "" {
+		return nil, ErrNotLoggedIn
+	}
 	jsonToken, err := verifyToken(token)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
