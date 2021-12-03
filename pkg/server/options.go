@@ -19,6 +19,7 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"net"
 	"strconv"
 	"strings"
@@ -68,6 +69,7 @@ type Options struct {
 	PgsqlServer          bool
 	PgsqlServerPort      int
 	ReplicationOptions   *ReplicationOptions
+	SessionsOptions      *sessions.Options
 }
 
 type RemoteStorageOptions struct {
@@ -118,6 +120,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:   1440,
 		PgsqlServer:          false,
 		PgsqlServerPort:      5432,
+		SessionsOptions:      sessions.DefaultOptions(),
 	}
 }
 
@@ -392,6 +395,11 @@ func (o *Options) WithRemoteStorageOptions(remoteStorageOptions *RemoteStorageOp
 
 func (o *Options) WithReplicationOptions(replicationOptions *ReplicationOptions) *Options {
 	o.ReplicationOptions = replicationOptions
+	return o
+}
+
+func (o *Options) WithSessionOptions(options *sessions.Options) *Options {
+	o.SessionsOptions = options
 	return o
 }
 

@@ -5,6 +5,8 @@
 
 - [schema.proto](#schema.proto)
     - [AuthConfig](#immudb.schema.AuthConfig)
+    - [BeginTxRequest](#immudb.schema.BeginTxRequest)
+    - [BeginTxResponse](#immudb.schema.BeginTxResponse)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
@@ -39,6 +41,8 @@
     - [MTLSConfig](#immudb.schema.MTLSConfig)
     - [NamedParam](#immudb.schema.NamedParam)
     - [Op](#immudb.schema.Op)
+    - [OpenSessionRequest](#immudb.schema.OpenSessionRequest)
+    - [OpenSessionResponse](#immudb.schema.OpenSessionResponse)
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
@@ -86,11 +90,12 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-  
+
     - [PermissionAction](#immudb.schema.PermissionAction)
-  
+    - [TxMode](#immudb.schema.TxMode)
+
     - [ImmuService](#immudb.schema.ImmuService)
-  
+
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -111,6 +116,36 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.BeginTxRequest"></a>
+
+### BeginTxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| mode | [TxMode](#immudb.schema.TxMode) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.BeginTxResponse"></a>
+
+### BeginTxResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| transactionID | [string](#string) |  |  |
 
 
 
@@ -680,6 +715,39 @@
 | kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
 | zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
 | ref | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.OpenSessionRequest"></a>
+
+### OpenSessionRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| username | [bytes](#bytes) |  |  |
+| password | [bytes](#bytes) |  |  |
+| databaseName | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.OpenSessionResponse"></a>
+
+### OpenSessionResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sessionID | [string](#string) |  |  |
+| serverUUID | [string](#string) |  |  |
 
 
 
@@ -1484,7 +1552,7 @@
 
 
 
- 
+
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1498,9 +1566,22 @@
 | REVOKE | 1 |  |
 
 
- 
 
- 
+<a name="immudb.schema.TxMode"></a>
+
+### TxMode
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| READ_ONLY | 0 |  |
+| WRITE_ONLY | 1 |  |
+| READ_WRITE | 2 |  |
+
+
+
+
+
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1515,6 +1596,14 @@ immudb gRPC &amp; REST service
 | ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| OpenSession | [OpenSessionRequest](#immudb.schema.OpenSessionRequest) | [OpenSessionResponse](#immudb.schema.OpenSessionResponse) |  |
+| CloseSession | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| KeepAlive | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| BeginTx | [BeginTxRequest](#immudb.schema.BeginTxRequest) | [BeginTxResponse](#immudb.schema.BeginTxResponse) |  |
+| Commit | [.google.protobuf.Empty](#google.protobuf.Empty) | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) |  |
+| Rollback | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| TxSQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| TxSQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [SetRequest](#immudb.schema.SetRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
@@ -1562,7 +1651,7 @@ immudb gRPC &amp; REST service
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
- 
+
 
 
 
@@ -1585,4 +1674,3 @@ immudb gRPC &amp; REST service
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
-

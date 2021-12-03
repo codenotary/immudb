@@ -81,6 +81,17 @@ message MTLSConfig {
 	bool enabled = 1;
 }
 
+message OpenSessionRequest {
+	bytes username = 1;
+	bytes password = 2;
+	string databaseName = 3;
+}
+
+message OpenSessionResponse {
+	string sessionID = 1;
+	string serverUUID = 2;
+}
+
 ////////////////////////////////////////////////////////
 
 message KeyValue {
@@ -487,6 +498,21 @@ message SQLValue {
 	}
 }
 
+enum TxMode {
+	READ_ONLY = 0;
+	WRITE_ONLY = 1;
+	READ_WRITE = 2;
+}
+
+message BeginTxRequest {
+	TxMode mode = 1;
+}
+
+message BeginTxResponse {
+	string transactionID = 1;
+}
+
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -545,10 +571,26 @@ service ImmuService {
 		};
 	};
 
-	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){} // DEPRECATED
-	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){} // DEPRECATED
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+
+	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){};
+	rpc CloseSession (google.protobuf.Empty) returns (google.protobuf.Empty){};
+	rpc KeepAlive (google.protobuf.Empty) returns (google.protobuf.Empty){};
+
+	rpc BeginTx (BeginTxRequest) returns (BeginTxResponse){};
+	rpc Commit (google.protobuf.Empty) returns (CommittedSQLTx){};
+	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
+
+	rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {};
+	rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {};
 
 	rpc Login (LoginRequest) returns (LoginResponse){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/login"
 			body: "*"
@@ -559,6 +601,7 @@ service ImmuService {
 	};
 
 	rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/logout"
 			body: "*"
@@ -598,7 +641,7 @@ service ImmuService {
 			body: "*"
 		};
 	}
-	
+
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/db/getall"

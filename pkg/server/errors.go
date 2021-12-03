@@ -18,8 +18,10 @@ package server
 
 import (
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/errors"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,15 +34,20 @@ var (
 	ErrInvalidUsernameOrPassword   = "invalid user name or password"
 	ErrAuthDisabled                = "server is running with authentication disabled, please enable authentication to login"
 	ErrAuthMustBeEnabled           = status.Error(codes.InvalidArgument, "authentication must be on")
-	ErrAuthMustBeDisabled          = status.Error(codes.InvalidArgument, "authentication must be disabled when retoring systemdb")
+	ErrAuthMustBeDisabled          = status.Error(codes.InvalidArgument, "authentication must be disabled when restoring systemdb")
 	ErrNotAllowedInMaintenanceMode = status.Error(codes.InvalidArgument, "operation not allowed in maintenance mode")
 	ErrReservedDatabase            = errors.New("database is reserved")
 	ErrPermissionDenied            = errors.New("permission denied")
 	ErrNotSupported                = errors.New("operation not supported")
-	ErrNotLoggedIn                 = errors.New("not logged in")
+	ErrNotLoggedIn                 = auth.ErrNotLoggedIn
 	ErrReplicationInProgress       = errors.New("replication already in progress")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
+	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
+	ErrSessionNotFound             = errors.New("session not found").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)
+	ErrOngoingReadWriteTx          = sessions.ErrOngoingReadWriteTx
+	ErrNoSessionIDPresent          = errors.New("no sessionID provided")
 	ErrTxNotProperlyClosed         = errors.New("tx not properly closed")
+	ErrReadWriteTxNotOngoing       = errors.New("read write transaction not ongoing")
 )
 
 func mapServerError(err error) error {

@@ -21,7 +21,7 @@ import (
 )
 
 type inmemoryTokenService struct {
-	sync.Mutex
+	sync.RWMutex
 	token    string
 	database string
 }
@@ -42,8 +42,8 @@ func (m *inmemoryTokenService) SetToken(database string, token string) error {
 }
 
 func (m *inmemoryTokenService) IsTokenPresent() (bool, error) {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 	return m.token != "", nil
 }
 
@@ -56,13 +56,13 @@ func (m *inmemoryTokenService) DeleteToken() error {
 }
 
 func (m *inmemoryTokenService) GetToken() (string, error) {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 	return m.token, nil
 }
 
 func (m *inmemoryTokenService) GetDatabase() (string, error) {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 	return m.database, nil
 }

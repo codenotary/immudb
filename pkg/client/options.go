@@ -19,6 +19,7 @@ package client
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -54,6 +55,7 @@ type Options struct {
 	LogFileName         string
 	ServerSigningPubKey string
 	StreamChunkSize     int
+	HeartBeatFrequency  time.Duration
 }
 
 // DefaultOptions ...
@@ -74,6 +76,7 @@ func DefaultOptions() *Options {
 		LogFileName:         "",
 		ServerSigningPubKey: "",
 		StreamChunkSize:     stream.DefaultChunkSize,
+		HeartBeatFrequency:  time.Second * 1,
 	}
 }
 
@@ -201,6 +204,12 @@ func (o *Options) WithServerSigningPubKey(serverSigningPubKey string) *Options {
 // WithStreamChunkSize set the chunk size
 func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 	o.StreamChunkSize = streamChunkSize
+	return o
+}
+
+// WithHeartBeatFrequency set the keep alive message frequency
+func (o *Options) WithHeartBeatFrequency(heartBeatFrequency time.Duration) *Options {
+	o.HeartBeatFrequency = heartBeatFrequency
 	return o
 }
 
