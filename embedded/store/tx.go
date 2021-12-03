@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/htree"
@@ -73,7 +74,7 @@ func (tx *Tx) Header() *TxHeader {
 }
 
 func (hdr *TxHeader) Bytes() []byte {
-	// ID + Ts + PrevAlh + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
+	// ID + PrevAlh + Ts + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
 	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + sszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
 
@@ -89,23 +90,36 @@ func (hdr *TxHeader) Bytes() []byte {
 	binary.BigEndian.PutUint16(b[i:], uint16(hdr.Version))
 	i += sszSize
 
-	if hdr.Version > 0 {
-		var mdbs []byte
-
-		if hdr.Metadata != nil {
-			mdbs = hdr.Metadata.Bytes()
+	switch hdr.Version {
+	case 0:
+		{
+			binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
+			i += sszSize
 		}
+	case 1:
+		{
+			var mdbs []byte
 
-		binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
-		i += sszSize
+			if hdr.Metadata != nil {
+				mdbs = hdr.Metadata.Bytes()
+			}
 
-		copy(b[i:], mdbs)
-		i += len(mdbs)
+			binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+			i += sszSize
+
+			copy(b[i:], mdbs)
+			i += len(mdbs)
+
+			binary.BigEndian.PutUint32(b[i:], uint32(hdr.NEntries))
+			i += lszSize
+		}
+	default:
+		{
+			panic(fmt.Errorf("missing tx header serialization method for version %d", hdr.Version))
+		}
 	}
 
-	binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
-	i += sszSize
-
+	// following records are currently common in versions 0 and 1
 	copy(b[i:], hdr.Eh[:])
 	i += sha256.Size
 
@@ -141,11 +155,14 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 	switch hdr.Version {
 	case 0:
 		{
-			// first version does not include metadata record
-			break
+
+			hdr.NEntries = int(binary.BigEndian.Uint16(b[i:]))
+			i += sszSize
 		}
 	case 1:
 		{
+			// version includes metadata record and a greater max number of entries
+
 			mdLen := int(binary.BigEndian.Uint16(b[i:]))
 			i += sszSize
 
@@ -163,16 +180,17 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 				}
 				i += mdLen
 			}
+
+			hdr.NEntries = int(binary.BigEndian.Uint32(b[i:]))
+			i += lszSize
 		}
 	default:
 		{
-			return ErrCorruptedData
+			return ErrNewerVersionOrCorruptedData
 		}
 	}
 
-	hdr.NEntries = int(binary.BigEndian.Uint16(b[i:]))
-	i += sszSize
-
+	// following records are currently common in versions 0 and 1
 	copy(hdr.Eh[:], b[i:])
 	i += sha256.Size
 
@@ -196,22 +214,36 @@ func (hdr *TxHeader) innerHash() [sha256.Size]byte {
 	binary.BigEndian.PutUint16(b[i:], uint16(hdr.Version))
 	i += sszSize
 
-	if hdr.Version > 0 {
-		var mdbs []byte
-
-		if hdr.Metadata != nil {
-			mdbs = hdr.Metadata.Bytes()
+	switch hdr.Version {
+	case 0:
+		{
+			binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
+			i += sszSize
 		}
+	case 1:
+		{
+			var mdbs []byte
 
-		binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
-		i += sszSize
+			if hdr.Metadata != nil {
+				mdbs = hdr.Metadata.Bytes()
+			}
 
-		copy(b[i:], mdbs)
-		i += len(mdbs)
+			binary.BigEndian.PutUint16(b[i:], uint16(len(mdbs)))
+			i += sszSize
+
+			copy(b[i:], mdbs)
+			i += len(mdbs)
+
+			binary.BigEndian.PutUint32(b[i:], uint32(hdr.NEntries))
+			i += lszSize
+		}
+	default:
+		{
+			panic(fmt.Errorf("missing tx hash calculation method for version %d", hdr.Version))
+		}
 	}
 
-	binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
-	i += sszSize
+	// following records are currently common in versions 0 and 1
 
 	copy(b[i:], hdr.Eh[:])
 	i += sha256.Size
@@ -340,44 +372,59 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	}
 	tx.header.Version = int(version)
 
-	if tx.header.Version > 0 {
-		mdLen, err := r.ReadUint16()
-		if err != nil {
-			return err
+	switch tx.header.Version {
+	case 0:
+		{
+			nentries, err := r.ReadUint16()
+			if err != nil {
+				return err
+			}
+			tx.header.NEntries = int(nentries)
 		}
-
-		if mdLen > maxTxMetadataLen {
-			return ErrCorruptedData
-		}
-
-		var txmd *TxMetadata
-
-		if mdLen > 0 {
-			var mdBs [maxTxMetadataLen]byte
-
-			_, err = r.Read(mdBs[:mdLen])
+	case 1:
+		{
+			mdLen, err := r.ReadUint16()
 			if err != nil {
 				return err
 			}
 
-			txmd = &TxMetadata{}
+			if mdLen > maxTxMetadataLen {
+				return ErrCorruptedData
+			}
 
-			err = txmd.ReadFrom(mdBs[:mdLen])
+			var txmd *TxMetadata
+
+			if mdLen > 0 {
+				var mdBs [maxTxMetadataLen]byte
+
+				_, err = r.Read(mdBs[:mdLen])
+				if err != nil {
+					return err
+				}
+
+				txmd = &TxMetadata{}
+
+				err = txmd.ReadFrom(mdBs[:mdLen])
+				if err != nil {
+					return err
+				}
+			}
+
+			tx.header.Metadata = txmd
+
+			nentries, err := r.ReadUint32()
 			if err != nil {
 				return err
 			}
+			tx.header.NEntries = int(nentries)
 		}
-
-		tx.header.Metadata = txmd
+	default:
+		{
+			panic(fmt.Errorf("missing tx deserialization method for version %d", tx.header.Version))
+		}
 	}
 
-	nentries, err := r.ReadUint16()
-	if err != nil {
-		return err
-	}
-	tx.header.NEntries = int(nentries)
-
-	for i := 0; i < int(nentries); i++ {
+	for i := 0; i < int(tx.header.NEntries); i++ {
 		// md is stored before key to ensure backward compatibility
 		mdLen, err := r.ReadUint16()
 		if err != nil {
