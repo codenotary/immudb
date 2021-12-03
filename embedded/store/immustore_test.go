@@ -223,7 +223,9 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.Sync()
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, err = immuStore.commit(nil, nil, false)
+	_, err = immuStore.commit(&OngoingTx{entries: []*EntrySpec{
+		{Key: []byte("key1")},
+	}}, nil, false)
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = immuStore.ReadTx(1, nil)

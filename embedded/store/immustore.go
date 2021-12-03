@@ -860,27 +860,27 @@ func (s *ImmuStore) NewTx() (*OngoingTx, error) {
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
+	if otx == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := s.validateEntries(otx.entries)
+	if err != nil {
+		return nil, err
+	}
+
+	// early check to reduce amount of garbage when tx is not finally committed
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
 
-	if otx == nil {
-		return nil, ErrIllegalArguments
-	}
-
 	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
 	}
-
 	s.mutex.Unlock()
-
-	err := s.validateEntries(otx.entries)
-	if err != nil {
-		return nil, err
-	}
 
 	var ts int64
 	var blTxID uint64
