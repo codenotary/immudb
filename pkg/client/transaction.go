@@ -42,13 +42,13 @@ type tx struct {
 }
 
 func (c *tx) Commit(ctx context.Context) (*schema.CommittedSQLTx, error) {
-	c.populateCtx(ctx)
+	ctx = c.populateCtx(ctx)
 	cmtx, err := c.ic.ServiceClient.Commit(ctx, new(empty.Empty))
 	return cmtx, errors.FromError(err)
 }
 
 func (c *tx) Rollback(ctx context.Context) error {
-	c.populateCtx(ctx)
+	ctx = c.populateCtx(ctx)
 	_, err := c.ic.ServiceClient.Rollback(ctx, new(empty.Empty))
 	return errors.FromError(err)
 }
@@ -72,7 +72,7 @@ func (c *immuClient) NewTx(ctx context.Context, options *TxOptions) (Tx, error) 
 }
 
 func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
-	c.populateCtx(ctx)
+	ctx = c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return errors.FromError(err)
@@ -85,7 +85,7 @@ func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interfac
 }
 
 func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
-	c.populateCtx(ctx)
+	ctx = c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, errors.FromError(err)
