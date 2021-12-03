@@ -99,6 +99,7 @@ func (s *Session) removeTransaction(transactionID string) error {
 			s.readWriteTxOngoing = false
 		}
 		delete(s.transactions, transactionID)
+		return nil
 	}
 	return ErrTransactionNotFound
 }
