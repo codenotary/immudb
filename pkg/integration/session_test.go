@@ -20,6 +20,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
@@ -72,24 +73,26 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 	defer bs.Stop()
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < store.DefaultMaxConcurrency; i++ {
 		wg.Add(1)
 		go func(i int) {
 			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().
 				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
 				WithHeartBeatFrequency(time.Millisecond * 100))
-			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-			require.NoError(t, err)
+			if err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb"); err != nil {
+				t.Error(err)
+			}
 
 			min := 10
 			max := 100
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(max-min)+min))
 
-			_, err = client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i)))
-			require.NoError(t, err)
-
-			err = client.CloseSession(context.TODO())
-			require.NoError(t, err)
+			if _, err := client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i))); err != nil {
+				t.Error(err)
+			}
+			if err := client.CloseSession(context.TODO()); err != nil {
+				t.Error(err)
+			}
 			wg.Done()
 		}(i)
 	}
