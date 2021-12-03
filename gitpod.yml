@@ -1,0 +1,10 @@
+tasks:
+  - init: |
+      sudo docker pull registry.jetbrains.team/p/prj/containers/projector-goland
+    command: |
+      sudo chown -R 1000:1000 .jetbrains
+      sudo docker run --rm -p 8887:8887 -v /workspace/template-jetbrains-goland/.jetbrains:/home/projector-user -it registry.jetbrains.team/p/prj/containers/projector-goland
+ports:
+  - port: 8887
+    visibility: private
+    onOpen: open-browser
