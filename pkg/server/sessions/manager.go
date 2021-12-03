@@ -259,8 +259,7 @@ func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
 	if err != nil {
 		return err
 	}
-	sess.RemoveTransaction(tx.GetID())
-	return nil
+	return sess.RemoveTransaction(tx.GetID())
 }
 
 func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx, error) {
