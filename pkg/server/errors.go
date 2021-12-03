@@ -18,6 +18,7 @@ package server
 
 import (
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/server/sessions"
@@ -38,7 +39,7 @@ var (
 	ErrReservedDatabase            = errors.New("database is reserved")
 	ErrPermissionDenied            = errors.New("permission denied")
 	ErrNotSupported                = errors.New("operation not supported")
-	ErrNotLoggedIn                 = errors.New("not logged in")
+	ErrNotLoggedIn                 = auth.ErrNotLoggedIn
 	ErrReplicationInProgress       = errors.New("replication already in progress")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
 	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
