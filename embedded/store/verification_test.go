@@ -111,6 +111,14 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 
 		// Restore proof
 		dproof.SourceTxHeader.BlTxID--
+
+		// Alter proof
+		dproof.TargetTxHeader.BlTxID++
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
+		require.False(t, verifies)
+
+		// Restore proof
+		dproof.TargetTxHeader.BlTxID--
 	}
 
 	err = immuStore.Close()

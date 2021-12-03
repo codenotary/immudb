@@ -137,15 +137,15 @@ type EntrySpecDigest func(kv *EntrySpec) [sha256.Size]byte
 func EntrySpecDigestFor(version int) (EntrySpecDigest, error) {
 	switch version {
 	case 0:
-		return EntrySpecDigest_v1_1, nil
+		return EntrySpecDigest_v0, nil
 	case 1:
-		return EntrySpecDigest_v1_2, nil
+		return EntrySpecDigest_v1, nil
 	}
 
-	return nil, ErrIllegalArguments
+	return nil, ErrUnsupportedTxVersion
 }
 
-func EntrySpecDigest_v1_1(kv *EntrySpec) [sha256.Size]byte {
+func EntrySpecDigest_v0(kv *EntrySpec) [sha256.Size]byte {
 	b := make([]byte, len(kv.Key)+sha256.Size)
 
 	copy(b[:], kv.Key)
@@ -156,7 +156,7 @@ func EntrySpecDigest_v1_1(kv *EntrySpec) [sha256.Size]byte {
 	return sha256.Sum256(b)
 }
 
-func EntrySpecDigest_v1_2(kv *EntrySpec) [sha256.Size]byte {
+func EntrySpecDigest_v1(kv *EntrySpec) [sha256.Size]byte {
 	var mdbs []byte
 
 	if kv.Metadata != nil {

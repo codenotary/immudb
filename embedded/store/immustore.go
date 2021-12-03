@@ -67,6 +67,8 @@ var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
 var ErrIllegalState = tbtree.ErrIllegalState
 var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange
 var ErrUnexpectedError = errors.New("unexpected error")
+var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
+var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -683,9 +685,10 @@ func maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen int) 
 		txIDSize /*blTxID*/ +
 		sha256.Size /*blRoot*/ +
 		sha256.Size /*prevAlh*/ +
+		sszSize /*versioin*/ +
 		sszSize /*txMetadataLen*/ +
 		maxTxMetadataLen +
-		sszSize /*|entries|*/ +
+		lszSize /*|entries|*/ +
 		maxTxEntries*(sszSize /*kvMetadataLen*/ +
 			maxKVMetadataLen+
 			sszSize /*kLen*/ +
@@ -1041,22 +1044,34 @@ func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.Version))
 	txSize += sszSize
 
-	if tx.header.Version > 0 {
-		var txmdbs []byte
-
-		if tx.header.Metadata != nil {
-			txmdbs = tx.header.Metadata.Bytes()
+	switch tx.header.Version {
+	case 0:
+		{
+			binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.NEntries))
+			txSize += sszSize
 		}
+	case 1:
+		{
+			var txmdbs []byte
 
-		binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
-		txSize += sszSize
+			if tx.header.Metadata != nil {
+				txmdbs = tx.header.Metadata.Bytes()
+			}
 
-		copy(s._txbs[txSize:], txmdbs)
-		txSize += len(txmdbs)
+			binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
+			txSize += sszSize
+
+			copy(s._txbs[txSize:], txmdbs)
+			txSize += len(txmdbs)
+
+			binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(tx.header.NEntries))
+			txSize += lszSize
+		}
+	default:
+		{
+			panic(fmt.Errorf("missing tx serialization method for version %d", tx.header.Version))
+		}
 	}
-
-	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.NEntries))
-	txSize += sszSize
 
 	for i := 0; i < tx.header.NEntries; i++ {
 		txe := tx.entries[i]
