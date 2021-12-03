@@ -79,6 +79,7 @@ var reservedWords = map[string]int{
 	"NULL":           NULL,
 	"IF":             IF,
 	"IS":             IS,
+	"CAST":           CAST,
 }
 
 var joinTypes = map[string]JoinType{

@@ -1659,6 +1659,139 @@ func (v *SysFn) selectorRanges(table *Table, asTable string, params map[string]i
 	return nil
 }
 
+type Cast struct {
+	val ValueExp
+	t   SQLValueType
+}
+
+type converterFunc func(TypedValue) (TypedValue, error)
+
+func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
+	if dst == TimestampType {
+
+		if src == IntegerType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast null value to TIMESTAMP",
+						ErrIllegalArguments,
+					)
+				}
+				return &Timestamp{val: time.Unix(0, val.Value().(int64)).UTC()}, nil
+			}, nil
+		}
+
+		if src == VarcharType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast null value to TIMESTAMP",
+						ErrIllegalArguments,
+					)
+				}
+
+				str := val.Value().(string)
+				for _, layout := range []string{
+					"2006-01-02 15:04:05.999999999",
+					"2006-01-02 15:04",
+					"2006-01-02",
+				} {
+					t, err := time.ParseInLocation(layout, str, time.UTC)
+					if err == nil {
+						return &Timestamp{val: t.UTC()}, nil
+					}
+				}
+
+				if len(str) > 30 {
+					str = str[:30] + "..."
+				}
+
+				return nil, fmt.Errorf(
+					"%w: can not cast string '%s' as a TIMESTAMP",
+					ErrIllegalArguments,
+					str,
+				)
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
+			ErrUnsupportedCast,
+		)
+	}
+
+	return nil, fmt.Errorf(
+		"%w: can not cast %s value as %s",
+		ErrUnsupportedCast,
+		src, dst,
+	)
+}
+
+func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	valType, err := c.val.inferType(cols, params, implicitDB, implicitTable)
+	if err != nil {
+		return AnyType, err
+	}
+
+	_, err = c.getConverter(valType, c.t)
+	if err != nil {
+		return AnyType, err
+	}
+
+	return c.t, nil
+}
+
+func (c *Cast) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if c.t != t {
+		return fmt.Errorf(
+			"%w: can not use value cast to %s as %s",
+			ErrInvalidTypes,
+			c.t,
+			t,
+		)
+	}
+
+	return nil
+}
+
+func (c *Cast) substitute(params map[string]interface{}) (ValueExp, error) {
+	val, err := c.val.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+	c.val = val
+	return c, nil
+}
+
+func (c *Cast) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	val, err := c.val.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	conv, err := c.getConverter(val.Type(), c.t)
+	if conv == nil {
+		return nil, err
+	}
+
+	return conv(val)
+}
+
+func (c *Cast) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return &Cast{
+		val: c.val.reduceSelectors(row, implicitDB, implicitTable),
+		t:   c.t,
+	}
+}
+
+func (c *Cast) isConstant() bool {
+	return c.val.isConstant()
+}
+
+func (c *Cast) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
 type Param struct {
 	id  string
 	pos int

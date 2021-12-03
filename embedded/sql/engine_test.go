@@ -241,6 +241,99 @@ func TestTimestampIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
+func TestTimestampCasts(t *testing.T) {
+	st, err := store.Open("timestamp_casts", store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+	defer os.RemoveAll("timestamp_casts")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	sel := EncodeSelector("", "db1", "timestamp_table", "ts")
+
+	for _, d := range []struct {
+		str string
+		t   time.Time
+	}{
+		{"2021-12-03 16:14:21.1234", time.Date(2021, 12, 03, 16, 14, 21, 123400000, time.UTC)},
+		{"2021-12-03 16:14", time.Date(2021, 12, 03, 16, 14, 0, 0, time.UTC)},
+		{"2021-12-03", time.Date(2021, 12, 03, 0, 0, 0, 0, time.UTC)},
+	} {
+		t.Run(fmt.Sprintf("insert a timestamp value using a cast from '%s'", d.str), func(t *testing.T) {
+			_, _, err = engine.Exec(
+				fmt.Sprintf("INSERT INTO timestamp_table(ts) VALUES(CAST('%s' AS TIMESTAMP))", d.str), nil, nil)
+			require.NoError(t, err)
+
+			r, err := engine.Query("SELECT ts FROM timestamp_table ORDER BY id DESC LIMIT 1", nil, nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Equal(t, TimestampType, row.Values[sel].Type())
+			require.Equal(t, d.t, row.Values[sel].Value())
+		})
+	}
+
+	t.Run("insert a timestamp value using a cast from INTEGER", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO timestamp_table(ts) VALUES(CAST(123456 AS TIMESTAMP))", nil, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ts FROM timestamp_table ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, TimestampType, row.Values[sel].Type())
+		require.Equal(t, time.Unix(0, 123456).UTC(), row.Values[sel].Value())
+	})
+
+	t.Run("test casting from null values", func(t *testing.T) {
+		_, _, err = engine.Exec(`
+			CREATE TABLE IF NOT EXISTS values_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, str VARCHAR, i INTEGER, PRIMARY KEY id);
+			INSERT INTO values_table(ts, str,i) VALUES(NOW(), NULL, NULL);
+		`, nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			UPDATE values_table SET ts = CAST(str AS TIMESTAMP);
+		`, nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, err = engine.Exec(`
+			UPDATE values_table SET ts = CAST(i AS TIMESTAMP);
+		`, nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("test casting invalid string", func(t *testing.T) {
+		_, _, err = engine.Exec("INSERT INTO timestamp_table(ts) VALUES(CAST('not a datetime' AS TIMESTAMP))", nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "can not cast")
+
+		_, _, err = engine.Exec("INSERT INTO timestamp_table(ts) VALUES(CAST(@ts AS TIMESTAMP))", map[string]interface{}{
+			"ts": strings.Repeat("long string ", 1000),
+		}, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Less(t, len(err.Error()), 100)
+		require.Contains(t, err.Error(), "can not cast")
+		require.Contains(t, err.Error(), "...")
+	})
+
+}
+
 func TestAddColumn(t *testing.T) {
 	st, err := store.Open("sqldata_add_column", store.DefaultOptions())
 	require.NoError(t, err)

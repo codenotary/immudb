@@ -68,7 +68,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN IS
-%token AUTO_INCREMENT NULL NPARAM
+%token AUTO_INCREMENT NULL NPARAM CAST
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -360,6 +360,11 @@ val:
     BLOB
     {
         $$ = &Blob{val: $1}
+    }
+|
+    CAST '(' exp AS TYPE ')'
+    {
+        $$ = &Cast{val: $3, t: $5}
     }
 |
     IDENTIFIER '(' ')'

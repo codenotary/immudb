@@ -80,6 +80,7 @@ var ErrLimitedIndexCreation = errors.New("index creation is only supported on em
 var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = errors.New("sql engine already closed")
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
+var ErrUnsupportedCast = errors.New("unsupported cast")
 
 var maxKeyLen = 256
 
