@@ -18,6 +18,7 @@ package sessions
 
 import (
 	"context"
+	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -102,20 +103,27 @@ func (s *Session) removeTransaction(transactionID string) error {
 	return ErrTransactionNotFound
 }
 
-func (s *Session) RollbackTransactions() {
+func (s *Session) RollbackTransactions() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	merr := multierr.NewMultiErr()
 	for _, tx := range s.transactions {
 		s.log.Debugf("Deleting transaction %s", tx.GetID())
 		if err := tx.Rollback(); err != nil {
 			s.log.Errorf("Error while rolling back transaction %s: %v", tx.GetID(), err)
+			merr.Append(err)
 			continue
 		}
 		if err := s.removeTransaction(tx.GetID()); err != nil {
 			s.log.Errorf("Error while removing transaction %s: %v", tx.GetID(), err)
+			merr.Append(err)
 			continue
 		}
 	}
+	if merr.HasErrors() {
+		return merr
+	}
+	return nil
 }
 
 func (s *Session) GetID() string {

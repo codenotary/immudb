@@ -111,9 +111,11 @@ func (sm *manager) DeleteSession(sessionID string) error {
 	if !ok {
 		return ErrSessionNotFound
 	}
-	sess.RollbackTransactions()
-
+	err := sess.RollbackTransactions()
 	delete(sm.sessions, sessionID)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
