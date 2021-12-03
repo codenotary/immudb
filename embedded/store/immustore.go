@@ -531,7 +531,7 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 		if filter == nil {
 			return nil, ErrIllegalArguments
 		}
-		if !filter(valRef) {
+		if filter(valRef) {
 			return nil, ErrKeyNotFound
 		}
 	}
