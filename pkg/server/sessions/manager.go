@@ -196,17 +196,17 @@ func (sm *manager) expireSessions() {
 	now := time.Now()
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
-		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != Idle {
+		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdleTime).Before(now) && sess.GetStatus() != Idle {
 			sess.setStatus(Idle)
 			sm.logger.Debugf("session %s became Idle, no more heartbeat received", ID)
 		}
-		if sess.GetLastActivityTime().Add(sm.options.MaxSessionIdle).Before(now) && sess.GetStatus() != Idle {
+		if sess.GetLastActivityTime().Add(sm.options.MaxSessionIdleTime).Before(now) && sess.GetStatus() != Idle {
 			sess.setStatus(Idle)
 			sm.logger.Debugf("session %s became Idle due to max inactivity time", ID)
 		}
-		if sess.GetCreationTime().Add(sm.options.MaxSessionAge).Before(now) {
+		if sess.GetCreationTime().Add(sm.options.MaxSessionAgeTime).Before(now) {
 			sess.setStatus(Dead)
-			sm.logger.Debugf("session %s exceeded MaxSessionAge and became Dead", ID)
+			sm.logger.Debugf("session %s exceeded MaxSessionAgeTime and became Dead", ID)
 		}
 		if sess.GetStatus() == Idle {
 			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {

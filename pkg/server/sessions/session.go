@@ -70,6 +70,10 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	if mode == schema.TxMode_WRITE_ONLY {
+		// only in key-value mode, in sql we read catalog and write to it
+		return nil, ErrWriteOnlyTXNotAllowed
+	}
 	sqlTx, _, err := s.database.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
 	if err != nil {
 		return nil, err

@@ -61,8 +61,8 @@ func TestManager_ExpireSessions(t *testing.T) {
 
 	sessOptions := &Options{
 		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
-		MaxSessionIdle:            MAX_SESSION_IDLE,
-		MaxSessionAge:             MAX_SESSION_AGE,
+		MaxSessionIdleTime:        MAX_SESSION_IDLE,
+		MaxSessionAgeTime:         MAX_SESSION_AGE,
 		Timeout:                   TIMEOUT,
 	}
 	m, err := NewManager(sessOptions)

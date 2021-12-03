@@ -42,14 +42,12 @@ func TestTransaction_SetAndGet(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	require.NotNil(t, serverUUID)
-	require.NotNil(t, sessionID)
 	// tx mode
 	tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
-	err = tx.TxSQLExec(context.TODO(), `CREATE TABLE table1(
+	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
 		id INTEGER,
 		title VARCHAR,
 		active BOOLEAN,
@@ -64,10 +62,10 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	params["active"] = true
 	params["payload"] = []byte{1, 2, 3}
 
-	err = tx.TxSQLExec(context.TODO(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
+	err = tx.SQLExec(context.TODO(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
 	require.NoError(t, err)
 
-	res, err := tx.TxSQLQuery(context.TODO(), "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params, true)
+	res, err := tx.SQLQuery(context.TODO(), "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -91,11 +89,11 @@ func TestTransaction_Rollback(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	_, _, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 
 	tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
-	err = tx.TxSQLExec(context.TODO(), `CREATE TABLE table1(
+	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
 		id INTEGER,
 		PRIMARY KEY id
 		);`, nil)
@@ -107,7 +105,7 @@ func TestTransaction_Rollback(t *testing.T) {
 	tx1, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
 
-	res, err := tx1.TxSQLQuery(context.TODO(), "SELECT * FROM table1", nil, true)
+	res, err := tx1.SQLQuery(context.TODO(), "SELECT * FROM table1", nil)
 	require.Error(t, err)
 	require.Equal(t, "table does not exist", err.Error())
 	require.Nil(t, res)
@@ -128,10 +126,9 @@ func TestTransaction_MultipleReadWriteError(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	require.NotNil(t, serverUUID)
-	require.NotNil(t, sessionID)
+
 	tx1, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
 	tx2, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
@@ -152,32 +149,30 @@ func TestTransaction_MultipleReadAndOneReadWrite(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	require.NotNil(t, serverUUID)
-	require.NotNil(t, sessionID)
 
 	tx1, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
-	err = tx1.TxSQLExec(context.TODO(), `CREATE TABLE table1(id INTEGER,PRIMARY KEY id);`, nil)
+	err = tx1.SQLExec(context.TODO(), `CREATE TABLE table1(id INTEGER,PRIMARY KEY id);`, nil)
 	_, err = tx1.Commit(context.TODO())
 	require.NoError(t, err)
 
 	tx1, err = client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
-	err = tx1.TxSQLExec(context.TODO(), `CREATE TABLE table2(id INTEGER,PRIMARY KEY id);`, nil)
+	err = tx1.SQLExec(context.TODO(), `CREATE TABLE table2(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
 	tx2, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_ONLY})
-	err = tx2.TxSQLExec(context.TODO(), `CREATE TABLE table1(id INTEGER,PRIMARY KEY id);`, nil)
+	err = tx2.SQLExec(context.TODO(), `CREATE TABLE table1(id INTEGER,PRIMARY KEY id);`, nil)
 	require.Error(t, err)
 	require.Equal(t, err.(immuErrors.ImmuError).Error(), "read write transaction not ongoing")
-	_, err = tx2.TxSQLQuery(context.TODO(), "SELECT * FROM table1;", nil, true)
+	_, err = tx2.SQLQuery(context.TODO(), "SELECT * FROM table1;", nil)
 	require.NoError(t, err)
 
 	tx3, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_ONLY})
 	require.NoError(t, err)
-	_, err = tx3.TxSQLQuery(context.TODO(), "SELECT * FROM table1;", nil, true)
+	_, err = tx3.SQLQuery(context.TODO(), "SELECT * FROM table1;", nil)
 	require.NoError(t, err)
 }
 
@@ -193,14 +188,14 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	_, _, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 	txDefaultDB, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
-	err = txDefaultDB.TxSQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
+	err = txDefaultDB.SQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
 	client2 := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	_, _, err = client2.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client2.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 	err = client2.CreateDatabase(context.TODO(), &schema.DatabaseSettings{DatabaseName: "db2"})
 	require.NoError(t, err)
@@ -208,9 +203,9 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	require.NoError(t, err)
 	txDb2, err := client2.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 	require.NoError(t, err)
-	err = txDb2.TxSQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
+	err = txDb2.SQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
-	err = txDb2.TxSQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
+	err = txDb2.SQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
 	require.NoError(t, err)
 
 	txh1, err := txDefaultDB.Commit(context.TODO())

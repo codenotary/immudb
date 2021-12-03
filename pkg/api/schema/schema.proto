@@ -82,7 +82,7 @@ message MTLSConfig {
 }
 
 message OpenSessionRequest {
-	bytes user = 1;
+	bytes username = 1;
 	bytes password = 2;
 	string databaseName = 3;
 }

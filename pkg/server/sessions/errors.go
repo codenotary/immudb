@@ -33,3 +33,4 @@ var ErrTransactionNotFound = transactions.ErrTransactionNotFound
 var ErrGuardAlreadyRunning = errors.New("session guard already launched")
 var ErrGuardNotRunning = errors.New("session guard not running")
 var ErrMaxSessionsReached = errors.New("max sessions reached")
+var ErrWriteOnlyTXNotAllowed = errors.New("write only transaction not allowed")

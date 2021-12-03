@@ -28,7 +28,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -69,7 +68,7 @@ type ImmuClient interface {
 	// Deprecated: use CloseSession
 	Logout(ctx context.Context) error
 
-	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (serverUUID string, sessionID string, err error)
+	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error)
 	CloseSession(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
@@ -188,7 +187,6 @@ type immuClient struct {
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
 	TransactionID        string
-	sync.RWMutex
 }
 
 // DefaultClient ...

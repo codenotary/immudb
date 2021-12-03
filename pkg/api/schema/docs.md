@@ -729,7 +729,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
+| username | [bytes](#bytes) |  |  |
 | password | [bytes](#bytes) |  |  |
 | databaseName | [string](#string) |  |  |
 

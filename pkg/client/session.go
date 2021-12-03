@@ -14,37 +14,40 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (serverUUID string, sessionID string, err error) {
+func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error) {
+	if c.SessionID != "" {
+		return ErrSessionAlreadyOpen
+	}
 	c.Options.DialOptions = c.SetupDialOptions(c.Options)
 
 	if c.Options.ServerSigningPubKey != "" {
 		pk, e := signer.ParsePublicKeyFile(c.Options.ServerSigningPubKey)
 		if e != nil {
-			return "", "", e
+			return e
 		}
 		c.WithServerSigningPubKey(pk)
 	}
 
 	if c.Options.StreamChunkSize < stream.MinChunkSize {
-		return "", "", errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
+		return errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
 	}
 
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
-		return "", "", err
+		return err
 	}
 
 	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
 
 	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
-		User:         user,
+		Username:     user,
 		Password:     pass,
 		DatabaseName: database,
 	})
 	if err != nil {
-		return "", "", errors.FromError(err)
+		return errors.FromError(err)
 	}
 
-	c.SetSessionID(resp.GetSessionID())
+	c.SessionID = resp.GetSessionID()
 
 	c.HeartBeater = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient, c.Options.HeartBeatFrequency)
 	c.HeartBeater.KeepAlive(ctx)
@@ -53,14 +56,14 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 
 	stateService, err := state.NewStateServiceWithUUID(cache.NewFileCache(c.Options.Dir), c.Logger, stateProvider, resp.GetServerUUID())
 	if err != nil {
-		return "", "", errors.FromError(fmt.Errorf("unable to create state service: %v", err))
+		return errors.FromError(fmt.Errorf("unable to create state service: %v", err))
 	}
 
 	c.WithStateService(stateService)
 
 	c.Options.CurrentDatabase = database
 
-	return resp.GetServerUUID(), resp.GetSessionID(), nil
+	return nil
 }
 
 func (c *immuClient) CloseSession(ctx context.Context) error {
@@ -79,13 +82,5 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 }
 
 func (c *immuClient) GetSessionID() string {
-	c.RLock()
-	defer c.RUnlock()
 	return c.SessionID
-}
-
-func (c *immuClient) SetSessionID(sessionID string) {
-	c.Lock()
-	defer c.Unlock()
-	c.SessionID = sessionID
 }

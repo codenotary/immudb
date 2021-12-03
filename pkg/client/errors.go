@@ -30,6 +30,7 @@ var (
 	ErrNotConnected       = errors.New("not connected")
 	ErrHealthCheckFailed  = errors.New("health check failed")
 	ErrServerStateIsOlder = errors.New("server state is older than the client one")
+	ErrSessionAlreadyOpen = errors.New("session already open")
 )
 
 // Server errors mapping

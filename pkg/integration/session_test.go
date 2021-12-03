@@ -46,10 +46,8 @@ func TestSession_OpenCloseSession(t *testing.T) {
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	require.NotNil(t, serverUUID)
-	require.NotNil(t, sessionID)
 
 	client.Set(context.TODO(), []byte("my"), []byte("session"))
 
@@ -60,8 +58,8 @@ func TestSession_OpenCloseSession(t *testing.T) {
 func TestSession_OpenCloseSessionMulti(t *testing.T) {
 	sessOptions := &sessions.Options{
 		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionIdle:            time.Millisecond * 2000,
-		MaxSessionAge:             time.Millisecond * 4000,
+		MaxSessionIdleTime:        time.Millisecond * 2000,
+		MaxSessionAgeTime:         time.Millisecond * 4000,
 		Timeout:                   time.Millisecond * 2000,
 	}
 	options := server.DefaultOptions().WithSessionOptions(sessOptions).WithWebServer(false).WithPgsqlServer(false)
@@ -80,16 +78,15 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().
 				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
 				WithHeartBeatFrequency(time.Millisecond * 100))
-			serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 			require.NoError(t, err)
-			require.NotNil(t, serverUUID)
-			require.NotNil(t, sessionID)
 
 			min := 10
 			max := 100
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(max-min)+min))
 
-			client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i)))
+			_, err = client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i)))
+			require.NoError(t, err)
 
 			err = client.CloseSession(context.TODO())
 			require.NoError(t, err)
@@ -111,12 +108,11 @@ func TestSession_OpenCloseSessionWithStateSigner(t *testing.T) {
 	defer bs.Stop()
 
 	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	require.NotNil(t, serverUUID)
-	require.NotNil(t, sessionID)
 
-	client.Set(context.TODO(), []byte("my"), []byte("session"))
+	_, err = client.Set(context.TODO(), []byte("my"), []byte("session"))
+	require.NoError(t, err)
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)
@@ -131,8 +127,8 @@ func TestSession_OpenSessionNotConnected(t *testing.T) {
 func TestSession_ExpireSessions(t *testing.T) {
 	sessOptions := &sessions.Options{
 		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionIdle:            time.Millisecond * 200,
-		MaxSessionAge:             time.Millisecond * 900,
+		MaxSessionIdleTime:        time.Millisecond * 200,
+		MaxSessionAgeTime:         time.Millisecond * 900,
 		Timeout:                   time.Millisecond * 100,
 	}
 	options := server.DefaultOptions().WithSessionOptions(sessOptions)
@@ -151,10 +147,8 @@ func TestSession_ExpireSessions(t *testing.T) {
 		go func() {
 			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-			serverUUID, sessionID, err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 			require.NoError(t, err)
-			require.NotNil(t, serverUUID)
-			require.NotNil(t, sessionID)
 
 			tx, err := client.BeginTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_READ_WRITE})
 			require.NoError(t, err)
@@ -171,6 +165,5 @@ func TestSession_ExpireSessions(t *testing.T) {
 			wg.Done()
 		}()
 	}
-
 	wg.Wait()
 }

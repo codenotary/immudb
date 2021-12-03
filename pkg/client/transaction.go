@@ -31,8 +31,8 @@ type Tx interface {
 	Commit(ctx context.Context) (*schema.CommittedSQLTx, error)
 	Rollback(ctx context.Context) error
 
-	TxSQLExec(ctx context.Context, sql string, params map[string]interface{}) error
-	TxSQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
+	SQLExec(ctx context.Context, sql string, params map[string]interface{}) error
+	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
 }
 
 type tx struct {
@@ -51,6 +51,7 @@ func (c *tx) Rollback(ctx context.Context) error {
 }
 
 func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error) {
+
 	if options.TxMode == schema.TxMode_WRITE_ONLY {
 		// only in key-value mode, in sql we read catalog and write to it
 		return nil, ErrWriteOnlyTXNotAllowed
@@ -61,7 +62,7 @@ func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
-	c.SetTransactionID(r.TransactionID)
+	c.TransactionID = r.TransactionID
 	tx := &tx{
 		ic:            c,
 		transactionID: r.TransactionID,
@@ -69,7 +70,7 @@ func (c *immuClient) BeginTx(ctx context.Context, options *TxOptions) (Tx, error
 	return tx, nil
 }
 
-func (c *tx) TxSQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
+func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return errors.FromError(err)
@@ -81,27 +82,18 @@ func (c *tx) TxSQLExec(ctx context.Context, sql string, params map[string]interf
 	return errors.FromError(err)
 }
 
-func (c *tx) TxSQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
+func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
 	res, err := c.ic.ServiceClient.TxSQLQuery(ctx, &schema.SQLQueryRequest{
-		Sql:           sql,
-		Params:        namedParams,
-		ReuseSnapshot: !renewSnapshot,
+		Sql:    sql,
+		Params: namedParams,
 	})
 	return res, errors.FromError(err)
 }
 
 func (c *immuClient) GetTransactionID() string {
-	c.RLock()
-	defer c.RUnlock()
 	return c.TransactionID
-}
-
-func (c *immuClient) SetTransactionID(transactionID string) {
-	c.Lock()
-	defer c.Unlock()
-	c.TransactionID = transactionID
 }
