@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"math"
 	"net"
 	"net/http"
@@ -77,6 +78,8 @@ type ImmuServer struct {
 	PgsqlSrv             pgsqlsrv.Server
 
 	remoteStorage remotestorage.Storage
+
+	SessManager sessions.Manager
 }
 
 // DefaultServer ...

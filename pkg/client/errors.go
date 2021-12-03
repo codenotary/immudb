@@ -17,7 +17,7 @@ limitations under the License.
 package client
 
 import (
-	"errors"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -30,6 +30,7 @@ var (
 	ErrNotConnected       = errors.New("not connected")
 	ErrHealthCheckFailed  = errors.New("health check failed")
 	ErrServerStateIsOlder = errors.New("server state is older than the client one")
+	ErrSessionAlreadyOpen = errors.New("session already opened")
 )
 
 // Server errors mapping
@@ -37,4 +38,5 @@ var (
 	ErrSrvIllegalArguments   = status.Error(codes.InvalidArgument, "illegal arguments")
 	ErrSrvIllegalState       = status.Error(codes.InvalidArgument, "illegal state")
 	ErrSrvEmptyAdminPassword = status.Error(codes.InvalidArgument, "Admin password cannot be empty")
+	ErrWriteOnlyTXNotAllowed = status.Error(codes.InvalidArgument, "write only transaction not allowed")
 )

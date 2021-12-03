@@ -41,6 +41,38 @@ type ServerMock struct {
 	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
 
+func (s *ServerMock) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+	return s.Srv.TxSQLExec(ctx, request)
+}
+
+func (s *ServerMock) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	return s.Srv.TxSQLQuery(ctx, request)
+}
+
+func (s *ServerMock) NewTx(ctx context.Context, request *schema.NewTxRequest) (*schema.NewTxResponse, error) {
+	return s.Srv.NewTx(ctx, request)
+}
+
+func (s *ServerMock) Commit(ctx context.Context, e *empty.Empty) (*schema.CommittedSQLTx, error) {
+	return s.Srv.Commit(ctx, e)
+}
+
+func (s *ServerMock) Rollback(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+	return s.Srv.Rollback(ctx, e)
+}
+
+func (s *ServerMock) KeepAlive(ctx context.Context, request *empty.Empty) (*empty.Empty, error) {
+	return s.Srv.KeepAlive(ctx, request)
+}
+
+func (s *ServerMock) OpenSession(ctx context.Context, request *schema.OpenSessionRequest) (*schema.OpenSessionResponse, error) {
+	return s.Srv.OpenSession(ctx, request)
+}
+
+func (s *ServerMock) CloseSession(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
+	return s.Srv.CloseSession(ctx, e)
+}
+
 func (s *ServerMock) StreamExecAll(allServer schema.ImmuService_StreamExecAllServer) error {
 	return s.Srv.StreamExecAll(allServer)
 }

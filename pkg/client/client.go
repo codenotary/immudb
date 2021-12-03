@@ -23,14 +23,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 	"time"
-
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -59,24 +57,35 @@ import (
 type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
+	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
 	WaitForHealthCheck(ctx context.Context) (err error)
 	HealthCheck(ctx context.Context) error
+	// Deprecated: connection is handled in OpenSession
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
+	// Deprecated: use OpenSession
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	// Deprecated: use CloseSession
 	Logout(ctx context.Context) error
+
+	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error)
+	CloseSession(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
+	// Deprecated: will be removed in future versions
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
+	// Deprecated: will be removed in future versions
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
 	WithStateService(rs state.StateService) *immuClient
+	// Deprecated: will be removed in future versions
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
+	// Deprecated: will be removed in future versions
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService tokenservice.TokenService) *immuClient
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
@@ -159,6 +168,8 @@ type ImmuClient interface {
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
+
+	NewTx(ctx context.Context, opts *TxOptions) (Tx, error)
 }
 
 const DefaultDB = "defaultdb"
@@ -173,21 +184,24 @@ type immuClient struct {
 	Tkns                 tokenservice.TokenService
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
-	sync.RWMutex
+	SessionID            string
+	HeartBeater          heartbeater.HeartBeater
 }
 
 // DefaultClient ...
 func DefaultClient() *immuClient {
-	return &immuClient{
+	c := &immuClient{
 		Dir:                  "",
 		Options:              DefaultOptions(),
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
-		Tkns:                 tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
+		Tkns:                 tokenservice.NewInmemoryTokenService(),
 	}
+	return c
 }
 
 // NewImmuClient ...
+// Deprecated: use DefaultClient instead.
 func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
 
@@ -315,16 +329,18 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		token, err := c.Tkns.GetToken()
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
+			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
+			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
 		}
 	}
-	uic = append(uic, c.TokenInterceptor)
+	uic = append(uic, c.TokenInterceptor, c.SessionIDInjectorInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return opts
 }
 
+// Deprecated: use DefaultClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
@@ -333,6 +349,7 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 	return c.clientConn, nil
 }
 
+// Deprecated: use DefaultClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
 	start := time.Now()
 
@@ -1427,9 +1444,10 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	c.Options.CurrentDatabase = db.DatabaseName
 
-	err = c.Tkns.SetToken(db.DatabaseName, result.Token)
-	if err != nil {
-		return nil, errors.FromError(err)
+	if c.SessionID == "" {
+		if err = c.Tkns.SetToken(db.DatabaseName, result.Token); err != nil {
+			return nil, errors.FromError(err)
+		}
 	}
 
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))

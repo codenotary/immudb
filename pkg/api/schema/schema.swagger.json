@@ -1752,6 +1752,14 @@
         }
       }
     },
+    "schemaNewTxResponse": {
+      "type": "object",
+      "properties": {
+        "transactionID": {
+          "type": "string"
+        }
+      }
+    },
     "schemaOp": {
       "type": "object",
       "properties": {
@@ -1763,6 +1771,17 @@
         },
         "ref": {
           "$ref": "#/definitions/schemaReferenceRequest"
+        }
+      }
+    },
+    "schemaOpenSessionResponse": {
+      "type": "object",
+      "properties": {
+        "sessionID": {
+          "type": "string"
+        },
+        "serverUUID": {
+          "type": "string"
         }
       }
     },
@@ -2150,6 +2169,15 @@
           "format": "byte"
         }
       }
+    },
+    "schemaTxMode": {
+      "type": "string",
+      "enum": [
+        "ReadOnly",
+        "WriteOnly",
+        "ReadWrite"
+      ],
+      "default": "ReadOnly"
     },
     "schemaTxScanRequest": {
       "type": "object",

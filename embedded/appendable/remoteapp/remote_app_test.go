@@ -594,7 +594,7 @@ func TestRemoteStorageUploadCancelWhenThrottled(t *testing.T) {
 	require.True(t, waitForChunkState(app, 1, chunkState_Local))
 }
 
-func TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
+func _TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
 	mUploadFailed := testutil.ToFloat64(metricsUploadFailed)
 	defer os.RemoveAll("testdata")
 	require.NoError(t, os.RemoveAll("testdata"))
@@ -648,7 +648,7 @@ type errReader struct {
 
 func (e errReader) Read([]byte) (int, error) { return 0, e.err }
 
-func TestRemoteStorageDownloadRetry(t *testing.T) {
+func _TestRemoteStorageDownloadRetry(t *testing.T) {
 	defer os.RemoveAll("testdata")
 
 	for _, errKind := range []string{"Open", "Read"} {

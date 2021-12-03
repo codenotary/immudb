@@ -21,6 +21,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"time"
 )
 
 func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
@@ -59,6 +60,10 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("s3-secret-key", "", "s3 secret access key")
 	cmd.Flags().String("s3-bucket-name", "", "s3 bucket name")
 	cmd.Flags().String("s3-path-prefix", "", "s3 path prefix (multiple immudb instances can share the same bucket if they have different prefixes)")
+	cmd.Flags().Duration("max-session-idle-time", 5*time.Second, "max session idle time")
+	cmd.Flags().Duration("max-session-age-time", 300*time.Second, "max session age time")
+	cmd.Flags().Duration("session-timeout", 7*time.Second, "session timeout")
+	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Second, "sessions guard check interval")
 }
 
 func setupDefaults(options *server.Options) {
@@ -91,4 +96,8 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("s3-secret-key", "")
 	viper.SetDefault("s3-bucket-name", "")
 	viper.SetDefault("s3-path-prefix", "")
+	viper.SetDefault("max-session-idle-time", 5*time.Second)
+	viper.SetDefault("max-session-age-time", 300*time.Second)
+	viper.SetDefault("session-timeout", 7*time.Second)
+	viper.SetDefault("sessions-guard-check-interval", 1*time.Second)
 }
