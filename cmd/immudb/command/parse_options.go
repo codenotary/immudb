@@ -18,6 +18,7 @@ package immudb
 
 import (
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/spf13/viper"
 )
 
@@ -79,6 +80,12 @@ func parseOptions() (options *server.Options, err error) {
 		WithS3BucketName(s3BucketName).
 		WithS3PathPrefix(s3PathPrefix)
 
+	sessionOptions := sessions.DefaultOptions().
+		WithSessionGuardCheckInterval(viper.GetDuration("sessions-guard-check-interval")).
+		WithMaxSessionIdleTime(viper.GetDuration("max-session-idle-time")).
+		WithMaxSessionAgeTime(viper.GetDuration("max-session-age-time")).
+		WithTimeout(viper.GetDuration("session-timeout"))
+
 	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
 	if err != nil {
 		return options, err
@@ -107,7 +114,8 @@ func parseOptions() (options *server.Options, err error) {
 		WithWebServer(webServer).
 		WithWebServerPort(webServerPort).
 		WithPgsqlServer(pgsqlServer).
-		WithPgsqlServerPort(pgsqlServerPort)
+		WithPgsqlServerPort(pgsqlServerPort).
+		WithSessionOptions(sessionOptions)
 
 	return options, nil
 }

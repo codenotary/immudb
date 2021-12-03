@@ -62,7 +62,12 @@ Environment variables:
   IMMUDB_TOKEN_EXPIRY_TIME=1440
   IMMUDB_PGSQL_SERVER=true
   IMMUDB_PGSQL_SERVER_PORT=5432
+  IMMUDB_MAX_SESSION_AGE_TIME=5m0s
+  IMMUDB_MAX_SESSION_IDLE_TIME=5s
+  IMMUDB_SESSION_TIMEOUT=7s
+  IMMUDB_SESSIONS_GUARD_CHECK_INTERVAL=1s
   LOG_LEVEL={debug|info|warning|error}
+
 `,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),

@@ -36,3 +36,22 @@ func DefaultOptions() *Options {
 		Timeout:                   time.Second * 7,
 	}
 }
+
+func (o *Options) WithSessionGuardCheckInterval(interval time.Duration) *Options {
+	o.SessionGuardCheckInterval = interval
+	return o
+}
+func (o *Options) WithMaxSessionIdleTime(maxIdleTime time.Duration) *Options {
+	o.MaxSessionIdleTime = maxIdleTime
+	return o
+}
+
+func (o *Options) WithMaxSessionAgeTime(maxAgeTime time.Duration) *Options {
+	o.MaxSessionAgeTime = maxAgeTime
+	return o
+}
+
+func (o *Options) WithTimeout(timeout time.Duration) *Options {
+	o.Timeout = timeout
+	return o
+}
