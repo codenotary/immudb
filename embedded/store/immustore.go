@@ -865,11 +865,17 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		s.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
-	s.mutex.Unlock()
 
 	if otx == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		s.mutex.Unlock()
+		return nil, ErrTxReadConflict
+	}
+
+	s.mutex.Unlock()
 
 	err := s.validateEntries(otx.entries)
 	if err != nil {
