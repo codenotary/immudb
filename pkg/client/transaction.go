@@ -42,14 +42,12 @@ type tx struct {
 }
 
 func (c *tx) Commit(ctx context.Context) (*schema.CommittedSQLTx, error) {
-	ctx = c.populateCtx(ctx)
-	cmtx, err := c.ic.ServiceClient.Commit(ctx, new(empty.Empty))
+	cmtx, err := c.ic.ServiceClient.Commit(c.populateCtx(ctx), new(empty.Empty))
 	return cmtx, errors.FromError(err)
 }
 
 func (c *tx) Rollback(ctx context.Context) error {
-	ctx = c.populateCtx(ctx)
-	_, err := c.ic.ServiceClient.Rollback(ctx, new(empty.Empty))
+	_, err := c.ic.ServiceClient.Rollback(c.populateCtx(ctx), new(empty.Empty))
 	return errors.FromError(err)
 }
 
@@ -72,12 +70,11 @@ func (c *immuClient) NewTx(ctx context.Context, options *TxOptions) (Tx, error) 
 }
 
 func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
-	ctx = c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return errors.FromError(err)
 	}
-	_, err = c.ic.ServiceClient.TxSQLExec(ctx, &schema.SQLExecRequest{
+	_, err = c.ic.ServiceClient.TxSQLExec(c.populateCtx(ctx), &schema.SQLExecRequest{
 		Sql:    sql,
 		Params: namedParams,
 	})
@@ -85,12 +82,11 @@ func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interfac
 }
 
 func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
-	ctx = c.populateCtx(ctx)
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
 		return nil, errors.FromError(err)
 	}
-	res, err := c.ic.ServiceClient.TxSQLQuery(ctx, &schema.SQLQueryRequest{
+	res, err := c.ic.ServiceClient.TxSQLQuery(c.populateCtx(ctx), &schema.SQLQueryRequest{
 		Sql:    sql,
 		Params: namedParams,
 	})
@@ -102,13 +98,8 @@ func (c *tx) GetTransactionID() string {
 }
 
 func (tx *tx) populateCtx(ctx context.Context) context.Context {
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.New(nil)
-	}
-
 	if tx.GetTransactionID() != "" {
-		md.Set("transactionid", tx.GetTransactionID())
+		ctx = metadata.AppendToOutgoingContext(ctx, "transactionid", tx.GetTransactionID())
 	}
-	return metadata.NewOutgoingContext(ctx, md)
+	return ctx
 }
