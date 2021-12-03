@@ -876,10 +876,6 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, err
 	}
 
-	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
-		return nil, ErrTxReadConflict
-	}
-
 	var ts int64
 	var blTxID uint64
 	var version int
@@ -971,6 +967,11 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	if s.closed {
 		s.mutex.Unlock()
 		return nil, ErrAlreadyClosed
+	}
+
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		s.mutex.Unlock()
+		return nil, ErrTxReadConflict
 	}
 
 	for i := 0; i < tx.header.NEntries; i++ {
