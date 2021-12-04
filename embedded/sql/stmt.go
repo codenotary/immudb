@@ -425,7 +425,7 @@ func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, params map[string]SQLValu
 
 	for _, row := range stmt.rows {
 		if len(stmt.cols) != len(row.Values) {
-			return ErrIllegalArguments
+			return ErrInvalidNumberOfValues
 		}
 
 		for i, val := range row.Values {
@@ -460,7 +460,7 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 
 		_, duplicated := selPosByColID[col.id]
 		if duplicated {
-			return nil, ErrDuplicatedColumn
+			return nil, fmt.Errorf("%w (%s)", ErrDuplicatedColumn, col.colName)
 		}
 
 		selPosByColID[col.id] = i
@@ -496,13 +496,13 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			if !specified {
 				// TODO: Default values
 				if col.notNull {
-					return nil, ErrNotNullableColumnCannotBeNull
+					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
 				continue
 			}
 
 			if stmt.isInsert && col.autoIncrement {
-				return nil, ErrNoValueForAutoIncrementalColumn
+				return nil, fmt.Errorf("%w (%s)", ErrNoValueForAutoIncrementalColumn, col.colName)
 			}
 
 			cVal := row.Values[colPos]
@@ -520,7 +520,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			_, isNull := rval.(*NullValue)
 			if isNull {
 				if col.notNull {
-					return nil, ErrNotNullableColumnCannotBeNull
+					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
 
 				continue
@@ -1306,7 +1306,7 @@ func (v *Number) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 
 func (v *Number) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != IntegerType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
 	return nil
@@ -1373,7 +1373,7 @@ func (v *Timestamp) inferType(cols map[string]ColDescriptor, params map[string]S
 
 func (v *Timestamp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != TimestampType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
 	}
 
 	return nil
@@ -1440,7 +1440,7 @@ func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQL
 
 func (v *Varchar) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != VarcharType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, VarcharType, t)
 	}
 
 	return nil
@@ -1499,7 +1499,7 @@ func (v *Bool) inferType(cols map[string]ColDescriptor, params map[string]SQLVal
 
 func (v *Bool) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != BooleanType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
 
 	return nil
@@ -1566,7 +1566,7 @@ func (v *Blob) inferType(cols map[string]ColDescriptor, params map[string]SQLVal
 
 func (v *Blob) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != BLOBType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BLOBType, t)
 	}
 
 	return nil
@@ -1620,19 +1620,19 @@ func (v *SysFn) inferType(cols map[string]ColDescriptor, params map[string]SQLVa
 		return TimestampType, nil
 	}
 
-	return AnyType, ErrIllegalArguments
+	return AnyType, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
 func (v *SysFn) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if strings.ToUpper(v.fn) == "NOW" {
 		if t != TimestampType {
-			return ErrInvalidTypes
+			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
 		}
 
 		return nil
 	}
 
-	return ErrIllegalArguments
+	return fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
 func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1644,7 +1644,7 @@ func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable str
 		return &Timestamp{val: time.Now().UTC()}, nil
 	}
 
-	return nil, errors.New("not yet supported")
+	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
 func (v *SysFn) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
@@ -2273,7 +2273,7 @@ func (sel *ColSelector) requiresType(t SQLValueType, cols map[string]ColDescript
 	}
 
 	if desc.Type != t {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v(%s) can not be interpreted as type %v", ErrInvalidTypes, desc.Type, encSel, t)
 	}
 
 	return nil
@@ -2292,7 +2292,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
-		return nil, ErrColumnDoesNotExist
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
 
 	return v, nil
@@ -2361,7 +2361,7 @@ func (sel *AggColSelector) inferType(cols map[string]ColDescriptor, params map[s
 	if sel.aggFn == SUM || sel.aggFn == AVG {
 		err := colSelector.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
 		if err != nil {
-			return AnyType, ErrInvalidTypes
+			return AnyType, err
 		}
 
 		return IntegerType, nil
@@ -2373,7 +2373,7 @@ func (sel *AggColSelector) inferType(cols map[string]ColDescriptor, params map[s
 func (sel *AggColSelector) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if sel.aggFn == COUNT {
 		if t != IntegerType {
-			return ErrInvalidTypes
+			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 		}
 		return nil
 	}
@@ -2394,7 +2394,7 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	v, ok := row.Values[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
 	if !ok {
-		return nil, ErrColumnDoesNotExist
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, sel.col)
 	}
 	return v, nil
 }
@@ -2432,7 +2432,7 @@ func (bexp *NumExp) inferType(cols map[string]ColDescriptor, params map[string]S
 
 func (bexp *NumExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != IntegerType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
 	err := bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
@@ -2543,7 +2543,7 @@ func (bexp *NotBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 
 func (bexp *NotBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != BooleanType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
 
 	return bexp.exp.requiresType(BooleanType, cols, params, implicitDB, implicitTable)
@@ -2712,7 +2712,7 @@ func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 	}
 
 	if tleft != AnyType && tright != AnyType {
-		return AnyType, ErrInvalidTypes
+		return AnyType, fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, tleft, tright)
 	}
 
 	if tleft == AnyType {
@@ -2734,7 +2734,7 @@ func (bexp *CmpBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 
 func (bexp *CmpBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != BooleanType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
 
 	_, err := bexp.inferType(cols, params, implicitDB, implicitTable)
@@ -2940,7 +2940,7 @@ func (bexp *BinBoolExp) inferType(cols map[string]ColDescriptor, params map[stri
 
 func (bexp *BinBoolExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != BooleanType {
-		return ErrInvalidTypes
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, BooleanType, t)
 	}
 
 	err := bexp.left.requiresType(BooleanType, cols, params, implicitDB, implicitTable)

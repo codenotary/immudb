@@ -137,7 +137,10 @@ func TestTimestampType(t *testing.T) {
 
 		tsAfter := time.Now().UTC()
 
-		r, err := engine.Query("SELECT ts FROM timestamp_table ORDER BY id DESC LIMIT 1", nil, nil)
+		_, err := engine.InferParameters("SELECT ts FROM timestamp_table WHERE ts < 1 + NOW()", nil)
+		require.ErrorIs(t, err, ErrInvalidTypes)
+
+		r, err := engine.Query("SELECT ts FROM timestamp_table WHERE ts < NOW() ORDER BY id DESC LIMIT 1", nil, nil)
 		require.NoError(t, err)
 		defer r.Close()
 
@@ -447,7 +450,7 @@ func TestUpsertInto(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
-	require.Equal(t, ErrNotNullableColumnCannotBeNull, err)
+	require.ErrorIs(t, err, ErrNotNullableColumnCannotBeNull)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, age) VALUES (1, 50)", nil, nil)
 	require.Equal(t, ErrColumnDoesNotExist, err)
@@ -542,7 +545,7 @@ func TestUpsertInto(t *testing.T) {
 	require.Equal(t, ErrInvalidNumberOfValues, err)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, id) VALUES (1, 2)", nil, nil)
-	require.Equal(t, ErrDuplicatedColumn, err)
+	require.ErrorIs(t, err, ErrDuplicatedColumn)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, active) VALUES ('1', true)", nil, nil)
 	require.ErrorIs(t, err, ErrInvalidValue)
@@ -2216,7 +2219,7 @@ func TestQueryWithNullables(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("INSERT INTO table1 (id, ts, title) VALUES (1, TIME(), 'title1')", nil, nil)
-	require.Equal(t, ErrNoSupported, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rowCount := 10
 
@@ -2729,7 +2732,7 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrColumnDoesNotExist, err)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2928,7 +2931,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrColumnDoesNotExist, err)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3702,7 +3705,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.Equal(t, ErrInferredMultipleTypes, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1)", nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrInvalidNumberOfValues, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable1(id, title) VALUES (@param1, @param2)", nil)
 	require.Equal(t, ErrTableDoesNotExist, err)

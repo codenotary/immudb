@@ -26,6 +26,7 @@ import (
 func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 	cols := make(map[string]ColDescriptor)
 	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ts)"] = ColDescriptor{Type: TimestampType}
 	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
@@ -62,6 +63,24 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 		},
 		{
 			exp:           &ColSelector{db: "db1", table: "mytable", col: "id"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "ts"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  TimestampType,
+			expectedError: nil,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "ts"},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -196,7 +215,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -442,7 +461,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -547,7 +566,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -661,6 +680,7 @@ func TestIsConstant(t *testing.T) {
 	require.True(t, (&Varchar{}).isConstant())
 	require.True(t, (&Bool{}).isConstant())
 	require.True(t, (&Blob{}).isConstant())
+	require.True(t, (&Timestamp{}).isConstant())
 	require.True(t, (&Param{}).isConstant())
 	require.False(t, (&ColSelector{}).isConstant())
 	require.False(t, (&AggColSelector{}).isConstant())
