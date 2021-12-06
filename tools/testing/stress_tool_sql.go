@@ -52,6 +52,8 @@ type cfg struct {
 	compactCycles int
 	verifiers     int
 	vrCount       int
+	sessionMode   bool
+	transactions  bool
 }
 
 func parseConfig() (c cfg) {
@@ -78,6 +80,9 @@ func parseConfig() (c cfg) {
 	flag.IntVar(&c.verifiers, "verifiers", 0, "number of verifiers readers")
 	flag.IntVar(&c.vrCount, "vrCount", 100, "number of reads for each verifiers")
 
+	flag.BoolVar(&c.sessionMode, "sessionMode", false, "use sessions auth mechanism mode")
+	flag.BoolVar(&c.transactions, "transactions", false, "use transactions to insert data")
+
 	flag.Parse()
 	return
 }
@@ -86,53 +91,59 @@ func connect(config cfg) (immuclient.ImmuClient, context.Context) {
 	opts := immuclient.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
 	ctx := context.Background()
 
-	client, err := immuclient.NewImmuClient(opts)
-	if err != nil {
-		log.Fatalln("Failed to connect. Reason:", err)
-	}
-	_, err = client.Login(ctx, []byte(config.Username), []byte(config.Password))
-	if err != nil {
-		log.Fatalln("Failed to login. Reason:", err.Error())
-	}
+	var client immuclient.ImmuClient
+	var err error
 
-	_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: config.DBName})
-	if err != nil {
-		log.Fatalln("Failed to use the database. Reason:", err)
+	if config.sessionMode {
+		client = immuclient.DefaultClient()
+		err = client.OpenSession(ctx, []byte(config.Username), []byte(config.Password), config.DBName)
+		if err != nil {
+			log.Fatalln("Failed to connect. Reason:", err)
+		}
+	} else {
+		client, err = immuclient.NewImmuClient(opts)
+		if err != nil {
+			log.Fatalln("Failed to connect. Reason:", err)
+		}
+		_, err = client.Login(ctx, []byte(config.Username), []byte(config.Password))
+		if err != nil {
+			log.Fatalln("Failed to login. Reason:", err.Error())
+		}
+		_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: config.DBName})
+		if err != nil {
+			log.Fatalln("Failed to use the database. Reason:", err)
+		}
 	}
-
 	return client, ctx
 }
 
 func idGenerator(c cfg) chan int {
 	// incremental id generator
-	ids := make(chan int)
+	ids := make(chan int, 100)
 	go func() {
-		for i := 1; ; i++ {
-			ids <- i
+		for true {
+			ids <- int(time.Now().UnixNano())
 		}
 	}()
 	return ids
 }
 func entriesGenerator(c cfg, ids chan int) chan Entry {
-	entries := make(chan Entry)
+	entries := make(chan Entry, 100)
 	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < c.committers; i++ {
-		go func(id int) {
-			log.Printf("Worker %d is generating rows...\r\n", id)
-
-			for i := 0; i < c.kvCount; i++ {
-				id := <-ids
-				v := make([]byte, c.vLen)
-				if c.rndValues {
-					rand.Read(v)
-				} else {
-					copy(v, []byte("mariposa"))
-				}
-
-				entries <- Entry{id: id, value: v}
+	go func() {
+		log.Printf("Worker is generating rows...\r\n")
+		for true {
+			id := <-ids
+			v := make([]byte, c.vLen)
+			if c.rndValues {
+				rand.Read(v)
+			} else {
+				copy(v, []byte("mariposa"))
 			}
-		}(i)
-	}
+			entries <- Entry{id: id, value: v}
+		}
+	}()
+
 	return entries
 }
 
@@ -148,6 +159,30 @@ func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries
 	}
 	wg.Done()
 	log.Printf("Committer %d done...\r\n", cid)
+}
+
+func committerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
+	log.Printf("Transactions committer %d is inserting data...\r\n", cid)
+	tx, err := client.NewTx(ctx, &immuclient.TxOptions{TxMode: schema.TxMode_ReadWrite})
+	if err != nil {
+		log.Fatalf("Transactions committer %d: Error while creating transaction: %s", cid, err)
+	}
+	for i := 0; i < c.kvCount; i++ {
+		entry := <-entries
+		err = tx.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+			map[string]interface{}{"id": entry.id, "value": entry.value})
+		if err != nil {
+			log.Fatalf("Transactions committer %d: Error while inserting value %d [%d]: %s", cid, entry.id, i, err)
+		}
+	}
+	_, err = tx.Commit(ctx)
+	if err != nil {
+		if err.Error() != "tx read conflict" {
+			log.Fatalf("Transactions committer %d: Error while committing transaction: %s", cid, err)
+		}
+	}
+	wg.Done()
+	log.Printf("Transactions committer %d done...\r\n", cid)
 }
 
 func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
@@ -171,6 +206,38 @@ func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg
 	}
 	wg.Done()
 	log.Printf("Reader %d out\n", id)
+}
+
+func readerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+	if c.readDelay > 0 { // give time to populate db
+		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
+	}
+	log.Printf("Transactions reader %d is reading data\n", id)
+
+	tx, err := client.NewTx(ctx, &immuclient.TxOptions{TxMode: schema.TxMode_ReadOnly})
+	if err != nil {
+		log.Fatalf("Transactions reader %d: Error while creating transaction: %s", id, err)
+	}
+	for i := 1; i <= c.rdCount; i++ {
+		r, err := tx.SQLQuery(ctx, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i})
+		if err != nil {
+			log.Fatalf("Error querying val %d: %s", i, err.Error())
+		}
+		ret := r.Rows[0]
+		n := ret.Values[0].GetN()
+		if n != int64(i) {
+			log.Printf("Transactions reader %d read %d vs %d", id, n, i)
+		}
+		if c.readPause > 0 {
+			time.Sleep(time.Duration(c.readPause) * time.Millisecond)
+		}
+	}
+	_, err = tx.Commit(ctx)
+	if err != nil {
+		return
+	}
+	wg.Done()
+	log.Printf("Transactions reader %d out\n", id)
 }
 
 func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
@@ -232,12 +299,20 @@ func main() {
 
 	for i := 0; i < c.committers; i++ {
 		wg.Add(1)
-		go committer(ctx, client, c, entries, i, &wg)
+		if c.sessionMode && c.transactions {
+			go committerWithTxs(ctx, client, c, entries, i, &wg)
+		} else {
+			go committer(ctx, client, c, entries, i, &wg)
+		}
 	}
 
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
-		go reader(ctx, client, c, i, &wg)
+		if c.sessionMode && c.transactions {
+			go readerWithTxs(ctx, client, c, i, &wg)
+		} else {
+			go reader(ctx, client, c, i, &wg)
+		}
 	}
 	for i := 0; i < c.verifiers; i++ {
 		wg.Add(1)
