@@ -25,7 +25,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -91,17 +90,16 @@ func connect(config cfg) (immuclient.ImmuClient, context.Context) {
 	if err != nil {
 		log.Fatalln("Failed to connect. Reason:", err)
 	}
-	login, err := client.Login(ctx, []byte(config.Username), []byte(config.Password))
+	_, err = client.Login(ctx, []byte(config.Username), []byte(config.Password))
 	if err != nil {
 		log.Fatalln("Failed to login. Reason:", err.Error())
 	}
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", login.GetToken()))
 
-	udr, err := client.UseDatabase(ctx, &schema.Database{DatabaseName: config.DBName})
+	_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: config.DBName})
 	if err != nil {
 		log.Fatalln("Failed to use the database. Reason:", err)
 	}
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", udr.GetToken()))
+
 	return client, ctx
 }
 
