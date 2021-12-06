@@ -979,7 +979,9 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 				return nil, err
 			}
 
-			valuesByColID[col.id] = rval
+			if rval.Value() != nil {
+				valuesByColID[col.id] = rval
+			}
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
