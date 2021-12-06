@@ -4136,6 +4136,14 @@ func TestEncodeAsKeyEdgeCases(t *testing.T) {
 		_, err = EncodeAsKey([]byte{1, 2, 3}, BLOBType, 2)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
 	})
+
+	t.Run("timestamp cases", func(t *testing.T) {
+		_, err = EncodeAsKey(true, TimestampType, 8)
+		require.ErrorIs(t, err, ErrInvalidValue)
+
+		_, err = EncodeAsKey(int64(10), TimestampType, 4)
+		require.ErrorIs(t, err, ErrCorruptedData)
+	})
 }
 
 func TestIndexingNullableColumns(t *testing.T) {

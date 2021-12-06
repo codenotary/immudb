@@ -26,6 +26,7 @@ func TestCountValue(t *testing.T) {
 	cval := &CountValue{}
 	require.Equal(t, "", cval.Selector())
 	require.False(t, cval.ColBounded())
+	require.False(t, cval.IsNull())
 
 	err := cval.updateWith(&Bool{val: true})
 	require.NoError(t, err)
@@ -82,6 +83,7 @@ func TestSumValue(t *testing.T) {
 	cval := &SumValue{sel: "db1.table1.amount"}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
+	require.False(t, cval.IsNull())
 
 	err := cval.updateWith(&Number{val: 1})
 	require.NoError(t, err)
@@ -141,6 +143,7 @@ func TestMinValue(t *testing.T) {
 	cval := &MinValue{sel: "db1.table1.amount"}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
+	require.False(t, cval.IsNull())
 
 	_, err := cval.inferType(nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
@@ -206,6 +209,7 @@ func TestMaxValue(t *testing.T) {
 	cval := &MaxValue{sel: "db1.table1.amount"}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
+	require.False(t, cval.IsNull())
 
 	_, err := cval.inferType(nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
@@ -271,6 +275,7 @@ func TestAVGValue(t *testing.T) {
 	cval := &AVGValue{sel: "db1.table1.amount"}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
+	require.False(t, cval.IsNull())
 
 	err := cval.updateWith(&Number{val: 10})
 	require.NoError(t, err)
