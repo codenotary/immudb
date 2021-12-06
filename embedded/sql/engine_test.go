@@ -191,7 +191,9 @@ func TestTimestampType(t *testing.T) {
 
 		_, err = r.Read()
 		require.ErrorIs(t, err, ErrNoMoreRows)
-		r.Close()
+
+		err = r.Close()
+		require.NoError(t, err)
 
 		r, err = engine.Query("SELECT ts FROM timestamp_table WHERE ts = @ts ORDER BY id", map[string]interface{}{
 			"ts": "2021-12-06 10:14",
@@ -199,8 +201,10 @@ func TestTimestampType(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = r.Read()
-		require.ErrorIs(t, err, ErrNoMoreRows)
-		r.Close()
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 }
 
@@ -313,12 +317,12 @@ func TestTimestampCasts(t *testing.T) {
 		_, _, err = engine.Exec(`
 			UPDATE values_table SET ts = CAST(str AS TIMESTAMP);
 		`, nil, nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.NoError(t, err)
 
 		_, _, err = engine.Exec(`
 			UPDATE values_table SET ts = CAST(i AS TIMESTAMP);
 		`, nil, nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.NoError(t, err)
 	})
 
 	t.Run("test casting invalid string", func(t *testing.T) {

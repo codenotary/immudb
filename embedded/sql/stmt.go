@@ -517,8 +517,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				return nil, err
 			}
 
-			_, isNull := rval.(*NullValue)
-			if isNull {
+			if rval.IsNull() {
 				if col.notNull {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
@@ -602,8 +601,15 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 
 	valbuf := bytes.Buffer{}
 
+	// null values are not serialized
+	encodedVals := 0
+	for _, v := range valuesByColID {
+		if !v.IsNull() {
+			encodedVals++
+		}
+	}
 	b := make([]byte, EncLenLen)
-	binary.BigEndian.PutUint32(b, uint32(len(valuesByColID)))
+	binary.BigEndian.PutUint32(b, uint32(encodedVals))
 
 	_, err := valbuf.Write(b)
 	if err != nil {
@@ -611,8 +617,8 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 	}
 
 	for _, col := range table.cols {
-		rval, notNull := valuesByColID[col.id]
-		if !notNull {
+		rval, specified := valuesByColID[col.id]
+		if !specified || rval.IsNull() {
 			continue
 		}
 
@@ -676,8 +682,8 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 				return ErrMaxKeyLengthExceeded
 			}
 
-			rval, isNotNull := valuesByColID[col.id]
-			if !isNotNull {
+			rval, specified := valuesByColID[col.id]
+			if !specified {
 				rval = &NullValue{t: col.colType}
 			}
 
@@ -717,8 +723,8 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 	valbuf := bytes.Buffer{}
 
 	for _, col := range table.primaryIndex.cols {
-		rval, notNull := valuesByColID[col.id]
-		if !notNull {
+		rval, specified := valuesByColID[col.id]
+		if !specified || rval.IsNull() {
 			return nil, ErrPKCanNotBeNull
 		}
 
@@ -802,13 +808,13 @@ func (tx *SQLTx) deprecateIndexEntries(
 		sameIndexKey := true
 
 		for i, col := range index.cols {
-			currVal, isNotNull := currValuesByColID[col.id]
-			if !isNotNull {
+			currVal, specified := currValuesByColID[col.id]
+			if !specified {
 				currVal = &NullValue{t: col.colType}
 			}
 
-			newVal, isNotNull := newValuesByColID[col.id]
-			if !isNotNull {
+			newVal, specified := newValuesByColID[col.id]
+			if !specified {
 				newVal = &NullValue{t: col.colType}
 			}
 
@@ -979,9 +985,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 				return nil, err
 			}
 
-			if rval.Value() != nil {
-				valuesByColID[col.id] = rval
-			}
+			valuesByColID[col.id] = rval
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
@@ -1085,23 +1089,15 @@ func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint3
 		encodedValues[1] = EncodeID(table.id)
 		encodedValues[2] = EncodeID(index.id)
 
-		// some rows might not indexed by every index
-		indexed := true
-
 		for i, col := range index.cols {
-			val, notNull := valuesByColID[col.id]
-			if !notNull {
-				indexed = false
-				break
+			val, specified := valuesByColID[col.id]
+			if !specified {
+				val = &NullValue{t: col.colType}
 			}
 
 			encVal, _ := EncodeAsKey(val.Value(), col.colType, col.MaxLen())
 
 			encodedValues[i+3] = encVal
-		}
-
-		if !indexed {
-			continue
 		}
 
 		err := sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), store.NewKVMetadata().AsDeleted(true), nil)
@@ -1230,6 +1226,7 @@ type TypedValue interface {
 	Type() SQLValueType
 	Value() interface{}
 	Compare(val TypedValue) (int, error)
+	IsNull() bool
 }
 
 type NullValue struct {
@@ -1242,6 +1239,10 @@ func (n *NullValue) Type() SQLValueType {
 
 func (n *NullValue) Value() interface{} {
 	return nil
+}
+
+func (n *NullValue) IsNull() bool {
+	return true
 }
 
 func (n *NullValue) Compare(val TypedValue) (int, error) {
@@ -1302,6 +1303,10 @@ func (v *Number) Type() SQLValueType {
 	return IntegerType
 }
 
+func (v *Number) IsNull() bool {
+	return false
+}
+
 func (v *Number) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return IntegerType, nil
 }
@@ -1339,8 +1344,7 @@ func (v *Number) Value() interface{} {
 }
 
 func (v *Number) Compare(val TypedValue) (int, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.IsNull() {
 		return 1, nil
 	}
 
@@ -1367,6 +1371,10 @@ type Timestamp struct {
 
 func (v *Timestamp) Type() SQLValueType {
 	return TimestampType
+}
+
+func (v *Timestamp) IsNull() bool {
+	return false
 }
 
 func (v *Timestamp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1406,8 +1414,7 @@ func (v *Timestamp) Value() interface{} {
 }
 
 func (v *Timestamp) Compare(val TypedValue) (int, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.IsNull() {
 		return 1, nil
 	}
 
@@ -1434,6 +1441,10 @@ type Varchar struct {
 
 func (v *Varchar) Type() SQLValueType {
 	return VarcharType
+}
+
+func (v *Varchar) IsNull() bool {
+	return false
 }
 
 func (v *Varchar) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1473,8 +1484,7 @@ func (v *Varchar) Value() interface{} {
 }
 
 func (v *Varchar) Compare(val TypedValue) (int, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.IsNull() {
 		return 1, nil
 	}
 
@@ -1493,6 +1503,10 @@ type Bool struct {
 
 func (v *Bool) Type() SQLValueType {
 	return BooleanType
+}
+
+func (v *Bool) IsNull() bool {
+	return false
 }
 
 func (v *Bool) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1532,8 +1546,7 @@ func (v *Bool) Value() interface{} {
 }
 
 func (v *Bool) Compare(val TypedValue) (int, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.IsNull() {
 		return 1, nil
 	}
 
@@ -1560,6 +1573,10 @@ type Blob struct {
 
 func (v *Blob) Type() SQLValueType {
 	return BLOBType
+}
+
+func (v *Blob) IsNull() bool {
+	return false
 }
 
 func (v *Blob) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
@@ -1599,8 +1616,7 @@ func (v *Blob) Value() interface{} {
 }
 
 func (v *Blob) Compare(val TypedValue) (int, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
+	if val.IsNull() {
 		return 1, nil
 	}
 
@@ -1674,10 +1690,7 @@ func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
 		if src == IntegerType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.Value() == nil {
-					return nil, fmt.Errorf(
-						"%w: can not cast null value to TIMESTAMP",
-						ErrIllegalArguments,
-					)
+					return &NullValue{t: TimestampType}, nil
 				}
 				return &Timestamp{val: time.Unix(0, val.Value().(int64)).UTC()}, nil
 			}, nil
@@ -1686,10 +1699,7 @@ func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
 		if src == VarcharType {
 			return func(val TypedValue) (TypedValue, error) {
 				if val.Value() == nil {
-					return nil, fmt.Errorf(
-						"%w: can not cast null value to TIMESTAMP",
-						ErrIllegalArguments,
-					)
+					return &NullValue{t: TimestampType}, nil
 				}
 
 				str := val.Value().(string)
