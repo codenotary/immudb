@@ -194,6 +194,8 @@ func (sm *manager) expireSessions() {
 	sm.sessionMux.Unlock()
 
 	now := time.Now()
+
+	idleSessCount := 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
 		if sess.GetLastHeartBeat().Add(sm.options.MaxSessionIdleTime).Before(now) && sess.GetStatus() != Idle {
@@ -209,6 +211,7 @@ func (sm *manager) expireSessions() {
 			sm.logger.Debugf("session %s exceeded MaxSessionAgeTime and became Dead", ID)
 		}
 		if sess.GetStatus() == Idle {
+			idleSessCount++
 			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
 				sess.setStatus(Dead)
 				sm.logger.Debugf("Idle session %s is Dead", ID)
@@ -222,6 +225,8 @@ func (sm *manager) expireSessions() {
 			sm.DeleteSession(ID)
 			sm.logger.Debugf("removed Dead session %s", ID)
 		}
+		sm.logger.Debugf("opened sessions count: %d", len(sm.sessions))
+		sm.logger.Debugf("idle sessions count: %d", idleSessCount)
 	}
 }
 
