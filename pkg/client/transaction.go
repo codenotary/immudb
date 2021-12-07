@@ -24,10 +24,6 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type TxOptions struct {
-	TxMode schema.TxMode
-}
-
 type Tx interface {
 	Commit(ctx context.Context) (*schema.CommittedSQLTx, error)
 	Rollback(ctx context.Context) error
@@ -51,13 +47,9 @@ func (c *tx) Rollback(ctx context.Context) error {
 	return errors.FromError(err)
 }
 
-func (c *immuClient) NewTx(ctx context.Context, options *TxOptions) (Tx, error) {
-	if options.TxMode == schema.TxMode_WriteOnly {
-		// only in key-value mode, in sql we read catalog and write to it
-		return nil, ErrWriteOnlyTXNotAllowed
-	}
+func (c *immuClient) NewTx(ctx context.Context) (Tx, error) {
 	r, err := c.ServiceClient.NewTx(ctx, &schema.NewTxRequest{
-		Mode: options.TxMode,
+		Mode: schema.TxMode_ReadWrite,
 	})
 	if err != nil {
 		return nil, errors.FromError(err)

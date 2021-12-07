@@ -725,13 +725,13 @@ func TestWaitForHealthCheck(t *testing.T) {
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 	err := client.WaitForHealthCheck(context.TODO())
 	require.Error(t, err)
 }
 
 func TestSetupDialOptions(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 
 	ts := TokenServiceMock{}
 	ts.GetTokenF = func() (string, error) {
@@ -1252,7 +1252,7 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 }
 
 func TestImmuClient_GetOptions(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 	op := client.GetOptions()
 	require.IsType(t, &ic.Options{}, op)
 }
