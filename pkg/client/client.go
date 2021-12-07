@@ -23,12 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/heartbeater"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -108,6 +109,8 @@ type ImmuClient interface {
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
+
+	ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error)
 
 	Get(ctx context.Context, key []byte) (*schema.Entry, error)
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
@@ -759,14 +762,15 @@ func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 
 // Set ...
 func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
+	return c.set(ctx, key, nil, value)
+}
+
+func (c *immuClient) set(ctx context.Context, key []byte, md *schema.KVMetadata, value []byte) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	start := time.Now()
-	defer c.Logger.Debugf("set finished in %s", time.Since(start))
-
-	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Metadata: md, Value: value}}})
 	if err != nil {
 		return nil, err
 	}
@@ -892,6 +896,10 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	return verifiableTx.Tx.Header, nil
+}
+
+func (c *immuClient) ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error) {
+	return c.set(ctx, key, &schema.KVMetadata{Expiration: &schema.Expiration{ExpiresAt: expiresAt.Unix()}}, value)
 }
 
 func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
