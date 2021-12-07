@@ -91,8 +91,6 @@ var methodsPermissions = map[string][]uint32{
 	"StreamHistory":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"TxByID":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"TxScan":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"ExportTx":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"ReplicateTx":            {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"Count":                  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CountAll":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DatabaseList":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
@@ -116,6 +114,8 @@ var methodsPermissions = map[string][]uint32{
 	"CreateDatabase":   {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
 	"CompactIndex":     {PermissionSysAdmin, PermissionAdmin},
+	"ExportTx":         {PermissionSysAdmin, PermissionAdmin},
+	"ReplicateTx":      {PermissionSysAdmin, PermissionAdmin},
 }
 
 //HasPermissionForMethod checks if userPermission can access method name

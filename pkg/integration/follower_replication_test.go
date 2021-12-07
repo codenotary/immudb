@@ -90,7 +90,7 @@ func TestReplication(t *testing.T) {
 	mmd := metadata.Pairs("authorization", mlr.Token)
 	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
 
-	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionR, "defaultdb")
+	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionAdmin, "defaultdb")
 	require.NoError(t, err)
 
 	err = masterClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: "follower"})
