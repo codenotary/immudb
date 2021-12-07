@@ -571,6 +571,7 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	return &Snapshot{
 		st:   s,
 		snap: snap,
+		ts:   time.Now(),
 	}, nil
 }
 
@@ -583,6 +584,7 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
 	return &Snapshot{
 		st:   s,
 		snap: snap,
+		ts:   time.Now(),
 	}, nil
 }
 
