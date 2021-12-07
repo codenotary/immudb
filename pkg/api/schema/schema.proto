@@ -217,6 +217,11 @@ message TxEntry {
 
 message KVMetadata {
 	bool deleted = 1;
+	Expiration expiration = 2;
+}
+
+message Expiration {
+	int64 expiresAt = 1;
 }
 
 message VerifiableTx {

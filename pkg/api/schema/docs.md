@@ -23,6 +23,7 @@
     - [EntryCount](#immudb.schema.EntryCount)
     - [ErrorInfo](#immudb.schema.ErrorInfo)
     - [ExecAllRequest](#immudb.schema.ExecAllRequest)
+    - [Expiration](#immudb.schema.Expiration)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -429,6 +430,21 @@
 
 
 
+<a name="immudb.schema.Expiration"></a>
+
+### Expiration
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| expiresAt | [int64](#int64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.HealthResponse"></a>
 
 ### HealthResponse
@@ -508,6 +524,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | deleted | [bool](#bool) |  |  |
+| expiration | [Expiration](#immudb.schema.Expiration) |  |  |
 
 
 
