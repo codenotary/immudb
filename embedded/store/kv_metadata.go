@@ -15,13 +15,17 @@ limitations under the License.
 */
 package store
 
-const maxKVMetadataLen = 1
+import (
+	"encoding/binary"
+	"time"
+)
+
+const maxKVMetadataLen = 1 + tsSize
 
 type KVMetadata struct {
-	deleted bool
+	deleted   bool
+	expiresAt *time.Time
 }
-
-const deletedFlag = 1 << 7
 
 func NewKVMetadata() *KVMetadata {
 	return &KVMetadata{}
@@ -36,14 +40,41 @@ func (md *KVMetadata) Deleted() bool {
 	return md.deleted
 }
 
-func (md *KVMetadata) Bytes() []byte {
-	var b byte
+func (md *KVMetadata) ExpiresAt(expiresAt *time.Time) *KVMetadata {
+	md.expiresAt = expiresAt
+	return md
+}
 
-	if md.deleted {
-		b = b | deletedFlag
+func (md *KVMetadata) Expirable() bool {
+	return md.expiresAt != nil
+}
+
+func (md *KVMetadata) ExpirationTime() *time.Time {
+	return md.expiresAt
+}
+
+func (md *KVMetadata) ExpiredAt(mtime time.Time) bool {
+	if !md.Expirable() {
+		return false
 	}
 
-	return []byte{b}
+	return !md.expiresAt.After(mtime)
+}
+
+func (md *KVMetadata) Bytes() []byte {
+	var b [1 + tsSize]byte
+
+	if md.deleted {
+		b[0] = 1
+	}
+
+	if md.expiresAt == nil {
+		return b[:1]
+	}
+
+	binary.BigEndian.PutUint64(b[1:], uint64(md.expiresAt.Unix()))
+
+	return b[:]
 }
 
 func (md *KVMetadata) ReadFrom(b []byte) error {
@@ -51,7 +82,18 @@ func (md *KVMetadata) ReadFrom(b []byte) error {
 		return nil
 	}
 
-	md.deleted = b[0]&deletedFlag != 0
+	md.deleted = b[0] != 0
+
+	if len(b) == 1 {
+		return nil
+	}
+
+	if len(b) != 1+tsSize {
+		return ErrCorruptedData
+	}
+
+	ts := time.Unix(int64(binary.BigEndian.Uint64(b[1:])), 0)
+	md.expiresAt = &ts
 
 	return nil
 }

@@ -513,7 +513,7 @@ func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeleted)
+	return s.GetWith(key, IgnoreDeletedOrExpired)
 }
 
 func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -527,11 +527,13 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 		return nil, err
 	}
 
+	now := time.Now()
+
 	for _, filter := range filters {
 		if filter == nil {
 			return nil, ErrIllegalArguments
 		}
-		if filter(valRef) {
+		if filter(valRef, now) {
 			return nil, ErrKeyNotFound
 		}
 	}
@@ -1213,7 +1215,7 @@ type unsafeIndex struct {
 }
 
 func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
-	return index.GetWith(key, IgnoreDeleted)
+	return index.GetWith(key, IgnoreDeletedOrExpired)
 }
 
 func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
