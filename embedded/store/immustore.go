@@ -1515,7 +1515,7 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 	valBs := make([]byte, s.maxValueLen)
 
 	for _, e := range tx.Entries() {
-		_, err = s.ReadValueAt(valBs[:e.vLen], e.vOff, e.hVal)
+		_, err = s.readValueAt(valBs[:e.vLen], e.vOff, e.hVal)
 		if err != nil {
 			return nil, err
 		}
@@ -1691,20 +1691,29 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 }
 
 func (s *ImmuStore) ReadValue(tx *Tx, key []byte) (*KVMetadata, []byte, error) {
+	now := time.Now()
+
 	for _, e := range tx.Entries() {
+		if e.md != nil && e.md.ExpiredAt(now) {
+			continue
+		}
+
 		if bytes.Equal(e.key(), key) {
 			v := make([]byte, e.vLen)
-			_, err := s.ReadValueAt(v, e.vOff, e.hVal)
+
+			_, err := s.readValueAt(v, e.vOff, e.hVal)
 			if err != nil {
 				return e.Metadata(), nil, err
 			}
+
 			return e.Metadata(), v, nil
 		}
 	}
+
 	return nil, nil, ErrKeyNotFound
 }
 
-func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
+func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
 	vLogID, offset := decodeOffset(off)
 
 	if vLogID > 0 {

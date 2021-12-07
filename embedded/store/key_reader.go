@@ -260,7 +260,7 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 func (v *valueRef) Resolve() (val []byte, err error) {
 	refVal := make([]byte, v.valLen)
 
-	_, err = v.st.ReadValueAt(refVal, v.vOff, v.hVal)
+	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal)
 
 	return refVal, err
 }
