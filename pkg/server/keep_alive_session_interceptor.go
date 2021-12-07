@@ -39,7 +39,7 @@ func (s *ImmuServer) KeepAliveSessionInterceptor(ctx context.Context, req interf
 		if err != nil {
 			return nil, err
 		}
-		if info.FullMethod == "/immudb.schema.ImmuService/KeepALive" {
+		if info.FullMethod == "/immudb.schema.ImmuService/KeepAlive" {
 			s.SessManager.UpdateHeartBeatTime(sessionID)
 		} else {
 			s.SessManager.UpdateSessionActivityTime(sessionID)
