@@ -18,6 +18,7 @@ package schema
 import (
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/stretchr/testify/require"
@@ -33,35 +34,41 @@ func TestRowComparison(t *testing.T) {
 	intValue2 := &SQLValue_N{N: 2}
 	blobValue1 := &SQLValue_Bs{Bs: nil}
 	blobValue2 := &SQLValue_Bs{Bs: []byte{1, 2, 3}}
+	tsValue1 := &SQLValue_Ts{Ts: time.Date(2021, 12, 8, 13, 46, 23, 12345, time.UTC).UnixNano()}
+	tsValue2 := &SQLValue_Ts{Ts: time.Date(2020, 11, 7, 12, 45, 22, 12344, time.UTC).UnixNano()}
 
 	equals, err := nullValue.Equal(nullValue)
 	require.NoError(t, err)
 	require.True(t, equals)
 
 	equals, err = nullValue.Equal(trueValue)
+	require.NoError(t, err)
 	require.False(t, equals)
 
 	equals, err = trueValue.Equal(nullValue)
+	require.NoError(t, err)
 	require.False(t, equals)
 
-	equals, err = trueValue.Equal(stringValue1)
-	require.Equal(t, sql.ErrNotComparableValues, err)
+	_, err = trueValue.Equal(stringValue1)
+	require.ErrorIs(t, err, sql.ErrNotComparableValues)
 
 	equals, err = trueValue.Equal(falseValue)
 	require.NoError(t, err)
 	require.False(t, equals)
 
 	equals, err = stringValue1.Equal(nullValue)
+	require.NoError(t, err)
 	require.False(t, equals)
 
 	_, err = stringValue1.Equal(trueValue)
-	require.Equal(t, sql.ErrNotComparableValues, err)
+	require.ErrorIs(t, err, sql.ErrNotComparableValues)
 
 	equals, err = stringValue1.Equal(stringValue2)
 	require.NoError(t, err)
 	require.False(t, equals)
 
 	equals, err = intValue1.Equal(nullValue)
+	require.NoError(t, err)
 	require.False(t, equals)
 
 	_, err = intValue1.Equal(trueValue)
@@ -72,14 +79,30 @@ func TestRowComparison(t *testing.T) {
 	require.False(t, equals)
 
 	equals, err = blobValue1.Equal(nullValue)
+	require.NoError(t, err)
 	require.False(t, equals)
 
 	_, err = blobValue1.Equal(trueValue)
-	require.Equal(t, sql.ErrNotComparableValues, err)
+	require.ErrorIs(t, err, sql.ErrNotComparableValues)
 
 	equals, err = blobValue1.Equal(blobValue2)
 	require.NoError(t, err)
 	require.False(t, equals)
+
+	equals, err = tsValue1.Equal(tsValue1)
+	require.NoError(t, err)
+	require.True(t, equals)
+
+	equals, err = tsValue1.Equal(nullValue)
+	require.NoError(t, err)
+	require.False(t, equals)
+
+	equals, err = tsValue1.Equal(tsValue2)
+	require.NoError(t, err)
+	require.False(t, equals)
+
+	_, err = tsValue1.Equal(stringValue1)
+	require.ErrorIs(t, err, sql.ErrNotComparableValues)
 
 	rawNilValue := RawValue(nil)
 	require.Equal(t, nil, rawNilValue)
@@ -101,6 +124,9 @@ func TestRowComparison(t *testing.T) {
 
 	rawBlobValue := RawValue(&SQLValue{Value: blobValue2})
 	require.Equal(t, []byte{1, 2, 3}, rawBlobValue)
+
+	rawTimestampValue := RawValue(&SQLValue{Value: tsValue1})
+	require.Equal(t, time.Date(2021, 12, 8, 13, 46, 23, 12345, time.UTC), rawTimestampValue)
 
 	nv := SQLValue{Value: nullValue}
 	bytesNullValue := RenderValueAsByte(nv.GetValue())
@@ -126,6 +152,10 @@ func TestRowComparison(t *testing.T) {
 	bytesBlobValue := RenderValueAsByte(bv.GetValue())
 	require.Equal(t, []byte(hex.EncodeToString([]byte{1, 2, 3})), bytesBlobValue)
 
+	tsv := &SQLValue{Value: tsValue2}
+	bytesTimestampValue := RenderValueAsByte(tsv.GetValue())
+	require.Equal(t, []byte("2020-11-07 12:45:22.000012344"), bytesTimestampValue)
+
 	nv = SQLValue{Value: nullValue}
 	rNullValue := RenderValue(nv.GetValue())
 	require.Equal(t, "NULL", rNullValue)
@@ -149,4 +179,9 @@ func TestRowComparison(t *testing.T) {
 	bv = &SQLValue{Value: blobValue2}
 	rBlobValue := RenderValue(bv.GetValue())
 	require.Equal(t, "010203", rBlobValue)
+
+	tsv = &SQLValue{Value: tsValue1}
+	rTimestampValue := RenderValue(tsv.GetValue())
+	require.Equal(t, "2021-12-08 13:46:23.000012345", rTimestampValue)
+
 }
