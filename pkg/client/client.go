@@ -169,7 +169,7 @@ type ImmuClient interface {
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
 
-	NewTx(ctx context.Context, opts *TxOptions) (Tx, error)
+	NewTx(ctx context.Context) (Tx, error)
 }
 
 const DefaultDB = "defaultdb"
@@ -188,8 +188,8 @@ type immuClient struct {
 	HeartBeater          heartbeater.HeartBeater
 }
 
-// DefaultClient ...
-func DefaultClient() *immuClient {
+// NewClient ...
+func NewClient() *immuClient {
 	c := &immuClient{
 		Dir:                  "",
 		Options:              DefaultOptions(),
@@ -201,11 +201,11 @@ func DefaultClient() *immuClient {
 }
 
 // NewImmuClient ...
-// Deprecated: use DefaultClient instead.
+// Deprecated: use NewClient instead.
 func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
 
-	c := DefaultClient()
+	c := NewClient()
 	c.WithOptions(options)
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
@@ -340,7 +340,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 	return opts
 }
 
-// Deprecated: use DefaultClient and OpenSession instead.
+// Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
@@ -349,7 +349,7 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 	return c.clientConn, nil
 }
 
-// Deprecated: use DefaultClient and CloseSession instead.
+// Deprecated: use NewClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
 	start := time.Now()
 

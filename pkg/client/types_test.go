@@ -22,6 +22,6 @@ import (
 )
 
 func TestWithStreamServiceFactory(t *testing.T) {
-	s := DefaultClient()
+	s := NewClient()
 	s.WithStreamServiceFactory(stream.NewStreamServiceFactory(4096))
 }

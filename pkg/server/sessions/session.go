@@ -74,6 +74,9 @@ func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, 
 		// only in key-value mode, in sql we read catalog and write to it
 		return nil, ErrWriteOnlyTXNotAllowed
 	}
+	if mode == schema.TxMode_ReadOnly {
+		return nil, ErrReadOnlyTXNotAllowed
+	}
 	sqlTx, _, err := s.database.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
 	if err != nil {
 		return nil, err

@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -45,7 +44,7 @@ func TestSession_OpenCloseSession(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
@@ -76,7 +75,7 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 	for i := 0; i < store.DefaultMaxConcurrency; i++ {
 		wg.Add(1)
 		go func(i int) {
-			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().
+			client := ic.NewClient().WithOptions(ic.DefaultOptions().
 				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
 				WithHeartBeatFrequency(time.Millisecond * 100))
 			if err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb"); err != nil {
@@ -110,7 +109,7 @@ func TestSession_OpenCloseSessionWithStateSigner(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
@@ -122,7 +121,7 @@ func TestSession_OpenCloseSessionWithStateSigner(t *testing.T) {
 }
 
 func TestSession_OpenSessionNotConnected(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 	err := client.CloseSession(context.TODO())
 	require.ErrorIs(t, ic.ErrNotConnected, err)
 }
@@ -148,12 +147,12 @@ func TestSession_ExpireSessions(t *testing.T) {
 	for i := 1; i <= 100; i++ {
 		wg.Add(1)
 		go func() {
-			client := ic.DefaultClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+			client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
 			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 			require.NoError(t, err)
 
-			tx, err := client.NewTx(context.TODO(), &ic.TxOptions{TxMode: schema.TxMode_ReadWrite})
+			tx, err := client.NewTx(context.TODO())
 			require.NoError(t, err)
 
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))

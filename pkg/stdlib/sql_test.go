@@ -370,7 +370,7 @@ func TestImmuConnector_Driver(t *testing.T) {
 
 func TestConn(t *testing.T) {
 	c := Conn{
-		conn:    client.DefaultClient(),
+		conn:    client.NewClient(),
 		options: client.DefaultOptions(),
 	}
 	cli := c.GetImmuClient()
@@ -379,7 +379,7 @@ func TestConn(t *testing.T) {
 
 func TestConnErr(t *testing.T) {
 	c := Conn{
-		conn:    client.DefaultClient(),
+		conn:    client.NewClient(),
 		options: client.DefaultOptions(),
 	}
 
