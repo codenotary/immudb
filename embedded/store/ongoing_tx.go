@@ -208,7 +208,7 @@ func (tx *OngoingTx) Delete(key []byte) error {
 }
 
 func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
-	return tx.GetWith(key, IgnoreDeletedOrExpired)
+	return tx.GetWith(key, IgnoreDeleted)
 }
 
 func (tx *OngoingTx) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {

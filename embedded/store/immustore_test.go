@@ -1036,12 +1036,9 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = immuStore.Get([]byte("expirableKey"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		valRef, err := immuStore.GetWith([]byte("expirableKey"))
-		require.NoError(t, err)
-		require.NotNil(t, valRef)
-		require.False(t, valRef.KVMetadata().Deleted())
-		require.True(t, valRef.KVMetadata().Expirable())
-		require.True(t, valRef.KVMetadata().ExpiredAt(now))
+		// expired entries are never returned
+		_, err = immuStore.GetWith([]byte("expirableKey"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 }
 

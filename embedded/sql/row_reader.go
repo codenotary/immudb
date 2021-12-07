@@ -234,7 +234,7 @@ func keyReaderSpecFrom(sqlPrefix []byte, table *Table, scanSpecs *ScanSpecs) (sp
 		InclusiveEnd:  true,
 		Prefix:        prefix,
 		DescOrder:     scanSpecs.descOrder,
-		Filter:        store.IgnoreDeletedOrExpired,
+		Filter:        store.IgnoreDeleted,
 	}, nil
 }
 
