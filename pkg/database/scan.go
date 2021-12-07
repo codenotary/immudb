@@ -73,7 +73,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			SeekKey:   seekKey,
 			Prefix:    EncodeKey(req.Prefix),
 			DescOrder: req.Desc,
-			Filter:    store.IgnoreDeletedOrExpired,
+			Filter:    store.IgnoreDeleted,
 		})
 	if err != nil {
 		return nil, err

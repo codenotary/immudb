@@ -297,7 +297,6 @@ func main() {
 					fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
 
 					txHolder := immuStore.NewTxHolder()
-					b := make([]byte, *vLen)
 
 					for i := range ids {
 						immuStore.ReadTx(ids[i], txHolder)
@@ -307,12 +306,12 @@ func main() {
 								panic(fmt.Errorf("committed tx key does not match input values"))
 							}
 
-							_, err = immuStore.ReadValueAt(b, e.VOff(), e.HVal())
+							_, val, err := immuStore.ReadValue(txHolder, e.Key())
 							if err != nil {
 								panic(err)
 							}
 
-							if !bytes.Equal(b, entries[i][ei].Value) {
+							if !bytes.Equal(val, entries[i][ei].Value) {
 								panic(fmt.Errorf("committed tx value does not match input values"))
 							}
 						}
@@ -350,8 +349,6 @@ func main() {
 
 			verifiedTxs := 0
 
-			b := make([]byte, immuStore.MaxValueLen())
-
 			for {
 				tx, err := txReader.Read()
 				if err != nil {
@@ -373,12 +370,12 @@ func main() {
 							panic(err)
 						}
 
-						_, err = immuStore.ReadValueAt(b[:e.VLen()], e.VOff(), e.HVal())
+						_, val, err := immuStore.ReadValue(tx, e.Key())
 						if err != nil {
 							panic(err)
 						}
 
-						kv := &store.EntrySpec{Key: e.Key(), Value: b[:e.VLen()]}
+						kv := &store.EntrySpec{Key: e.Key(), Value: val}
 
 						verifies := htree.VerifyInclusion(proof, entrySpecDigest(kv), tx.Header().Eh)
 						if !verifies {
