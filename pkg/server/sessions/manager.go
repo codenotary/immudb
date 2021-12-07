@@ -225,8 +225,7 @@ func (sm *manager) expireSessions() {
 			sm.DeleteSession(ID)
 			sm.logger.Debugf("removed Dead session %s", ID)
 		}
-		sm.logger.Debugf("opened sessions count: %d", len(sm.sessions))
-		sm.logger.Debugf("idle sessions count: %d", idleSessCount)
+		sm.logger.Debugf("Open sessions count: %d\nIdle sessions count: %d\n", len(sm.sessions), idleSessCount)
 	}
 }
 
