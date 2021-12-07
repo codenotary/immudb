@@ -17,11 +17,14 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestKVMetadata(t *testing.T) {
+	now := time.Now()
+
 	md := KVMetadata{}
 
 	bs := md.Bytes()
@@ -32,21 +35,38 @@ func TestKVMetadata(t *testing.T) {
 	err := md.ReadFrom(bs)
 	require.NoError(t, err)
 	require.False(t, md.Deleted())
+	require.Nil(t, md.expiresAt)
+	require.False(t, md.Expirable())
+	require.Nil(t, md.ExpirationTime())
+	require.False(t, md.ExpiredAt(now))
 
 	desmd := KVMetadata{}
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
 	require.False(t, desmd.Deleted())
+	require.False(t, md.Expirable())
+	require.False(t, md.ExpiredAt(now))
 
 	desmd.AsDeleted(true)
 	require.True(t, desmd.Deleted())
 
+	desmd.ExpiresAt(nil)
+	require.False(t, md.Expirable())
+	require.False(t, md.ExpiredAt(now))
+
+	desmd.ExpiresAt(&now)
+	require.True(t, desmd.Expirable())
+	require.Equal(t, &now, desmd.ExpirationTime())
+	require.True(t, desmd.ExpiredAt(now))
+
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, 1)
-	require.NotEqual(t, byte(0), bs[0]&deletedFlag)
+	require.Len(t, bs, 1+tsSize)
+	require.NotEqual(t, byte(0), bs[0])
 
 	err = desmd.ReadFrom(bs)
 	require.NoError(t, err)
 	require.True(t, desmd.Deleted())
+	require.True(t, desmd.Expirable())
+	require.True(t, desmd.ExpiredAt(now))
 }

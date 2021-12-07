@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
@@ -32,11 +33,12 @@ type Snapshot struct {
 type valueRefInterceptor func(key []byte, valRef ValueRef) ValueRef
 
 // filter out entries when filter evaluates to true
-type FilterFn func(valRef ValueRef) bool
+type FilterFn func(valRef ValueRef, t time.Time) bool
 
 var (
-	IgnoreDeleted FilterFn = func(valRef ValueRef) bool {
-		return valRef.KVMetadata() != nil && valRef.KVMetadata().deleted
+	IgnoreDeletedOrExpired FilterFn = func(valRef ValueRef, t time.Time) bool {
+		md := valRef.KVMetadata()
+		return md != nil && (md.deleted || md.ExpiredAt(t))
 	}
 )
 
@@ -63,7 +65,7 @@ func (s *Snapshot) set(key, value []byte) error {
 }
 
 func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeleted)
+	return s.GetWith(key, IgnoreDeletedOrExpired)
 }
 
 func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -77,8 +79,10 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 		return nil, err
 	}
 
+	now := time.Now()
+
 	for _, filter := range filters {
-		if filter(valRef) {
+		if filter(valRef, now) {
 			return nil, ErrKeyNotFound
 		}
 	}
@@ -288,6 +292,8 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 		return nil, nil, 0, err
 	}
 
+	now := time.Now()
+
 	for _, e := range r._tx.Entries() {
 		if bytes.Equal(e.key(), key) {
 			val = &valueRef{
@@ -301,7 +307,7 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 				st:     r.store,
 			}
 
-			if r.filter != nil && r.filter(val) {
+			if r.filter != nil && r.filter(val, now) {
 				return nil, nil, 0, ErrKeyNotFound
 			}
 
@@ -313,6 +319,8 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 }
 
 func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
+	now := time.Now()
+
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
@@ -324,7 +332,7 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 			return nil, nil, err
 		}
 
-		if r.filter != nil && r.filter(val) {
+		if r.filter != nil && r.filter(val, now) {
 			continue
 		}
 
