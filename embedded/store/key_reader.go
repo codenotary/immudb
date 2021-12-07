@@ -37,9 +37,14 @@ type valueRefInterceptor func(key []byte, valRef ValueRef) ValueRef
 type FilterFn func(valRef ValueRef, t time.Time) bool
 
 var (
-	IgnoreDeletedOrExpired FilterFn = func(valRef ValueRef, t time.Time) bool {
+	IgnoreDeleted FilterFn = func(valRef ValueRef, t time.Time) bool {
 		md := valRef.KVMetadata()
-		return md != nil && (md.deleted || md.ExpiredAt(t))
+		return md != nil && md.deleted
+	}
+
+	IgnoreExpired FilterFn = func(valRef ValueRef, t time.Time) bool {
+		md := valRef.KVMetadata()
+		return md != nil && md.ExpiredAt(t)
 	}
 )
 
@@ -66,7 +71,7 @@ func (s *Snapshot) set(key, value []byte) error {
 }
 
 func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeletedOrExpired)
+	return s.GetWith(key, IgnoreDeleted)
 }
 
 func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -78,6 +83,10 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 	valRef, err = s.st.valueRefFrom(tx, hc, indexedVal)
 	if err != nil {
 		return nil, err
+	}
+
+	if IgnoreExpired(valRef, s.ts) {
+		return nil, ErrKeyNotFound
 	}
 
 	for _, filter := range filters {
@@ -304,6 +313,10 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 				st:     r.snap.st,
 			}
 
+			if IgnoreExpired(val, r.snap.ts) {
+				continue
+			}
+
 			if r.filter != nil && r.filter(val, r.snap.ts) {
 				return nil, nil, 0, ErrKeyNotFound
 			}
@@ -325,6 +338,10 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		if IgnoreExpired(val, r.snap.ts) {
+			continue
 		}
 
 		if r.filter != nil && r.filter(val, r.snap.ts) {

@@ -291,7 +291,7 @@ func (sqlTx *SQLTx) Closed() bool {
 func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filter: store.IgnoreDeletedOrExpired,
+		Filter: store.IgnoreDeleted,
 	}
 
 	dbReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -336,7 +336,7 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
-		Filter: store.IgnoreDeletedOrExpired,
+		Filter: store.IgnoreDeleted,
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -449,7 +449,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
-		Filter: store.IgnoreDeletedOrExpired,
+		Filter: store.IgnoreDeleted,
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -509,7 +509,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	idxReaderSpec := &store.KeyReaderSpec{
 		Prefix: initialKey,
-		Filter: store.IgnoreDeletedOrExpired,
+		Filter: store.IgnoreDeleted,
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
