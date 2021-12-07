@@ -60,7 +60,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	config = parseConfig()
 	jobs := entriesGenerator()
-	okJobs := make(chan schema.KeyValue)
+	okJobs := make(chan *schema.KeyValue)
 	done := make(chan bool)
 	doner := make(chan bool)
 
@@ -97,9 +97,9 @@ outer:
 	log.Printf("done\n\n")
 }
 
-func worker(jobs, okJobs chan schema.KeyValue, done chan bool, wwg *sync.WaitGroup) {
+func worker(jobs, okJobs chan *schema.KeyValue, done chan bool, wwg *sync.WaitGroup) {
 	log.Printf("worker started\n")
-	var keyVal schema.KeyValue
+	var keyVal *schema.KeyValue
 	for {
 		select {
 		case keyVal = <-jobs:
@@ -135,7 +135,7 @@ func worker(jobs, okJobs chan schema.KeyValue, done chan bool, wwg *sync.WaitGro
 	}
 }
 
-func reader(okJobs chan schema.KeyValue, done chan bool, rwg *sync.WaitGroup) {
+func reader(okJobs chan *schema.KeyValue, done chan bool, rwg *sync.WaitGroup) {
 	rwg.Add(1)
 	log.Printf("reader started\n")
 
@@ -149,7 +149,7 @@ func reader(okJobs chan schema.KeyValue, done chan bool, rwg *sync.WaitGroup) {
 	if err != nil {
 		log.Fatalln("Failed to connect. Reason:", err)
 	}
-	keyVal := schema.KeyValue{}
+	keyVal := &schema.KeyValue{}
 outer:
 	for {
 		select {
@@ -169,8 +169,8 @@ outer:
 	rwg.Done()
 }
 
-func entriesGenerator() chan schema.KeyValue {
-	entries := make(chan schema.KeyValue, 100)
+func entriesGenerator() chan *schema.KeyValue {
+	entries := make(chan *schema.KeyValue, 100)
 	rand.Seed(time.Now().UnixNano())
 	go func() {
 		log.Printf("Worker is generating key values...\r\n")
@@ -178,7 +178,7 @@ func entriesGenerator() chan schema.KeyValue {
 			id := int(time.Now().UnixNano())
 			v := make([]byte, 32)
 			rand.Read(v)
-			entries <- schema.KeyValue{Key: []byte(fmt.Sprintf("%d", id)), Value: v}
+			entries <- &schema.KeyValue{Key: []byte(fmt.Sprintf("%d", id)), Value: v}
 		}
 	}()
 	return entries
