@@ -27,6 +27,7 @@ import (
 type Snapshot struct {
 	st             *ImmuStore
 	snap           *tbtree.Snapshot
+	ts             time.Time
 	refInterceptor valueRefInterceptor
 }
 
@@ -43,7 +44,7 @@ var (
 )
 
 type KeyReader struct {
-	store          *ImmuStore
+	snap           *Snapshot
 	reader         *tbtree.Reader
 	filter         FilterFn
 	refInterceptor valueRefInterceptor
@@ -79,10 +80,8 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 		return nil, err
 	}
 
-	now := time.Now()
-
 	for _, filter := range filters {
-		if filter(valRef, now) {
+		if filter(valRef, s.ts) {
 			return nil, ErrKeyNotFound
 		}
 	}
@@ -138,7 +137,7 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 	}
 
 	return &KeyReader{
-		store:          s.st,
+		snap:           s,
 		reader:         r,
 		filter:         spec.Filter,
 		refInterceptor: refInterceptor,
@@ -287,12 +286,10 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 		return nil, nil, 0, err
 	}
 
-	err = r.store.ReadTx(ktxID, r._tx)
+	err = r.snap.st.ReadTx(ktxID, r._tx)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
-	now := time.Now()
 
 	for _, e := range r._tx.Entries() {
 		if bytes.Equal(e.key(), key) {
@@ -304,10 +301,10 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 				valLen: uint32(e.vLen),
 				txmd:   r._tx.header.Metadata,
 				kvmd:   e.md,
-				st:     r.store,
+				st:     r.snap.st,
 			}
 
-			if r.filter != nil && r.filter(val, now) {
+			if r.filter != nil && r.filter(val, r.snap.ts) {
 				return nil, nil, 0, ErrKeyNotFound
 			}
 
@@ -319,20 +316,18 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 }
 
 func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
-	now := time.Now()
-
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
 			return nil, nil, err
 		}
 
-		val, err = r.store.valueRefFrom(tx, hc, indexedVal)
+		val, err = r.snap.st.valueRefFrom(tx, hc, indexedVal)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		if r.filter != nil && r.filter(val, now) {
+		if r.filter != nil && r.filter(val, r.snap.ts) {
 			continue
 		}
 
