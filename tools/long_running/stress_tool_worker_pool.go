@@ -1,3 +1,19 @@
+/*
+Copyright 2021 CodeNotary, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -5,13 +21,15 @@ import (
 	"flag"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	immudb "github.com/codenotary/immudb/pkg/client"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
 )
 
+// run stress tool worker pool. Ex stress_tool_worker_pool --committers 8 --readers 4 --duration 10s
 type cfg struct {
 	IpAddr     string
 	Port       int
@@ -55,6 +73,10 @@ func main() {
 	for w := 1; w <= config.readers; w++ {
 		go reader(okJobs, doner, rwg)
 	}
+
+	donec := make(chan bool)
+	go compactor(donec)
+
 	ticker := time.NewTicker(config.duration)
 outer:
 	for {
@@ -67,6 +89,7 @@ outer:
 			for w := 1; w <= config.readers; w++ {
 				doner <- true
 			}
+			donec <- true
 			break outer
 		}
 	}
@@ -81,12 +104,12 @@ func worker(jobs, okJobs chan schema.KeyValue, done chan bool, wwg *sync.WaitGro
 		select {
 		case keyVal = <-jobs:
 			wwg.Add(1)
-			opts := immuclient.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
+			opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
 
-			var client immuclient.ImmuClient
+			var client immudb.ImmuClient
 			var err error
 
-			client = immuclient.DefaultClient().WithOptions(opts)
+			client = immudb.NewClient().WithOptions(opts)
 
 			err = client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
 			if err != nil {
@@ -116,11 +139,11 @@ func reader(okJobs chan schema.KeyValue, done chan bool, rwg *sync.WaitGroup) {
 	rwg.Add(1)
 	log.Printf("reader started\n")
 
-	var client immuclient.ImmuClient
+	var client immudb.ImmuClient
 	var err error
 
-	opts := immuclient.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
-	client = immuclient.DefaultClient().WithOptions(opts)
+	opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
+	client = immudb.NewClient().WithOptions(opts)
 
 	err = client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
 	if err != nil {
@@ -159,4 +182,32 @@ func entriesGenerator() chan schema.KeyValue {
 		}
 	}()
 	return entries
+}
+
+func compactor(done chan bool) {
+	opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
+	client := immudb.NewClient().WithOptions(opts)
+
+	err := client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
+	if err != nil {
+		log.Fatalln("Failed to connect. Reason:", err)
+	}
+
+	ticker := time.NewTicker(time.Second * 30)
+outer:
+	for {
+		select {
+		case <-ticker.C:
+			log.Printf("Compaction started")
+			err = client.CompactIndex(context.TODO(), &emptypb.Empty{})
+			if err != nil {
+				log.Fatalln("Failed to compact. Reason:", err)
+			}
+			log.Printf("Compaction terminated")
+		case <-done:
+			break outer
+		}
+	}
+	client.CloseSession(context.TODO())
+	return
 }

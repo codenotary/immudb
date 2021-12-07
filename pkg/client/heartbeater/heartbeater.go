@@ -55,7 +55,7 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 			case <-hb.done:
 				return
 			case t := <-hb.t.C:
-				hb.logger.Debugf("keep alive for %d at %s\n", hb.sessionID, t.String())
+				hb.logger.Debugf("keep alive for %s at %s\n", hb.sessionID, t.String())
 				err := hb.keepAliveRequest(ctx)
 				if err != nil {
 					hb.logger.Errorf("an error is occurred on keep alive  %s at %s: %v\n", hb.sessionID, t.String(), err)
