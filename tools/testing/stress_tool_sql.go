@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	immuclient "github.com/codenotary/immudb/pkg/client"
+	immudb "github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -87,21 +87,21 @@ func parseConfig() (c cfg) {
 	return
 }
 
-func connect(config cfg) (immuclient.ImmuClient, context.Context) {
-	opts := immuclient.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
+func connect(config cfg) (immudb.ImmuClient, context.Context) {
+	opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
 	ctx := context.Background()
 
-	var client immuclient.ImmuClient
+	var client immudb.ImmuClient
 	var err error
 
 	if config.sessionMode {
-		client = immuclient.DefaultClient()
+		client = immudb.NewClient()
 		err = client.OpenSession(ctx, []byte(config.Username), []byte(config.Password), config.DBName)
 		if err != nil {
 			log.Fatalln("Failed to connect. Reason:", err)
 		}
 	} else {
-		client, err = immuclient.NewImmuClient(opts)
+		client, err = immudb.NewImmuClient(opts)
 		if err != nil {
 			log.Fatalln("Failed to connect. Reason:", err)
 		}
@@ -147,7 +147,7 @@ func entriesGenerator(c cfg, ids chan int) chan Entry {
 	return entries
 }
 
-func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
+func committer(ctx context.Context, client immudb.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
 	log.Printf("Committer %d is inserting data...\r\n", cid)
 	for i := 0; i < c.kvCount; i++ {
 		entry := <-entries
@@ -161,9 +161,9 @@ func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries
 	log.Printf("Committer %d done...\r\n", cid)
 }
 
-func committerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
+func committerWithTxs(ctx context.Context, client immudb.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
 	log.Printf("Transactions committer %d is inserting data...\r\n", cid)
-	tx, err := client.NewTx(ctx, &immuclient.TxOptions{TxMode: schema.TxMode_ReadWrite})
+	tx, err := client.NewTx(ctx)
 	if err != nil {
 		log.Fatalf("Transactions committer %d: Error while creating transaction: %s", cid, err)
 	}
@@ -185,7 +185,7 @@ func committerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, 
 	log.Printf("Transactions committer %d done...\r\n", cid)
 }
 
-func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+func reader(ctx context.Context, client immudb.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
 	if c.readDelay > 0 { // give time to populate db
 		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
 	}
@@ -208,13 +208,13 @@ func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg
 	log.Printf("Reader %d out\n", id)
 }
 
-func readerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+func readerWithTxs(ctx context.Context, client immudb.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
 	if c.readDelay > 0 { // give time to populate db
 		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
 	}
 	log.Printf("Transactions reader %d is reading data\n", id)
 
-	tx, err := client.NewTx(ctx, &immuclient.TxOptions{TxMode: schema.TxMode_ReadOnly})
+	tx, err := client.NewTx(ctx)
 	if err != nil {
 		log.Fatalf("Transactions reader %d: Error while creating transaction: %s", id, err)
 	}
@@ -240,7 +240,7 @@ func readerWithTxs(ctx context.Context, client immuclient.ImmuClient, c cfg, id 
 	log.Printf("Transactions reader %d out\n", id)
 }
 
-func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+func verifier(ctx context.Context, client immudb.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
 	if c.readDelay > 0 { // give time to populate db
 		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
 	}
@@ -268,7 +268,7 @@ func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, 
 	log.Printf("Verifier %d out\n", id)
 }
 
-func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, wg *sync.WaitGroup) {
+func compactor(ctx context.Context, client immudb.ImmuClient, c cfg, wg *sync.WaitGroup) {
 	for i := 0; i < c.compactCycles; i++ {
 		time.Sleep(time.Duration(c.compactDelay) * time.Millisecond)
 		log.Printf("Compaction %d started", i)
