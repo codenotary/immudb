@@ -787,7 +787,7 @@ func TestUpdate(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("UPDATE table1 SET title = 'title11' WHERE title = 'title", nil, nil)
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'title11' WHERE title = 'title'", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	err = engine.SetDefaultDatabase("db1")
@@ -1368,7 +1368,7 @@ func TestQuery(t *testing.T) {
 	r, err = engine.Query(fmt.Sprintf(`
 		SELECT id, title, active
 		FROM table1
-		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't`, encPayloadPrefix), params, nil)
+		WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't'`, encPayloadPrefix), params, nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i += 2 {
@@ -1427,7 +1427,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query("INVALID QUERY", nil, nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
 	require.Nil(t, r)
 
 	r, err = engine.Query("UPSERT INTO table1 (id) VALUES(1)", nil, nil)
@@ -2201,7 +2201,7 @@ func TestExecCornerCases(t *testing.T) {
 	require.NoError(t, err)
 
 	tx, _, err := engine.Exec("INVALID STATEMENT", nil, nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
 	require.Nil(t, tx)
 }
 
@@ -3506,7 +3506,7 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("invalid sql stmt", nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER")
+	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
 
 	_, err = engine.InferParametersPreparedStmts(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)

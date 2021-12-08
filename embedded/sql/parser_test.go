@@ -43,7 +43,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 10"),
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 		{
 			input:          "USE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT at position 7"),
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 		{
 			input:          "USE SNAPSHOT SINCE 10",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected NUMBER, expecting TX"),
+			expectedError:  errors.New("syntax error: unexpected NUMBER, expecting TX at position 21"),
 		},
 	}
 
@@ -185,17 +185,17 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 13"),
 		},
 		{
 			input:          "CREATE TABLE table1",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected $end, expecting '('"),
+			expectedError:  errors.New("syntax error: unexpected $end, expecting '(' at position 20"),
 		},
 		{
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
 		},
 	}
 
@@ -228,7 +228,7 @@ func TestCreateIndexStmt(t *testing.T) {
 		{
 			input:          "CREATE INDEX table1(id)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON at position 19"),
 		},
 		{
 			input:          "CREATE UNIQUE INDEX ON table1(id, title)",
@@ -274,7 +274,7 @@ func TestAlterTableStmt(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD at position 25"),
 		},
 	}
 
@@ -298,7 +298,7 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'untitled\"row', TRUE, false, x'AED0393F', @param1)",
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'un''titled row', TRUE, false, x'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
@@ -307,7 +307,51 @@ func TestInsertIntoStmt(t *testing.T) {
 						{Values: []ValueExp{
 							&Number{val: 2},
 							&SysFn{fn: "now"},
-							&Varchar{val: "untitled\"row"},
+							&Varchar{val: "un'titled row"},
+							&Bool{val: true},
+							&Bool{val: false},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1"},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), '', TRUE, false, x'AED0393F', @param1)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Varchar{val: ""},
+							&Bool{val: true},
+							&Bool{val: false},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1"},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), '''', TRUE, false, x'AED0393F', @param1)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Varchar{val: "'"},
 							&Bool{val: true},
 							&Bool{val: false},
 							&Blob{val: decodedBLOB},
@@ -366,42 +410,42 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($0, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR, expecting ')'"),
+			expectedError:  errors.New("syntax error: unexpected ERROR, expecting ')' at position 40"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, @title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 42"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (@id, ?)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 44"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (@id, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 44"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, @title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, ?)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 42"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, $title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input: "UPSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
@@ -421,12 +465,12 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "UPSERT INTO table1() VALUES (2, 'untitled')",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 20"),
 		},
 		{
 			input:          "UPSERT INTO VALUES (2)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER at position 18"),
 		},
 	}
 
@@ -513,7 +557,7 @@ func TestStmtSeparator(t *testing.T) {
 		{
 			input:          "CREATE DATABASE db1 USE DATABASE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected USE"),
+			expectedError:  errors.New("syntax error: unexpected USE at position 23"),
 		},
 	}
 
