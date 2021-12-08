@@ -36,7 +36,9 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return err
 	}
 
-	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+	if c.ServiceClient == nil {
+		c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+	}
 
 	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
 		Username:     user,
