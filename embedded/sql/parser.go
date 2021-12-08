@@ -144,9 +144,10 @@ type lexer struct {
 }
 
 type aheadByteReader struct {
-	nextChar byte
-	nextErr  error
-	r        io.ByteReader
+	nextChar  byte
+	nextErr   error
+	r         io.ByteReader
+	readCount int
 }
 
 func newAheadByteReader(r io.ByteReader) *aheadByteReader {
@@ -162,7 +163,13 @@ func (ar *aheadByteReader) ReadByte() (byte, error) {
 		}
 	}()
 
+	ar.readCount++
+
 	return ar.nextChar, ar.nextErr
+}
+
+func (ar *aheadByteReader) ReadCount() int {
+	return ar.readCount
 }
 
 func (ar *aheadByteReader) NextByte() (byte, error) {
@@ -252,13 +259,6 @@ func (l *lexer) Lex(lval *yySymType) int {
 			lval.err = err
 			return ERROR
 		}
-
-		if !isQuote(l.r.nextChar) {
-			lval.err = fmt.Errorf("syntax error: unexpected char %c, expecting quote", l.r.nextChar)
-			return ERROR
-		}
-
-		l.r.ReadByte() // consume closing quote
 
 		val, err := hex.DecodeString(tail)
 		if err != nil {
@@ -357,13 +357,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 	}
 
 	if isQuote(ch) {
-		tail, err := l.readEscapedString()
+		tail, err := l.readString()
 		if err != nil {
 			lval.err = err
 			return ERROR
 		}
-
-		l.r.ReadByte() // consume closing quote
 
 		lval.str = tail
 		return VARCHAR
@@ -438,7 +436,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 }
 
 func (l *lexer) Error(err string) {
-	l.err = errors.New(err)
+	l.err = fmt.Errorf("%s at position %d", err, l.r.ReadCount())
 }
 
 func (l *lexer) readWord() (string, error) {
@@ -452,34 +450,25 @@ func (l *lexer) readNumber() (string, error) {
 }
 
 func (l *lexer) readString() (string, error) {
-	return l.readWhile(func(ch byte) bool {
-		return !isQuote(ch)
-	})
-}
-
-func (l *lexer) readEscapedString() (string, error) {
 	var b bytes.Buffer
-	var prevCh byte
 
 	for {
-		ch, err := l.r.NextByte()
-		if err == io.EOF {
-			break
-		}
+		ch, err := l.r.ReadByte()
 		if err != nil {
 			return "", err
 		}
 
-		if isQuote(ch) && prevCh != '\\' {
-			break
+		nextCh, _ := l.r.NextByte()
+
+		if isQuote(ch) {
+			if isQuote(nextCh) {
+				l.r.ReadByte() // consume escaped quote
+			} else {
+				break // string completely read
+			}
 		}
 
 		b.WriteByte(ch)
-
-		prevCh, err = l.r.ReadByte()
-		if err != nil {
-			return "", err
-		}
 	}
 
 	return b.String(), nil
@@ -543,5 +532,5 @@ func isComparison(ch byte) bool {
 }
 
 func isQuote(ch byte) bool {
-	return ch == '\''
+	return ch == 0x27
 }
