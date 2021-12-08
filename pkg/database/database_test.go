@@ -574,15 +574,17 @@ func TestHistory(t *testing.T) {
 	var lastTx uint64
 
 	for _, val := range kvs {
-		meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-
-		lastTx = meta.Id
 	}
+
+	meta, err := db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
+	require.NoError(t, err)
+	lastTx = meta.Id
 
 	time.Sleep(1 * time.Millisecond)
 
-	_, err := db.History(nil)
+	_, err = db.History(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = db.History(&schema.HistoryRequest{
@@ -600,7 +602,11 @@ func TestHistory(t *testing.T) {
 
 	for _, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
-		require.Equal(t, kvs[0].Value, val.Value)
+		if val.GetMetadata().GetDeleted() {
+			require.Empty(t, val.Value)
+		} else {
+			require.Equal(t, kvs[0].Value, val.Value)
+		}
 	}
 
 	inc, err = db.History(&schema.HistoryRequest{

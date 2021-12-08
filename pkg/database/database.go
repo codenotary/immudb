@@ -904,12 +904,15 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(val) > 0 {
+			val = TrimPrefix(val)
+		}
 
 		list.Entries[i] = &schema.Entry{
 			Tx:       txID,
 			Key:      req.Key,
 			Metadata: schema.KVMetadataToProto(md),
-			Value:    TrimPrefix(val),
+			Value:    val,
 		}
 	}
 
