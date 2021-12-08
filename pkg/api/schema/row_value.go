@@ -127,8 +127,8 @@ func RenderValue(op isSQLValue_Value) string {
 		}
 	case *SQLValue_Ts:
 		{
-			t := time.Unix(0, v.Ts).UTC()
-			return t.Format("2006-01-02 15:04:05.999999999")
+			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			return t.Format("2006-01-02 15:04:05.999999")
 		}
 	}
 
@@ -159,8 +159,8 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 		}
 	case *SQLValue_Ts:
 		{
-			t := time.Unix(0, v.Ts).UTC()
-			return []byte(t.Format("2006-01-02 15:04:05.999999999"))
+			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			return []byte(t.Format("2006-01-02 15:04:05.999999"))
 		}
 	}
 
@@ -195,7 +195,7 @@ func RawValue(v *SQLValue) interface{} {
 		}
 	case *SQLValue_Ts:
 		{
-			return time.Unix(0, tv.Ts).UTC()
+			return time.Unix(tv.Ts/1e6, (tv.Ts%1e6)*1e3).UTC()
 		}
 	}
 

@@ -34,8 +34,8 @@ func TestRowComparison(t *testing.T) {
 	intValue2 := &SQLValue_N{N: 2}
 	blobValue1 := &SQLValue_Bs{Bs: nil}
 	blobValue2 := &SQLValue_Bs{Bs: []byte{1, 2, 3}}
-	tsValue1 := &SQLValue_Ts{Ts: time.Date(2021, 12, 8, 13, 46, 23, 12345, time.UTC).UnixNano()}
-	tsValue2 := &SQLValue_Ts{Ts: time.Date(2020, 11, 7, 12, 45, 22, 12344, time.UTC).UnixNano()}
+	tsValue1 := &SQLValue_Ts{Ts: time.Date(2021, 12, 8, 13, 46, 23, 12345000, time.UTC).UnixNano() / 1e3}
+	tsValue2 := &SQLValue_Ts{Ts: time.Date(2020, 11, 7, 12, 45, 22, 12344000, time.UTC).UnixNano() / 1e3}
 
 	equals, err := nullValue.Equal(nullValue)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestRowComparison(t *testing.T) {
 	require.Equal(t, []byte{1, 2, 3}, rawBlobValue)
 
 	rawTimestampValue := RawValue(&SQLValue{Value: tsValue1})
-	require.Equal(t, time.Date(2021, 12, 8, 13, 46, 23, 12345, time.UTC), rawTimestampValue)
+	require.Equal(t, time.Date(2021, 12, 8, 13, 46, 23, 12345000, time.UTC), rawTimestampValue)
 
 	nv := SQLValue{Value: nullValue}
 	bytesNullValue := RenderValueAsByte(nv.GetValue())
@@ -154,7 +154,7 @@ func TestRowComparison(t *testing.T) {
 
 	tsv := &SQLValue{Value: tsValue2}
 	bytesTimestampValue := RenderValueAsByte(tsv.GetValue())
-	require.Equal(t, []byte("2020-11-07 12:45:22.000012344"), bytesTimestampValue)
+	require.Equal(t, []byte("2020-11-07 12:45:22.012344"), bytesTimestampValue)
 
 	nv = SQLValue{Value: nullValue}
 	rNullValue := RenderValue(nv.GetValue())
@@ -182,6 +182,6 @@ func TestRowComparison(t *testing.T) {
 
 	tsv = &SQLValue{Value: tsValue1}
 	rTimestampValue := RenderValue(tsv.GetValue())
-	require.Equal(t, "2021-12-08 13:46:23.000012345", rTimestampValue)
+	require.Equal(t, "2021-12-08 13:46:23.012345", rTimestampValue)
 
 }

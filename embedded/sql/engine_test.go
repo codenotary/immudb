@@ -304,7 +304,7 @@ func TestTimestampCasts(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.Equal(t, TimestampType, row.Values[sel].Type())
-		require.Equal(t, time.Unix(0, 123456).UTC(), row.Values[sel].Value())
+		require.Equal(t, time.Unix(123456, 0).UTC(), row.Values[sel].Value())
 	})
 
 	t.Run("test casting from null values", func(t *testing.T) {
@@ -1094,7 +1094,7 @@ func TestEncodeValue(t *testing.T) {
 	}}).Value(), BLOBType, 256)
 	require.NoError(t, err)
 
-	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1)}).Value(), TimestampType, 0)
+	b, err = EncodeValue((&Timestamp{val: time.Unix(0, 1000)}).Value(), TimestampType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 

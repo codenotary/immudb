@@ -312,7 +312,7 @@ func RenderValue(op interface{}) interface{} {
 		}
 	case *schema.SQLValue_Ts:
 		{
-			return time.Unix(0, v.Ts).UTC()
+			return time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
 		}
 	}
 	return []byte(fmt.Sprintf("%v", op))

@@ -848,7 +848,7 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 		}
 	case TimestampType:
 		{
-			intVal, ok := val.(time.Time)
+			timeVal, ok := val.(time.Time)
 			if !ok {
 				return nil, fmt.Errorf(
 					"value is not a timestamp: %w", ErrInvalidValue,
@@ -858,7 +858,7 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			// len(v) + v
 			var encv [EncLenLen + 8]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(intVal.UnixNano()))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(timeToInt64(timeVal)))
 
 			return encv[:], nil
 		}
@@ -1058,7 +1058,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Timestamp{val: time.Unix(0, int64(v)).UTC()}, voff, nil
+			return &Timestamp{val: timeFromInt64(int64(v))}, voff, nil
 		}
 	}
 
