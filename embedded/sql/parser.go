@@ -202,11 +202,11 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
-		if '\t' == ch {
+		if ch == '\t' {
 			continue
 		}
 
-		if '/' == ch && '*' == l.r.nextChar {
+		if ch == '/' && l.r.nextChar == '*' {
 			l.r.ReadByte()
 
 			for {
@@ -219,7 +219,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 					return ERROR
 				}
 
-				if '*' == ch && '/' == l.r.nextChar {
+				if ch == '*' && l.r.nextChar == '/' {
 					l.r.ReadByte() // consume closing slash
 					break
 				}
@@ -348,7 +348,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		cmpOp, ok := cmpOps[op]
 		if !ok {
-			lval.err = fmt.Errorf("Invalid comparison operator %s", op)
+			lval.err = fmt.Errorf("invalid comparison operator %s", op)
 			return ERROR
 		}
 
@@ -357,7 +357,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 	}
 
 	if isQuote(ch) {
-		tail, err := l.readString()
+		tail, err := l.readEscapedString()
 		if err != nil {
 			lval.err = err
 			return ERROR
@@ -457,6 +457,34 @@ func (l *lexer) readString() (string, error) {
 	})
 }
 
+func (l *lexer) readEscapedString() (string, error) {
+	var b bytes.Buffer
+	var prevCh byte
+
+	for {
+		ch, err := l.r.NextByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if isQuote(ch) && prevCh != '\\' {
+			break
+		}
+
+		b.WriteByte(ch)
+
+		prevCh, err = l.r.ReadByte()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return b.String(), nil
+}
+
 func (l *lexer) readComparison() (string, error) {
 	return l.readWhile(func(ch byte) bool {
 		return isComparison(ch)
@@ -487,19 +515,19 @@ func (l *lexer) readWhile(condFn func(b byte) bool) (string, error) {
 }
 
 func isBLOBPrefix(ch byte) bool {
-	return 'x' == ch
+	return ch == 'x'
 }
 
 func isSeparator(ch byte) bool {
-	return ';' == ch
+	return ch == ';'
 }
 
 func isLineBreak(ch byte) bool {
-	return '\r' == ch || '\n' == ch
+	return ch == '\r' || ch == '\n'
 }
 
 func isSpace(ch byte) bool {
-	return 32 == ch || 9 == ch //SPACE or TAB
+	return ch == 32 || ch == 9 //SPACE or TAB
 }
 
 func isNumber(ch byte) bool {
@@ -511,9 +539,9 @@ func isLetter(ch byte) bool {
 }
 
 func isComparison(ch byte) bool {
-	return '!' == ch || '<' == ch || '=' == ch || '>' == ch
+	return ch == '!' || ch == '<' || ch == '=' || ch == '>'
 }
 
 func isQuote(ch byte) bool {
-	return '\'' == ch
+	return ch == '\''
 }

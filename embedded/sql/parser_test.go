@@ -298,7 +298,7 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'untitled row', TRUE, false, x'AED0393F', @param1)",
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'untitled\"row', TRUE, false, x'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
@@ -307,7 +307,7 @@ func TestInsertIntoStmt(t *testing.T) {
 						{Values: []ValueExp{
 							&Number{val: 2},
 							&SysFn{fn: "now"},
-							&Varchar{val: "untitled row"},
+							&Varchar{val: "untitled\"row"},
 							&Bool{val: true},
 							&Bool{val: false},
 							&Blob{val: decodedBLOB},
