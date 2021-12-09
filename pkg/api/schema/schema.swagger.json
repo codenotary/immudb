@@ -1539,6 +1539,9 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
+        },
+        "expired": {
+          "type": "boolean"
         }
       }
     },

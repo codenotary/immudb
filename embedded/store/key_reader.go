@@ -86,7 +86,7 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 	}
 
 	if IgnoreExpired(valRef, s.ts) {
-		return nil, ErrKeyNotFound
+		return nil, ErrExpiredEntry
 	}
 
 	for _, filter := range filters {
@@ -314,7 +314,7 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 			}
 
 			if IgnoreExpired(val, r.snap.ts) {
-				continue
+				return nil, nil, 0, ErrExpiredEntry
 			}
 
 			if r.filter != nil && r.filter(val, r.snap.ts) {

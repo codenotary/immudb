@@ -106,6 +106,7 @@ message Entry {
 	bytes value = 3;
 	Reference referencedBy = 4;
 	KVMetadata metadata = 5;
+	bool expired = 6;
 }
 
 message Reference {

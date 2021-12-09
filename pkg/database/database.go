@@ -405,7 +405,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 	} else {
 		txID = atTx
 
-		md, val, err = d.readValue(key, atTx, tx)
+		md, val, err = d.readMetadataAndValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -457,13 +457,23 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 	}, err
 }
 
-func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata, []byte, error) {
+func (d *db) readMetadataAndValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata, []byte, error) {
 	err := d.st.ReadTx(atTx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return d.st.ReadValue(tx, key)
+	entry, err := tx.EntryOf(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v, err := d.st.ReadValue(atTx, tx, key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return entry.Metadata(), v, nil
 }
 
 // CurrentState ...
@@ -913,8 +923,13 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		md, val, err := d.st.ReadValue(tx, key)
-		if err != nil && err != store.ErrKeyNotFound {
+		entry, err := tx.EntryOf(key)
+		if err != nil {
+			return nil, err
+		}
+
+		val, err := d.st.ReadValue(txID, tx, key)
+		if err != nil && err != store.ErrExpiredEntry {
 			return nil, err
 		}
 		if len(val) > 0 {
@@ -924,8 +939,9 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		list.Entries[i] = &schema.Entry{
 			Tx:       txID,
 			Key:      req.Key,
-			Metadata: schema.KVMetadataToProto(md),
+			Metadata: schema.KVMetadataToProto(entry.Metadata()),
 			Value:    val,
+			Expired:  err == store.ErrExpiredEntry,
 		}
 	}
 
