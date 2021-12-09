@@ -16,84 +16,203 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"time"
 )
 
-const maxKVMetadataLen = 1 + tsSize
+var ErrNonExpirable = errors.New("non expirable")
+
+const (
+	deletedAttrCode   attributeCode = iota
+	expiresAtAttrCode attributeCode = iota
+)
+
+const deletedAttrSize = 0
+const expiresAtAttrSize = tsSize
+
+const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize)
 
 type KVMetadata struct {
-	deleted   bool
-	expiresAt *time.Time
+	attributes map[attributeCode]attribute
+}
+
+type deletedAttribute struct {
+}
+
+func (a *deletedAttribute) code() attributeCode {
+	return deletedAttrCode
+}
+
+func (a *deletedAttribute) serialize() []byte {
+	return nil
+}
+
+func (a *deletedAttribute) deserialize(b []byte) (int, error) {
+	return 0, nil
+}
+
+type expiresAtAttribute struct {
+	expiresAt time.Time
+}
+
+func (a *expiresAtAttribute) code() attributeCode {
+	return expiresAtAttrCode
+}
+
+func (a *expiresAtAttribute) serialize() []byte {
+	var b [tsSize]byte
+	binary.BigEndian.PutUint64(b[:], uint64(a.expiresAt.Unix()))
+	return b[:]
+}
+
+func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
+	if len(b) < tsSize {
+		return 0, ErrIllegalArguments
+	}
+
+	a.expiresAt = time.Unix(int64(binary.BigEndian.Uint64(b)), 0)
+
+	return tsSize, nil
 }
 
 func NewKVMetadata() *KVMetadata {
-	return &KVMetadata{}
+	return &KVMetadata{
+		attributes: make(map[attributeCode]attribute),
+	}
 }
 
 func (md *KVMetadata) AsDeleted(deleted bool) *KVMetadata {
-	md.deleted = deleted
+	if !deleted {
+		delete(md.attributes, deletedAttrCode)
+		return md
+	}
+
+	_, ok := md.attributes[deletedAttrCode]
+	if !ok {
+		md.attributes[deletedAttrCode] = &deletedAttribute{}
+	}
+
 	return md
 }
 
 func (md *KVMetadata) Deleted() bool {
-	return md.deleted
+	_, ok := md.attributes[deletedAttrCode]
+	return ok
 }
 
-func (md *KVMetadata) ExpiresAt(expiresAt *time.Time) *KVMetadata {
-	md.expiresAt = expiresAt
+func (md *KVMetadata) ExpiresAt(expiresAt time.Time) *KVMetadata {
+	expAtAttr, ok := md.attributes[expiresAtAttrCode]
+	if !ok {
+		expAtAttr = &expiresAtAttribute{expiresAt: expiresAt}
+		md.attributes[expiresAtAttrCode] = expAtAttr
+		return md
+	}
+
+	expAtAttr.(*expiresAtAttribute).expiresAt = expiresAt
 	return md
 }
 
-func (md *KVMetadata) Expirable() bool {
-	return md.expiresAt != nil
+func (md *KVMetadata) NonExpirable() *KVMetadata {
+	delete(md.attributes, expiresAtAttrCode)
+	return md
 }
 
-func (md *KVMetadata) ExpirationTime() *time.Time {
-	return md.expiresAt
+func (md *KVMetadata) IsExpirable() bool {
+	_, ok := md.attributes[expiresAtAttrCode]
+	return ok
+}
+
+func (md *KVMetadata) ExpirationTime() (time.Time, error) {
+	expAtAttr, ok := md.attributes[expiresAtAttrCode]
+	if !ok {
+		return time.Now(), ErrNonExpirable
+	}
+
+	return expAtAttr.(*expiresAtAttribute).expiresAt, nil
 }
 
 func (md *KVMetadata) ExpiredAt(mtime time.Time) bool {
-	if !md.Expirable() {
+	expAtAttr, ok := md.attributes[expiresAtAttrCode]
+	if !ok {
 		return false
 	}
 
-	return !md.expiresAt.After(mtime)
+	return !expAtAttr.(*expiresAtAttribute).expiresAt.After(mtime)
 }
 
 func (md *KVMetadata) Bytes() []byte {
-	var b [1 + tsSize]byte
+	var b bytes.Buffer
 
-	if md.deleted {
-		b[0] = 1
+	var bcode [attrCodeSize]byte
+
+	deletedAttr, ok := md.attributes[deletedAttrCode]
+	if ok {
+		binary.BigEndian.PutUint32(bcode[:], uint32(deletedAttrCode))
+		b.Write(bcode[:])
+		b.Write(deletedAttr.serialize())
 	}
 
-	if md.expiresAt == nil {
-		return b[:1]
+	expAtAttr, ok := md.attributes[expiresAtAttrCode]
+	if ok {
+		binary.BigEndian.PutUint32(bcode[:], uint32(expiresAtAttrCode))
+		b.Write(bcode[:])
+		b.Write(expAtAttr.serialize())
 	}
 
-	binary.BigEndian.PutUint64(b[1:], uint64(md.expiresAt.Unix()))
-
-	return b[:]
+	return b.Bytes()
 }
 
 func (md *KVMetadata) ReadFrom(b []byte) error {
-	if len(b) == 0 {
-		return nil
+	i := 0
+
+	for {
+		if len(b) == i {
+			break
+		}
+
+		if len(b[i:]) < attrCodeSize {
+			return ErrCorruptedData
+		}
+
+		attrCode := attributeCode(binary.BigEndian.Uint32(b[i:]))
+		i += attrCodeSize
+
+		switch attrCode {
+		case deletedAttrCode:
+			{
+				deletedAttr := &deletedAttribute{}
+
+				n, err := deletedAttr.deserialize(b[i:])
+				if err != nil {
+					return fmt.Errorf("error reading metadata attributes: %w", err)
+				}
+
+				i += n
+
+				md.attributes[deletedAttrCode] = deletedAttr
+			}
+		case expiresAtAttrCode:
+			{
+				expAtAttr := &expiresAtAttribute{}
+
+				n, err := expAtAttr.deserialize(b[i:])
+				if err != nil {
+					return fmt.Errorf("error reading metadata attributes: %w", err)
+				}
+
+				i += n
+
+				md.attributes[expiresAtAttrCode] = expAtAttr
+			}
+		default:
+			{
+				return fmt.Errorf("error reading metadata attributes: %w", ErrCorruptedData)
+			}
+		}
 	}
-
-	md.deleted = b[0] != 0
-
-	if len(b) == 1 {
-		return nil
-	}
-
-	if len(b) != 1+tsSize {
-		return ErrCorruptedData
-	}
-
-	ts := time.Unix(int64(binary.BigEndian.Uint64(b[1:])), 0)
-	md.expiresAt = &ts
 
 	return nil
 }

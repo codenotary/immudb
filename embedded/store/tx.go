@@ -441,7 +441,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 				return err
 			}
 
-			kvmd = &KVMetadata{}
+			kvmd = NewKVMetadata()
 
 			err = kvmd.ReadFrom(mdbs[:mdLen])
 			if err != nil {
