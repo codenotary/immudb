@@ -62,7 +62,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("s3-path-prefix", "", "s3 path prefix (multiple immudb instances can share the same bucket if they have different prefixes)")
 	cmd.Flags().Duration("max-session-inactivity-time", 3*time.Minute, "max session inactivity time is a duration after which an active session is declared inactive by the server. A session is kept active if server is still receiving requests from client (keep-alive or other methods)")
 	cmd.Flags().Duration("max-session-age-time", 0, "the current default value is infinity. max session age time is a duration after which session will be forcibly closed")
-	cmd.Flags().Duration("session-timeout", 2*time.Hour, "session timeout is a duration after which an inactive session is forcibly closed by the server")
+	cmd.Flags().Duration("session-timeout", 2*time.Minute, "session timeout is a duration after which an inactive session is forcibly closed by the server")
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
 }
@@ -99,6 +99,6 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("s3-path-prefix", "")
 	viper.SetDefault("max-session-inactivity-time", 3*time.Minute)
 	viper.SetDefault("max-session-age-time", 0)
-	viper.SetDefault("session-timeout", 2*time.Hour)
+	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
 }

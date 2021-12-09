@@ -33,7 +33,7 @@ func DefaultOptions() *Options {
 		SessionGuardCheckInterval: time.Minute * 1,
 		MaxSessionInactivityTime:  time.Minute * 3,
 		MaxSessionAgeTime:         infinity,
-		Timeout:                   time.Hour * 2,
+		Timeout:                   time.Minute * 2,
 	}
 }
 
