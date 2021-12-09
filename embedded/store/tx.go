@@ -434,16 +434,16 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		var kvmd *KVMetadata
 
 		if mdLen > 0 {
-			var mdbs [maxKVMetadataLen]byte
+			mdbs := make([]byte, mdLen)
 
-			_, err = r.Read(mdbs[:mdLen])
+			_, err = r.Read(mdbs)
 			if err != nil {
 				return err
 			}
 
 			kvmd = NewKVMetadata()
 
-			err = kvmd.ReadFrom(mdbs[:mdLen])
+			err = kvmd.ReadFrom(mdbs)
 			if err != nil {
 				return err
 			}

@@ -26,8 +26,8 @@ import (
 var ErrNonExpirable = errors.New("non expirable")
 
 const (
-	deletedAttrCode   attributeCode = iota
-	expiresAtAttrCode attributeCode = iota
+	deletedAttrCode   attributeCode = 0
+	expiresAtAttrCode attributeCode = 1
 )
 
 const deletedAttrSize = 0
@@ -162,6 +162,10 @@ func (md *KVMetadata) Bytes() []byte {
 }
 
 func (md *KVMetadata) ReadFrom(b []byte) error {
+	if len(b) > maxKVMetadataLen {
+		return ErrCorruptedData
+	}
+
 	i := 0
 
 	for {
