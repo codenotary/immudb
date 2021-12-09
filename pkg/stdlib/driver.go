@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"sync"
 	"time"
@@ -78,18 +77,11 @@ func (d *Driver) RegisterConnection(cn *Conn) string {
 }
 
 func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
-	conn, err := client.NewImmuClient(cliOptions)
-	if err != nil {
-		return nil, err
-	}
+	conn := client.NewClient().WithOptions(cliOptions)
+
 	name := GetUri(cliOptions)
 
-	_, err = conn.Login(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password))
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = conn.UseDatabase(ctx, &schema.Database{DatabaseName: cliOptions.Database})
+	err := conn.OpenSession(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password), cliOptions.Database)
 	if err != nil {
 		return nil, err
 	}

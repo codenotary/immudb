@@ -19,6 +19,7 @@ package stdlib
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
@@ -27,6 +28,7 @@ type Conn struct {
 	conn    client.ImmuClient
 	options *client.Options
 	driver  *Driver
+	tx      client.Tx
 }
 
 // Conn returns the underlying client.ImmuClient
@@ -36,6 +38,10 @@ func (c *Conn) GetImmuClient() client.ImmuClient {
 
 func (c *Conn) GetDriver() *Driver {
 	return c.driver
+}
+
+func (c *Conn) GetTx() client.Tx {
+	return c.tx
 }
 
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
@@ -48,15 +54,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 
 func (c *Conn) Close() error {
 	defer c.GetDriver().UnregisterConnection(c.name)
-	return c.conn.Disconnect()
-}
-
-func (c *Conn) Begin() (driver.Tx, error) {
-	return nil, ErrNotImplemented
-}
-
-func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, ErrNotImplemented
+	return c.conn.CloseSession(context.TODO())
 }
 
 func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Result, error) {
@@ -67,6 +65,16 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.tx != nil {
+		err = c.tx.SQLExec(ctx, query, vals)
+		if err != nil {
+			return nil, err
+		}
+		return RowsAffected{&schema.SQLExecResult{
+			OngoingTx: true,
+		}}, nil
 	}
 
 	execResult, err := c.conn.SQLExec(ctx, query, vals)
@@ -81,13 +89,23 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	if !c.conn.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
+	queryResult := &schema.SQLQueryResult{}
 
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
 		return nil, err
 	}
 
-	queryResult, err := c.conn.SQLQuery(ctx, query, vals, true)
+	if c.tx != nil {
+		queryResult, err = c.tx.SQLQuery(ctx, query, vals)
+		if err != nil {
+			return nil, err
+		}
+		return &Rows{rows: queryResult.Rows}, nil
+
+	}
+
+	queryResult, err = c.conn.SQLQuery(ctx, query, vals, true)
 	if err != nil {
 		return nil, err
 	}
