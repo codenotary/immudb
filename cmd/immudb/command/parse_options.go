@@ -82,7 +82,7 @@ func parseOptions() (options *server.Options, err error) {
 
 	sessionOptions := sessions.DefaultOptions().
 		WithSessionGuardCheckInterval(viper.GetDuration("sessions-guard-check-interval")).
-		WithMaxSessionIdleTime(viper.GetDuration("max-session-idle-time")).
+		WithMaxSessionInactivityTime(viper.GetDuration("max-session-inactivity-time")).
 		WithMaxSessionAgeTime(viper.GetDuration("max-session-age-time")).
 		WithTimeout(viper.GetDuration("session-timeout"))
 

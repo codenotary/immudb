@@ -33,9 +33,9 @@ import (
 type Status int64
 
 const (
-	Active Status = iota
-	Idle
-	Dead
+	active Status = iota
+	inactive
+	dead
 )
 
 type Session struct {
@@ -46,7 +46,6 @@ type Session struct {
 	database           database.DB
 	creationTime       time.Time
 	lastActivityTime   time.Time
-	lastHeartBeat      time.Time
 	readWriteTxOngoing bool
 	transactions       map[string]transactions.Transaction
 	log                logger.Logger
@@ -56,12 +55,11 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 	now := time.Now()
 	return &Session{
 		id:               sessionID,
-		state:            Active,
+		state:            active,
 		user:             user,
 		database:         db,
 		creationTime:     now,
 		lastActivityTime: now,
-		lastHeartBeat:    now,
 		transactions:     make(map[string]transactions.Transaction),
 		log:              log,
 	}
@@ -222,18 +220,6 @@ func (s *Session) SetLastActivityTime(t time.Time) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.lastActivityTime = t
-}
-
-func (s *Session) GetLastHeartBeat() time.Time {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.lastHeartBeat
-}
-
-func (s *Session) SetLastHeartBeat(t time.Time) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.lastHeartBeat = t
 }
 
 func (s *Session) GetCreationTime() time.Time {

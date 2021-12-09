@@ -20,8 +20,8 @@ import "time"
 
 type Options struct {
 	SessionGuardCheckInterval time.Duration
-	// MaxSessionIdleTime is a duration for the amount of time after which an idle session would be closed by the server
-	MaxSessionIdleTime time.Duration
+	// MaxSessionInactivityTime is a duration for the amount of time after which an idle session would be closed by the server
+	MaxSessionInactivityTime time.Duration
 	// MaxSessionAgeTime is a duration for the maximum amount of time a session may exist before it will be closed by the server
 	MaxSessionAgeTime time.Duration
 	// Timeout the server waits for a duration of Timeout and if no activity is seen even after that the session is closed
@@ -31,7 +31,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		SessionGuardCheckInterval: time.Minute * 1,
-		MaxSessionIdleTime:        time.Hour * 1,
+		MaxSessionInactivityTime:  time.Hour * 1,
 		MaxSessionAgeTime:         infinity,
 		Timeout:                   time.Hour * 2,
 	}
@@ -41,8 +41,8 @@ func (o *Options) WithSessionGuardCheckInterval(interval time.Duration) *Options
 	o.SessionGuardCheckInterval = interval
 	return o
 }
-func (o *Options) WithMaxSessionIdleTime(maxIdleTime time.Duration) *Options {
-	o.MaxSessionIdleTime = maxIdleTime
+func (o *Options) WithMaxSessionInactivityTime(maxInactivityTime time.Duration) *Options {
+	o.MaxSessionInactivityTime = maxInactivityTime
 	return o
 }
 
