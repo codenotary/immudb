@@ -25,48 +25,50 @@ import (
 func TestKVMetadata(t *testing.T) {
 	now := time.Now()
 
-	md := KVMetadata{}
+	md := NewKVMetadata()
 
 	bs := md.Bytes()
-	require.NotNil(t, bs)
-	require.Len(t, bs, 1)
-	require.Equal(t, byte(0), bs[0])
+	require.Len(t, bs, 0)
 
 	err := md.ReadFrom(bs)
 	require.NoError(t, err)
 	require.False(t, md.Deleted())
-	require.Nil(t, md.expiresAt)
-	require.False(t, md.Expirable())
-	require.Nil(t, md.ExpirationTime())
+	require.False(t, md.IsExpirable())
+
+	_, err = md.ExpirationTime()
+	require.ErrorIs(t, err, ErrNonExpirable)
+
 	require.False(t, md.ExpiredAt(now))
 
-	desmd := KVMetadata{}
+	desmd := NewKVMetadata()
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
 	require.False(t, desmd.Deleted())
-	require.False(t, md.Expirable())
+	require.False(t, md.IsExpirable())
 	require.False(t, md.ExpiredAt(now))
 
 	desmd.AsDeleted(true)
 	require.True(t, desmd.Deleted())
 
-	desmd.ExpiresAt(nil)
-	require.False(t, md.Expirable())
+	desmd.NonExpirable()
+	require.False(t, md.IsExpirable())
 	require.False(t, md.ExpiredAt(now))
 
-	desmd.ExpiresAt(&now)
-	require.True(t, desmd.Expirable())
-	require.Equal(t, &now, desmd.ExpirationTime())
+	desmd.ExpiresAt(now)
+	require.True(t, desmd.IsExpirable())
+
+	expTime, err := desmd.ExpirationTime()
+	require.NoError(t, err)
+	require.Equal(t, now, expTime)
 	require.True(t, desmd.ExpiredAt(now))
 
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, 1+tsSize)
-	require.NotEqual(t, byte(0), bs[0])
+	require.Len(t, bs, maxKVMetadataLen)
 
 	err = desmd.ReadFrom(bs)
 	require.NoError(t, err)
 	require.True(t, desmd.Deleted())
-	require.True(t, desmd.Expirable())
+	require.True(t, desmd.IsExpirable())
 	require.True(t, desmd.ExpiredAt(now))
 }

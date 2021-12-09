@@ -39,7 +39,7 @@ type FilterFn func(valRef ValueRef, t time.Time) bool
 var (
 	IgnoreDeleted FilterFn = func(valRef ValueRef, t time.Time) bool {
 		md := valRef.KVMetadata()
-		return md != nil && md.deleted
+		return md != nil && md.Deleted()
 	}
 
 	IgnoreExpired FilterFn = func(valRef ValueRef, t time.Time) bool {
@@ -230,7 +230,7 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 		}
 
 		if kvmdLen > 0 {
-			kvmd = &KVMetadata{}
+			kvmd = NewKVMetadata()
 
 			err := kvmd.ReadFrom(indexedVal[i : i+kvmdLen])
 			if err != nil {

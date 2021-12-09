@@ -52,8 +52,9 @@ func KVMetadataToProto(md *store.KVMetadata) *KVMetadata {
 		Deleted: md.Deleted(),
 	}
 
-	if md.Expirable() {
-		kvmd.Expiration = &Expiration{ExpiresAt: md.ExpirationTime().Unix()}
+	if md.IsExpirable() {
+		expTime, _ := md.ExpirationTime()
+		kvmd.Expiration = &Expiration{ExpiresAt: expTime.Unix()}
 	}
 
 	return kvmd
@@ -88,13 +89,10 @@ func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
 		return nil
 	}
 
-	kvmd := store.NewKVMetadata()
-
-	kvmd.AsDeleted(md.Deleted)
+	kvmd := store.NewKVMetadata().AsDeleted(md.Deleted)
 
 	if md.Expiration != nil {
-		expiresAt := time.Unix(md.Expiration.ExpiresAt, 0)
-		kvmd.ExpiresAt(&expiresAt)
+		kvmd.ExpiresAt(time.Unix(md.Expiration.ExpiresAt, 0))
 	}
 
 	return kvmd

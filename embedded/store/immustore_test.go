@@ -1017,7 +1017,38 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NotNil(t, valRef)
 		require.True(t, valRef.KVMetadata().Deleted())
 		require.NotNil(t, valRef.KVMetadata())
-		require.False(t, valRef.KVMetadata().Expirable())
+		require.False(t, valRef.KVMetadata().IsExpirable())
+	})
+
+	t.Run("non-expired keys should be reachable", func(t *testing.T) {
+		nearFuture := time.Now().Add(1 * time.Second)
+
+		tx, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("expirableKey"), NewKVMetadata().ExpiresAt(nearFuture), []byte("expirableValue"))
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		valRef, err := immuStore.Get([]byte("expirableKey"))
+		require.NoError(t, err)
+		require.NotNil(t, valRef)
+
+		val, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte("expirableValue"), val)
+
+		time.Sleep(1 * time.Second)
+
+		// already expired
+		_, err = immuStore.Get([]byte("expirableKey"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		// expired entries are never returned
+		_, err = immuStore.GetWith([]byte("expirableKey"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 
 	t.Run("expired keys should not be reachable", func(t *testing.T) {
@@ -1026,7 +1057,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
 
-		err = tx.Set([]byte("expirableKey"), NewKVMetadata().ExpiresAt(&now), []byte("expirableValue"))
+		err = tx.Set([]byte("expirableKey"), NewKVMetadata().ExpiresAt(now), []byte("expirableValue"))
 		require.NoError(t, err)
 
 		_, err = tx.Commit()
