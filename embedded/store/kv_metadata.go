@@ -70,7 +70,7 @@ func (a *expiresAtAttribute) serialize() []byte {
 
 func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
 	if len(b) < tsSize {
-		return 0, ErrIllegalArguments
+		return 0, ErrCorruptedData
 	}
 
 	a.expiresAt = time.Unix(int64(binary.BigEndian.Uint64(b)), 0)
