@@ -24,12 +24,15 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
+	"math"
 	"os"
 	"sync"
 	"time"
 )
 
 const MaxSessions = 100
+
+const infinity = time.Duration(math.MaxInt64)
 
 type manager struct {
 	running    bool
@@ -62,6 +65,15 @@ type Manager interface {
 func NewManager(options *Options) (*manager, error) {
 	if options == nil {
 		return nil, ErrInvalidOptionsProvided
+	}
+	if options.MaxSessionAgeTime == 0 {
+		options.MaxSessionAgeTime = infinity
+	}
+	if options.MaxSessionIdleTime == 0 {
+		options.MaxSessionIdleTime = infinity
+	}
+	if options.Timeout == 0 {
+		options.Timeout = infinity
 	}
 	guard := &manager{
 		sessions: make(map[string]*Session),
