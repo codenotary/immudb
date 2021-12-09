@@ -47,7 +47,7 @@ func TestSessionGuard(t *testing.T) {
 }
 
 const SGUARD_CHECK_INTERVAL = time.Millisecond * 250
-const MAX_SESSION_IDLE = time.Millisecond * 2000
+const MAX_SESSION_INACTIVE = time.Millisecond * 2000
 const MAX_SESSION_AGE = time.Millisecond * 3000
 const TIMEOUT = time.Millisecond * 1000
 const KEEPSTATUS = time.Millisecond * 300
@@ -56,12 +56,11 @@ const WORK_TIME = time.Millisecond * 1000
 func TestManager_ExpireSessions(t *testing.T) {
 	const SESS_NUMBER = 60
 	const KEEP_ACTIVE = 20
-	const KEEP_HEARTBEAT = 20
 	const KEEP_INFINITE = 20
 
 	sessOptions := &Options{
 		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
-		MaxSessionIdleTime:        MAX_SESSION_IDLE,
+		MaxSessionInactivityTime:  MAX_SESSION_INACTIVE,
 		MaxSessionAgeTime:         MAX_SESSION_AGE,
 		Timeout:                   TIMEOUT,
 	}
@@ -97,7 +96,6 @@ func TestManager_ExpireSessions(t *testing.T) {
 	require.Equal(t, SESS_NUMBER, m.SessionCount())
 
 	activeDone := make(chan bool)
-	idleDone := make(chan bool)
 	infiniteDone := make(chan bool)
 	// keep active
 	for ac := 0; ac < KEEP_ACTIVE; ac++ {
@@ -106,43 +104,39 @@ func TestManager_ExpireSessions(t *testing.T) {
 	for alc := 0; alc < KEEP_INFINITE; alc++ {
 		go keepActive(<-sessIDs, m, infiniteDone)
 	}
-	for ic := 0; ic < KEEP_HEARTBEAT; ic++ {
-		go keepIdle(<-sessIDs, m, idleDone)
-	}
 
-	fIdleC := 0
+	fInactiveC := 0
 	fActiveC := 0
 	time.Sleep(WORK_TIME)
 	for _, s := range m.sessions {
 		switch s.GetStatus() {
-		case Active:
+		case active:
 			fActiveC++
-		case Idle:
-			fIdleC++
+		case inactive:
+			fInactiveC++
 		}
 	}
 
 	require.Equal(t, SESS_NUMBER, fActiveC)
-	require.Equal(t, 0, fIdleC)
+	require.Equal(t, 0, fInactiveC)
 
-	idleDone <- true
 	activeDone <- true
 
 	time.Sleep(MAX_SESSION_AGE + TIMEOUT)
-	fIdleC = 0
+	fInactiveC = 0
 	fActiveC = 0
 
 	for _, s := range m.sessions {
 		switch s.GetStatus() {
-		case Active:
+		case active:
 			fActiveC++
-		case Idle:
-			fIdleC++
+		case inactive:
+			fInactiveC++
 		}
 	}
 
 	require.Equal(t, 0, fActiveC)
-	require.Equal(t, 0, fIdleC)
+	require.Equal(t, 0, fInactiveC)
 
 	err = m.StopSessionsGuard()
 	require.NoError(t, err)
@@ -154,19 +148,6 @@ func keepActive(id string, m *manager, done chan bool) {
 		select {
 		case <-t.C:
 			m.UpdateSessionActivityTime(id)
-			m.UpdateHeartBeatTime(id)
-		case <-done:
-			return
-		}
-	}
-}
-
-func keepIdle(id string, m *manager, done chan bool) {
-	t := time.NewTicker(KEEPSTATUS)
-	for {
-		select {
-		case <-t.C:
-			m.UpdateHeartBeatTime(id)
 		case <-done:
 			return
 		}

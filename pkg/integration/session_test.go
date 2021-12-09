@@ -58,7 +58,7 @@ func TestSession_OpenCloseSession(t *testing.T) {
 func TestSession_OpenCloseSessionMulti(t *testing.T) {
 	sessOptions := &sessions.Options{
 		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionIdleTime:        time.Millisecond * 2000,
+		MaxSessionInactivityTime:  time.Millisecond * 2000,
 		MaxSessionAgeTime:         time.Millisecond * 4000,
 		Timeout:                   time.Millisecond * 2000,
 	}
@@ -129,7 +129,7 @@ func TestSession_OpenSessionNotConnected(t *testing.T) {
 func TestSession_ExpireSessions(t *testing.T) {
 	sessOptions := &sessions.Options{
 		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionIdleTime:        time.Millisecond * 200,
+		MaxSessionInactivityTime:  time.Millisecond * 200,
 		MaxSessionAgeTime:         time.Millisecond * 900,
 		Timeout:                   time.Millisecond * 100,
 	}
