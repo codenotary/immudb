@@ -197,6 +197,7 @@ func (o *Options) WithTLS(tls *tls.Config) *Options {
 }
 
 // WithAuth sets auth
+// Deprecated: WithAuth will be removed in future release
 func (o *Options) WithAuth(authEnabled bool) *Options {
 	o.auth = authEnabled
 	return o
@@ -208,6 +209,7 @@ func (o *Options) WithMaxRecvMsgSize(maxRecvMsgSize int) *Options {
 }
 
 // GetAuth gets auth
+// Deprecated: GetAuth will be removed in future release
 func (o *Options) GetAuth() bool {
 	return o.auth
 }
