@@ -326,6 +326,15 @@ func (tx *Tx) IndexOf(key []byte) (int, error) {
 	return 0, ErrKeyNotFound
 }
 
+func (tx *Tx) EntryOf(key []byte) (*TxEntry, error) {
+	for _, e := range tx.Entries() {
+		if bytes.Equal(e.key(), key) {
+			return e, nil
+		}
+	}
+	return nil, ErrKeyNotFound
+}
+
 func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
 	kindex, err := tx.IndexOf(key)
 	if err != nil {

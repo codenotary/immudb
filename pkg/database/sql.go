@@ -196,7 +196,7 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.T
 	} else {
 		txID = atTx
 
-		md, val, err = d.readValue(key, atTx, tx)
+		md, val, err = d.readMetadataAndValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}

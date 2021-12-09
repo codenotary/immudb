@@ -182,7 +182,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 				}
 
 				for _, e := range txHolder.Entries() {
-					_, _, err := immuStore.ReadValue(txHolder, e.key())
+					_, err := immuStore.ReadValue(txHolder.header.ID, txHolder, e.Key())
 					if err != nil {
 						panic(err)
 					}
@@ -591,7 +591,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
 	require.Equal(t, ErrLinearProofMaxLenExceeded, err)
 
-	_, _, err = immuStore.ReadValue(sourceTx, []byte{1, 2, 3})
+	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
 	require.Equal(t, ErrKeyNotFound, err)
 
 	err = immuStore.validateEntries(nil)
@@ -1173,10 +1173,10 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 
 	require.Equal(t, uint64(1), immuStore.IndexInfo())
 
-	tx := immuStore.NewTxHolder()
-	immuStore.ReadTx(hdr.ID, tx)
+	_, err = immuStore.ReadValue(hdr.ID, nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, val, err := immuStore.ReadValue(tx, []byte(fmt.Sprintf("keyInsertedAtTx%d", hdr.ID)))
+	val, err := immuStore.ReadValue(hdr.ID, immuStore.NewTxHolder(), []byte(fmt.Sprintf("keyInsertedAtTx%d", hdr.ID)))
 	require.NoError(t, err)
 	require.Equal(t, []byte("value"), val)
 }
@@ -1252,9 +1252,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 							v := make([]byte, 8)
 							binary.BigEndian.PutUint64(v, txID-1)
 
-							immuStore.ReadTx(txID, tx)
-
-							_, val, err := immuStore.ReadValue(tx, k)
+							val, err := immuStore.ReadValue(txID, tx, k)
 							if err != nil {
 								panic(err)
 							}
@@ -1388,7 +1386,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			verifies := htree.VerifyInclusion(proof, entrySpecDigest(e), tx.header.Eh)
 			require.True(t, verifies)
 
-			_, v, err = immuStore.ReadValue(tx, key)
+			v, err = immuStore.ReadValue(tx.header.ID, tx, key)
 			require.NoError(t, err)
 			require.Equal(t, value, v)
 		}

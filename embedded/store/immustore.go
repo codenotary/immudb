@@ -61,6 +61,7 @@ var ErrCorruptedIndex = errors.New("corrupted index")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound
+var ErrExpiredEntry = fmt.Errorf("%w: expired entry, ErrKeyNotFound", ErrKeyNotFound)
 var ErrKeyAlreadyExists = errors.New("key already exists")
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
@@ -530,7 +531,7 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 	now := time.Now()
 
 	if IgnoreExpired(valRef, now) {
-		return nil, ErrKeyNotFound
+		return nil, ErrExpiredEntry
 	}
 
 	for _, filter := range filters {
@@ -1690,27 +1691,36 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	return err
 }
 
-func (s *ImmuStore) ReadValue(tx *Tx, key []byte) (*KVMetadata, []byte, error) {
-	now := time.Now()
-
-	for _, e := range tx.Entries() {
-		if e.md != nil && e.md.ExpiredAt(now) {
-			continue
-		}
-
-		if bytes.Equal(e.key(), key) {
-			v := make([]byte, e.vLen)
-
-			_, err := s.readValueAt(v, e.vOff, e.hVal)
-			if err != nil {
-				return e.Metadata(), nil, err
-			}
-
-			return e.Metadata(), v, nil
-		}
+// ReadValue returns the actual associated value to a key at a specific transaction
+// ErrExpiredEntry is be returned if the specified time has already elapsed
+// Note; the tx is read to be safe in cases provided tx was manipulated at runtime
+func (s *ImmuStore) ReadValue(txID uint64, txHolder *Tx, key []byte) ([]byte, error) {
+	if txHolder == nil {
+		return nil, ErrIllegalArguments
 	}
 
-	return nil, nil, ErrKeyNotFound
+	err := s.ReadTx(txID, txHolder)
+	if err != nil {
+		return nil, err
+	}
+
+	entry, err := txHolder.EntryOf(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if entry.md != nil && entry.md.ExpiredAt(time.Now()) {
+		return nil, ErrExpiredEntry
+	}
+
+	b := make([]byte, entry.vLen)
+
+	_, err = s.readValueAt(b, entry.vOff, entry.hVal)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
