@@ -76,7 +76,7 @@ func DefaultOptions() *Options {
 		LogFileName:         "",
 		ServerSigningPubKey: "",
 		StreamChunkSize:     stream.DefaultChunkSize,
-		HeartBeatFrequency:  time.Second * 1,
+		HeartBeatFrequency:  time.Minute * 1,
 	}
 }
 
