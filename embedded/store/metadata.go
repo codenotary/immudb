@@ -15,9 +15,9 @@ limitations under the License.
 */
 package store
 
-type attributeCode int
+type attributeCode byte
 
-const attrCodeSize = 4
+const attrCodeSize = 1
 
 type attribute interface {
 	code() attributeCode

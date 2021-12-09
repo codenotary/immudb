@@ -146,19 +146,15 @@ func (md *KVMetadata) ExpiredAt(mtime time.Time) bool {
 func (md *KVMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	var bcode [attrCodeSize]byte
-
 	deletedAttr, ok := md.attributes[deletedAttrCode]
 	if ok {
-		binary.BigEndian.PutUint32(bcode[:], uint32(deletedAttrCode))
-		b.Write(bcode[:])
+		b.WriteByte(byte(deletedAttr.code()))
 		b.Write(deletedAttr.serialize())
 	}
 
 	expAtAttr, ok := md.attributes[expiresAtAttrCode]
 	if ok {
-		binary.BigEndian.PutUint32(bcode[:], uint32(expiresAtAttrCode))
-		b.Write(bcode[:])
+		b.WriteByte(byte(expAtAttr.code()))
 		b.Write(expAtAttr.serialize())
 	}
 
@@ -177,7 +173,7 @@ func (md *KVMetadata) ReadFrom(b []byte) error {
 			return ErrCorruptedData
 		}
 
-		attrCode := attributeCode(binary.BigEndian.Uint32(b[i:]))
+		attrCode := attributeCode(b[i])
 		i += attrCodeSize
 
 		switch attrCode {

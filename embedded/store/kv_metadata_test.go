@@ -47,12 +47,18 @@ func TestKVMetadata(t *testing.T) {
 	require.False(t, md.IsExpirable())
 	require.False(t, md.ExpiredAt(now))
 
+	desmd.AsDeleted(false)
+	require.False(t, desmd.Deleted())
+
 	desmd.AsDeleted(true)
 	require.True(t, desmd.Deleted())
 
 	desmd.NonExpirable()
 	require.False(t, md.IsExpirable())
 	require.False(t, md.ExpiredAt(now))
+
+	desmd.ExpiresAt(now)
+	require.True(t, desmd.IsExpirable())
 
 	desmd.ExpiresAt(now)
 	require.True(t, desmd.IsExpirable())
