@@ -914,7 +914,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		}
 
 		md, val, err := d.st.ReadValue(tx, key)
-		if err != nil {
+		if err != nil && err != store.ErrKeyNotFound {
 			return nil, err
 		}
 		if len(val) > 0 {
