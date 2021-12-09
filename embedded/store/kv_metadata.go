@@ -146,16 +146,12 @@ func (md *KVMetadata) ExpiredAt(mtime time.Time) bool {
 func (md *KVMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	deletedAttr, ok := md.attributes[deletedAttrCode]
-	if ok {
-		b.WriteByte(byte(deletedAttr.code()))
-		b.Write(deletedAttr.serialize())
-	}
-
-	expAtAttr, ok := md.attributes[expiresAtAttrCode]
-	if ok {
-		b.WriteByte(byte(expAtAttr.code()))
-		b.Write(expAtAttr.serialize())
+	for _, attrCode := range []attributeCode{deletedAttrCode, expiresAtAttrCode} {
+		attr, ok := md.attributes[attrCode]
+		if ok {
+			b.WriteByte(byte(attr.code()))
+			b.Write(attr.serialize())
+		}
 	}
 
 	return b.Bytes()
@@ -180,39 +176,37 @@ func (md *KVMetadata) ReadFrom(b []byte) error {
 		attrCode := attributeCode(b[i])
 		i += attrCodeSize
 
-		switch attrCode {
-		case deletedAttrCode:
-			{
-				deletedAttr := &deletedAttribute{}
-
-				n, err := deletedAttr.deserialize(b[i:])
-				if err != nil {
-					return fmt.Errorf("error reading metadata attributes: %w", err)
-				}
-
-				i += n
-
-				md.attributes[deletedAttrCode] = deletedAttr
-			}
-		case expiresAtAttrCode:
-			{
-				expAtAttr := &expiresAtAttribute{}
-
-				n, err := expAtAttr.deserialize(b[i:])
-				if err != nil {
-					return fmt.Errorf("error reading metadata attributes: %w", err)
-				}
-
-				i += n
-
-				md.attributes[expiresAtAttrCode] = expAtAttr
-			}
-		default:
-			{
-				return fmt.Errorf("error reading metadata attributes: %w", ErrCorruptedData)
-			}
+		attr, err := newAttribute(attrCode)
+		if err != nil {
+			return err
 		}
+
+		n, err := attr.deserialize(b[i:])
+		if err != nil {
+			return fmt.Errorf("error reading metadata attributes: %w", err)
+		}
+
+		i += n
+
+		md.attributes[attr.code()] = attr
 	}
 
 	return nil
+}
+
+func newAttribute(attrCode attributeCode) (attribute, error) {
+	switch attrCode {
+	case deletedAttrCode:
+		{
+			return &deletedAttribute{}, nil
+		}
+	case expiresAtAttrCode:
+		{
+			return &expiresAtAttribute{}, nil
+		}
+	default:
+		{
+			return nil, fmt.Errorf("error reading metadata attributes: %w", ErrCorruptedData)
+		}
+	}
 }
