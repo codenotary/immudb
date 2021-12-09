@@ -208,10 +208,11 @@ func (sm *manager) expireSessions() {
 			sm.logger.Debugf("session %s exceeded MaxSessionAgeTime and became dead", ID)
 		}
 		if sess.GetStatus() == inactive {
-			inactiveSessCount++
 			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
 				sess.setStatus(dead)
 				sm.logger.Debugf("Inactive session %s is dead", ID)
+			} else {
+				inactiveSessCount++
 			}
 		}
 		if sess.GetStatus() == dead {

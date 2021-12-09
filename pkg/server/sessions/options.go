@@ -31,7 +31,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		SessionGuardCheckInterval: time.Minute * 1,
-		MaxSessionInactivityTime:  time.Hour * 1,
+		MaxSessionInactivityTime:  time.Minute * 3,
 		MaxSessionAgeTime:         infinity,
 		Timeout:                   time.Hour * 2,
 	}
