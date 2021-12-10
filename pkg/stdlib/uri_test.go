@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/stretchr/testify/require"
 )
 
 const immuServerRequired = "Please launch an immudb server at port %d to run this test."
@@ -75,9 +76,11 @@ func TestParseConfigErrs(t *testing.T) {
 	connString := "immudb://immudb:immudb@127.0.0.1:aaa/defaultdb"
 	_, err := ParseConfig(connString)
 	require.Error(t, err)
+
 	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb"
 	_, err = ParseConfig(connString)
 	require.Error(t, err)
+
 	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb?sslmode=invalid"
 	_, err = ParseConfig(connString)
 	require.Error(t, err)
@@ -88,6 +91,7 @@ func TestDriver_OpenSSLPrefer(t *testing.T) {
 	if err != nil {
 		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
 	}
+
 	d := immuDriver
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb")
 	require.NoError(t, err)
@@ -99,6 +103,7 @@ func TestDriver_OpenSSLDisable(t *testing.T) {
 	if err != nil {
 		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
 	}
+
 	d := immuDriver
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
 	require.NoError(t, err)
@@ -110,6 +115,7 @@ func TestDriver_OpenSSLRequire(t *testing.T) {
 	if err != nil {
 		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
 	}
+
 	d := immuDriver
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=require")
 	require.NoError(t, err)
@@ -121,8 +127,10 @@ func Test_SQLOpen(t *testing.T) {
 	if err != nil {
 		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
 	}
+
 	db, err := sql.Open("immudb", "immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
 	require.NoError(t, err)
+
 	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
 	require.NoError(t, err)
 }

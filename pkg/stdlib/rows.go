@@ -94,7 +94,9 @@ func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
 	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
 		return 0, false
 	}
+
 	op := r.rows[0].Values[index].Value
+
 	switch op.(type) {
 	case *schema.SQLValue_Null:
 		{
@@ -136,7 +138,9 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
 		return nil
 	}
+
 	op := r.rows[0].Values[index].Value
+
 	switch op.(type) {
 	case *schema.SQLValue_Null:
 		{
@@ -183,11 +187,13 @@ func (r *Rows) Next(dest []driver.Value) error {
 	}
 
 	r.index++
+
 	return nil
 }
 
 func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, error) {
 	args := make([]interface{}, 0, len(argsV))
+
 	for _, v := range argsV {
 		if v.Value != nil {
 			args = append(args, v.Value.(interface{}))

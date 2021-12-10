@@ -38,11 +38,14 @@ func TestRows(t *testing.T) {
 
 	ast := r.Columns()
 	require.Equal(t, "c", ast[0])
+
 	st := r.ColumnTypeDatabaseTypeName(1)
 	require.Equal(t, "", st)
+
 	num, b := r.ColumnTypeLength(1)
 	require.Equal(t, int64(0), num)
 	require.False(t, b)
+
 	_, _, _ = r.ColumnTypePrecisionScale(1)
 	ty := r.ColumnTypeScanType(1)
 	require.Nil(t, ty)
