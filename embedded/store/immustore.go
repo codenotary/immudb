@@ -1626,9 +1626,9 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		var md *KVMetadata
 
 		if mdLen > 0 {
-			md = NewKVMetadata(true)
+			md = NewReadOnlyKVMetadata()
 
-			err := md.ReadFrom(exportedTx[i : i+mdLen])
+			err := md.unsafeReadFrom(exportedTx[i : i+mdLen])
 			if err != nil {
 				return nil, err
 			}
@@ -1693,20 +1693,9 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 // ReadValue returns the actual associated value to a key at a specific transaction
 // ErrExpiredEntry is be returned if the specified time has already elapsed
-// Note; the tx is read to be safe in cases provided tx was manipulated at runtime
-func (s *ImmuStore) ReadValue(txID uint64, txHolder *Tx, key []byte) ([]byte, error) {
-	if txHolder == nil {
+func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
+	if entry == nil {
 		return nil, ErrIllegalArguments
-	}
-
-	err := s.ReadTx(txID, txHolder)
-	if err != nil {
-		return nil, err
-	}
-
-	entry, err := txHolder.EntryOf(key)
-	if err != nil {
-		return nil, err
 	}
 
 	if entry.md != nil && entry.md.ExpiredAt(time.Now()) {
@@ -1715,7 +1704,7 @@ func (s *ImmuStore) ReadValue(txID uint64, txHolder *Tx, key []byte) ([]byte, er
 
 	b := make([]byte, entry.vLen)
 
-	_, err = s.readValueAt(b, entry.vOff, entry.hVal)
+	_, err := s.readValueAt(b, entry.vOff, entry.hVal)
 	if err != nil {
 		return nil, err
 	}

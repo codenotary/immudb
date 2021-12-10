@@ -834,7 +834,8 @@ func (tx *SQLTx) deprecateIndexEntries(
 		if sameIndexKey {
 			reusableIndexEntries[index.id] = struct{}{}
 		} else {
-			md := store.NewKVMetadata(false)
+			md := store.NewKVMetadata()
+
 			err = md.AsDeleted(true)
 			if err != nil {
 				return nil, err
@@ -1109,7 +1110,8 @@ func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint3
 			encodedValues[i+3] = encVal
 		}
 
-		md := store.NewKVMetadata(false)
+		md := store.NewKVMetadata()
+
 		err := md.AsDeleted(true)
 		if err != nil {
 			return err

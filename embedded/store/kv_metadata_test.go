@@ -25,12 +25,12 @@ import (
 func TestKVMetadata(t *testing.T) {
 	now := time.Now()
 
-	md := NewKVMetadata(false)
+	md := NewKVMetadata()
 
 	bs := md.Bytes()
 	require.Len(t, bs, 0)
 
-	err := md.ReadFrom(bs)
+	err := md.unsafeReadFrom(bs)
 	require.NoError(t, err)
 	require.False(t, md.Deleted())
 	require.False(t, md.IsExpirable())
@@ -41,9 +41,9 @@ func TestKVMetadata(t *testing.T) {
 	require.False(t, md.ExpiredAt(now))
 
 	t.Run("mutable methods over read-only metadata should fail", func(t *testing.T) {
-		desmd := NewKVMetadata(true)
+		desmd := NewReadOnlyKVMetadata()
 
-		err = desmd.ReadFrom(nil)
+		err = desmd.unsafeReadFrom(nil)
 		require.NoError(t, err)
 
 		require.False(t, desmd.Deleted())
@@ -57,9 +57,9 @@ func TestKVMetadata(t *testing.T) {
 		require.ErrorIs(t, err, ErrReadOnly)
 	})
 
-	desmd := NewKVMetadata(false)
+	desmd := NewKVMetadata()
 
-	err = desmd.ReadFrom(nil)
+	err = desmd.unsafeReadFrom(nil)
 	require.NoError(t, err)
 
 	desmd.AsDeleted(false)
@@ -87,7 +87,7 @@ func TestKVMetadata(t *testing.T) {
 	require.NotNil(t, bs)
 	require.Len(t, bs, maxKVMetadataLen)
 
-	err = desmd.ReadFrom(bs)
+	err = desmd.unsafeReadFrom(bs)
 	require.NoError(t, err)
 	require.True(t, desmd.Deleted())
 	require.True(t, desmd.IsExpirable())
