@@ -144,14 +144,12 @@ func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
 	}
 }
 
-func TxMetadataToProto(md *store.TxMetadata) *TxMD {
+func TxMetadataToProto(md *store.TxMetadata) *TxMetadata {
 	if md == nil {
 		return nil
 	}
 
-	return &TxMD{
-		Summary: md.Summary(),
-	}
+	return &TxMetadata{}
 }
 
 func LinearProofToProto(linearProof *store.LinearProof) *LinearProof {
@@ -188,14 +186,12 @@ func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
 	}
 }
 
-func TxMetadataFromProto(md *TxMD) *store.TxMetadata {
+func TxMetadataFromProto(md *TxMetadata) *store.TxMetadata {
 	if md == nil {
 		return nil
 	}
 
-	txmd := &store.TxMetadata{}
-
-	return txmd.WithSummary(md.Summary)
+	return &store.TxMetadata{}
 }
 
 func LinearProofFromProto(lproof *LinearProof) *store.LinearProof {

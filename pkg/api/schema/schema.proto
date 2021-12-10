@@ -178,11 +178,10 @@ message TxHeader {
 	uint64 blTxId = 6;
 	bytes blRoot = 7;
 	int32 version = 8;
-	TxMD metadata = 9;
+	TxMetadata metadata = 9;
 }
 
-message TxMD {
-	bytes summary = 1;
+message TxMetadata {
 }
 
 message LinearProof {

@@ -1340,8 +1340,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		tx, err := immuStore.NewWriteOnlyTx()
 		require.NoError(t, err)
 
-		summary := fmt.Sprintf("summary%d", i)
-		tx.WithMetadata(NewTxMetadata().WithSummary([]byte(summary)))
+		tx.WithMetadata(NewTxMetadata())
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -1564,8 +1563,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 		tx, err := immuStore.NewWriteOnlyTx()
 		require.NoError(t, err)
 
-		summary := fmt.Sprintf("summary%d", i)
-		tx.WithMetadata(NewTxMetadata().WithSummary([]byte(summary)))
+		tx.WithMetadata(NewTxMetadata())
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -1592,9 +1590,6 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
-
-		summary := fmt.Sprintf("summary%d", i)
-		require.Equal(t, []byte(summary), sourceTx.header.Metadata.Summary())
 
 		for j := i; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
