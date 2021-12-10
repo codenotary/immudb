@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"google.golang.org/grpc/status"
 	"net"
 	"os"
 	"testing"
@@ -74,12 +75,13 @@ func TestConn_BeginTx(t *testing.T) {
 	binaryContent := []byte("my blob content1")
 	blobContent := hex.EncodeToString(binaryContent)
 	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	require.Equal(t, "table does not exist", st.Message())
+	err = tx.Commit()
 	require.NoError(t, err)
 	blobContent2 := hex.EncodeToString([]byte("my blob content2"))
 	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (2, 2000, 3000, 'title 2', x'%s', false)", table, blobContent2))
-	require.NoError(t, err)
-
-	err = tx.Commit()
 	require.NoError(t, err)
 
 	var id int64
@@ -87,11 +89,96 @@ func TestConn_BeginTx(t *testing.T) {
 	var title string
 	var isPresent bool
 	var content []byte
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), true, 1, 1000, 6000, "title 1").Scan(&id, &amount, &title, &content, &isPresent)
+	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, content, isPresent FROM %s where isPresent=? and id=? and amount=? and total=? and title=?", table), false, 2, 2000, 3000, "title 2").Scan(&id, &amount, &title, &content, &isPresent)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), id)
-	require.Equal(t, int64(1000), amount)
-	require.Equal(t, "title 1", title)
-	require.Equal(t, binaryContent, content)
-	require.Equal(t, true, isPresent)
+	require.Equal(t, int64(2), id)
+	require.Equal(t, int64(2000), amount)
+	require.Equal(t, "title 2", title)
+	require.Equal(t, []byte("my blob content2"), content)
+	require.Equal(t, false, isPresent)
+}
+
+func TestTx_Rollback(t *testing.T) {
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
+
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	defer server.Stop()
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	go func() {
+		server.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	immuDriver = &Driver{
+		configs: make(map[string]*Conn),
+	}
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
+	require.NoError(t, err)
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	table := getRandomTableName()
+	result, err := tx.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	_, err = tx.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id) VALUES (2)", table))
+	require.NoError(t, err)
+	rows, err := tx.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	err = tx.Rollback()
+	require.NoError(t, err)
+	_, err = db.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+	st, _ := status.FromError(err)
+	require.Equal(t, "table does not exist", st.Message())
+}
+
+func TestTx_Errors(t *testing.T) {
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
+
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	defer server.Stop()
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	go func() {
+		server.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	immuDriver = &Driver{
+		configs: make(map[string]*Conn),
+	}
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
+	require.NoError(t, err)
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	_, err = tx.ExecContext(context.TODO(), "this is really wrong")
+	require.Error(t, err)
+	_, err = tx.QueryContext(context.TODO(), "this is also very wrong")
+	require.Error(t, err)
+
 }

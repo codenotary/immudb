@@ -99,6 +99,17 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 			expected: "BOOLEAN",
 		},
 		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+				}},
+			},
+			expected: "TIMESTAMP",
+		},
+		{
 			name: "nil",
 			rows: Rows{
 				index: 0,
@@ -194,6 +205,18 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			variableLenght: false,
 		},
 		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+				}},
+			},
+			lenght:         math.MaxInt64,
+			variableLenght: true,
+		},
+		{
 			name: "nil",
 			rows: Rows{
 				index: 0,
@@ -286,6 +309,17 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 				}},
 			},
 			expectedType: reflect.TypeOf(true),
+		},
+		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+				}},
+			},
+			expectedType: reflect.TypeOf(time.Now()),
 		},
 		{
 			name: "nil",
