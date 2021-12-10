@@ -54,6 +54,7 @@ type Driver struct {
 func (d *Driver) Open(name string) (driver.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
 	connector, _ := d.OpenConnector(name)
 	return connector.Connect(ctx)
 }
@@ -65,15 +66,18 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 func (d *Driver) UnregisterConnection(name string) {
 	d.configMutex.Lock()
 	defer d.configMutex.Unlock()
+
 	delete(d.configs, name)
 }
 
 func (d *Driver) RegisterConnection(cn *Conn) string {
 	d.configMutex.Lock()
 	defer d.configMutex.Unlock()
+
 	name := fmt.Sprintf("registeredConnConfig%d", d.seq)
 	d.seq++
 	d.configs[name] = cn
+
 	return name
 }
 
@@ -93,5 +97,6 @@ func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Opt
 		options:    cliOptions,
 		driver:     d,
 	}
+
 	return cn, nil
 }
