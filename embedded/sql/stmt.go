@@ -836,10 +836,7 @@ func (tx *SQLTx) deprecateIndexEntries(
 		} else {
 			md := store.NewKVMetadata()
 
-			err = md.AsDeleted(true)
-			if err != nil {
-				return nil, err
-			}
+			md.AsDeleted(true)
 
 			err = tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), md, nil)
 			if err != nil {
@@ -1112,12 +1109,9 @@ func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint3
 
 		md := store.NewKVMetadata()
 
-		err := md.AsDeleted(true)
-		if err != nil {
-			return err
-		}
+		md.AsDeleted(true)
 
-		err = sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), md, nil)
+		err := sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), md, nil)
 		if err != nil {
 			return err
 		}
