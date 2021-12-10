@@ -80,7 +80,15 @@ func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
 	return tsSize, nil
 }
 
-func NewKVMetadata(readonly bool) *KVMetadata {
+func NewKVMetadata() *KVMetadata {
+	return newKVMetadata(false)
+}
+
+func NewReadOnlyKVMetadata() *KVMetadata {
+	return newKVMetadata(true)
+}
+
+func newKVMetadata(readonly bool) *KVMetadata {
 	return &KVMetadata{
 		attributes: make(map[attributeCode]attribute),
 		readonly:   readonly,
@@ -168,7 +176,7 @@ func (md *KVMetadata) Bytes() []byte {
 	return b.Bytes()
 }
 
-func (md *KVMetadata) ReadFrom(b []byte) error {
+func (md *KVMetadata) unsafeReadFrom(b []byte) error {
 	if len(b) > maxKVMetadataLen {
 		return ErrCorruptedData
 	}

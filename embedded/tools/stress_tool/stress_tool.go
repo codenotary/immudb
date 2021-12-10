@@ -306,7 +306,7 @@ func main() {
 								panic(fmt.Errorf("committed tx key does not match input values"))
 							}
 
-							val, err := immuStore.ReadValue(txHolder.Header().ID, txHolder, e.Key())
+							val, err := immuStore.ReadValue(e)
 							if err != nil {
 								panic(err)
 							}
@@ -370,7 +370,7 @@ func main() {
 							panic(err)
 						}
 
-						val, err := immuStore.ReadValue(tx.Header().ID, tx, e.Key())
+						val, err := immuStore.ReadValue(e)
 						if err != nil {
 							panic(err)
 						}

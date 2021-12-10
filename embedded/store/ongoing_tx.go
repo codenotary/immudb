@@ -204,7 +204,7 @@ func (tx *OngoingTx) Delete(key []byte) error {
 		return ErrKeyNotFound
 	}
 
-	md := NewKVMetadata(false)
+	md := NewKVMetadata()
 
 	md.AsDeleted(true)
 	if err != nil {
