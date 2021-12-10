@@ -21,15 +21,16 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"math/rand"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"math/rand"
-	"os"
-	"testing"
-	"time"
 )
 
 func getRandomTableName() string {
@@ -370,8 +371,8 @@ func TestImmuConnector_Driver(t *testing.T) {
 
 func TestConn(t *testing.T) {
 	c := Conn{
-		conn:    client.NewClient(),
-		options: client.DefaultOptions(),
+		immuClient: client.NewClient(),
+		options:    client.DefaultOptions(),
 	}
 	cli := c.GetImmuClient()
 	require.IsType(t, new(client.ImmuClient), &cli)
@@ -379,8 +380,8 @@ func TestConn(t *testing.T) {
 
 func TestConnErr(t *testing.T) {
 	c := Conn{
-		conn:    client.NewClient(),
-		options: client.DefaultOptions(),
+		immuClient: client.NewClient(),
+		options:    client.DefaultOptions(),
 	}
 
 	_, err := c.Prepare("")

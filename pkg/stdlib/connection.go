@@ -19,21 +19,22 @@ package stdlib
 import (
 	"context"
 	"database/sql/driver"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Conn struct {
-	name    string
-	conn    client.ImmuClient
-	options *client.Options
-	driver  *Driver
-	tx      client.Tx
+	name       string
+	immuClient client.ImmuClient
+	options    *client.Options
+	driver     *Driver
+	tx         client.Tx
 }
 
 // Conn returns the underlying client.ImmuClient
 func (c *Conn) GetImmuClient() client.ImmuClient {
-	return c.conn
+	return c.immuClient
 }
 
 func (c *Conn) GetDriver() *Driver {
@@ -54,11 +55,11 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 
 func (c *Conn) Close() error {
 	defer c.GetDriver().UnregisterConnection(c.name)
-	return c.conn.CloseSession(context.TODO())
+	return c.immuClient.CloseSession(context.TODO())
 }
 
 func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Result, error) {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
 
@@ -77,7 +78,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 		}}, nil
 	}
 
-	execResult, err := c.conn.SQLExec(ctx, query, vals)
+	execResult, err := c.immuClient.SQLExec(ctx, query, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +87,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 }
 
 func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Rows, error) {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
 	queryResult := &schema.SQLQueryResult{}
@@ -105,7 +106,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 
 	}
 
-	queryResult, err = c.conn.SQLQuery(ctx, query, vals, true)
+	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +120,7 @@ func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {
 }
 
 func (c *Conn) ResetSession(ctx context.Context) error {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return driver.ErrBadConn
 	}
 	return ErrNotImplemented
