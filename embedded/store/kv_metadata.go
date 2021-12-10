@@ -24,6 +24,7 @@ import (
 )
 
 var ErrNonExpirable = errors.New("non expirable")
+var ErrReadOnly = errors.New("read-only")
 
 const (
 	deletedAttrCode   attributeCode = 0
@@ -37,6 +38,7 @@ const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expi
 
 type KVMetadata struct {
 	attributes map[attributeCode]attribute
+	readonly   bool
 }
 
 type deletedAttribute struct {
@@ -78,16 +80,21 @@ func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
 	return tsSize, nil
 }
 
-func NewKVMetadata() *KVMetadata {
+func NewKVMetadata(readonly bool) *KVMetadata {
 	return &KVMetadata{
 		attributes: make(map[attributeCode]attribute),
+		readonly:   readonly,
 	}
 }
 
-func (md *KVMetadata) AsDeleted(deleted bool) *KVMetadata {
+func (md *KVMetadata) AsDeleted(deleted bool) error {
+	if md.readonly {
+		return ErrReadOnly
+	}
+
 	if !deleted {
 		delete(md.attributes, deletedAttrCode)
-		return md
+		return nil
 	}
 
 	_, ok := md.attributes[deletedAttrCode]
@@ -95,7 +102,7 @@ func (md *KVMetadata) AsDeleted(deleted bool) *KVMetadata {
 		md.attributes[deletedAttrCode] = &deletedAttribute{}
 	}
 
-	return md
+	return nil
 }
 
 func (md *KVMetadata) Deleted() bool {
@@ -103,16 +110,20 @@ func (md *KVMetadata) Deleted() bool {
 	return ok
 }
 
-func (md *KVMetadata) ExpiresAt(expiresAt time.Time) *KVMetadata {
+func (md *KVMetadata) ExpiresAt(expiresAt time.Time) error {
+	if md.readonly {
+		return ErrReadOnly
+	}
+
 	expAtAttr, ok := md.attributes[expiresAtAttrCode]
 	if !ok {
 		expAtAttr = &expiresAtAttribute{expiresAt: expiresAt}
 		md.attributes[expiresAtAttrCode] = expAtAttr
-		return md
+		return nil
 	}
 
 	expAtAttr.(*expiresAtAttribute).expiresAt = expiresAt
-	return md
+	return nil
 }
 
 func (md *KVMetadata) NonExpirable() *KVMetadata {

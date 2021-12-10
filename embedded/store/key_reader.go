@@ -230,7 +230,7 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 		}
 
 		if kvmdLen > 0 {
-			kvmd = NewKVMetadata()
+			kvmd = NewKVMetadata(true)
 
 			err := kvmd.ReadFrom(indexedVal[i : i+kvmdLen])
 			if err != nil {

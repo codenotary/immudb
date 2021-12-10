@@ -1626,7 +1626,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		var md *KVMetadata
 
 		if mdLen > 0 {
-			md = NewKVMetadata()
+			md = NewKVMetadata(true)
 
 			err := md.ReadFrom(exportedTx[i : i+mdLen])
 			if err != nil {

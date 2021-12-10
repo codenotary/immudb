@@ -834,7 +834,13 @@ func (tx *SQLTx) deprecateIndexEntries(
 		if sameIndexKey {
 			reusableIndexEntries[index.id] = struct{}{}
 		} else {
-			err = tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), store.NewKVMetadata().AsDeleted(true), nil)
+			md := store.NewKVMetadata(false)
+			err = md.AsDeleted(true)
+			if err != nil {
+				return nil, err
+			}
+
+			err = tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), md, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -1103,7 +1109,13 @@ func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint3
 			encodedValues[i+3] = encVal
 		}
 
-		err := sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), store.NewKVMetadata().AsDeleted(true), nil)
+		md := store.NewKVMetadata(false)
+		err := md.AsDeleted(true)
+		if err != nil {
+			return err
+		}
+
+		err = sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), md, nil)
 		if err != nil {
 			return err
 		}

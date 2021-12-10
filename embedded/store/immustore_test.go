@@ -1058,7 +1058,11 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
 
-		err = tx.Set([]byte("expirableKey"), NewKVMetadata().ExpiresAt(nearFuture), []byte("expirableValue"))
+		md := NewKVMetadata(false)
+		err = md.ExpiresAt(nearFuture)
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("expirableKey"), md, []byte("expirableValue"))
 		require.NoError(t, err)
 
 		_, err = tx.Commit()
@@ -1089,7 +1093,11 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
 
-		err = tx.Set([]byte("expirableKey"), NewKVMetadata().ExpiresAt(now), []byte("expirableValue"))
+		md := NewKVMetadata(false)
+		err = md.ExpiresAt(now)
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("expirableKey"), md, []byte("expirableValue"))
 		require.NoError(t, err)
 
 		_, err = tx.Commit()
@@ -1119,7 +1127,11 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
 	require.NoError(t, err)
 
-	err = tx.Set([]byte{1, 2, 3}, NewKVMetadata().AsDeleted(true), []byte{3, 2, 1})
+	md := NewKVMetadata(false)
+	err = md.AsDeleted(true)
+	require.NoError(t, err)
+
+	err = tx.Set([]byte{1, 2, 3}, md, []byte{3, 2, 1})
 	require.NoError(t, err)
 
 	_, err = tx.Commit()
@@ -1349,7 +1361,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			err = tx.Set(k, NewKVMetadata(), v)
+			err = tx.Set(k, NewKVMetadata(false), v)
 			require.NoError(t, err)
 		}
 
@@ -1412,7 +1424,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			require.Equal(t, k, key)
 			require.Equal(t, v, value)
 
-			e := &EntrySpec{Key: key, Metadata: NewKVMetadata(), Value: value}
+			e := &EntrySpec{Key: key, Metadata: NewKVMetadata(false), Value: value}
 
 			verifies := htree.VerifyInclusion(proof, entrySpecDigest(e), tx.header.Eh)
 			require.True(t, verifies)
