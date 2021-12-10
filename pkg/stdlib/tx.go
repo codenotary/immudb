@@ -35,5 +35,7 @@ func (dbTx *dbTx) Commit() error {
 }
 
 func (dbTx *dbTx) Rollback() error {
-	return dbTx.tx.Rollback(context.TODO())
+	err := dbTx.tx.Rollback(context.TODO())
+	dbTx.tx = nil
+	return err
 }

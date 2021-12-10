@@ -103,7 +103,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 			return nil, err
 		}
 		return &Rows{rows: queryResult.Rows}, nil
-
 	}
 
 	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
