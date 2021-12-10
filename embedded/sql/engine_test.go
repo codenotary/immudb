@@ -776,6 +776,34 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestErrorDuringDelete(t *testing.T) {
+	st, err := store.Open("err_during_delete", store.DefaultOptions())
+	require.NoError(t, err)
+	defer st.Close()
+	defer os.RemoveAll("err_during_delete")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		create table mytable(name varchar[30], primary key name);
+		insert into mytable(name) values('name1');
+	`, nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("delete FROM mytable where name=name1", nil, nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+	_, _, err = engine.Exec("delete FROM mytable where name='name1'", nil, nil)
+	require.NoError(t, err)
+}
+
 func TestUpdate(t *testing.T) {
 	st, err := store.Open("sqldata_update", store.DefaultOptions())
 	require.NoError(t, err)

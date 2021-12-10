@@ -1042,6 +1042,9 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		if err == ErrNoMoreRows {
 			break
 		}
+		if err != nil {
+			return nil, err
+		}
 
 		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
 
