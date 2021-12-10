@@ -1121,12 +1121,12 @@
 | id | [uint64](#uint64) |  |  |
 | prevAlh | [bytes](#bytes) |  |  |
 | ts | [int64](#int64) |  |  |
-| version | [int32](#int32) |  |  |
-| metadata | [TxMD](#immudb.schema.TxMD) |  |  |
 | nentries | [int32](#int32) |  |  |
 | eH | [bytes](#bytes) |  |  |
 | blTxId | [uint64](#uint64) |  |  |
 | blRoot | [bytes](#bytes) |  |  |
+| version | [int32](#int32) |  |  |
+| metadata | [TxMD](#immudb.schema.TxMD) |  |  |
 
 
 
