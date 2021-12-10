@@ -662,7 +662,13 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 			return nil, ErrIllegalArguments
 		}
 
-		e := EncodeEntrySpec(k, store.NewKVMetadata().AsDeleted(true), nil)
+		md := store.NewKVMetadata(false)
+		err = md.AsDeleted(true)
+		if err != nil {
+			return nil, err
+		}
+
+		e := EncodeEntrySpec(k, md, nil)
 
 		err = tx.Delete(e.Key)
 		if err != nil {

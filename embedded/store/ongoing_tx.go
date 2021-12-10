@@ -204,7 +204,14 @@ func (tx *OngoingTx) Delete(key []byte) error {
 		return ErrKeyNotFound
 	}
 
-	return tx.Set(key, NewKVMetadata().AsDeleted(true), nil)
+	md := NewKVMetadata(false)
+
+	md.AsDeleted(true)
+	if err != nil {
+		return err
+	}
+
+	return tx.Set(key, md, nil)
 }
 
 func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
