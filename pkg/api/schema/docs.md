@@ -66,7 +66,7 @@
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxHeader](#immudb.schema.TxHeader)
     - [TxList](#immudb.schema.TxList)
-    - [TxMD](#immudb.schema.TxMD)
+    - [TxMetadata](#immudb.schema.TxMetadata)
     - [TxRequest](#immudb.schema.TxRequest)
     - [TxScanRequest](#immudb.schema.TxScanRequest)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
@@ -1126,7 +1126,7 @@
 | blTxId | [uint64](#uint64) |  |  |
 | blRoot | [bytes](#bytes) |  |  |
 | version | [int32](#int32) |  |  |
-| metadata | [TxMD](#immudb.schema.TxMD) |  |  |
+| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
 
 
 
@@ -1148,15 +1148,10 @@
 
 
 
-<a name="immudb.schema.TxMD"></a>
+<a name="immudb.schema.TxMetadata"></a>
 
-### TxMD
+### TxMetadata
 
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| summary | [bytes](#bytes) |  |  |
 
 
 

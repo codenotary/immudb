@@ -2165,7 +2165,7 @@
           "format": "int32"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaTxMD"
+          "$ref": "#/definitions/schemaTxMetadata"
         }
       }
     },
@@ -2180,14 +2180,8 @@
         }
       }
     },
-    "schemaTxMD": {
-      "type": "object",
-      "properties": {
-        "summary": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
+    "schemaTxMetadata": {
+      "type": "object"
     },
     "schemaTxMode": {
       "type": "string",
