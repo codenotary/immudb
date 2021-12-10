@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.2.0"></a>
+## [v1.2.0] - 2021-12-09
+### Bug Fixes
+- **database:** Internal consistency check on data reads
+- **database/meta:** Do not crash on history with deleted items
+- **pkg/database:** history skipping not found entries
+
+### Changes
+- **cmd/immuadmin/command:** add super user login hint
+- **embedded/sql:** use sql standard escaping with single quotes
+- **embedded/sql:** support for escaped strings
+- **embedded/store:** prevent value reading of expired entries
+- **embedded/store:** fix expiration error declaration
+- **embedded/store:** dedicated expiration error
+- **embedded/store:** improve metadata serialization/deserialization methods
+- **embedded/store:** validations during metadata deserialization
+- **embedded/store:** return data corrupted error when deserialization cannot proceed
+- **embedded/store:** use fixed time during the lifespan of a tx
+- **embedded/store:** easily extendable meta attributes
+- **embedded/store:** mandatory expiration filter
+- **embedded/store:** reduce attribute code size
+- **pkg/auth:** require admin permission to export and replicate txs
+- **pkg/integration:** remove useless compilation tag on tests
+- **pkg/server:** deprecate GetAuth and WithAuth
+- **pkg/server/sessions:** session max inactivity time set to 3m and minor stat collecting fix
+- **pkg/server/sessions:** tuning sessions params
+- **pkg/server/sessions:** session timeout set to 2 min
+
+### Features
+- **embedded/store:** logical entries expiration
+- **pkg/api:** logical entries expiration
+- **pkg/client:** expirable set
+
+
 <a name="v1.2.0-RC1"></a>
 ## [v1.2.0-RC1] - 2021-12-07
 ### Bug Fixes
@@ -2330,7 +2364,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.0...HEAD
+[v1.2.0]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...v1.2.0
 [v1.2.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.1.0...v1.2.0-RC1
 [v1.1.0]: https://github.com/vchain-us/immudb/compare/v1.0.5...v1.1.0
 [v1.0.5]: https://github.com/vchain-us/immudb/compare/v1.0.1...v1.0.5
