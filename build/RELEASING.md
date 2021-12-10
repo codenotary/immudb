@@ -74,12 +74,10 @@ git tag vX.Y.Z
 In order to sign the Windows binaries with a digital certificate, you will need an `.spc` and `.pvk` files (and the password to unlook the `.pvk`).
 Make sure the path of those files is accessible.
 
-Build all dist files. It's possible launch script on all services. Modify SERVICE_NAME according your needs:
+Build all dist files:
 
 ```sh
-export SIGNCODE_PVK_PASSWORD
-read -s SIGNCODE_PVK_PASSWORD
-WEBCONSOLE=default SIGNCODE_PVK=<full path to vchain.pvk> SIGNCODE_SPC=<full path to vchain.spc> make dist
+WEBCONSOLE=default  make dist
 ```
 
 > Distribution files will be created into the `dist` directory.

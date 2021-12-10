@@ -172,10 +172,10 @@ CHANGELOG.md.next-tag:
 clean/dist:
 	rm -Rf ./dist
 
-# WEBCONSOLE=default SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
+# WEBCONSOLE=default make dist
 # it enables by default webconsole
 .PHONY: dist
-dist: webconsole dist/binaries dist/winsign
+dist: webconsole dist/binaries
 	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
 .PHONY: dist/binaries
