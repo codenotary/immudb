@@ -207,9 +207,6 @@ func (tx *OngoingTx) Delete(key []byte) error {
 	md := NewKVMetadata()
 
 	md.AsDeleted(true)
-	if err != nil {
-		return err
-	}
 
 	return tx.Set(key, md, nil)
 }

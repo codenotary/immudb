@@ -89,7 +89,9 @@ func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
 		return nil
 	}
 
-	kvmd := store.NewKVMetadata().AsDeleted(md.Deleted)
+	kvmd := store.NewKVMetadata()
+
+	kvmd.AsDeleted(md.Deleted)
 
 	if md.Expiration != nil {
 		kvmd.ExpiresAt(time.Unix(md.Expiration.ExpiresAt, 0))

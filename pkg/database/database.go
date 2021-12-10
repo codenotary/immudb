@@ -664,10 +664,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 
 		md := store.NewKVMetadata()
 
-		err = md.AsDeleted(true)
-		if err != nil {
-			return nil, err
-		}
+		md.AsDeleted(true)
 
 		e := EncodeEntrySpec(k, md, nil)
 
