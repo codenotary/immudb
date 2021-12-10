@@ -34,6 +34,7 @@ const (
 type Snapshot struct {
 	t           *TBtree
 	id          uint64
+	ts          uint64
 	root        node
 	readers     map[int]io.Closer
 	maxReaderID int
@@ -51,9 +52,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 	v := make([]byte, len(value))
 	copy(v, value)
 
-	ts := s.root.ts() + 1
-
-	n1, n2, err := s.root.insertAt(k, v, ts)
+	n1, n2, err := s.root.insertAt(k, v, s.ts)
 	if err != nil {
 		return err
 	}
@@ -66,7 +65,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 			nodes:   []node{n1, n2},
 			_minKey: n1.minKey(),
 			_maxKey: n2.maxKey(),
-			_ts:     ts,
+			_ts:     s.ts,
 			maxSize: s.t.maxNodeSize,
 			mut:     true,
 		}

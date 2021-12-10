@@ -1206,6 +1206,7 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 	return &Snapshot{
 		t:       t,
 		id:      snapshotID,
+		ts:      root.ts() + 1,
 		root:    root,
 		readers: make(map[int]io.Closer),
 	}
