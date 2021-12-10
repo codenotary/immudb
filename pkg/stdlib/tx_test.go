@@ -21,12 +21,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/stretchr/testify/require"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/server"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConn_BeginTx(t *testing.T) {
@@ -72,10 +73,10 @@ func TestConn_BeginTx(t *testing.T) {
 
 	binaryContent := []byte("my blob content1")
 	blobContent := hex.EncodeToString(binaryContent)
-	_, err = tx.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
 	require.NoError(t, err)
 	blobContent2 := hex.EncodeToString([]byte("my blob content2"))
-	_, err = tx.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (2, 2000, 3000, 'title 2', x'%s', false)", table, blobContent2))
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (2, 2000, 3000, 'title 2', x'%s', false)", table, blobContent2))
 	require.NoError(t, err)
 
 	err = tx.Commit()
