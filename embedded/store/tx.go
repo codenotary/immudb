@@ -75,7 +75,7 @@ func (tx *Tx) Header() *TxHeader {
 
 func (hdr *TxHeader) Bytes() []byte {
 	// ID + PrevAlh + Ts + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
-	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + sszSize + sha256.Size + txIDSize + sha256.Size]byte
+	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + lszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
 
 	binary.BigEndian.PutUint64(b[i:], hdr.ID)
@@ -167,7 +167,7 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 			i += sszSize
 
 			// nentries follows metadata
-			if len(b) < i+mdLen+sszSize || mdLen > maxTxMetadataLen {
+			if len(b) < i+mdLen+lszSize || mdLen > maxTxMetadataLen {
 				return ErrCorruptedData
 			}
 
@@ -205,7 +205,7 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 
 func (hdr *TxHeader) innerHash() [sha256.Size]byte {
 	// ts + version + (mdLen + md)? + nentries + eH + blTxID + blRoot
-	var b [tsSize + sszSize + (sszSize + maxTxMetadataLen) + sszSize + sha256.Size + txIDSize + sha256.Size]byte
+	var b [tsSize + sszSize + (sszSize + maxTxMetadataLen) + lszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
 
 	binary.BigEndian.PutUint64(b[i:], uint64(hdr.Ts))
