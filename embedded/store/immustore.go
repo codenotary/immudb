@@ -1626,7 +1626,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		var md *KVMetadata
 
 		if mdLen > 0 {
-			md = NewReadOnlyKVMetadata()
+			md = newReadOnlyKVMetadata()
 
 			err := md.unsafeReadFrom(exportedTx[i : i+mdLen])
 			if err != nil {
@@ -1695,6 +1695,10 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 // ErrExpiredEntry is be returned if the specified time has already elapsed
 func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 	if entry == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if entry.md != nil && !entry.md.readonly {
 		return nil, ErrIllegalArguments
 	}
 

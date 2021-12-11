@@ -450,7 +450,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 				return err
 			}
 
-			kvmd = NewReadOnlyKVMetadata()
+			kvmd = newReadOnlyKVMetadata()
 
 			err = kvmd.unsafeReadFrom(mdbs)
 			if err != nil {

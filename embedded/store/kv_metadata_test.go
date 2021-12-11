@@ -41,7 +41,7 @@ func TestKVMetadata(t *testing.T) {
 	require.False(t, md.ExpiredAt(now))
 
 	t.Run("mutable methods over read-only metadata should fail", func(t *testing.T) {
-		desmd := NewReadOnlyKVMetadata()
+		desmd := newReadOnlyKVMetadata()
 
 		err = desmd.unsafeReadFrom(nil)
 		require.NoError(t, err)
