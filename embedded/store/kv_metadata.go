@@ -81,17 +81,15 @@ func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
 }
 
 func NewKVMetadata() *KVMetadata {
-	return newKVMetadata(false)
-}
-
-func NewReadOnlyKVMetadata() *KVMetadata {
-	return newKVMetadata(true)
-}
-
-func newKVMetadata(readonly bool) *KVMetadata {
 	return &KVMetadata{
 		attributes: make(map[attributeCode]attribute),
-		readonly:   readonly,
+	}
+}
+
+func newReadOnlyKVMetadata() *KVMetadata {
+	return &KVMetadata{
+		attributes: make(map[attributeCode]attribute),
+		readonly:   true,
 	}
 }
 
