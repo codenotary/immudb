@@ -15,8 +15,7 @@ limitations under the License.
 */
 package store
 
-const maxTxMetadataLen = sszSize + maxTxMetadataSummaryLen
-const maxTxMetadataSummaryLen = 256
+const maxTxMetadataLen = 0
 
 type TxMetadata struct {
 }
