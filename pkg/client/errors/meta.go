@@ -29,4 +29,5 @@ const (
 	CodUndefinedFunction                             Code = "42883"
 	CodInvalidDatabaseName                           Code = "3F000"
 	CodNoSessionAuthDataProvided                     Code = "28000"
+	CodInFailedSqlTransaction                        Code = "25P02"
 )

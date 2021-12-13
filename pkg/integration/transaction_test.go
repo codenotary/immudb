@@ -260,7 +260,8 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 	err = tx.SQLExec(updateStmt(1, 10))
 	require.NoError(t, err)
 	_, err = tx.Commit(ctx)
-	require.EqualError(t, err, "tx read conflict")
+	require.EqualError(t, err, "only one read write transaction allowed at time")
+	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodInFailedSqlTransaction)
 
 	txn, err := client.NewTx(ctx)
 	require.NoError(t, err)
