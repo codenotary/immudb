@@ -127,6 +127,7 @@ func (sm *manager) DeleteSession(sessionID string) error {
 	if err != nil {
 		return err
 	}
+	sess.SetReadWriteTxOngoing(false)
 	return nil
 }
 
@@ -261,11 +262,11 @@ func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
 }
 
 func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx, error) {
-	cTxs, err := tx.Commit()
+	err := sm.DeleteTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
-	err = sm.DeleteTransaction(tx)
+	cTxs, err := tx.Commit()
 	if err != nil {
 		return nil, err
 	}
@@ -273,13 +274,9 @@ func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx,
 }
 
 func (sm *manager) RollbackTransaction(tx transactions.Transaction) error {
-	err := tx.Rollback()
+	err := sm.DeleteTransaction(tx)
 	if err != nil {
 		return err
 	}
-	err = sm.DeleteTransaction(tx)
-	if err != nil {
-		return err
-	}
-	return nil
+	return tx.Rollback()
 }

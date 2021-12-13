@@ -67,6 +67,7 @@ func (tx *transaction) GetMode() schema.TxMode {
 func (tx *transaction) Rollback() error {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+	defer func() { tx.sqlTx = nil }()
 	// here could happen that a committed transaction is rolled back by the sessions guard. This check prevent a panic
 	if tx.sqlTx == nil {
 		return nil
@@ -76,11 +77,11 @@ func (tx *transaction) Rollback() error {
 func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
-	ntx, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
+	defer func() { tx.sqlTx = nil }()
+	_, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
 	if err != nil {
 		return nil, err
 	}
-	tx.sqlTx = ntx
 	return cTxs, nil
 }
 

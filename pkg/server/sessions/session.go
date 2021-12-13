@@ -233,3 +233,8 @@ func (s *Session) GetReadWriteTxOngoing() bool {
 	defer s.mux.RUnlock()
 	return s.readWriteTxOngoing
 }
+func (s *Session) SetReadWriteTxOngoing(b bool) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.readWriteTxOngoing = b
+}

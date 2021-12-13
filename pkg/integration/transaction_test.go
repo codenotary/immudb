@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -184,5 +185,177 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)
 	err = client2.CloseSession(context.TODO())
+	require.NoError(t, err)
+}
+
+func TestTransaction_MultiNoErr(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	ctx := context.Background()
+
+	err := client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	tx, err := client.NewTx(ctx)
+	require.NoError(t, err)
+
+	err = tx.SQLExec(ctx, `
+		CREATE TABLE IF NOT EXISTS balance(
+			id INTEGER,
+			balance INTEGER,
+			PRIMARY KEY(id)
+		)
+		`, nil)
+	require.NoError(t, err)
+
+	err = tx.SQLExec(ctx, `
+		UPSERT INTO balance(id, balance) VALUES(1,100),(2,1500)
+		`, nil)
+	require.NoError(t, err)
+
+	_, err = tx.Commit(ctx)
+	require.NoError(t, err)
+
+	tx, err = client.NewTx(ctx)
+	require.NoError(t, err)
+
+	qr, err := tx.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	qr, err = client.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	updateStmt := func(id, price int) (context.Context, string, map[string]interface{}) {
+		return ctx,
+			"UPDATE balance SET balance = balance - @price WHERE id = @id AND balance - @price >= 0",
+			map[string]interface{}{
+				"id":    id,
+				"price": price,
+			}
+	}
+
+	res, err := client.SQLExec(updateStmt(1, 10))
+	require.NoError(t, err)
+	require.EqualValues(t, res.Txs[0].UpdatedRows, 1)
+
+	qr, err = tx.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	qr, err = client.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 90, qr.Rows[0].Values[0].GetN())
+
+	err = tx.SQLExec(updateStmt(1, 10))
+	require.NoError(t, err)
+	_, err = tx.Commit(ctx)
+	require.EqualError(t, err, "tx read conflict")
+
+	txn, err := client.NewTx(ctx)
+	require.NoError(t, err)
+
+	_, err = txn.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil)
+	require.NoError(t, err)
+
+	err = txn.Rollback(ctx)
+	require.NoError(t, err)
+
+	err = client.CloseSession(ctx)
+	require.NoError(t, err)
+
+	_, err = client.NewTx(ctx)
+	require.Error(t, err)
+	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodNoSessionAuthDataProvided)
+
+	err = client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+}
+
+func TestTransaction_HandlingReadConflict(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	ctx := context.Background()
+
+	err := client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	tx, err := client.NewTx(ctx)
+	require.NoError(t, err)
+
+	err = tx.SQLExec(ctx, `
+		CREATE TABLE IF NOT EXISTS balance(
+			id INTEGER,
+			balance INTEGER,
+			PRIMARY KEY(id)
+		)
+		`, nil)
+	require.NoError(t, err)
+
+	err = tx.SQLExec(ctx, `
+		UPSERT INTO balance(id, balance) VALUES(1,100),(2,1500)
+		`, nil)
+	require.NoError(t, err)
+
+	_, err = tx.Commit(ctx)
+	require.NoError(t, err)
+
+	tx, err = client.NewTx(ctx)
+	require.NoError(t, err)
+
+	qr, err := tx.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	qr, err = client.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	updateStmt := func(id, price int) (context.Context, string, map[string]interface{}) {
+		return ctx,
+			"UPDATE balance SET balance = balance - @price WHERE id = @id AND balance - @price >= 0",
+			map[string]interface{}{
+				"id":    id,
+				"price": price,
+			}
+	}
+
+	res, err := client.SQLExec(updateStmt(1, 10))
+	require.NoError(t, err)
+	require.EqualValues(t, res.Txs[0].UpdatedRows, 1)
+
+	qr, err = tx.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, qr.Rows[0].Values[0].GetN())
+
+	qr, err = client.SQLQuery(ctx, "SELECT balance FROM balance WHERE id = 1", nil, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 90, qr.Rows[0].Values[0].GetN())
+
+	err = tx.SQLExec(updateStmt(1, 10))
+	require.NoError(t, err)
+	_, err = tx.Commit(ctx)
+	require.EqualError(t, err, "tx read conflict")
+
+	err = client.CloseSession(ctx)
 	require.NoError(t, err)
 }
