@@ -1694,7 +1694,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 // ReadValue returns the actual associated value to a key at a specific transaction
 // ErrExpiredEntry is be returned if the specified time has already elapsed
 func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
-	if entry == nil {
+	if entry == nil || !entry.readonly {
 		return nil, ErrIllegalArguments
 	}
 
