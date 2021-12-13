@@ -42,7 +42,7 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("store already closed")
+var ErrAlreadyClosed = errors.New("already closed")
 var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrWriteOnlyTx = errors.New("write-only transaction")
