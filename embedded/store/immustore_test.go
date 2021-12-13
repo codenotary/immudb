@@ -1414,6 +1414,8 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j, e := range txEntries {
+			require.True(t, e.readonly)
+
 			proof, err := tx.Proof(e.key())
 			require.NoError(t, err)
 
@@ -1446,6 +1448,11 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			require.Equal(t, value, v)
 		}
 	}
+
+	t.Run("reading value from non-readonly entry should fail", func(t *testing.T) {
+		_, err = immuStore.ReadValue(NewTxEntry([]byte("key"), NewKVMetadata(), 0, sha256.Sum256(nil), 0))
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
 
 	err = immuStore.Close()
 	require.NoError(t, err)
