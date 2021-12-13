@@ -487,6 +487,8 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		if err != nil {
 			return err
 		}
+
+		tx.entries[i].readonly = true
 	}
 
 	var alh [sha256.Size]byte
@@ -508,12 +510,13 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 }
 
 type TxEntry struct {
-	k    []byte
-	kLen int
-	md   *KVMetadata
-	vLen int
-	hVal [sha256.Size]byte
-	vOff int64
+	k        []byte
+	kLen     int
+	md       *KVMetadata
+	vLen     int
+	hVal     [sha256.Size]byte
+	vOff     int64
+	readonly bool
 }
 
 func NewTxEntry(key []byte, md *KVMetadata, vLen int, hVal [sha256.Size]byte, vOff int64) *TxEntry {
