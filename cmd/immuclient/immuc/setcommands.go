@@ -292,10 +292,5 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 
 	i.ImmuClient.GetOptions().CurrentDatabase = dbname
 
-	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
-	if err != nil {
-		return "", err
-	}
-
 	return fmt.Sprintf("Now using %s", dbname), nil
 }
