@@ -91,14 +91,10 @@ func (tx *transaction) GetSessionID() string {
 	return tx.sessionID
 }
 
-func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
+func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (err error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
-	ntx, _, err := tx.db.SQLExec(request, tx.sqlTx)
-	if err != nil {
-		return err
-	}
-	tx.sqlTx = ntx
+	tx.sqlTx, _, err = tx.db.SQLExec(request, tx.sqlTx)
 	return err
 }
 
