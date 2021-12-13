@@ -78,7 +78,7 @@ var ErrUnsupportedParameter = errors.New("unsupported parameter")
 var ErrDuplicatedParameters = errors.New("duplicated parameters")
 var ErrLimitedIndexCreation = errors.New("index creation is only supported on empty tables")
 var ErrTooManyRows = errors.New("too many rows")
-var ErrAlreadyClosed = errors.New("sql engine already closed")
+var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
 var ErrUnsupportedCast = errors.New("unsupported cast")
 
