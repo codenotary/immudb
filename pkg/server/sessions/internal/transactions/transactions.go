@@ -17,10 +17,11 @@ limitations under the License.
 package transactions
 
 import (
+	"sync"
+
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
-	"sync"
 )
 
 type transaction struct {
@@ -55,54 +56,71 @@ func NewTransaction(sqlTx *sql.SQLTx, transactionID string, mode schema.TxMode, 
 func (tx *transaction) GetID() string {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	return tx.transactionID
 }
 
 func (tx *transaction) GetMode() schema.TxMode {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	return tx.txMode
 }
 
 func (tx *transaction) Rollback() error {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	// here could happen that a committed transaction is rolled back by the sessions guard. This check prevent a panic
 	if tx.sqlTx == nil {
 		return nil
 	}
+
+	defer func() {
+		tx.sqlTx = nil
+	}()
+
 	return tx.sqlTx.Cancel()
 }
 func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	ntx, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
 	if err != nil {
+		tx.sqlTx = nil
 		return nil, err
 	}
+
 	tx.sqlTx = ntx
+
 	return cTxs, nil
 }
 
 func (tx *transaction) GetSessionID() string {
 	tx.mutex.RLock()
 	defer tx.mutex.RUnlock()
+
 	return tx.sessionID
 }
 
 func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	ntx, _, err := tx.db.SQLExec(request, tx.sqlTx)
 	if err != nil {
 		return err
 	}
+
 	tx.sqlTx = ntx
+
 	return err
 }
 
 func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+
 	return tx.db.SQLQuery(request, tx.sqlTx)
 }
