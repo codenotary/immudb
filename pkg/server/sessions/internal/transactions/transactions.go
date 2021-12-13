@@ -87,14 +87,10 @@ func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 	defer tx.mutex.Unlock()
 
 	ntx, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
-	if err != nil {
-		tx.sqlTx = nil
-		return nil, err
-	}
 
 	tx.sqlTx = ntx
 
-	return cTxs, nil
+	return cTxs, err
 }
 
 func (tx *transaction) GetSessionID() string {
@@ -109,9 +105,6 @@ func (tx *transaction) SQLExec(request *schema.SQLExecRequest) error {
 	defer tx.mutex.Unlock()
 
 	ntx, _, err := tx.db.SQLExec(request, tx.sqlTx)
-	if err != nil {
-		return err
-	}
 
 	tx.sqlTx = ntx
 
