@@ -4,38 +4,63 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.2.1"></a>
+## [v1.2.1] - 0001-01-01
+
 <a name="v1.2.0"></a>
-## [v1.2.0] - 2021-12-09
+## [v1.2.0] - 2021-12-13
 ### Bug Fixes
+- fix interactive use database
 - **database:** Internal consistency check on data reads
 - **database/meta:** Do not crash on history with deleted items
+- **embedded/store:** change already closed error message
+- **embedded/store:** readonly tx entries to ensure no runtime modification
+- **embedded/store:** reserve 4bytes in buffers for nentries
+- **embedded/tbtree:** set fixed snapshot ts
 - **pkg/database:** history skipping not found entries
+- **pkg/server/sessions:** remove transaction on read conflict error
+- **pkg/server/sessions/internal/transactions:** transaction is cleared after sqlExec error
+- **protobuf:** Fix compatibility with 1.1 version
+- **sql:** Do not panic on error during delete
+- **tx:** Remove summary from metadata
 
 ### Changes
 - **cmd/immuadmin/command:** add super user login hint
-- **embedded/sql:** use sql standard escaping with single quotes
 - **embedded/sql:** support for escaped strings
+- **embedded/sql:** use sql standard escaping with single quotes
 - **embedded/store:** prevent value reading of expired entries
-- **embedded/store:** fix expiration error declaration
-- **embedded/store:** dedicated expiration error
-- **embedded/store:** improve metadata serialization/deserialization methods
-- **embedded/store:** validations during metadata deserialization
+- **embedded/store:** private readonly metadata is validated when reading data
+- **embedded/store:** mandatory expiration filter
+- **embedded/store:** read-only kv metadata for committed entries
+- **embedded/store:** rw and readonly kv metadata
+- **embedded/store:** txmetdata placeholder with zero len
+- **embedded/store:** easily extendable meta attributes
+- **embedded/store:** reduce attribute code size
 - **embedded/store:** return data corrupted error when deserialization cannot proceed
 - **embedded/store:** use fixed time during the lifespan of a tx
-- **embedded/store:** easily extendable meta attributes
-- **embedded/store:** mandatory expiration filter
-- **embedded/store:** reduce attribute code size
+- **embedded/store:** validations during metadata deserialization
+- **embedded/store:** improve metadata serialization/deserialization methods
+- **embedded/store:** dedicated expiration error
+- **embedded/store:** fix expiration error declaration
+- **makefile:** remove windows binaries digital signature
+- **pkg/api:** use new kvmetadata api
 - **pkg/auth:** require admin permission to export and replicate txs
+- **pkg/client:** tx read conflict error is mapped in an CodInFailedSqlTransaction
 - **pkg/integration:** remove useless compilation tag on tests
 - **pkg/server:** deprecate GetAuth and WithAuth
-- **pkg/server/sessions:** session max inactivity time set to 3m and minor stat collecting fix
 - **pkg/server/sessions:** tuning sessions params
 - **pkg/server/sessions:** session timeout set to 2 min
+- **pkg/server/sessions:** session max inactivity time set to 3m and minor stat collecting fix
+- **pkg/server/sessions/internal/transactions:** defer only when needed
+- **pkg/stdlib:** clean tx after rollback
+- **pkg/stdlib:** fix connection creation
+- **server/sessions:** modify read conflict error message
 
 ### Features
 - **embedded/store:** logical entries expiration
 - **pkg/api:** logical entries expiration
 - **pkg/client:** expirable set
+- **pkg/stdlib:** expose tx on std lib
 
 
 <a name="v1.2.0-RC1"></a>
@@ -2364,7 +2389,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.1...HEAD
+[v1.2.1]: https://github.com/vchain-us/immudb/compare/v1.2.0...v1.2.1
 [v1.2.0]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...v1.2.0
 [v1.2.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.1.0...v1.2.0-RC1
 [v1.1.0]: https://github.com/vchain-us/immudb/compare/v1.0.5...v1.1.0
