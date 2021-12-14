@@ -136,7 +136,6 @@ func (txr *TxReplicator) Start() error {
 				txr.logger.Infof("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
 
 				txr.failedAttempts++
-
 				if txr.failedAttempts == 3 {
 					txr.disconnect()
 				}
@@ -159,6 +158,20 @@ func (txr *TxReplicator) Start() error {
 					txr.db.GetName(),
 					masterDB,
 					err)
+
+				txr.failedAttempts++
+				if txr.failedAttempts == 3 {
+					txr.disconnect()
+				}
+
+				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
+				select {
+				case <-txr.mainContext.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
+
 				continue
 			}
 
