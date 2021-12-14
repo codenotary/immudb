@@ -1580,14 +1580,14 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	i := 0
 
 	if len(exportedTx) < lszSize {
-		return nil, ErrCorruptedData
+		return nil, ErrIllegalArguments
 	}
 
 	hdrLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
 	i += lszSize
 
 	if len(exportedTx) < i+hdrLen {
-		return nil, ErrCorruptedData
+		return nil, ErrIllegalArguments
 	}
 
 	hdr := &TxHeader{}
@@ -1606,7 +1606,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 
 	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
-			return nil, ErrCorruptedData
+			return nil, ErrIllegalArguments
 		}
 
 		kLen := int(binary.BigEndian.Uint16(exportedTx[i:]))
@@ -1620,7 +1620,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		i += sszSize
 
 		if len(exportedTx) < i+mdLen {
-			return nil, ErrCorruptedData
+			return nil, ErrIllegalArguments
 		}
 
 		var md *KVMetadata
