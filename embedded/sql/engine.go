@@ -858,7 +858,7 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 			// len(v) + v
 			var encv [EncLenLen + 8]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(8))
-			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(timeToInt64(timeVal)))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], uint64(TimeToInt64(timeVal)))
 
 			return encv[:], nil
 		}

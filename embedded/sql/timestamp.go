@@ -18,7 +18,7 @@ package sql
 
 import "time"
 
-func timeToInt64(t time.Time) int64 {
+func TimeToInt64(t time.Time) int64 {
 	unix := t.Unix()
 	nano := t.Nanosecond()
 
