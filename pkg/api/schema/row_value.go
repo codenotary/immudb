@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 )
@@ -127,7 +126,7 @@ func RenderValue(op isSQLValue_Value) string {
 		}
 	case *SQLValue_Ts:
 		{
-			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			t := sql.TimeFromInt64(v.Ts)
 			return t.Format("2006-01-02 15:04:05.999999")
 		}
 	}
@@ -159,7 +158,7 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 		}
 	case *SQLValue_Ts:
 		{
-			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			t := sql.TimeFromInt64(v.Ts)
 			return []byte(t.Format("2006-01-02 15:04:05.999999"))
 		}
 	}
@@ -195,7 +194,7 @@ func RawValue(v *SQLValue) interface{} {
 		}
 	case *SQLValue_Ts:
 		{
-			return time.Unix(tv.Ts/1e6, (tv.Ts%1e6)*1e3).UTC()
+			return sql.TimeFromInt64(tv.Ts)
 		}
 	}
 

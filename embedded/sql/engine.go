@@ -1057,7 +1057,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Timestamp{val: timeFromInt64(int64(v))}, voff, nil
+			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
 		}
 	}
 
