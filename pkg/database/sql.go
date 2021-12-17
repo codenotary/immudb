@@ -521,7 +521,7 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 		}
 	case sql.TimestampType:
 		{
-			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: tv.Value().(time.Time).UnixNano()}}
+			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.Value().(time.Time))}}
 		}
 	}
 	return nil

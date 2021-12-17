@@ -101,7 +101,7 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 		}
 	case time.Time:
 		{
-			return &SQLValue{Value: &SQLValue_Ts{Ts: tv.UnixNano()}}, nil
+			return &SQLValue{Value: &SQLValue_Ts{Ts: sql.TimeToInt64(tv)}}, nil
 		}
 	}
 	return nil, sql.ErrInvalidValue

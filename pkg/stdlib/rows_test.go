@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -107,7 +108,7 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 				index: 0,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
-					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
 				}},
 			},
 			expected: "TIMESTAMP",
@@ -213,7 +214,7 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 				index: 0,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
-					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
 				}},
 			},
 			lenght:         math.MaxInt64,
@@ -319,7 +320,7 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 				index: 0,
 				rows: []*schema.Row{{
 					Columns: []string{"c1"},
-					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: time.Now().UnixNano()}}},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
 				}},
 			},
 			expectedType: reflect.TypeOf(time.Now()),

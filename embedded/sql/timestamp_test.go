@@ -35,7 +35,7 @@ func TestTimeConversions(t *testing.T) {
 		{time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC), -62167219200000000},
 	} {
 		t.Run(fmt.Sprintf("convert time (%v) to int64 (%d)", d.t, d.i), func(t *testing.T) {
-			assert.Equal(t, d.i, timeToInt64(d.t))
+			assert.Equal(t, d.i, TimeToInt64(d.t))
 		})
 		t.Run(fmt.Sprintf("convert int64 (%d) to time (%v)", d.i, d.t), func(t *testing.T) {
 			assert.Equal(t, d.t, timeFromInt64(d.i))
