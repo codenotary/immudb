@@ -38,7 +38,7 @@ func TestTimeConversions(t *testing.T) {
 			assert.Equal(t, d.i, TimeToInt64(d.t))
 		})
 		t.Run(fmt.Sprintf("convert int64 (%d) to time (%v)", d.i, d.t), func(t *testing.T) {
-			assert.Equal(t, d.t, timeFromInt64(d.i))
+			assert.Equal(t, d.t, TimeFromInt64(d.i))
 		})
 	}
 }
