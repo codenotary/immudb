@@ -61,11 +61,12 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     pparam int
     update *colUpdate
     updates []*colUpdate
+    onConflict *OnConflictDo
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
-%token INSERT UPSERT INTO VALUES DELETE UPDATE SET
+%token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL NPARAM CAST
@@ -125,6 +126,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <boolean> opt_if_not_exists opt_auto_increment opt_not_null opt_not
 %type <update> update
 %type <updates> updates
+%type <onConflict> opt_on_conflict
 
 %start sql
 
@@ -234,9 +236,9 @@ one_or_more_ids:
     }
 
 dmlstmt:
-    INSERT INTO tableRef '(' opt_ids ')' VALUES rows
+    INSERT INTO tableRef '(' opt_ids ')' VALUES rows opt_on_conflict
     {
-        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, rows: $8}
+        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, rows: $8, onConflict: $9}
     }
 |
     UPSERT INTO tableRef '(' ids ')' VALUES rows
@@ -252,6 +254,16 @@ dmlstmt:
     UPDATE tableRef SET updates opt_where opt_indexon opt_limit
     {
         $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: int($7)}
+    }
+
+opt_on_conflict:
+    {
+        $$ = nil
+    }
+|
+    ON CONFLICT DO NOTHING
+    {
+        $$ = &OnConflictDo{}
     }
 
 updates:
