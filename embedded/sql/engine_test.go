@@ -656,7 +656,7 @@ func TestAutoIncrementPK(t *testing.T) {
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 	})
 
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, ctxs, err := engine.Exec("INSERT INTO table1(title) VALUES ('name1')", nil, nil)
