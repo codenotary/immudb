@@ -499,7 +499,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			colPos, specified := selPosByColID[colID]
 			if !specified {
 				// TODO: Default values
-				if col.notNull {
+				if col.notNull && !col.autoIncrement {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
 				continue
