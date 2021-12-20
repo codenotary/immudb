@@ -502,11 +502,19 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				if col.notNull && !col.autoIncrement {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
-				continue
-			}
 
-			if stmt.isInsert && col.autoIncrement {
-				return nil, fmt.Errorf("%w (%s)", ErrNoValueForAutoIncrementalColumn, col.colName)
+				// inject auto-incremental pk value
+				if stmt.isInsert && table.autoIncrementPK {
+					table.maxPK++
+
+					pkCol := table.primaryIndex.cols[0]
+
+					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
+
+					tx.lastInsertedPKs[table.name] = table.maxPK
+				}
+
+				continue
 			}
 
 			cVal := row.Values[colPos]
@@ -529,18 +537,19 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				continue
 			}
 
+			if stmt.isInsert && col.autoIncrement {
+				// validate specified value
+				nl, isNumber := rval.Value().(int64)
+				if !isNumber {
+					return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
+				}
+
+				if nl <= table.maxPK && stmt.onConflict == nil {
+					return nil, fmt.Errorf("%w (%s)", ErrInvalidValue, col.colName)
+				}
+			}
+
 			valuesByColID[colID] = rval
-		}
-
-		// inject auto-incremental pk value
-		if stmt.isInsert && table.autoIncrementPK {
-			table.maxPK++
-
-			pkCol := table.primaryIndex.cols[0]
-
-			valuesByColID[pkCol.id] = &Number{val: table.maxPK}
-
-			tx.lastInsertedPKs[table.name] = table.maxPK
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
