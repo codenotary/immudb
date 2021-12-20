@@ -666,20 +666,26 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
-	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (1, 'name2')", nil, nil)
+	require.ErrorIs(t, err, ErrInvalidValue)
 
-	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (1, 'name2') ON CONFLICT DO NOTHING", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (3, 'name3')", nil, nil)
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
 
 	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil, nil)
 	require.NoError(t, err)
 
-	_, ctxs, err = engine.Exec("INSERT INTO table1(title) VALUES ('name2')", nil, nil)
+	_, ctxs, err = engine.Exec("INSERT INTO table1(title) VALUES ('name3')", nil, nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
-	require.Equal(t, int64(2), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, int64(3), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
 	_, ctxs, err = engine.Exec(`
@@ -691,7 +697,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
-	require.Equal(t, int64(4), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, int64(5), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 2, ctxs[0].UpdatedRows())
 }
 
