@@ -411,9 +411,9 @@ colsSpec:
     }
 
 colSpec:
-    IDENTIFIER TYPE opt_max_len opt_auto_increment opt_not_null
+    IDENTIFIER TYPE opt_max_len opt_not_null opt_auto_increment
     {
-        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), autoIncrement: $4, notNull: $5}
+        $$ = &ColSpec{colName: $1, colType: $2, maxLen: int($3), notNull: $4, autoIncrement: $5}
     }
 
 opt_max_len:
