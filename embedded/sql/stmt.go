@@ -510,6 +510,8 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 					pkCol := table.primaryIndex.cols[0]
 
 					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
+
+					tx.lastInsertedPKs[table.name] = table.maxPK
 				}
 
 				continue
