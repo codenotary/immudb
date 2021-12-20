@@ -510,8 +510,6 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 					pkCol := table.primaryIndex.cols[0]
 
 					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
-
-					tx.lastInsertedPKs[table.name] = table.maxPK
 				}
 
 				continue
@@ -530,14 +528,14 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			}
 
 			if rval.IsNull() {
-				if col.notNull {
+				if col.notNull || col.autoIncrement {
 					return nil, fmt.Errorf("%w (%s)", ErrNotNullableColumnCannotBeNull, col.colName)
 				}
 
 				continue
 			}
 
-			if stmt.isInsert && col.autoIncrement {
+			if col.autoIncrement {
 				// validate specified value
 				nl, isNumber := rval.Value().(int64)
 				if !isNumber {
@@ -547,6 +545,8 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				if nl <= table.maxPK && stmt.onConflict == nil {
 					return nil, fmt.Errorf("%w (%s)", ErrInvalidValue, col.colName)
 				}
+
+				tx.lastInsertedPKs[table.name] = nl
 			}
 
 			valuesByColID[colID] = rval
