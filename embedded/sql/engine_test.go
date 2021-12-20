@@ -597,6 +597,18 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, nil)
 	require.NoError(t, err)
 
+	t.Run("on conflict cases", func(t *testing.T) {
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
+
+		ntx, ctxs, err := engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1') ON CONFLICT DO NOTHING", nil, nil)
+		require.NoError(t, err)
+		require.Nil(t, ntx)
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
+		require.Nil(t, ctxs[0].TxHeader())
+	})
+
 	t.Run("varchar key cases", func(t *testing.T) {
 		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title123456789', true, x'00A1')", nil, nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)

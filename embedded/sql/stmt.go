@@ -408,14 +408,18 @@ func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQ
 }
 
 type UpsertIntoStmt struct {
-	isInsert bool
-	tableRef *tableRef
-	cols     []string
-	rows     []*RowSpec
+	isInsert   bool
+	tableRef   *tableRef
+	cols       []string
+	rows       []*RowSpec
+	onConflict *OnConflictDo
 }
 
 type RowSpec struct {
 	Values []ValueExp
+}
+
+type OnConflictDo struct {
 }
 
 func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -544,7 +548,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			return nil, err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, stmt.isInsert)
+		err = tx.doUpsert(pkEncVals, valuesByColID, table, stmt.isInsert, stmt.onConflict)
 		if err != nil {
 			return nil, err
 		}
@@ -553,7 +557,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	return tx, nil
 }
 
-func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, isInsert bool) error {
+func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, isInsert bool, onConflict *OnConflictDo) error {
 	var reusableIndexEntries map[uint32]struct{}
 
 	if !isInsert && len(table.indexes) > 1 {
@@ -583,8 +587,12 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 	if isInsert && !table.autoIncrementPK {
 		// mkey must not exist
 		_, err := tx.get(mkey)
-		if err == nil {
+		if err == nil && onConflict == nil {
 			return store.ErrKeyAlreadyExists
+		}
+		if err == nil {
+			// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
+			return nil
 		}
 		if err != store.ErrKeyNotFound {
 			return err
@@ -997,7 +1005,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 			return nil, err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, false)
+		err = tx.doUpsert(pkEncVals, valuesByColID, table, false, nil)
 		if err != nil {
 			return nil, err
 		}
