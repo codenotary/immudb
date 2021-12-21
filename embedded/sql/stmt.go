@@ -495,6 +495,8 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 
 		valuesByColID := make(map[uint32]TypedValue)
 
+		var pkMustExist bool
+
 		for colID, col := range table.colsByID {
 			colPos, specified := selPosByColID[colID]
 			if !specified {
@@ -505,10 +507,10 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 
 				// inject auto-incremental pk value
 				if stmt.isInsert && table.autoIncrementPK {
+					// current implementation assumes only PK can be set as autoincremental
 					table.maxPK++
 
 					pkCol := table.primaryIndex.cols[0]
-
 					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
 
 					tx.lastInsertedPKs[table.name] = table.maxPK
@@ -517,6 +519,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				continue
 			}
 
+			// value was specified
 			cVal := row.Values[colPos]
 
 			val, err := cVal.substitute(params)
@@ -544,9 +547,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 					return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
 				}
 
-				if nl <= table.maxPK && stmt.onConflict == nil {
-					return nil, fmt.Errorf("%w (%s)", ErrInvalidValue, col.colName)
-				}
+				pkMustExist = nl <= table.maxPK
 
 				tx.lastInsertedPKs[table.name] = nl
 			}
@@ -559,7 +560,30 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			return nil, err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, stmt.isInsert, stmt.onConflict)
+		// primary index entry
+		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+
+		_, err = tx.get(mkey)
+		if err != nil && err != store.ErrKeyNotFound {
+			return nil, err
+		}
+
+		if err == store.ErrKeyNotFound && pkMustExist {
+			return nil, err
+		}
+
+		if stmt.isInsert {
+			if err == nil && stmt.onConflict == nil {
+				return nil, store.ErrKeyAlreadyExists
+			}
+
+			if err == nil && stmt.onConflict != nil {
+				// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
+				return tx, nil
+			}
+		}
+
+		err = tx.doUpsert(pkEncVals, valuesByColID, table, !stmt.isInsert)
 		if err != nil {
 			return nil, err
 		}
@@ -568,10 +592,10 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	return tx, nil
 }
 
-func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, isInsert bool, onConflict *OnConflictDo) error {
+func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
 	var reusableIndexEntries map[uint32]struct{}
 
-	if !isInsert && len(table.indexes) > 1 {
+	if reuseIndex && len(table.indexes) > 1 {
 		currPKRow, err := tx.fetchPKRow(table, valuesByColID)
 		if err != nil && err != ErrNoMoreRows {
 			return err
@@ -592,31 +616,8 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		}
 	}
 
-	// create primary index entry
+	// primary index entry
 	mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
-
-	if isInsert && !table.autoIncrementPK {
-		// mkey must not exist
-		_, err := tx.get(mkey)
-		if err == nil && onConflict == nil {
-			return store.ErrKeyAlreadyExists
-		}
-		if err == nil {
-			// TODO: conflict resolution may be extended. Currently only supports "ON CONFLICT DO NOTHING"
-			return nil
-		}
-		if err != store.ErrKeyNotFound {
-			return err
-		}
-	}
-
-	if !isInsert && table.autoIncrementPK {
-		// mkey must exist
-		_, err := tx.get(mkey)
-		if err != nil {
-			return err
-		}
-	}
 
 	valbuf := bytes.Buffer{}
 
@@ -627,6 +628,7 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 			encodedVals++
 		}
 	}
+
 	b := make([]byte, EncLenLen)
 	binary.BigEndian.PutUint32(b, uint32(encodedVals))
 
@@ -1008,7 +1010,16 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 			return nil, err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, false, nil)
+		// primary index entry
+		mkey := mapKey(tx.sqlPrefix(), PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.primaryIndex.id), pkEncVals)
+
+		// mkey must exist
+		_, err = tx.get(mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		err = tx.doUpsert(pkEncVals, valuesByColID, table, true)
 		if err != nil {
 			return nil, err
 		}
