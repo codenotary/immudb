@@ -16,34 +16,32 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDistinctRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_distinct_row_reader")
-
-	dataStore, err := store.Open("catalog_distinct_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_distinct_row_reader")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := engine.newDistinctRowReader(dummyr)
+	dummyr.failReturningColumns = true
+	_, err := newDistinctRowReader(dummyr)
+	require.Equal(t, errDummy, err)
+
+	dummyr.failReturningColumns = false
+
+	rowReader, err := newDistinctRowReader(dummyr)
 	require.NoError(t, err)
 
-	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())
-	require.Equal(t, dummyr.ImplicitTable(), rowReader.ImplicitTable())
+	require.Equal(t, dummyr.Database(), rowReader.Database())
+	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
+
+	require.Nil(t, rowReader.Tx())
+
+	_, err = rowReader.colsBySelector()
+	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()

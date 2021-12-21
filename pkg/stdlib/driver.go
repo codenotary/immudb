@@ -21,10 +21,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 var immuDriver *Driver
@@ -54,6 +54,7 @@ type Driver struct {
 func (d *Driver) Open(name string) (driver.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
 	connector, _ := d.OpenConnector(name)
 	return connector.Connect(ctx)
 }
@@ -65,40 +66,37 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 func (d *Driver) UnregisterConnection(name string) {
 	d.configMutex.Lock()
 	defer d.configMutex.Unlock()
+
 	delete(d.configs, name)
 }
 
 func (d *Driver) RegisterConnection(cn *Conn) string {
 	d.configMutex.Lock()
 	defer d.configMutex.Unlock()
+
 	name := fmt.Sprintf("registeredConnConfig%d", d.seq)
 	d.seq++
 	d.configs[name] = cn
+
 	return name
 }
 
 func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
-	conn, err := client.NewImmuClient(cliOptions)
-	if err != nil {
-		return nil, err
-	}
+	immuClient := client.NewClient().WithOptions(cliOptions)
+
 	name := GetUri(cliOptions)
 
-	_, err = conn.Login(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password))
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = conn.UseDatabase(ctx, &schema.Database{DatabaseName: cliOptions.Database})
+	err := immuClient.OpenSession(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password), cliOptions.Database)
 	if err != nil {
 		return nil, err
 	}
 
 	cn := &Conn{
-		name:    name,
-		conn:    conn,
-		options: cliOptions,
-		driver:  d,
+		name:       name,
+		immuClient: immuClient,
+		options:    cliOptions,
+		driver:     d,
 	}
+
 	return cn, nil
 }

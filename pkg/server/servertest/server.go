@@ -36,6 +36,7 @@ const bufSize = 1024 * 1024
 type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
+	immuServer *server.ImmuServer
 	m          sync.Mutex
 	pgsqlwg    sync.WaitGroup
 	Lis        *bufconn.Listener
@@ -48,28 +49,30 @@ type bufconnServer struct {
 
 func NewBufconnServer(options *server.Options) *bufconnServer {
 	options.Port = 0
+	immuserver := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	bs := &bufconnServer{
 		quit:    make(chan struct{}),
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
 		GrpcServer: grpc.NewServer(
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(server.ErrorMapper, auth.ServerUnaryInterceptor)),
-			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(server.ErrorMapperStream, auth.ServerStreamInterceptor)),
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(server.ErrorMapper, immuserver.KeepAliveSessionInterceptor, auth.ServerUnaryInterceptor, immuserver.SessionAuthInterceptor)),
+			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(server.ErrorMapperStream, immuserver.KeepALiveSessionStreamInterceptor, auth.ServerStreamInterceptor)),
 		),
+		immuServer: immuserver,
 	}
+
 	return bs
 }
 
 func (bs *bufconnServer) Start() error {
 	bs.m.Lock()
 	defer bs.m.Unlock()
-	server := server.DefaultServer().WithOptions(bs.Options).(*server.ImmuServer)
 
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}
 
-	bs.Server = &ServerMock{Srv: server}
+	bs.Server = &ServerMock{Srv: bs.immuServer}
 
 	bs.pgsqlwg.Add(1)
 

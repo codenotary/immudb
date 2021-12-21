@@ -16,8 +16,6 @@ limitations under the License.
 package sql
 
 type conditionalRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	condition ValueExp
@@ -25,21 +23,28 @@ type conditionalRowReader struct {
 	params map[string]interface{}
 }
 
-func (e *Engine) newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
+func newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
 	return &conditionalRowReader{
-		e:         e,
 		rowReader: rowReader,
 		condition: condition,
 		params:    params,
 	}, nil
 }
 
-func (cr *conditionalRowReader) ImplicitDB() string {
-	return cr.rowReader.ImplicitDB()
+func (cr *conditionalRowReader) onClose(callback func()) {
+	cr.rowReader.onClose(callback)
 }
 
-func (cr *conditionalRowReader) ImplicitTable() string {
-	return cr.rowReader.ImplicitTable()
+func (cr *conditionalRowReader) Tx() *SQLTx {
+	return cr.rowReader.Tx()
+}
+
+func (cr *conditionalRowReader) Database() *Database {
+	return cr.rowReader.Database()
+}
+
+func (cr *conditionalRowReader) TableAlias() string {
+	return cr.rowReader.TableAlias()
 }
 
 func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) error {
@@ -80,7 +85,7 @@ func (cr *conditionalRowReader) InferParameters(params map[string]SQLValueType) 
 		return err
 	}
 
-	_, err = cr.condition.inferType(cols, params, cr.ImplicitDB(), cr.ImplicitTable())
+	_, err = cr.condition.inferType(cols, params, cr.Database().Name(), cr.TableAlias())
 
 	return err
 }
@@ -97,7 +102,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cond.reduce(cr.e.catalog, row, cr.rowReader.ImplicitDB(), cr.rowReader.ImplicitTable())
+		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database().Name(), cr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}

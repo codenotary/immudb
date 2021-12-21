@@ -17,36 +17,79 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestKVMetadata(t *testing.T) {
-	md := KVMetadata{}
+	now := time.Now()
+
+	md := NewKVMetadata()
 
 	bs := md.Bytes()
-	require.NotNil(t, bs)
-	require.Len(t, bs, 1)
-	require.Equal(t, byte(0), bs[0])
+	require.Len(t, bs, 0)
 
-	err := md.ReadFrom(bs)
+	err := md.unsafeReadFrom(bs)
 	require.NoError(t, err)
 	require.False(t, md.Deleted())
+	require.False(t, md.IsExpirable())
 
-	desmd := KVMetadata{}
-	err = desmd.ReadFrom(nil)
+	_, err = md.ExpirationTime()
+	require.ErrorIs(t, err, ErrNonExpirable)
+
+	require.False(t, md.ExpiredAt(now))
+
+	t.Run("mutable methods over read-only metadata should fail", func(t *testing.T) {
+		desmd := newReadOnlyKVMetadata()
+
+		err = desmd.unsafeReadFrom(nil)
+		require.NoError(t, err)
+
+		require.False(t, desmd.Deleted())
+		require.False(t, md.IsExpirable())
+		require.False(t, md.ExpiredAt(now))
+
+		err = desmd.AsDeleted(true)
+		require.ErrorIs(t, err, ErrReadOnly)
+
+		err = desmd.ExpiresAt(now)
+		require.ErrorIs(t, err, ErrReadOnly)
+	})
+
+	desmd := NewKVMetadata()
+
+	err = desmd.unsafeReadFrom(nil)
 	require.NoError(t, err)
+
+	desmd.AsDeleted(false)
 	require.False(t, desmd.Deleted())
 
 	desmd.AsDeleted(true)
 	require.True(t, desmd.Deleted())
 
+	desmd.NonExpirable()
+	require.False(t, md.IsExpirable())
+	require.False(t, md.ExpiredAt(now))
+
+	desmd.ExpiresAt(now)
+	require.True(t, desmd.IsExpirable())
+
+	desmd.ExpiresAt(now)
+	require.True(t, desmd.IsExpirable())
+
+	expTime, err := desmd.ExpirationTime()
+	require.NoError(t, err)
+	require.Equal(t, now, expTime)
+	require.True(t, desmd.ExpiredAt(now))
+
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
-	require.Len(t, bs, 1)
-	require.NotEqual(t, byte(0), bs[0]&deletedFlag)
+	require.Len(t, bs, maxKVMetadataLen)
 
-	err = desmd.ReadFrom(bs)
+	err = desmd.unsafeReadFrom(bs)
 	require.NoError(t, err)
 	require.True(t, desmd.Deleted())
+	require.True(t, desmd.IsExpirable())
+	require.True(t, desmd.ExpiredAt(now))
 }

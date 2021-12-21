@@ -73,21 +73,21 @@ func (txr *TxReader) Read() (*Tx, error) {
 	}
 
 	if txr.InitialTxID != txr.CurrTxID {
-		if txr.Desc && txr.CurrAlh != txr._tx.Alh {
+		if txr.Desc && txr.CurrAlh != txr._tx.header.Alh() {
 			return nil, ErrorCorruptedTxData
 		}
 
-		if !txr.Desc && txr.CurrAlh != txr._tx.PrevAlh {
+		if !txr.Desc && txr.CurrAlh != txr._tx.header.PrevAlh {
 			return nil, ErrorCorruptedTxData
 		}
 	}
 
 	if txr.Desc {
 		txr.CurrTxID--
-		txr.CurrAlh = txr._tx.PrevAlh
+		txr.CurrAlh = txr._tx.header.PrevAlh
 	} else {
 		txr.CurrTxID++
-		txr.CurrAlh = txr._tx.Alh
+		txr.CurrAlh = txr._tx.header.Alh()
 	}
 
 	return txr._tx, nil

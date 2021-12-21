@@ -16,7 +16,6 @@ limitations under the License.
 package store
 
 import (
-	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,29 +25,17 @@ func TestTxMetadata(t *testing.T) {
 	md := &TxMetadata{}
 
 	bs := md.Bytes()
-	require.NotNil(t, bs)
-	require.Len(t, bs, 2)
-	require.Equal(t, uint16(0), binary.BigEndian.Uint16(bs))
+	require.Nil(t, bs)
 
 	err := md.ReadFrom(bs)
 	require.NoError(t, err)
-	require.Empty(t, md.Summary())
 
 	desmd := &TxMetadata{}
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
-	require.Nil(t, desmd.Summary())
-
-	desmd.WithSummary([]byte{0, 1, 2, 3})
-	require.Equal(t, []byte{0, 1, 2, 3}, desmd.Summary())
 
 	err = desmd.ReadFrom(desmd.Bytes())
 	require.NoError(t, err)
-	require.Equal(t, []byte{0, 1, 2, 3}, desmd.Summary())
 
-	require.False(t, md.Equal(nil))
-	require.False(t, md.Equal(desmd))
-
-	md.WithSummary([]byte{0, 1, 2, 3})
 	require.True(t, md.Equal(desmd))
 }

@@ -33,7 +33,8 @@ func TestImmudbStoreReader(t *testing.T) {
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		es := make([]*EntrySpec, eCount)
+		tx, err := immuStore.NewWriteOnlyTx()
+		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
 			var k [8]byte
@@ -42,10 +43,11 @@ func TestImmudbStoreReader(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			es[j] = &EntrySpec{Key: k[:], Value: v[:]}
+			err = tx.Set(k[:], nil, v[:])
+			require.NoError(t, err)
 		}
 
-		_, err := immuStore.Commit(&TxSpec{Entries: es, WaitForIndexing: true})
+		_, err = tx.Commit()
 		require.NoError(t, err)
 	}
 
@@ -90,7 +92,8 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 	eCount := 100
 
 	for i := 0; i < txCount; i++ {
-		es := make([]*EntrySpec, eCount)
+		tx, err := immuStore.NewWriteOnlyTx()
+		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {
 			var k [8]byte
@@ -99,10 +102,11 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			es[j] = &EntrySpec{Key: k[:], Value: v[:]}
+			err = tx.Set(k[:], nil, v[:])
+			require.NoError(t, err)
 		}
 
-		_, err := immuStore.Commit(&TxSpec{Entries: es, WaitForIndexing: true})
+		_, err = tx.Commit()
 		require.NoError(t, err)
 	}
 

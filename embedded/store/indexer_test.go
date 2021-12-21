@@ -67,7 +67,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 	require.Zero(t, snap)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	exists, err := indexer.ExistKeyWith(nil, nil, false)
+	exists, err := indexer.ExistKeyWith(nil, nil)
 	require.Zero(t, exists)
 	require.Equal(t, ErrAlreadyClosed, err)
 
@@ -106,15 +106,15 @@ func TestMaxIndexWaitees(t *testing.T) {
 	}
 
 	// Store one transaction
-	txm, err := store.Commit(
-		&TxSpec{
-			Entries: []*EntrySpec{{
-				Key:   []byte{1},
-				Value: []byte{2},
-			}},
-		})
+	tx, err := store.NewWriteOnlyTx()
 	require.NoError(t, err)
-	require.EqualValues(t, 1, txm.ID)
+
+	err = tx.Set([]byte{1}, nil, []byte{2})
+	require.NoError(t, err)
+
+	hdr, err := tx.AsyncCommit()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, hdr.ID)
 
 	// Other goroutine should succeed
 	select {
@@ -199,7 +199,7 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, err, ErrAlreadyClosed)
 
-	_, err = i.ExistKeyWith(dummy, dummy, false)
+	_, err = i.ExistKeyWith(dummy, dummy)
 	assert.Error(t, err)
 	assert.Equal(t, err, ErrAlreadyClosed)
 

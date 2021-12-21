@@ -43,7 +43,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 10"),
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 		{
 			input:          "USE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT at position 7"),
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 		{
 			input:          "USE SNAPSHOT SINCE 10",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected NUMBER, expecting TX"),
+			expectedError:  errors.New("syntax error: unexpected NUMBER, expecting TX at position 21"),
 		},
 	}
 
@@ -185,17 +185,17 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or UNIQUE or INDEX at position 13"),
 		},
 		{
 			input:          "CREATE TABLE table1",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected $end, expecting '('"),
+			expectedError:  errors.New("syntax error: unexpected $end, expecting '(' at position 20"),
 		},
 		{
 			input:          "CREATE TABLE table1()",
 			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 21"),
 		},
 	}
 
@@ -228,7 +228,7 @@ func TestCreateIndexStmt(t *testing.T) {
 		{
 			input:          "CREATE INDEX table1(id)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON at position 19"),
 		},
 		{
 			input:          "CREATE UNIQUE INDEX ON table1(id, title)",
@@ -274,7 +274,7 @@ func TestAlterTableStmt(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD at position 25"),
 		},
 	}
 
@@ -298,7 +298,7 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'untitled row', TRUE, false, x'AED0393F', @param1)",
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), 'un''titled row', TRUE, false, x'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table1"},
@@ -307,7 +307,51 @@ func TestInsertIntoStmt(t *testing.T) {
 						{Values: []ValueExp{
 							&Number{val: 2},
 							&SysFn{fn: "now"},
-							&Varchar{val: "untitled row"},
+							&Varchar{val: "un'titled row"},
+							&Bool{val: true},
+							&Bool{val: false},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1"},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), '', TRUE, false, x'AED0393F', @param1)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Varchar{val: ""},
+							&Bool{val: true},
+							&Bool{val: false},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1"},
+						},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, now(), '''', TRUE, false, x'AED0393F', @param1)",
+			expectedOutput: []SQLStmt{
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{
+							&Number{val: 2},
+							&SysFn{fn: "now"},
+							&Varchar{val: "'"},
 							&Bool{val: true},
 							&Bool{val: false},
 							&Blob{val: decodedBLOB},
@@ -366,42 +410,42 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($0, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR, expecting ')'"),
+			expectedError:  errors.New("syntax error: unexpected ERROR, expecting ')' at position 40"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, @title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 42"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (@id, ?)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 44"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (@id, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 44"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, @title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, ?)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES (?, $1)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 42"),
 		},
 		{
 			input:          "UPSERT INTO table1(id, title) VALUES ($1, $title)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ERROR"),
+			expectedError:  errors.New("syntax error: unexpected ERROR at position 43"),
 		},
 		{
 			input: "UPSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
@@ -421,12 +465,12 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "UPSERT INTO table1() VALUES (2, 'untitled')",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER at position 20"),
 		},
 		{
 			input:          "UPSERT INTO VALUES (2)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER"),
+			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER at position 18"),
 		},
 	}
 
@@ -513,7 +557,7 @@ func TestStmtSeparator(t *testing.T) {
 		{
 			input:          "CREATE DATABASE db1 USE DATABASE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected USE"),
+			expectedError:  errors.New("syntax error: unexpected USE at position 23"),
 		},
 	}
 
@@ -534,31 +578,29 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10) COMMIT;",
+			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10); ROLLBACK;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table2"},
-							cols:     []string{"id"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 10}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table2"},
+					cols:     []string{"id"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 10}}},
+					},
+				},
+				&RollbackStmt{},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -568,54 +610,59 @@ func TestTxStmt(t *testing.T) {
 					},
 					pkColNames: []string{"id"},
 				},
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&CommitStmt{},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "BEGIN TRANSACTION; UPDATE table1 SET label = 'label1' WHERE id = 100; COMMIT;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{
-					stmts: []SQLStmt{
-						&CreateTableStmt{
-							table: "table1",
-							colsSpec: []*ColSpec{
-								{colName: "id", colType: IntegerType},
-								{colName: "label", colType: VarcharType, notNull: true},
-							},
-							pkColNames: []string{"id"},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpdateStmt{
+					tableRef: &tableRef{table: "table1"},
+					updates: []*colUpdate{
+						{col: "label", op: EQ, val: &Varchar{val: "label1"}},
+					},
+					where: &CmpBoolExp{
+						op:    EQ,
+						left:  &ColSelector{col: "id"},
+						right: &Number{val: 100},
 					},
 				},
+				&CommitStmt{},
 			},
 			expectedError: nil,
 		},
 		{
-			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1');",
-			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
-		},
-		{
-			input:          "BEGIN TRANSACTION UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id) COMMIT; COMMIT",
-			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			expectedOutput: []SQLStmt{
+				&BeginTransactionStmt{},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+						{colName: "label", colType: VarcharType, notNull: true},
+					},
+					pkColNames: []string{"id"},
+				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
+					},
+				},
+				&CommitStmt{},
+			},
+			expectedError: nil,
 		},
 	}
 
@@ -944,7 +991,7 @@ func TestAggFnStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "SELECT COUNT() FROM table1",
+			input: "SELECT COUNT(*) FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -1236,6 +1283,46 @@ func TestExpressions(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT id FROM clients WHERE deleted_at IS NULL",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &tableRef{table: "clients"},
+					where: &CmpBoolExp{
+						left: &ColSelector{
+							col: "deleted_at",
+						},
+						op: EQ,
+						right: &NullValue{
+							t: AnyType,
+						},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM clients WHERE deleted_at IS NOT NULL",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &tableRef{table: "clients"},
+					where: &CmpBoolExp{
+						left: &ColSelector{
+							col: "deleted_at",
+						},
+						op: NE,
+						right: &NullValue{
+							t: AnyType,
+						},
+					},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -1266,7 +1353,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			CREATE TABLE table1 (id INTEGER, name VARCHAR NULL, ts TIMESTAMP NOT NULL, active BOOLEAN, content BLOB, PRIMARY KEY id);
 
-			BEGIN TRANSACTION
+			BEGIN TRANSACTION;
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1');
 				
 				UPSERT INTO table2 (id) VALUES (10);
@@ -1288,24 +1375,22 @@ func TestMultiLineStmts(t *testing.T) {
 					},
 					pkColNames: []string{"id"},
 				},
-				&TxStmt{
-					stmts: []SQLStmt{
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table1"},
-							cols:     []string{"id", "label"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
-							},
-						},
-						&UpsertIntoStmt{
-							tableRef: &tableRef{table: "table2"},
-							cols:     []string{"id"},
-							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 10}}},
-							},
-						},
+				&BeginTransactionStmt{},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table1"},
+					cols:     []string{"id", "label"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
+				&UpsertIntoStmt{
+					tableRef: &tableRef{table: "table2"},
+					cols:     []string{"id"},
+					rows: []*RowSpec{
+						{Values: []ValueExp{&Number{val: 10}}},
+					},
+				},
+				&CommitStmt{},
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{

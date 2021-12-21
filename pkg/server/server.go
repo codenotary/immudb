@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"io/ioutil"
 	"log"
 	"net"
@@ -203,12 +204,15 @@ func (s *ImmuServer) Initialize() error {
 
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first
+		s.KeepAliveSessionInterceptor,
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
 		auth.ServerUnaryInterceptor,
+		s.SessionAuthInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
 		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
+		s.KeepALiveSessionStreamInterceptor,
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
@@ -223,6 +227,11 @@ func (s *ImmuServer) Initialize() error {
 	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
+
+	s.SessManager, err = sessions.NewManager(s.Options.SessionsOptions)
+	if err != nil {
+		return err
+	}
 
 	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Address(s.Options.Address), pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDB), pgsqlsrv.TlsConfig(s.Options.TLSConfig), pgsqlsrv.Logger(s.Logger))
 	if s.Options.PgsqlServer {
@@ -260,6 +269,13 @@ func (s *ImmuServer) Start() (err error) {
 			s.mux.Unlock()
 			log.Fatal(err)
 		}
+	}()
+
+	go func() {
+		if err = s.SessManager.StartSessionsGuard(); err != nil {
+			log.Fatal(err)
+		}
+		s.Logger.Infof("sessions guard started")
 	}()
 
 	if s.Options.PgsqlServer {
@@ -648,6 +664,8 @@ func (s *ImmuServer) Stop() error {
 		s.GrpcServer.Stop()
 		defer func() { s.GrpcServer = nil }()
 	}
+
+	s.SessManager.StopSessionsGuard()
 
 	s.stopReplication()
 
@@ -1058,6 +1076,18 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		return nil, err
 	}
 
+	if auth.GetAuthTypeFromContext(ctx) == auth.SessionAuth {
+		sessionID, err := sessions.GetSessionIDFromContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		sess, err := s.SessManager.GetSession(sessionID)
+		if err != nil {
+			return nil, err
+		}
+		sess.SetDatabase(s.dbList.GetByIndex(dbid))
+	}
+
 	return &schema.UseDatabaseReply{
 		Token: token,
 	}, nil
@@ -1083,7 +1113,7 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 		if s.Options.GetMaintenance() && !s.Options.auth {
 			return nil, fmt.Errorf("please select database first")
 		}
-		return nil, ErrNotLoggedIn
+		return nil, err
 	}
 
 	if ind < 0 {

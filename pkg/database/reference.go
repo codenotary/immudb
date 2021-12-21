@@ -49,8 +49,10 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, err
 	}
 
+	txHolder := d.st.NewTxHolder()
+
 	// check key does not exists or it's already a reference
-	entry, err := d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
+	entry, err := d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, txHolder)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -59,7 +61,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	}
 
 	// check referenced key exists and it's not a reference
-	refEntry, err := d.getAt(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, d.tx1)
+	refEntry, err := d.getAt(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, txHolder)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +69,26 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	hdr, err := d.st.Commit(
-		&store.TxSpec{
-			Entries:         []*store.EntrySpec{EncodeReference(req.Key, nil, req.ReferencedKey, req.AtTx)},
-			WaitForIndexing: !req.NoWait,
-		})
+	tx, err := d.st.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Cancel()
+
+	e := EncodeReference(req.Key, nil, req.ReferencedKey, req.AtTx)
+
+	err = tx.Set(e.Key, e.Metadata, e.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	var hdr *store.TxHeader
+
+	if req.NoWait {
+		hdr, err = tx.AsyncCommit()
+	} else {
+		hdr, err = tx.Commit()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -95,10 +112,7 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 		return nil, err
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	lastTx := d.tx1
+	lastTx := d.st.NewTxHolder()
 
 	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {
@@ -110,7 +124,7 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	if req.ProveSinceTx == 0 {
 		prevTx = lastTx
 	} else {
-		prevTx = d.tx2
+		prevTx = d.st.NewTxHolder()
 
 		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
 		if err != nil {

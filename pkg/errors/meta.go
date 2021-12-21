@@ -28,6 +28,10 @@ const (
 	CodInvalidParameterValue                         Code = "22023"
 	CodUndefinedFunction                             Code = "42883"
 	CodInvalidDatabaseName                           Code = "3F000"
+	CodInvalidAuthorizationSpecification             Code = "28000"
+	CodSqlserverRejectedEstablishmentOfSqlSession    Code = "08001"
+	CodInvalidTransactionInitiation                  Code = "0B000"
+	CodInFailedSqlTransaction                        Code = "25P02"
 )
 
 var (

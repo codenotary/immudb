@@ -405,11 +405,11 @@ func TestServerLoaduserDatabase(t *testing.T) {
 
 func TestServerLoadUserDatabases(t *testing.T) {
 	copier := fs.NewStandardCopier()
-	require.NoError(t, copier.CopyDir("../../test/data_v1.0.1", "data_v1.0.1"))
+	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", "data_v1.1.0"))
 
-	defer os.RemoveAll("data_v1.0.1")
+	defer os.RemoveAll("data_v1.1.0")
 
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithDir("./data_v1.0.1")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithDir("./data_v1.1.0")
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
 	s.Initialize()

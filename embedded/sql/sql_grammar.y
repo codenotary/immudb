@@ -64,11 +64,11 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
-%token BEGIN TRANSACTION COMMIT
+%token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
-%token NOT LIKE IF EXISTS IN
-%token AUTO_INCREMENT NULL NPARAM
+%token NOT LIKE IF EXISTS IN IS
+%token AUTO_INCREMENT NULL NPARAM CAST
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -92,10 +92,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left '*' '/'
 %left  '.'
 %right STMT_SEPARATOR
+%left IS
 
-%type <stmts> sql
-%type <stmts> sqlstmts dstmts
-%type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
+%type <stmts> sql sqlstmts
+%type <stmt> sqlstmt ddlstmt dqlstmt dmlstmt
 %type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids one_or_more_ids opt_ids
@@ -142,11 +142,6 @@ sqlstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    dqlstmt opt_separator
-    {
-        $$ = []SQLStmt{$1}
-    }
-|
     sqlstmt STMT_SEPARATOR sqlstmts
     {
         $$ = append([]SQLStmt{$1}, $3...)
@@ -154,31 +149,24 @@ sqlstmts:
 
 opt_separator: {} | STMT_SEPARATOR
 
-sqlstmt:
-    dstmt
-    {
-        $$ = $1
-    }
-|
-    BEGIN TRANSACTION dstmts COMMIT
-    {
-        $$ = &TxStmt{stmts: $3}
-    }
-
-dstmt: ddlstmt | dmlstmt
-
-dstmts:
-    dstmt opt_separator
-    {
-        $$ = []SQLStmt{$1}
-    }
-|
-    dstmt STMT_SEPARATOR dstmts
-    {
-        $$ = append([]SQLStmt{$1}, $3...)
-    }
+sqlstmt: ddlstmt | dmlstmt | dqlstmt
 
 ddlstmt:
+    BEGIN TRANSACTION
+    {
+        $$ = &BeginTransactionStmt{}
+    }
+|
+    COMMIT
+    {
+        $$ = &CommitStmt{}
+    }
+|
+    ROLLBACK
+    {
+        $$ = &RollbackStmt{}
+    }
+|
     CREATE DATABASE IDENTIFIER
     {
         $$ = &CreateDatabaseStmt{DB: $3}
@@ -374,6 +362,11 @@ val:
         $$ = &Blob{val: $1}
     }
 |
+    CAST '(' exp AS TYPE ')'
+    {
+        $$ = &Cast{val: $3, t: $5}
+    }
+|
     IDENTIFIER '(' ')'
     {
         $$ = &SysFn{fn: $1}
@@ -503,7 +496,7 @@ selector:
         $$ = $1
     }
 |
-    AGGREGATE_FUNC '(' ')'
+    AGGREGATE_FUNC '(' '*' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
     }
@@ -798,4 +791,14 @@ binExp:
     exp CMPOP exp
     {
         $$ = &CmpBoolExp{left: $1, op: $2, right: $3}
+    }
+|
+    exp IS NULL
+    {
+        $$ = &CmpBoolExp{left: $1, op: EQ, right: &NullValue{t: AnyType}}
+    }
+|
+    exp IS NOT NULL
+    {
+        $$ = &CmpBoolExp{left: $1, op: NE, right: &NullValue{t: AnyType}}
     }

@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 )
@@ -89,6 +90,19 @@ func (v *SQLValue_Bs) Equal(sqlv SqlValue) (bool, error) {
 	return bytes.Equal(v.Bs, b.Bs), nil
 }
 
+func (v *SQLValue_Ts) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
+	ts, isTimestamp := sqlv.(*SQLValue_Ts)
+	if !isTimestamp {
+		return false, sql.ErrNotComparableValues
+	}
+	return v.Ts == ts.Ts, nil
+}
+
 func RenderValue(op isSQLValue_Value) string {
 	switch v := op.(type) {
 	case *SQLValue_Null:
@@ -111,6 +125,11 @@ func RenderValue(op isSQLValue_Value) string {
 		{
 			return hex.EncodeToString(v.Bs)
 		}
+	case *SQLValue_Ts:
+		{
+			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			return t.Format("2006-01-02 15:04:05.999999")
+		}
 	}
 
 	return fmt.Sprintf("%v", op)
@@ -128,7 +147,7 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 		}
 	case *SQLValue_S:
 		{
-			return []byte(fmt.Sprintf("%s", v.S))
+			return []byte(v.S)
 		}
 	case *SQLValue_B:
 		{
@@ -137,6 +156,11 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 	case *SQLValue_Bs:
 		{
 			return []byte(hex.EncodeToString(v.Bs))
+		}
+	case *SQLValue_Ts:
+		{
+			t := time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			return []byte(t.Format("2006-01-02 15:04:05.999999"))
 		}
 	}
 
@@ -168,6 +192,10 @@ func RawValue(v *SQLValue) interface{} {
 	case *SQLValue_Bs:
 		{
 			return tv.Bs
+		}
+	case *SQLValue_Ts:
+		{
+			return time.Unix(tv.Ts/1e6, (tv.Ts%1e6)*1e3).UTC()
 		}
 	}
 

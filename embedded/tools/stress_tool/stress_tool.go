@@ -112,18 +112,28 @@ func main() {
 	immuStore, err := store.Open(*dataDir, opts)
 
 	st, err := store.Open("data", store.DefaultOptions())
-	// handle error
+	if err != nil {
+		panic(err)
+	}
 
 	defer st.Close()
 
-	tx, err := st.Commit(
-		&store.TxSpec{
-			Entries:         []*store.EntrySpec{{Key: []byte("hello"), Value: []byte("immutable-world!")}},
-			WaitForIndexing: true,
-		})
-	// handle error
+	tx, err := st.NewWriteOnlyTx()
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Printf("key %s successfully set in tx %d", "hello", tx.ID)
+	err = tx.Set([]byte("hello"), nil, []byte("immutable-world!"))
+	if err != nil {
+		panic(err)
+	}
+
+	hdr, err := tx.Commit()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("key %s successfully set in tx %d", "hello", hdr.ID)
 
 	if err != nil {
 		panic(err)
@@ -168,10 +178,17 @@ func main() {
 		}
 
 		if *action == "set" {
-			_, err := immuStore.Commit(
-				&store.TxSpec{
-					Entries: []*store.EntrySpec{{Key: []byte(*key), Value: []byte(*value)}},
-				})
+			tx, err := st.NewWriteOnlyTx()
+			if err != nil {
+				panic(err)
+			}
+
+			err = tx.Set([]byte(*key), nil, []byte(*value))
+			if err != nil {
+				panic(err)
+			}
+
+			_, err = tx.Commit()
 			if err != nil {
 				panic(err)
 			}
@@ -201,10 +218,10 @@ func main() {
 			go func(id int) {
 				fmt.Printf("\r\nCommitter %d is generating kv data...\r\n", id)
 
-				txs := make([][]*store.EntrySpec, *txCount)
+				entries := make([][]*store.EntrySpec, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txs[t] = make([]*store.EntrySpec, *kvCount)
+					entries[t] = make([]*store.EntrySpec, *kvCount)
 
 					rand.Seed(time.Now().UnixNano())
 
@@ -234,7 +251,7 @@ func main() {
 							rand.Read(v)
 						}
 
-						txs[t][i] = &store.EntrySpec{Key: k, Value: v}
+						entries[t][i] = &store.EntrySpec{Key: k, Value: v}
 					}
 				}
 
@@ -247,7 +264,19 @@ func main() {
 				ids := make([]uint64, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txhdr, err := immuStore.Commit(&store.TxSpec{Entries: txs[t]})
+					tx, err := immuStore.NewWriteOnlyTx()
+					if err != nil {
+						panic(err)
+					}
+
+					for _, e := range entries[t] {
+						err = tx.Set(e.Key, e.Metadata, e.Value)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					txhdr, err := tx.Commit()
 					if err != nil {
 						panic(err)
 					}
@@ -267,23 +296,22 @@ func main() {
 				if *txRead {
 					fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
 
-					tx := immuStore.NewTx()
-					b := make([]byte, *vLen)
+					txHolder := immuStore.NewTxHolder()
 
 					for i := range ids {
-						immuStore.ReadTx(ids[i], tx)
+						immuStore.ReadTx(ids[i], txHolder)
 
-						for ei, e := range tx.Entries() {
-							if !bytes.Equal(e.Key(), txs[i][ei].Key) {
+						for ei, e := range txHolder.Entries() {
+							if !bytes.Equal(e.Key(), entries[i][ei].Key) {
 								panic(fmt.Errorf("committed tx key does not match input values"))
 							}
 
-							_, err = immuStore.ReadValueAt(b, e.VOff(), e.HVal())
+							val, err := immuStore.ReadValue(e)
 							if err != nil {
 								panic(err)
 							}
 
-							if !bytes.Equal(b, txs[i][ei].Value) {
+							if !bytes.Equal(val, entries[i][ei].Value) {
 								panic(fmt.Errorf("committed tx value does not match input values"))
 							}
 						}
@@ -314,14 +342,12 @@ func main() {
 			fmt.Println("Starting full scan to verify linear cryptographic linking...")
 			start := time.Now()
 
-			txReader, err := immuStore.NewTxReader(1, false, immuStore.NewTx())
+			txReader, err := immuStore.NewTxReader(1, false, immuStore.NewTxHolder())
 			if err != nil {
 				panic(err)
 			}
 
 			verifiedTxs := 0
-
-			b := make([]byte, immuStore.MaxValueLen())
 
 			for {
 				tx, err := txReader.Read()
@@ -332,6 +358,11 @@ func main() {
 					panic(err)
 				}
 
+				entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+				if err != nil {
+					panic(err)
+				}
+
 				if *kvInclusion {
 					for _, e := range tx.Entries() {
 						proof, err := tx.Proof(e.Key())
@@ -339,14 +370,14 @@ func main() {
 							panic(err)
 						}
 
-						_, err = immuStore.ReadValueAt(b[:e.VLen()], e.VOff(), e.HVal())
+						val, err := immuStore.ReadValue(e)
 						if err != nil {
 							panic(err)
 						}
 
-						kv := &store.EntrySpec{Key: e.Key(), Value: b[:e.VLen()]}
+						kv := &store.EntrySpec{Key: e.Key(), Value: val}
 
-						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
+						verifies := htree.VerifyInclusion(proof, entrySpecDigest(kv), tx.Header().Eh)
 						if !verifies {
 							panic("kv does not verify")
 						}

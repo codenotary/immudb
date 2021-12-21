@@ -18,6 +18,7 @@ package sql
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,7 @@ import (
 func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 	cols := make(map[string]ColDescriptor)
 	cols["(db1.mytable.id)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ts)"] = ColDescriptor{Type: TimestampType}
 	cols["(db1.mytable.title)"] = ColDescriptor{Type: VarcharType}
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
@@ -61,6 +63,24 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 		},
 		{
 			exp:           &ColSelector{db: "db1", table: "mytable", col: "id"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "ts"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  TimestampType,
+			expectedError: nil,
+		},
+		{
+			exp:           &ColSelector{db: "db1", table: "mytable", col: "ts"},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -195,7 +215,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -416,7 +436,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			params:        params,
 			implicitDB:    "db1",
 			implicitTable: "mytable",
-			requiredType:  IntegerType,
+			requiredType:  TimestampType,
 			expectedError: nil,
 		},
 		{
@@ -441,7 +461,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -546,7 +566,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 
 	for i, tc := range testCases {
 		err := tc.exp.requiresType(tc.requiredType, tc.cols, tc.params, tc.implicitDB, tc.implicitTable)
-		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+		require.ErrorIs(t, err, tc.expectedError, fmt.Sprintf("failed on iteration %d", i))
 
 		if tc.expectedError == nil {
 			it, err := tc.exp.inferType(tc.cols, params, tc.implicitDB, tc.implicitTable)
@@ -645,12 +665,12 @@ func TestAliasing(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
-	exp := &CreateIndexStmt{}
-	_, err := exp.compileUsing(nil, nil, nil)
+	stmt := &CreateIndexStmt{}
+	_, err := stmt.execAt(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	exp.cols = make([]string, MaxNumberOfColumnsInIndex+1)
-	_, err = exp.compileUsing(nil, nil, nil)
+	stmt.cols = make([]string, MaxNumberOfColumnsInIndex+1)
+	_, err = stmt.execAt(nil, nil)
 	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }
 
@@ -660,6 +680,7 @@ func TestIsConstant(t *testing.T) {
 	require.True(t, (&Varchar{}).isConstant())
 	require.True(t, (&Bool{}).isConstant())
 	require.True(t, (&Blob{}).isConstant())
+	require.True(t, (&Timestamp{}).isConstant())
 	require.True(t, (&Param{}).isConstant())
 	require.False(t, (&ColSelector{}).isConstant())
 	require.False(t, (&AggColSelector{}).isConstant())
@@ -694,4 +715,60 @@ func TestIsConstant(t *testing.T) {
 	require.False(t, (&SysFn{}).isConstant())
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
+}
+
+func TestTimestmapType(t *testing.T) {
+
+	ts := &Timestamp{val: time.Date(2021, 12, 6, 11, 53, 0, 0, time.UTC)}
+
+	t.Run("comparison functions", func(t *testing.T) {
+
+		cmp, err := ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 53, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Equal(t, 0, cmp)
+
+		cmp, err = ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 52, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Greater(t, cmp, 0)
+
+		cmp, err = ts.Compare(&Timestamp{val: time.Date(2021, 12, 6, 11, 54, 0, 0, time.UTC)})
+		require.NoError(t, err)
+		require.Less(t, cmp, 0)
+
+		cmp, err = ts.Compare(&NullValue{t: TimestampType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = ts.Compare(&NullValue{t: AnyType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = (&NullValue{t: TimestampType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+
+		cmp, err = (&NullValue{t: AnyType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+	})
+
+	it, err := ts.inferType(map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+	require.Equal(t, TimestampType, it)
+
+	err = ts.requiresType(TimestampType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+
+	err = ts.requiresType(IntegerType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	v, err := ts.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, ts, v)
+
+	v = ts.reduceSelectors(&Row{}, "", "")
+	require.Equal(t, ts, v)
+
+	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
 }

@@ -1200,3 +1200,51 @@ func (sfm *ServiceFactoryMock) NewExecAllStreamReceiver(str stream.MsgReceiver) 
 func DefaultServiceFactoryMock() *ServiceFactoryMock {
 	return &ServiceFactoryMock{}
 }
+
+func TestImmuClient_SessionSetGetStream(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1_000_000)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	hOrig := sha256.New()
+	_, err = io.Copy(hOrig, tmpFile)
+	require.NoError(t, err)
+	oriSha := hOrig.Sum(nil)
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
+	}
+
+	hdr, err := client.StreamSet(context.TODO(), kvs)
+	require.NoError(t, err)
+	require.NotNil(t, hdr)
+
+	entry, err := client.StreamGet(context.TODO(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	require.NoError(t, err)
+	require.NotNil(t, hdr)
+
+	newSha := sha256.Sum256(entry.Value)
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+
+	require.Equal(t, oriSha, newSha[:])
+}

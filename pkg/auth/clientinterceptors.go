@@ -27,7 +27,7 @@ import (
 // ClientStreamInterceptor gRPC client interceptor for streams
 func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDesc, *grpc.ClientConn, string, grpc.Streamer, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
+		opts = append(opts, grpc.PerRPCCredentials(TokenAuthStruct{
 			Token: token,
 		}))
 		return streamer(ctx, desc, cc, method, opts...)
@@ -37,20 +37,20 @@ func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDes
 // ClientUnaryInterceptor gRPC client interceptor for unary methods
 func ClientUnaryInterceptor(token string) func(context.Context, string, interface{}, interface{}, *grpc.ClientConn, grpc.UnaryInvoker, ...grpc.CallOption) error {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
+		opts = append(opts, grpc.PerRPCCredentials(TokenAuthStruct{
 			Token: token,
 		}))
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
 
-// TokenAuth authentication token data structure
-type TokenAuth struct {
+// TokenAuthStruct authentication token data structure
+type TokenAuthStruct struct {
 	Token string
 }
 
 // GetRequestMetadata callback which returns the Bearer token to be set in request metadata
-func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+func (t TokenAuthStruct) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	var token string
 	if md, ok := metadata.FromOutgoingContext(ctx); ok && len(md.Get("authorization")) > 0 {
 		token = md.Get("authorization")[0]
@@ -63,6 +63,6 @@ func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[st
 }
 
 // RequireTransportSecurity callback which returns whether TLS is mandatory or not
-func (TokenAuth) RequireTransportSecurity() bool {
+func (TokenAuthStruct) RequireTransportSecurity() bool {
 	return false
 }

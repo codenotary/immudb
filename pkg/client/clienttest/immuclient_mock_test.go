@@ -39,7 +39,7 @@ func TestImmuClientMock(t *testing.T) {
 	errVerifiedZAdd := errors.New("VerifiedZAddF got called")
 	errHistory := errors.New("HistoryF got called")
 	icm := &ImmuClientMock{
-		ImmuClient: client.DefaultClient(),
+		ImmuClient: client.NewClient(),
 		IsConnectedF: func() bool {
 			return true
 		},

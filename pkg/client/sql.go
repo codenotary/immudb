@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -42,15 +43,6 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 	}
 
 	return c.ServiceClient.SQLExec(ctx, &schema.SQLExecRequest{Sql: sql, Params: namedParams})
-}
-
-func (c *immuClient) UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error {
-	if !c.IsConnected() {
-		return ErrNotConnected
-	}
-
-	_, err := c.ServiceClient.UseSnapshot(ctx, &schema.UseSnapshotRequest{SinceTx: sinceTx, AsBeforeTx: asBeforeTx})
-	return err
 }
 
 func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
@@ -114,6 +106,11 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	if len(vEntry.PKIDs) < len(pkVals) {
 		return ErrIllegalArguments
+	}
+
+	entrySpecDigest, err := store.EntrySpecDigestFor(int(vEntry.VerifiableTx.Tx.Header.Version))
+	if err != nil {
+		return err
 	}
 
 	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
@@ -193,7 +190,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		e,
+		entrySpecDigest(e),
 		eh)
 	if !verifies {
 		return store.ErrCorruptedData
@@ -329,6 +326,10 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	case sql.BLOBType:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.Value().([]byte)}}
+		}
+	case sql.TimestampType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.Value().(time.Time))}}
 		}
 	}
 	return nil

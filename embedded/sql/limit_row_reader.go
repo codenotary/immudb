@@ -16,28 +16,33 @@ limitations under the License.
 package sql
 
 type limitRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	limit int
 	read  int
 }
 
-func (e *Engine) newLimitRowReader(rowReader RowReader, limit int) (*limitRowReader, error) {
+func newLimitRowReader(rowReader RowReader, limit int) (*limitRowReader, error) {
 	return &limitRowReader{
-		e:         e,
 		rowReader: rowReader,
 		limit:     limit,
 	}, nil
 }
 
-func (lr *limitRowReader) ImplicitDB() string {
-	return lr.rowReader.ImplicitDB()
+func (lr *limitRowReader) onClose(callback func()) {
+	lr.rowReader.onClose(callback)
 }
 
-func (lr *limitRowReader) ImplicitTable() string {
-	return lr.rowReader.ImplicitTable()
+func (lr *limitRowReader) Tx() *SQLTx {
+	return lr.rowReader.Tx()
+}
+
+func (lr *limitRowReader) Database() *Database {
+	return lr.rowReader.Database()
+}
+
+func (lr *limitRowReader) TableAlias() string {
+	return lr.rowReader.TableAlias()
 }
 
 func (lr *limitRowReader) SetParameters(params map[string]interface{}) error {

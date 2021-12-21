@@ -19,23 +19,30 @@ package stdlib
 import (
 	"context"
 	"database/sql/driver"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Conn struct {
-	name    string
-	conn    client.ImmuClient
-	options *client.Options
-	driver  *Driver
+	name       string
+	immuClient client.ImmuClient
+	options    *client.Options
+	driver     *Driver
+	tx         client.Tx
 }
 
 // Conn returns the underlying client.ImmuClient
 func (c *Conn) GetImmuClient() client.ImmuClient {
-	return c.conn
+	return c.immuClient
 }
 
 func (c *Conn) GetDriver() *Driver {
 	return c.driver
+}
+
+func (c *Conn) GetTx() client.Tx {
+	return c.tx
 }
 
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
@@ -48,19 +55,11 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 
 func (c *Conn) Close() error {
 	defer c.GetDriver().UnregisterConnection(c.name)
-	return c.conn.Disconnect()
-}
-
-func (c *Conn) Begin() (driver.Tx, error) {
-	return nil, ErrNotImplemented
-}
-
-func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, ErrNotImplemented
+	return c.immuClient.CloseSession(context.TODO())
 }
 
 func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Result, error) {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
 
@@ -69,7 +68,17 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 		return nil, err
 	}
 
-	execResult, err := c.conn.SQLExec(ctx, query, vals)
+	if c.tx != nil {
+		err = c.tx.SQLExec(ctx, query, vals)
+		if err != nil {
+			return nil, err
+		}
+		return RowsAffected{&schema.SQLExecResult{
+			OngoingTx: true,
+		}}, nil
+	}
+
+	execResult, err := c.immuClient.SQLExec(ctx, query, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -78,16 +87,25 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 }
 
 func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Rows, error) {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return nil, driver.ErrBadConn
 	}
+	queryResult := &schema.SQLQueryResult{}
 
 	vals, err := namedValuesToSqlMap(argsV)
 	if err != nil {
 		return nil, err
 	}
 
-	queryResult, err := c.conn.SQLQuery(ctx, query, vals, true)
+	if c.tx != nil {
+		queryResult, err = c.tx.SQLQuery(ctx, query, vals)
+		if err != nil {
+			return nil, err
+		}
+		return &Rows{rows: queryResult.Rows}, nil
+	}
+
+	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +119,7 @@ func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {
 }
 
 func (c *Conn) ResetSession(ctx context.Context) error {
-	if !c.conn.IsConnected() {
+	if !c.immuClient.IsConnected() {
 		return driver.ErrBadConn
 	}
 	return ErrNotImplemented

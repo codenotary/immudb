@@ -17,6 +17,7 @@ package schema
 
 import (
 	"crypto/sha256"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/store"
@@ -47,9 +48,16 @@ func KVMetadataToProto(md *store.KVMetadata) *KVMetadata {
 		return nil
 	}
 
-	return &KVMetadata{
+	kvmd := &KVMetadata{
 		Deleted: md.Deleted(),
 	}
+
+	if md.IsExpirable() {
+		expTime, _ := md.ExpirationTime()
+		kvmd.Expiration = &Expiration{ExpiresAt: expTime.Unix()}
+	}
+
+	return kvmd
 }
 
 func TxFromProto(stx *Tx) *store.Tx {
@@ -61,14 +69,17 @@ func TxFromProto(stx *Tx) *store.Tx {
 
 	tx := store.NewTxWithEntries(entries)
 
-	tx.ID = stx.Header.Id
-	tx.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
-	tx.Ts = stx.Header.Ts
-	tx.BlTxID = stx.Header.BlTxId
-	tx.BlRoot = DigestFromProto(stx.Header.BlRoot)
+	hdr := tx.Header()
+
+	hdr.ID = stx.Header.Id
+	hdr.Ts = stx.Header.Ts
+	hdr.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
+	hdr.BlTxID = stx.Header.BlTxId
+	hdr.BlRoot = DigestFromProto(stx.Header.BlRoot)
+	hdr.Version = int(stx.Header.Version)
+	hdr.Metadata = TxMetadataFromProto(stx.Header.Metadata)
 
 	tx.BuildHashTree()
-	tx.CalcAlh()
 
 	return tx
 }
@@ -78,7 +89,15 @@ func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
 		return nil
 	}
 
-	return store.NewKVMetadata().AsDeleted(md.Deleted)
+	kvmd := store.NewKVMetadata()
+
+	kvmd.AsDeleted(md.Deleted)
+
+	if md.Expiration != nil {
+		kvmd.ExpiresAt(time.Unix(md.Expiration.ExpiresAt, 0))
+	}
+
+	return kvmd
 }
 
 func InclusionProofToProto(iproof *htree.InclusionProof) *InclusionProof {
@@ -110,10 +129,15 @@ func DualProofToProto(dualProof *store.DualProof) *DualProof {
 }
 
 func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
+	if hdr == nil {
+		return nil
+	}
+
 	return &TxHeader{
 		Id:       hdr.ID,
 		PrevAlh:  hdr.PrevAlh[:],
 		Ts:       hdr.Ts,
+		Version:  int32(hdr.Version),
 		Metadata: TxMetadataToProto(hdr.Metadata),
 		Nentries: int32(hdr.NEntries),
 		EH:       hdr.Eh[:],
@@ -122,14 +146,12 @@ func TxHeaderToProto(hdr *store.TxHeader) *TxHeader {
 	}
 }
 
-func TxMetadataToProto(md *store.TxMetadata) *TxMD {
+func TxMetadataToProto(md *store.TxMetadata) *TxMetadata {
 	if md == nil {
 		return nil
 	}
 
-	return &TxMD{
-		Summary: md.Summary(),
-	}
+	return &TxMetadata{}
 }
 
 func LinearProofToProto(linearProof *store.LinearProof) *LinearProof {
@@ -157,6 +179,7 @@ func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
 		ID:       hdr.Id,
 		PrevAlh:  DigestFromProto(hdr.PrevAlh),
 		Ts:       hdr.Ts,
+		Version:  int(hdr.Version),
 		Metadata: TxMetadataFromProto(hdr.Metadata),
 		NEntries: int(hdr.Nentries),
 		Eh:       DigestFromProto(hdr.EH),
@@ -165,14 +188,12 @@ func TxHeaderFromProto(hdr *TxHeader) *store.TxHeader {
 	}
 }
 
-func TxMetadataFromProto(md *TxMD) *store.TxMetadata {
+func TxMetadataFromProto(md *TxMetadata) *store.TxMetadata {
 	if md == nil {
 		return nil
 	}
 
-	txmd := &store.TxMetadata{}
-
-	return txmd.WithSummary(md.Summary)
+	return &store.TxMetadata{}
 }
 
 func LinearProofFromProto(lproof *LinearProof) *store.LinearProof {

@@ -305,10 +305,16 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	opts := s.storeOptionsForDB("testdb", m, s.Options.DefaultStoreOptions())
 	st, err := store.Open("data/testdb", opts)
 	require.NoError(t, err)
-	st.Commit(&store.TxSpec{
-		Entries:         []*store.EntrySpec{{Key: []byte{1}, Value: []byte{2}}},
-		WaitForIndexing: true,
-	})
+
+	tx, err := st.NewWriteOnlyTx()
+	require.NoError(t, err)
+
+	err = tx.Set([]byte{1}, nil, []byte{2})
+	require.NoError(t, err)
+
+	_, err = tx.Commit()
+	require.NoError(t, err)
+
 	err = st.Close()
 	require.NoError(t, err)
 

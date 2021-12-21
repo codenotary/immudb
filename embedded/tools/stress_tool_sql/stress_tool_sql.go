@@ -17,7 +17,6 @@ package main
 
 import (
 	"flag"
-	// 	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -35,7 +34,6 @@ type Entry struct {
 
 type cfg struct {
 	dataDir           string
-	catalogDir        string
 	parallelIO        int
 	fileSize          int
 	compressionFormat int
@@ -50,12 +48,10 @@ type cfg struct {
 	rdCount           int
 	readDelay         int
 	readPause         int
-	readRenew         bool
 }
 
 func parseConfig() (c cfg) {
 	flag.StringVar(&c.dataDir, "dataDir", "data", "data directory")
-	flag.StringVar(&c.catalogDir, "catalogDir", "catalog", "catalog directory")
 
 	flag.IntVar(&c.parallelIO, "parallelIO", 1, "number of parallel IO")
 	flag.IntVar(&c.fileSize, "fileSize", 1<<26, "file size up to which a new ones are created")
@@ -74,7 +70,6 @@ func parseConfig() (c cfg) {
 	flag.IntVar(&c.rdCount, "rdCount", 100, "number of reads for each readers")
 	flag.IntVar(&c.readDelay, "readDelay", 100, "Readers start delay (ms)")
 	flag.IntVar(&c.readPause, "readPause", 0, "Readers pause at every cycle")
-	flag.BoolVar(&c.readRenew, "readRenew", false, "renew snapshots on read")
 
 	flag.Parse()
 
@@ -127,18 +122,13 @@ func main() {
 		WithMaxLinearProofLen(0).
 		WithMaxValueLen(1 << 26) // 64Mb
 
-	catalogStore, err := store.Open(c.catalogDir, opts)
-	if err != nil {
-		panic(err)
-	}
-
 	dataStore, err := store.Open(c.dataDir, opts)
 	if err != nil {
 		panic(err)
 	}
 
 	defer func() {
-		for name, store := range map[string]*store.ImmuStore{"catalog": catalogStore, "data": dataStore} {
+		for name, store := range map[string]*store.ImmuStore{"data": dataStore} {
 			store.Close()
 			if err != nil {
 				log.Printf("\r\nBacking store %s closed with error: %v\r\n", name, err)
@@ -148,36 +138,28 @@ func main() {
 		}
 	}()
 
-	for name, store := range map[string]*store.ImmuStore{"catalog": catalogStore, "data": dataStore} {
+	for name, store := range map[string]*store.ImmuStore{"data": dataStore} {
 		log.Printf("Store %s with %d Txs successfully opened!\r\n", name, store.TxCount())
 	}
 
-	engine, err := sql.NewEngine(catalogStore, dataStore, sql.DefaultOptions().WithPrefix([]byte("sql")))
+	engine, err := sql.NewEngine(dataStore, sql.DefaultOptions().WithPrefix([]byte("sql")))
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("SQL engine successfully opened!\r\n")
+	log.Printf("SQL engine successfully initialized!\r\n")
 
-	defer func() {
-		err := engine.Close()
-		if err != nil {
-			log.Printf("\r\nSQL engine closed with error: %v\r\n", err)
-			panic(err)
-		}
-	}()
-
-	_, err = engine.ExecStmt("CREATE DATABASE defaultdb;", map[string]interface{}{}, true)
+	_, _, err = engine.Exec("CREATE DATABASE defaultdb;", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	err = engine.UseDatabase("defaultdb")
+	err = engine.SetDefaultDatabase("defaultdb")
 	if err != nil {
 		panic(err)
 	}
 
 	log.Printf("Creating tables\r\n")
-	_, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, true)
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -217,8 +199,8 @@ func main() {
 			log.Printf("Committer %d is inserting data...\r\n", id)
 			for i := 0; i < c.kvCount; i++ {
 				entry := <-entries
-				_, err = engine.ExecStmt("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
-					map[string]interface{}{"id": entry.id, "value": entry.value}, true)
+				_, _, err = engine.Exec("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+					map[string]interface{}{"id": entry.id, "value": entry.value}, nil)
 				if err != nil {
 					panic(err)
 				}
@@ -235,7 +217,7 @@ func main() {
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, c.readRenew)
+				r, err := engine.Query("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, nil)
 				if err != nil {
 					log.Printf("Error querying val %d: %s", i, err.Error())
 					panic(err)
@@ -261,7 +243,7 @@ func main() {
 	wg.Wait()
 	log.Printf("All committers done...\r\n")
 
-	r, err := engine.QueryStmt("SELECT count() FROM  entries;", map[string]interface{}{}, true)
+	r, err := engine.Query("SELECT count() FROM  entries;", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}

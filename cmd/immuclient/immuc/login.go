@@ -21,8 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/status"
 	"strings"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -56,7 +57,7 @@ func (i *immuc) Login(args []string) (string, error) {
 		if strings.Contains(err.Error(), "authentication disabled") {
 			return "", errors.New("authentication is disabled on server")
 		}
-		return "", errors.New("username or password is not valid")
+		return "", err
 	}
 
 	i.isLoggedin = true

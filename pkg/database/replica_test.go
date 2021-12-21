@@ -73,19 +73,16 @@ func TestReadOnlyReplica(t *testing.T) {
 	})
 	require.Equal(t, ErrIsReplica, err)
 
-	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
+	_, _, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"}, nil)
 	require.Equal(t, ErrIsReplica, err)
 
-	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"}, nil)
 	require.Equal(t, ErrSQLNotReady, err)
 
-	_, err = replica.ListTables()
+	_, err = replica.ListTables(nil)
 	require.Equal(t, ErrSQLNotReady, err)
 
-	_, err = replica.DescribeTable("mytable")
-	require.Equal(t, ErrSQLNotReady, err)
-
-	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
+	_, err = replica.DescribeTable("mytable", nil)
 	require.Equal(t, ErrSQLNotReady, err)
 
 	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
@@ -105,24 +102,21 @@ func TestSwitchToReplica(t *testing.T) {
 	replica, rcloser := makeDbWith(options)
 	defer rcloser()
 
-	_, err := replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"})
+	_, _, err := replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"}, nil)
 	require.NoError(t, err)
 
-	_, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable(id, title) VALUES (1, 'TITLE1')"})
+	_, _, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable(id, title) VALUES (1, 'TITLE1')"}, nil)
 	require.NoError(t, err)
 
 	replica.AsReplica(true)
 
-	err = replica.UseSnapshot(&schema.UseSnapshotRequest{SinceTx: 1})
+	_, err = replica.ListTables(nil)
 	require.NoError(t, err)
 
-	_, err = replica.ListTables()
+	_, err = replica.DescribeTable("mytable", nil)
 	require.NoError(t, err)
 
-	_, err = replica.DescribeTable("mytable")
-	require.NoError(t, err)
-
-	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"})
+	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"}, nil)
 	require.NoError(t, err)
 
 	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{

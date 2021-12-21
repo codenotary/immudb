@@ -15,66 +15,26 @@ limitations under the License.
 */
 package store
 
-import (
-	"bytes"
-	"encoding/binary"
-)
-
-const maxTxMetadataLen = sszSize + maxTxMetadataSummaryLen
-const maxTxMetadataSummaryLen = 256
+const maxTxMetadataLen = 0
 
 type TxMetadata struct {
-	summary []byte
 }
 
 func NewTxMetadata() *TxMetadata {
 	return &TxMetadata{}
 }
 
-func (md *TxMetadata) WithSummary(summary []byte) *TxMetadata {
-	md.summary = make([]byte, len(summary))
-	copy(md.summary, summary)
-	return md
-}
-
 func (md *TxMetadata) Equal(amd *TxMetadata) bool {
-	if amd == nil {
-		return false
-	}
-
-	return bytes.Equal(md.summary, amd.summary)
+	return true
 }
 
 func (md *TxMetadata) Bytes() []byte {
-	b := make([]byte, sszSize+len(md.summary))
-
-	binary.BigEndian.PutUint16(b, uint16(len(md.summary)))
-	copy(b[sszSize:], md.summary)
-
-	return b
-}
-
-func (md *TxMetadata) Summary() []byte {
-	return md.summary
+	return nil
 }
 
 func (md *TxMetadata) ReadFrom(b []byte) error {
-	if len(b) == 0 {
-		return nil
-	}
-
-	if len(b) < sszSize {
+	if len(b) != 0 {
 		return ErrCorruptedData
 	}
-
-	slen := int(binary.BigEndian.Uint16(b))
-
-	if len(b) < sszSize+slen || slen > maxTxMetadataSummaryLen {
-		return ErrCorruptedData
-	}
-
-	md.summary = make([]byte, slen)
-	copy(md.summary, b[sszSize:sszSize+slen])
-
 	return nil
 }

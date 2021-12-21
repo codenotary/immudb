@@ -18,12 +18,14 @@ package stdlib
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/require"
 	"math"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRows(t *testing.T) {
@@ -37,11 +39,14 @@ func TestRows(t *testing.T) {
 
 	ast := r.Columns()
 	require.Equal(t, "c", ast[0])
+
 	st := r.ColumnTypeDatabaseTypeName(1)
 	require.Equal(t, "", st)
+
 	num, b := r.ColumnTypeLength(1)
 	require.Equal(t, int64(0), num)
 	require.False(t, b)
+
 	_, _, _ = r.ColumnTypePrecisionScale(1)
 	ty := r.ColumnTypeScanType(1)
 	require.Nil(t, ty)
@@ -96,6 +101,17 @@ func TestRows_ColumnTypeDatabaseTypeName(t *testing.T) {
 				}},
 			},
 			expected: "BOOLEAN",
+		},
+		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
+				}},
+			},
+			expected: "TIMESTAMP",
 		},
 		{
 			name: "nil",
@@ -193,6 +209,18 @@ func TestRows_ColumnTypeLength(t *testing.T) {
 			variableLenght: false,
 		},
 		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
+				}},
+			},
+			lenght:         math.MaxInt64,
+			variableLenght: true,
+		},
+		{
 			name: "nil",
 			rows: Rows{
 				index: 0,
@@ -287,6 +315,17 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 			expectedType: reflect.TypeOf(true),
 		},
 		{
+			name: "TIMESTAMP",
+			rows: Rows{
+				index: 0,
+				rows: []*schema.Row{{
+					Columns: []string{"c1"},
+					Values:  []*schema.SQLValue{{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(time.Now())}}},
+				}},
+			},
+			expectedType: reflect.TypeOf(time.Now()),
+		},
+		{
 			name: "nil",
 			rows: Rows{
 				index: 0,
@@ -329,25 +368,23 @@ func TestRows_ColumnTypeScanType(t *testing.T) {
 func TestRowsAffected_LastInsertId(t *testing.T) {
 	ra := RowsAffected{
 		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: map[string]*schema.SQLValue{"first": nil},
+			Txs: []*schema.CommittedSQLTx{
+				{
+					LastInsertedPKs: map[string]*schema.SQLValue{
+						"table1": {Value: &schema.SQLValue_N{N: 1}},
+					},
+				},
+			},
 		},
 	}
 	lID, err := ra.LastInsertId()
 	require.NoError(t, err)
-	require.Equal(t, int64(0), lID)
+	require.Equal(t, int64(1), lID)
 }
 
 func TestRowsAffected_LastInsertIdErr(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: nil,
-		},
+		er: &schema.SQLExecResult{},
 	}
 	_, err := ra.LastInsertId()
 	require.Error(t, err)
@@ -355,12 +392,7 @@ func TestRowsAffected_LastInsertIdErr(t *testing.T) {
 
 func TestRowsAffected_RowsAffected(t *testing.T) {
 	ra := RowsAffected{
-		er: &schema.SQLExecResult{
-			Ctxs:            nil,
-			Dtxs:            nil,
-			UpdatedRows:     0,
-			LastInsertedPKs: nil,
-		},
+		er: &schema.SQLExecResult{},
 	}
 	rac, err := ra.RowsAffected()
 	require.NoError(t, err)

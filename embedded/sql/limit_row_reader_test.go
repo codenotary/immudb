@@ -16,34 +16,26 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLimitRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_limit_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_limit_row_reader")
-
-	dataStore, err := store.Open("catalog_limit_row_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_limit_row_reader")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := engine.newLimitRowReader(dummyr, 1)
+	rowReader, err := newLimitRowReader(dummyr, 1)
 	require.NoError(t, err)
 
-	require.Equal(t, dummyr.ImplicitDB(), rowReader.ImplicitDB())
-	require.Equal(t, dummyr.ImplicitTable(), rowReader.ImplicitTable())
+	require.Equal(t, dummyr.Database(), rowReader.Database())
+	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
 	require.Equal(t, dummyr.OrderBy(), rowReader.OrderBy())
 	require.Equal(t, dummyr.ScanSpecs(), rowReader.ScanSpecs())
+
+	require.Nil(t, rowReader.Tx())
+
+	_, err = rowReader.Read()
+	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()

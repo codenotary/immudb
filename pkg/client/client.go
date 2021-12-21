@@ -23,13 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
 
@@ -58,24 +58,35 @@ import (
 type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
+	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
 	WaitForHealthCheck(ctx context.Context) (err error)
 	HealthCheck(ctx context.Context) error
+	// Deprecated: connection is handled in OpenSession
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
+	// Deprecated: use OpenSession
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	// Deprecated: use CloseSession
 	Logout(ctx context.Context) error
+
+	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error)
+	CloseSession(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
+	// Deprecated: will be removed in future versions
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
+	// Deprecated: will be removed in future versions
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
 	WithStateService(rs state.StateService) *immuClient
+	// Deprecated: will be removed in future versions
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
+	// Deprecated: will be removed in future versions
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService tokenservice.TokenService) *immuClient
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
@@ -98,6 +109,8 @@ type ImmuClient interface {
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
+
+	ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error)
 
 	Get(ctx context.Context, key []byte) (*schema.Entry, error)
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
@@ -153,12 +166,13 @@ type ImmuClient interface {
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
-	UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
+
+	NewTx(ctx context.Context) (Tx, error)
 }
 
 const DefaultDB = "defaultdb"
@@ -173,25 +187,28 @@ type immuClient struct {
 	Tkns                 tokenservice.TokenService
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
-	sync.RWMutex
+	SessionID            string
+	HeartBeater          heartbeater.HeartBeater
 }
 
-// DefaultClient ...
-func DefaultClient() *immuClient {
-	return &immuClient{
+// NewClient ...
+func NewClient() *immuClient {
+	c := &immuClient{
 		Dir:                  "",
 		Options:              DefaultOptions(),
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
-		Tkns:                 tokenservice.NewFileTokenService().WithTokenFileName("token").WithHds(homedir.NewHomedirService()),
+		Tkns:                 tokenservice.NewInmemoryTokenService(),
 	}
+	return c
 }
 
 // NewImmuClient ...
+// Deprecated: use NewClient instead.
 func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
 
-	c := DefaultClient()
+	c := NewClient()
 	c.WithOptions(options)
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
@@ -315,16 +332,18 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		token, err := c.Tkns.GetToken()
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
+			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
+			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
 		}
 	}
-	uic = append(uic, c.TokenInterceptor)
+	uic = append(uic, c.TokenInterceptor, c.SessionIDInjectorInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return opts
 }
 
+// Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
@@ -333,6 +352,7 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 	return c.clientConn, nil
 }
 
+// Deprecated: use NewClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
 	start := time.Now()
 
@@ -595,6 +615,11 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 		return nil, err
 	}
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(int(vEntry.VerifiableTx.Tx.Header.Version))
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof := schema.InclusionProofFromProto(vEntry.InclusionProof)
 	dualProof := schema.DualProofFromProto(vEntry.VerifiableTx.DualProof)
 
@@ -633,7 +658,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		e,
+		entrySpecDigest(e),
 		eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
@@ -737,14 +762,15 @@ func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 
 // Set ...
 func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
+	return c.set(ctx, key, nil, value)
+}
+
+func (c *immuClient) set(ctx context.Context, key []byte, md *schema.KVMetadata, value []byte) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	start := time.Now()
-	defer c.Logger.Debugf("set finished in %s", time.Since(start))
-
-	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Metadata: md, Value: value}}})
 	if err != nil {
 		return nil, err
 	}
@@ -798,6 +824,11 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	tx := schema.TxFromProto(verifiableTx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
 		return nil, err
@@ -809,12 +840,14 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, store.ErrCorruptedData
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeEntrySpec(key, md, value), tx.Eh())
+	e := database.EncodeEntrySpec(key, md, value)
+
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -823,8 +856,8 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
@@ -863,6 +896,10 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	return verifiableTx.Tx.Header, nil
+}
+
+func (c *immuClient) ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error) {
+	return c.set(ctx, key, &schema.KVMetadata{Expiration: &schema.Expiration{ExpiresAt: expiresAt.Unix()}}, value)
 }
 
 func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
@@ -1130,17 +1167,24 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 
 	tx := schema.TxFromProto(verifiableTx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, database.EncodeReference(key, nil, referencedKey, atTx), tx.Eh())
+	e := database.EncodeReference(key, nil, referencedKey, atTx)
+
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(verifiableTx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -1149,8 +1193,8 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
@@ -1274,6 +1318,11 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 	tx := schema.TxFromProto(vtx.Tx)
 
+	entrySpecDigest, err := store.EntrySpecDigestFor(tx.Header().Version)
+	if err != nil {
+		return nil, err
+	}
+
 	ekv := database.EncodeZAdd(req.ZAddRequest.Set,
 		req.ZAddRequest.Score,
 		database.EncodeKey(req.ZAddRequest.Key),
@@ -1285,12 +1334,12 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, ekv, tx.Eh())
+	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(ekv), tx.Header().Eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}
 
-	if tx.Eh() != schema.DigestFromProto(vtx.DualProof.TargetTxHeader.EH) {
+	if tx.Header().Eh != schema.DigestFromProto(vtx.DualProof.TargetTxHeader.EH) {
 		return nil, store.ErrCorruptedData
 	}
 
@@ -1299,8 +1348,8 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 	sourceID = state.TxId
 	sourceAlh = schema.DigestFromProto(state.TxHash)
-	targetID = tx.ID
-	targetAlh = tx.Alh
+	targetID = tx.Header().ID
+	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
@@ -1403,9 +1452,10 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	c.Options.CurrentDatabase = db.DatabaseName
 
-	err = c.Tkns.SetToken(db.DatabaseName, result.Token)
-	if err != nil {
-		return nil, errors.FromError(err)
+	if c.SessionID == "" {
+		if err = c.Tkns.SetToken(db.DatabaseName, result.Token); err != nil {
+			return nil, errors.FromError(err)
+		}
 	}
 
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))

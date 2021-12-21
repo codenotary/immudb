@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	immuerror "github.com/codenotary/immudb/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -146,20 +147,27 @@ func verifyToken(token string) (*JSONToken, error) {
 func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Internal, "no headers found on request")
+		return nil, ErrNotLoggedIn
 	}
 	authHeader, ok := md["authorization"]
 	if !ok || len(authHeader) < 1 {
-		return nil, status.Errorf(codes.Unauthenticated, "no Authorization header found on request")
+		return nil, ErrNotLoggedIn
 	}
 	token := strings.TrimPrefix(authHeader[0], "Bearer ")
+	if token == "" {
+		return nil, ErrNotLoggedIn
+	}
 	jsonToken, err := verifyToken(token)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
 			return nil, err
 		}
-		return nil, status.Error(
-			codes.Unauthenticated, "invalid token")
+		if st, stOk := status.FromError(err); stOk {
+			if st.Code() == codes.Unauthenticated {
+				return nil, ErrNotLoggedIn
+			}
+		}
+		return nil, immuerror.Wrap(err, "invalid token")
 	}
 	return jsonToken, nil
 }

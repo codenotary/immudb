@@ -35,7 +35,7 @@ func (c *immuClient) TokenInterceptor(ctx context.Context, method string, req, r
 			if err != nil {
 				return err
 			}
-			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", token))
+			ctx = metadata.AppendToOutgoingContext(ctx, "authorization", token)
 		}
 	}
 	ris := invoker(ctx, method, req, reply, cc, opts...)

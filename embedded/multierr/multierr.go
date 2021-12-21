@@ -54,6 +54,13 @@ func (me *MultiErr) Errors() []error {
 	return me.errors
 }
 
+func (me *MultiErr) Reduce() error {
+	if !me.HasErrors() {
+		return nil
+	}
+	return me
+}
+
 func (me *MultiErr) Is(target error) bool {
 	for _, err := range me.errors {
 		if errors.Is(err, target) {

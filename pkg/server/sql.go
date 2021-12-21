@@ -64,16 +64,36 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 		return nil, err
 	}
 
-	return db.SQLExec(req)
-}
-
-func (s *ImmuServer) UseSnapshot(ctx context.Context, req *schema.UseSnapshotRequest) (*empty.Empty, error) {
-	db, err := s.getDBFromCtx(ctx, "UseSnapshot")
+	tx, ctxs, err := db.SQLExec(req, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return new(empty.Empty), db.UseSnapshot(req)
+	if tx != nil {
+		tx.Cancel()
+		err = ErrTxNotProperlyClosed
+	}
+
+	res := &schema.SQLExecResult{
+		Txs:       make([]*schema.CommittedSQLTx, len(ctxs)),
+		OngoingTx: tx != nil && !tx.Closed(),
+	}
+
+	for i, ctx := range ctxs {
+		lastPKs := make(map[string]*schema.SQLValue, len(ctx.LastInsertedPKs()))
+
+		for k, n := range ctx.LastInsertedPKs() {
+			lastPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
+		}
+
+		res.Txs[i] = &schema.CommittedSQLTx{
+			Header:          schema.TxHeaderToProto(ctx.TxHeader()),
+			UpdatedRows:     uint32(ctx.UpdatedRows()),
+			LastInsertedPKs: lastPKs,
+		}
+	}
+
+	return res, err
 }
 
 func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
@@ -82,7 +102,7 @@ func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) 
 		return nil, err
 	}
 
-	return db.SQLQuery(req)
+	return db.SQLQuery(req, nil)
 }
 
 func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQLQueryResult, error) {
@@ -91,7 +111,7 @@ func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQ
 		return nil, err
 	}
 
-	return db.ListTables()
+	return db.ListTables(nil)
 }
 
 func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
@@ -104,5 +124,5 @@ func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*sch
 		return nil, err
 	}
 
-	return db.DescribeTable(req.TableName)
+	return db.DescribeTable(req.TableName, nil)
 }

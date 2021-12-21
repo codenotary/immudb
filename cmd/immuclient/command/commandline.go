@@ -26,7 +26,7 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		if err = cl.config.LoadConfig(cmd); err != nil {
 			return err
 		}
-		cl.options = immuc.Options()
+		cl.options = immuc.Options().WithTokenFileName("token")
 		cl.immucl, err = immuc.Init(cl.options)
 		if post != nil {
 			return post(cmd, args)

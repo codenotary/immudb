@@ -20,13 +20,14 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"io"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 type Rows struct {
@@ -79,6 +80,10 @@ func (r *Rows) ColumnTypeDatabaseTypeName(index int) string {
 		{
 			return "BLOB"
 		}
+	case *schema.SQLValue_Ts:
+		{
+			return "TIMESTAMP"
+		}
 	default:
 		return "ANY"
 	}
@@ -89,7 +94,9 @@ func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
 	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
 		return 0, false
 	}
+
 	op := r.rows[0].Values[index].Value
+
 	switch op.(type) {
 	case *schema.SQLValue_Null:
 		{
@@ -111,13 +118,17 @@ func (r *Rows) ColumnTypeLength(index int) (int64, bool) {
 		{
 			return math.MaxInt64, true
 		}
+	case *schema.SQLValue_Ts:
+		{
+			return math.MaxInt64, true
+		}
 	default:
 		return math.MaxInt64, true
 	}
 }
 
 // ColumnTypePrecisionScale should return the precision and scale for decimal
-// types. If not applicable, variableLenght should be false.
+// types. If not applicable, variableLength should be false.
 func (r *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	return 0, 0, false
 }
@@ -127,7 +138,9 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	if len(r.rows) <= 0 || len(r.rows[0].Values)-1 < index {
 		return nil
 	}
+
 	op := r.rows[0].Values[index].Value
+
 	switch op.(type) {
 	case *schema.SQLValue_Null:
 		{
@@ -148,6 +161,10 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 	case *schema.SQLValue_Bs:
 		{
 			return reflect.TypeOf([]byte{})
+		}
+	case *schema.SQLValue_Ts:
+		{
+			return reflect.TypeOf(time.Time{})
 		}
 	default:
 		return reflect.TypeOf("")
@@ -170,11 +187,13 @@ func (r *Rows) Next(dest []driver.Value) error {
 	}
 
 	r.index++
+
 	return nil
 }
 
 func namedValuesToSqlMap(argsV []driver.NamedValue) (map[string]interface{}, error) {
 	args := make([]interface{}, 0, len(argsV))
+
 	for _, v := range argsV {
 		if v.Value != nil {
 			args = append(args, v.Value.(interface{}))
@@ -297,6 +316,10 @@ func RenderValue(op interface{}) interface{} {
 		{
 			return v.Bs
 		}
+	case *schema.SQLValue_Ts:
+		{
+			return time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+		}
 	}
 	return []byte(fmt.Sprintf("%v", op))
 }
@@ -308,14 +331,23 @@ type RowsAffected struct {
 }
 
 func (rows RowsAffected) LastInsertId() (int64, error) {
-	if rows.er != nil && rows.er.LastInsertedPKs != nil && len(rows.er.LastInsertedPKs) == 1 {
-		for _, v := range rows.er.LastInsertedPKs {
-			return v.GetN(), nil
+	// TODO: consider the case when multiple txs are committed
+	if len(rows.er.Txs) == 1 {
+		if rows.er != nil && rows.er.Txs[0].LastInsertedPKs != nil && len(rows.er.Txs[0].LastInsertedPKs) == 1 {
+			for _, v := range rows.er.Txs[0].LastInsertedPKs {
+				return v.GetN(), nil
+			}
 		}
 	}
+
 	return 0, errors.New("unable to retrieve LastInsertId")
 }
 
 func (rows RowsAffected) RowsAffected() (int64, error) {
-	return int64(rows.er.UpdatedRows), nil
+	if len(rows.er.Txs) == 0 {
+		return 0, nil
+	}
+
+	// TODO: consider the case when multiple txs are committed
+	return int64(rows.er.Txs[0].UpdatedRows), nil
 }

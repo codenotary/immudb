@@ -28,25 +28,12 @@ type driverConnector struct {
 
 // Connect implement driver.Connector interface
 func (c driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
-
-	c.driver.configMutex.Lock()
-	defer c.driver.configMutex.Unlock()
-	cn := c.driver.configs[c.name]
-
-	if cn == nil {
-		cliOptions, err := ParseConfig(c.name)
-		if err != nil {
-			return nil, err
-		}
-		cn, err = c.driver.GetNewConnByOptions(ctx, cliOptions)
-		if err != nil {
-			return nil, err
-		}
+	cliOptions, err := ParseConfig(c.name)
+	if err != nil {
+		return nil, err
 	}
 
-	c.driver.configs[c.name] = cn
-
-	return cn, nil
+	return c.driver.GetNewConnByOptions(ctx, cliOptions)
 }
 
 func (dc *driverConnector) Driver() driver.Driver {

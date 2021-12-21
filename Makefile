@@ -16,8 +16,8 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.1.0
-DEFAULT_WEBCONSOLE_VERSION=1.0.11
+VERSION=1.2.1
+DEFAULT_WEBCONSOLE_VERSION=1.0.14
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
 
@@ -121,26 +121,26 @@ coverage:
 build/codegen:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
 	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
   	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
   	--swagger_out=logtostderr=true:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
 	--doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
 
 .PHONY: clean
@@ -172,10 +172,10 @@ CHANGELOG.md.next-tag:
 clean/dist:
 	rm -Rf ./dist
 
-# WEBCONSOLE=default SIGNCODE_PVK_PASSWORD='secret' SIGNCODE_PVK={path to pvk file} SIGNCODE_SPC={path to spc file} make dist
+# WEBCONSOLE=default make dist
 # it enables by default webconsole
 .PHONY: dist
-dist: webconsole dist/binaries dist/winsign
+dist: webconsole dist/binaries
 	@echo 'Binaries generation complete. Now vcn signature is needed.'
 
 .PHONY: dist/binaries

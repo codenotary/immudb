@@ -15,13 +15,9 @@ limitations under the License.
 */
 package sql
 
-import "fmt"
-
 type Catalog struct {
 	dbsByID   map[uint32]*Database
 	dbsByName map[string]*Database
-
-	mutated bool
 }
 
 type Database struct {
@@ -43,8 +39,6 @@ type Table struct {
 	indexesByColID     map[uint32][]*Index
 	primaryIndex       *Index
 	autoIncrement      *Index
-	// autoIncrementPK    bool
-	// autoIncrementCol   *Column
 	maxPK              int64
 }
 
@@ -325,10 +319,6 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 			return nil, ErrAutoIncrementWrongType
 		}
 
-		if cs.colType == TimestampType {
-			return nil, fmt.Errorf("%w (%v)", ErrNoSupported, TimestampType)
-		}
-
 		if !validMaxLenForType(cs.maxLen, cs.colType) {
 			return nil, ErrLimitedMaxLen
 		}
@@ -352,7 +342,6 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 
 	db.tablesByID[table.id] = table
 	db.tablesByName[table.name] = table
-	db.catalog.mutated = true
 
 	return table, nil
 }
@@ -416,8 +405,6 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 		t.primaryIndex = index
 	}
 
-
-	t.db.catalog.mutated = true
 
 	return index, nil
 }

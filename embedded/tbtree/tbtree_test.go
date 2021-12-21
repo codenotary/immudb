@@ -314,7 +314,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			}
 
 			if j == kCount-1 {
-				exists, err := tbtree.ExistKeyWith(k, k, false)
+				exists, err := tbtree.ExistKeyWith(k, k)
 				require.NoError(t, err)
 				require.False(t, exists)
 			}
@@ -405,7 +405,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 				_, _, _, err = snapshot.Get(k)
 				if err == ErrKeyNotFound {
 
-					exists, err := tbtree.ExistKeyWith(k, nil, false)
+					exists, err := tbtree.ExistKeyWith(k, nil)
 					require.NoError(t, err)
 					require.False(t, exists)
 
@@ -426,7 +426,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
-		exists, err := tbtree.ExistKeyWith(k, nil, false)
+		exists, err := tbtree.ExistKeyWith(k, nil)
 		require.NoError(t, err)
 		require.True(t, exists)
 
@@ -792,7 +792,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, err = tbtree.History([]byte("key"), 0, false, 0)
 	require.Equal(t, err, ErrIllegalArguments)
 
-	exists, err := tbtree.ExistKeyWith([]byte("key"), []byte("longerkey"), false)
+	exists, err := tbtree.ExistKeyWith([]byte("key"), []byte("longerkey"))
 	require.NoError(t, err)
 	require.False(t, exists)
 
@@ -811,7 +811,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, _, err = tbtree.Get([]byte("key"))
 	require.Equal(t, err, ErrAlreadyClosed)
 
-	_, err = tbtree.ExistKeyWith([]byte("key"), nil, false)
+	_, err = tbtree.ExistKeyWith([]byte("key"), nil)
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()

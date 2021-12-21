@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -600,12 +600,16 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 }
 
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
+	if sessionID, err := sessions.GetSessionIDFromContext(ctx); err == nil {
+		sess, e := s.SessManager.GetSession(sessionID)
+		if e != nil {
+			return 0, nil, e
+		}
+		return s.dbList.GetId(sess.GetDatabase().GetName()), sess.GetUser(), nil
+	}
 	jsUser, err := auth.GetLoggedInUser(ctx)
 	if err != nil {
-		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
-			return -1, nil, err
-		}
-		return -1, nil, ErrNotLoggedIn
+		return -1, nil, err
 	}
 
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)

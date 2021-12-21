@@ -22,8 +22,8 @@ import (
 
 //Scan ...
 func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	currTxID, _ := d.st.Alh()
 
@@ -80,6 +80,8 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 	defer r.Close()
 
+	tx := d.st.NewTxHolder()
+
 	for {
 		key, valRef, err := r.Read()
 		if err == store.ErrNoMoreEntries {
@@ -89,7 +91,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		e, err := d.getAt(key, valRef.Tx(), 0, snap, d.tx1)
+		e, err := d.getAt(key, valRef.Tx(), 0, snap, tx)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

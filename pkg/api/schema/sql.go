@@ -16,6 +16,8 @@ limitations under the License.
 package schema
 
 import (
+	"time"
+
 	"github.com/codenotary/immudb/embedded/sql"
 )
 
@@ -96,6 +98,10 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 	case []byte:
 		{
 			return &SQLValue{Value: &SQLValue_Bs{Bs: tv}}, nil
+		}
+	case time.Time:
+		{
+			return &SQLValue{Value: &SQLValue_Ts{Ts: sql.TimeToInt64(tv)}}, nil
 		}
 	}
 	return nil, sql.ErrInvalidValue

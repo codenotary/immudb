@@ -26,24 +26,23 @@ import (
 )
 
 func TestJointRowReader(t *testing.T) {
-	catalogStore, err := store.Open("catalog_joint_reader", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_joint_reader")
-
-	dataStore, err := store.Open("sqldata_joint_reader", store.DefaultOptions())
+	st, err := store.Open("sqldata_joint_reader", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("sqldata_joint_reader")
 
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	err = engine.EnsureCatalogReady(nil)
-	require.NoError(t, err)
-
-	_, err = engine.newJointRowReader(nil, nil, nil, nil, nil)
+	_, err = newJointRowReader(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	db, err := engine.catalog.newDatabase(1, "db1")
+	tx, err := engine.newTx(false)
+	require.NoError(t, err)
+
+	db, err := tx.catalog.newDatabase(1, "db1")
+	require.NoError(t, err)
+
+	err = tx.useDatabase("db1")
 	require.NoError(t, err)
 
 	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "number", colType: IntegerType}})
@@ -54,19 +53,16 @@ func TestJointRowReader(t *testing.T) {
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
 
-	snap, err := engine.getSnapshot()
+	r, err := newRawRowReader(tx, table, 0, "", &ScanSpecs{index: table.primaryIndex})
 	require.NoError(t, err)
 
-	r, err := engine.newRawRowReader(snap, table, 0, "", &ScanSpecs{index: table.primaryIndex})
-	require.NoError(t, err)
-
-	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: LeftJoin}})
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}}, nil)
 	require.Equal(t, ErrUnsupportedJoinType, err)
 
-	_, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
+	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}}, nil)
 	require.NoError(t, err)
 
-	jr, err := engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1", as: "table2"}}})
+	jr, err := newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1", as: "table2"}}}, nil)
 	require.NoError(t, err)
 
 	orderBy := jr.OrderBy()
@@ -95,7 +91,7 @@ func TestJointRowReader(t *testing.T) {
 	t.Run("corner cases", func(t *testing.T) {
 
 		t.Run("detect ambiguous selectors", func(t *testing.T) {
-			jr, err = engine.newJointRowReader(db, snap, nil, r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
+			jr, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}}, nil)
 			require.NoError(t, err)
 
 			_, err = jr.colsBySelector()
@@ -143,12 +139,12 @@ func TestJointRowReader(t *testing.T) {
 		t.Run("must propagate error from joined reader on colsBySelector", func(t *testing.T) {
 			injectedErr := errors.New("err")
 
-			jr, err := engine.newJointRowReader(db, snap, nil, r,
+			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return nil, injectedErr
 					},
-				}}})
+				}}}, nil)
 			require.NoError(t, err)
 
 			cols, err := jr.colsBySelector()
@@ -158,12 +154,12 @@ func TestJointRowReader(t *testing.T) {
 
 		t.Run("must propagate error from joined reader on colsBySelector from Resolve", func(t *testing.T) {
 
-			jr, err := engine.newJointRowReader(db, snap, nil, r,
+			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(e *Engine, snap *store.Snapshot, implicitDB *Database, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return &dummyRowReader{}, nil
 					},
-				}}})
+				}}}, nil)
 			require.NoError(t, err)
 
 			cols, err := jr.colsBySelector()

@@ -17,11 +17,12 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -52,7 +53,7 @@ func TestSet(t *testing.T) {
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("Set failed: %s", msg)
 	}
 }
@@ -81,7 +82,7 @@ func TestVerifiedSet(t *testing.T) {
 	if err != nil {
 		t.Fatal("VerifiedSet fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("VerifiedSet failed: %s", msg)
 	}
 }

@@ -36,9 +36,15 @@ func (i *immuc) SQLExec(args []string) (string, error) {
 		return "", err
 	}
 
-	txMetas := response.(*schema.SQLExecResult)
+	sqlRes := response.(*schema.SQLExecResult)
 
-	return fmt.Sprintf("Updated rows: %d", txMetas.UpdatedRows), nil
+	var updatedRows int
+
+	for _, tx := range sqlRes.Txs {
+		updatedRows += int(tx.UpdatedRows)
+	}
+
+	return fmt.Sprintf("Updated rows: %d", updatedRows), nil
 }
 
 func (i *immuc) SQLQuery(args []string) (string, error) {

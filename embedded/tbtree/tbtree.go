@@ -745,7 +745,7 @@ func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (
 	return t.root.history(key, offset, descOrder, limit)
 }
 
-func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
+func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
@@ -753,7 +753,7 @@ func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, er
 		return false, ErrAlreadyClosed
 	}
 
-	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, smaller)
+	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, false)
 	if err == ErrKeyNotFound {
 		return false, nil
 	}
@@ -1070,11 +1070,7 @@ func (t *TBtree) Close() error {
 	err = t.cLog.Close()
 	merrors.Append(err)
 
-	if merrors.HasErrors() {
-		return merrors
-	}
-
-	return nil
+	return merrors.Reduce()
 }
 
 type KV struct {
@@ -1123,9 +1119,9 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		}
 
 		k := make([]byte, len(kv.K))
-		v := make([]byte, len(kv.V))
-
 		copy(k, kv.K)
+
+		v := make([]byte, len(kv.V))
 		copy(v, kv.V)
 
 		n1, n2, err := t.root.insertAt(k, v, ts)
@@ -1165,11 +1161,6 @@ func (t *TBtree) Ts() uint64 {
 	defer t.rwmutex.RUnlock()
 
 	return t.root.ts()
-}
-
-func (t *TBtree) CurrentSnapshot() *Snapshot {
-	t.rwmutex.RLock()
-	return t.newSnapshot(0, t.root)
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
@@ -1215,18 +1206,13 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 	return &Snapshot{
 		t:       t,
 		id:      snapshotID,
+		ts:      root.ts() + 1,
 		root:    root,
 		readers: make(map[int]io.Closer),
 	}
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
-	// current snapshot
-	if snapshot.id == 0 {
-		t.rwmutex.RUnlock()
-		return nil
-	}
-
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 

@@ -42,9 +42,11 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("store already closed")
-var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
+var ErrAlreadyClosed = errors.New("already closed")
+var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
+var ErrWriteOnlyTx = errors.New("write-only transaction")
+var ErrTxReadConflict = errors.New("tx read conflict")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
@@ -59,17 +61,20 @@ var ErrCorruptedIndex = errors.New("corrupted index")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound
+var ErrExpiredEntry = fmt.Errorf("%w: expired entry", ErrKeyNotFound)
 var ErrKeyAlreadyExists = errors.New("key already exists")
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
 var ErrIllegalState = tbtree.ErrIllegalState
 var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange
 var ErrUnexpectedError = errors.New("unexpected error")
+var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
+var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
-var ErrCompactionUnsupported = errors.New("comapction is unsupported when remote storage is used")
+var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
@@ -83,6 +88,7 @@ const sszSize = 2
 const offsetSize = 8
 
 const Version = 1
+const TxHeaderVersion = 1
 
 const (
 	metaVersion      = "VERSION"
@@ -155,85 +161,6 @@ type ImmuStore struct {
 type refVLog struct {
 	vLog        appendable.Appendable
 	unlockedRef *list.Element // unlockedRef == nil <-> vLog is locked
-}
-
-type KVConstraint func(key []byte, valRef *ValueRef) error
-
-var (
-	MustExist KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil {
-			return ErrKeyNotFound
-		}
-
-		return nil
-	}
-
-	MustNotExist KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil {
-			return nil
-		}
-		return ErrKeyAlreadyExists
-	}
-
-	MustNotExistOrDeleted KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef == nil || (valRef.kvmd != nil && valRef.kvmd.deleted) {
-			return nil
-		}
-
-		return ErrKeyAlreadyExists
-	}
-
-	MustExistAndNotDeleted KVConstraint = func(key []byte, valRef *ValueRef) error {
-		if valRef != nil && (valRef.kvmd == nil || !valRef.kvmd.deleted) {
-			return nil
-		}
-
-		return ErrKeyNotFound
-	}
-)
-
-type TxSpec struct {
-	Entries         []*EntrySpec
-	Metadata        *TxMetadata
-	WaitForIndexing bool
-}
-
-type EntrySpec struct {
-	Key        []byte
-	Metadata   *KVMetadata
-	Value      []byte
-	Constraint KVConstraint
-}
-
-func (kv *EntrySpec) Digest() [sha256.Size]byte {
-	var mdbs []byte
-
-	if kv.Metadata != nil {
-		mdbs = kv.Metadata.Bytes()
-	}
-
-	mdLen := len(mdbs)
-
-	b := make([]byte, sszSize+mdLen+len(kv.Key)+sha256.Size)
-	i := 0
-
-	if mdLen > 0 {
-		// md is only written if present for backward-compatibility
-		binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
-		i += sszSize
-
-		copy(b[i:], mdbs)
-		i += mdLen
-	}
-
-	copy(b[i:], kv.Key)
-	i += len(kv.Key)
-
-	hvalue := sha256.Sum256(kv.Value)
-	copy(b[i:], hvalue[:])
-	i += sha256.Size
-
-	return sha256.Sum256(b[:i])
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
@@ -386,7 +313,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	// one extra tx pre-allocation for indexing thread
 	for i := 0; i < opts.MaxConcurrency+1; i++ {
-		txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
+		txs.PushBack(newTx(maxTxEntries, maxKeyLen))
 	}
 
 	txbs := make([]byte, maxTxSize)
@@ -402,7 +329,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
 		}
 
-		committedAlh = tx.Alh
+		committedAlh = tx.header.Alh()
 	}
 
 	vLogsMap := make(map[byte]*refVLog, len(vLogs))
@@ -582,11 +509,15 @@ func (s *ImmuStore) IndexInfo() uint64 {
 	return s.indexer.Ts()
 }
 
-func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
-	return s.indexer.ExistKeyWith(prefix, neq, smaller)
+func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
+	return s.indexer.ExistKeyWith(prefix, neq)
 }
 
-func (s *ImmuStore) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
+func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
+	return s.GetWith(key, IgnoreDeleted)
+}
+
+func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.indexer.Get(key)
 	if err != nil {
 		return nil, err
@@ -597,8 +528,17 @@ func (s *ImmuStore) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err 
 		return nil, err
 	}
 
+	now := time.Now()
+
+	if IgnoreExpired(valRef, now) {
+		return nil, ErrExpiredEntry
+	}
+
 	for _, filter := range filters {
-		if !filter(valRef) {
+		if filter == nil {
+			return nil, ErrIllegalArguments
+		}
+		if filter(valRef, now) {
 			return nil, ErrKeyNotFound
 		}
 	}
@@ -623,8 +563,8 @@ func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 	return nil
 }
 
-func (s *ImmuStore) NewTx() *Tx {
-	return NewTx(s.maxTxEntries, s.maxKeyLen)
+func (s *ImmuStore) NewTxHolder() *Tx {
+	return newTx(s.maxTxEntries, s.maxKeyLen)
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
@@ -636,6 +576,7 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	return &Snapshot{
 		st:   s,
 		snap: snap,
+		ts:   time.Now(),
 	}, nil
 }
 
@@ -648,14 +589,8 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
 	return &Snapshot{
 		st:   s,
 		snap: snap,
+		ts:   time.Now(),
 	}, nil
-}
-
-func (s *ImmuStore) CurrentSnapshot() *Snapshot {
-	return &Snapshot{
-		st:   s,
-		snap: s.indexer.index.CurrentSnapshot(),
-	}
 }
 
 func (s *ImmuStore) binaryLinking() {
@@ -725,11 +660,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 			return err
 		}
 
-		alh := tx.Alh
+		alh := tx.header.Alh()
 		s.aht.Append(alh[:])
 
-		if tx.ID%1000 == 0 {
-			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.ID)
+		if tx.header.ID%1000 == 0 {
+			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
 		}
 	}
 
@@ -759,9 +694,10 @@ func maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen int) 
 		txIDSize /*blTxID*/ +
 		sha256.Size /*blRoot*/ +
 		sha256.Size /*prevAlh*/ +
+		sszSize /*versioin*/ +
 		sszSize /*txMetadataLen*/ +
 		maxTxMetadataLen +
-		sszSize /*|entries|*/ +
+		lszSize /*|entries|*/ +
 		maxTxEntries*(sszSize /*kvMetadataLen*/ +
 			maxKVMetadataLen+
 			sszSize /*kLen*/ +
@@ -924,36 +860,49 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(txSpec *TxSpec) (*TxHeader, error) {
-	return s.commitUsing(txSpec, nil)
+func (s *ImmuStore) NewWriteOnlyTx() (*OngoingTx, error) {
+	return newWriteOnlyTx(s)
 }
 
-func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error) {
+func (s *ImmuStore) NewTx() (*OngoingTx, error) {
+	return newReadWriteTx(s)
+}
+
+func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
+	if otx == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	err := s.validateEntries(otx.entries)
+	if err != nil {
+		return nil, err
+	}
+
+	// early check to reduce amount of garbage when tx is not finally committed
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
+
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		s.mutex.Unlock()
+		return nil, ErrTxReadConflict
+	}
 	s.mutex.Unlock()
-
-	if txSpec == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	err := s.validateEntries(txSpec.Entries)
-	if err != nil {
-		return nil, err
-	}
 
 	var ts int64
 	var blTxID uint64
+	var version int
 
-	if hdr == nil {
+	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
+		version = TxHeaderVersion
 	} else {
-		ts = hdr.Ts
-		blTxID = hdr.BlTxID
+		ts = expectedHeader.Ts
+		blTxID = expectedHeader.BlTxID
+		version = expectedHeader.Version
 
 		//TxHeader is validated against current store
 
@@ -968,27 +917,27 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 			}
 		}
 
-		if txSpec.Metadata != nil {
-			if !txSpec.Metadata.Equal(hdr.Metadata) {
+		if otx.metadata != nil {
+			if !otx.metadata.Equal(expectedHeader.Metadata) {
 				return nil, ErrIllegalArguments
 			}
-		} else if hdr.Metadata != nil {
-			if !hdr.Metadata.Equal(txSpec.Metadata) {
+		} else if expectedHeader.Metadata != nil {
+			if !expectedHeader.Metadata.Equal(otx.metadata) {
 				return nil, ErrIllegalArguments
 			}
 		}
 
-		if currTxID != hdr.ID-1 ||
-			currAlh != hdr.PrevAlh ||
-			blRoot != hdr.BlRoot ||
-			len(txSpec.Entries) != hdr.NEntries {
+		if currTxID != expectedHeader.ID-1 ||
+			currAlh != expectedHeader.PrevAlh ||
+			blRoot != expectedHeader.BlRoot ||
+			len(otx.entries) != expectedHeader.NEntries {
 			return nil, ErrIllegalArguments
 		}
 
 	}
 
 	appendableCh := make(chan appendableResult)
-	go s.appendData(txSpec.Entries, appendableCh)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -997,20 +946,17 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.Metadata = txSpec.Metadata
+	tx.header.Version = version
+	tx.header.Metadata = otx.metadata
 
-	tx.nentries = len(txSpec.Entries)
+	tx.header.NEntries = len(otx.entries)
 
-	constraints := make([]KVConstraint, len(txSpec.Entries))
-
-	for i, e := range txSpec.Entries {
+	for i, e := range otx.entries {
 		txe := tx.entries[i]
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-
-		constraints[i] = e.Constraint
 	}
 
 	err = tx.BuildHashTree()
@@ -1020,7 +966,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	}
 
 	// TxHeader is validated against current store
-	if hdr != nil && tx.Eh() != hdr.Eh {
+	if expectedHeader != nil && tx.header.Eh != expectedHeader.Eh {
 		<-appendableCh // wait for data to be written
 		return nil, ErrIllegalArguments
 	}
@@ -1038,11 +984,16 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 		return nil, ErrAlreadyClosed
 	}
 
-	for i := 0; i < tx.nentries; i++ {
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
+		s.mutex.Unlock()
+		return nil, ErrTxReadConflict
+	}
+
+	for i := 0; i < tx.header.NEntries; i++ {
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.commit(tx, ts, blTxID, constraints)
+	err = s.performCommit(tx, ts, blTxID)
 	if err != nil {
 		s.mutex.Unlock()
 		return nil, err
@@ -1050,8 +1001,8 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 
 	s.mutex.Unlock()
 
-	if txSpec.WaitForIndexing {
-		err = s.WaitForIndexingUpto(tx.ID, nil)
+	if waitForIndexing {
+		err = s.WaitForIndexingUpto(tx.header.ID, nil)
 		if err != nil {
 			return tx.Header(), err
 		}
@@ -1060,7 +1011,7 @@ func (s *ImmuStore) commitUsing(txSpec *TxSpec, hdr *TxHeader) (*TxHeader, error
 	return tx.Header(), nil
 }
 
-func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVConstraint) error {
+func (s *ImmuStore) performCommit(tx *Tx, ts int64, blTxID uint64) error {
 	if s.blErr != nil {
 		return s.blErr
 	}
@@ -1073,86 +1024,73 @@ func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVCons
 		return fmt.Errorf("commit log: could not set offset: %w", err)
 	}
 
-	tx.ID = committedTxID + 1
-	tx.Ts = ts
+	tx.header.ID = committedTxID + 1
+	tx.header.Ts = ts
 
-	tx.BlTxID = blTxID
+	tx.header.BlTxID = blTxID
 
 	if blTxID > 0 {
 		blRoot, err := s.aht.RootAt(blTxID)
 		if err != nil && err != ahtree.ErrEmptyTree {
 			return err
 		}
-		tx.BlRoot = blRoot
+		tx.header.BlRoot = blRoot
 	}
 
-	if tx.ID <= tx.BlTxID {
+	if tx.header.ID <= tx.header.BlTxID {
 		return ErrUnexpectedLinkingError
 	}
 
-	tx.PrevAlh = committedAlh
+	tx.header.PrevAlh = committedAlh
 
 	txSize := 0
 
 	// tx serialization into pre-allocated buffer
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ID))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.ID))
 	txSize += txIDSize
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.Ts))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.Ts))
 	txSize += tsSize
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.BlTxID))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.header.BlTxID))
 	txSize += txIDSize
-	copy(s._txbs[txSize:], tx.BlRoot[:])
+	copy(s._txbs[txSize:], tx.header.BlRoot[:])
 	txSize += sha256.Size
-	copy(s._txbs[txSize:], tx.PrevAlh[:])
+	copy(s._txbs[txSize:], tx.header.PrevAlh[:])
 	txSize += sha256.Size
 
-	var txmdbs []byte
+	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.Version))
+	txSize += sszSize
 
-	if tx.Metadata != nil {
-		txmdbs = tx.Metadata.Bytes()
+	switch tx.header.Version {
+	case 0:
+		{
+			binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.header.NEntries))
+			txSize += sszSize
+		}
+	case 1:
+		{
+			var txmdbs []byte
+
+			if tx.header.Metadata != nil {
+				txmdbs = tx.header.Metadata.Bytes()
+			}
+
+			binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
+			txSize += sszSize
+
+			copy(s._txbs[txSize:], txmdbs)
+			txSize += len(txmdbs)
+
+			binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(tx.header.NEntries))
+			txSize += lszSize
+		}
+	default:
+		{
+			panic(fmt.Errorf("missing tx serialization method for version %d", tx.header.Version))
+		}
 	}
 
-	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(len(txmdbs)))
-	txSize += sszSize
-
-	copy(s._txbs[txSize:], txmdbs)
-	txSize += len(txmdbs)
-
-	binary.BigEndian.PutUint16(s._txbs[txSize:], uint16(tx.nentries))
-	txSize += sszSize
-
-	for i := 0; i < tx.nentries; i++ {
+	for i := 0; i < tx.header.NEntries; i++ {
 		txe := tx.entries[i]
-
-		constraint := constraints[i]
-
-		if constraint != nil {
-			if tx.ID > 1 {
-				err := s.WaitForIndexingUpto(tx.ID-1, nil)
-				if err != nil {
-					return err
-				}
-			}
-
-			ival, tx, hc, err := s.indexer.Get(txe.Key())
-			if err != nil && err != ErrKeyNotFound {
-				return err
-			}
-
-			var valRef *ValueRef
-
-			if err == nil {
-				valRef, err = s.valueRefFrom(tx, hc, ival)
-				if err != nil {
-					return err
-				}
-			}
-
-			err = constraint(txe.Key(), valRef)
-			if err != nil {
-				return err
-			}
-		}
 
 		// tx serialization using pre-allocated buffer
 		// md is stored before key to ensure backward compatibility
@@ -1178,10 +1116,10 @@ func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVCons
 		txSize += sha256.Size
 	}
 
-	tx.CalcAlh()
-
 	// tx serialization using pre-allocated buffer
-	copy(s._txbs[txSize:], tx.Alh[:])
+	alh := tx.header.Alh()
+
+	copy(s._txbs[txSize:], alh[:])
 	txSize += sha256.Size
 
 	txbs := make([]byte, txSize)
@@ -1192,7 +1130,7 @@ func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVCons
 		return err
 	}
 
-	_, _, err = s.txLogCache.Put(tx.ID, txbs)
+	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
 	if err != nil {
 		return err
 	}
@@ -1207,12 +1145,12 @@ func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVCons
 		if err != nil {
 			return err
 		}
-		_, _, err := s.aht.Append(tx.Alh[:])
+		_, _, err := s.aht.Append(alh[:])
 		if err != nil {
 			return err
 		}
 	} else {
-		s.blBuffer <- tx.Alh
+		s.blBuffer <- alh
 	}
 
 	// will overwrite partially written and uncommitted data
@@ -1234,7 +1172,7 @@ func (s *ImmuStore) commit(tx *Tx, ts int64, blTxID uint64, constraints []KVCons
 		return err
 	}
 
-	committedTxID = s.advanceCommitState(tx.Alh, int64(txSize))
+	committedTxID = s.advanceCommitState(alh, int64(txSize))
 	s.wHub.DoneUpto(committedTxID)
 
 	return nil
@@ -1275,15 +1213,20 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*En
 }
 
 type KeyIndex interface {
-	Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error)
+	Get(key []byte) (valRef ValueRef, err error)
+	GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
 }
 
 type unsafeIndex struct {
 	st *ImmuStore
 }
 
-func (index *unsafeIndex) Get(key []byte, filters ...FilterFn) (valRef *ValueRef, err error) {
-	return index.st.Get(key, filters...)
+func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
+	return index.GetWith(key, IgnoreDeleted)
+}
+
+func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
+	return index.st.GetWith(key, filters...)
 }
 
 func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error)) (*TxHeader, error) {
@@ -1324,9 +1267,8 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.nentries = len(entries)
-
-	constraints := make([]KVConstraint, len(entries))
+	tx.header.Version = TxHeaderVersion
+	tx.header.NEntries = len(entries)
 
 	for i, e := range entries {
 		txe := tx.entries[i]
@@ -1334,8 +1276,6 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
-
-		constraints[i] = e.Constraint
 	}
 
 	err = tx.BuildHashTree()
@@ -1350,11 +1290,11 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	for i := 0; i < tx.nentries; i++ {
+	for i := 0; i < tx.header.NEntries; i++ {
 		tx.entries[i].vOff = r.offsets[i]
 	}
 
-	err = s.commit(tx, s.timeFunc().Unix(), s.aht.Size(), constraints)
+	err = s.performCommit(tx, s.timeFunc().Unix(), s.aht.Size())
 	if err != nil {
 		return nil, err
 	}
@@ -1382,7 +1322,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		return nil, ErrIllegalArguments
 	}
 
-	if sourceTx.ID > targetTx.ID {
+	if sourceTx.header.ID > targetTx.header.ID {
 		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
@@ -1391,20 +1331,21 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		TargetTxHeader: targetTx.Header(),
 	}
 
-	if sourceTx.ID < targetTx.BlTxID {
-		binInclusionProof, err := s.aht.InclusionProof(sourceTx.ID, targetTx.BlTxID) // must match targetTx.BlRoot
+	if sourceTx.header.ID < targetTx.header.BlTxID {
+		binInclusionProof, err := s.aht.InclusionProof(sourceTx.header.ID, targetTx.header.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
 		proof.InclusionProof = binInclusionProof
 	}
 
-	if sourceTx.BlTxID > targetTx.BlTxID {
+	if sourceTx.header.BlTxID > targetTx.header.BlTxID {
 		return nil, ErrorCorruptedTxData
 	}
 
-	if sourceTx.BlTxID > 0 {
-		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.BlTxID, targetTx.BlTxID) // first root sourceTx.BlRoot, second one targetTx.BlRoot
+	if sourceTx.header.BlTxID > 0 {
+		// first root sourceTx.BlRoot, second one targetTx.BlRoot
+		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.header.BlTxID, targetTx.header.BlTxID)
 		if err != nil {
 			return nil, err
 		}
@@ -1414,21 +1355,21 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 
 	var targetBlTx *Tx
 
-	if targetTx.BlTxID > 0 {
+	if targetTx.header.BlTxID > 0 {
 		targetBlTx, err = s.fetchAllocTx()
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.ReadTx(targetTx.BlTxID, targetBlTx)
+		err = s.ReadTx(targetTx.header.BlTxID, targetBlTx)
 		if err != nil {
 			return nil, err
 		}
 
-		proof.TargetBlTxAlh = targetBlTx.Alh
+		proof.TargetBlTxAlh = targetBlTx.header.Alh()
 
 		// Used to validate targetTx.BlRoot is calculated with alh@targetTx.BlTxID as last leaf
-		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.BlTxID, targetTx.BlTxID) // must match targetTx.BlRoot
+		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.header.BlTxID, targetTx.header.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
@@ -1439,7 +1380,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		s.releaseAllocTx(targetBlTx)
 	}
 
-	lproof, err := s.LinearProof(maxUint64(sourceTx.ID, targetTx.BlTxID), targetTx.ID)
+	lproof, err := s.LinearProof(maxUint64(sourceTx.header.ID, targetTx.header.BlTxID), targetTx.header.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -1481,7 +1422,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	}
 
 	proof := make([][sha256.Size]byte, targetTxID-sourceTxID+1)
-	proof[0] = tx.Alh
+	proof[0] = tx.header.Alh()
 
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
@@ -1575,7 +1516,7 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 	valBs := make([]byte, s.maxValueLen)
 
 	for _, e := range tx.Entries() {
-		_, err = s.ReadValueAt(valBs[:e.vLen], e.vOff, e.hVal)
+		_, err = s.readValueAt(valBs[:e.vLen], e.vOff, e.hVal)
 		if err != nil {
 			return nil, err
 		}
@@ -1639,14 +1580,14 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	i := 0
 
 	if len(exportedTx) < lszSize {
-		return nil, ErrCorruptedData
+		return nil, ErrIllegalArguments
 	}
 
 	hdrLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
 	i += lszSize
 
 	if len(exportedTx) < i+hdrLen {
-		return nil, ErrCorruptedData
+		return nil, ErrIllegalArguments
 	}
 
 	hdr := &TxHeader{}
@@ -1656,11 +1597,16 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	}
 	i += hdrLen
 
-	entries := make([]*EntrySpec, hdr.NEntries)
+	txSpec, err := s.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
 
-	for ei := range entries {
+	txSpec.metadata = hdr.Metadata
+
+	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
-			return nil, ErrCorruptedData
+			return nil, ErrIllegalArguments
 		}
 
 		kLen := int(binary.BigEndian.Uint16(exportedTx[i:]))
@@ -1674,15 +1620,15 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		i += sszSize
 
 		if len(exportedTx) < i+mdLen {
-			return nil, ErrCorruptedData
+			return nil, ErrIllegalArguments
 		}
 
 		var md *KVMetadata
 
 		if mdLen > 0 {
-			md = &KVMetadata{}
+			md = newReadOnlyKVMetadata()
 
-			err := md.ReadFrom(exportedTx[i : i+mdLen])
+			err := md.unsafeReadFrom(exportedTx[i : i+mdLen])
 			if err != nil {
 				return nil, err
 			}
@@ -1696,10 +1642,9 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 			return nil, ErrIllegalArguments
 		}
 
-		entries[ei] = &EntrySpec{
-			Key:      key,
-			Metadata: md,
-			Value:    exportedTx[i : i+vLen],
+		err = txSpec.Set(key, md, exportedTx[i:i+vLen])
+		if err != nil {
+			return nil, err
 		}
 
 		i += vLen
@@ -1709,13 +1654,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return nil, ErrIllegalArguments
 	}
 
-	txSpec := &TxSpec{
-		Entries:         entries,
-		Metadata:        hdr.Metadata,
-		WaitForIndexing: waitForIndexing,
-	}
-
-	return s.commitUsing(txSpec, hdr)
+	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
@@ -1752,21 +1691,32 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	return err
 }
 
-func (s *ImmuStore) ReadValue(tx *Tx, key []byte) (*KVMetadata, []byte, error) {
-	for _, e := range tx.Entries() {
-		if bytes.Equal(e.key(), key) {
-			v := make([]byte, e.vLen)
-			_, err := s.ReadValueAt(v, e.vOff, e.hVal)
-			if err != nil {
-				return e.Metadata(), nil, err
-			}
-			return e.Metadata(), v, nil
-		}
+// ReadValue returns the actual associated value to a key at a specific transaction
+// ErrExpiredEntry is be returned if the specified time has already elapsed
+func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
+	if entry == nil || !entry.readonly {
+		return nil, ErrIllegalArguments
 	}
-	return nil, nil, ErrKeyNotFound
+
+	if entry.md != nil && !entry.md.readonly {
+		return nil, ErrIllegalArguments
+	}
+
+	if entry.md != nil && entry.md.ExpiredAt(time.Now()) {
+		return nil, ErrExpiredEntry
+	}
+
+	b := make([]byte, entry.vLen)
+
+	_, err := s.readValueAt(b, entry.vOff, entry.hVal)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
-func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
+func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
 	vLogID, offset := decodeOffset(off)
 
 	if vLogID > 0 {
@@ -1881,9 +1831,10 @@ func (s *ImmuStore) Close() error {
 		close(s.blBuffer)
 	}
 
-	s.wHub.Close()
+	err := s.wHub.Close()
+	merr.Append(err)
 
-	err := s.indexer.Close()
+	err = s.indexer.Close()
 	merr.Append(err)
 
 	err = s.txLog.Close()
@@ -1895,11 +1846,7 @@ func (s *ImmuStore) Close() error {
 	err = s.aht.Close()
 	merr.Append(err)
 
-	if merr.HasErrors() {
-		return merr
-	}
-
-	return nil
+	return merr.Reduce()
 }
 
 func (s *ImmuStore) wrapAppendableErr(err error, action string) error {

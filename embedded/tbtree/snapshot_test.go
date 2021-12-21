@@ -109,6 +109,9 @@ func TestSnapshotClosing(t *testing.T) {
 	_, err = snapshot.History([]byte{}, 0, false, 1)
 	require.Equal(t, ErrAlreadyClosed, err)
 
+	_, err = snapshot.ExistKeyWith([]byte{}, nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
 	_, err = snapshot.NewReader(nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 
@@ -137,6 +140,92 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	<-done
 
 	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
+func TestSnapshotIsolation(t *testing.T) {
+	tbtree, err := Open("test_tree_snap_isolation", DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_snap_isolation")
+
+	err = tbtree.Insert([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	// snapshot creation
+	snap1, err := tbtree.Snapshot()
+	require.NoError(t, err)
+
+	snap2, err := tbtree.Snapshot()
+	require.NoError(t, err)
+
+	t.Run("keys inserted before snapshot creation should be reachable", func(t *testing.T) {
+		_, _, _, err = snap1.Get([]byte("key1"))
+		require.NoError(t, err)
+
+		_, _, _, err = snap2.Get([]byte("key1"))
+		require.NoError(t, err)
+
+		exists, err := snap1.ExistKeyWith([]byte("key"), nil)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		exists, err = snap1.ExistKeyWith([]byte("key3"), []byte("key3"))
+		require.NoError(t, err)
+		require.False(t, exists)
+	})
+
+	err = tbtree.Insert([]byte("key2"), []byte("value2"))
+	require.NoError(t, err)
+
+	t.Run("keys inserted after snapshot creation should NOT be reachable", func(t *testing.T) {
+		_, _, _, err = snap1.Get([]byte("key2"))
+		require.Equal(t, ErrKeyNotFound, err)
+
+		_, _, _, err = snap2.Get([]byte("key2"))
+		require.Equal(t, ErrKeyNotFound, err)
+	})
+
+	err = snap1.Set([]byte("key1"), []byte("value1_snap1"))
+	require.NoError(t, err)
+
+	err = snap1.Set([]byte("key1_snap1"), []byte("value1_snap1"))
+	require.NoError(t, err)
+
+	err = snap2.Set([]byte("key1"), []byte("value1_snap2"))
+	require.NoError(t, err)
+
+	err = snap2.Set([]byte("key1_snap2"), []byte("value1_snap2"))
+	require.NoError(t, err)
+
+	t.Run("keys inserted after snapshot creation should NOT be reachable", func(t *testing.T) {
+
+	})
+
+	_, _, _, err = snap1.Get([]byte("key1_snap1"))
+	require.NoError(t, err)
+
+	_, _, _, err = snap2.Get([]byte("key1_snap2"))
+	require.NoError(t, err)
+
+	_, _, _, err = snap1.Get([]byte("key1_snap2"))
+	require.Equal(t, ErrKeyNotFound, err)
+
+	_, _, _, err = snap2.Get([]byte("key1_snap1"))
+	require.Equal(t, ErrKeyNotFound, err)
+
+	_, _, _, err = tbtree.Get([]byte("key1_snap1"))
+	require.Equal(t, ErrKeyNotFound, err)
+
+	_, _, _, err = tbtree.Get([]byte("key1_snap2"))
+	require.Equal(t, ErrKeyNotFound, err)
+
+	err = snap1.Close()
+	require.NoError(t, err)
+
+	err = snap2.Close()
+	require.NoError(t, err)
 
 	err = tbtree.Close()
 	require.NoError(t, err)

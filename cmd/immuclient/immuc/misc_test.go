@@ -17,11 +17,12 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -62,7 +63,7 @@ func TestHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg, "value") {
 		t.Fatalf("History fail %s", msg)
 	}
 }

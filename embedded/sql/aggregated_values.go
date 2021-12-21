@@ -40,6 +40,10 @@ func (v *CountValue) Type() SQLValueType {
 	return IntegerType
 }
 
+func (v *CountValue) IsNull() bool {
+	return false
+}
+
 func (v *CountValue) Value() interface{} {
 	return v.c
 }
@@ -119,6 +123,10 @@ func (v *SumValue) ColBounded() bool {
 
 func (v *SumValue) Type() SQLValueType {
 	return IntegerType
+}
+
+func (v *SumValue) IsNull() bool {
+	return false
 }
 
 func (v *SumValue) Value() interface{} {
@@ -205,6 +213,10 @@ func (v *MinValue) ColBounded() bool {
 
 func (v *MinValue) Type() SQLValueType {
 	return v.val.Type()
+}
+
+func (v *MinValue) IsNull() bool {
+	return false
 }
 
 func (v *MinValue) Value() interface{} {
@@ -296,6 +308,10 @@ func (v *MaxValue) Type() SQLValueType {
 	return v.val.Type()
 }
 
+func (v *MaxValue) IsNull() bool {
+	return false
+}
+
 func (v *MaxValue) Value() interface{} {
 	return v.val.Value()
 }
@@ -384,6 +400,10 @@ func (v *AVGValue) ColBounded() bool {
 
 func (v *AVGValue) Type() SQLValueType {
 	return IntegerType
+}
+
+func (v *AVGValue) IsNull() bool {
+	return false
 }
 
 func (v *AVGValue) Value() interface{} {

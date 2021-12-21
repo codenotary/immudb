@@ -725,13 +725,13 @@ func TestWaitForHealthCheck(t *testing.T) {
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 	err := client.WaitForHealthCheck(context.TODO())
 	require.Error(t, err)
 }
 
 func TestSetupDialOptions(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 
 	ts := TokenServiceMock{}
 	ts.GetTokenF = func() (string, error) {
@@ -1031,6 +1031,13 @@ func TestImmuClient_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("3,2,1"), i.GetValue())
 
+	_, err = client.ExpirableSet(ctx, []byte("expirableKey"), []byte("expirableValue"), time.Now())
+	require.NoError(t, err)
+
+	_, err = client.Get(ctx, []byte("expirableKey"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "key not found")
+
 	deleteRequest.Keys = append(deleteRequest.Keys, []byte("1,2,3"))
 	_, err = client.Delete(ctx, deleteRequest)
 	require.NoError(t, err)
@@ -1252,7 +1259,7 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 }
 
 func TestImmuClient_GetOptions(t *testing.T) {
-	client := ic.DefaultClient()
+	client := ic.NewClient()
 	op := client.GetOptions()
 	require.IsType(t, &ic.Options{}, op)
 }

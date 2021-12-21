@@ -18,6 +18,7 @@ package schema
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/stretchr/testify/require"
@@ -97,6 +98,10 @@ func TestAsSQLValue(t *testing.T) {
 		},
 		{
 			"nil", (*string)(nil), nil, true,
+		},
+		{
+			"timestamp", time.Date(2021, 12, 7, 14, 12, 54, 12345, time.UTC),
+			&SQLValue{Value: &SQLValue_Ts{Ts: 1638886374000012}}, false,
 		},
 	} {
 		t.Run(d.n, func(t *testing.T) {

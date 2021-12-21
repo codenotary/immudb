@@ -18,8 +18,6 @@ package sql
 import "github.com/codenotary/immudb/embedded/store"
 
 type groupedRowReader struct {
-	e *Engine
-
 	rowReader RowReader
 
 	selectors []Selector
@@ -30,31 +28,38 @@ type groupedRowReader struct {
 	nonEmpty bool
 }
 
-func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
+func newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
 	if rowReader == nil || len(selectors) == 0 || len(groupBy) > 1 {
 		return nil, ErrIllegalArguments
 	}
 
 	// TODO: leverage multi-column indexing
 	if len(groupBy) == 1 &&
-		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.ImplicitDB(), rowReader.ImplicitTable())) {
+		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.Database().Name(), rowReader.TableAlias())) {
 		return nil, ErrLimitedGroupBy
 	}
 
 	return &groupedRowReader{
-		e:         e,
 		rowReader: rowReader,
 		selectors: selectors,
 		groupBy:   groupBy,
 	}, nil
 }
 
-func (gr *groupedRowReader) ImplicitDB() string {
-	return gr.rowReader.ImplicitDB()
+func (gr *groupedRowReader) onClose(callback func()) {
+	gr.rowReader.onClose(callback)
 }
 
-func (gr *groupedRowReader) ImplicitTable() string {
-	return gr.rowReader.ImplicitTable()
+func (gr *groupedRowReader) Tx() *SQLTx {
+	return gr.rowReader.Tx()
+}
+
+func (gr *groupedRowReader) Database() *Database {
+	return gr.rowReader.Database()
+}
+
+func (gr *groupedRowReader) TableAlias() string {
+	return gr.rowReader.TableAlias()
 }
 
 func (gr *groupedRowReader) OrderBy() []ColDescriptor {
@@ -74,7 +79,7 @@ func (gr *groupedRowReader) Columns() ([]ColDescriptor, error) {
 	colsByPos := make([]ColDescriptor, len(gr.selectors))
 
 	for i, sel := range gr.selectors {
-		encSel := EncodeSelector(sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable()))
+		encSel := EncodeSelector(sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias()))
 		colsByPos[i] = colsBySel[encSel]
 	}
 
@@ -88,7 +93,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	}
 
 	for _, sel := range gr.selectors {
-		aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+		aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
 
 		if aggFn == "" {
 			continue
@@ -183,7 +188,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 				}
 
 				for _, sel := range gr.selectors {
-					aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+					aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
 					encSel := EncodeSelector(aggFn, db, table, col)
 
 					var zero TypedValue
@@ -225,7 +230,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			continue
 		}
 
-		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +278,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 func (gr *groupedRowReader) initAggregations() error {
 	// augment row with aggregated values
 	for _, sel := range gr.selectors {
-		aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+		aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 

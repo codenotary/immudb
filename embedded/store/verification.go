@@ -23,8 +23,8 @@ import (
 	"github.com/codenotary/immudb/embedded/htree"
 )
 
-func VerifyInclusion(proof *htree.InclusionProof, e *EntrySpec, root [sha256.Size]byte) bool {
-	return htree.VerifyInclusion(proof, e.Digest(), root)
+func VerifyInclusion(proof *htree.InclusionProof, entryDigest, root [sha256.Size]byte) bool {
+	return htree.VerifyInclusion(proof, entryDigest, root)
 }
 
 func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
@@ -130,4 +130,60 @@ func leafFor(d [sha256.Size]byte) [sha256.Size]byte {
 	b[0] = ahtree.LeafPrefix
 	copy(b[1:], d[:])
 	return sha256.Sum256(b[:])
+}
+
+type EntrySpecDigest func(kv *EntrySpec) [sha256.Size]byte
+
+func EntrySpecDigestFor(version int) (EntrySpecDigest, error) {
+	switch version {
+	case 0:
+		return EntrySpecDigest_v0, nil
+	case 1:
+		return EntrySpecDigest_v1, nil
+	}
+
+	return nil, ErrUnsupportedTxVersion
+}
+
+func EntrySpecDigest_v0(kv *EntrySpec) [sha256.Size]byte {
+	b := make([]byte, len(kv.Key)+sha256.Size)
+
+	copy(b[:], kv.Key)
+
+	hvalue := sha256.Sum256(kv.Value)
+	copy(b[len(kv.Key):], hvalue[:])
+
+	return sha256.Sum256(b)
+}
+
+func EntrySpecDigest_v1(kv *EntrySpec) [sha256.Size]byte {
+	var mdbs []byte
+
+	if kv.Metadata != nil {
+		mdbs = kv.Metadata.Bytes()
+	}
+
+	mdLen := len(mdbs)
+	kLen := len(kv.Key)
+
+	b := make([]byte, sszSize+mdLen+sszSize+kLen+sha256.Size)
+	i := 0
+
+	binary.BigEndian.PutUint16(b[i:], uint16(mdLen))
+	i += sszSize
+
+	copy(b[i:], mdbs)
+	i += mdLen
+
+	binary.BigEndian.PutUint16(b[i:], uint16(kLen))
+	i += sszSize
+
+	copy(b[i:], kv.Key)
+	i += len(kv.Key)
+
+	hvalue := sha256.Sum256(kv.Value)
+	copy(b[i:], hvalue[:])
+	i += sha256.Size
+
+	return sha256.Sum256(b[:i])
 }

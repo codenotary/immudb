@@ -66,6 +66,7 @@ type ImmuServiceClientMock struct {
 	ChangePermissionF       func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetActiveUserF          func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DatabaseListF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
+	OpenSessionF            func(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error)
 }
 
 func (icm *ImmuServiceClientMock) ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.UserList, error) {
@@ -206,4 +207,8 @@ func (icm *ImmuServiceClientMock) SetActiveUser(ctx context.Context, in *schema.
 
 func (icm *ImmuServiceClientMock) DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 	return icm.DatabaseListF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) OpenSession(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error) {
+	return icm.OpenSessionF(ctx, in, opts...)
 }

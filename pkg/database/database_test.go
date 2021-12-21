@@ -185,15 +185,15 @@ func TestOpenDB(t *testing.T) {
 
 func TestOpenV1_0_1_DB(t *testing.T) {
 	copier := fs.NewStandardCopier()
-	require.NoError(t, copier.CopyDir("../../test/data_v1.0.1", "data_v1.0.1"))
+	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", "data_v1.1.0"))
 
-	defer os.RemoveAll("data_v1.0.1")
+	defer os.RemoveAll("data_v1.1.0")
 
-	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.0.1")
+	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.1.0")
 	sysDB, err := OpenDB(sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.0.1")
+	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.1.0")
 	db, err := OpenDB(dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
@@ -282,9 +282,15 @@ func TestDbSetGet(t *testing.T) {
 			targetAlh = trustedAlh
 		}
 
+		entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value)
+
+		entrySpecDigest, err := store.EntrySpecDigestFor(int(txhdr.Version))
+		require.NoError(t, err)
+		require.NotNil(t, entrySpecDigest)
+
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value),
+			entrySpecDigest(entrySpec),
 			eh,
 		)
 		require.True(t, verifies)
@@ -568,15 +574,17 @@ func TestHistory(t *testing.T) {
 	var lastTx uint64
 
 	for _, val := range kvs {
-		meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
-
-		lastTx = meta.Id
 	}
+
+	meta, err := db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
+	require.NoError(t, err)
+	lastTx = meta.Id
 
 	time.Sleep(1 * time.Millisecond)
 
-	_, err := db.History(nil)
+	_, err = db.History(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = db.History(&schema.HistoryRequest{
@@ -594,7 +602,11 @@ func TestHistory(t *testing.T) {
 
 	for _, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
-		require.Equal(t, kvs[0].Value, val.Value)
+		if val.GetMetadata().GetDeleted() {
+			require.Empty(t, val.Value)
+		} else {
+			require.Equal(t, kvs[0].Value, val.Value)
+		}
 	}
 
 	inc, err = db.History(&schema.HistoryRequest{

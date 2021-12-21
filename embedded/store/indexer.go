@@ -135,7 +135,7 @@ func (idx *indexer) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
 	return idx.index.SnapshotSince(tx)
 }
 
-func (idx *indexer) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
+func (idx *indexer) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
@@ -143,7 +143,7 @@ func (idx *indexer) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool,
 		return false, ErrAlreadyClosed
 	}
 
-	return idx.index.ExistKeyWith(prefix, neq, smaller)
+	return idx.index.ExistKeyWith(prefix, neq)
 }
 
 func (idx *indexer) Sync() error {
@@ -333,8 +333,8 @@ func (idx *indexer) indexSince(txID uint64, limit int) error {
 
 		var txmd []byte
 
-		if tx.Metadata != nil {
-			txmd = tx.Metadata.Bytes()
+		if tx.header.Metadata != nil {
+			txmd = tx.header.Metadata.Bytes()
 		}
 
 		txmdLen := len(txmd)

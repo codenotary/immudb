@@ -81,6 +81,17 @@ message MTLSConfig {
 	bool enabled = 1;
 }
 
+message OpenSessionRequest {
+	bytes username = 1;
+	bytes password = 2;
+	string databaseName = 3;
+}
+
+message OpenSessionResponse {
+	string sessionID = 1;
+	string serverUUID = 2;
+}
+
 ////////////////////////////////////////////////////////
 
 message KeyValue {
@@ -95,6 +106,7 @@ message Entry {
 	bytes value = 3;
 	Reference referencedBy = 4;
 	KVMetadata metadata = 5;
+	bool expired = 6;
 }
 
 message Reference {
@@ -161,15 +173,15 @@ message TxHeader {
 	uint64 id = 1;
 	bytes prevAlh = 2;
 	int64 ts = 3;
-	TxMD metadata = 4;
-	int32 nentries = 5;
-	bytes eH = 6;
-	uint64 blTxId = 7;
-	bytes blRoot = 8;
+	int32 nentries = 4;
+	bytes eH = 5;
+	uint64 blTxId = 6;
+	bytes blRoot = 7;
+	int32 version = 8;
+	TxMetadata metadata = 9;
 }
 
-message TxMD {
-	bytes summary = 1;
+message TxMetadata {
 }
 
 message LinearProof {
@@ -205,6 +217,11 @@ message TxEntry {
 
 message KVMetadata {
 	bool deleted = 1;
+	Expiration expiration = 2;
+}
+
+message Expiration {
+	int64 expiresAt = 1;
 }
 
 message VerifiableTx {
@@ -451,10 +468,14 @@ message NamedParam {
 }
 
 message SQLExecResult {
-	repeated TxHeader ctxs = 1;
-	repeated TxHeader dtxs = 2;
-	uint32 updatedRows = 3;
-	map<string, SQLValue> lastInsertedPKs = 4;
+	repeated CommittedSQLTx txs = 5;
+	bool ongoingTx = 6;
+}
+
+message CommittedSQLTx {
+	TxHeader header = 1;
+	uint32 updatedRows = 2;
+	map<string, SQLValue> lastInsertedPKs = 3;
 }
 
 message SQLQueryResult {
@@ -479,8 +500,24 @@ message SQLValue {
 		string s = 3;
 		bool b = 4;
 		bytes bs = 5;
+		int64 ts = 6;
 	}
 }
+
+enum TxMode {
+	ReadOnly = 0;
+	WriteOnly = 1;
+	ReadWrite = 2;
+}
+
+message NewTxRequest {
+	TxMode mode = 1;
+}
+
+message NewTxResponse {
+	string transactionID = 1;
+}
+
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
@@ -540,10 +577,26 @@ service ImmuService {
 		};
 	};
 
-	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){} // DEPRECATED
-	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){} // DEPRECATED
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){
+		option deprecated = true;
+	} // DEPRECATED
+
+	rpc OpenSession (OpenSessionRequest) returns (OpenSessionResponse){};
+	rpc CloseSession (google.protobuf.Empty) returns (google.protobuf.Empty){};
+	rpc KeepAlive (google.protobuf.Empty) returns (google.protobuf.Empty){};
+
+	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
+	rpc Commit (google.protobuf.Empty) returns (CommittedSQLTx){};
+	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
+
+	rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {};
+	rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {};
 
 	rpc Login (LoginRequest) returns (LoginResponse){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/login"
 			body: "*"
@@ -554,6 +607,7 @@ service ImmuService {
 	};
 
 	rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/logout"
 			body: "*"
@@ -593,7 +647,7 @@ service ImmuService {
 			body: "*"
 		};
 	}
-	
+
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/db/getall"
@@ -776,13 +830,6 @@ service ImmuService {
 	// Replication
 	rpc exportTx(TxRequest) returns (stream Chunk) {};
 	rpc replicateTx(stream Chunk) returns (TxHeader) {};
-
-	// SQL
-	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {
-		option (google.api.http) = {
-			get: "/db/usesnapshot"
-		};
-	}
 
 	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
 		option (google.api.http) = {
