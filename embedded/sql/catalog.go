@@ -225,23 +225,27 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 }
 
 func (t *Table) IsAutoIncremented() bool {
-	return t.autoIncrement != nil && t.autoIncrement.IsAutoIncrement()
-}
-
-func (t *Table) GetAutoIncrementedColumn() (*Column, error) {
-	if !t.IsAutoIncremented() {
-		return nil, ErrTableNotAutoIncremented
+	for _, c := range t.cols {
+		if c.autoIncrement {
+			return true
+		}
 	}
 
-	return t.autoIncrement.cols[0], nil
+	return false
+}
+
+func (t *Table) GetAutoIncrementedColumn() (cols []*Column) {
+	for _, c := range t.cols {
+		if c.autoIncrement {
+			cols = append(cols, c)
+		}
+	}
+
+	return
 }
 
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
-}
-
-func (i *Index) IsAutoIncrement() bool {
-	return len(i.cols) == 1 && i.cols[0].autoIncrement
 }
 
 func (i *Index) IsUnique() bool {
@@ -393,7 +397,8 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 
 		if col.autoIncrement {
 			// cannot technically happen if the table creation, was properly handled. But it's better to handle the error
-			if t.IsAutoIncremented() {
+			// TODO: support multi column auto_increment
+			if len(t.GetAutoIncrementedColumn()) > 1 {
 				return nil, ErrAutoIncrementMultiple
 			}
 

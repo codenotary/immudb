@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
@@ -318,7 +319,7 @@ func RenderValue(op interface{}) interface{} {
 		}
 	case *schema.SQLValue_Ts:
 		{
-			return time.Unix(v.Ts/1e6, (v.Ts%1e6)*1e3).UTC()
+			return sql.TimeFromInt64(v.Ts)
 		}
 	}
 	return []byte(fmt.Sprintf("%v", op))

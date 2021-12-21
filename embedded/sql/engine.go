@@ -695,7 +695,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() && !index.IsAutoIncrement() {
+	if !index.IsPrimary() && !index.table.IsAutoIncremented() {
 		//read index values
 		for _, col := range index.cols {
 			if enc[off] == KeyValPrefixNull {
@@ -1060,7 +1060,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Timestamp{val: timeFromInt64(int64(v))}, voff, nil
+			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
 		}
 	}
 

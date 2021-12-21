@@ -597,6 +597,18 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, nil)
 	require.NoError(t, err)
 
+	t.Run("on conflict cases", func(t *testing.T) {
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1')", nil, nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
+
+		ntx, ctxs, err := engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1') ON CONFLICT DO NOTHING", nil, nil)
+		require.NoError(t, err)
+		require.Nil(t, ntx)
+		require.Len(t, ctxs, 1)
+		require.Zero(t, ctxs[0].UpdatedRows())
+		require.Nil(t, ctxs[0].TxHeader())
+	})
+
 	t.Run("varchar key cases", func(t *testing.T) {
 		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title123456789', true, x'00A1')", nil, nil)
 		require.ErrorIs(t, err, ErrMaxLengthExceeded)
@@ -616,6 +628,14 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 
 		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, '00A100A2')", nil, nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
+	})
+
+	t.Run("insertion in table with varchar pk", func(t *testing.T) {
+		_, _, err = engine.Exec("CREATE TABLE languages (code VARCHAR[255],name VARCHAR[255],PRIMARY KEY code)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO languages (code,name) VALUES ('code1', 'name1')", nil, nil)
+		require.NoError(t, err)
 	})
 }
 
@@ -638,7 +658,7 @@ func TestAutoIncrementPK(t *testing.T) {
 		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
 	})
 
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, ctxs, err := engine.Exec("INSERT INTO table1(title) VALUES ('name1')", nil, nil)
@@ -648,26 +668,88 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
-	require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (1, 'name2')", nil, nil)
+	require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
-	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
-	require.ErrorIs(t, err, store.ErrKeyNotFound)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (1, 'name2') ON CONFLICT DO NOTHING", nil, nil)
+	require.NoError(t, err)
 
 	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (1, 'name11')", nil, nil)
 	require.NoError(t, err)
 
-	_, ctxs, err = engine.Exec("INSERT INTO table1(title) VALUES ('name2')", nil, nil)
+	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (2, 'name2')", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("UPSERT INTO table1(id, title) VALUES (3, 'name3')", nil, nil)
+	require.NoError(t, err)
+
+	_, ctxs, err = engine.Exec("INSERT INTO table1(title) VALUES ('name4')", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(4), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, 1, ctxs[0].UpdatedRows())
+
+	_, ctxs, err = engine.Exec(`
+		BEGIN TRANSACTION;
+			INSERT INTO table1(title) VALUES ('name5');
+			INSERT INTO table1(title) VALUES ('name6');
+		COMMIT;
+	`, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(6), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, 2, ctxs[0].UpdatedRows())
+}
+
+func TestAutoIncrementUniqueIndex(t *testing.T) {
+	st, err := store.Open("sqldata_s_auto_inc", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_s_auto_inc")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	t.Run("invalid use of auto-increment", func(t *testing.T) {
+		_, _, err := engine.Exec("CREATE TABLE table1 (uid VARCHAR[256], number VARCHAR AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, nil)
+		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
+
+		_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
+		require.ErrorIs(t, err, ErrAutoIncrementMultiple)
+	})
+
+	_, _, err = engine.Exec("CREATE TABLE table1 (uid VARCHAR[256], number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, nil)
+	require.NoError(t, err)
+
+	_, ctxs, err := engine.Exec("INSERT INTO table1(uid, name) VALUES ('AE1R', 'Jhon')", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, ctxs, 1)
+	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, 1, ctxs[0].UpdatedRows())
+
+	_, ctxs, err = engine.Exec("UPSERT INTO table1(uid, name) VALUES ('AE1R', 'Ben')", nil, nil)
+	require.NoError(t, err)
+
+	_, ctxs, err = engine.Exec("INSERT INTO table1(uid, name) VALUES ('BEKZ', 'Marc')", nil, nil)
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
 	require.Equal(t, int64(2), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
+
 	_, ctxs, err = engine.Exec(`
 		BEGIN TRANSACTION;
-			INSERT INTO table1(title) VALUES ('name3');
-			INSERT INTO table1(title) VALUES ('name4');
+			INSERT INTO table1(uid, name) VALUES ('VBKZ', 'name3');
+			INSERT INTO table1(uid, name) VALUES ('FZKB', 'name4');
 		COMMIT;
 	`, nil, nil)
 	require.NoError(t, err)
@@ -675,78 +757,6 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.True(t, ctxs[0].closed)
 	require.Equal(t, int64(4), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 2, ctxs[0].UpdatedRows())
-}
-
-func TestAutoIncrementUniqueIndex(t *testing.T) {
-	catalogStore, err := store.Open("catalog_auto_inc", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog_auto_inc")
-
-	dataStore, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("sqldata_auto_inc")
-
-	engine, err := NewEngine(catalogStore, dataStore, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
-	require.NoError(t, err)
-
-	err = engine.UseDatabase("db1")
-	require.NoError(t, err)
-
-	t.Run("invalid use of auto-increment type", func(t *testing.T) {
-		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[252], number VARCHAR AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
-		require.ErrorIs(t, err, ErrAutoIncrementWrongType)
-	})
-
-	t.Run("create table", func(t *testing.T) {
-		_, err := engine.ExecStmt("CREATE TABLE table1 (uid VARCHAR[252], number INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY uid)", nil, true)
-		require.NoError(t, err)
-	})
-
-	summary, err := engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('AE1R', 'Jhon')", nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(1), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(1), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
-
-	t.Run("test bad use of insertion", func(t *testing.T) {
-		_, err := engine.ExecStmt("INSERT INTO table1(uid, number, name) VALUES ('XAPGH', 2, 'Jhon')", nil, true)
-		require.ErrorIs(t, err, ErrNoValueForAutoIncrementalColumn)
-	})
-
-	summary, err = engine.ExecStmt("UPSERT INTO table1(uid, name) VALUES ('AE1R', 'Ben')", nil, true)
-	require.NoError(t, err)
-
-	err = engine.ReloadCatalog(nil)
-	require.NoError(t, err)
-
-	summary, err = engine.ExecStmt("INSERT INTO table1(uid, name) VALUES ('BEKZ', 'Marc')", nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(3), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(2), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 1, summary.UpdatedRows)
-
-	summary, err = engine.ExecStmt(`
-		BEGIN TRANSACTION
-			INSERT INTO table1(uid, name) VALUES ('VBKZ', 'name3');
-			INSERT INTO table1(uid, name) VALUES ('FZKB', 'name4');
-		COMMIT
-	`, nil, true)
-	require.NoError(t, err)
-	require.Empty(t, summary.DDTxs)
-	require.Len(t, summary.DMTxs, 1)
-	require.Equal(t, uint64(4), summary.DMTxs[0].ID)
-	require.Len(t, summary.LastInsertedPKs, 1)
-	require.Equal(t, int64(4), summary.LastInsertedPKs["table1"])
-	require.Equal(t, 2, summary.UpdatedRows)
 }
 
 func TestDelete(t *testing.T) {
