@@ -629,6 +629,14 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title1', true, '00A100A2')", nil, nil)
 		require.ErrorIs(t, err, ErrInvalidValue)
 	})
+
+	t.Run("insertion in table with varchar pk", func(t *testing.T) {
+		_, _, err = engine.Exec("CREATE TABLE languages (code VARCHAR[255],name VARCHAR[255],PRIMARY KEY code)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO languages (code,name) VALUES ('code1', 'name1')", nil, nil)
+		require.NoError(t, err)
+	})
 }
 
 func TestAutoIncrementPK(t *testing.T) {

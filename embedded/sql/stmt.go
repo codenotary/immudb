@@ -697,10 +697,6 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		encodedValues[2] = EncodeID(index.id)
 
 		for i, col := range index.cols {
-			if col.MaxLen() > maxKeyLen {
-				return ErrMaxKeyLengthExceeded
-			}
-
 			rval, specified := valuesByColID[col.id]
 			if !specified {
 				rval = &NullValue{t: col.colType}
@@ -750,10 +746,6 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 		encVal, err := EncodeAsKey(rval.Value(), col.colType, col.MaxLen())
 		if err != nil {
 			return nil, err
-		}
-
-		if len(encVal) > maxKeyLen {
-			return nil, ErrMaxKeyLengthExceeded
 		}
 
 		_, err = valbuf.Write(encVal)
