@@ -40,6 +40,7 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
+var ErrTableNotAutoIncremented = errors.New("the table has no auto incremented column")
 var ErrAutoIncrementWrongType = errors.New("auto incremented column need to be INTEGER type")
 var ErrAutoIncrementMultiple = errors.New("several auto incremental column were found. Wrong schema")
 var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
@@ -555,7 +556,7 @@ func (e *Engine) loadTables(db *Database, catalogSnap, dataSnap *store.Snapshot)
 			return err
 		}
 
-		if table.autoIncrementPK {
+		if table.IsAutoIncremented() {
 			encMaxPK, err := e.loadMaxPK(dataSnap, table)
 			if err == store.ErrNoMoreEntries {
 				continue
@@ -590,7 +591,7 @@ func indexKeyFrom(cols []*Column) string {
 
 func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    e.mapKey(table.autoIncrementIndex.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.autoIncrementIndex.id)),
+		Prefix:    e.mapKey(table.autoIncrement.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.autoIncrement.id)),
 		DescOrder: true,
 	}
 
@@ -605,7 +606,7 @@ func (e *Engine) loadMaxPK(dataSnap *store.Snapshot, table *Table) ([]byte, erro
 		return nil, err
 	}
 
-	return e.unmapIndexEntry(table.autoIncrementIndex, mkey)
+	return e.unmapIndexEntry(table.autoIncrement, mkey)
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID uint32, snap *store.Snapshot) (specs []*ColSpec, err error) {

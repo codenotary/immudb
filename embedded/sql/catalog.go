@@ -42,9 +42,9 @@ type Table struct {
 	indexes            map[string]*Index
 	indexesByColID     map[uint32][]*Index
 	primaryIndex       *Index
-	autoIncrementIndex *Index
-	autoIncrementPK    bool
-	autoIncrementCol   *Column
+	autoIncrement      *Index
+	// autoIncrementPK    bool
+	// autoIncrementCol   *Column
 	maxPK              int64
 }
 
@@ -230,6 +230,18 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) IsAutoIncremented() bool {
+	return t.autoIncrement != nil && t.autoIncrement.IsAutoIncrement()
+}
+
+func (t *Table) GetAutoIncrementedColumn() (*Column, error) {
+	if !t.IsAutoIncremented() {
+		return nil, ErrTableNotAutoIncremented
+	}
+
+	return t.autoIncrement.cols[0], nil
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
@@ -392,12 +404,11 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 
 		if col.autoIncrement {
 			// cannot technically happen if the table creation, was properly handled. But it's better to handle the error
-			if t.autoIncrementPK {
+			if t.IsAutoIncremented() {
 				return nil, ErrAutoIncrementMultiple
 			}
-			t.autoIncrementPK = true
-			t.autoIncrementCol = col
-			t.autoIncrementIndex = index
+
+			t.autoIncrement = index
 		}
 	}
 
