@@ -219,3 +219,30 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 }
+
+func TestImmuClient_InsertionOnConflict(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.Background(), "CREATE TABLE languages (code VARCHAR[255],name VARCHAR[255],PRIMARY KEY code) ", nil)
+	require.NoError(t, err)
+
+	params := map[string]interface{}{
+		"param1": "many2many_locale_1",
+		"param2": "many2many_locale_1",
+		"param3": "many2many_locale_2",
+		"param4": "many2many_locale_2",
+	}
+	_, err = client.SQLExec(context.Background(), "INSERT INTO languages (code,name) VALUES (?,?),(?,?)", params)
+	require.NoError(t, err)
+}
