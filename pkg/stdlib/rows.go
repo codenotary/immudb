@@ -173,6 +173,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 }
 
 func (r *Rows) Close() error {
+	// no reader here
 	return nil
 }
 
@@ -332,11 +333,12 @@ type RowsAffected struct {
 }
 
 func (rows RowsAffected) LastInsertId() (int64, error) {
-	// TODO: consider the case when multiple txs are committed
+	// if immudb will returns a no monotonic primary key sequence this will not work anymore
 	if len(rows.er.Txs) == 1 {
 		if rows.er != nil && rows.er.Txs[0].LastInsertedPKs != nil && len(rows.er.Txs[0].LastInsertedPKs) == 1 {
 			for _, v := range rows.er.Txs[0].LastInsertedPKs {
-				return v.GetN(), nil
+				affected, _ := rows.RowsAffected()
+				return v.GetN() - affected + 1, nil
 			}
 		}
 	}
