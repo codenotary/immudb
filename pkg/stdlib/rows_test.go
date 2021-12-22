@@ -370,6 +370,7 @@ func TestRowsAffected_LastInsertId(t *testing.T) {
 		er: &schema.SQLExecResult{
 			Txs: []*schema.CommittedSQLTx{
 				{
+					UpdatedRows: 1,
 					LastInsertedPKs: map[string]*schema.SQLValue{
 						"table1": {Value: &schema.SQLValue_N{N: 1}},
 					},
