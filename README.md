@@ -241,14 +241,12 @@ You can generate your own benchmarks using the `stress_tool` under `embedded/too
 The following topics are important to us and are planned or already being worked on:
 
 
-* GDPR compliance
-* Replication (Follower)
-* Other storage backends (eg. Cloud)
-* Hot backups
+
 * Data pruning
 * Compression
-* Improving SDK API and errors
-* time and date support in SQL 
+* compatibility with other database storage files
+* Easier API for developers
+* API compatibility with other, well-known embedded databases
 
 
 ## Contributing
