@@ -595,9 +595,9 @@ period_moment:
         $$ = &periodMomentTx{exp: $2}
     }
 |
-    TIMESTAMP exp
+    exp
     {
-        $$ = &periodMomentTime{exp: $2}
+        $$ = &periodMomentTime{exp: $1}
     }
 
 opt_joins:
