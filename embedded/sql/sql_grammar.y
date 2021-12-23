@@ -48,6 +48,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     distinct bool
     ds DataSource
     tableRef *tableRef
+    period *period
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
@@ -64,10 +65,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     onConflict *OnConflictDo
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
+%token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
-%token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL NPARAM CAST
 %token <pparam> PPARAM
@@ -111,7 +112,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <distinct> opt_distinct
 %type <ds> ds
 %type <tableRef> tableRef
-%type <number> opt_since opt_as_before
+%type <period> opt_period
+%type <periodStart> opt_period_start
+%type <periodEnd> opt_period_end
+%type <periodMoment> period_moment
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
@@ -179,9 +183,9 @@ ddlstmt:
         $$ = &UseDatabaseStmt{DB: $3}
     }
 |
-    USE SNAPSHOT opt_since opt_as_before 
+    USE SNAPSHOT opt_period
     {
-        $$ = &UseSnapshotStmt{sinceTx: $3, asBefore: $4}
+        $$ = &UseSnapshotStmt{period: $3}
     }
 |
     CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY one_or_more_ids ')'
@@ -202,16 +206,6 @@ ddlstmt:
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
-    }
-
-opt_since:
-    {
-        $$ = 0
-    }
-|
-    SINCE TX NUMBER
-    {
-        $$ = $3
     }
 
 opt_if_not_exists:
@@ -535,9 +529,9 @@ col:
     }
 
 ds:
-    tableRef opt_as_before opt_as
+    tableRef opt_period opt_as
     {
-        $1.asBefore = $2
+        $1.period = $2
         $1.as = $3
         $$ = $1
     }
@@ -559,14 +553,51 @@ tableRef:
         $$ = &tableRef{db: $1, table: $3}
     }
 
-opt_as_before:
+opt_period:
+    opt_period_start opt_period_end
     {
-        $$ = 0
+        $$ = &period{start: $1, end: $2}
+    }
+
+opt_period_start:
+    {
+        $$ = nil
     }
 |
-    BEFORE TX NUMBER
+    SINCE period_moment
     {
-        $$ = $3
+        $$ = &periodStart{inclusive: true, moment: $2}
+    }
+|
+    AFTER period_moment
+    {
+        $$ = &periodStart{moment: $2}
+    }
+
+opt_period_end:
+    {
+        $$ = nil
+    }
+|
+    UNTIL period_moment
+    {
+        $$ = &periodEnd{inclusive: true, moment: $2}
+    }
+|
+    BEFORE period_moment
+    {
+        $$ = &periodEnd{moment: $2}
+    }
+
+period_moment:
+    TX exp
+    {
+        $$ = &periodMomentTx{exp: $2}
+    }
+|
+    TIMESTAMP exp
+    {
+        $$ = &periodMomentTime{exp: $2}
     }
 
 opt_joins:
