@@ -39,7 +39,9 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
-var ErrLimitedAutoIncrement = errors.New("only INTEGER single-column primary keys can be set as auto incremental")
+var ErrTableNotAutoIncremented = errors.New("the table has no auto incremented column")
+var ErrAutoIncrementWrongType = errors.New("auto incremented column need to be INTEGER type")
+var ErrAutoIncrementMultiple = errors.New("several auto incremental column were found. Wrong schema")
 var ErrNoValueForAutoIncrementalColumn = errors.New("no value should be specified for auto incremental columns")
 var ErrLimitedMaxLen = errors.New("only VARCHAR and BLOB types support max length")
 var ErrDuplicatedColumn = errors.New("duplicated column")
@@ -387,7 +389,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		if table.autoIncrementPK {
+		if table.IsAutoIncremented()  {
 			encMaxPK, err := loadMaxPK(sqlPrefix, tx, table)
 			if err == store.ErrNoMoreEntries {
 				continue
@@ -426,7 +428,7 @@ func indexKeyFrom(cols []*Column) string {
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
 	pkReaderSpec := &store.KeyReaderSpec{
-		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
+		Prefix:    mapKey(sqlPrefix, table.autoIncrement.prefix(), EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.autoIncrement.id)),
 		DescOrder: true,
 	}
 
@@ -441,7 +443,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 		return nil, err
 	}
 
-	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
+	return unmapIndexEntry(table.autoIncrement, sqlPrefix, mkey)
 }
 
 func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
@@ -693,7 +695,7 @@ func unmapIndexEntry(index *Index, sqlPrefix, mkey []byte) (encPKVals []byte, er
 		return nil, ErrCorruptedData
 	}
 
-	if !index.IsPrimary() {
+	if !index.IsPrimary() && !index.table.IsAutoIncremented() {
 		//read index values
 		for _, col := range index.cols {
 			if enc[off] == KeyValPrefixNull {

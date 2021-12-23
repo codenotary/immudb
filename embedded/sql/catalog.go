@@ -29,17 +29,17 @@ type Database struct {
 }
 
 type Table struct {
-	db              *Database
-	id              uint32
-	name            string
-	cols            []*Column
-	colsByID        map[uint32]*Column
-	colsByName      map[string]*Column
-	indexes         map[string]*Index
-	indexesByColID  map[uint32][]*Index
-	primaryIndex    *Index
-	autoIncrementPK bool
-	maxPK           int64
+	db                 *Database
+	id                 uint32
+	name               string
+	cols               []*Column
+	colsByID           map[uint32]*Column
+	colsByName         map[string]*Column
+	indexes            map[string]*Index
+	indexesByColID     map[uint32][]*Index
+	primaryIndex       *Index
+	autoIncrement      *Index
+	maxPK              int64
 }
 
 type Index struct {
@@ -224,6 +224,26 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) IsAutoIncremented() bool {
+	for _, c := range t.cols {
+		if c.autoIncrement {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *Table) GetAutoIncrementedColumn() (cols []*Column) {
+	for _, c := range t.cols {
+		if c.autoIncrement {
+			cols = append(cols, c)
+		}
+	}
+
+	return
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
@@ -300,7 +320,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		}
 
 		if cs.autoIncrement && cs.colType != IntegerType {
-			return nil, ErrLimitedAutoIncrement
+			return nil, ErrAutoIncrementWrongType
 		}
 
 		if !validMaxLenForType(cs.maxLen, cs.colType) {
@@ -374,12 +394,22 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	// having a direct way to get the indexes by colID
 	for _, col := range index.cols {
 		t.indexesByColID[col.id] = append(t.indexesByColID[col.id], index)
+
+		if col.autoIncrement {
+			// cannot technically happen if the table creation, was properly handled. But it's better to handle the error
+			// TODO: support multi column auto_increment
+			if len(t.GetAutoIncrementedColumn()) > 1 {
+				return nil, ErrAutoIncrementMultiple
+			}
+
+			t.autoIncrement = index
+		}
 	}
 
 	if index.id == PKIndexID {
 		t.primaryIndex = index
-		t.autoIncrementPK = len(index.cols) == 1 && index.cols[0].autoIncrement
 	}
+
 
 	return index, nil
 }
