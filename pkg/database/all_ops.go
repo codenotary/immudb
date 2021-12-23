@@ -41,10 +41,14 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		return nil, ErrIsReplica
 	}
 
-	lastTxID, _ := d.st.Alh()
-	err := d.st.WaitForIndexingUpto(lastTxID, nil)
-	if err != nil {
-		return nil, err
+	const unsafe bool = true
+
+	if !unsafe {
+		lastTxID, _ := d.st.Alh()
+		err := d.st.WaitForIndexingUpto(lastTxID, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, error) {
@@ -82,26 +86,28 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
-				// check key does not exists or it's already a reference
-				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, index, tx)
-				if err != nil && err != store.ErrKeyNotFound {
-					return nil, err
-				}
-				if entry != nil && entry.ReferencedBy == nil {
-					return nil, ErrFinalKeyCannotBeConvertedIntoReference
-				}
-
-				// reference arguments are converted in regular key value items and then atomically inserted
-				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
-
-				if !exists || x.Ref.AtTx > 0 {
-					// check referenced key exists and it's not a reference
-					refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, tx)
-					if err != nil {
+				if !unsafe {
+					// check key does not exists or it's already a reference
+					entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, index, tx)
+					if err != nil && err != store.ErrKeyNotFound {
 						return nil, err
 					}
-					if refEntry.ReferencedBy != nil {
-						return nil, ErrReferencedKeyCannotBeAReference
+					if entry != nil && entry.ReferencedBy == nil {
+						return nil, ErrFinalKeyCannotBeConvertedIntoReference
+					}
+
+					// reference arguments are converted in regular key value items and then atomically inserted
+					_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
+
+					if !exists || x.Ref.AtTx > 0 {
+						// check referenced key exists and it's not a reference
+						refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, tx)
+						if err != nil {
+							return nil, err
+						}
+						if refEntry.ReferencedBy != nil {
+							return nil, ErrReferencedKeyCannotBeAReference
+						}
 					}
 				}
 
@@ -120,17 +126,19 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
-				// zAdd arguments are converted in regular key value items and then atomically inserted
-				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
+				if !unsafe {
+					// zAdd arguments are converted in regular key value items and then atomically inserted
+					_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
-				if !exists || x.ZAdd.AtTx > 0 {
-					// check referenced key exists and it's not a reference
-					refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx)
-					if err != nil {
-						return nil, err
-					}
-					if refEntry.ReferencedBy != nil {
-						return nil, ErrReferencedKeyCannotBeAReference
+					if !exists || x.ZAdd.AtTx > 0 {
+						// check referenced key exists and it's not a reference
+						refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx)
+						if err != nil {
+							return nil, err
+						}
+						if refEntry.ReferencedBy != nil {
+							return nil, ErrReferencedKeyCannotBeAReference
+						}
 					}
 				}
 
