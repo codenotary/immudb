@@ -32,7 +32,6 @@ func (c driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return c.driver.GetNewConnByOptions(ctx, cliOptions)
 }
 
