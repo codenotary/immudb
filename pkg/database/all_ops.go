@@ -60,7 +60,11 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		// we build a map in which we store sha256 sum as key and the index as value
 		kmap := make(map[[sha256.Size]byte]bool)
 
-		tx := d.st.NewTxHolder()
+		var tx *store.Tx
+
+		if !unsafe {
+			tx = d.st.NewTxHolder()
+		}
 
 		for i, op := range req.Operations {
 
