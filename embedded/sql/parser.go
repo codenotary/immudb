@@ -34,8 +34,6 @@ var reservedWords = map[string]int{
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
 	"SINCE":          SINCE,
-	"UP":             UP,
-	"TO":             TO,
 	"TABLE":          TABLE,
 	"PRIMARY":        PRIMARY,
 	"KEY":            KEY,
