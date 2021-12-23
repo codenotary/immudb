@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"sync"
 	"time"
 
@@ -30,9 +29,6 @@ import (
 var immuDriver *Driver
 
 func init() {
-	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
-	}
 	sql.Register("immudb", immuDriver)
 }
 
@@ -44,10 +40,16 @@ func OpenDB(cliOpts *client.Options) *sql.DB {
 	return sql.OpenDB(c)
 }
 
+func Open(dns string) *sql.DB {
+	c := &driverConnector{
+		driver: immuDriver,
+		name:   dns,
+	}
+	return sql.OpenDB(c)
+}
+
 type Driver struct {
 	configMutex sync.Mutex
-	configs     map[string]*Conn
-	seq         int
 }
 
 // Open
@@ -61,24 +63,6 @@ func (d *Driver) Open(name string) (driver.Conn, error) {
 
 func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &driverConnector{driver: d, name: name}, nil
-}
-
-func (d *Driver) UnregisterConnection(name string) {
-	d.configMutex.Lock()
-	defer d.configMutex.Unlock()
-
-	delete(d.configs, name)
-}
-
-func (d *Driver) RegisterConnection(cn *Conn) string {
-	d.configMutex.Lock()
-	defer d.configMutex.Unlock()
-
-	name := fmt.Sprintf("registeredConnConfig%d", d.seq)
-	d.seq++
-	d.configs[name] = cn
-
-	return name
 }
 
 func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
