@@ -46,10 +46,6 @@ func TestDriverConnector_Connect(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
-	}
-
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	conn, err := immuDriver.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))

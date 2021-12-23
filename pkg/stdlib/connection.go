@@ -54,7 +54,6 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 }
 
 func (c *Conn) Close() error {
-	defer c.GetDriver().UnregisterConnection(c.name)
 	return c.immuClient.CloseSession(context.TODO())
 }
 
