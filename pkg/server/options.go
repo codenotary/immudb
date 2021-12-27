@@ -125,7 +125,9 @@ func (opts *Options) DefaultStoreOptions() *store.Options {
 	indexOptions := store.DefaultIndexOptions().
 		WithRenewSnapRootAfter(0).
 		WithCompactionThld(0).
-		WithDelayDuringCompaction(10 * time.Millisecond)
+		WithDelayDuringCompaction(10 * time.Millisecond).
+		WithFlushThld(1_000_000).
+		WithCacheSize(1_000_000)
 
 	return store.DefaultOptions().
 		WithIndexOptions(indexOptions).
@@ -135,7 +137,7 @@ func (opts *Options) DefaultStoreOptions() *store.Options {
 		WithFileSize(DefaultStoreFileSize).
 		WithMaxKeyLen(store.DefaultMaxKeyLen).
 		WithMaxValueLen(DefaultMaxValueLen).
-		WithMaxTxEntries(store.DefaultMaxTxEntries).
+		WithMaxTxEntries(store.DefaultMaxTxEntries * 10).
 		WithSynced(opts.synced)
 }
 
