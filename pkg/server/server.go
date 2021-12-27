@@ -464,6 +464,13 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 		s.dbList.Append(db)
 
+		if !s.Options.Indexing {
+			err = db.PauseIndexing()
+			if err != nil {
+				s.Logger.Errorf("Error pausing indexing for database '%s'. Reason: %v", db.GetName(), err)
+			}
+		}
+
 		return nil
 	}
 
@@ -474,6 +481,13 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	db, err := database.NewDB(op, s.Logger)
 	if err != nil {
 		return err
+	}
+
+	if !s.Options.Indexing {
+		err = db.PauseIndexing()
+		if err != nil {
+			s.Logger.Errorf("Error pausing indexing for database '%s'. Reason: %v", db.GetName(), err)
+		}
 	}
 
 	// replica of defaultdb must have the same name as in master
@@ -552,6 +566,13 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		db, err := database.OpenDB(op, s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
+		}
+
+		if !s.Options.Indexing {
+			err = db.PauseIndexing()
+			if err != nil {
+				s.Logger.Errorf("Error pausing indexing for database '%s'. Reason: %v", db.GetName(), err)
+			}
 		}
 
 		replicationOptions := replicationOptionsFrom(settings)
@@ -840,6 +861,13 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	db, err := database.NewDB(op, s.Logger)
 	if err != nil {
 		return nil, err
+	}
+
+	if !s.Options.Indexing {
+		err = db.PauseIndexing()
+		if err != nil {
+			s.Logger.Errorf("Error pausing indexing for database '%s'. Reason: %v", db.GetName(), err)
+		}
 	}
 
 	s.dbList.Append(db)

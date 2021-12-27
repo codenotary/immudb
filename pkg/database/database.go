@@ -86,6 +86,8 @@ type DB interface {
 	ListTables() (*schema.SQLQueryResult, error)
 	DescribeTable(table string) (*schema.SQLQueryResult, error)
 	GetName() string
+	PauseIndexing() error
+	ResumeIndexing() error
 }
 
 //IDB database instance
@@ -834,6 +836,14 @@ func (d *db) Close() error {
 // GetName ...
 func (d *db) GetName() string {
 	return d.name
+}
+
+func (d *db) PauseIndexing() error {
+	return d.st.PauseIndexing()
+}
+
+func (d *db) ResumeIndexing() error {
+	return d.st.ResumeIndexing()
 }
 
 //GetOptions ...

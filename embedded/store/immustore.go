@@ -1110,6 +1110,30 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64, ts int64, blTxID uint64) err
 	return nil
 }
 
+func (s *ImmuStore) PauseIndexing() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	s.indexer.Pause()
+	return nil
+}
+
+func (s *ImmuStore) ResumeIndexing() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	s.indexer.Resume()
+	return nil
+}
+
 func (s *ImmuStore) advanceCommitState(txAlh [sha256.Size]byte, txSize int64) uint64 {
 	s.commitStateRWMutex.Lock()
 	defer s.commitStateRWMutex.Unlock()

@@ -68,6 +68,7 @@ type Options struct {
 	PgsqlServer          bool
 	PgsqlServerPort      int
 	ReplicationOptions   *ReplicationOptions
+	Indexing             bool
 }
 
 type RemoteStorageOptions struct {
@@ -118,6 +119,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:   1440,
 		PgsqlServer:          false,
 		PgsqlServerPort:      5432,
+		Indexing:             false,
 	}
 }
 
