@@ -41,9 +41,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		return nil, ErrIsReplica
 	}
 
-	const unsafe bool = true
-
-	if !unsafe {
+	if !req.NoWait {
 		lastTxID, _ := d.st.Alh()
 		err := d.st.WaitForIndexingUpto(lastTxID, nil)
 		if err != nil {
@@ -62,7 +60,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 		var tx *store.Tx
 
-		if !unsafe {
+		if !req.NoWait {
 			tx = d.st.NewTxHolder()
 		}
 
@@ -90,7 +88,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
-				if !unsafe {
+				if req.NoWait && (x.Ref.AtTx != 0 || !x.Ref.BoundRef) {
+					return nil, ErrNoWaitOperationMustBeSelfContained
+				}
+
+				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
+
+				if req.NoWait && !exists {
+					return nil, ErrNoWaitOperationMustBeSelfContained
+				}
+
+				if !req.NoWait {
 					// check key does not exists or it's already a reference
 					entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, index, tx)
 					if err != nil && err != store.ErrKeyNotFound {
@@ -99,9 +107,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					if entry != nil && entry.ReferencedBy == nil {
 						return nil, ErrFinalKeyCannotBeConvertedIntoReference
 					}
-
-					// reference arguments are converted in regular key value items and then atomically inserted
-					_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 					if !exists || x.Ref.AtTx > 0 {
 						// check referenced key exists and it's not a reference
@@ -115,6 +120,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					}
 				}
 
+				// reference arguments are converted in regular key value items and then atomically inserted
 				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
 					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, txID)
 				} else {
@@ -130,10 +136,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
-				if !unsafe {
-					// zAdd arguments are converted in regular key value items and then atomically inserted
-					_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
+				if req.NoWait && (x.ZAdd.AtTx != 0 || !x.ZAdd.BoundRef) {
+					return nil, ErrNoWaitOperationMustBeSelfContained
+				}
 
+				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
+
+				if req.NoWait && !exists {
+					return nil, ErrNoWaitOperationMustBeSelfContained
+				}
+
+				if !req.NoWait {
 					if !exists || x.ZAdd.AtTx > 0 {
 						// check referenced key exists and it's not a reference
 						refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx)
@@ -146,6 +159,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					}
 				}
 
+				// zAdd arguments are converted in regular key value items and then atomically inserted
 				key := EncodeKey(x.ZAdd.Key)
 
 				if x.ZAdd.BoundRef && x.ZAdd.AtTx == 0 {

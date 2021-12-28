@@ -18,6 +18,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -25,6 +26,7 @@ import (
 
 var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a reference")
 var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be converted into a reference")
+var ErrNoWaitOperationMustBeSelfContained = fmt.Errorf("no wait operation must be self-contained: %w", store.ErrIllegalArguments)
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {

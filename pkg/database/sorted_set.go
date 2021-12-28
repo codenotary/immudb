@@ -208,7 +208,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAt(key, atTx, 0, snap, tx)
+		e, err := d.getAt(key, atTx, 1, snap, tx)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
