@@ -659,6 +659,116 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 	}
 }
 
+func TestExecAllNoWait(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	t.Run("ExecAll with NoWait should be self-contained", func(t *testing.T) {
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_Ref{
+						Ref: &schema.ReferenceRequest{
+							Key:           []byte(`ref`),
+							ReferencedKey: []byte(`key`),
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		_, err := db.ExecAll(aOps)
+		require.ErrorIs(t, err, store.ErrIllegalArguments)
+		require.ErrorIs(t, err, ErrNoWaitOperationMustBeSelfContained)
+	})
+
+	t.Run("ExecAll with NoWait should be self-contained", func(t *testing.T) {
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_ZAdd{
+						ZAdd: &schema.ZAddRequest{
+							Set:      []byte("set"),
+							Key:      []byte(`key`),
+							Score:    5.6,
+							AtTx:     4,
+							BoundRef: true,
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		_, err := db.ExecAll(aOps)
+		require.ErrorIs(t, err, store.ErrIllegalArguments)
+		require.ErrorIs(t, err, ErrNoWaitOperationMustBeSelfContained)
+	})
+
+	t.Run("ExecAll with NoWait consistent key switching from key into reference", func(t *testing.T) {
+		_, err := db.Set(&schema.SetRequest{
+			KVs: []*schema.KeyValue{
+				{Key: []byte("key"), Value: []byte("value")},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = db.SetReference(&schema.ReferenceRequest{
+			Key: []byte("ref"), ReferencedKey: []byte("key"),
+		})
+		require.NoError(t, err)
+
+		_, err = db.ZAdd(&schema.ZAddRequest{
+			Set: []byte("set"),
+			Key: []byte("key"),
+		})
+		require.NoError(t, err)
+
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_Kv{
+						Kv: &schema.KeyValue{
+							Key:   []byte(`key1`),
+							Value: []byte(`value1`),
+						},
+					},
+				},
+				{
+					Operation: &schema.Op_Ref{
+						Ref: &schema.ReferenceRequest{
+							Key:           []byte(`key`),
+							ReferencedKey: []byte(`key1`),
+							BoundRef:      true,
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		hdr, err := db.ExecAll(aOps)
+		require.NoError(t, err)
+
+		entry, err := db.Get(&schema.KeyRequest{Key: []byte("key"), SinceTx: hdr.Id})
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		require.Equal(t, []byte(`key1`), entry.Key)
+		require.Equal(t, []byte(`value1`), entry.Value)
+		require.NotNil(t, entry.ReferencedBy)
+		require.Equal(t, []byte(`key`), entry.ReferencedBy.Key)
+		require.Equal(t, hdr.Id, entry.ReferencedBy.Tx)
+
+		// ref became a reference of a reference
+		_, err = db.Get(&schema.KeyRequest{Key: []byte("ref")})
+		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+
+		// "key" became a reference
+		_, err = db.ZScan(&schema.ZScanRequest{
+			Set: []byte("set"),
+		})
+		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+	})
+}
+
 /*
 func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 	dbDir := tmpDir()
