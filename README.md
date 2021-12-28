@@ -254,6 +254,6 @@ Learn how to [build](BUILD.md) immudb components in both binary and Docker image
 
 To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
 
-immudb is licensed user the [Apache v2.0 License](LICENSE).
+immudb is licensed under the [Apache v2.0 License](LICENSE).
 
 immudb re-distributes other open-source tools and libraries - [Acknowledgements](ACKNOWLEDGEMENTS.md).
