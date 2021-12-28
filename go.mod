@@ -20,7 +20,6 @@ require (
 	github.com/jaswdr/faker v1.4.3
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.10.2
-	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
@@ -36,14 +35,15 @@ require (
 	github.com/rakyll/statik v0.1.7
 	github.com/rogpeppe/go-internal v1.8.0
 	github.com/rs/xid v1.3.0
+	github.com/schollz/progressbar/v3 v3.8.5 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/takama/daemon v0.12.0
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
-	golang.org/x/net v0.0.0-20210716203947-853a461950ff
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f
 	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.27.1
