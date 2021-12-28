@@ -374,6 +374,9 @@ func TestRowsAffected_LastInsertId(t *testing.T) {
 					LastInsertedPKs: map[string]*schema.SQLValue{
 						"table1": {Value: &schema.SQLValue_N{N: 1}},
 					},
+					FirstInsertedPKs: map[string]*schema.SQLValue{
+						"table1": {Value: &schema.SQLValue_N{N: 1}},
+					},
 				},
 			},
 		},

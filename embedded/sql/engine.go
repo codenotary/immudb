@@ -111,8 +111,9 @@ type SQLTx struct {
 
 	explicitClose bool
 
-	updatedRows     int
-	lastInsertedPKs map[string]int64 // last inserted PK by table name
+	updatedRows      int
+	lastInsertedPKs  map[string]int64 // last inserted PK by table name
+	firstInsertedPKs map[string]int64 // first inserted PK by table name
 
 	txHeader *store.TxHeader // header is set once tx is committed
 
@@ -195,12 +196,13 @@ func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
 	}
 
 	return &SQLTx{
-		engine:          e,
-		tx:              tx,
-		catalog:         catalog,
-		currentDB:       currentDB,
-		lastInsertedPKs: make(map[string]int64),
-		explicitClose:   explicitClose,
+		engine:           e,
+		tx:               tx,
+		catalog:          catalog,
+		currentDB:        currentDB,
+		lastInsertedPKs:  make(map[string]int64),
+		firstInsertedPKs: make(map[string]int64),
+		explicitClose:    explicitClose,
 	}, nil
 }
 
@@ -225,6 +227,10 @@ func (sqlTx *SQLTx) UpdatedRows() int {
 
 func (sqlTx *SQLTx) LastInsertedPKs() map[string]int64 {
 	return sqlTx.lastInsertedPKs
+}
+
+func (sqlTx *SQLTx) FirstInsertedPKs() map[string]int64 {
+	return sqlTx.firstInsertedPKs
 }
 
 func (sqlTx *SQLTx) TxHeader() *store.TxHeader {

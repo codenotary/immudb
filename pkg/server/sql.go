@@ -80,16 +80,21 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	}
 
 	for i, ctx := range ctxs {
+		firstPKs := make(map[string]*schema.SQLValue, len(ctx.FirstInsertedPKs()))
 		lastPKs := make(map[string]*schema.SQLValue, len(ctx.LastInsertedPKs()))
 
 		for k, n := range ctx.LastInsertedPKs() {
 			lastPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
 		}
+		for k, n := range ctx.FirstInsertedPKs() {
+			firstPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
+		}
 
 		res.Txs[i] = &schema.CommittedSQLTx{
-			Header:          schema.TxHeaderToProto(ctx.TxHeader()),
-			UpdatedRows:     uint32(ctx.UpdatedRows()),
-			LastInsertedPKs: lastPKs,
+			Header:           schema.TxHeaderToProto(ctx.TxHeader()),
+			UpdatedRows:      uint32(ctx.UpdatedRows()),
+			LastInsertedPKs:  lastPKs,
+			FirstInsertedPKs: firstPKs,
 		}
 	}
 
