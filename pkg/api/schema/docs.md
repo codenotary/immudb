@@ -10,6 +10,7 @@
     - [Chunk](#immudb.schema.Chunk)
     - [Column](#immudb.schema.Column)
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
+    - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
@@ -91,12 +92,12 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-  
+
     - [PermissionAction](#immudb.schema.PermissionAction)
     - [TxMode](#immudb.schema.TxMode)
-  
+
     - [ImmuService](#immudb.schema.ImmuService)
-  
+
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -200,6 +201,23 @@
 | header | [TxHeader](#immudb.schema.TxHeader) |  |  |
 | updatedRows | [uint32](#uint32) |  |  |
 | lastInsertedPKs | [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry) | repeated |  |
+| firstInsertedPKs | [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry"></a>
+
+### CommittedSQLTx.FirstInsertedPKsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
 
 
 
@@ -1566,7 +1584,7 @@
 
 
 
- 
+
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1593,9 +1611,9 @@
 | ReadWrite | 2 |  |
 
 
- 
 
- 
+
+
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1665,7 +1683,7 @@ immudb gRPC &amp; REST service
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
- 
+
 
 
 
@@ -1688,4 +1706,3 @@ immudb gRPC &amp; REST service
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
-

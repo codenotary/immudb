@@ -45,13 +45,13 @@ func OpenDB(cliOpts *client.Options) *sql.DB {
 	return sql.OpenDB(c)
 }
 
-/*func Open(dns string) *sql.DB {
+func Open(dns string) *sql.DB {
 	c := &driverConnector{
 		driver: immuDriver,
 		name:   dns,
 	}
 	return sql.OpenDB(c)
-}*/
+}
 
 type Driver struct {
 	configMutex   sync.Mutex

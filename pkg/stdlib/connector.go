@@ -19,7 +19,6 @@ package stdlib
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/codenotary/immudb/pkg/client"
 )
 
 type driverConnector struct {
@@ -28,14 +27,12 @@ type driverConnector struct {
 }
 
 // Connect implement driver.Connector interface
-func (c *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	var immuClientOption *client.Options
+func (c *driverConnector) Connect(ctx context.Context) (conn driver.Conn, err error) {
 	c.driver.configMutex.Lock()
-	immuClientOption = c.driver.clientOptions[c.name]
+	immuClientOption := c.driver.clientOptions[c.name]
 	c.driver.configMutex.Unlock()
 
 	if immuClientOption == nil {
-		var err error
 		immuClientOption, err = ParseConfig(c.name)
 		if err != nil {
 			return nil, err

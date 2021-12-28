@@ -513,6 +513,9 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 					pkCol := table.primaryIndex.cols[0]
 					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
 
+					if _, ok := tx.firstInsertedPKs[table.name]; !ok {
+						tx.firstInsertedPKs[table.name] = table.maxPK
+					}
 					tx.lastInsertedPKs[table.name] = table.maxPK
 				}
 
@@ -549,6 +552,9 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 
 				pkMustExist = nl <= table.maxPK
 
+				if _, ok := tx.firstInsertedPKs[table.name]; !ok {
+					tx.firstInsertedPKs[table.name] = nl
+				}
 				tx.lastInsertedPKs[table.name] = nl
 			}
 

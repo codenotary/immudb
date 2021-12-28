@@ -36,6 +36,7 @@ func TestDriver_Open(t *testing.T) {
 	require.Errorf(t, err, immuServerRequired)
 	require.Nil(t, conn)
 }
+
 func TestParseConfig(t *testing.T) {
 	connString := "immudb://immudb:immudb@127.0.0.1:3324/defaultdb"
 	ris, err := ParseConfig(connString)
@@ -129,6 +130,19 @@ func Test_SQLOpen(t *testing.T) {
 	}
 
 	db, err := sql.Open("immudb", "immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
+	require.NoError(t, err)
+
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	require.NoError(t, err)
+}
+
+func Test_Open(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
+	}
+
+	db := Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
 	require.NoError(t, err)
 
 	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))

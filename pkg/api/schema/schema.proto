@@ -476,6 +476,7 @@ message CommittedSQLTx {
 	TxHeader header = 1;
 	uint32 updatedRows = 2;
 	map<string, SQLValue> lastInsertedPKs = 3;
+	map<string, SQLValue> firstInsertedPKs = 4;
 }
 
 message SQLQueryResult {

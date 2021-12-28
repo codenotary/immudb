@@ -334,15 +334,11 @@ type RowsAffected struct {
 
 func (rows RowsAffected) LastInsertId() (int64, error) {
 	// if immudb will returns a no monotonic primary key sequence this will not work anymore
-	if len(rows.er.Txs) == 1 {
-		if rows.er != nil && rows.er.Txs[0].LastInsertedPKs != nil && len(rows.er.Txs[0].LastInsertedPKs) == 1 {
-			for _, v := range rows.er.Txs[0].LastInsertedPKs {
-				affected, _ := rows.RowsAffected()
-				return v.GetN() - affected + 1, nil
-			}
+	if rows.er != nil && len(rows.er.Txs) >= 1 {
+		for _, v := range rows.er.FirstInsertedPks() {
+			return v.GetN(), nil
 		}
 	}
-
 	return 0, errors.New("unable to retrieve LastInsertId")
 }
 
