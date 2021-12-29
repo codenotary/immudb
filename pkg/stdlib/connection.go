@@ -37,14 +37,6 @@ func (c *Conn) GetImmuClient() client.ImmuClient {
 	return c.immuClient
 }
 
-func (c *Conn) GetDriver() *Driver {
-	return c.driver
-}
-
-func (c *Conn) GetTx() client.Tx {
-	return c.tx
-}
-
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	return nil, ErrNotImplemented
 }
