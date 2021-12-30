@@ -194,7 +194,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	err := s.Initialize()
+	s.Initialize()
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -208,6 +208,14 @@ func TestServerCreateDatabase(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.CreateDatabase(ctx, nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	dbSettings := &schema.DatabaseSettings{
+		DatabaseName:   "lisbon",
+		Replica:        false,
+		MasterDatabase: "masterdb",
+	}
+	_, err = s.CreateDatabaseWith(ctx, dbSettings)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	newdb := &schema.Database{
