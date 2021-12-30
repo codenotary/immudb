@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Patched script of xgo build.sh (MIT license)
 # Fork: https://github.com/techknowlogick/xgo

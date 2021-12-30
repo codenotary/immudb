@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash -e
 
 # In this script an intermediate certificate is created from a root certificate
 

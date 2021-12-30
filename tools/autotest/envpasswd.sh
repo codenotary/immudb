@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 IMMUCLIENT=../../immuclient
 IMMUADMIN=../../immuadmin

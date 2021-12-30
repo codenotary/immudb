@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 NUM_DATA=5
 NUM_DB=2
 

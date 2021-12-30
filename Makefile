@@ -14,7 +14,7 @@ limitations under the License.
 
 export GO111MODULE=on
 
-SHELL=/bin/bash -o pipefail
+SHELL=/usr/bin/env bash -o pipefail
 
 VERSION=1.2.1
 DEFAULT_WEBCONSOLE_VERSION=1.0.14
