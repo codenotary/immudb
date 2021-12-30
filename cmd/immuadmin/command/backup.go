@@ -18,26 +18,19 @@ package immuadmin
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	stdos "os"
-	"os/signal"
 	"path"
 	"runtime"
 	"strings"
 	"time"
 
-	"google.golang.org/grpc/metadata"
-
 	"github.com/fatih/color"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
@@ -102,6 +95,7 @@ func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
 	clb.backup(rootCmd)
 	clb.restore(rootCmd)
 	clb.hotBackup(rootCmd)
+	clb.hotRestore(rootCmd)
 	return rootCmd
 }
 
@@ -447,155 +441,4 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 	}
 
 	return dbDirAutoBackupPath, nil
-}
-
-func (cl *commandlineBck) hotBackup(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:   "hot-backup <db_name>",
-		Short: "Make a copy of the database without stopping",
-		Long: "Backup a database to file/stream without stopping the database engine. " +
-			"Backup can run run from the beginning or starting from arbitrary transaction.",
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			file := io.Writer(stdos.Stdout)
-			output, err := cmd.Flags().GetString("output")
-			if err != nil {
-				cl.quit(err)
-				return nil
-			}
-			if output != "-" {
-				_, err := stdos.Stat(output)
-				if err == nil {
-					return stdos.ErrExist
-				}
-				if !stdos.IsNotExist(err) {
-					return err
-				}
-				f, err := stdos.Create(output)
-				if err != nil {
-					return err
-				}
-				defer f.Close()
-				file = f
-			}
-
-			udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
-			if err != nil {
-				return err
-			}
-			cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
-			progress, _ := cmd.Flags().GetBool("progress")
-			return cl.runHotBackup(file, 1, progress)
-		},
-		Args: cobra.ExactArgs(1),
-	}
-	ccmd.Flags().StringP("output", "o", "-", "output file, \"-\" for stdout")
-	ccmd.Flags().Uint64("start-tx", 0, "Transaction ID to start from")
-	ccmd.Flags().Bool("progress", false, "show progress indicator")
-	cmd.AddCommand(ccmd)
-}
-
-func (cl *commandlineBck) runHotBackup(output io.Writer, startFrom uint64, progress bool) error {
-	state, err := cl.immuClient.CurrentState(cl.context)
-	if err != nil {
-		return err
-	}
-	txnCount := state.TxId
-
-	var bar *progressbar.ProgressBar
-	if progress {
-		bar = progressbar.Default(int64(txnCount), "")
-	}
-
-	terminated := make(chan stdos.Signal, 1)
-	signal.Notify(terminated, stdos.Interrupt)
-
-	for i := startFrom; i <= txnCount; i++ {
-		err = cl.processTx(i, output, bar, terminated)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (cl *commandlineBck) processTx(tx uint64, output io.Writer, bar *progressbar.ProgressBar, terminated chan stdos.Signal) error {
-	stream, err := cl.immuClient.ExportTx(cl.context, &schema.TxRequest{Tx: tx})
-	if err != nil {
-		return fmt.Errorf("failed to export transaction: %w", err)
-	}
-
-	completed := make(chan struct{})
-	var content []byte
-	go func() {
-		for {
-			var chunk *schema.Chunk
-			chunk, err = stream.Recv()
-			if errors.Is(err, io.EOF) {
-				err = nil
-				break
-			} else if err != nil {
-				break
-			}
-			content = append(content, chunk.Content...)
-		}
-		close(completed)
-	}()
-
-	select {
-	case <-completed:
-		if err != nil {
-			return fmt.Errorf("cannot process transaction data: %w", err)
-		}
-		err = stream.CloseSend()
-		if err != nil {
-			return fmt.Errorf("CloseSend returned %v", err)
-		}
-		txn, err := cl.immuClient.TxByID(cl.context, tx)
-		if err != nil {
-			return err
-		}
-		err = outputTx(tx, output, txn.Header.EH, content)
-		if err != nil {
-			return err
-		}
-		if bar != nil {
-			bar.Add(1)
-		}
-
-	case <-terminated:
-		return fmt.Errorf("terminated by signal")
-	}
-
-	return nil
-}
-
-const (
-	prefix            = "IMMUBACKUP"
-	latestFileVersion = 1
-)
-
-const (
-	prefixOffset       = iota
-	versionOffset      = prefixOffset + len(prefix)
-	txIdOffset         = versionOffset + 4
-	txSignSizeOffset   = txIdOffset + 8
-	txSizeOffset	   = txSignSizeOffset + 4
-	fixedPartEnd       = txSizeOffset + 4
-)
-
-func outputTx(tx uint64, output io.Writer, signature []byte, content []byte) error {
-	payload := make([]byte, fixedPartEnd, fixedPartEnd + len(signature) + len(content))
-	copy(payload[prefixOffset:], prefix)
-	binary.BigEndian.PutUint32(payload[versionOffset:], latestFileVersion)
-	binary.BigEndian.PutUint64(payload[txIdOffset:], tx)
-	binary.BigEndian.PutUint32(payload[txSignSizeOffset:], uint32(len(signature)))
-	binary.BigEndian.PutUint32(payload[txSizeOffset:], uint32(len(content)))
-	payload = append(payload, signature...)
-	payload = append(payload, content...)
-
-	_, err := output.Write(payload)
-	return err
 }
