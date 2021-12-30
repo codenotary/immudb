@@ -1255,8 +1255,8 @@ func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 no
 		return n, nil, nil
 	}
 
-	if bytes.Compare(n._minKey, c2.minKey()) > 0 {
-		n._minKey = c2.minKey()
+	if bytes.Compare(n._minKey, c1.minKey()) > 0 {
+		n._minKey = c1.minKey()
 	}
 
 	if bytes.Compare(n._maxKey, c2.maxKey()) < 0 {
@@ -1324,8 +1324,8 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 	}
 
 	minKey := n._minKey
-	if bytes.Compare(minKey, c2.minKey()) > 0 {
-		minKey = c2.minKey()
+	if bytes.Compare(minKey, c1.minKey()) > 0 {
+		minKey = c1.minKey()
 	}
 
 	maxKey := n._maxKey
