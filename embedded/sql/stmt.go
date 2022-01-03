@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,7 @@ const (
 	BooleanType   SQLValueType = "BOOLEAN"
 	VarcharType   SQLValueType = "VARCHAR"
 	BLOBType      SQLValueType = "BLOB"
+	Float64Type   SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
 )
@@ -623,7 +625,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 					table.maxPK++
 
 					pkCol := table.primaryIndex.cols[0]
-					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
+					valuesByColID[pkCol.id] = &Integer{val: table.maxPK}
 
 					if _, ok := tx.firstInsertedPKs[table.name]; !ok {
 						tx.firstInsertedPKs[table.name] = table.maxPK
@@ -686,7 +688,7 @@ func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[st
 			return nil, err
 		}
 
-		if err == store.ErrKeyNotFound && pkMustExist {
+		if errors.Is(err, store.ErrKeyNotFound) && pkMustExist {
 			return nil, fmt.Errorf("%w: specified value must be greater than current one", ErrInvalidValue)
 		}
 
@@ -769,7 +771,9 @@ func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID m
 			return err
 		}
 
-		encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
+		convertedValue := applyImplicitConversion(rval, col.colType)
+
+		encVal, err := EncodeValue(convertedValue, col.colType, col.MaxLen())
 		if err != nil {
 			return err
 		}
@@ -1450,23 +1454,23 @@ func (v *NullValue) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
-type Number struct {
+type Integer struct {
 	val int64
 }
 
-func (v *Number) Type() SQLValueType {
+func (v *Integer) Type() SQLValueType {
 	return IntegerType
 }
 
-func (v *Number) IsNull() bool {
+func (v *Integer) IsNull() bool {
 	return false
 }
 
-func (v *Number) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return IntegerType, nil
 }
 
-func (v *Number) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != IntegerType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
@@ -1474,31 +1478,31 @@ func (v *Number) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 	return nil
 }
 
-func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
+func (v *Integer) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Number) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Integer) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
-func (v *Number) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+func (v *Integer) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
 }
 
-func (v *Number) isConstant() bool {
+func (v *Integer) isConstant() bool {
 	return true
 }
 
-func (v *Number) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+func (v *Integer) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
-func (v *Number) Value() interface{} {
+func (v *Integer) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) Compare(val TypedValue) (int, error) {
+func (v *Integer) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
 	}
@@ -1784,6 +1788,75 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
+type Float64 struct {
+	val float64
+}
+
+func (v *Float64) Type() SQLValueType {
+	return Float64Type
+}
+
+func (v *Float64) IsNull() bool {
+	return false
+}
+
+func (v *Float64) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
+}
+
+func (v *Float64) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != Float64Type {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, Float64Type, t)
+	}
+
+	return nil
+}
+
+func (v *Float64) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Float64) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
+}
+
+func (v *Float64) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *Float64) isConstant() bool {
+	return true
+}
+
+func (v *Float64) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *Float64) Value() interface{} {
+	return v.val
+}
+
+func (v *Float64) Compare(val TypedValue) (int, error) {
+	if val.IsNull() {
+		return 1, nil
+	}
+
+	rval, ok := val.Value().(float64)
+	if !ok {
+		return 0, ErrNotComparableValues
+	}
+
+	if v.val == rval {
+		return 0, nil
+	}
+
+	if v.val > rval {
+		return 1, nil
+	}
+
+	return -1, nil
+}
+
 type FnCall struct {
 	fn     string
 	params []ValueExp
@@ -1794,7 +1867,7 @@ func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 		return TimestampType, nil
 	}
 
-	return AnyType, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
+	return AnyType, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 }
 
 func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
@@ -1894,6 +1967,41 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 					ErrIllegalArguments,
 					str,
 				)
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
+			ErrUnsupportedCast,
+		)
+	}
+
+	if dst == Float64Type {
+
+		if src == IntegerType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return &NullValue{t: Float64Type}, nil
+				}
+				return &Float64{val: float64(val.Value().(int64))}, nil
+			}, nil
+		}
+
+		if src == VarcharType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return &NullValue{t: Float64Type}, nil
+				}
+
+				s, err := strconv.ParseFloat(val.Value().(string), 64)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast string '%s' as a FLOAT",
+						ErrIllegalArguments,
+						val.Value().(string),
+					)
+				}
+				return &Float64{val: s}, nil
 			}, nil
 		}
 
@@ -2019,19 +2127,19 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case int:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case uint:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case uint64:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case int64:
 		{
-			return &Number{val: v}, nil
+			return &Integer{val: v}, nil
 		}
 	case []byte:
 		{
@@ -2040,6 +2148,10 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	case time.Time:
 		{
 			return &Timestamp{val: v.Truncate(time.Microsecond).UTC()}, nil
+		}
+	case float64:
+		{
+			return &Float64{val: v}, nil
 		}
 	}
 
@@ -2724,12 +2836,17 @@ func (sel *AggColSelector) inferType(cols map[string]ColDescriptor, params map[s
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}
 
 	if sel.aggFn == SUM || sel.aggFn == AVG {
-		err := colSelector.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+		t, err := colSelector.inferType(cols, params, implicitDB, implicitTable)
 		if err != nil {
 			return AnyType, err
 		}
 
-		return IntegerType, nil
+		if t != IntegerType && t != Float64Type {
+			return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, t)
+
+		}
+
+		return t, nil
 	}
 
 	return colSelector.inferType(cols, params, implicitDB, implicitTable)
@@ -2746,7 +2863,9 @@ func (sel *AggColSelector) requiresType(t SQLValueType, cols map[string]ColDescr
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}
 
 	if sel.aggFn == SUM || sel.aggFn == AVG {
-		return colSelector.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+		if t != IntegerType && t != Float64Type {
+			return fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, t)
+		}
 	}
 
 	return colSelector.requiresType(t, cols, params, implicitDB, implicitTable)
@@ -2786,32 +2905,85 @@ type NumExp struct {
 }
 
 func (bexp *NumExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	err := bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	// First step - check if we can infer the type of sub-expressions
+	tleft, err := bexp.left.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
+	if tleft != AnyType && tleft != IntegerType && tleft != Float64Type {
+		return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, tleft)
+	}
 
-	err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	tright, err := bexp.right.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
+	if tright != AnyType && tright != IntegerType && tright != Float64Type {
+		return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, tright)
+	}
 
-	return IntegerType, nil
+	if tleft == IntegerType && tright == IntegerType {
+		// Both sides are integer types - the result is also integer
+		return IntegerType, nil
+	}
+
+	if tleft != AnyType && tright != AnyType {
+		// Both sides have concrete types but at least one of them is float
+		return Float64Type, nil
+	}
+
+	// Both sides are ambiguous
+	return AnyType, nil
+}
+
+func copyParams(params map[string]SQLValueType) map[string]SQLValueType {
+	ret := make(map[string]SQLValueType, len(params))
+	for k, v := range params {
+		ret[k] = v
+	}
+	return ret
+}
+
+func restoreParams(params, restore map[string]SQLValueType) {
+	for k := range params {
+		delete(params, k)
+	}
+	for k, v := range restore {
+		params[k] = v
+	}
 }
 
 func (bexp *NumExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if t != IntegerType {
+	if t != IntegerType && t != Float64Type {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
-	err := bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	floatArgs := 2
+	paramsOrig := copyParams(params)
+	err := bexp.left.requiresType(t, cols, params, implicitDB, implicitTable)
+	if err != nil && t == Float64Type {
+		restoreParams(params, paramsOrig)
+		floatArgs--
+		err = bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	}
 	if err != nil {
 		return err
 	}
 
-	err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	paramsOrig = copyParams(params)
+	err = bexp.right.requiresType(t, cols, params, implicitDB, implicitTable)
+	if err != nil && t == Float64Type {
+		restoreParams(params, paramsOrig)
+		floatArgs--
+		err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	}
 	if err != nil {
 		return err
+	}
+
+	if t == Float64Type && floatArgs == 0 {
+		// Currently this case requires explicit float cast
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
 	return nil
@@ -2845,40 +3017,7 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string
 		return nil, err
 	}
 
-	nl, isNumber := vl.Value().(int64)
-	if !isNumber {
-		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
-	}
-
-	nr, isNumber := vr.Value().(int64)
-	if !isNumber {
-		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
-	}
-
-	switch bexp.op {
-	case ADDOP:
-		{
-			return &Number{val: nl + nr}, nil
-		}
-	case SUBSOP:
-		{
-			return &Number{val: nl - nr}, nil
-		}
-	case DIVOP:
-		{
-			if nr == 0 {
-				return nil, ErrDivisionByZero
-			}
-
-			return &Number{val: nl / nr}, nil
-		}
-	case MULTOP:
-		{
-			return &Number{val: nl * nr}, nil
-		}
-	}
-
-	return nil, ErrUnexpected
+	return applyNumOperator(bexp.op, vl, vr)
 }
 
 func (bexp *NumExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
@@ -3813,7 +3952,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx,
 			&Varchar{val: table.name},
 			&Varchar{val: c.colName},
 			&Varchar{val: c.colType},
-			&Number{val: int64(c.MaxLen())},
+			&Integer{val: int64(c.MaxLen())},
 			&Bool{val: c.IsNullable()},
 			&Bool{val: c.autoIncrement},
 			&Bool{val: indexed},

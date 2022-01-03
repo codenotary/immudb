@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -386,10 +388,471 @@ func TestTimestampCasts(t *testing.T) {
 	})
 }
 
+func TestFloatType(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE TABLE IF NOT EXISTS float_table (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)",
+		nil,
+	)
+	require.NoError(t, err)
+
+	t.Run("must insert float type", func(t *testing.T) {
+		for _, d := range []struct {
+			valStr   string
+			valFloat float64
+		}{
+			{"0", 0},
+			{"-0", 0},
+			{"1", 1},
+			{"-1", -1.0},
+			{"100.100", 100.100},
+			{".7", .7},
+			{".543210", .543210},
+			{"105.7", 105.7},
+			{"00105.98988897", 00105.98988897},
+		} {
+			t.Run("Valid float: "+d.valStr, func(t *testing.T) {
+				_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO float_table(ft) VALUES("+d.valStr+")", nil)
+				require.NoError(t, err)
+
+				r, err := engine.Query(context.Background(), nil, "SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil)
+				require.NoError(t, err)
+				defer r.Close()
+
+				row, err := r.Read(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+				require.Equal(t, d.valFloat, row.ValuesByPosition[0].Value())
+			})
+		}
+
+		for _, d := range []string{
+			"105.9898.8897",
+			"0..0",
+		} {
+			t.Run("Invalid float: "+d, func(t *testing.T) {
+				_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO float_table(ft) VALUES("+d+")", nil)
+				require.Error(t, err)
+			})
+		}
+	})
+
+	t.Run("must accept float as parameter", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_table(ft) VALUES(@ft)",
+			map[string]interface{}{
+				"ft": -0.4,
+			},
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query(context.Background(), nil, "SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+		require.Equal(t, -0.4, row.ValuesByPosition[0].Value())
+	})
+
+	t.Run("must correctly validate float equality", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_table(ft) VALUES(@ft)",
+			map[string]interface{}{
+				"ft": 0.78,
+			},
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query(
+			context.Background(),
+			nil,
+			"SELECT ft FROM float_table WHERE ft = @ft ORDER BY id",
+			map[string]interface{}{
+				"ft": 0.78,
+			})
+		require.NoError(t, err)
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+		require.Equal(t, 0.78, row.ValuesByPosition[0].Value())
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		r, err = engine.Query(
+			context.Background(), nil,
+			"SELECT ts FROM float_table WHERE ft = @ft ORDER BY id",
+			map[string]interface{}{
+				"ft": "2021-12-06 10:14",
+			})
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("must correctly handle floating points in aggregate functions", func(t *testing.T) {
+		_, _, err := engine.Exec(
+			context.Background(),
+			nil,
+			`
+			CREATE TABLE aggregate_test(
+				id INTEGER AUTO_INCREMENT,
+				f FLOAT,
+				PRIMARY KEY(id)
+			)
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+
+		aggregateFunctions := []struct {
+			fn     string
+			result float64
+		}{
+			{"MAX", 4.0},
+			{"MIN", -1.0},
+			{"SUM", 10.0},
+			{"AVG", 10.0 / 6.0},
+		}
+
+		// Empty table - this is a corner case that has to be checked too
+		for _, d := range aggregateFunctions {
+			t.Run(d.fn, func(t *testing.T) {
+				res, err := engine.Query(
+					context.Background(),
+					nil,
+					"SELECT "+d.fn+"(f) FROM aggregate_test",
+					nil)
+				require.NoError(t, err)
+				defer res.Close()
+
+				row, err := res.Read(context.Background())
+				require.NoError(t, err)
+
+				require.Len(t, row.ValuesByPosition, 1)
+				require.EqualValues(t, 0.0, row.ValuesByPosition[0].Value())
+			})
+		}
+
+		// Add some values
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			`
+			INSERT INTO aggregate_test(f)
+			VALUES (2.0), (1.0), (4.0), (3.0), (-1.0), (1.0)
+			`,
+			nil)
+		require.NoError(t, err)
+
+		for _, d := range aggregateFunctions {
+			t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+				res, err := engine.Query(
+					context.Background(),
+					nil,
+					"SELECT "+d.fn+"(f) FROM aggregate_test",
+					nil)
+				require.NoError(t, err)
+				defer res.Close()
+
+				row, err := res.Read(context.Background())
+				require.NoError(t, err)
+
+				require.Len(t, row.ValuesByPosition, 1)
+				require.EqualValues(t, d.result, row.ValuesByPosition[0].Value())
+			})
+		}
+	})
+
+	t.Run("correctly infer fliating-point parameter", func(t *testing.T) {
+		params, err := engine.InferParameters(
+			context.Background(),
+			nil,
+			"SELECT * FROM float_table WHERE ft = @fparam",
+		)
+		require.NoError(t, err)
+		require.Equal(t, map[string]SQLValueType{"fparam": Float64Type}, params)
+	})
+}
+
+func TestFloatIndex(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE TABLE IF NOT EXISTS float_index (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)",
+		nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE INDEX ON float_index(ft)",
+		nil,
+	)
+	require.NoError(t, err)
+
+	for i := 100; i > 0; i-- {
+		val, _ := strconv.ParseFloat(fmt.Sprint(i, ".", i), 64)
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_index(ft) VALUES(@ft)",
+			map[string]interface{}{"ft": val})
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query(
+		context.Background(),
+		nil,
+		"SELECT * FROM float_index ORDER BY ft",
+		nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	prevf := float64(-1.0)
+	for i := 100; i > 0; i-- {
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "id")].Value())
+
+		currf := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value().(float64)
+		require.Less(t, prevf, currf)
+		prevf = currf
+	}
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
+func TestFloatIndexOnNegatives(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE TABLE IF NOT EXISTS float_index (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)",
+		nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE INDEX ON float_index(ft)",
+		nil)
+	require.NoError(t, err)
+
+	var z float64
+	floatSerie := []float64{
+		z,      /*0*/
+		-z,     /*-0*/
+		1 / z,  /*+Inf*/
+		-1 / z, /*-Inf*/
+		+z / z, /*NaN*/
+		-z / z, /*NaN*/
+		-1.0,
+		3.345,
+		-0.5,
+		0.0,
+		-100.8,
+		0.5,
+		1.0,
+		math.MaxFloat64,
+		-math.MaxFloat64,
+		math.SmallestNonzeroFloat64,
+	}
+
+	for _, ft := range floatSerie {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_index(ft) VALUES(@ft)",
+			map[string]interface{}{"ft": ft})
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query(
+		context.Background(),
+		nil,
+		"SELECT * FROM float_index ORDER BY ft",
+		nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	sort.Float64s(floatSerie)
+
+	for i := 0; i < len(floatSerie); i++ {
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+
+		val := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value()
+		if i == 0 {
+			require.True(t, math.IsNaN(val.(float64)))
+			continue
+		}
+		if i == 1 {
+			require.True(t, math.IsNaN(val.(float64)))
+			continue
+		}
+		if i == 7 { // negative zero
+			require.True(t, math.Signbit(val.(float64)))
+		}
+		if i == 8 { // positive zero
+			require.False(t, math.Signbit(val.(float64)))
+		}
+		if i == 9 { // positive zero
+			require.False(t, math.Signbit(val.(float64)))
+		}
+		if i == 10 {
+			require.Equal(t, math.SmallestNonzeroFloat64, val)
+		}
+		require.Equal(t, floatSerie[i], val)
+	}
+
+	_, err = r.Read(context.Background())
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
+func TestFloatCasts(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		"CREATE TABLE IF NOT EXISTS float_table (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)",
+		nil)
+	require.NoError(t, err)
+
+	for _, d := range []struct {
+		str string
+		f   float64
+	}{
+		{"0.5", 0.5},
+		{".1", 0.1},
+	} {
+		t.Run(fmt.Sprintf("insert a float value using a cast from '%s'", d.str), func(t *testing.T) {
+			_, _, err = engine.Exec(
+				context.Background(),
+				nil,
+				fmt.Sprintf("INSERT INTO float_table(ft) VALUES(CAST('%s' AS FLOAT))", d.str),
+				nil,
+			)
+			require.NoError(t, err)
+
+			r, err := engine.Query(
+				context.Background(),
+				nil,
+				"SELECT ft FROM float_table ORDER BY id DESC LIMIT 1",
+				nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+			require.Equal(t, d.f, row.ValuesByPosition[0].Value())
+		})
+	}
+
+	t.Run("insert a float value using a cast from INTEGER", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_table(ft) VALUES(CAST(123456 AS FLOAT))",
+			nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query(
+			context.Background(),
+			nil,
+			"SELECT ft FROM float_table ORDER BY id DESC LIMIT 1",
+			nil,
+		)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+		require.Equal(t, float64(123456), row.ValuesByPosition[0].Value())
+	})
+
+	t.Run("test casting from null values", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			`
+			CREATE TABLE IF NOT EXISTS values_table (id INTEGER AUTO_INCREMENT, ft FLOAT, str VARCHAR, i INTEGER, PRIMARY KEY id);
+			INSERT INTO values_table(ft, str,i) VALUES(NULL, NULL, NULL);
+			`,
+			nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			`
+			UPDATE values_table SET ft = CAST(str AS FLOAT);
+			`,
+			nil,
+		)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			`
+			UPDATE values_table SET ft = CAST(i AS FLOAT);
+			`,
+			nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("test casting invalid string", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_table(ft) VALUES(CAST('not a float' AS FLOAT))",
+			nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "can not cast")
+
+		_, _, err = engine.Exec(
+			context.Background(),
+			nil,
+			"INSERT INTO float_table(ft) VALUES(CAST(@ft AS FLOAT))",
+			map[string]interface{}{
+				"ft": strings.Repeat("long string ", 1000),
+			})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "can not cast")
+	})
+
+}
+
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil)
+	_, _, err := engine.Exec(
+		context.Background(), nil, "CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
 	currentTs := time.Now()
@@ -1420,7 +1883,7 @@ func TestEncodeRawValue(t *testing.T) {
 }
 
 func TestEncodeValue(t *testing.T) {
-	b, err := EncodeValue((&Number{val: 1}).Value(), IntegerType, 0)
+	b, err := EncodeValue((&Integer{val: 1}).Value(), IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
@@ -1432,7 +1895,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), BooleanType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1440,7 +1903,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), VarcharType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), VarcharType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1452,11 +1915,11 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), BLOBType, 50)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), BLOBType, 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), "invalid type", 50)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), "invalid type", 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1494,7 +1957,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), TimestampType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), TimestampType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 }
@@ -1800,23 +2263,27 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id / 0", nil)
-	require.NoError(t, err)
+	t.Run("Query with integer division by zero", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id / 0", nil)
+		require.NoError(t, err)
 
-	_, err = r.Read(context.Background())
-	require.ErrorIs(t, err, ErrDivisionByZero)
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
 
-	err = r.Close()
-	require.NoError(t, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
-	r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil)
-	require.NoError(t, err)
+	t.Run("Query with floating-point division by zero", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id / (1.0-1.0)", nil)
+		require.NoError(t, err)
 
-	_, err = r.Read(context.Background())
-	require.NoError(t, err)
+		_, err = r.Read(context.Background())
+		require.ErrorIs(t, err, ErrDivisionByZero)
 
-	err = r.Close()
-	require.NoError(t, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	r, err = engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
 	require.NoError(t, err)
@@ -1826,6 +2293,39 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	t.Run("Query with integer arithmetics", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.NoError(t, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("Query with floating-point arithmetic", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id + 1.0/1.0 > 1.0 * (1.0 - 0.0)", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.NoError(t, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("Query with boolean expressions", func(t *testing.T) {
+		r, err := engine.Query(context.Background(), nil, "SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
+		require.NoError(t, err)
+
+		_, err = r.Read(context.Background())
+		require.NoError(t, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	r, err = engine.Query(context.Background(), nil, "INVALID QUERY", nil)
 	require.ErrorIs(t, err, ErrParsingError)
@@ -3153,7 +3653,21 @@ func TestQueryWithInClause(t *testing.T) {
 func TestAggregations(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
+	_, _, err := engine.Exec(
+		context.Background(),
+		nil,
+		`
+		CREATE TABLE table1 (
+			id INTEGER,
+			title VARCHAR,
+			age INTEGER,
+			active BOOLEAN,
+			payload BLOB,
+			PRIMARY KEY(id)
+		)
+		`,
+		nil,
+	)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(age)", nil)
@@ -3162,11 +3676,25 @@ func TestAggregations(t *testing.T) {
 	rowCount := 10
 	base := 30
 
+	nullRows := map[int]bool{
+		3: true,
+		5: true,
+		6: true,
+	}
+
+	ageSum := 0
+
 	for i := 1; i <= rowCount; i++ {
 		params := make(map[string]interface{}, 3)
+
 		params["id"] = i
 		params["title"] = fmt.Sprintf("title%d", i)
-		params["age"] = base + i
+		if _, setToNull := nullRows[i]; setToNull {
+			params["age"] = nil
+		} else {
+			params["age"] = base + i
+			ageSum += base + i
+		}
 
 		_, _, err = engine.Exec(context.Background(), nil, "INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params)
 		require.NoError(t, err)
@@ -3221,13 +3749,13 @@ func TestAggregations(t *testing.T) {
 
 	require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "c")].Value())
 
-	require.Equal(t, int64((1+2*base+rowCount)*rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].Value())
+	require.Equal(t, int64(ageSum), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].Value())
 
 	require.Equal(t, int64(1+base), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col2")].Value())
 
 	require.Equal(t, int64(base+rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col3")].Value())
 
-	require.Equal(t, int64(base+rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].Value())
+	require.Equal(t, int64(ageSum/(rowCount-len(nullRows))), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].Value())
 
 	_, err = r.Read(context.Background())
 	require.Equal(t, ErrNoMoreRows, err)
@@ -4060,10 +4588,10 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters(context.Background(), nil, "INSERT INTO mytable(id, title) VALUES (@param1, @param1)")
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
 
 	_, err = engine.InferParameters(context.Background(), nil, "INSERT INTO mytable(id, title) VALUES (@param1)")
-	require.Equal(t, ErrInvalidNumberOfValues, err)
+	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
 	_, err = engine.InferParameters(context.Background(), nil, "INSERT INTO mytable1(id, title) VALUES (@param1, @param2)")
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
@@ -4072,10 +4600,16 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, err = engine.InferParameters(context.Background(), nil, "SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)")
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
 
 	_, err = engine.InferParameters(context.Background(), nil, "BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@param1, @param1); COMMIT;")
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
+
+	_, err = engine.InferParameters(context.Background(), nil, "SELECT * FROM mytable WHERE id > INVALID_FUNCTION()")
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = engine.InferParameters(context.Background(), nil, "SELECT * FROM mytable WHERE id > CAST(wrong_column_name AS INTEGER)")
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 }
 
 func TestDecodeValueFailures(t *testing.T) {
@@ -4153,21 +4687,21 @@ func TestDecodeValueSuccess(t *testing.T) {
 			"zero integer",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0},
 			IntegerType,
-			&Number{val: 0},
+			&Integer{val: 0},
 			12,
 		},
 		{
 			"large integer",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 127, 255, 255, 255},
 			IntegerType,
-			&Number{val: math.MaxInt32},
+			&Integer{val: math.MaxInt32},
 			12,
 		},
 		{
 			"large integer padded",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 127, 255, 255, 255, 1, 1, 1},
 			IntegerType,
-			&Number{val: math.MaxInt32},
+			&Integer{val: math.MaxInt32},
 			12,
 		},
 		{
@@ -4531,7 +5065,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 		case nil:
 			return &NullValue{t: tp}
 		case int:
-			return &Number{val: int64(v)}
+			return &Integer{val: int64(v)}
 		case string:
 			return &Varchar{val: v}
 		case []byte:
@@ -4544,7 +5078,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 	}
 
 	t1Row := func(id int64, v1, v2 interface{}) *Row {
-		idVal := &Number{val: id}
+		idVal := &Integer{val: id}
 		v1Val := colVal(t, v1, IntegerType)
 		v2Val := colVal(t, v2, VarcharType)
 
@@ -4563,7 +5097,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 	}
 
 	t2Row := func(id int64, v1, v2, v3, v4 interface{}) *Row {
-		idVal := &Number{val: id}
+		idVal := &Integer{val: id}
 		v1Val := colVal(t, v1, IntegerType)
 		v2Val := colVal(t, v2, VarcharType)
 		v3Val := colVal(t, v3, BooleanType)
@@ -5968,7 +6502,7 @@ func TestCopyCatalogToTx(t *testing.T) {
 		case nil:
 			return &NullValue{t: tp}
 		case int:
-			return &Number{val: int64(v)}
+			return &Integer{val: int64(v)}
 		case string:
 			return &Varchar{val: v}
 		case []byte:
@@ -5985,7 +6519,7 @@ func TestCopyCatalogToTx(t *testing.T) {
 		id int64,
 		v1, v2, v3 interface{},
 	) *Row {
-		idVal := &Number{val: id}
+		idVal := &Integer{val: id}
 		v1Val := colVal(t, v1, IntegerType)
 		v2Val := colVal(t, v2, VarcharType)
 		v3Val := colVal(t, v3, AnyType)

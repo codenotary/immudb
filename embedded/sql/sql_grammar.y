@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,7 +36,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     values []ValueExp
     value ValueExp
     id string
-    number uint64
+    integer uint64
+    float float64
     str string
     boolean bool
     blob []byte
@@ -81,12 +82,14 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
-%token <number> NUMBER
+%token <integer> INTEGER
+%token <float> FLOAT
 %token <str> VARCHAR
 %token <boolean> BOOLEAN
 %token <blob> BLOB
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
+%token <dot> DOT
 
 %left  ','
 %right AS
@@ -126,7 +129,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <number> opt_limit opt_offset opt_max_len
+%type <integer> opt_limit opt_offset opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -366,10 +369,15 @@ values:
         $$ = append($1, $3)
     }
 
-val: 
-    NUMBER
+val:
+    INTEGER
     {
-        $$ = &Number{val: int64($1)}
+        $$ = &Integer{val: int64($1)}
+    }
+|
+    FLOAT
+    {
+        $$ = &Float64{val: float64($1)}
     }
 |
     VARCHAR
@@ -440,7 +448,7 @@ opt_max_len:
         $$ = 0
     }
 |
-    '[' NUMBER ']'
+    '[' INTEGER ']'
     {
         $$ = $2
     }
@@ -568,7 +576,7 @@ col:
         $$ = &ColSelector{col: $1}
     }
 |
-    IDENTIFIER '.' IDENTIFIER
+    IDENTIFIER DOT IDENTIFIER
     {
         $$ = &ColSelector{table: $1, col: $3}
     }
@@ -717,7 +725,7 @@ opt_limit:
         $$ = 0
     }
 |
-    LIMIT NUMBER
+    LIMIT INTEGER
     {
         $$ = $2
     }
@@ -727,7 +735,7 @@ opt_offset:
         $$ = 0
     }
 |
-    OFFSET NUMBER
+    OFFSET INTEGER
     {
         $$ = $2
     }
@@ -811,7 +819,7 @@ exp:
 |
     '-' exp
     {
-        $$ = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: $2}
+        $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
     }
 |
     boundexp opt_not LIKE exp

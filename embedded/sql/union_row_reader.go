@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/multierr"
@@ -125,7 +126,7 @@ func (ur *unionRowReader) InferParameters(ctx context.Context, params map[string
 func (ur *unionRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
 		row, err := ur.rowReaders[ur.currReader].Read(ctx)
-		if err == store.ErrNoMoreEntries && ur.currReader+1 < len(ur.rowReaders) {
+		if errors.Is(err, store.ErrNoMoreEntries) && ur.currReader+1 < len(ur.rowReaders) {
 			ur.currReader++
 			continue
 		}

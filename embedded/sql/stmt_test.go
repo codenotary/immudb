@@ -33,6 +33,7 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -144,6 +145,24 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 			requiredType:  IntegerType,
 			expectedError: ErrInvalidTypes,
 		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "ft"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: nil,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "ft"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
+			expectedError: ErrInvalidTypes,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -165,6 +184,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -178,7 +198,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -187,7 +207,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -196,7 +216,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Bool{val: true}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Bool{val: true}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -205,12 +225,21 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Bool{val: true}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Bool{val: true}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
 			implicitTable: "mytable",
 			requiredType:  IntegerType,
+			expectedError: ErrInvalidTypes,
+		},
+		{
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Bool{val: true}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
 			expectedError: ErrInvalidTypes,
 		},
 	}
@@ -234,6 +263,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -274,7 +304,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &Number{},
+			exp:           &Integer{},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -283,7 +313,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &Number{},
+			exp:           &Integer{},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -399,6 +429,15 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			requiredType:  VarcharType,
 			expectedError: ErrInvalidCondition,
 		},
+		{
+			exp:           &LikeBoolExp{val: &ColSelector{col: "ft"}, pattern: &Varchar{val: ""}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -420,6 +459,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -459,6 +499,15 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			requiredType:  VarcharType,
 			expectedError: ErrIllegalArguments,
 		},
+		{
+			exp:           &FnCall{fn: "LOWER"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrIllegalArguments,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -480,6 +529,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -511,7 +561,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Number{val: 1}, right: &Bool{val: false}},
+			exp:           &BinBoolExp{op: AND, left: &Integer{val: 1}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -520,7 +570,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Number{val: 1}},
+			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -529,7 +579,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -538,7 +588,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -547,7 +597,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Bool{val: false}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -556,7 +606,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Bool{val: false}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Bool{val: false}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -644,7 +694,7 @@ func TestLikeBoolExpEdgeCases(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 
 	t.Run("like expression with invalid types", func(t *testing.T) {
-		exp := &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Number{}}
+		exp := &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Integer{}}
 
 		_, err = exp.inferType(nil, nil, "", "")
 		require.ErrorIs(t, err, ErrInvalidTypes)
@@ -685,7 +735,7 @@ func TestEdgeCases(t *testing.T) {
 
 func TestIsConstant(t *testing.T) {
 	require.True(t, (&NullValue{}).isConstant())
-	require.True(t, (&Number{}).isConstant())
+	require.True(t, (&Integer{}).isConstant())
 	require.True(t, (&Varchar{}).isConstant())
 	require.True(t, (&Bool{}).isConstant())
 	require.True(t, (&Blob{}).isConstant())
@@ -696,8 +746,8 @@ func TestIsConstant(t *testing.T) {
 
 	require.True(t, (&NumExp{
 		op:    AND,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.True(t, (&NotBoolExp{exp: &Bool{}}).isConstant())
@@ -705,19 +755,19 @@ func TestIsConstant(t *testing.T) {
 
 	require.True(t, (&CmpBoolExp{
 		op:    LE,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.True(t, (&BinBoolExp{
 		op:    ADDOP,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.False(t, (&CmpBoolExp{
 		op:    LE,
-		left:  &Number{val: 1},
+		left:  &Integer{val: 1},
 		right: &ColSelector{},
 	}).isConstant())
 
@@ -907,4 +957,61 @@ func TestDistinctRowReaderErrors(t *testing.T) {
 	require.ErrorIs(t, err, errDummy)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)
+
+}
+
+func TestFloat64Type(t *testing.T) {
+
+	ts := &Float64{val: 0.0}
+
+	t.Run("comparison functions", func(t *testing.T) {
+
+		cmp, err := ts.Compare(&Float64{val: 0.0})
+		require.NoError(t, err)
+		require.Equal(t, 0, cmp)
+
+		cmp, err = ts.Compare(&Float64{val: 0.1})
+		require.NoError(t, err)
+		require.Equal(t, cmp, -1)
+
+		cmp, err = ts.Compare(&Float64{val: -0.1})
+		require.NoError(t, err)
+		require.Equal(t, cmp, 1)
+
+		cmp, err = ts.Compare(&NullValue{t: Float64Type})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = ts.Compare(&NullValue{t: AnyType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = (&NullValue{t: Float64Type}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+
+		cmp, err = (&NullValue{t: AnyType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+	})
+
+	it, err := ts.inferType(map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+	require.Equal(t, Float64Type, it)
+
+	err = ts.requiresType(Float64Type, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+
+	err = ts.requiresType(IntegerType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	v, err := ts.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, ts, v)
+
+	v = ts.reduceSelectors(&Row{}, "", "")
+	require.Equal(t, ts, v)
+
+	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
 }

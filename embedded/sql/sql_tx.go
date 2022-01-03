@@ -147,7 +147,7 @@ func (sqlTx *SQLTx) Commit(ctx context.Context) (err error) {
 
 	// no need to wait for indexing to be up to date during commit phase
 	sqlTx.txHeader, err = sqlTx.tx.AsyncCommit(ctx)
-	if err != nil && err != store.ErrorNoEntriesProvided {
+	if err != nil && !errors.Is(err, store.ErrNoEntriesProvided) {
 		return err
 	}
 

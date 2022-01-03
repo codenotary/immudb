@@ -101,7 +101,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 	}
 
 	txhdr, err := db.Set(str.Context(), &schema.SetRequest{KVs: kvs})
-	if err == store.ErrorMaxValueLenExceeded {
+	if err == store.ErrMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded)
 	}
 	if err != nil {
@@ -256,7 +256,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		ProveSinceTx: proveSinceTx,
 	}
 	verifiableTx, err := db.VerifiableSet(str.Context(), &vSetReq)
-	if err == store.ErrorMaxValueLenExceeded {
+	if err == store.ErrMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
 	if err != nil {

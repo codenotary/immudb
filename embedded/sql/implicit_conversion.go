@@ -14,31 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package errors
+package sql
 
-import (
-	"testing"
+func applyImplicitConversion(val TypedValue, requiredColumnType SQLValueType) interface{} {
 
-	"github.com/stretchr/testify/require"
-)
+	switch requiredColumnType {
+	case Float64Type:
+		switch value := val.Value().(type) {
+		case int64:
+			return float64(value)
+		}
+	}
 
-func TestMapPgError(t *testing.T) {
-	err := ErrUnknowMessageType
-	be := MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrMaxStmtNumberExceeded
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrNoStatementFound
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrParametersValueSizeTooLarge
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrNegativeParameterValueLen
-	be = MapPgError(err)
-	require.NotNil(t, be)
-	err = ErrMalformedMessage
-	be = MapPgError(err)
-	require.NotNil(t, be)
+	// No implicit conversion rule found, do not convert at all
+	return val.Value()
 }

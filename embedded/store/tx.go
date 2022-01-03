@@ -627,7 +627,7 @@ func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
 	t.h.Eh = root
 
 	if t.h.Alh() != alh {
-		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, t.h.ID)
+		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrCorruptedTxData, t.h.ID)
 	}
 
 	return nil
