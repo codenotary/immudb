@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+//	immuerrors "github.com/codenotary/immudb/pkg/errors"
 )
 
 const (
@@ -160,11 +161,26 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 				return err
 			}
 
-			udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
-			if err == nil {
-				// database exists - find the last tansaction and verify it
+			dbList, err := cl.immuClient.DatabaseList(cl.context)
+			if err != nil {
+				return err
+			}
+			exist := false
+			for _, db := range dbList.Databases {
+				if db.DatabaseName == args[0] {
+					exist = true
+					break
+				}
+			}
+
+			if exist {
+				udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
+				if err != nil {
+					return err
+				}
 				cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 
+				// find the last tansaction and verify it
 				state, err := cl.immuClient.CurrentState(cl.context)
 				if err != nil {
 					return err
@@ -178,8 +194,6 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 					if err != nil {
 						return err
 					}
-					// rewind back to tx header
-					file.Seek(-int64(headerSize), io.SeekCurrent)
 					txn, err := cl.immuClient.TxByID(cl.context, state.TxId)
 					if err != nil {
 						return err
@@ -192,21 +206,26 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 				if err != nil {
 					return fmt.Errorf("cannot switch on replica mode for db: %v", err)
 				}
-			} else /*if status.Code(err) == codes.NotFound */ {
+			} else {
 				// db does not exist - create as replica and use it
 				err = cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: true, MasterDatabase: "dummy"})
 				if err != nil {
 					return err
 				}
 
-				udr, err = cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
+				udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
 				if err != nil {
 					return err
 				}
 				cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
-			} /*else {
-				return err
-			} */
+
+				// find the last tansaction and verify it
+				state, err := cl.immuClient.CurrentState(cl.context)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("DB has %d txns\n", state.TxId)				
+			}
 			defer func() {
 				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
 				if err != nil {
@@ -216,7 +235,13 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 
 			return cl.runHotRestore(file)
 		},
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			verify, _ := cmd.Flags().GetBool("verify")
+			if verify {
+				return cobra.ExactArgs(0)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 	}
 	ccmd.Flags().StringP("input", "i", "-", "input file file, \"-\" for stdin")
 	ccmd.Flags().Bool("verify", false, "do not restore data, only verify backup")
@@ -258,11 +283,15 @@ func (cl *commandlineBck) runHotBackup(output io.Writer, startFrom uint64, progr
 }
 
 func (cl *commandlineBck) runHotRestore(input io.Reader) error {
+	var startTx, lastTx uint64
 	maxPayload := uint32(cl.options.MaxRecvMsgSize)
 	for {
 		tx, signSize, txSize, err := getTxHeader(input)
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if startTx == 0 {
+			startTx = tx
 		}
 		if err != nil {
 			return err
@@ -299,8 +328,9 @@ func (cl *commandlineBck) runHotRestore(input io.Reader) error {
 		if !bytes.Equal(payload[:signSize], metadata.EH) {
 			return fmt.Errorf("signatures for tx %d don't match", tx)
 		}
-		fmt.Printf("%d\n", tx)
+		lastTx = tx
 	}
+	fmt.Printf("Restored transactions %d - %d\n", startTx, lastTx)
 
 	return nil
 }
