@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,14 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type indexer struct {
@@ -43,6 +46,9 @@ type indexer struct {
 
 	compactionMutex sync.Mutex
 	mutex           sync.Mutex
+
+	metricsLastCommittedTrx prometheus.Gauge
+	metricsLastIndexedTrx   prometheus.Gauge
 }
 
 type runningState = int
@@ -51,6 +57,21 @@ const (
 	running runningState = iota
 	stopped
 	paused
+)
+
+var (
+	metricsLastIndexedTrxId = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "immudb_last_indexed_trx_id",
+		Help: "The highest id of indexed transaction",
+	}, []string{
+		"db",
+	})
+	metricsLastCommittedTrx = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "immudb_last_committed_trx_id",
+		Help: "The highest id of committed transaction",
+	}, []string{
+		"db",
+	})
 )
 
 func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWaitees int) (*indexer, error) {
@@ -78,6 +99,10 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 		state:     stopped,
 		stateCond: sync.NewCond(&sync.Mutex{}),
 	}
+
+	dbName := filepath.Base(store.path)
+	indexer.metricsLastIndexedTrx = metricsLastIndexedTrxId.WithLabelValues(dbName)
+	indexer.metricsLastCommittedTrx = metricsLastCommittedTrx.WithLabelValues(dbName)
 
 	indexer.resume()
 
@@ -269,12 +294,17 @@ func (idx *indexer) Pause() {
 }
 
 func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
+	committedTxID, _, _ := idx.store.commitState()
+	idx.metricsLastCommittedTrx.Set(float64(committedTxID))
+
 	for {
 		lastIndexedTx := idx.index.Ts()
 
 		if idx.wHub != nil {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
+
+		idx.metricsLastIndexedTrx.Set(float64(lastIndexedTx))
 
 		err := idx.store.WaitForTx(lastIndexedTx+1, cancellation)
 		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
@@ -286,6 +316,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 		}
 
 		committedTxID, _, _ := idx.store.commitState()
+		idx.metricsLastCommittedTrx.Set(float64(committedTxID))
 
 		txsToIndex := committedTxID - lastIndexedTx
 		idx.store.notify(Info, false, "%d transaction/s to be indexed at '%s'", txsToIndex, idx.store.path)
@@ -381,6 +412,8 @@ func (idx *indexer) indexSince(txID uint64, limit int) error {
 		if err != nil {
 			return err
 		}
+
+		idx.metricsLastIndexedTrx.Set(float64(txID + uint64(i)))
 	}
 
 	return nil
