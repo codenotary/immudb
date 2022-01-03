@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -368,7 +369,7 @@ func main() {
 			for {
 				tx, err := txReader.Read()
 				if err != nil {
-					if err == store.ErrNoMoreEntries {
+					if errors.Is(err, store.ErrNoMoreEntries) {
 						break
 					}
 					panic(err)

@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -844,7 +845,7 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 	options := s.defaultDBOptions(database)
 
 	e, err := s.sysDB.Get(context.Background(), &schema.KeyRequest{Key: optionsKey})
-	if err == store.ErrKeyNotFound && createIfNotExists {
+	if errors.Is(err, store.ErrKeyNotFound) && createIfNotExists {
 		err = s.saveDBOptions(options)
 		if err != nil {
 			return nil, err

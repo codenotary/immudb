@@ -208,18 +208,18 @@ func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue [sh
 	}
 
 	if len(key) > tx.st.maxKeyLen {
-		return ErrorMaxKeyLenExceeded
+		return ErrMaxKeyLenExceeded
 	}
 
 	if len(value) > tx.st.maxValueLen {
-		return ErrorMaxValueLenExceeded
+		return ErrMaxValueLenExceeded
 	}
 
 	kid := sha256.Sum256(key)
 	keyRef, isKeyUpdate := tx.entriesByKey[kid]
 
 	if !isKeyUpdate && len(tx.entries) > tx.st.maxTxEntries {
-		return ErrorMaxTxEntriesLimitExceeded
+		return ErrMaxTxEntriesLimitExceeded
 	}
 
 	// updates are not needed because valueRef are resolved with the "interceptor"

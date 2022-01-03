@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -150,7 +151,11 @@ func zeroForType(t SQLValueType) TypedValue {
 	switch t {
 	case IntegerType:
 		{
-			return &Number{}
+			return &Integer{}
+		}
+	case Float64Type:
+		{
+			return &Float64{}
 		}
 	case BooleanType:
 		{
@@ -183,7 +188,7 @@ func (gr *groupedRowReader) Parameters() map[string]interface{} {
 func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
 		row, err := gr.rowReader.Read(ctx)
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			if !gr.nonEmpty && allAgregations(gr.selectors) {
 				// special case when all selectors are aggregations
 				zeroRow := &Row{
@@ -201,7 +206,7 @@ func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 					encSel := EncodeSelector(aggFn, db, table, col)
 
 					var zero TypedValue
-					if aggFn == COUNT || aggFn == SUM || aggFn == AVG {
+					if aggFn == COUNT {
 						zero = zeroForType(IntegerType)
 					} else {
 						zero = zeroForType(colsBySelector[encSel].Type)
@@ -305,19 +310,31 @@ func (gr *groupedRowReader) initAggregations() error {
 			}
 		case SUM:
 			{
-				v = &SumValue{sel: EncodeSelector("", db, table, col)}
+				v = &SumValue{
+					val: &NullValue{t: AnyType},
+					sel: EncodeSelector("", db, table, col),
+				}
 			}
 		case MIN:
 			{
-				v = &MinValue{sel: EncodeSelector("", db, table, col)}
+				v = &MinValue{
+					val: &NullValue{t: AnyType},
+					sel: EncodeSelector("", db, table, col),
+				}
 			}
 		case MAX:
 			{
-				v = &MaxValue{sel: EncodeSelector("", db, table, col)}
+				v = &MaxValue{
+					val: &NullValue{t: AnyType},
+					sel: EncodeSelector("", db, table, col),
+				}
 			}
 		case AVG:
 			{
-				v = &AVGValue{sel: EncodeSelector("", db, table, col)}
+				v = &AVGValue{
+					s:   &NullValue{t: AnyType},
+					sel: EncodeSelector("", db, table, col),
+				}
 			}
 		default:
 			{

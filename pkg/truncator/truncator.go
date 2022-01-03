@@ -117,19 +117,20 @@ func (t *Truncator) Start() error {
 	return nil
 }
 
-//	truncate discards an appendable log upto a given offset
-//	before time ts. First, the transaction is fetched which lies
-//	before the specified time period, and then the values are
-//	discarded upto the specified offset.
+// truncate discards an appendable log upto a given offset
+// before time ts. First, the transaction is fetched which lies
+// before the specified time period, and then the values are
+// discarded upto the specified offset.
 //
-//			  discard point
-//					|
-//					|
-//					v
-//	--------+-------+--------+----------
-//			|       |        |
-//		tn-1:vx  tn:vx   tn+1:vx
+//	  discard point
+//			|
+//			|
+//			v
 //
+// --------+-------+--------+----------
+//
+//		|       |        |
+//	tn-1:vx  tn:vx   tn+1:vx
 func (t *Truncator) truncate(ctx context.Context, ts time.Time) error {
 	for _, c := range t.truncators {
 		// Plan determines the transaction header before time period ts. If a
