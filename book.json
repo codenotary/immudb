@@ -1,0 +1,23 @@
+{
+    "title": "immudb",
+    "author": "codenotary",
+    "output.name": "site",
+    "gitbook": "3.2.3",
+    "root": "./docs",
+    "styles": {
+        "website": "styles/website.css"
+    },
+    "plugins": [
+        "-lunr",
+        "-search",
+        "-highlight",
+        "-livereload",
+        "hints@^1.0.2",
+        "versions"
+    ],
+    "pluginsConfig": {
+        "versions": {
+            "type": "branches"
+        }
+    }
+}
