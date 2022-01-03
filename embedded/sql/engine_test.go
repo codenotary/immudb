@@ -378,6 +378,96 @@ func TestTimestampCasts(t *testing.T) {
 	})
 }
 
+func TestFloatType(t *testing.T) {
+
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS float_table (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	t.Run("must insert float type", func(t *testing.T) {
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(.7)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(.543210)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(105.7)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(00105.98988897)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(105.9898.8897)", nil, nil)
+		require.Error(t, err)
+
+		r, err := engine.Query("SELECT ft FROM float_table", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+	})
+
+	t.Run("must accept float as parameter", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO float_table(ft) VALUES(@ft)", map[string]interface{}{
+				"ft": 0.4,
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+		require.Equal(t, 0.4, row.ValuesByPosition[0].Value())
+	})
+
+	t.Run("must correctly validate float equality", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO float_table(ft) VALUES(@ft)", map[string]interface{}{
+				"ft": 0.78,
+			},
+			nil,
+		)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ft FROM float_table WHERE ft = @ft ORDER BY id", map[string]interface{}{
+			"ft": 0.78,
+		}, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+		require.Equal(t, 0.78, row.ValuesByPosition[0].Value())
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		r, err = engine.Query("SELECT ts FROM float_table WHERE ft = @ft ORDER BY id", map[string]interface{}{
+			"ft": "2021-12-06 10:14",
+		}, nil)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNotComparableValues)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+}
+
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	engine := setupCommonTest(t)
 

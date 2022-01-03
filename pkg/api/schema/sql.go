@@ -104,6 +104,10 @@ func asSQLValue(v interface{}) (*SQLValue, error) {
 		{
 			return &SQLValue{Value: &SQLValue_Ts{Ts: sql.TimeToInt64(tv)}}, nil
 		}
+	case float64:
+		{
+			return &SQLValue{Value: &SQLValue_F{F: tv}}, nil
+		}
 	}
 	return nil, sql.ErrInvalidValue
 }

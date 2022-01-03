@@ -488,6 +488,8 @@ func (c *Column) MaxLen() int {
 		return 8
 	case TimestampType:
 		return 8
+	case FloatType:
+		return 8
 	}
 	return c.maxLen
 }

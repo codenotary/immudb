@@ -1590,6 +1590,7 @@ Only succeed if given key was not modified after given transaction
 | b | [bool](#bool) |  |  |
 | bs | [bytes](#bytes) |  |  |
 | ts | [int64](#int64) |  |  |
+| f | [double](#double) |  |  |
 
 
 

@@ -130,6 +130,10 @@ func RenderValue(op isSQLValue_Value) string {
 			t := sql.TimeFromInt64(v.Ts)
 			return t.Format("2006-01-02 15:04:05.999999")
 		}
+	case *SQLValue_F:
+		{
+			return strconv.FormatFloat(float64(v.F), 'f', -1, 64)
+		}
 	}
 
 	return fmt.Sprintf("%v", op)
@@ -161,6 +165,10 @@ func RenderValueAsByte(op isSQLValue_Value) []byte {
 		{
 			t := sql.TimeFromInt64(v.Ts)
 			return []byte(t.Format("2006-01-02 15:04:05.999999"))
+		}
+	case *SQLValue_F:
+		{
+			return []byte(strconv.FormatFloat(float64(v.F), 'f', -1, 64))
 		}
 	}
 
@@ -196,6 +204,10 @@ func RawValue(v *SQLValue) interface{} {
 	case *SQLValue_Ts:
 		{
 			return sql.TimeFromInt64(tv.Ts)
+		}
+	case *SQLValue_F:
+		{
+			return tv.F
 		}
 	}
 

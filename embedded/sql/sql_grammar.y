@@ -37,6 +37,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     value ValueExp
     id string
     number uint64
+    float float64
     str string
     boolean bool
     blob []byte
@@ -82,11 +83,13 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
 %token <number> NUMBER
+%token <float> FLOAT
 %token <str> VARCHAR
 %token <boolean> BOOLEAN
 %token <blob> BLOB
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
+%token <dot> DOT
 
 %left  ','
 %right AS
@@ -366,10 +369,15 @@ values:
         $$ = append($1, $3)
     }
 
-val: 
+val:
     NUMBER
     {
         $$ = &Number{val: int64($1)}
+    }
+|
+    FLOAT
+    {
+        $$ = &Float{val: float64($1)}
     }
 |
     VARCHAR
@@ -568,7 +576,7 @@ col:
         $$ = &ColSelector{col: $1}
     }
 |
-    IDENTIFIER '.' IDENTIFIER
+    IDENTIFIER DOT IDENTIFIER
     {
         $$ = &ColSelector{table: $1, col: $3}
     }

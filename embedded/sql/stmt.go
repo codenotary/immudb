@@ -64,6 +64,7 @@ const (
 	BooleanType   SQLValueType = "BOOLEAN"
 	VarcharType   SQLValueType = "VARCHAR"
 	BLOBType      SQLValueType = "BLOB"
+	FloatType     SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
 )
@@ -1778,6 +1779,75 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
+type Float struct {
+	val float64
+}
+
+func (v *Float) Type() SQLValueType {
+	return FloatType
+}
+
+func (v *Float) IsNull() bool {
+	return false
+}
+
+func (v *Float) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return FloatType, nil
+}
+
+func (v *Float) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != TimestampType {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, FloatType, t)
+	}
+
+	return nil
+}
+
+func (v *Float) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Float) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
+}
+
+func (v *Float) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+	return v
+}
+
+func (v *Float) isConstant() bool {
+	return true
+}
+
+func (v *Float) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+	return nil
+}
+
+func (v *Float) Value() interface{} {
+	return v.val
+}
+
+func (v *Float) Compare(val TypedValue) (int, error) {
+	if val.IsNull() {
+		return 1, nil
+	}
+
+	rval, ok := val.Value().(float64)
+	if !ok {
+		return 0, ErrNotComparableValues
+	}
+
+	if v.val == rval {
+		return 0, nil
+	}
+
+	if v.val > rval {
+		return 1, nil
+	}
+
+	return -1, nil
+}
+
 type FnCall struct {
 	fn     string
 	params []ValueExp
@@ -2035,6 +2105,8 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		{
 			return &Timestamp{val: v.Truncate(time.Microsecond).UTC()}, nil
 		}
+	case float64:
+		return &Float{val: v}, nil
 	}
 
 	return nil, ErrUnsupportedParameter

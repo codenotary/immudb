@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -117,7 +118,7 @@ type MultiDBHandler interface {
 	ExecPreparedStmts(ctx context.Context, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
 }
 
-//SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
+// SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
 	engine *Engine
 
@@ -665,7 +666,8 @@ func asType(t string) (SQLValueType, error) {
 		t == BooleanType ||
 		t == VarcharType ||
 		t == BLOBType ||
-		t == TimestampType {
+		t == TimestampType ||
+		t == FloatType {
 		return t, nil
 	}
 
@@ -789,6 +791,7 @@ func EncodeID(id uint32) []byte {
 	return encID[:]
 }
 
+// EncodeValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
 func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	switch colType {
 	case VarcharType:
@@ -887,6 +890,22 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
+	case FloatType:
+		{
+			floatVal, ok := val.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
+
+			var encv [EncLenLen + 8]byte
+			floatBits := math.Float64bits(floatVal)
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], floatBits)
+
+			return encv[:], nil
+		}
 	}
 
 	return nil, ErrInvalidValue
@@ -898,6 +917,7 @@ const (
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
+// EncodeAsKey encodes a value in a b-tree meaningful way.
 func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	if maxLen <= 0 {
 		return nil, ErrInvalidValue
@@ -1019,7 +1039,39 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
+	case FloatType:
+		{
+			floatVal, ok := val.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
 
+			// Apart form the sign bit, bit representation of float64
+			// can be sorted lexicographically
+			floatBits := math.Float64bits(floatVal)
+
+			var encv [9]byte
+			encv[0] = KeyValPrefixNotNull
+			binary.BigEndian.PutUint64(encv[1:], floatBits)
+
+			if encv[1]&0x80 != 0 {
+				// For negative numbers, the order must be reversed,
+				// we also negate the sign bit so that all negative
+				// numbers end up in the smaller half of values
+				for i := 1; i < 10; i++ {
+					encv[i] = ^encv[i]
+				}
+			} else {
+				// For positive numbers, the order is already correct,
+				// we only have to set the sign bit to 1 to ensure that
+				// positive numbers end in the larger half of values
+				encv[1] ^= 0x80
+			}
+
+			return encv[:], nil
+		}
 	}
 
 	return nil, ErrInvalidValue
@@ -1084,6 +1136,15 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			voff += vlen
 
 			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
+		}
+	case FloatType:
+		{
+			if vlen != 8 {
+				return nil, 0, ErrCorruptedData
+			}
+			v := binary.BigEndian.Uint64(b[voff:])
+			voff += vlen
+			return &Float{val: math.Float64frombits(v)}, voff, nil
 		}
 	}
 
