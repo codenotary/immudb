@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	// ---- Opening remote chnks ---------------------------------------
+	// ---- Opening remote chunks ---------------------------------------
 
 	metricsOpenTime = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "immudb_remoteapp_open_time",
@@ -74,6 +74,12 @@ var (
 	metricsUploadCancelled = metricsUploadEvents.WithLabelValues("cancelled")
 	metricsUploadRetried   = metricsUploadEvents.WithLabelValues("retried")
 	metricsUploadSucceeded = metricsUploadEvents.WithLabelValues("succeeded")
+
+	metricsUploadTime = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "immudb_remoteapp_upload_time",
+		Help:    "Histogram of the total time required to upload a chunk to the remote storage",
+		Buckets: []float64{.1, .25, .5, 1, 2.5, 5, 10, 25, 50},
+	})
 
 	// ---- Downloads ---------------------------------------
 
