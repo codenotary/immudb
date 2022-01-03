@@ -47,3 +47,7 @@ vendor
 immudb_pwd
 token
 token_admin
+
+# gitbook
+_book
+node_modules
