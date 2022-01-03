@@ -19,7 +19,10 @@ package sql
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -493,6 +496,8 @@ func (c *Column) MaxLen() int {
 		return 8
 	case TimestampType:
 		return 8
+	case Float64Type:
+		return 8
 	}
 	return c.maxLen
 }
@@ -510,6 +515,8 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 	case BooleanType:
 		return maxLen <= 1
 	case IntegerType:
+		return maxLen == 0 || maxLen == 8
+	case Float64Type:
 		return maxLen == 0 || maxLen == 8
 	case TimestampType:
 		return maxLen == 0 || maxLen == 8
@@ -532,7 +539,7 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	for {
 		mkey, vref, err := dbReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -577,7 +584,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	for {
 		mkey, vref, err := tableReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -619,7 +626,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 		if table.autoIncrementPK {
 			encMaxPK, err := loadMaxPK(sqlPrefix, tx, table)
-			if err == store.ErrNoMoreEntries {
+			if errors.Is(err, store.ErrNoMoreEntries) {
 				continue
 			}
 			if err != nil {
@@ -682,7 +689,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 
 	for {
 		mkey, vref, err := colSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -740,7 +747,7 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 	for {
 		mkey, vref, err := idxSpecReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -857,6 +864,7 @@ func unmapColSpec(prefix, mkey []byte) (dbID, tableID, colID uint32, colType SQL
 
 func asType(t string) (SQLValueType, error) {
 	if t == IntegerType ||
+		t == Float64Type ||
 		t == BooleanType ||
 		t == VarcharType ||
 		t == BLOBType ||
@@ -984,6 +992,7 @@ func EncodeID(id uint32) []byte {
 	return encID[:]
 }
 
+// EncodeValue encode a value in a byte format. This is the internal binary representation of a value. Can be decoded with DecodeValue.
 func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	switch colType {
 	case VarcharType:
@@ -1082,6 +1091,22 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
+	case Float64Type:
+		{
+			floatVal, ok := val.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
+
+			var encv [EncLenLen + 8]byte
+			floatBits := math.Float64bits(floatVal)
+			binary.BigEndian.PutUint32(encv[:], uint32(8))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], floatBits)
+
+			return encv[:], nil
+		}
 	}
 
 	return nil, ErrInvalidValue
@@ -1093,6 +1118,7 @@ const (
 	KeyValPrefixUpperBound byte = 0xFF
 )
 
+// EncodeAsKey encodes a value in a b-tree meaningful way.
 func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, error) {
 	if maxLen <= 0 {
 		return nil, ErrInvalidValue
@@ -1214,7 +1240,39 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
+	case Float64Type:
+		{
+			floatVal, ok := val.(float64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"value is not a float: %w", ErrInvalidValue,
+				)
+			}
 
+			// Apart form the sign bit, bit representation of float64
+			// can be sorted lexicographically
+			floatBits := math.Float64bits(floatVal)
+
+			var encv [9]byte
+			encv[0] = KeyValPrefixNotNull
+			binary.BigEndian.PutUint64(encv[1:], floatBits)
+
+			if encv[1]&0x80 != 0 {
+				// For negative numbers, the order must be reversed,
+				// we also negate the sign bit so that all negative
+				// numbers end up in the smaller half of values
+				for i := 1; i < 9; i++ {
+					encv[i] = ^encv[i]
+				}
+			} else {
+				// For positive numbers, the order is already correct,
+				// we only have to set the sign bit to 1 to ensure that
+				// positive numbers end in the larger half of values
+				encv[1] ^= 0x80
+			}
+
+			return encv[:], nil
+		}
 	}
 
 	return nil, ErrInvalidValue
@@ -1249,7 +1307,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Number{val: int64(v)}, voff, nil
+			return &Integer{val: int64(v)}, voff, nil
 		}
 	case BooleanType:
 		{
@@ -1280,7 +1338,259 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
 		}
+	case Float64Type:
+		{
+			if vlen != 8 {
+				return nil, 0, ErrCorruptedData
+			}
+			v := binary.BigEndian.Uint64(b[voff:])
+			voff += vlen
+			return &Float64{val: math.Float64frombits(v)}, voff, nil
+		}
 	}
 
 	return nil, 0, ErrCorruptedData
+}
+
+// addSchemaToTx adds the schema to the ongoing transaction.
+func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))
+
+	idxReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer idxSpecReader.Close()
+
+	for {
+		mkey, vref, err := idxSpecReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if t.id != tableID || t.db.id != dbID {
+			return ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// addSchemaToTx adds the schema of the catalog to the given transaction.
+func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(d.id)),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	tableReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer tableReader.Close()
+
+	for {
+		mkey, vref, err := tableReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if dbID != d.id {
+			return ErrCorruptedData
+		}
+
+		// read col specs into tx
+		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix)
+		if err != nil {
+			return err
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+
+		table, err := d.newTable(string(v), colSpecs)
+		if err != nil {
+			return err
+		}
+
+		if tableID != table.id {
+			return ErrCorruptedData
+		}
+
+		// read index specs into tx
+		err = table.addIndexesToTx(sqlPrefix, tx)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// addSchemaToTx adds the schema of the catalog to the given transaction.
+func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	dbReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer dbReader.Close()
+
+	for {
+		mkey, vref, err := dbReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		id, err := unmapDatabaseID(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+
+		db, err := c.newDatabase(id, string(v))
+		if err != nil {
+			return err
+		}
+
+		// read tables and indexes into tx
+		err = db.addTablesToTx(sqlPrefix, tx)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// addColSpecsToTx adds the column specs of the given table to the given transaction.
+func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return nil, err
+	}
+	defer colSpecReader.Close()
+
+	specs = make([]*ColSpec, 0)
+
+	for {
+		mkey, vref, err := colSpecReader.Read()
+		if errors.Is(err, store.ErrNoMoreEntries) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		if dbID != mdbID || tableID != mtableID {
+			return nil, ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+		if len(v) < 6 {
+			return nil, ErrCorruptedData
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return nil, err
+		}
+
+		spec := &ColSpec{
+			colName:       string(v[5:]),
+			colType:       colType,
+			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
+			autoIncrement: v[0]&autoIncrementFlag != 0,
+			notNull:       v[0]&nullableFlag != 0,
+		}
+
+		specs = append(specs, spec)
+
+		if int(colID) != len(specs) {
+			return nil, ErrCorruptedData
+		}
+	}
+
+	return
 }

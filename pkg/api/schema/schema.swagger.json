@@ -3251,6 +3251,10 @@
         "ts": {
           "type": "string",
           "format": "int64"
+        },
+        "f": {
+          "type": "number",
+          "format": "double"
         }
       }
     },

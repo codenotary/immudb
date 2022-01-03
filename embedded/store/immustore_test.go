@@ -192,7 +192,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 
 func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 	_, err := Open("immustore_test.go", DefaultOptions())
-	require.ErrorIs(t, err, ErrorPathIsNotADirectory)
+	require.ErrorIs(t, err, ErrPathIsNotADirectory)
 }
 
 func TestImmudbStoreOnClosedStore(t *testing.T) {
@@ -491,7 +491,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		}
 
 		_, err := OpenWith(t.TempDir(), vLogs, txLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, ErrorCorruptedTxData)
+		require.ErrorIs(t, err, ErrCorruptedTxData)
 	})
 
 	t.Run("fail to read last transaction", func(t *testing.T) {
@@ -768,10 +768,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	t.Run("validateEntries", func(t *testing.T) {
 		err = immuStore.validateEntries(nil)
-		require.ErrorIs(t, err, ErrorNoEntriesProvided)
+		require.ErrorIs(t, err, ErrNoEntriesProvided)
 
 		err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
-		require.ErrorIs(t, err, ErrorMaxTxEntriesLimitExceeded)
+		require.ErrorIs(t, err, ErrMaxTxEntriesLimitExceeded)
 
 		entry := &EntrySpec{Key: nil, Value: nil}
 		err = immuStore.validateEntries([]*EntrySpec{entry})
@@ -779,11 +779,11 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 		entry = &EntrySpec{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
 		err = immuStore.validateEntries([]*EntrySpec{entry})
-		require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
+		require.ErrorIs(t, err, ErrMaxKeyLenExceeded)
 
 		entry = &EntrySpec{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
 		err = immuStore.validateEntries([]*EntrySpec{entry})
-		require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
+		require.ErrorIs(t, err, ErrMaxValueLenExceeded)
 	})
 
 	t.Run("validatePreconditions", func(t *testing.T) {
@@ -1014,10 +1014,10 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrNullKey)
 
 		err = tx.Set(make([]byte, immuStore.maxKeyLen+1), nil, []byte{3, 2, 1})
-		require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
+		require.ErrorIs(t, err, ErrMaxKeyLenExceeded)
 
 		err = tx.Set([]byte{1, 2, 3}, nil, make([]byte, immuStore.maxValueLen+1))
-		require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
+		require.ErrorIs(t, err, ErrMaxValueLenExceeded)
 
 		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
 		require.NoError(t, err)
@@ -1593,7 +1593,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 		return nil, nil, nil
 	}
 	_, err = immuStore.CommitWith(context.Background(), callback, false)
-	require.ErrorIs(t, err, ErrorNoEntriesProvided)
+	require.ErrorIs(t, err, ErrNoEntriesProvided)
 
 	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return nil, nil, errors.New("error")
@@ -2073,7 +2073,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = tx.Commit(context.Background())
-	require.ErrorIs(t, err, ErrorNoEntriesProvided)
+	require.ErrorIs(t, err, ErrNoEntriesProvided)
 
 	for i := 0; i < txCount; i++ {
 		tx, err := immuStore.NewWriteOnlyTx(context.Background())

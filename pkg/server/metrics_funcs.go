@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +102,7 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 
 			dbName := db.GetName()
 			state, err := db.CurrentState()
-			if err == store.ErrAlreadyClosed {
+			if errors.Is(err, store.ErrAlreadyClosed) {
 				continue
 			}
 			if err != nil {

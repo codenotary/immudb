@@ -182,7 +182,7 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 
 	for l := 1; l <= limit; l++ {
 		zKey, _, err := r.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -209,7 +209,7 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
 		e, err := d.getAtTx(key, atTx, 1, snap, 0, true)
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
 		}

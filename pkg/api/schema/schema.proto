@@ -1418,6 +1418,7 @@ message SQLValue {
     bool b = 4;
     bytes bs = 5;
     int64 ts = 6;
+    double f = 7;
   }
 }
 

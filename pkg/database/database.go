@@ -911,7 +911,7 @@ func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.En
 
 	for _, key := range req.Keys {
 		e, err := d.get(EncodeKey(key), snap, true)
-		if err == nil || err == store.ErrKeyNotFound {
+		if err == nil || errors.Is(err, store.ErrKeyNotFound) {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
 			}
@@ -1008,7 +1008,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				}
 
 				v, err := d.st.ReadValue(e)
-				if err == store.ErrExpiredEntry {
+				if errors.Is(err, store.ErrExpiredEntry) {
 					break
 				}
 				if err != nil {
@@ -1029,7 +1029,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				}
 
 				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0, skipIntegrityCheck)
-				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+				if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
 				}
@@ -1052,7 +1052,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
-					if err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrExpiredEntry) {
 						break
 					}
 					if err != nil {
@@ -1087,7 +1087,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if snap != nil {
 					entry, err = d.getAtTx(key, atTx, 1, snap, 0, skipIntegrityCheck)
-					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrExpiredEntry) {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
 					}
@@ -1119,7 +1119,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
-					if err == store.ErrExpiredEntry {
+					if errors.Is(err, store.ErrExpiredEntry) {
 						break
 					}
 					if err != nil {
@@ -1475,7 +1475,7 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 
 	for l := 1; l <= limit; l++ {
 		tx, err := txReader.Read()
-		if err == store.ErrNoMoreEntries {
+		if errors.Is(err, store.ErrNoMoreEntries) {
 			break
 		}
 		if err != nil {
@@ -1568,7 +1568,7 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 			Key:      req.Key,
 			Metadata: schema.KVMetadataToProto(entry.Metadata()),
 			Value:    val,
-			Expired:  err == store.ErrExpiredEntry,
+			Expired:  errors.Is(err, store.ErrExpiredEntry),
 			Revision: revision,
 		}
 

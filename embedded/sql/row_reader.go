@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -352,7 +353,7 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 
 	if r.period.start != nil {
 		txRange.initialTxID, err = r.period.start.instant.resolve(r.tx, r.params, true, r.period.start.inclusive)
-		if err == store.ErrTxNotFound {
+		if errors.Is(err, store.ErrTxNotFound) {
 			txRange.initialTxID = uint64(math.MaxUint64)
 		}
 		if err != nil && err != store.ErrTxNotFound {
@@ -362,7 +363,7 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 
 	if r.period.end != nil {
 		txRange.finalTxID, err = r.period.end.instant.resolve(r.tx, r.params, false, r.period.end.inclusive)
-		if err == store.ErrTxNotFound {
+		if errors.Is(err, store.ErrTxNotFound) {
 			txRange.finalTxID = uint64(0)
 		}
 		if err != nil && err != store.ErrTxNotFound {

@@ -35,9 +35,7 @@ import (
 
 func TestInit(t *testing.T) {
 	cli := Init(nil)
-	if len(cli.HelpMessage()) == 0 {
-		t.Fatal("cli help failed")
-	}
+	require.NotEmpty(t, cli.HelpMessage())
 }
 
 func setupTest(t *testing.T) *cli {
@@ -82,6 +80,7 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	})
 	require.Contains(t, msg, "Redunant argument")
 }
+
 func TestRunMissingArgs(t *testing.T) {
 	cli := setupTest(t)
 
@@ -107,15 +106,12 @@ func TestCheckCommand(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.checkCommand([]string{"--help"}, l)
 	})
-	if len(msg) == 0 {
-		t.Fatal("Help is empty")
-	}
+	require.NotEmpty(t, msg, "Help must not be empty")
+
 	msg = test.CaptureStdout(func() {
 		cli.checkCommand([]string{"set", "-h"}, l)
 	})
-	if len(msg) == 0 {
-		t.Fatal("Help is empty")
-	}
+	require.NotEmpty(t, msg, "Help must not be empty")
 
 	msg = test.CaptureStdout(func() {
 		cli.checkCommand([]string{"met", "-h"}, l)

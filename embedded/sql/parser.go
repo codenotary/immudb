@@ -102,6 +102,7 @@ var types = map[string]SQLValueType{
 	"VARCHAR":   VarcharType,
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
+	"FLOAT":     Float64Type,
 }
 
 var aggregateFns = map[string]AggregateFn{
@@ -353,6 +354,25 @@ func (l *lexer) Lex(lval *yySymType) int {
 			lval.err = err
 			return ERROR
 		}
+		// looking for a float
+		if isDot(l.r.nextChar) {
+			l.r.ReadByte() // consume dot
+
+			decimalPart, err := l.readNumber()
+			if err != nil {
+				lval.err = err
+				return ERROR
+			}
+
+			val, err := strconv.ParseFloat(fmt.Sprintf("%c%s.%s", ch, tail, decimalPart), 64)
+			if err != nil {
+				lval.err = err
+				return ERROR
+			}
+
+			lval.float = val
+			return FLOAT
+		}
 
 		val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64)
 		if err != nil {
@@ -360,8 +380,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
-		lval.number = val
-		return NUMBER
+		lval.integer = val
+		return INTEGER
 	}
 
 	if isComparison(ch) {
@@ -477,6 +497,24 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return PPARAM
 	}
 
+	if isDot(ch) {
+		if isNumber(l.r.nextChar) { // looking for  a float
+			decimalPart, err := l.readNumber()
+			if err != nil {
+				lval.err = err
+				return ERROR
+			}
+			val, err := strconv.ParseFloat(fmt.Sprintf("%d.%s", 0, decimalPart), 64)
+			if err != nil {
+				lval.err = err
+				return ERROR
+			}
+			lval.float = val
+			return FLOAT
+		}
+		return DOT
+	}
+
 	return int(ch)
 }
 
@@ -492,6 +530,10 @@ func (l *lexer) readWord() (string, error) {
 
 func (l *lexer) readNumber() (string, error) {
 	return l.readWhile(isNumber)
+}
+
+func (l *lexer) readDot() (string, error) {
+	return l.readWhile(isDot)
 }
 
 func (l *lexer) readString() (string, error) {
@@ -582,4 +624,8 @@ func isQuote(ch byte) bool {
 
 func isDoubleQuote(ch byte) bool {
 	return ch == 0x22
+}
+
+func isDot(ch byte) bool {
+	return '.' == ch
 }
