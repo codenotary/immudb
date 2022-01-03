@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"io/ioutil"
 	"log"
 	"net"
@@ -30,6 +29,8 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/store"
@@ -812,7 +813,12 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, fmt.Errorf("database '%s' already exists", req.GetDatabaseName())
 	}
 
-	if (!req.Replica && req.MasterDatabase != "") || (req.Replica && req.MasterDatabase == "") {
+	if !req.Replica &&
+		(req.MasterDatabase != "" ||
+			req.MasterAddress != "" ||
+			req.MasterPort > 0 ||
+			req.FollowerUsername != "" ||
+			req.FollowerPassword != "") {
 		return nil, ErrIllegalArguments
 	}
 

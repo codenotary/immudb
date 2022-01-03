@@ -17,11 +17,42 @@ limitations under the License.
 package stdlib
 
 import (
+	"context"
+	"fmt"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"os"
 	"testing"
 )
 
-func TestDriver_RegisterConnection(t *testing.T) {
-	connID := immuDriver.RegisterConnection(&Conn{})
-	require.Equal(t, "registeredConnConfig0", connID)
+func TestRegisterConnConfig(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := client.DefaultOptions()
+	opts.Username = "immudb"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
+
+	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+
+	db := OpenDB(opts)
+	defer db.Close()
+
+	connStr := RegisterConnConfig(opts)
+	defer UnregisterConnConfig(connStr)
+
+	db = Open(connStr)
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	require.NoError(t, err)
+
 }

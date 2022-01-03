@@ -20,7 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/server"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -36,6 +38,7 @@ func TestDriver_Open(t *testing.T) {
 	require.Errorf(t, err, immuServerRequired)
 	require.Nil(t, conn)
 }
+
 func TestParseConfig(t *testing.T) {
 	connString := "immudb://immudb:immudb@127.0.0.1:3324/defaultdb"
 	ris, err := ParseConfig(connString)
@@ -111,26 +114,88 @@ func TestDriver_OpenSSLDisable(t *testing.T) {
 }
 
 func TestDriver_OpenSSLRequire(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
-	}
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
+
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	defer server.Stop()
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	go func() {
+		server.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	d := immuDriver
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=require")
+
+	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 }
 
 func Test_SQLOpen(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
-	}
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
 
-	db, err := sql.Open("immudb", "immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	defer server.Stop()
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	go func() {
+		server.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NoError(t, err)
 
 	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	require.NoError(t, err)
+}
+
+func Test_Open(t *testing.T) {
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
+
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	defer server.Stop()
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	go func() {
+		server.Start()
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	db := Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
+	require.NotNil(t, db)
+
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
 	require.NoError(t, err)
 }

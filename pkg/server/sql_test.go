@@ -105,3 +105,36 @@ func TestSQLInteraction(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestSQLExecResult(t *testing.T) {
+	serverOptions := DefaultOptions().
+		WithMetricsServer(false)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	s.Initialize()
+
+	ctx := context.Background()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	xres, err := s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)"})
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+
+	xres, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "INSERT INTO table2 (name) VALUES ('first'),('second'),('third')"})
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 1}}}, xres.FirstInsertedPks())
+	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 3}}}, xres.LastInsertedPk())
+}

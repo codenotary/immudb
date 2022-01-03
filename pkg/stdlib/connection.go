@@ -37,14 +37,6 @@ func (c *Conn) GetImmuClient() client.ImmuClient {
 	return c.immuClient
 }
 
-func (c *Conn) GetDriver() *Driver {
-	return c.driver
-}
-
-func (c *Conn) GetTx() client.Tx {
-	return c.tx
-}
-
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	return nil, ErrNotImplemented
 }
@@ -54,7 +46,6 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 }
 
 func (c *Conn) Close() error {
-	defer c.GetDriver().UnregisterConnection(c.name)
 	return c.immuClient.CloseSession(context.TODO())
 }
 

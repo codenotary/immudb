@@ -30,8 +30,9 @@ import (
 var immuDriver *Driver
 
 func init() {
+
 	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
+		clientOptions: make(map[string]*client.Options),
 	}
 	sql.Register("immudb", immuDriver)
 }
@@ -44,18 +45,28 @@ func OpenDB(cliOpts *client.Options) *sql.DB {
 	return sql.OpenDB(c)
 }
 
-type Driver struct {
-	configMutex sync.Mutex
-	configs     map[string]*Conn
-	seq         int
+func Open(dns string) *sql.DB {
+	c := &driverConnector{
+		driver: immuDriver,
+		name:   dns,
+	}
+	return sql.OpenDB(c)
 }
 
-// Open
+type Driver struct {
+	configMutex   sync.Mutex
+	clientOptions map[string]*client.Options
+	sequence      int
+}
+
 func (d *Driver) Open(name string) (driver.Conn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Ensure eventual timeout
 	defer cancel()
 
-	connector, _ := d.OpenConnector(name)
+	connector, err := d.OpenConnector(name)
+	if err != nil {
+		return nil, err
+	}
 	return connector.Connect(ctx)
 }
 
@@ -63,25 +74,31 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &driverConnector{driver: d, name: name}, nil
 }
 
-func (d *Driver) UnregisterConnection(name string) {
+func (d *Driver) registerConnConfig(opt *client.Options) string {
 	d.configMutex.Lock()
-	defer d.configMutex.Unlock()
-
-	delete(d.configs, name)
+	connStr := fmt.Sprintf("registeredConnConfig%d", d.sequence)
+	d.sequence++
+	d.clientOptions[connStr] = opt
+	d.configMutex.Unlock()
+	return connStr
 }
 
-func (d *Driver) RegisterConnection(cn *Conn) string {
+func (d *Driver) unregisterConnConfig(connStr string) {
 	d.configMutex.Lock()
-	defer d.configMutex.Unlock()
-
-	name := fmt.Sprintf("registeredConnConfig%d", d.seq)
-	d.seq++
-	d.configs[name] = cn
-
-	return name
+	delete(d.clientOptions, connStr)
+	d.configMutex.Unlock()
 }
 
-func (d *Driver) GetNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
+// RegisterConnConfig registers a ConnConfig and returns the connection string to use with Open.
+func RegisterConnConfig(clientOptions *client.Options) string {
+	return immuDriver.registerConnConfig(clientOptions)
+}
+
+// UnregisterConnConfig removes the ConnConfig registration for connStr.
+func UnregisterConnConfig(connStr string) {
+	immuDriver.unregisterConnConfig(connStr)
+}
+func (d *Driver) getNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
 	immuClient := client.NewClient().WithOptions(cliOptions)
 
 	name := GetUri(cliOptions)

@@ -52,10 +52,6 @@ func TestConn_BeginTx(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
-	}
-
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
@@ -122,10 +118,6 @@ func TestTx_Rollback(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
-	}
-
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
@@ -173,10 +165,6 @@ func TestTx_Errors(t *testing.T) {
 	}()
 
 	time.Sleep(500 * time.Millisecond)
-
-	immuDriver = &Driver{
-		configs: make(map[string]*Conn),
-	}
 
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 

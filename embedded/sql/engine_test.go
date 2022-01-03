@@ -672,6 +672,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
 	require.Equal(t, int64(1), ctxs[0].LastInsertedPKs()["table1"])
+	require.Equal(t, int64(1), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
 	_, _, err = engine.Exec("INSERT INTO table1(id, title) VALUES (1, 'name2')", nil, nil)
@@ -693,6 +694,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(4), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(4), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
@@ -705,6 +707,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ctxs, 1)
 	require.True(t, ctxs[0].closed)
+	require.Equal(t, int64(5), ctxs[0].FirstInsertedPKs()["table1"])
 	require.Equal(t, int64(6), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 2, ctxs[0].UpdatedRows())
 }
