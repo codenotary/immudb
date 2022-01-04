@@ -27,7 +27,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/schollz/progressbar/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -307,7 +307,7 @@ func (cl *commandlineBck) runHotBackup(output io.Writer, startFrom uint64, progr
 
 	var bar *progressbar.ProgressBar
 	if progress {
-		bar = progressbar.Default(int64(txnCount))
+		bar = progressbar.New(int(txnCount))
 	}
 
 	done := make(chan struct{}, 1)
@@ -347,7 +347,7 @@ func (cl *commandlineBck) runHotRestore(input io.Reader, progress bool) error {
 
 	var bar *progressbar.ProgressBar
 	if progress {
-		bar = progressbar.Default(-1)
+		bar = progressbar.New(-1)
 	}
 
 	done := make(chan struct{}, 1)
