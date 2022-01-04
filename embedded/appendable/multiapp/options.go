@@ -37,6 +37,7 @@ type Options struct {
 	maxOpenedFiles    int
 	compressionFormat int
 	compressionLevel  int
+	metrics           Metrics
 }
 
 func DefaultOptions() *Options {
@@ -49,6 +50,7 @@ func DefaultOptions() *Options {
 		maxOpenedFiles:    DefaultMaxOpenedFiles,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
+		metrics:           &dummyMetrics{},
 	}
 }
 
@@ -56,7 +58,8 @@ func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.fileSize > 0 &&
 		opts.maxOpenedFiles > 0 &&
-		opts.fileExt != ""
+		opts.fileExt != "" &&
+		opts.metrics != nil
 }
 
 func (opt *Options) WithReadOnly(readOnly bool) *Options {
@@ -101,6 +104,11 @@ func (opt *Options) WithCompressionFormat(compressionFormat int) *Options {
 
 func (opt *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opt.compressionLevel = compressionLevel
+	return opt
+}
+
+func (opt *Options) WithMetrics(m Metrics) *Options {
+	opt.metrics = m
 	return opt
 }
 

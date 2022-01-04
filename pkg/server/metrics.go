@@ -61,6 +61,12 @@ type MetricsCollection struct {
 
 	lastIndexedTrx   *prometheus.GaugeVec
 	lastCommittedTrx *prometheus.GaugeVec
+
+	// ---- Multiapp stats ------------------------------------
+
+	multiappCacheEvents *prometheus.CounterVec
+	multiappReadEvents  *prometheus.CounterVec
+	metricsReadBytes    prometheus.Counter
 }
 
 var metricsNamespace = "immudb"
@@ -188,6 +194,31 @@ func NewMetricsCollection(
 			Name:      "last_committed_trx_id",
 			Help:      "The id of last committed transaction",
 		}, []string{"db"}),
+
+		multiappCacheEvents: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "multiapp_cache_events",
+			Help:      "Immudb multiapp cache event counters",
+		}, []string{"event"}),
+
+		// 	metricsCacheEvicted = metricsCacheEvents.WithLabelValues("evicted")
+		// 	metricsCacheHit     = metricsCacheEvents.WithLabelValues("hit")
+		// 	metricsCacheMiss    = metricsCacheEvents.WithLabelValues("miss")
+
+		multiappReadEvents: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "multiapp_read_events",
+			Help:      "Immudb multiapp read event counters",
+		}, []string{"event"}),
+
+		// 	metricsReads      = metricsReadEvents.WithLabelValues("total_reads")
+		// 	metricsReadErrors = metricsReadEvents.WithLabelValues("errors")
+
+		metricsReadBytes: promauto.NewCounter(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "multiapp_read_bytes",
+			Help:      "Number of bytes read",
+		}),
 	}
 
 	metrics.WithUptimeCounter(uptimeCounter)

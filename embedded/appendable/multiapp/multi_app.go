@@ -108,6 +108,8 @@ type MultiFileAppendable struct {
 	hooks MultiFileAppendableHooks
 
 	mutex sync.Mutex
+
+	metrics Metrics
 }
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
@@ -171,6 +173,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		fileExt:     opts.fileExt,
 		closed:      false,
 		hooks:       hooks,
+		metrics:     opts.metrics,
 	}, nil
 }
 
@@ -299,7 +302,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 			}
 
 			if ejectedApp != nil {
-				metricsCacheEvicted.Inc()
+				mf.metrics.IncCacheEvicted()
 				err = ejectedApp.Close()
 				if err != nil {
 					return off, n, err
@@ -413,7 +416,7 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 	appID := appendableID(off, mf.fileSize)
 
 	if appID == mf.currAppID {
-		metricsCacheHit.Inc()
+		mf.metrics.IncCacheHit()
 		return mf.currApp, nil
 	}
 
@@ -424,7 +427,7 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 			return nil, err
 		}
 
-		metricsCacheMiss.Inc()
+		mf.metrics.IncCacheMiss()
 
 		app, err = mf.openAppendable(appendableName(appID, mf.fileExt), false)
 		if err != nil {
@@ -437,14 +440,14 @@ func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, 
 		}
 
 		if ejectedApp != nil {
-			metricsCacheEvicted.Inc()
+			mf.metrics.IncCacheEvicted()
 			err = ejectedApp.Close()
 			if err != nil {
 				return nil, err
 			}
 		}
 	} else {
-		metricsCacheHit.Inc()
+		mf.metrics.IncCacheHit()
 	}
 
 	return app, nil
@@ -455,7 +458,7 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, ErrIllegalArguments
 	}
 
-	metricsReads.Inc()
+	mf.metrics.IncReads()
 
 	r := 0
 
@@ -464,8 +467,8 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 
 		app, err := mf.appendableFor(offr)
 		if err != nil {
-			metricsReadBytes.Add(float64(r))
-			metricsReadErrors.Inc()
+			mf.metrics.AddReadBytes(r)
+			mf.metrics.IncReadErrors()
 			return r, err
 		}
 
@@ -477,13 +480,13 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		}
 
 		if err != nil {
-			metricsReadBytes.Add(float64(r))
-			metricsReadErrors.Inc()
+			mf.metrics.AddReadBytes(r)
+			mf.metrics.IncReadErrors()
 			return r, err
 		}
 	}
 
-	metricsReadBytes.Add(float64(r))
+	mf.metrics.AddReadBytes(r)
 	return r, nil
 }
 
