@@ -25,15 +25,12 @@ import (
 	"os"
 	"os/signal"
 
-//	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-//	"google.golang.org/grpc/status"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-//	immuerrors "github.com/codenotary/immudb/pkg/errors"
 )
 
 const (
@@ -52,6 +49,7 @@ const (
 
 var ErrMalformedFile = errors.New("malformed backup file")
 var ErrTxWrongOrder = errors.New("incorrect transaction order in file")
+var ErrTxNotInFile = errors.New("last known transaction not in file")
 
 func (cl *commandlineBck) hotBackup(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
@@ -67,30 +65,48 @@ func (cl *commandlineBck) hotBackup(cmd *cobra.Command) {
 			if err != nil {
 				return err
 			}
-			inc, err := cmd.Flags().GetBool("incremental")
+			append, err := cmd.Flags().GetBool("append")
 			if err != nil {
 				return err
 			}
-			last := uint64(0)
+			start, err := cmd.Flags().GetUint64("start-tx")
+			if err != nil {
+				return err
+			}
+			if start > 1 && append {
+				return errors.New("don't use --append and --start-tx options together")
+			}
+
+			udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
+			if err != nil {
+				return err
+			}
+			cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
+
 			if output != "-" {
 				var f *os.File
 				_, err := os.Stat(output)
 				if err == nil {
-					if !inc {
-						return errors.New("file already exists, use 'incremental' option to append to the file")
+					// file exists - find last tx in file and check whether it matches the one in DB
+					if !append {
+						return errors.New("file already exists, use --append option to append new data to file")
 					}
 					f, err = os.OpenFile(output, os.O_RDWR, 0)
 					if err != nil {
 						return err
 					}
-					last, err = lastTx(f)
+					last, fileSignature, err := lastTxInFile(f)
 					if err != nil {
 						return err
 					}
-					_, err = f.Seek(0, io.SeekEnd)
+					txn, err := cl.immuClient.TxByID(cl.context, last)
 					if err != nil {
-						return err
+						return fmt.Errorf("cannot find file's last transaction %d in database: %v", last, err)
 					}
+					if !bytes.Equal(fileSignature, txn.Header.EH) {
+						return fmt.Errorf("signatures for transaction %d in backup file and database differ - probably file was created from different database", last)
+					}
+					start = last + 1
 				} else {
 					if !os.IsNotExist(err) {
 						return err
@@ -102,24 +118,19 @@ func (cl *commandlineBck) hotBackup(cmd *cobra.Command) {
 				}
 				defer f.Close()
 				file = f
-			} else if inc {
-				return errors.New("'incremental' option can be used only when outputting to the file")
+			} else if append {
+				return errors.New("--append option can be used only when outputting to the file")
 			}
 
-			udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
-			if err != nil {
-				return err
-			}
-			cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 			progress, _ := cmd.Flags().GetBool("progress")
-			return cl.runHotBackup(file, last+1, progress)
+			return cl.runHotBackup(file, start, progress)
 		},
 		Args: cobra.ExactArgs(1),
 	}
 	ccmd.Flags().StringP("output", "o", "-", "output file, \"-\" for stdout")
-	ccmd.Flags().Uint64("start-tx", 0, "Transaction ID to start from")
+	ccmd.Flags().Uint64("start-tx", 1, "Transaction ID to start from")
 	ccmd.Flags().Bool("progress", false, "show progress indicator")
-	ccmd.Flags().BoolP("incremental", "i", false, "allow incremental backup (for file output only)")
+	ccmd.Flags().BoolP("append", "i", false, "append to file, if it already exists (for file output only)")
 	cmd.AddCommand(ccmd)
 }
 
@@ -128,7 +139,7 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 		Use:   "hot-restore <db_name>",
 		Short: "Restore data from backup file",
 		Long: "Restore saved transaction from backup file without stopping the database engine. " +
-			"Restore can create the database or apply only the missing data.",
+			"Restore can restore the data from scratch or apply only the missing data.",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -148,7 +159,7 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 
 			verify, err := cmd.Flags().GetBool("verify")
 			if verify {
-				last, err := lastTx(file)
+				last, _, err := lastTxInFile(file)
 				if err != nil {
 					return err
 				}
@@ -161,45 +172,71 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 				return err
 			}
 
+			force, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+
 			dbList, err := cl.immuClient.DatabaseList(cl.context)
 			if err != nil {
 				return err
 			}
-			exist := false
+			dbExist := false
 			for _, db := range dbList.Databases {
 				if db.DatabaseName == args[0] {
-					exist = true
+					dbExist = true
 					break
 				}
 			}
 
-			if exist {
+			if dbExist {
 				udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
 				if err != nil {
 					return err
 				}
 				cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 
-				// find the last tansaction and verify it
 				state, err := cl.immuClient.CurrentState(cl.context)
 				if err != nil {
 					return err
 				}
 				if state.TxId > 0 {
 					if !append {
-						return errors.New("cannot restore to non-empty database without `append` flag")
+						return errors.New("cannot restore to non-empty database without --append flag")
 					}
-					// find the transaction in backup file and validate the signature
+					// find the transaction in backup file and position the file just after the transaction
 					fileSignature, err := findTxSignature(file, state.TxId)
-					if err != nil {
+					if err == ErrTxNotInFile {
+						// first transaction in the file is after last transaction in DB
+						// processing is still possible if there is no gap between transactions
+						_, err = file.Seek(0, io.SeekStart)
+						if err != nil {
+							return err
+						}
+						fileStart, _, _, err := getTxHeader(file)
+						if err != nil {
+							return err
+						}
+						if fileStart-state.TxId > 1 {
+							return fmt.Errorf("there is a gap of %d transaction(s) between database and file - restore not possible", fileStart-state.TxId-1)
+						}
+						if !force {
+							return errors.New("not possible to validate transaction sequence - use --force to override")
+						}
+						_, err = file.Seek(0, io.SeekStart)
+						if err != nil {
+							return err
+						}
+					} else if err != nil {
 						return err
-					}
-					txn, err := cl.immuClient.TxByID(cl.context, state.TxId)
-					if err != nil {
-						return err
-					}
-					if !bytes.Equal(fileSignature, txn.Header.EH) {
-						return fmt.Errorf("signatures for tx %d in backup file and database differ - cannot perform incremental restore", state.TxId)
+					} else if !force {
+						txn, err := cl.immuClient.TxByID(cl.context, state.TxId)
+						if err != nil {
+							return err
+						}
+						if !bytes.Equal(fileSignature, txn.Header.EH) {
+							return fmt.Errorf("signatures for tx %d in backup file and database differ - cannot append data to the database", state.TxId)
+						}
 					}
 				}
 				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: true})
@@ -218,13 +255,6 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 					return err
 				}
 				cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
-
-				// find the last tansaction and verify it
-				state, err := cl.immuClient.CurrentState(cl.context)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("DB has %d txns\n", state.TxId)				
 			}
 			defer func() {
 				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
@@ -233,7 +263,8 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 				}
 			}()
 
-			return cl.runHotRestore(file)
+			progress, _ := cmd.Flags().GetBool("progress")
+			return cl.runHotRestore(file, progress)
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
 			verify, _ := cmd.Flags().GetBool("verify")
@@ -245,7 +276,9 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 	}
 	ccmd.Flags().StringP("input", "i", "-", "input file file, \"-\" for stdin")
 	ccmd.Flags().Bool("verify", false, "do not restore data, only verify backup")
-	ccmd.Flags().Bool("append", false, "allow appending to DB, if it already exists")
+	ccmd.Flags().Bool("append", false, "appending to DB, if it already exists")
+	ccmd.Flags().Bool("progress", false, "show progress indicator")
+	ccmd.Flags().Bool("force", false, "don't check transaction sequence")
 	cmd.AddCommand(ccmd)
 }
 
@@ -268,13 +301,31 @@ func (cl *commandlineBck) runHotBackup(output io.Writer, startFrom uint64, progr
 		bar = progressbar.Default(int64(txnCount))
 	}
 
+	done := make(chan struct{}, 1)
+	defer close(done)
 	terminated := make(chan os.Signal, 1)
 	signal.Notify(terminated, os.Interrupt)
 
+	stop := false
+	go func() {
+		select {
+		case <-done:
+		case <-terminated:
+			stop = true
+		}
+	}()
+
 	for i := startFrom; i <= txnCount; i++ {
-		err = cl.processTx(i, output, bar, terminated)
+		if stop {
+			fmt.Fprintf(os.Stderr, "Terminated by signal - stopped after tx %d\n", i-1)
+			return nil
+		}
+		err = cl.backupTx(i, output)
 		if err != nil {
 			return err
+		}
+		if bar != nil {
+			bar.Add(1)
 		}
 	}
 
@@ -282,10 +333,33 @@ func (cl *commandlineBck) runHotBackup(output io.Writer, startFrom uint64, progr
 	return nil
 }
 
-func (cl *commandlineBck) runHotRestore(input io.Reader) error {
+func (cl *commandlineBck) runHotRestore(input io.Reader, progress bool) error {
 	var startTx, lastTx uint64
-	maxPayload := uint32(cl.options.MaxRecvMsgSize)
+
+	var bar *progressbar.ProgressBar
+	if progress {
+		bar = progressbar.Default(-1)
+	}
+
+	done := make(chan struct{}, 1)
+	defer close(done)
+	terminated := make(chan os.Signal, 1)
+	signal.Notify(terminated, os.Interrupt)
+
+	stop := false
+	go func() {
+		select {
+		case <-done:
+		case <-terminated:
+			stop = true
+		}
+	}()
+
 	for {
+		if stop {
+			fmt.Fprintf(os.Stderr, "Terminated by signal\n")
+			break
+		}
 		tx, signSize, txSize, err := getTxHeader(input)
 		if errors.Is(err, io.EOF) {
 			break
@@ -296,91 +370,93 @@ func (cl *commandlineBck) runHotRestore(input io.Reader) error {
 		if err != nil {
 			return err
 		}
-		payload := make([]byte, signSize + txSize)
+		payload := make([]byte, signSize+txSize)
 		got, err := input.Read(payload)
 		if err != nil {
 			return err
 		}
-		if uint32(got) < signSize + txSize {
+		if uint32(got) < signSize+txSize {
 			return ErrMalformedFile
 		}
-		stream, err := cl.immuClient.ReplicateTx(cl.context)
+		err = cl.restoreTx(input, payload[signSize:], payload[:signSize], terminated)
 		if err != nil {
 			return err
-		}
-		offset := signSize
-		for txSize > 0 {
-			chunkSize := maxPayload
-			if txSize < maxPayload {
-				chunkSize = txSize
-			}
-			err = stream.Send(&schema.Chunk{Content: payload[offset:offset+chunkSize]})
-			if err != nil {
-				return err
-			}
-			txSize -= chunkSize
-			offset += chunkSize
-		}
-		metadata, err := stream.CloseAndRecv()
-		if err != nil {
-			return err
-		}
-		if !bytes.Equal(payload[:signSize], metadata.EH) {
-			return fmt.Errorf("signatures for tx %d don't match", tx)
 		}
 		lastTx = tx
+		if bar != nil {
+			bar.Add(1)
+		}
 	}
 	fmt.Printf("Restored transactions %d - %d\n", startTx, lastTx)
 
 	return nil
 }
 
-func (cl *commandlineBck) processTx(tx uint64, output io.Writer, bar *progressbar.ProgressBar, terminated chan os.Signal) error {
+func (cl *commandlineBck) backupTx(tx uint64, output io.Writer) error {
 	stream, err := cl.immuClient.ExportTx(cl.context, &schema.TxRequest{Tx: tx})
 	if err != nil {
 		return fmt.Errorf("failed to export transaction: %w", err)
 	}
 
-	completed := make(chan struct{})
 	var content []byte
-	go func() {
-		for {
-			var chunk *schema.Chunk
-			chunk, err = stream.Recv()
-			if errors.Is(err, io.EOF) {
-				err = nil
-				break
-			} else if err != nil {
-				break
-			}
-			content = append(content, chunk.Content...)
+	for {
+		var chunk *schema.Chunk
+		chunk, err = stream.Recv()
+		if errors.Is(err, io.EOF) {
+			err = nil
+			break
+		} else if err != nil {
+			break
 		}
-		close(completed)
-	}()
+		content = append(content, chunk.Content...)
+	}
 
-	select {
-	case <-completed:
-		if err != nil {
-			return fmt.Errorf("cannot process transaction data: %w", err)
+	if err != nil {
+		return fmt.Errorf("cannot process transaction data: %w", err)
+	}
+	err = stream.CloseSend()
+	if err != nil {
+		return fmt.Errorf("CloseSend returned %v", err)
+	}
+	txn, err := cl.immuClient.TxByID(cl.context, tx)
+	if err != nil {
+		return err
+	}
+	err = outputTx(tx, output, txn.Header.EH, content)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (cl *commandlineBck) restoreTx(input io.Reader, payload []byte, signature []byte, terminated chan os.Signal) error {
+	maxPayload := uint32(cl.options.MaxRecvMsgSize)
+
+	stream, err := cl.immuClient.ReplicateTx(cl.context)
+	if err != nil {
+		return err
+	}
+	offset := uint32(0)
+	remainder := uint32(len(payload))
+	for remainder > 0 {
+		chunkSize := maxPayload
+		if remainder < maxPayload {
+			chunkSize = remainder
 		}
-		err = stream.CloseSend()
-		if err != nil {
-			return fmt.Errorf("CloseSend returned %v", err)
-		}
-		txn, err := cl.immuClient.TxByID(cl.context, tx)
+		err = stream.Send(&schema.Chunk{Content: payload[offset : offset+chunkSize]})
 		if err != nil {
 			return err
 		}
-		err = outputTx(tx, output, txn.Header.EH, content)
-		if err != nil {
-			return err
-		}
-		if bar != nil {
-			bar.Add(1)
-		}
-
-	case <-terminated:
-		return fmt.Errorf("terminated by signal")
+		remainder -= chunkSize
+		offset += chunkSize
+	}
+	metadata, err := stream.CloseAndRecv()
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(signature, metadata.EH) {
+		return fmt.Errorf("transaction signatures don't match")
 	}
 
 	return nil
@@ -400,32 +476,42 @@ func outputTx(tx uint64, output io.Writer, signature []byte, content []byte) err
 	return err
 }
 
-// lastTx assumes that file is positioned on transaction boundary
+// lastTxInFile assumes that file is positioned on transaction boundary
 // it also can be used to validate file correctness
-func lastTx(file io.ReadSeeker) (uint64, error) {
+// in case of success file pointer is positioned to file end
+func lastTxInFile(file io.ReadSeeker) (uint64, []byte, error) {
 	last := uint64(0)
+	var signature []byte
 	for {
 		cur, signSize, txSize, err := getTxHeader(file)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
-		_, err = file.Seek(int64(signSize+txSize), io.SeekCurrent)
+		signature = make([]byte, signSize)
+		count, err := file.Read(signature)
 		if err != nil {
-			return 0, ErrMalformedFile
+			return 0, nil, nil
+		}
+		if uint32(count) != signSize {
+			return 0, nil, ErrMalformedFile
+		}
+		_, err = file.Seek(int64(txSize), io.SeekCurrent)
+		if err != nil {
+			return 0, nil, ErrMalformedFile
 		}
 		if cur != last+1 {
-			return 0, ErrTxWrongOrder
+			return 0, nil, ErrTxWrongOrder
 		}
 		last = cur
 	}
 
-	return last, nil
+	return last, signature, nil
 }
 
-// reads header for the next transaction and position file pointer just after the headder, before the payload
+// reads header for the next transaction and position file pointer just after the header, before the payload
 func getTxHeader(file io.Reader) (tx uint64, signSize uint32, txSize uint32, err error) {
 	header := make([]byte, headerSize)
 
@@ -484,7 +570,7 @@ func findTxSignature(file io.ReadSeeker, tx uint64) ([]byte, error) {
 		}
 		if cur > tx {
 			// should never happen - we should reach EOF instead
-			return nil, errors.New("transaction not in file")
+			return nil, ErrTxNotInFile
 		}
 		_, err = file.Seek(int64(signSize+txSize), io.SeekCurrent)
 		if err != nil {
