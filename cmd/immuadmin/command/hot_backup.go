@@ -159,11 +159,20 @@ func (cl *commandlineBck) hotRestore(cmd *cobra.Command) {
 
 			verify, err := cmd.Flags().GetBool("verify")
 			if verify {
+				fileStart, _, _, err := getTxHeader(file)
+				if err != nil {
+					return err
+				}
+				_, err = file.Seek(0, io.SeekStart)
+				if err != nil {
+					return err
+				}
+
 				last, _, err := lastTxInFile(file)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("Backup file contains %d transactions\n", last)
+				fmt.Printf("Backup file contains transactions %d - %d\n", fileStart, last)
 				return nil
 			}
 
@@ -502,7 +511,7 @@ func lastTxInFile(file io.ReadSeeker) (uint64, []byte, error) {
 		if err != nil {
 			return 0, nil, ErrMalformedFile
 		}
-		if cur != last+1 {
+		if cur != last+1 && last > 0 {
 			return 0, nil, ErrTxWrongOrder
 		}
 		last = cur
