@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,11 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/peer"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -45,6 +46,8 @@ type VersionResponse struct {
 
 // MetricsCollection immudb Prometheus metrics collection
 type MetricsCollection struct {
+	registry *prometheus.Registry
+
 	UptimeCounter prometheus.CounterFunc
 
 	computeDBSizes func() map[string]float64
@@ -55,12 +58,16 @@ type MetricsCollection struct {
 
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
+
+	lastIndexedTrx   *prometheus.GaugeVec
+	lastCommittedTrx *prometheus.GaugeVec
 }
 
 var metricsNamespace = "immudb"
 
 // WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
+	promauto := promauto.With(mc.registry)
 	mc.UptimeCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
@@ -107,66 +114,104 @@ func (mc *MetricsCollection) UpdateDBMetrics() {
 	}
 }
 
-// Metrics immudb Prometheus metrics collection
-var Metrics = MetricsCollection{
-	RPCsPerClientCounters: promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Name:      "number_of_rpcs_per_client",
-			Help:      "Number of handled RPCs per client.",
-		},
-		[]string{"ip"},
-	),
-	DBSizeGauges: promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Name:      "db_size_bytes",
-			Help:      "Database size in bytes.",
-		},
-		[]string{"db"},
-	),
-	DBEntriesGauges: promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Name:      "number_of_stored_entries",
-			Help:      "Number of key-value entries currently stored by the database.",
-		},
-		[]string{"db"},
-	),
-	LastMessageAtPerClientGauges: promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Name:      "clients_last_message_at_unix_seconds",
-			Help:      "Timestamp at which clients have sent their most recent message.",
-		},
-		[]string{"ip"},
-	),
+type storeMetrics struct {
+	lastIndexedTrx   prometheus.Gauge
+	lastCommittedTrx prometheus.Gauge
+}
+
+func (m *storeMetrics) LastCommittedTrx(id uint64) { m.lastCommittedTrx.Set(float64(id)) }
+func (m *storeMetrics) LastIndexedTrx(id uint64)   { m.lastIndexedTrx.Set(float64(id)) }
+
+func (mc *MetricsCollection) storeMetrics(db string) store.Metrics {
+	return &storeMetrics{
+		lastIndexedTrx:   mc.lastIndexedTrx.WithLabelValues(db),
+		lastCommittedTrx: mc.lastCommittedTrx.WithLabelValues(db),
+	}
 }
 
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
-func StartMetrics(
-	updateInterval time.Duration,
-	addr string,
-	l logger.Logger,
+func NewMetricsCollection(
 	uptimeCounter func() float64,
 	computeDBSizes func() map[string]float64,
 	computeDBEntries func() map[string]float64,
+) *MetricsCollection {
+
+	registry := prometheus.NewRegistry()
+	promauto := promauto.With(registry)
+
+	// metrics immudb Prometheus metrics collection
+	metrics := &MetricsCollection{
+		registry: registry,
+
+		RPCsPerClientCounters: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: metricsNamespace,
+				Name:      "number_of_rpcs_per_client",
+				Help:      "Number of handled RPCs per client.",
+			},
+			[]string{"ip"},
+		),
+		DBSizeGauges: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "db_size_bytes",
+				Help:      "Database size in bytes.",
+			},
+			[]string{"db"},
+		),
+		DBEntriesGauges: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "number_of_stored_entries",
+				Help:      "Number of key-value entries currently stored by the database.",
+			},
+			[]string{"db"},
+		),
+		LastMessageAtPerClientGauges: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "clients_last_message_at_unix_seconds",
+				Help:      "Timestamp at which clients have sent their most recent message.",
+			},
+			[]string{"ip"},
+		),
+
+		lastIndexedTrx: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "last_indexed_trx_id",
+			Help:      "The id of last indexed transaction",
+		}, []string{"db"}),
+
+		lastCommittedTrx: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "last_committed_trx_id",
+			Help:      "The id of last committed transaction",
+		}, []string{"db"}),
+	}
+
+	metrics.WithUptimeCounter(uptimeCounter)
+	metrics.WithComputeDBSizes(computeDBSizes)
+	metrics.WithComputeDBEntries(computeDBEntries)
+
+	return metrics
+}
+
+func (mc *MetricsCollection) StartServer(
+	updateInterval time.Duration,
+	addr string,
+	l logger.Logger,
 ) *http.Server {
 
-	Metrics.WithUptimeCounter(uptimeCounter)
-	Metrics.WithComputeDBSizes(computeDBSizes)
-	Metrics.WithComputeDBEntries(computeDBEntries)
-
 	go func() {
-		Metrics.UpdateDBMetrics()
+		mc.UpdateDBMetrics()
 		for range time.Tick(updateInterval) {
-			Metrics.UpdateDBMetrics()
+			mc.UpdateDBMetrics()
 		}
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", corsHandler(promhttp.Handler()))
+	mux.Handle("/metrics", corsHandler(mc.prometheusHandler()))
 	mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
 	mux.HandleFunc("/initz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/readyz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
@@ -186,6 +231,12 @@ func StartMetrics(
 	}()
 
 	return server
+}
+
+func (mc *MetricsCollection) prometheusHandler() http.Handler {
+	return promhttp.InstrumentMetricHandler(
+		mc.registry, promhttp.HandlerFor(mc.registry, promhttp.HandlerOpts{}),
+	)
 }
 
 func ImmudbHealthHandlerFunc() http.HandlerFunc {

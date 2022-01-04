@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"math"
 	"net"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
@@ -70,6 +71,7 @@ type ImmuServer struct {
 	//Cc                  CorruptionChecker
 	sysDB                database.DB
 	metricsServer        *http.Server
+	metricsCollection    *MetricsCollection
 	webServer            *http.Server
 	mux                  sync.Mutex
 	pgsqlMux             sync.Mutex

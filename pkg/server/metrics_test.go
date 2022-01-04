@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,13 +33,14 @@ import (
 )
 
 func TestStartMetrics(t *testing.T) {
-	server := StartMetrics(
-		100*time.Millisecond,
-		"0.0.0.0:9999",
-		&mockLogger{},
+	server := NewMetricsCollection(
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
 		func() map[string]float64 { return make(map[string]float64) },
+	).StartServer(
+		100*time.Millisecond,
+		"0.0.0.0:9999",
+		&mockLogger{},
 	)
 	time.Sleep(200 * time.Millisecond)
 	defer server.Close()
@@ -52,13 +53,14 @@ func TestStartMetricsFail(t *testing.T) {
 	metricsNamespace = "failimmudb"
 	defer func() { metricsNamespace = save_metricsNamespace }()
 
-	server := StartMetrics(
-		100*time.Millisecond,
-		"999.999.999.999:9999",
-		&mockLogger{},
+	server := NewMetricsCollection(
 		func() float64 { return 0 },
 		func() map[string]float64 { return make(map[string]float64) },
 		func() map[string]float64 { return make(map[string]float64) },
+	).StartServer(
+		100*time.Millisecond,
+		"999.999.999.999:9999",
+		&mockLogger{},
 	)
 	time.Sleep(200 * time.Millisecond)
 	defer server.Close()

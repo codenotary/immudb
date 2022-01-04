@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ type Options struct {
 	Synced   bool
 	FileMode os.FileMode
 	log      logger.Logger
+	metrics  Metrics
 
 	appFactory         AppFactoryFunc
 	CompactionDisabled bool
@@ -99,6 +100,7 @@ func DefaultOptions() *Options {
 		Synced:   true,
 		FileMode: DefaultFileMode,
 		log:      logger.NewSimpleLogger("immudb ", os.Stderr),
+		metrics:  &dummyMetrics{},
 
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
@@ -165,6 +167,7 @@ func validOptions(opts *Options) bool {
 		opts.FileSize > 0 &&
 		opts.FileSize < MaxFileSize &&
 		opts.log != nil &&
+		opts.metrics != nil &&
 		validIndexOptions(opts.IndexOpts)
 }
 
@@ -194,6 +197,11 @@ func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 
 func (opts *Options) WithLog(log logger.Logger) *Options {
 	opts.log = log
+	return opts
+}
+
+func (opts *Options) WithMetrics(m Metrics) *Options {
+	opts.metrics = m
 	return opts
 }
 

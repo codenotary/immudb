@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer("data", nil, nil, 0)
+	indexer, err := newIndexer("data", nil, nil, 0, &dummyMetrics{})
 	require.Nil(t, indexer)
 	require.Equal(t, tbtree.ErrIllegalArguments, err)
 }

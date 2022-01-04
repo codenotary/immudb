@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -64,6 +64,9 @@ func TestValidOptions(t *testing.T) {
 	require.False(t, opts.WithReadOnly(false).ReadOnly)
 
 	require.NotNil(t, opts.WithLog(DefaultOptions().log))
+
+	m := &dummyMetrics{}
+	require.Equal(t, m, opts.WithMetrics(m).metrics)
 
 	require.True(t, validOptions(opts))
 
