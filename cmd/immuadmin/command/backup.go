@@ -94,8 +94,6 @@ func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
 	clb.dumpToFile(rootCmd)
 	clb.backup(rootCmd)
 	clb.restore(rootCmd)
-	clb.hotBackup(rootCmd)
-	clb.hotRestore(rootCmd)
 	return rootCmd
 }
 
