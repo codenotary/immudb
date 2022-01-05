@@ -310,7 +310,6 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			params, err := prepareRestoreParams(cmd.Flags())
 			if err != nil {
 				return err
@@ -335,29 +334,19 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 				return err
 			}
 
-			var signature, payload []byte
 			var firstTx uint64
 			if dbExist {
-				firstTx, signature, payload, err = cl.verifyDb(params, args[0], file)
+				// if initDbForRestore inserts first transaction, it returns non-zero firstTx
+				firstTx, err = cl.initDbForRestore(params, args[0], file)
 				if err != nil {
 					return err
-				}
-				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: true})
-				if err != nil {
-					return fmt.Errorf("cannot switch on replica mode for db: %v", err)
 				}
 			} else {
 				// db does not exist - create as replica and use it
-				err = cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: true, MasterDatabase: "dummy"})
+				err = cl.createDb(args[0])
 				if err != nil {
 					return err
 				}
-
-				udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: args[0]})
-				if err != nil {
-					return err
-				}
-				cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 			}
 			defer func() {
 				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
@@ -366,7 +355,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 				}
 			}()
 
-			return cl.runHotRestore(file, params.progress, firstTx, signature, payload)
+			return cl.runHotRestore(file, params.progress, firstTx)
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
 			verify, _ := cmd.Flags().GetBool("verify")
@@ -444,54 +433,92 @@ func (cl *commandlineHotBck) isDbExists(name string) (bool, error) {
 	return dbExist, nil
 }
 
-func (cl *commandlineHotBck) verifyDb(params *restoreParams, name string, file io.Reader) (uint64, []byte, []byte, error) {
+// prepare existing Db for restore
+// What DB is not empty, it reads first transaction from input stream. Because we cannot re-position in the stream,
+// in some situation (when there is no gap and no overlap between DB and file) this transaction gets restored to DB,
+// in this case non-zero tx ID is returned
+func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string, file io.Reader) (uint64, error) {
+	lastTx, signature, err := cl.useDb(name)
+	if err != nil {
+		return 0, nil
+	}
+	if lastTx == 0 {	// db is empty - nothing to verify
+		return 0, nil
+	}
+
+	if !params.append {
+		return 0, errors.New("cannot restore to non-empty database without --append flag")
+	}
+
+	// find the nearest transaction in backup file and position the file just after the transaction
+	txId, fileSignature, payload, err := findTx(file, lastTx)
+	if err != nil {
+		return 0, err
+	}
+	gap := txId - lastTx
+	if gap > 1 {
+		return 0, fmt.Errorf("there is a gap of %d transaction(s) between database and file - restore not possible", gap-1)
+	}
+	if gap == 1 {
+		if !params.force {
+			return 0, errors.New("not possible to validate last transaction in DB - use --force to override")
+		}
+		err = cl.restoreTx(fileSignature, payload)
+		if err != nil {
+			return 0, err
+		}			
+
+		return txId, nil // indicate to caller that first transaction to restore is already read
+	}
+
+	if !bytes.Equal(fileSignature, signature) {
+		return 0, fmt.Errorf("signatures for tx %d in backup file and database differ - cannot append data to the database", lastTx)
+	}
+
+	return 0, nil
+}
+
+func (cl *commandlineHotBck) useDb(name string) (uint64, []byte, error) {
 	udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: name})
 	if err != nil {
-		return 0, nil, nil, err
+		return 0, nil, err
 	}
 	cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
+	err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true})
+	if err != nil {
+		return 0, nil, fmt.Errorf("cannot switch on replica mode for db: %v", err)
+	}
 
 	state, err := cl.immuClient.CurrentState(cl.context)
 	if err != nil {
-		return 0, nil, nil, err
+		return 0, nil, err
 	}
 
-	if state.TxId > 0 {
-		// database isn't empty
-		if !params.append {
-			return 0, nil, nil, errors.New("cannot restore to non-empty database without --append flag")
-		}
-		// find the nearest transaction in backup file and position the file just after the transaction
-		txId, signature, payload, err := findTx(file, state.TxId)
-		if err != nil {
-			return 0, nil, nil, err
-		}
-		gap := txId - state.TxId
-		if gap > 1 {
-			return 0, nil, nil, fmt.Errorf("there is a gap of %d transaction(s) between database and file - restore not possible", gap-1)
-		}
-		if gap == 1 {
-			if !params.force {
-				return 0, nil, nil, errors.New("not possible to validate last transaction in DB - use --force to override")
-			}
-			return txId, signature, payload, nil // indicate to caller that first transaction to restore is already read
-		}
-
-		txn, err := cl.immuClient.TxByID(cl.context, state.TxId)
-		if err != nil {
-			return 0, nil, nil, err
-		}
-		if !bytes.Equal(signature, txn.Header.EH) {
-			return 0, nil, nil, fmt.Errorf("signatures for tx %d in backup file and database differ - cannot append data to the database", state.TxId)
-		}
+	txn, err := cl.immuClient.TxByID(cl.context, state.TxId)
+	if err != nil {
+		return 0, nil, err
 	}
 
-	return 0, nil, nil, nil
+	return state.TxId, txn.Header.EH, nil
 }
 
-func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, firstTx uint64, signature, payload []byte) error {
-	var startTx, lastTx uint64
+func (cl *commandlineHotBck) createDb(name string) error {
+	err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true, MasterDatabase: "dummy"})
+	if err != nil {
+		return err
+	}
 
+	udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: name})
+	if err != nil {
+		return err
+	}
+	cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
+
+	return nil
+}
+
+// run actual restore. First transaction mayb e already restored, so use firstTx as start value, when set
+func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, firstTx uint64) error {
 	var bar *progressbar.ProgressBar
 	if progress {
 		bar = progressbar.New(-1)
@@ -512,16 +539,7 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 		}
 	}()
 
-	if firstTx != 0 {
-		// first transaction was already read during DB verification, so process it first
-		err := cl.restoreTx(signature, payload)
-		if err != nil {
-			return err
-		}
-		startTx = firstTx
-		lastTx = firstTx
-	}
-
+	lastTx := firstTx
 	for !stop {
 		tx, signature, payload, err := getTx(input)
 		if errors.Is(err, io.EOF) {
@@ -536,18 +554,19 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 			return err
 		}
 
-		if startTx == 0 {
-			startTx = tx
+		if firstTx == 0 {
+			firstTx = tx
 		}
 		lastTx = tx
 		if bar != nil {
 			bar.Add(1)
 		}
 	}
-	if startTx == 0 {
+
+	if firstTx == 0 {
 		fmt.Printf("Target database is up-to-date, nothing restored\n")
 	} else {
-		fmt.Printf("Restored transactions %d - %d\n", startTx, lastTx)
+		fmt.Printf("Restored transactions %d - %d\n", firstTx, lastTx)
 	}
 
 	return nil
