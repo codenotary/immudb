@@ -310,8 +310,8 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint64, err error) {
-	key, ktxID, hc, err := r.reader.ReadAsBefore(txID)
+func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
+	key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 	if err != nil {
 		return nil, nil, 0, err
 	}

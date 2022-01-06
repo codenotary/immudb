@@ -126,7 +126,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadAsBefore(uint64(i + 2))
+			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
