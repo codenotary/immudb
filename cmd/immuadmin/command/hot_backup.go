@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ var ErrTxNotInFile = errors.New("last known transaction not in file")
 
 type commandlineHotBck struct {
 	commandline
+	cmd *cobra.Command
 }
 
 func newCommandlineHotBck(os immuos.OS) (*commandlineHotBck, error) {
@@ -64,7 +65,7 @@ func newCommandlineHotBck(os immuos.OS) (*commandlineHotBck, error) {
 	cl.context = context.Background()
 	cl.os = os
 
-	return &commandlineHotBck{cl}, nil
+	return &commandlineHotBck{commandline: cl}, nil
 }
 
 func (clb *commandlineHotBck) Register(rootCmd *cobra.Command) *cobra.Command {
@@ -119,6 +120,7 @@ func (cl *commandlineHotBck) hotBackup(cmd *cobra.Command) {
 	ccmd.Flags().Bool("progress", false, "show progress indicator")
 	ccmd.Flags().BoolP("append", "i", false, "append to file, if it already exists (for file output only)")
 	cmd.AddCommand(ccmd)
+	cl.cmd = cmd
 }
 
 func prepareBackupParams(flags *pflag.FlagSet) (*backupParams, error) {
@@ -198,11 +200,11 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startFrom uint64, pr
 	txnCount := state.TxId
 
 	if txnCount < startFrom {
-		fmt.Fprintf(os.Stderr, "All backed up, nothing to do\n")
+		fmt.Fprintf(cl.cmd.ErrOrStderr(), "All backed up, nothing to do\n")
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "Backing up transactions %d - %d\n", startFrom, txnCount)
+	fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transactions %d - %d\n", startFrom, txnCount)
 
 	var bar *progressbar.ProgressBar
 	if progress {
@@ -225,7 +227,7 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startFrom uint64, pr
 
 	for i := startFrom; i <= txnCount; i++ {
 		if stop {
-			fmt.Fprintf(os.Stderr, "Terminated by signal - stopped after tx %d\n", i-1)
+			fmt.Fprintf(cl.cmd.ErrOrStderr(), "Terminated by signal - stopped after tx %d\n", i-1)
 			return nil
 		}
 		err = cl.backupTx(i, output)
@@ -237,7 +239,7 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startFrom uint64, pr
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Done\n")
+	fmt.Fprintf(cl.cmd.ErrOrStderr(), "Done\n")
 	return nil
 }
 
@@ -326,7 +328,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 			}
 
 			if params.verify {
-				return verifyFile(file)
+				return cl.verifyFile(file)
 			}
 
 			dbExist, err := cl.isDbExists(args[0])
@@ -351,7 +353,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 			defer func() {
 				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error switching off replica mode for db: %v", err)
+					fmt.Fprintf(cl.cmd.ErrOrStderr(), "Error switching off replica mode for db: %v", err)
 				}
 			}()
 
@@ -371,6 +373,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 	ccmd.Flags().Bool("progress", false, "show progress indicator")
 	ccmd.Flags().Bool("force", false, "don't check transaction sequence")
 	cmd.AddCommand(ccmd)
+	cl.cmd = cmd
 }
 
 func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
@@ -401,7 +404,7 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 	return &params, nil
 }
 
-func verifyFile(file io.Reader) error {
+func (cl *commandlineHotBck) verifyFile(file io.Reader) error {
 	fileStart, _, _, err := getTx(file)
 	if err != nil {
 		return err
@@ -412,7 +415,7 @@ func verifyFile(file io.Reader) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Backup file contains transactions %d - %d\n", fileStart, last)
+	fmt.Fprintf(cl.cmd.OutOrStdout(), "Backup file contains transactions %d - %d\n", fileStart, last)
 	return nil
 }
 
@@ -442,7 +445,7 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 	if err != nil {
 		return 0, nil
 	}
-	if lastTx == 0 {	// db is empty - nothing to verify
+	if lastTx == 0 { // db is empty - nothing to verify
 		return 0, nil
 	}
 
@@ -466,7 +469,7 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 		err = cl.restoreTx(fileSignature, payload)
 		if err != nil {
 			return 0, err
-		}			
+		}
 
 		return txId, nil // indicate to caller that first transaction to restore is already read
 	}
@@ -534,7 +537,7 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 		select {
 		case <-done:
 		case <-terminated:
-			fmt.Fprintf(os.Stderr, "Terminated by signal\n")
+			fmt.Fprintf(cl.cmd.ErrOrStderr(), "Terminated by signal\n")
 			stop = true
 		}
 	}()
@@ -564,9 +567,9 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 	}
 
 	if firstTx == 0 {
-		fmt.Printf("Target database is up-to-date, nothing restored\n")
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Target database is up-to-date, nothing restored\n")
 	} else {
-		fmt.Printf("Restored transactions %d - %d\n", firstTx, lastTx)
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Restored transactions %d - %d\n", firstTx, lastTx)
 	}
 
 	return nil
@@ -613,7 +616,8 @@ func lastTxInFile(file io.Reader) (uint64, []byte, error) {
 	for {
 		var cur uint64
 		var err error
-		cur, signature, _, err = getTx(file)
+		var txSign []byte
+		cur, txSign, _, err = getTx(file)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -625,6 +629,7 @@ func lastTxInFile(file io.Reader) (uint64, []byte, error) {
 			return 0, nil, ErrTxWrongOrder
 		}
 		last = cur
+		signature = txSign
 	}
 
 	return last, signature, nil
