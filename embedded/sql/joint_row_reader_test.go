@@ -53,7 +53,7 @@ func TestJointRowReader(t *testing.T) {
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
 
-	r, err := newRawRowReader(tx, table, 0, "", &ScanSpecs{index: table.primaryIndex})
+	r, err := newRawRowReader(tx, table, nil, "", &ScanSpecs{index: table.primaryIndex})
 	require.NoError(t, err)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}}, nil)

@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -210,8 +211,7 @@ func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 }
 
 type UseSnapshotStmt struct {
-	sinceTx  uint64
-	asBefore uint64
+	period period
 }
 
 func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -782,7 +782,7 @@ func (tx *SQLTx) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 		rangesByColID: pkRanges,
 	}
 
-	r, err := newRawRowReader(tx, table, 0, table.name, scanSpecs)
+	r, err := newRawRowReader(tx, table, nil, table.name, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -2192,10 +2192,54 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 }
 
 type tableRef struct {
-	db       string
-	table    string
-	asBefore uint64
-	as       string
+	db     string
+	table  string
+	period period
+	as     string
+}
+
+type period struct {
+	start *openPeriod
+	end   *openPeriod
+}
+
+type openPeriod struct {
+	inclusive bool
+	instant   periodInstant
+}
+
+type periodInstant struct {
+	exp         ValueExp
+	instantType instantType
+}
+
+type instantType = int
+
+const (
+	txInstant instantType = iota
+	timeInstant
+)
+
+func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}) (uint64, error) {
+	exp, err := i.exp.substitute(params)
+	if err != nil {
+		return 0, err
+	}
+
+	instantVal, err := exp.reduce(tx.catalog, nil, tx.currentDB.name, "")
+	if err != nil {
+		return 0, err
+	}
+
+	if i.instantType == txInstant {
+		txID, ok := instantVal.Value().(int64)
+		if !ok {
+			return 0, fmt.Errorf("%w: invalid transaction in table range", ErrIllegalArguments)
+		}
+		return uint64(txID), nil
+	} else {
+		return 0, fmt.Errorf("time travel based on timestamp not supported: %w", ErrNoSupported)
+	}
 }
 
 func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
@@ -2240,7 +2284,43 @@ func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpec
 		return nil, err
 	}
 
-	return newRawRowReader(tx, table, stmt.asBefore, stmt.as, scanSpecs)
+	if stmt.period.start == nil && stmt.period.end == nil {
+		return newRawRowReader(tx, table, nil, stmt.as, scanSpecs)
+	}
+
+	initialTxID := uint64(0)
+	finalTxID := uint64(math.MaxUint64)
+
+	if stmt.period.start != nil {
+		initialTxID, err = stmt.period.start.instant.resolve(tx, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if !stmt.period.start.inclusive {
+			initialTxID++
+		}
+	}
+
+	if stmt.period.end != nil {
+		finalTxID, err = stmt.period.end.instant.resolve(tx, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if !stmt.period.end.inclusive {
+			if finalTxID == 0 {
+				return nil, fmt.Errorf("%w: invalid range specified for table '%s'", ErrIllegalArguments, table.name)
+			}
+			finalTxID--
+		}
+	}
+
+	if initialTxID > finalTxID {
+		return nil, fmt.Errorf("%w: invalid range specified for table '%s'", ErrIllegalArguments, table.name)
+	}
+
+	return newRawRowReader(tx, table, &txRange{initialTxID: initialTxID, finalTxID: finalTxID}, stmt.as, scanSpecs)
 }
 
 func (stmt *tableRef) Alias() string {
