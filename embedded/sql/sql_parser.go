@@ -10,45 +10,47 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 }
 
 type yySymType struct {
-	yys        int
-	stmts      []SQLStmt
-	stmt       SQLStmt
-	colsSpec   []*ColSpec
-	colSpec    *ColSpec
-	cols       []*ColSelector
-	rows       []*RowSpec
-	row        *RowSpec
-	values     []ValueExp
-	value      ValueExp
-	id         string
-	number     uint64
-	str        string
-	boolean    bool
-	blob       []byte
-	sqlType    SQLValueType
-	aggFn      AggregateFn
-	ids        []string
-	col        *ColSelector
-	sel        Selector
-	sels       []Selector
-	distinct   bool
-	ds         DataSource
-	tableRef   *tableRef
-	period     *period
-	joins      []*JoinSpec
-	join       *JoinSpec
-	joinType   JoinType
-	exp        ValueExp
-	binExp     ValueExp
-	err        error
-	ordcols    []*OrdCol
-	opt_ord    bool
-	logicOp    LogicOperator
-	cmpOp      CmpOperator
-	pparam     int
-	update     *colUpdate
-	updates    []*colUpdate
-	onConflict *OnConflictDo
+	yys           int
+	stmts         []SQLStmt
+	stmt          SQLStmt
+	colsSpec      []*ColSpec
+	colSpec       *ColSpec
+	cols          []*ColSelector
+	rows          []*RowSpec
+	row           *RowSpec
+	values        []ValueExp
+	value         ValueExp
+	id            string
+	number        uint64
+	str           string
+	boolean       bool
+	blob          []byte
+	sqlType       SQLValueType
+	aggFn         AggregateFn
+	ids           []string
+	col           *ColSelector
+	sel           Selector
+	sels          []Selector
+	distinct      bool
+	ds            DataSource
+	tableRef      *tableRef
+	period        period
+	openPeriod    *openPeriod
+	periodInstant periodInstant
+	joins         []*JoinSpec
+	join          *JoinSpec
+	joinType      JoinType
+	exp           ValueExp
+	binExp        ValueExp
+	err           error
+	ordcols       []*OrdCol
+	opt_ord       bool
+	logicOp       LogicOperator
+	cmpOp         CmpOperator
+	pparam        int
+	update        *colUpdate
+	updates       []*colUpdate
+	onConflict    *OnConflictDo
 }
 
 const CREATE = 57346
@@ -1171,47 +1173,47 @@ yydefault:
 	case 81:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.period = &period{start: yyDollar[1].periodStart, end: yyDollar[2].periodEnd}
+			yyVAL.period = period{start: yyDollar[1].openPeriod, end: yyDollar[2].openPeriod}
 		}
 	case 82:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.periodStart = nil
+			yyVAL.openPeriod = nil
 		}
 	case 83:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.periodStart = &periodStart{inclusive: true, moment: yyDollar[2].periodMoment}
+			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
 		}
 	case 84:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.periodStart = &periodStart{moment: yyDollar[2].periodMoment}
+			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
 		}
 	case 85:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.periodEnd = nil
+			yyVAL.openPeriod = nil
 		}
 	case 86:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.periodEnd = &periodEnd{inclusive: true, moment: yyDollar[2].periodMoment}
+			yyVAL.openPeriod = &openPeriod{inclusive: true, instant: yyDollar[2].periodInstant}
 		}
 	case 87:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.periodEnd = &periodEnd{moment: yyDollar[2].periodMoment}
+			yyVAL.openPeriod = &openPeriod{instant: yyDollar[2].periodInstant}
 		}
 	case 88:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.periodMoment = &periodMomentTx{exp: yyDollar[2].exp}
+			yyVAL.periodInstant = periodInstant{instantType: txInstant, exp: yyDollar[2].exp}
 		}
 	case 89:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.periodMoment = &periodMomentTime{exp: yyDollar[1].exp}
+			yyVAL.periodInstant = periodInstant{instantType: timeInstant, exp: yyDollar[1].exp}
 		}
 	case 90:
 		yyDollar = yyS[yypt-0 : yypt+1]

@@ -101,13 +101,18 @@ func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 type rawRowReader struct {
 	tx              *SQLTx
 	table           *Table
-	asBefore        uint64
+	txRange         *txRange
 	tableAlias      string
 	colsByPos       []ColDescriptor
 	colsBySel       map[string]ColDescriptor
 	scanSpecs       *ScanSpecs
 	reader          *store.KeyReader
 	onCloseCallback func()
+}
+
+type txRange struct {
+	initialTxID uint64
+	finalTxID   uint64
 }
 
 type ColDescriptor struct {
@@ -122,7 +127,7 @@ func (d *ColDescriptor) Selector() string {
 	return EncodeSelector(d.AggFn, d.Database, d.Table, d.Column)
 }
 
-func newRawRowReader(tx *SQLTx, table *Table, asBefore uint64, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
+func newRawRowReader(tx *SQLTx, table *Table, txRange *txRange, tableAlias string, scanSpecs *ScanSpecs) (*rawRowReader, error) {
 	if table == nil || scanSpecs == nil || scanSpecs.index == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -159,7 +164,7 @@ func newRawRowReader(tx *SQLTx, table *Table, asBefore uint64, tableAlias string
 	return &rawRowReader{
 		tx:         tx,
 		table:      table,
-		asBefore:   asBefore,
+		txRange:    txRange,
 		tableAlias: tableAlias,
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
@@ -301,10 +306,10 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	var mkey []byte
 	var vref store.ValueRef
 
-	if r.asBefore > 0 {
-		mkey, vref, _, err = r.reader.ReadAsBefore(r.asBefore)
-	} else {
+	if r.txRange == nil {
 		mkey, vref, err = r.reader.Read()
+	} else {
+		mkey, vref, _, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
 	}
 	if err != nil {
 		return nil, err

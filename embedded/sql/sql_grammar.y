@@ -48,7 +48,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     distinct bool
     ds DataSource
     tableRef *tableRef
-    period *period
+    period period
+    openPeriod *openPeriod
+    periodInstant periodInstant
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
@@ -113,9 +115,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <ds> ds
 %type <tableRef> tableRef
 %type <period> opt_period
-%type <periodStart> opt_period_start
-%type <periodEnd> opt_period_end
-%type <periodMoment> period_moment
+%type <openPeriod> opt_period_start
+%type <openPeriod> opt_period_end
+%type <periodInstant> period_instant
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
@@ -556,7 +558,7 @@ tableRef:
 opt_period:
     opt_period_start opt_period_end
     {
-        $$ = &period{start: $1, end: $2}
+        $$ = period{start: $1, end: $2}
     }
 
 opt_period_start:
@@ -564,14 +566,14 @@ opt_period_start:
         $$ = nil
     }
 |
-    SINCE period_moment
+    SINCE period_instant
     {
-        $$ = &periodStart{inclusive: true, moment: $2}
+        $$ = &openPeriod{inclusive: true, instant: $2}
     }
 |
-    AFTER period_moment
+    AFTER period_instant
     {
-        $$ = &periodStart{moment: $2}
+        $$ = &openPeriod{instant: $2}
     }
 
 opt_period_end:
@@ -579,25 +581,25 @@ opt_period_end:
         $$ = nil
     }
 |
-    UNTIL period_moment
+    UNTIL period_instant
     {
-        $$ = &periodEnd{inclusive: true, moment: $2}
+        $$ = &openPeriod{inclusive: true, instant: $2}
     }
 |
-    BEFORE period_moment
+    BEFORE period_instant
     {
-        $$ = &periodEnd{moment: $2}
+        $$ = &openPeriod{instant: $2}
     }
 
-period_moment:
+period_instant:
     TX exp
     {
-        $$ = &periodMomentTx{exp: $2}
+        $$ = periodInstant{instantType: txInstant, exp: $2}
     }
 |
     exp
     {
-        $$ = &periodMomentTime{exp: $1}
+        $$ = periodInstant{instantType: timeInstant, exp: $1}
     }
 
 opt_joins:
