@@ -2447,14 +2447,18 @@ func (lv *leafValue) size() int {
 	return 16 + len(lv.key) + len(lv.value)
 }
 
-func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (ts, hc uint64, err error) {
-	if lv.ts < beforeTs {
-		return lv.ts, lv.hCount, nil
+func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (ts, hc uint64, err error) {
+	if lv.ts >= initialTs && lv.ts <= finalTs {
+		return lv.ts, lv.hCount + uint64(len(lv.tss)), nil
 	}
 
-	for _, ts := range lv.tss {
-		if ts < beforeTs {
-			return ts, lv.hCount, nil
+	for i, ts := range lv.tss {
+		if ts < initialTs {
+			return 0, 0, ErrKeyNotFound
+		}
+
+		if ts <= finalTs {
+			return ts, lv.hCount + uint64(len(lv.tss)-i-1), nil
 		}
 	}
 
@@ -2475,7 +2479,11 @@ func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (ts, 
 				return 0, 0, err
 			}
 
-			if ts < beforeTs {
+			if ts < initialTs {
+				return 0, 0, ErrKeyNotFound
+			}
+
+			if ts <= finalTs {
 				return ts, lv.hCount - skippedUpdates, nil
 			}
 
