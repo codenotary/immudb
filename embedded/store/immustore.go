@@ -1763,6 +1763,76 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
+func (s *ImmuStore) TxSince(ts time.Time) (*Tx, error) {
+	left := uint64(1)
+	right, _, _ := s.commitState()
+
+	for left < right {
+		middle := left + (right-left)/2
+
+		tx := s.NewTxHolder()
+
+		err := s.ReadTx(middle, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if tx.header.Ts < ts.Unix() {
+			left = middle + 1
+		} else {
+			right = middle
+		}
+	}
+
+	tx := s.NewTxHolder()
+
+	err := s.ReadTx(left, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if tx.header.Ts >= ts.Unix() {
+		return tx, nil
+	}
+
+	return nil, ErrTxNotFound
+}
+
+func (s *ImmuStore) TxUntil(ts time.Time) (*Tx, error) {
+	left := uint64(1)
+	right, _, _ := s.commitState()
+
+	for left < right {
+		middle := left + ((right-left)+1)/2
+
+		tx := s.NewTxHolder()
+
+		err := s.ReadTx(middle, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if tx.header.Ts > ts.Unix() {
+			right = middle - 1
+		} else {
+			left = middle
+		}
+	}
+
+	tx := s.NewTxHolder()
+
+	err := s.ReadTx(left, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if tx.header.Ts <= ts.Unix() {
+		return tx, nil
+	}
+
+	return nil, ErrTxNotFound
+}
+
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	cacheMiss := false
 

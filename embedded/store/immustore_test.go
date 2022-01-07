@@ -2737,3 +2737,85 @@ func TestImmudbPrecodnitionIndexing(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestTxSinceUntil(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_tx_since_until")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	immuStore, err := Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	start := time.Now()
+
+	time.Sleep(1 * time.Second)
+
+	_, err = immuStore.TxSince(start)
+	require.ErrorIs(t, err, ErrTxNotFound)
+
+	_, err = immuStore.TxUntil(start)
+	require.ErrorIs(t, err, ErrTxNotFound)
+
+	var txts []int64
+
+	const txCount = 100
+
+	for i := 0; i < txCount; i++ {
+		tx, err := immuStore.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("key1"), nil, []byte("val1"))
+		require.NoError(t, err)
+
+		hdr, err := tx.Commit()
+		require.NoError(t, err)
+		require.NotNil(t, hdr)
+
+		txts = append(txts, hdr.Ts)
+	}
+
+	t.Run("no tx should be returned when requesting a tx since a future time", func(t *testing.T) {
+		_, err = immuStore.TxSince(time.Now().Add(1 * time.Second))
+		require.ErrorIs(t, err, ErrTxNotFound)
+	})
+
+	t.Run("the last tx should be returned when requesting a tx until a future time", func(t *testing.T) {
+		tx, err := immuStore.TxUntil(time.Now().Add(1 * time.Second))
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Equal(t, uint64(txCount), tx.header.ID)
+	})
+
+	t.Run("the first tx should be returned when requesting from a past time", func(t *testing.T) {
+		tx, err := immuStore.TxSince(start)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Equal(t, uint64(1), tx.header.ID)
+	})
+
+	t.Run("no tx should be returned when requesting a tx until a past time", func(t *testing.T) {
+		_, err = immuStore.TxUntil(start)
+		require.ErrorIs(t, err, ErrTxNotFound)
+	})
+
+	for i, ts := range txts {
+		tx, err := immuStore.TxSince(time.Unix(ts, 0))
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.LessOrEqual(t, ts, tx.header.Ts)
+		require.GreaterOrEqual(t, uint64(i+1), tx.header.ID)
+
+		if tx.header.ID > 1 {
+			require.Less(t, txts[tx.header.ID-2], ts)
+		}
+
+		tx, err = immuStore.TxUntil(time.Unix(ts, 0))
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.GreaterOrEqual(t, ts, tx.header.Ts)
+
+		if int(tx.header.ID) < len(txts) {
+			require.Greater(t, txts[tx.header.ID], ts)
+		}
+	}
+}
