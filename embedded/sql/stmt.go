@@ -2276,7 +2276,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 				sts.Add(1 * time.Second)
 			}
 
-			tx, err := tx.engine.store.TxSince(sts)
+			tx, err := tx.engine.store.FirstTxSince(sts)
 			if err != nil {
 				return 0, err
 			}
@@ -2288,7 +2288,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 			sts.Add(-1 * time.Second)
 		}
 
-		tx, err := tx.engine.store.TxUntil(sts)
+		tx, err := tx.engine.store.LastTxUntil(sts)
 		if err != nil {
 			return 0, err
 		}

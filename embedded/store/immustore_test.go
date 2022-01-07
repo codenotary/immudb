@@ -2738,8 +2738,8 @@ func TestImmudbPrecodnitionIndexing(t *testing.T) {
 	})
 }
 
-func TestTxSinceUntil(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_tx_since_until")
+func TestTimeBasedTxLookup(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_time_based_tx_lookup")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
@@ -2750,10 +2750,10 @@ func TestTxSinceUntil(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	_, err = immuStore.TxSince(start)
+	_, err = immuStore.FirstTxSince(start)
 	require.ErrorIs(t, err, ErrTxNotFound)
 
-	_, err = immuStore.TxUntil(start)
+	_, err = immuStore.LastTxUntil(start)
 	require.ErrorIs(t, err, ErrTxNotFound)
 
 	var txts []int64
@@ -2772,34 +2772,36 @@ func TestTxSinceUntil(t *testing.T) {
 		require.NotNil(t, hdr)
 
 		txts = append(txts, hdr.Ts)
+
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	}
 
 	t.Run("no tx should be returned when requesting a tx since a future time", func(t *testing.T) {
-		_, err = immuStore.TxSince(time.Now().Add(1 * time.Second))
+		_, err = immuStore.FirstTxSince(time.Now().Add(1 * time.Second))
 		require.ErrorIs(t, err, ErrTxNotFound)
 	})
 
 	t.Run("the last tx should be returned when requesting a tx until a future time", func(t *testing.T) {
-		tx, err := immuStore.TxUntil(time.Now().Add(1 * time.Second))
+		tx, err := immuStore.LastTxUntil(time.Now().Add(1 * time.Second))
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Equal(t, uint64(txCount), tx.header.ID)
 	})
 
 	t.Run("the first tx should be returned when requesting from a past time", func(t *testing.T) {
-		tx, err := immuStore.TxSince(start)
+		tx, err := immuStore.FirstTxSince(start)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Equal(t, uint64(1), tx.header.ID)
 	})
 
 	t.Run("no tx should be returned when requesting a tx until a past time", func(t *testing.T) {
-		_, err = immuStore.TxUntil(start)
+		_, err = immuStore.LastTxUntil(start)
 		require.ErrorIs(t, err, ErrTxNotFound)
 	})
 
 	for i, ts := range txts {
-		tx, err := immuStore.TxSince(time.Unix(ts, 0))
+		tx, err := immuStore.FirstTxSince(time.Unix(ts, 0))
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.LessOrEqual(t, ts, tx.header.Ts)
@@ -2809,7 +2811,7 @@ func TestTxSinceUntil(t *testing.T) {
 			require.Less(t, txts[tx.header.ID-2], ts)
 		}
 
-		tx, err = immuStore.TxUntil(time.Unix(ts, 0))
+		tx, err = immuStore.LastTxUntil(time.Unix(ts, 0))
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.GreaterOrEqual(t, ts, tx.header.Ts)
