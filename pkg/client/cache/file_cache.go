@@ -20,13 +20,14 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/golang/protobuf/proto"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/golang/protobuf/proto"
+	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
 // STATE_FN ...
@@ -54,22 +55,25 @@ func (w *fileCache) Get(serverUUID string, db string) (*schema.ImmutableState, e
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, db+":") {
-			r := strings.Split(line, ":")
-			if r[1] == "" {
-				return nil, ErrPrevStateNotFound
-			}
-			oldState, err := base64.StdEncoding.DecodeString(r[1])
-			if err != nil {
-				return nil, ErrLocalStateCorrupted
-			}
-
-			state := &schema.ImmutableState{}
-			if err = proto.Unmarshal(oldState, state); err != nil {
-				return nil, ErrLocalStateCorrupted
-			}
-			return state, nil
+		if !strings.HasPrefix(line, db+":") {
+			continue
 		}
+
+		oldState, err := base64.StdEncoding.DecodeString(line[len(db)+1:])
+		if err != nil {
+			return nil, ErrLocalStateCorrupted
+		}
+
+		if len(oldState) == 0 {
+			return nil, ErrLocalStateCorrupted
+		}
+
+		state := &schema.ImmutableState{}
+		if err = proto.Unmarshal(oldState, state); err != nil {
+			return nil, ErrLocalStateCorrupted
+		}
+
+		return state, nil
 	}
 	return nil, ErrPrevStateNotFound
 }
@@ -95,15 +99,22 @@ func (w *fileCache) Set(serverUUID string, db string, state *schema.ImmutableSta
 	var lines [][]byte
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, db+":") {
+		if strings.HasPrefix(line, db+":") {
 			exists = true
 			lines = append(lines, []byte(newState))
+		} else {
+			lines = append(lines, []byte(line))
 		}
 	}
 	if !exists {
 		lines = append(lines, []byte(newState))
 	}
 	output := bytes.Join(lines, []byte("\n"))
+
+	_, err = w.stateFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
 
 	err = w.stateFile.Truncate(0)
 	if err != nil {
