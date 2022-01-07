@@ -650,7 +650,14 @@ func TestLikeBoolExpEdgeCases(t *testing.T) {
 		err = exp.requiresType(BooleanType, nil, nil, "", "")
 		require.ErrorIs(t, err, ErrInvalidTypes)
 
-		_, err = exp.reduce(nil, &Row{Values: map[string]TypedValue{"(db1.table1.col1)": &NullValue{}}}, "db1", "table1")
+		v := &NullValue{}
+
+		row := &Row{
+			ValuesByPosition: []TypedValue{v},
+			ValuesBySelector: map[string]TypedValue{"(db1.table1.col1)": v},
+		}
+
+		_, err = exp.reduce(nil, row, "db1", "table1")
 		require.ErrorIs(t, err, ErrInvalidTypes)
 	})
 

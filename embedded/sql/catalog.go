@@ -15,6 +15,8 @@ limitations under the License.
 */
 package sql
 
+import "fmt"
+
 type Catalog struct {
 	dbsByID   map[uint32]*Database
 	dbsByName map[string]*Database
@@ -156,7 +158,7 @@ func (db *Database) GetTables() []*Table {
 func (db *Database) GetTableByName(name string) (*Table, error) {
 	table, exists := db.tablesByName[name]
 	if !exists {
-		return nil, ErrTableDoesNotExist
+		return nil, fmt.Errorf("%w (%s)", ErrTableDoesNotExist, name)
 	}
 	return table, nil
 }
@@ -196,7 +198,7 @@ func (t *Table) PrimaryIndex() *Index {
 func (t *Table) IsIndexed(colName string) (indexed bool, err error) {
 	c, exists := t.colsByName[colName]
 	if !exists {
-		return false, ErrColumnDoesNotExist
+		return false, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, colName)
 	}
 
 	_, ok := t.indexesByColID[c.id]
@@ -211,7 +213,7 @@ func (t *Table) IndexesByColID(colID uint32) []*Index {
 func (t *Table) GetColumnByName(name string) (*Column, error) {
 	col, exists := t.colsByName[name]
 	if !exists {
-		return nil, ErrColumnDoesNotExist
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, name)
 	}
 	return col, nil
 }
@@ -277,7 +279,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 
 	exists := db.ExistTable(name)
 	if exists {
-		return nil, ErrTableAlreadyExists
+		return nil, fmt.Errorf("%w (%s)", ErrTableAlreadyExists, name)
 	}
 
 	id := len(db.tablesByID) + 1

@@ -574,7 +574,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		}
 
 		if err == store.ErrKeyNotFound && pkMustExist {
-			return nil, err
+			return nil, fmt.Errorf("%w: specified value must be greater than current one", ErrInvalidValue)
 		}
 
 		if stmt.isInsert {
@@ -607,11 +607,11 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		}
 
 		if err == nil {
-			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.Values))
+			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
 
 			for _, col := range table.cols {
 				encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-				currValuesByColID[col.id] = currPKRow.Values[encSel]
+				currValuesByColID[col.id] = currPKRow.ValuesBySelector[encSel]
 			}
 
 			reusableIndexEntries, err = tx.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table)
@@ -979,11 +979,11 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 			break
 		}
 
-		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+		valuesByColID := make(map[uint32]TypedValue, len(row.ValuesBySelector))
 
 		for _, col := range table.cols {
 			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-			valuesByColID[col.id] = row.Values[encSel]
+			valuesByColID[col.id] = row.ValuesBySelector[encSel]
 		}
 
 		for _, update := range stmt.updates {
@@ -1077,11 +1077,11 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			return nil, err
 		}
 
-		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+		valuesByColID := make(map[uint32]TypedValue, len(row.ValuesBySelector))
 
 		for _, col := range table.cols {
 			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-			valuesByColID[col.id] = row.Values[encSel]
+			valuesByColID[col.id] = row.ValuesBySelector[encSel]
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
@@ -1940,7 +1940,7 @@ const (
 )
 
 type DataSource interface {
-	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
+	SQLStmt
 	Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
@@ -2181,6 +2181,56 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	}, nil
 }
 
+type UnionStmt struct {
+	distinct    bool
+	left, right DataSource
+}
+
+func (stmt *UnionStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	err := stmt.left.inferParameters(tx, params)
+	if err != nil {
+		return err
+	}
+
+	return stmt.right.inferParameters(tx, params)
+}
+
+func (stmt *UnionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	_, err := stmt.left.execAt(tx, params)
+	if err != nil {
+		return tx, err
+	}
+
+	return stmt.right.execAt(tx, params)
+}
+
+func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	leftRowReader, err := stmt.left.Resolve(tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rowReader, err = newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	if err != nil {
+		return nil, err
+	}
+
+	if stmt.distinct {
+		return newDistinctRowReader(rowReader)
+	}
+
+	return rowReader, nil
+}
+
+func (stmt *UnionStmt) Alias() string {
+	return ""
+}
+
 type tableRef struct {
 	db     string
 	table  string
@@ -2323,6 +2373,10 @@ func (stmt *tableRef) inferParameters(tx *SQLTx, params map[string]SQLValueType)
 	return nil
 }
 
+func (stmt *tableRef) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
 func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
 	if tx == nil {
 		return nil, ErrIllegalArguments
@@ -2434,7 +2488,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
 
-	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
+	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
@@ -2445,7 +2499,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 func (sel *ColSelector) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
 
-	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
+	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
 		return sel
 	}
@@ -2536,7 +2590,7 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, ok := row.Values[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
+	v, ok := row.ValuesBySelector[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
 	if !ok {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, sel.col)
 	}
