@@ -27,6 +27,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %union{
     stmts []SQLStmt
     stmt SQLStmt
+    datasource DataSource
     colsSpec []*ColSpec
     colSpec *ColSpec
     cols []*ColSelector
@@ -70,7 +71,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST
 %token <id> NPARAM
@@ -100,7 +101,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left IS
 
 %type <stmts> sql sqlstmts
-%type <stmt> sqlstmt ddlstmt dqlstmt dmlstmt
+%type <stmt> sqlstmt ddlstmt dmlstmt dqlstmt select_stmt
 %type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids one_or_more_ids opt_ids
@@ -112,7 +113,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <sel> selector
 %type <sels> opt_selectors selectors
 %type <col> col
-%type <distinct> opt_distinct
+%type <distinct> opt_distinct opt_all
 %type <ds> ds
 %type <tableRef> tableRef
 %type <period> opt_period
@@ -449,7 +450,21 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
+    select_stmt
+    {
+        $$ = $1
+    }
+|
+    select_stmt UNION opt_all dqlstmt
+    {
+        $$ = &UnionStmt{
+            distinct: $3,
+            left: $1.(DataSource),
+            right: $4.(DataSource),
+        }
+    }
+
+select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -463,6 +478,16 @@ dqlstmt:
                 orderBy: $11,
                 limit: int($12),
             }
+    }
+
+opt_all:
+    {
+        $$ = true
+    }
+|
+    ALL
+    {
+        $$ = false
     }
 
 opt_distinct:

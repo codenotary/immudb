@@ -136,7 +136,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 
 		colDesc, ok := dsColDescriptors[encSel]
 		if !ok {
-			return nil, ErrColumnDoesNotExist
+			return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 		}
 
 		if pr.tableAlias != "" {
@@ -189,7 +189,8 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	}
 
 	prow := &Row{
-		Values: make(map[string]TypedValue, len(pr.selectors)),
+		ValuesByPosition: make([]TypedValue, len(pr.selectors)),
+		ValuesBySelector: make(map[string]TypedValue, len(pr.selectors)),
 	}
 
 	for i, sel := range pr.selectors {
@@ -197,7 +198,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
-		val, ok := row.Values[encSel]
+		val, ok := row.ValuesBySelector[encSel]
 		if !ok {
 			return nil, ErrColumnDoesNotExist
 		}
@@ -219,7 +220,8 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 			}
 		}
 
-		prow.Values[EncodeSelector(aggFn, db, table, col)] = val
+		prow.ValuesByPosition[i] = val
+		prow.ValuesBySelector[EncodeSelector(aggFn, db, table, col)] = val
 	}
 
 	return prow, nil
