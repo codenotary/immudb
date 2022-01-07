@@ -4409,3 +4409,30 @@ func TestIndexingNullableColumns(t *testing.T) {
 		)
 	})
 }
+
+func TestTemporalQueries(t *testing.T) {
+	st, err := store.Open("temporal_queries", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("temporal_queries")
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	r, err := engine.Query("SELECT ts FROM timestamp_table SINCE now() ORDER BY id DESC LIMIT 1", nil, nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	r, err = engine.Query("SELECT ts FROM timestamp_table SINCE '2021-12-03' ORDER BY id DESC LIMIT 1", nil, nil)
+	require.NoError(t, err)
+	defer r.Close()
+}
