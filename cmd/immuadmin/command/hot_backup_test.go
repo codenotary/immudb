@@ -17,23 +17,23 @@ limitations under the License.
 package immuadmin
 
 import (
-	"os"
-	"testing"
-	"context"
 	"bytes"
-	"io/ioutil"
+	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"testing"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/codenotary/immudb/cmd/helper"
 )
 
 var options = server.DefaultOptions().WithAuth(true)
@@ -52,7 +52,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func getCmdline() (*commandline) {
+func getCmdline() *commandline {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -66,10 +66,10 @@ func getCmdline() (*commandline) {
 	md := metadata.Pairs("authorization", token.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	return &commandline{
-		config:         helper.Config{Name: "immuadmin"},
-		options:        cliopt,
-		immuClient:     clientb,
-		context:        ctx,
+		config:     helper.Config{Name: "immuadmin"},
+		options:    cliopt,
+		immuClient: clientb,
+		context:    ctx,
 	}
 }
 
@@ -128,7 +128,7 @@ func TestRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Contains(t, string(out), "Error: there is a gap of 1 transaction(s) between database and file - restore not possible")
-	
+
 	// append with overlap (10-11), txn 10 is verified. txn 11 is restored
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/10-11.backup", "--append"})
 	err = cmd.Execute()
@@ -153,7 +153,6 @@ func TestRestore(t *testing.T) {
 	}
 	assert.Contains(t, string(out), "Error: not possible to validate last transaction in DB - use --force to override")
 
-
 	// append without overlap (last in DB - 11, first in file - 12) - 11th txn cannot be verified, forced
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force"})
 	err = cmd.Execute()
@@ -177,7 +176,7 @@ func TestRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Contains(t, string(out), "Target database is up-to-date, nothing restored")
-	
+
 	// txn 14 in file doesn't match the txn 14 in database, should fail
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/14-15_modified.backup", "--append"})
 	err = cmd.Execute()
@@ -188,10 +187,10 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Error: signatures for tx 14 in backup file and database differ - cannot append data to the database")
+	assert.Contains(t, string(out), "Error: checksums for tx 14 in backup file and database differ - cannot append data to the database")
 
 	// verify backup file
-	cmd.SetArgs([]string{"hot-restore", "--verify", "-i", "testdata/1-10.backup"})
+	cmd.SetArgs([]string{"hot-restore", "--verify-only", "-i", "testdata/1-10.backup"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -242,7 +241,7 @@ func TestBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Contains(t, string(out), "Backing up transactions 1 - 10")
-	
+
 	// partial backup (5-10)
 	os.Remove("1-5.backup")
 	cmd.SetArgs([]string{"hot-backup", "test1", "--start-tx", "5", "-o", "1-5.backup"})
@@ -262,7 +261,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// append txn 11 to file - require --append flag, should fail
 	cmd.SetArgs([]string{"hot-backup", "test1", "--start-tx", "1", "-o", "full.backup"})
 	err = cmd.Execute()
@@ -330,5 +329,5 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Error: signatures for transaction 14 in backup file and database differ - probably file was created from different database")	
+	assert.Contains(t, string(out), "Error: checksums for transaction 14 in backup file and database differ - probably file was created from different database")
 }

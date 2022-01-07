@@ -103,7 +103,7 @@ func (cl *commandlineHotBck) hotBackup(cmd *cobra.Command) {
 			cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 
 			if params.output != "-" {
-				f, err := cl.verifyBackupFile(params)
+				f, err := cl.verifyOrCreateBackupFile(params)
 				if err != nil {
 					return err
 				}
@@ -155,7 +155,7 @@ func prepareBackupParams(flags *pflag.FlagSet) (*backupParams, error) {
 	return &params, nil
 }
 
-func (cl *commandlineHotBck) verifyBackupFile(params *backupParams) (*os.File, error) {
+func (cl *commandlineHotBck) verifyOrCreateBackupFile(params *backupParams) (*os.File, error) {
 	var f *os.File
 
 	_, err := os.Stat(params.output)
@@ -168,7 +168,7 @@ func (cl *commandlineHotBck) verifyBackupFile(params *backupParams) (*os.File, e
 		if err != nil {
 			return nil, err
 		}
-		last, fileSignature, err := lastTxInFile(f)
+		last, fileChecksum, err := lastTxInFile(f)
 		if err != nil {
 			return nil, err
 		}
@@ -176,8 +176,9 @@ func (cl *commandlineHotBck) verifyBackupFile(params *backupParams) (*os.File, e
 		if err != nil {
 			return nil, fmt.Errorf("cannot find file's last transaction %d in database: %v", last, err)
 		}
-		if !bytes.Equal(fileSignature, txn.Header.EH) {
-			return nil, fmt.Errorf("signatures for transaction %d in backup file and database differ - probably file was created from different database", last)
+		alh := schema.TxHeaderFromProto(txn.Header).Alh()
+		if !bytes.Equal(fileChecksum, alh[:]) {
+			return nil, fmt.Errorf("checksums for transaction %d in backup file and database differ - probably file was created from different database", last)
 		}
 		params.startTx = last + 1
 	} else if os.IsNotExist(err) {
@@ -273,7 +274,8 @@ func (cl *commandlineHotBck) backupTx(tx uint64, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	err = outputTx(tx, output, txn.Header.EH, content)
+	alh := schema.TxHeaderFromProto(txn.Header).Alh()
+	err = outputTx(tx, output, alh[:], content)
 	if err != nil {
 		return err
 	}
@@ -281,14 +283,14 @@ func (cl *commandlineHotBck) backupTx(tx uint64, output io.Writer) error {
 	return nil
 }
 
-func outputTx(tx uint64, output io.Writer, signature []byte, content []byte) error {
-	payload := make([]byte, headerSize, headerSize+len(signature)+len(content))
+func outputTx(tx uint64, output io.Writer, checksum []byte, content []byte) error {
+	payload := make([]byte, headerSize, headerSize+len(checksum)+len(content))
 	copy(payload[prefixOffset:], prefix)
 	binary.BigEndian.PutUint32(payload[versionOffset:], latestFileVersion)
 	binary.BigEndian.PutUint64(payload[txIdOffset:], tx)
-	binary.BigEndian.PutUint32(payload[txSignSizeOffset:], uint32(len(signature)))
+	binary.BigEndian.PutUint32(payload[txSignSizeOffset:], uint32(len(checksum)))
 	binary.BigEndian.PutUint32(payload[txSizeOffset:], uint32(len(content)))
-	payload = append(payload, signature...)
+	payload = append(payload, checksum...)
 	payload = append(payload, content...)
 
 	_, err := output.Write(payload)
@@ -360,7 +362,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 			return cl.runHotRestore(file, params.progress, firstTx)
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
-			verify, _ := cmd.Flags().GetBool("verify")
+			verify, _ := cmd.Flags().GetBool("verify-only")
 			if verify {
 				return cobra.ExactArgs(0)(cmd, args)
 			}
@@ -368,7 +370,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 		},
 	}
 	ccmd.Flags().StringP("input", "i", "-", "input file file, \"-\" for stdin")
-	ccmd.Flags().Bool("verify", false, "do not restore data, only verify backup")
+	ccmd.Flags().Bool("verify-only", false, "do not restore data, only verify backup")
 	ccmd.Flags().Bool("append", false, "appending to DB, if it already exists")
 	ccmd.Flags().Bool("progress", false, "show progress indicator")
 	ccmd.Flags().Bool("force", false, "don't check transaction sequence")
@@ -392,7 +394,7 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	params.verify, err = flags.GetBool("verify")
+	params.verify, err = flags.GetBool("verify-only")
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +407,7 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 }
 
 func (cl *commandlineHotBck) verifyFile(file io.Reader) error {
-	fileStart, _, _, err := getTx(file)
+	fileStart, _, _, err := nextTx(file)
 	if err != nil {
 		return err
 	}
@@ -441,7 +443,7 @@ func (cl *commandlineHotBck) isDbExists(name string) (bool, error) {
 // in some situation (when there is no gap and no overlap between DB and file) this transaction gets restored to DB,
 // in this case non-zero tx ID is returned
 func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string, file io.Reader) (uint64, error) {
-	lastTx, signature, err := cl.useDb(name)
+	lastTx, checksum, err := cl.useDb(name)
 	if err != nil {
 		return 0, nil
 	}
@@ -454,7 +456,7 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 	}
 
 	// find the nearest transaction in backup file and position the file just after the transaction
-	txId, fileSignature, payload, err := findTx(file, lastTx)
+	txId, fileChecksum, payload, err := findTx(file, lastTx)
 	if err != nil {
 		return 0, err
 	}
@@ -466,7 +468,7 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 		if !params.force {
 			return 0, errors.New("not possible to validate last transaction in DB - use --force to override")
 		}
-		err = cl.restoreTx(fileSignature, payload)
+		err = cl.restoreTx(fileChecksum, payload)
 		if err != nil {
 			return 0, err
 		}
@@ -474,8 +476,8 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 		return txId, nil // indicate to caller that first transaction to restore is already read
 	}
 
-	if !bytes.Equal(fileSignature, signature) {
-		return 0, fmt.Errorf("signatures for tx %d in backup file and database differ - cannot append data to the database", lastTx)
+	if !bytes.Equal(fileChecksum, checksum) {
+		return 0, fmt.Errorf("checksums for tx %d in backup file and database differ - cannot append data to the database", lastTx)
 	}
 
 	return 0, nil
@@ -502,7 +504,8 @@ func (cl *commandlineHotBck) useDb(name string) (uint64, []byte, error) {
 		return 0, nil, err
 	}
 
-	return state.TxId, txn.Header.EH, nil
+	alh := schema.TxHeaderFromProto(txn.Header).Alh()
+	return state.TxId, alh[:], nil
 }
 
 func (cl *commandlineHotBck) createDb(name string) error {
@@ -544,7 +547,7 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 
 	lastTx := firstTx
 	for !stop {
-		tx, signature, payload, err := getTx(input)
+		tx, checksum, payload, err := nextTx(input)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -552,7 +555,7 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 			return err
 		}
 
-		err = cl.restoreTx(signature, payload)
+		err = cl.restoreTx(checksum, payload)
 		if err != nil {
 			return err
 		}
@@ -575,7 +578,7 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 	return nil
 }
 
-func (cl *commandlineHotBck) restoreTx(signature, payload []byte) error {
+func (cl *commandlineHotBck) restoreTx(checksum, payload []byte) error {
 	maxPayload := uint32(cl.options.MaxRecvMsgSize)
 
 	stream, err := cl.immuClient.ReplicateTx(cl.context)
@@ -600,8 +603,9 @@ func (cl *commandlineHotBck) restoreTx(signature, payload []byte) error {
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(signature, metadata.EH) {
-		return fmt.Errorf("transaction signatures don't match")
+	alh := schema.TxHeaderFromProto(metadata).Alh()
+	if !bytes.Equal(checksum, alh[:]) {
+		return fmt.Errorf("transaction checksums don't match")
 	}
 
 	return nil
@@ -612,12 +616,12 @@ func (cl *commandlineHotBck) restoreTx(signature, payload []byte) error {
 // in case of success file pointer is positioned to file end
 func lastTxInFile(file io.Reader) (uint64, []byte, error) {
 	last := uint64(0)
-	var signature []byte
+	var checksum []byte
 	for {
 		var cur uint64
 		var err error
 		var txSign []byte
-		cur, txSign, _, err = getTx(file)
+		cur, txSign, _, err = nextTx(file)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -629,16 +633,16 @@ func lastTxInFile(file io.Reader) (uint64, []byte, error) {
 			return 0, nil, ErrTxWrongOrder
 		}
 		last = cur
-		signature = txSign
+		checksum = txSign
 	}
 
-	return last, signature, nil
+	return last, checksum, nil
 }
 
 // returns tx smallest possible ID which is greater of equal to the one requested
-func findTx(file io.Reader, tx uint64) (txID uint64, signature []byte, payload []byte, err error) {
+func findTx(file io.Reader, tx uint64) (txID uint64, checksum []byte, payload []byte, err error) {
 	for {
-		txID, signature, payload, err = getTx(file)
+		txID, checksum, payload, err = nextTx(file)
 		if err != nil {
 			return
 		}
@@ -651,7 +655,7 @@ func findTx(file io.Reader, tx uint64) (txID uint64, signature []byte, payload [
 }
 
 // read transaction, position stream pointer just after the transaction
-func getTx(file io.Reader) (txId uint64, signature []byte, tx []byte, err error) {
+func nextTx(file io.Reader) (txId uint64, checksum []byte, tx []byte, err error) {
 	header := make([]byte, headerSize)
 	_, err = io.ReadFull(file, header)
 	if err != nil {
@@ -678,7 +682,7 @@ func getTx(file io.Reader) (txId uint64, signature []byte, tx []byte, err error)
 		return
 	}
 
-	signature = payload[:signSize]
+	checksum = payload[:signSize]
 	tx = payload[signSize:]
 
 	return
