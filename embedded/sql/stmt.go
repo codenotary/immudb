@@ -1723,7 +1723,7 @@ type Cast struct {
 
 type converterFunc func(TypedValue) (TypedValue, error)
 
-func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
+func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	if dst == TimestampType {
 
 		if src == IntegerType {
@@ -1784,7 +1784,7 @@ func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLVal
 		return AnyType, err
 	}
 
-	_, err = c.getConverter(valType, c.t)
+	_, err = getConverter(valType, c.t)
 	if err != nil {
 		return AnyType, err
 	}
@@ -1820,7 +1820,7 @@ func (c *Cast) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable stri
 		return nil, err
 	}
 
-	conv, err := c.getConverter(val.Type(), c.t)
+	conv, err := getConverter(val.Type(), c.t)
 	if conv == nil {
 		return nil, err
 	}
@@ -2220,7 +2220,7 @@ const (
 	timeInstant
 )
 
-func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}) (uint64, error) {
+func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, inclusive bool) (uint64, error) {
 	exp, err := i.exp.substitute(params)
 	if err != nil {
 		return 0, err
@@ -2234,11 +2234,66 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}) (uint64
 	if i.instantType == txInstant {
 		txID, ok := instantVal.Value().(int64)
 		if !ok {
-			return 0, fmt.Errorf("%w: invalid transaction in table range", ErrIllegalArguments)
+			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
 		}
-		return uint64(txID), nil
+
+		if inclusive {
+			return uint64(txID), nil
+		}
+
+		if asc {
+			return uint64(txID + 1), nil
+		}
+
+		if txID == 0 {
+			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
+		}
+
+		return uint64(txID - 1), nil
 	} else {
-		return 0, fmt.Errorf("time travel based on timestamp not supported: %w", ErrNoSupported)
+		var ts time.Time
+
+		if instantVal.Type() == TimestampType {
+			ts = instantVal.Value().(time.Time)
+		} else {
+			conv, err := getConverter(instantVal.Type(), TimestampType)
+			if err != nil {
+				return 0, err
+			}
+
+			tval, err := conv(instantVal)
+			if err != nil {
+				return 0, err
+			}
+
+			ts = tval.Value().(time.Time)
+		}
+
+		sts := ts
+
+		if asc {
+			if !inclusive {
+				sts.Add(1 * time.Second)
+			}
+
+			tx, err := tx.engine.store.TxSince(sts)
+			if err != nil {
+				return 0, err
+			}
+
+			return tx.Header().ID, nil
+		}
+
+		if !inclusive {
+			sts.Add(-1 * time.Second)
+		}
+
+		tx, err := tx.engine.store.TxUntil(sts)
+		if err != nil {
+			return 0, err
+		}
+
+		return tx.Header().ID, nil
 	}
 }
 
@@ -2292,32 +2347,23 @@ func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpec
 	finalTxID := uint64(math.MaxUint64)
 
 	if stmt.period.start != nil {
-		initialTxID, err = stmt.period.start.instant.resolve(tx, params)
-		if err != nil {
-			return nil, err
+		initialTxID, err = stmt.period.start.instant.resolve(tx, params, true, stmt.period.start.inclusive)
+		if err == store.ErrTxNotFound {
+			initialTxID = uint64(math.MaxUint64)
 		}
-
-		if !stmt.period.start.inclusive {
-			initialTxID++
+		if err != nil && err != store.ErrTxNotFound {
+			return nil, err
 		}
 	}
 
 	if stmt.period.end != nil {
-		finalTxID, err = stmt.period.end.instant.resolve(tx, params)
-		if err != nil {
+		finalTxID, err = stmt.period.end.instant.resolve(tx, params, false, stmt.period.end.inclusive)
+		if err == store.ErrTxNotFound {
+			finalTxID = uint64(0)
+		}
+		if err != nil && err != store.ErrTxNotFound {
 			return nil, err
 		}
-
-		if !stmt.period.end.inclusive {
-			if finalTxID == 0 {
-				return nil, fmt.Errorf("%w: invalid range specified for table '%s'", ErrIllegalArguments, table.name)
-			}
-			finalTxID--
-		}
-	}
-
-	if initialTxID > finalTxID {
-		return nil, fmt.Errorf("%w: invalid range specified for table '%s'", ErrIllegalArguments, table.name)
 	}
 
 	return newRawRowReader(tx, table, &txRange{initialTxID: initialTxID, finalTxID: finalTxID}, stmt.as, scanSpecs)
