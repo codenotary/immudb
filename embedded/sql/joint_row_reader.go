@@ -27,8 +27,9 @@ type jointRowReader struct {
 
 	joins []*JoinSpec
 
-	rowReaders       []RowReader
-	rowReadersValues []map[string]TypedValue
+	rowReaders                 []RowReader
+	rowReadersValuesByPosition [][]TypedValue
+	rowReadersValuesBySelector []map[string]TypedValue
 }
 
 func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
@@ -43,10 +44,11 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader,
 	}
 
 	return &jointRowReader{
-		rowReader:        rowReader,
-		joins:            joins,
-		rowReaders:       []RowReader{rowReader},
-		rowReadersValues: make([]map[string]TypedValue, 1+len(joins)),
+		rowReader:                  rowReader,
+		joins:                      joins,
+		rowReaders:                 []RowReader{rowReader},
+		rowReadersValuesByPosition: make([][]TypedValue, 1+len(joins)),
+		rowReadersValuesBySelector: make([]map[string]TypedValue, 1+len(joins)),
 	}, nil
 }
 
@@ -183,7 +185,10 @@ func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error
 
 func (jointr *jointRowReader) Read() (row *Row, err error) {
 	for {
-		row := &Row{Values: make(map[string]TypedValue)}
+		row := &Row{
+			ValuesByPosition: make([]TypedValue, 0),
+			ValuesBySelector: make(map[string]TypedValue),
+		}
 
 		for len(jointr.rowReaders) > 0 {
 			lastReader := jointr.rowReaders[len(jointr.rowReaders)-1]
@@ -205,7 +210,8 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 			}
 
 			// override row data
-			jointr.rowReadersValues[len(jointr.rowReaders)-1] = r.Values
+			jointr.rowReadersValuesByPosition[len(jointr.rowReaders)-1] = r.ValuesByPosition
+			jointr.rowReadersValuesBySelector[len(jointr.rowReaders)-1] = r.ValuesBySelector
 
 			break
 		}
@@ -216,8 +222,10 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 
 		// append values from readers
 		for i := 0; i < len(jointr.rowReaders); i++ {
-			for c, v := range jointr.rowReadersValues[i] {
-				row.Values[c] = v
+			row.ValuesByPosition = append(row.ValuesByPosition, jointr.rowReadersValuesByPosition[i]...)
+
+			for c, v := range jointr.rowReadersValuesBySelector[i] {
+				row.ValuesBySelector[c] = v
 			}
 		}
 
@@ -256,10 +264,13 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 			// progress with the joint readers
 			// append the reader and kept the values for following rows
 			jointr.rowReaders = append(jointr.rowReaders, reader)
-			jointr.rowReadersValues[i+1] = r.Values
+			jointr.rowReadersValuesByPosition[i+1] = r.ValuesByPosition
+			jointr.rowReadersValuesBySelector[i+1] = r.ValuesBySelector
 
-			for c, v := range r.Values {
-				row.Values[c] = v
+			row.ValuesByPosition = append(row.ValuesByPosition, r.ValuesByPosition...)
+
+			for c, v := range r.ValuesBySelector {
+				row.ValuesBySelector[c] = v
 			}
 		}
 

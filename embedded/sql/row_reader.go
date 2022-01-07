@@ -47,7 +47,8 @@ type ScanSpecs struct {
 }
 
 type Row struct {
-	Values map[string]TypedValue
+	ValuesByPosition []TypedValue
+	ValuesBySelector map[string]TypedValue
 }
 
 // rows are selector-compatible if both rows have the same assigned value for all specified selectors
@@ -55,12 +56,12 @@ func (row *Row) compatible(aRow *Row, selectors []*ColSelector, db, table string
 	for _, sel := range selectors {
 		c := EncodeSelector(sel.resolve(db, table))
 
-		val1, ok := row.Values[c]
+		val1, ok := row.ValuesBySelector[c]
 		if !ok {
 			return false, ErrInvalidColumn
 		}
 
-		val2, ok := aRow.Values[c]
+		val2, ok := aRow.ValuesBySelector[c]
 		if !ok {
 			return false, ErrInvalidColumn
 		}
@@ -81,9 +82,7 @@ func (row *Row) compatible(aRow *Row, selectors []*ColSelector, db, table string
 func (row *Row) digest(cols []ColDescriptor) (d [sha256.Size]byte, err error) {
 	h := sha256.New()
 
-	for i, col := range cols {
-		v := row.Values[col.Selector()]
-
+	for i, v := range row.ValuesByPosition {
 		var b [4]byte
 		binary.BigEndian.PutUint32(b[:], uint32(i))
 		h.Write(b[:])
@@ -436,10 +435,14 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		}
 	}
 
-	values := make(map[string]TypedValue, len(r.table.Cols()))
+	valuesByPosition := make([]TypedValue, len(r.table.Cols()))
+	valuesBySelector := make(map[string]TypedValue, len(r.table.Cols()))
 
-	for _, col := range r.table.Cols() {
-		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
+	for i, col := range r.table.Cols() {
+		v := &NullValue{t: col.colType}
+
+		valuesByPosition[i] = v
+		valuesBySelector[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = v
 	}
 
 	if len(v) < EncLenLen {
@@ -470,14 +473,16 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		}
 
 		voff += n
-		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
+
+		valuesByPosition[i] = val
+		valuesBySelector[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
 	}
 
 	if len(v)-voff > 0 {
 		return nil, ErrCorruptedData
 	}
 
-	return &Row{Values: values}, nil
+	return &Row{ValuesByPosition: valuesByPosition, ValuesBySelector: valuesBySelector}, nil
 }
 
 func (r *rawRowReader) Close() error {

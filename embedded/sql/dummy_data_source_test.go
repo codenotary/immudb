@@ -6,6 +6,10 @@ type dummyDataSource struct {
 	AliasFunc           func() string
 }
 
+func (d *dummyDataSource) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
 func (d *dummyDataSource) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return d.inferParametersFunc(tx, params)
 }

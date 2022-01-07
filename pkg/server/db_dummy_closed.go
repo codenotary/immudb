@@ -151,11 +151,11 @@ func (db *closedDB) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schem
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryRowReader(stmt *sql.SelectStmt, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
+func (db *closedDB) SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
