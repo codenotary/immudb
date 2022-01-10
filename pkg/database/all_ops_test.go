@@ -550,7 +550,7 @@ func TestExecAllOpsDuplicatedKey(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
+	require.ErrorIs(t, err, schema.ErrDuplicatedKeysNotSupported)
 }
 
 func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {

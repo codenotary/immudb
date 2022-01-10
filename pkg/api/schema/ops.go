@@ -18,6 +18,7 @@ package schema
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"strconv"
 
 	"google.golang.org/grpc/codes"
@@ -38,7 +39,7 @@ func (m *ExecAllRequest) Validate() error {
 		case *Op_Kv:
 			mk := sha256.Sum256(x.Kv.Key)
 			if _, ok := mops[mk]; ok {
-				return ErrDuplicatedKeysNotSupported
+				return fmt.Errorf("%w: key/reference '%s'", ErrDuplicatedKeysNotSupported, x.Kv.Key)
 			}
 			mops[mk] = struct{}{}
 		case *Op_ZAdd:
@@ -48,7 +49,13 @@ func (m *ExecAllRequest) Validate() error {
 			}
 			mops[mk] = struct{}{}
 		case *Op_Ref:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.Ref.Key, x.Ref.ReferencedKey, []byte(strconv.FormatUint(x.Ref.AtTx, 10))}, nil))
+			mk := sha256.Sum256(x.Ref.Key)
+			if _, ok := mops[mk]; ok {
+				return fmt.Errorf("%w: key/reference '%s'", ErrDuplicatedKeysNotSupported, x.Ref.Key)
+			}
+			mops[mk] = struct{}{}
+
+			mk = sha256.Sum256(bytes.Join([][]byte{x.Ref.Key, x.Ref.ReferencedKey, []byte(strconv.FormatUint(x.Ref.AtTx, 10))}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedReferencesNotSupported
 			}
