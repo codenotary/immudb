@@ -117,8 +117,8 @@ func (cl *commandlineHotBck) hotBackup(cmd *cobra.Command) {
 	}
 	ccmd.Flags().StringP("output", "o", "-", "output file, \"-\" for stdout")
 	ccmd.Flags().Uint64("start-tx", 1, "Transaction ID to start from")
-	ccmd.Flags().Bool("progress", false, "show progress indicator")
-	ccmd.Flags().BoolP("append", "i", false, "append to file, if it already exists (for file output only)")
+	ccmd.Flags().Bool("progress-bar", false, "show progress indicator")
+	ccmd.Flags().Bool("append", false, "append to file, if it already exists (for file output only)")
 	cmd.AddCommand(ccmd)
 	cl.cmd = cmd
 }
@@ -139,7 +139,7 @@ func prepareBackupParams(flags *pflag.FlagSet) (*backupParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	params.progress, err = flags.GetBool("progress")
+	params.progress, err = flags.GetBool("progress-bar")
 	if err != nil {
 		return nil, err
 	}
@@ -193,23 +193,23 @@ func (cl *commandlineHotBck) verifyOrCreateBackupFile(params *backupParams) (*os
 	return f, nil
 }
 
-func (cl *commandlineHotBck) runHotBackup(output io.Writer, startFrom uint64, progress bool) error {
+func (cl *commandlineHotBck) runHotBackup(output io.Writer, startTx uint64, progress bool) error {
 	state, err := cl.immuClient.CurrentState(cl.context)
 	if err != nil {
 		return err
 	}
-	txnCount := state.TxId
+	latestTx := state.TxId
 
-	if txnCount < startFrom {
+	if latestTx < startTx {
 		fmt.Fprintf(cl.cmd.ErrOrStderr(), "All backed up, nothing to do\n")
 		return nil
 	}
 
-	fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transactions %d - %d\n", startFrom, txnCount)
+	fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transactions %d - %d\n", startTx, latestTx)
 
 	var bar *progressbar.ProgressBar
 	if progress {
-		bar = progressbar.NewOptions64(int64(txnCount), progressbar.OptionSetWriter(os.Stderr))
+		bar = progressbar.NewOptions64(int64(latestTx-startTx+1), progressbar.OptionSetWriter(os.Stderr))
 	}
 
 	done := make(chan struct{}, 1)
@@ -226,7 +226,7 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startFrom uint64, pr
 		}
 	}()
 
-	for i := startFrom; i <= txnCount; i++ {
+	for i := startTx; i <= latestTx; i++ {
 		if stop {
 			fmt.Fprintf(cl.cmd.ErrOrStderr(), "Terminated by signal - stopped after tx %d\n", i-1)
 			return nil
@@ -372,7 +372,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 	ccmd.Flags().StringP("input", "i", "-", "input file file, \"-\" for stdin")
 	ccmd.Flags().Bool("verify-only", false, "do not restore data, only verify backup")
 	ccmd.Flags().Bool("append", false, "appending to DB, if it already exists")
-	ccmd.Flags().Bool("progress", false, "show progress indicator")
+	ccmd.Flags().Bool("progress-bar", false, "show progress indicator")
 	ccmd.Flags().Bool("force", false, "don't check transaction sequence")
 	cmd.AddCommand(ccmd)
 	cl.cmd = cmd
@@ -398,7 +398,7 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	params.progress, err = flags.GetBool("progress")
+	params.progress, err = flags.GetBool("progress-bar")
 	if err != nil {
 		return nil, err
 	}
