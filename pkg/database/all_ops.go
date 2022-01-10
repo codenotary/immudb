@@ -17,6 +17,7 @@ package database
 
 import (
 	"crypto/sha256"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -89,13 +90,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 				}
 
 				if req.NoWait && (x.Ref.AtTx != 0 || !x.Ref.BoundRef) {
-					return nil, ErrNoWaitOperationMustBeSelfContained
+					return nil, fmt.Errorf(
+						"%w: can only set references to keys added within same transaction, please use bound references with AtTx set to 0",
+						ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 				if req.NoWait && !exists {
-					return nil, ErrNoWaitOperationMustBeSelfContained
+					return nil, fmt.Errorf(
+						"%w: can not create a reference to a key that was not set in the same transaction",
+						ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
@@ -137,13 +142,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 				}
 
 				if req.NoWait && (x.ZAdd.AtTx != 0 || !x.ZAdd.BoundRef) {
-					return nil, ErrNoWaitOperationMustBeSelfContained
+					return nil, fmt.Errorf(
+						"%w: can only set references to keys added within same transaction, please use bound references with AtTx set to 0",
+						ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
 				if req.NoWait && !exists {
-					return nil, ErrNoWaitOperationMustBeSelfContained
+					return nil, fmt.Errorf(
+						"%w: can not create a reference into a set for a key that was not set in the same transaction",
+						ErrNoWaitOperationMustBeSelfContained)
 				}
 
 				if !req.NoWait {
