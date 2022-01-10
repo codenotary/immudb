@@ -130,7 +130,7 @@ func TestRestore(t *testing.T) {
 	assert.Contains(t, string(out), "Error: there is a gap of 1 transaction(s) between database and file - restore not possible")
 
 	// append with overlap (10-11), txn 10 is verified. txn 11 is restored
-	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/10-11.backup", "--append"})
+	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/10-11.backup", "--append", "--force-replica"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestRestore(t *testing.T) {
 	assert.Contains(t, string(out), "Restored transactions 11 - 11")
 
 	// append without overlap (last in DB - 11, first in file - 12) - 11th txn cannot be verified, should fail
-	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append"})
+	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force-replica"})
 	err = cmd.Execute()
 	if err == nil {
 		t.Fatal(ErrExpectedFailure)
@@ -154,7 +154,7 @@ func TestRestore(t *testing.T) {
 	assert.Contains(t, string(out), "Error: not possible to validate last transaction in DB - use --force to override")
 
 	// append without overlap (last in DB - 11, first in file - 12) - 11th txn cannot be verified, forced
-	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force"})
+	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force", "--force-replica"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +166,7 @@ func TestRestore(t *testing.T) {
 	assert.Contains(t, string(out), "Restored transactions 12 - 14")
 
 	// duplicate restore, all txns already in DB, nothing restored
-	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append"})
+	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force-replica"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestRestore(t *testing.T) {
 	assert.Contains(t, string(out), "Target database is up-to-date, nothing restored")
 
 	// txn 14 in file doesn't match the txn 14 in database, should fail
-	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/14-15_modified.backup", "--append"})
+	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/14-15_modified.backup", "--append", "--force-replica"})
 	err = cmd.Execute()
 	if err == nil {
 		t.Fatal(ErrExpectedFailure)
@@ -256,7 +256,7 @@ func TestBackup(t *testing.T) {
 	assert.Contains(t, string(out), "Backing up transactions 5 - 10")
 
 	// restore (11)
-	cmd.SetArgs([]string{"hot-restore", "test1", "--append", "-i", "testdata/10-11.backup"})
+	cmd.SetArgs([]string{"hot-restore", "test1", "--append", "-i", "testdata/10-11.backup", "--force-replica"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
