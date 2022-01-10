@@ -53,7 +53,7 @@ func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	require.Equal(t, err, ErrDuplicatedKeysNotSupported)
+	require.ErrorIs(t, err, ErrDuplicatedKeysNotSupported)
 
 }
 
