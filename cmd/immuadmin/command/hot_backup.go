@@ -303,6 +303,7 @@ type restoreParams struct {
 	progress bool
 	force    bool
 	verify   bool
+	replica  bool
 }
 
 func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
@@ -351,13 +352,16 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 				if err != nil {
 					return err
 				}
+				params.replica = true
 			}
-			defer func() {
-				err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
-				if err != nil {
-					fmt.Fprintf(cl.cmd.ErrOrStderr(), "Error switching off replica mode for db: %v", err)
-				}
-			}()
+			if params.replica {
+				defer func() {
+					err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
+					if err != nil {
+						fmt.Fprintf(cl.cmd.ErrOrStderr(), "Error switching off replica mode for db: %v", err)
+					}
+				}()
+			}
 
 			return cl.runHotRestore(file, params.progress, firstTx)
 		},
@@ -374,6 +378,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 	ccmd.Flags().Bool("append", false, "appending to DB, if it already exists")
 	ccmd.Flags().Bool("progress-bar", false, "show progress indicator")
 	ccmd.Flags().Bool("force", false, "don't check transaction sequence")
+	ccmd.Flags().Bool("force-replica", false, "switch database to replica mode for the duration of restore")
 	cmd.AddCommand(ccmd)
 	cl.cmd = cmd
 }
@@ -399,6 +404,10 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 		return nil, err
 	}
 	params.progress, err = flags.GetBool("progress-bar")
+	if err != nil {
+		return nil, err
+	}
+	params.replica, err = flags.GetBool("force-replica")
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +452,7 @@ func (cl *commandlineHotBck) isDbExists(name string) (bool, error) {
 // in some situation (when there is no gap and no overlap between DB and file) this transaction gets restored to DB,
 // in this case non-zero tx ID is returned
 func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string, file io.Reader) (uint64, error) {
-	lastTx, checksum, err := cl.useDb(name)
+	lastTx, checksum, err := cl.useDb(name, params.replica)
 	if err != nil {
 		return 0, nil
 	}
@@ -483,15 +492,18 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 	return 0, nil
 }
 
-func (cl *commandlineHotBck) useDb(name string) (uint64, []byte, error) {
+func (cl *commandlineHotBck) useDb(name string, replica bool) (uint64, []byte, error) {
 	udr, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{DatabaseName: name})
 	if err != nil {
 		return 0, nil, err
 	}
 	cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
-	err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true})
-	if err != nil {
-		return 0, nil, fmt.Errorf("cannot switch on replica mode for db: %v", err)
+
+	if replica {
+		err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true})
+		if err != nil {
+			return 0, nil, fmt.Errorf("cannot switch on replica mode for db: %v", err)
+		}
 	}
 
 	state, err := cl.immuClient.CurrentState(cl.context)
