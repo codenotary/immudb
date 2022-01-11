@@ -511,7 +511,7 @@ func TestFloatIndexOnNegatives(t *testing.T) {
 	_, _, err = engine.Exec("CREATE INDEX ON float_index(ft)", nil, nil)
 	require.NoError(t, err)
 
-	floatSerie := []float64{-1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0}
+	floatSerie := []float64{-1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0, math.MaxFloat64, -math.MaxFloat64}
 
 	for _, ft := range floatSerie {
 		_, _, err = engine.Exec("INSERT INTO float_index(ft) VALUES(@ft)", map[string]interface{}{"ft": ft}, nil)
