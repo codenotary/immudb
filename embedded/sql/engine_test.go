@@ -4487,6 +4487,19 @@ func TestTemporalQueries(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("querying data with until current tx ordering desc by name should return always the first row", func(t *testing.T) {
+			r, err := engine.Query("SELECT id FROM table1 UNTIL TX @tx ORDER BY title ASC", map[string]interface{}{"tx": hdr.ID}, nil)
+			require.NoError(t, err)
+
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.Equal(t, int64(1), row.Values["(db1.table1.id)"].Value())
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
 		time.Sleep(1 * time.Second)
 	}
 
