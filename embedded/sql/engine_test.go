@@ -4425,14 +4425,72 @@ func TestTemporalQueries(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
-	r, err := engine.Query("SELECT ts FROM timestamp_table SINCE now() ORDER BY id DESC LIMIT 1", nil, nil)
+	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
+	require.NoError(t, err)
+
+	rowCount := 10
+	for i := 0; i < rowCount; i++ {
+		_, txs, err := engine.Exec("INSERT INTO table1(title) VALUES (@title)", map[string]interface{}{"title": fmt.Sprintf("title%d", i)}, nil)
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+
+		hdr := txs[0].TxHeader()
+
+		t.Run("querying data with future date should not return any row", func(t *testing.T) {
+			r, err := engine.Query("SELECT id, title FROM table1 AFTER CAST(@ts AS TIMESTAMP)", map[string]interface{}{"ts": hdr.Ts}, nil)
+			require.NoError(t, err)
+
+			_, err = r.Read()
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("querying data with a greater tx should not return any row", func(t *testing.T) {
+			r, err := engine.Query("SELECT id, title FROM table1 AFTER TX @tx_id", map[string]interface{}{"tx_id": hdr.ID}, nil)
+			require.NoError(t, err)
+
+			_, err = r.Read()
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("querying data since tx date should not return last row", func(t *testing.T) {
+			r, err := engine.Query("SELECT id, title FROM table1 SINCE CAST(@ts AS TIMESTAMP)", map[string]interface{}{"ts": hdr.Ts}, nil)
+			require.NoError(t, err)
+
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("querying data with since tx id should return last row", func(t *testing.T) {
+			r, err := engine.Query("SELECT id, title FROM table1 SINCE TX @tx_id", map[string]interface{}{"tx_id": hdr.ID}, nil)
+			require.NoError(t, err)
+
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+	}
+
+	r, err := engine.Query("SELECT ts FROM table1 SINCE now() ORDER BY id DESC LIMIT 1", nil, nil)
 	require.NoError(t, err)
 	defer r.Close()
 
-	r, err = engine.Query("SELECT ts FROM timestamp_table SINCE '2021-12-03' ORDER BY id DESC LIMIT 1", nil, nil)
+	r, err = engine.Query("SELECT ts FROM table1 SINCE '2021-12-03' ORDER BY id DESC LIMIT 1", nil, nil)
 	require.NoError(t, err)
 	defer r.Close()
 }
