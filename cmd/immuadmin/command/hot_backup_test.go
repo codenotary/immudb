@@ -103,7 +103,7 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Restored transactions 1 - 10")
+	assert.Contains(t, string(out), "Restored transactions from 1 to 10")
 
 	// append w/o append flag (10-11), should fail
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/10-11.backup"})
@@ -139,7 +139,7 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Restored transactions 11 - 11")
+	assert.Contains(t, string(out), "Restored transaction 11")
 
 	// append without overlap (last in DB - 11, first in file - 12) - 11th txn cannot be verified, should fail
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force-replica"})
@@ -163,7 +163,7 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Restored transactions 12 - 14")
+	assert.Contains(t, string(out), "Restored transactions from 12 to 14")
 
 	// duplicate restore, all txns already in DB, nothing restored
 	cmd.SetArgs([]string{"hot-restore", "test", "-i", "testdata/12-14.backup", "--append", "--force-replica"})
@@ -199,7 +199,7 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Backup file contains transactions 1 - 10")
+	assert.Contains(t, string(out), "Backup file contains transactions from 1 to 10")
 }
 
 func TestBackup(t *testing.T) {
@@ -240,7 +240,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Backing up transactions 1 - 10")
+	assert.Contains(t, string(out), "Backing up transactions from 1 to 10")
 
 	// partial backup (5-10)
 	os.Remove("1-5.backup")
@@ -253,7 +253,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Backing up transactions 5 - 10")
+	assert.Contains(t, string(out), "Backing up transactions from 5 to 10")
 
 	// restore (11)
 	cmd.SetArgs([]string{"hot-restore", "test1", "--append", "-i", "testdata/10-11.backup", "--force-replica"})
@@ -284,7 +284,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Backing up transactions 11 - 11")
+	assert.Contains(t, string(out), "Backing up transaction 11")
 
 	// restore (12-14)
 	cmd.SetArgs([]string{"hot-restore", "test1", "--append", "--force", "-i", "testdata/12-14.backup"})
@@ -303,7 +303,7 @@ func TestBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Backing up transactions 12 - 14")
+	assert.Contains(t, string(out), "Backing up transactions from 12 to 14")
 
 	// full restore (1-13) to second DB
 	cmd.SetArgs([]string{"hot-restore", "test2", "--append", "-i", "testdata/1-13.backup"})

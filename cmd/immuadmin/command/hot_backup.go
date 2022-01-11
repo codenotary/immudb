@@ -205,7 +205,11 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startTx uint64, prog
 		return nil
 	}
 
-	fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transactions %d - %d\n", startTx, latestTx)
+	if startTx == latestTx {
+		fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transaction %d\n", startTx)
+	} else {
+		fmt.Fprintf(cl.cmd.ErrOrStderr(), "Backing up transactions from %d to %d\n", startTx, latestTx)
+	}
 
 	var bar *progressbar.ProgressBar
 	if progress {
@@ -416,17 +420,22 @@ func prepareRestoreParams(flags *pflag.FlagSet) (*restoreParams, error) {
 }
 
 func (cl *commandlineHotBck) verifyFile(file io.Reader) error {
-	fileStart, _, _, err := nextTx(file)
+	firstTx, _, _, err := nextTx(file)
 	if err != nil {
 		return err
 	}
 
-	last := fileStart
-	last, _, err = lastTxInFile(file)
+	lastTx := firstTx
+	lastTx, _, err = lastTxInFile(file)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(cl.cmd.OutOrStdout(), "Backup file contains transactions %d - %d\n", fileStart, last)
+
+	if lastTx == firstTx {
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Backup file contains transaction %d\n", firstTx)
+	} else {
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Backup file contains transactions from %d to %d\n", firstTx, lastTx)
+	}
 	return nil
 }
 
@@ -583,8 +592,10 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 
 	if firstTx == 0 {
 		fmt.Fprintf(cl.cmd.OutOrStdout(), "Target database is up-to-date, nothing restored\n")
+	} else if firstTx == lastTx {
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Restored transaction %d\n", firstTx)
 	} else {
-		fmt.Fprintf(cl.cmd.OutOrStdout(), "Restored transactions %d - %d\n", firstTx, lastTx)
+		fmt.Fprintf(cl.cmd.OutOrStdout(), "Restored transactions from %d to %d\n", firstTx, lastTx)
 	}
 
 	return nil
