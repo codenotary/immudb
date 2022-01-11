@@ -17,11 +17,12 @@ limitations under the License.
 package immudb
 
 import (
+	"time"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"time"
 )
 
 func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
@@ -59,6 +60,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("s3-access-key-id", "", "s3 access key id")
 	cmd.Flags().String("s3-secret-key", "", "s3 secret access key")
 	cmd.Flags().String("s3-bucket-name", "", "s3 bucket name")
+	cmd.Flags().String("s3-location", "", "s3 location (region)")
 	cmd.Flags().String("s3-path-prefix", "", "s3 path prefix (multiple immudb instances can share the same bucket if they have different prefixes)")
 	cmd.Flags().Duration("max-session-inactivity-time", 3*time.Minute, "max session inactivity time is a duration after which an active session is declared inactive by the server. A session is kept active if server is still receiving requests from client (keep-alive or other methods)")
 	cmd.Flags().Duration("max-session-age-time", 0, "the current default value is infinity. max session age time is a duration after which session will be forcibly closed")
@@ -96,6 +98,7 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("s3-access-key-id", "")
 	viper.SetDefault("s3-secret-key", "")
 	viper.SetDefault("s3-bucket-name", "")
+	viper.SetDefault("s3-location", "")
 	viper.SetDefault("s3-path-prefix", "")
 	viper.SetDefault("max-session-inactivity-time", 3*time.Minute)
 	viper.SetDefault("max-session-age-time", 0)

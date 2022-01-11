@@ -143,6 +143,7 @@ Synced mode      : true
 S3 storage
    endpoint      : s3-endpoint
    bucket name   : s3-bucket-name
+   location      : s3-location
    prefix        : s3-path-prefix
 ----------------------------------------
 Superadmin default credentials
@@ -158,6 +159,7 @@ Superadmin default credentials
 				WithS3Storage(true).
 				WithS3Endpoint("s3-endpoint").
 				WithS3BucketName("s3-bucket-name").
+				WithS3Location("s3-location").
 				WithS3PathPrefix("s3-path-prefix"),
 		)
 

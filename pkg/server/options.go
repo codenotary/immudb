@@ -19,11 +19,12 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -78,6 +79,7 @@ type RemoteStorageOptions struct {
 	S3AccessKeyID string
 	S3SecretKey   string `json:"-"`
 	S3BucketName  string
+	S3Location    string
 	S3PathPrefix  string
 }
 
@@ -279,6 +281,9 @@ func (o *Options) String() string {
 		opts = append(opts, "S3 storage")
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
+		if o.RemoteStorageOptions.S3Location != "" {
+			opts = append(opts, rightPad("   location", o.RemoteStorageOptions.S3Location))
+		}
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
@@ -429,6 +434,11 @@ func (opts *RemoteStorageOptions) WithS3SecretKey(s3SecretKey string) *RemoteSto
 
 func (opts *RemoteStorageOptions) WithS3BucketName(s3BucketName string) *RemoteStorageOptions {
 	opts.S3BucketName = s3BucketName
+	return opts
+}
+
+func (opts *RemoteStorageOptions) WithS3Location(s3Location string) *RemoteStorageOptions {
+	opts.S3Location = s3Location
 	return opts
 }
 
