@@ -384,6 +384,24 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		l.namedParamsType = NamedNonPositionalParamType
 
+		ch, err := l.r.NextByte()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		if !isLetter(ch) {
+			return ERROR
+		}
+
+		id, err := l.readWord()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		lval.id = strings.ToLower(id)
+
 		return NPARAM
 	}
 
