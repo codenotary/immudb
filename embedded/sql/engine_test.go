@@ -4451,7 +4451,7 @@ func TestTemporalQueries(t *testing.T) {
 		})
 
 		t.Run("querying data with a greater tx should not return any row", func(t *testing.T) {
-			r, err := engine.Query("SELECT id, title FROM table1 AFTER TX @tx_id", map[string]interface{}{"tx_id": hdr.ID}, nil)
+			r, err := engine.Query("SELECT id, title FROM table1 AFTER TX @tx", map[string]interface{}{"tx": hdr.ID}, nil)
 			require.NoError(t, err)
 
 			_, err = r.Read()
@@ -4474,7 +4474,7 @@ func TestTemporalQueries(t *testing.T) {
 		})
 
 		t.Run("querying data with since tx id should return last row", func(t *testing.T) {
-			r, err := engine.Query("SELECT id, title FROM table1 SINCE TX @tx_id", map[string]interface{}{"tx_id": hdr.ID}, nil)
+			r, err := engine.Query("SELECT id, title FROM table1 SINCE TX @tx", map[string]interface{}{"tx": hdr.ID}, nil)
 			require.NoError(t, err)
 
 			row, err := r.Read()

@@ -72,7 +72,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE IF EXISTS IN IS
-%token AUTO_INCREMENT NULL NPARAM CAST
+%token AUTO_INCREMENT NULL CAST
+%token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -380,9 +381,9 @@ val:
         $$ = &SysFn{fn: $1}
     }
 |
-    NPARAM IDENTIFIER
+    NPARAM
     {
-        $$ = &Param{id: $2}
+        $$ = &Param{id: $1}
     }
 |
     PPARAM
