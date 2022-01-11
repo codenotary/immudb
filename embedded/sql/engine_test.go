@@ -4461,36 +4461,69 @@ func TestTemporalQueries(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("querying data since tx date should not return last row", func(t *testing.T) {
+		t.Run("querying data since tx date should return the last row", func(t *testing.T) {
 			r, err := engine.Query("SELECT id, title FROM table1 SINCE CAST(@ts AS TIMESTAMP)", map[string]interface{}{"ts": hdr.Ts}, nil)
 			require.NoError(t, err)
 
 			row, err := r.Read()
 			require.NoError(t, err)
 			require.NotNil(t, row)
+			require.Equal(t, int64(i+1), row.Values["(db1.table1.id)"].Value())
 
 			err = r.Close()
 			require.NoError(t, err)
 		})
 
-		t.Run("querying data with since tx id should return last row", func(t *testing.T) {
+		t.Run("querying data with since tx id should return the last row", func(t *testing.T) {
 			r, err := engine.Query("SELECT id, title FROM table1 SINCE TX @tx", map[string]interface{}{"tx": hdr.ID}, nil)
 			require.NoError(t, err)
 
 			row, err := r.Read()
 			require.NoError(t, err)
 			require.NotNil(t, row)
+			require.Equal(t, int64(i+1), row.Values["(db1.table1.id)"].Value())
 
 			err = r.Close()
 			require.NoError(t, err)
 		})
+
+		time.Sleep(1 * time.Second)
 	}
 
-	r, err := engine.Query("SELECT ts FROM table1 SINCE now() ORDER BY id DESC LIMIT 1", nil, nil)
-	require.NoError(t, err)
-	defer r.Close()
+	t.Run("querying data with future date should not return any row", func(t *testing.T) {
+		r, err := engine.Query("SELECT ts FROM table1 AFTER now() ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
 
-	r, err = engine.Query("SELECT ts FROM table1 SINCE '2021-12-03' ORDER BY id DESC LIMIT 1", nil, nil)
-	require.NoError(t, err)
-	defer r.Close()
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("querying data with until current time should return all rows", func(t *testing.T) {
+		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE TX 1 UNTIL now()", nil, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Equal(t, int64(rowCount), row.Values["(db1.table1.c)"].Value())
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("querying data since an older date should return all rows", func(t *testing.T) {
+		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE '2021-12-03'", nil, nil)
+		require.NoError(t, err)
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Equal(t, int64(rowCount), row.Values["(db1.table1.c)"].Value())
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 }
