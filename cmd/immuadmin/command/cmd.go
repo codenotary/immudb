@@ -48,6 +48,13 @@ func newCommand() *cobra.Command {
 	}
 	cmd = clb.Register(cmd)
 
+	// register hot backup related commands
+	clhb, err := newCommandlineHotBck(os)
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	cmd = clhb.Register(cmd)
+
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())
 

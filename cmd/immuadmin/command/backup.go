@@ -20,23 +20,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	stdos "os"
 	"path"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
 )
 
 type backupper struct {
