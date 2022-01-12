@@ -30,6 +30,8 @@ immudb documentation:
 Environment variables:
   IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
   IMMUADMIN_IMMUDB_PORT=3322
+  IMMUADMIN_USERNAME=username
+  IMMUADMIN_PASSWORD=password
   IMMUADMIN_MTLS=true
   IMMUADMIN_SERVERNAME=localhost
   IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem

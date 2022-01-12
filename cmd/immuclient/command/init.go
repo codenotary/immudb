@@ -89,7 +89,6 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("password", "")
 	viper.SetDefault("username", "")
 	viper.SetDefault("database", "")
-	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)

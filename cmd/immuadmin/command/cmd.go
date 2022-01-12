@@ -38,7 +38,6 @@ func newCommand() *cobra.Command {
 	if err != nil {
 		c.QuitToStdErr(err)
 	}
-
 	cmd = cml.Register(cmd)
 	// register backup related commands
 	os := immuos.NewStandardOS()
@@ -57,6 +56,5 @@ func newCommand() *cobra.Command {
 
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())
-
 	return cmd
 }

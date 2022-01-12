@@ -16,20 +16,19 @@ package immuadmin
 
 import (
 	"fmt"
-	"strings"
-
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"path/filepath"
 )
 
 func Options() *client.Options {
+	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
+	tfAbsPath := viper.GetString("tokenfile")
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
-	tokenFileName := viper.GetString("tokenfile")
-	if !strings.HasSuffix(tokenFileName, client.AdminTokenFileSuffix) {
-		tokenFileName += client.AdminTokenFileSuffix
-	}
 	mtls := viper.GetBool("mtls")
 	certificate := viper.GetString("certificate")
 	servername := viper.GetString("servername")
@@ -38,8 +37,10 @@ func Options() *client.Options {
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
+		WithUsername(viper.GetString("username")).
+		WithPassword(password).
 		WithAuth(true).
-		WithTokenFileName(tokenFileName).
+		WithTokenFileName(tfAbsPath).
 		WithMTLs(mtls)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -55,14 +56,15 @@ func Options() *client.Options {
 func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
+	cmd.PersistentFlags().String("username", "", "immudb username used to login")
+	cmd.PersistentFlags().String("password", "", "immudb password used to login; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	absPath := filepath.Join(helper.STATE_FOLDER, client.DefaultOptions().TokenFileName+client.AdminTokenFileSuffix)
 	cmd.PersistentFlags().String(
 		"tokenfile",
-		client.DefaultOptions().TokenFileName,
+		absPath,
 		fmt.Sprintf(
-			"authentication token file (default path is $HOME or binary location; the supplied "+
-				"value will be automatically suffixed with %s; default filename is %s%s)",
-			client.AdminTokenFileSuffix,
-			client.DefaultOptions().TokenFileName,
+			"authentication token file (the supplied "+
+				"value will be automatically suffixed with %s)",
 			client.AdminTokenFileSuffix))
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path is configs or $HOME; default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
@@ -74,6 +76,12 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 		return err
 	}
 	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("username", cmd.PersistentFlags().Lookup("username")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("password", cmd.PersistentFlags().Lookup("password")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
@@ -96,12 +104,12 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	}
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
-	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName+client.AdminTokenFileSuffix)
+	viper.SetDefault("password", "")
+	viper.SetDefault("username", "")
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)
 	viper.SetDefault("clientcas", client.DefaultMTLsOptions().ClientCAs)
-
 	return nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package clienttest
 
 import (
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 )
 
@@ -53,15 +52,6 @@ func (ts TokenServiceMock) GetDatabase() (string, error) {
 	return "", nil
 }
 
-func (ts TokenServiceMock) WithHds(hds homedir.HomedirService) tokenservice.TokenService {
-	return ts
-}
-
-func (ts TokenServiceMock) WithTokenFileName(tfn string) tokenservice.TokenService {
-	return ts
-}
-
-// DefaultHomedirServiceMock ...
 func DefaultTokenServiceMock() *TokenServiceMock {
 	return &TokenServiceMock{
 		GetTokenF: func() (string, error) {

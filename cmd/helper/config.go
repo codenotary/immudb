@@ -18,9 +18,9 @@ package helper
 
 import (
 	"os"
-	"os/user"
 	"strings"
 
+	"github.com/adrg/xdg"
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -37,11 +37,9 @@ func (c *Config) Init(name string) error {
 	if c.CfgFn != "" {
 		viper.SetConfigFile(c.CfgFn)
 	} else {
-		if user, err := user.Current(); err != nil {
-			return err
-		} else {
-			viper.AddConfigPath(user.HomeDir)
-		}
+
+		viper.AddConfigPath(xdg.Home)
+
 		viper.AddConfigPath("../src/configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
 		if path, _ := os.Executable(); path == service.ExecPath {

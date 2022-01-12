@@ -32,6 +32,7 @@ func TestGetTxByID(t *testing.T) {
 	require.NoError(t, err, "GetByIndex fail")
 	require.Contains(t, msg, "hash", "GetByIndex failed")
 }
+
 func TestGet(t *testing.T) {
 	ic := setupTest(t)
 
@@ -40,7 +41,7 @@ func TestGet(t *testing.T) {
 
 	msg, err := ic.Imc.Get([]string{"key"})
 	require.NoError(t, err, "GetKey fail")
-	require.Contains(t, msg, "value", "GetKey failed")
+	require.Contains(t, msg, "val", "GetKey failed")
 }
 
 func TestVerifiedGet(t *testing.T) {
@@ -51,7 +52,7 @@ func TestVerifiedGet(t *testing.T) {
 
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
 	require.NoError(t, err, "VerifiedGet fail")
-	require.Contains(t, msg, "value", "VerifiedGet failed")
+	require.Contains(t, msg, "val", "VerifiedGet failed")
 }
 
 func TestGetByRevision(t *testing.T) {

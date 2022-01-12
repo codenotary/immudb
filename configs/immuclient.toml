@@ -1,7 +1,6 @@
 immudb-address = "127.0.0.1"
 immudb-port = 3322
 auth = true
-tokenfile = "token-0.7.0"
 mtls = false
 servername = "localhost"
 pkey = ""

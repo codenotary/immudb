@@ -167,10 +167,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.
-		NewFileTokenService().
-		WithTokenFileName(tkf).
-		WithHds(newMockHomedir())
+	ts := tokenservice.NewFileTokenService().WithTokenFileAbsPath(tkf)
 	cliopt := client.
 		DefaultOptions().
 		WithDialOptions(dialOptions).
@@ -247,10 +244,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.
-		NewFileTokenService().
-		WithTokenFileName(tkf).
-		WithHds(newMockHomedir())
+	ts := tokenservice.NewFileTokenService().WithTokenFileAbsPath(tkf)
 	cliopt := client.DefaultOptions().
 		WithDir(t.TempDir()).
 		WithDialOptions(dialOptions).
@@ -354,10 +348,7 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.
-		NewFileTokenService().
-		WithTokenFileName(tkf).
-		WithHds(newMockHomedir())
+	ts := tokenservice.NewFileTokenService().WithTokenFileAbsPath(tkf)
 	cliopt := client.
 		DefaultOptions().
 		WithDir(t.TempDir()).

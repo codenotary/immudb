@@ -54,7 +54,7 @@ func TestLoginLogoutErrors(t *testing.T) {
 	cl := &commandline{
 		immuClient:     immuClientMock,
 		passwordReader: pwReaderMock,
-		ts:             tokenservice.NewTokenService().WithHds(hdsMock).WithTokenFileName("tokenFileName"),
+		ts:             tokenservice.NewTokenService().WithHds(hdsMock).WithTokenFileAbsPath("tokenFileName"),
 	}
 
 	rootCmd := &cobra.Command{}

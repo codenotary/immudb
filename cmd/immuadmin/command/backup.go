@@ -32,7 +32,6 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -104,7 +103,7 @@ func (cl *commandlineBck) ConfigChain(post func(cmd *cobra.Command, args []strin
 		}
 		// here all command line options and services need to be configured by options retrieved from viper
 		cl.options = Options()
-		cl.ts = tokenservice.NewFileTokenService().WithHds(homedir.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
+		cl.ts = tokenservice.NewFileTokenService().WithTokenFileAbsPath(cl.options.TokenFileName)
 		if post != nil {
 			return post(cmd, args)
 		}
