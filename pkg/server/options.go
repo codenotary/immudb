@@ -277,6 +277,9 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Default database", o.defaultDBName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
 	opts = append(opts, rightPad("Synced mode", o.synced))
+	if o.SigningKey != "" {
+		opts = append(opts, rightPad("Signing key", o.SigningKey))
+	}
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
