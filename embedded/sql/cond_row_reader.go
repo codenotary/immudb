@@ -36,7 +36,7 @@ func (cr *conditionalRowReader) Tx() *SQLTx {
 	return cr.rowReader.Tx()
 }
 
-func (cr *conditionalRowReader) Database() *Database {
+func (cr *conditionalRowReader) Database() string {
 	return cr.rowReader.Database()
 }
 
@@ -79,7 +79,7 @@ func (cr *conditionalRowReader) InferParameters(params map[string]SQLValueType) 
 		return err
 	}
 
-	_, err = cr.condition.inferType(cols, params, cr.Database().Name(), cr.TableAlias())
+	_, err = cr.condition.inferType(cols, params, cr.Database(), cr.TableAlias())
 
 	return err
 }
@@ -96,7 +96,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database().Name(), cr.rowReader.TableAlias())
+		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database(), cr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}

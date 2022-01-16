@@ -26,7 +26,7 @@ func TestUnionRowReader(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	dummyr := &dummyRowReader{
-		database:             &Database{name: "db1"},
+		database:             "db1",
 		failReturningColumns: true,
 	}
 
@@ -40,7 +40,7 @@ func TestUnionRowReader(t *testing.T) {
 	require.NotNil(t, rowReader)
 
 	require.NotNil(t, rowReader.Database())
-	require.Equal(t, "db1", rowReader.Database().Name())
+	require.Equal(t, "db1", rowReader.Database())
 
 	require.Equal(t, "", rowReader.TableAlias())
 

@@ -24,7 +24,7 @@ var errDummy = errors.New("dummy error")
 type dummyRowReader struct {
 	failReturningColumns bool
 	failInferringParams  bool
-	database             *Database
+	database             string
 	params               map[string]interface{}
 }
 
@@ -35,7 +35,7 @@ func (r *dummyRowReader) Tx() *SQLTx {
 	return nil
 }
 
-func (r *dummyRowReader) Database() *Database {
+func (r *dummyRowReader) Database() string {
 	return r.database
 }
 

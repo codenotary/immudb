@@ -58,7 +58,7 @@ func (pr *projectedRowReader) Tx() *SQLTx {
 	return pr.rowReader.Tx()
 }
 
-func (pr *projectedRowReader) Database() *Database {
+func (pr *projectedRowReader) Database() string {
 	return pr.rowReader.Database()
 }
 
@@ -87,10 +87,10 @@ func (pr *projectedRowReader) Columns() ([]ColDescriptor, error) {
 	colsByPos := make([]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database(), pr.rowReader.TableAlias())
 
 		if pr.tableAlias != "" {
-			db = pr.Database().Name()
+			db = pr.Database()
 			table = pr.tableAlias
 		}
 
@@ -130,7 +130,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 	colDescriptors := make(map[string]ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database(), pr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
@@ -140,7 +140,7 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		}
 
 		if pr.tableAlias != "" {
-			db = pr.Database().Name()
+			db = pr.Database()
 			table = pr.tableAlias
 		}
 
@@ -194,17 +194,17 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	}
 
 	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.rowReader.Database().Name(), pr.rowReader.TableAlias())
+		aggFn, db, table, col := sel.resolve(pr.rowReader.Database(), pr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
 		val, ok := row.ValuesBySelector[encSel]
 		if !ok {
-			return nil, ErrColumnDoesNotExist
+			return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 		}
 
 		if pr.tableAlias != "" {
-			db = pr.Database().Name()
+			db = pr.Database()
 			table = pr.tableAlias
 		}
 
