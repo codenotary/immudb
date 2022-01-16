@@ -334,6 +334,10 @@ func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx,
 			{
 				return nil, nil, errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
 			}
+		case *sql.ListDatabasesStmt:
+			{
+				return nil, nil, errors.New("SQL statement not supported. Please use `DatabaseList` operation instead")
+			}
 		}
 	}
 
