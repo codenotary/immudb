@@ -37,7 +37,7 @@ func (lr *limitRowReader) Tx() *SQLTx {
 	return lr.rowReader.Tx()
 }
 
-func (lr *limitRowReader) Database() *Database {
+func (lr *limitRowReader) Database() string {
 	return lr.rowReader.Database()
 }
 

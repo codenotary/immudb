@@ -72,7 +72,7 @@ func (ur *unionRowReader) Tx() *SQLTx {
 	return ur.rowReaders[0].Tx()
 }
 
-func (ur *unionRowReader) Database() *Database {
+func (ur *unionRowReader) Database() string {
 	return ur.rowReaders[0].Database()
 }
 

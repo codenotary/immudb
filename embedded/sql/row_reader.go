@@ -26,7 +26,7 @@ import (
 
 type RowReader interface {
 	Tx() *SQLTx
-	Database() *Database
+	Database() string
 	TableAlias() string
 	Parameters() map[string]interface{}
 	SetParameters(params map[string]interface{}) error
@@ -270,8 +270,8 @@ func (r *rawRowReader) Tx() *SQLTx {
 	return r.tx
 }
 
-func (r *rawRowReader) Database() *Database {
-	return r.table.db
+func (r *rawRowReader) Database() string {
+	return r.table.db.name
 }
 
 func (r *rawRowReader) TableAlias() string {
@@ -320,14 +320,14 @@ func (r *rawRowReader) InferParameters(params map[string]SQLValueType) error {
 	}
 
 	if r.period.start != nil {
-		_, err = r.period.start.instant.exp.inferType(cols, params, r.Database().Name(), r.TableAlias())
+		_, err = r.period.start.instant.exp.inferType(cols, params, r.Database(), r.TableAlias())
 		if err != nil {
 			return err
 		}
 	}
 
 	if r.period.end != nil {
-		_, err = r.period.end.instant.exp.inferType(cols, params, r.Database().Name(), r.TableAlias())
+		_, err = r.period.end.instant.exp.inferType(cols, params, r.Database(), r.TableAlias())
 		if err != nil {
 			return err
 		}

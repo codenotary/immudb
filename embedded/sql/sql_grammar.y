@@ -74,6 +74,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST
+%token <ds> DATABASES TABLES COLUMNS INDEXES
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -568,6 +569,26 @@ ds:
     {
         $2.(*SelectStmt).as = $4
         $$ = $2.(DataSource)
+    }
+|
+    DATABASES opt_as
+    {
+        $$ = &ListDatabasesStmt{as: $2}
+    }
+|
+    TABLES opt_as
+    {
+        $$ = &ListTablesStmt{as: $2}
+    }
+|
+    IDENTIFIER '.' COLUMNS opt_as
+    {
+        $$ = &ListColumnsStmt{table: $1, as: $4}
+    }
+|
+    IDENTIFIER '.' INDEXES opt_as
+    {
+        $$ = &ListIndexesStmt{table: $1, as: $4}
     }
 
 tableRef:

@@ -45,7 +45,7 @@ func (dr *distinctRowReader) Tx() *SQLTx {
 	return dr.rowReader.Tx()
 }
 
-func (dr *distinctRowReader) Database() *Database {
+func (dr *distinctRowReader) Database() string {
 	return dr.rowReader.Database()
 }
 

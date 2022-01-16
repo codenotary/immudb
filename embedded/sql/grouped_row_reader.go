@@ -39,7 +39,7 @@ func newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*C
 
 	// TODO: leverage multi-column indexing
 	if len(groupBy) == 1 &&
-		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.Database().Name(), rowReader.TableAlias())) {
+		rowReader.OrderBy()[0].Selector() != EncodeSelector(groupBy[0].resolve(rowReader.Database(), rowReader.TableAlias())) {
 		return nil, ErrLimitedGroupBy
 	}
 
@@ -58,7 +58,7 @@ func (gr *groupedRowReader) Tx() *SQLTx {
 	return gr.rowReader.Tx()
 }
 
-func (gr *groupedRowReader) Database() *Database {
+func (gr *groupedRowReader) Database() string {
 	return gr.rowReader.Database()
 }
 
@@ -83,7 +83,7 @@ func (gr *groupedRowReader) Columns() ([]ColDescriptor, error) {
 	colsByPos := make([]ColDescriptor, len(gr.selectors))
 
 	for i, sel := range gr.selectors {
-		encSel := EncodeSelector(sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias()))
+		encSel := EncodeSelector(sel.resolve(gr.rowReader.Database(), gr.rowReader.TableAlias()))
 		colsByPos[i] = colsBySel[encSel]
 	}
 
@@ -97,7 +97,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	}
 
 	for _, sel := range gr.selectors {
-		aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
+		aggFn, db, table, col := sel.resolve(gr.rowReader.Database(), gr.rowReader.TableAlias())
 
 		if aggFn == "" {
 			continue
@@ -199,7 +199,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 				}
 
 				for i, sel := range gr.selectors {
-					aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
+					aggFn, db, table, col := sel.resolve(gr.rowReader.Database(), gr.rowReader.TableAlias())
 					encSel := EncodeSelector(aggFn, db, table, col)
 
 					var zero TypedValue
@@ -242,7 +242,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			continue
 		}
 
-		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
+		compatible, err := gr.currRow.compatible(row, gr.groupBy, gr.rowReader.Database(), gr.rowReader.TableAlias())
 		if err != nil {
 			return nil, err
 		}
@@ -290,7 +290,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 func (gr *groupedRowReader) initAggregations() error {
 	// augment row with aggregated values
 	for _, sel := range gr.selectors {
-		aggFn, db, table, col := sel.resolve(gr.rowReader.Database().Name(), gr.rowReader.TableAlias())
+		aggFn, db, table, col := sel.resolve(gr.rowReader.Database(), gr.rowReader.TableAlias())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 

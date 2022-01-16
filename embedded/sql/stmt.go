@@ -3431,3 +3431,223 @@ func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[s
 	// TODO: may be determiined by smallest and bigggest value in the list
 	return nil
 }
+
+type ListDatabasesStmt struct {
+	as string
+}
+
+func (stmt *ListDatabasesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ListDatabasesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ListDatabasesStmt) Alias() string {
+	if stmt.as == "" {
+		return "databases"
+	}
+	return stmt.as
+}
+
+func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	cols := make([]ColDescriptor, 1)
+	cols[0] = ColDescriptor{
+		Column: "name",
+		Type:   VarcharType,
+	}
+
+	values := make([][]ValueExp, len(tx.catalog.Databases()))
+
+	for i, db := range tx.catalog.Databases() {
+		values[i] = []ValueExp{&Varchar{val: db.name}}
+	}
+
+	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+}
+
+type ListTablesStmt struct {
+	as string
+}
+
+func (stmt *ListTablesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ListTablesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ListTablesStmt) Alias() string {
+	if stmt.as == "" {
+		return "tables"
+	}
+	return stmt.as
+}
+
+func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	cols := make([]ColDescriptor, 1)
+	cols[0] = ColDescriptor{
+		Column: "name",
+		Type:   VarcharType,
+	}
+
+	tables := tx.Database().GetTables()
+
+	values := make([][]ValueExp, len(tables))
+
+	for i, t := range tables {
+		values[i] = []ValueExp{&Varchar{val: t.name}}
+	}
+
+	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+}
+
+type ListColumnsStmt struct {
+	table string
+	as    string
+}
+
+func (stmt *ListColumnsStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ListColumnsStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ListColumnsStmt) Alias() string {
+	if stmt.as == "" {
+		return "columns"
+	}
+	return stmt.as
+}
+
+func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	cols := []ColDescriptor{
+		{
+			Column: "name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "type",
+			Type:   VarcharType,
+		},
+		{
+			Column: "nullable",
+			Type:   BooleanType,
+		},
+		{
+			Column: "auto_increment",
+			Type:   BooleanType,
+		},
+		{
+			Column: "indexed",
+			Type:   BooleanType,
+		},
+		{
+			Column: "primary",
+			Type:   BooleanType,
+		},
+		{
+			Column: "unique",
+			Type:   BooleanType,
+		},
+	}
+
+	table, err := tx.Database().GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([][]ValueExp, len(table.cols))
+
+	for i, c := range table.cols {
+		indexed, err := table.IsIndexed(c.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		var unique bool
+		for _, index := range table.IndexesByColID(c.ID()) {
+			if index.IsUnique() && len(index.Cols()) == 1 {
+				unique = true
+				break
+			}
+		}
+
+		var maxLen string
+
+		if c.MaxLen() > 0 && (c.Type() == VarcharType || c.Type() == BLOBType) {
+			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
+		}
+
+		values[i] = []ValueExp{
+			&Varchar{val: c.colName},
+			&Varchar{val: c.colType + maxLen},
+			&Bool{val: c.IsNullable()},
+			&Bool{val: c.autoIncrement},
+			&Bool{val: indexed},
+			&Bool{val: table.PrimaryIndex().IncludesCol(c.ID())},
+			&Bool{val: unique},
+		}
+	}
+
+	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+}
+
+type ListIndexesStmt struct {
+	table string
+	as    string
+}
+
+func (stmt *ListIndexesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
+func (stmt *ListIndexesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *ListIndexesStmt) Alias() string {
+	if stmt.as == "" {
+		return "indexes"
+	}
+	return stmt.as
+}
+
+func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	cols := make([]ColDescriptor, 3)
+	cols[0] = ColDescriptor{
+		Column: "name",
+		Type:   VarcharType,
+	}
+	cols[1] = ColDescriptor{
+		Column: "unique",
+		Type:   BooleanType,
+	}
+	cols[2] = ColDescriptor{
+		Column: "primary",
+		Type:   BooleanType,
+	}
+
+	table, err := tx.Database().GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([][]ValueExp, len(table.indexes))
+
+	i := 0
+	for _, index := range table.indexes {
+		values[i] = []ValueExp{
+			&Varchar{val: index.Name()},
+			&Bool{val: index.unique},
+			&Bool{val: index.IsPrimary()},
+		}
+		i++
+	}
+
+	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+}

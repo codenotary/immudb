@@ -15,7 +15,10 @@ limitations under the License.
 */
 package sql
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 type Catalog struct {
 	dbsByID   map[uint32]*Database
@@ -270,6 +273,24 @@ func (i *Index) prefix() string {
 	}
 
 	return SIndexPrefix
+}
+
+func (i *Index) Name() string {
+	var buf bytes.Buffer
+
+	buf.WriteString("(")
+
+	for c, col := range i.cols {
+		buf.WriteString(col.colName)
+
+		if c < len(i.cols)-1 {
+			buf.WriteString(",")
+		}
+	}
+
+	buf.WriteString(")")
+
+	return buf.String()
 }
 
 func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {

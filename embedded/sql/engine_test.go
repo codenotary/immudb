@@ -1271,7 +1271,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "db1", r.Database())
 		require.Equal(t, "table1", r.TableAlias())
 
 		cols, err := r.Columns()
@@ -1321,7 +1321,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "db1", r.Database())
 		require.Equal(t, "mytable1", r.TableAlias())
 
 		cols, err := r.Columns()
@@ -1359,7 +1359,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, colsBySel, 5)
 
-		require.Equal(t, "db1", r.Database().Name())
+		require.Equal(t, "db1", r.Database())
 		require.Equal(t, "mytable1", r.TableAlias())
 
 		cols, err := r.Columns()
@@ -4839,4 +4839,30 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestCatalogQueries(t *testing.T) {
+	st, err := store.Open("catalog_queries", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog_queries")
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	r, err := engine.Query("SELECT * FROM DATABASES", nil, nil)
+	require.NoError(t, err)
+
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.NotNil(t, row)
+
+	err = r.Close()
+	require.NoError(t, err)
 }
