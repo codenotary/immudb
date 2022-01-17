@@ -1452,3 +1452,34 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 		tbtree.Close()
 	}
 }
+
+func TestLastUpdateBetween(t *testing.T) {
+	tbtree, err := Open("test_tree_last_update", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("test_tree_last_update")
+
+	keyUpdatesCount := 32
+
+	for i := 0; i < keyUpdatesCount; i++ {
+		err = tbtree.Insert([]byte("key1"), []byte(fmt.Sprintf("value%d", i)))
+		require.NoError(t, err)
+	}
+
+	_, leaf, off, err := tbtree.root.findLeafNode([]byte("key1"), nil, 0, nil, false)
+	require.NoError(t, err)
+	require.NotNil(t, leaf)
+	require.GreaterOrEqual(t, len(leaf.values), off)
+
+	_, _, err = leaf.values[off].lastUpdateBetween(nil, 1, 0)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	for i := 0; i < keyUpdatesCount; i++ {
+		for f := i; f < keyUpdatesCount; f++ {
+			tx, hc, err := leaf.values[off].lastUpdateBetween(nil, uint64(i+1), uint64(f+1))
+			require.NoError(t, err)
+			require.Equal(t, uint64(f), hc)
+			require.Equal(t, uint64(f+1), tx)
+		}
+	}
+}

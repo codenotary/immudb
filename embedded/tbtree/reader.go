@@ -144,6 +144,9 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 			// prefix match
 			if bytes.Equal(r.prefix, leafPrefix) {
 				ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
+				if err != nil && err != ErrKeyNotFound {
+					return nil, 0, 0, err
+				}
 				if err == nil {
 					return cp(leafValue.key), ts, hc, nil
 				}

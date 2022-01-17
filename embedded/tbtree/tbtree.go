@@ -2448,8 +2448,8 @@ func (lv *leafValue) size() int {
 }
 
 func (lv *leafValue) lastUpdateBetween(hLog appendable.Appendable, initialTs, finalTs uint64) (ts, hc uint64, err error) {
-	if lv.ts >= initialTs && lv.ts <= finalTs {
-		return lv.ts, lv.hCount + uint64(len(lv.tss)), nil
+	if initialTs > finalTs {
+		return 0, 0, ErrIllegalArguments
 	}
 
 	for i, ts := range lv.tss {
