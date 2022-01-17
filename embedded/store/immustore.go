@@ -786,30 +786,18 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
 	return vLogID, s.vLogs[vLogID-1].vLog
 }
 
-func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
+func (s *ImmuStore) fetchVLog(vLogID byte) appendable.Appendable {
 	s.vLogsCond.L.Lock()
 	defer s.vLogsCond.L.Unlock()
 
 	for s.vLogs[vLogID-1].unlockedRef == nil {
-		if checkClosed {
-			s.mutex.Lock()
-			if s.closed {
-				err = ErrAlreadyClosed
-			}
-			s.mutex.Unlock()
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
 		s.vLogsCond.Wait()
 	}
 
 	s.vLogUnlockedList.Remove(s.vLogs[vLogID-1].unlockedRef)
 	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
-	return s.vLogs[vLogID-1].vLog, nil
+	return s.vLogs[vLogID-1].vLog
 }
 
 func (s *ImmuStore) releaseVLog(vLogID byte) {
@@ -1720,10 +1708,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	vLogID, offset := decodeOffset(off)
 
 	if vLogID > 0 {
-		vLog, err := s.fetchVLog(vLogID, true)
-		if err != nil {
-			return 0, err
-		}
+		vLog := s.fetchVLog(vLogID)
 		defer s.releaseVLog(vLogID)
 
 		n, err := vLog.ReadAt(b, offset)
@@ -1782,7 +1767,7 @@ func (s *ImmuStore) Sync() error {
 	}
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog := s.fetchVLog(i + 1)
 		defer s.releaseVLog(i + 1)
 
 		err := vLog.Sync()
@@ -1817,12 +1802,13 @@ func (s *ImmuStore) Close() error {
 	merr := multierr.NewMultiErr()
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog := s.fetchVLog(i + 1)
 
 		err := vLog.Close()
 		merr.Append(err)
+
+		s.releaseVLog(i + 1)
 	}
-	s.vLogsCond.Broadcast()
 
 	if s.blBuffer != nil && s.blErr == nil && s.blDone != nil {
 		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
