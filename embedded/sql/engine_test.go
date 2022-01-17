@@ -4856,7 +4856,7 @@ func TestCatalogQueries(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	r, err := engine.Query("SELECT * FROM DATABASES", nil, nil)
+	r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
 	require.NoError(t, err)
 
 	row, err := r.Read()
