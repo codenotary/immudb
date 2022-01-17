@@ -128,7 +128,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <binExp> binExp
 %type <cols> opt_groupby
 %type <number> opt_limit opt_max_len
-%type <id> opt_as
+%type <id> opt_as opt_id
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
 %type <ids> opt_indexon
@@ -571,24 +571,34 @@ ds:
         $$ = $2.(DataSource)
     }
 |
-    DATABASES opt_as
+    DATABASES '(' ')' opt_as
     {
-        $$ = &ListDatabasesStmt{as: $2}
+        $$ = &ListDatabasesStmt{as: $4}
     }
 |
-    TABLES opt_as
+    TABLES '(' opt_id ')' opt_as
     {
-        $$ = &ListTablesStmt{as: $2}
+        $$ = &ListTablesStmt{db: $3, as: $5}
     }
 |
-    IDENTIFIER '.' COLUMNS opt_as
+    COLUMNS '(' tableRef ')' opt_as
     {
-        $$ = &ListColumnsStmt{table: $1, as: $4}
+        $$ = &ListColumnsStmt{tableRef: $3, as: $5}
     }
 |
-    IDENTIFIER '.' INDEXES opt_as
+    INDEXES '(' tableRef ')'  opt_as
     {
-        $$ = &ListIndexesStmt{table: $1, as: $4}
+        $$ = &ListIndexesStmt{tableRef: $3, as: $5}
+    }
+
+opt_id:
+    {
+        $$ = ""
+    }
+|
+    IDENTIFIER
+    {
+        $$ = $1
     }
 
 tableRef:

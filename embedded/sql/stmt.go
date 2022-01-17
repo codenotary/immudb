@@ -3468,6 +3468,7 @@ func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{},
 }
 
 type ListTablesStmt struct {
+	db string
 	as string
 }
 
@@ -3486,14 +3487,25 @@ func (stmt *ListTablesStmt) Alias() string {
 	return stmt.as
 }
 
-func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
 	cols := make([]ColDescriptor, 1)
 	cols[0] = ColDescriptor{
 		Column: "name",
 		Type:   VarcharType,
 	}
 
-	tables := tx.Database().GetTables()
+	var db *Database
+
+	if stmt.db != "" {
+		db, err = tx.catalog.GetDatabaseByName(stmt.db)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		db = tx.Database()
+	}
+
+	tables := db.GetTables()
 
 	values := make([][]ValueExp, len(tables))
 
@@ -3505,8 +3517,8 @@ func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, Sc
 }
 
 type ListColumnsStmt struct {
-	table string
-	as    string
+	tableRef *tableRef
+	as       string
 }
 
 func (stmt *ListColumnsStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -3556,7 +3568,7 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		},
 	}
 
-	table, err := tx.Database().GetTableByName(stmt.table)
+	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -3598,8 +3610,8 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 }
 
 type ListIndexesStmt struct {
-	table string
-	as    string
+	tableRef *tableRef
+	as       string
 }
 
 func (stmt *ListIndexesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
@@ -3632,7 +3644,7 @@ func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		Type:   BooleanType,
 	}
 
-	table, err := tx.Database().GetTableByName(stmt.table)
+	table, err := stmt.tableRef.referencedTable(tx)
 	if err != nil {
 		return nil, err
 	}
