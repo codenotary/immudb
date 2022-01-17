@@ -291,7 +291,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.WebServer {
 		if err := s.setUpWebServer(); err != nil {
-			return err
+			log.Fatal(fmt.Sprintf("Failed to setup web API/console server: %v", err))
 		}
 		defer func() {
 			if err := s.webServer.Close(); err != nil {
