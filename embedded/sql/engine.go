@@ -99,7 +99,15 @@ type Engine struct {
 
 	defaultDatabase string
 
+	multidbHandler MultiDBHandler
+
 	mutex sync.RWMutex
+}
+
+type MultiDBHandler interface {
+	ListDatabases() ([]string, error)
+	CreateDatabase(db string) error
+	UseDatabase(db string) error
 }
 
 //SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
@@ -141,6 +149,13 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	yyErrorVerbose = true
 
 	return e, nil
+}
+
+func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	e.multidbHandler = handler
 }
 
 func (e *Engine) SetDefaultDatabase(dbName string) error {
