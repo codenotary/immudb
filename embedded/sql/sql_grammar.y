@@ -551,11 +551,6 @@ col:
     {
         $$ = &ColSelector{table: $1, col: $3}
     }
-|
-    IDENTIFIER '.' IDENTIFIER '.' IDENTIFIER
-    {
-        $$ = &ColSelector{db: $1, table: $3, col: $5}
-    }
 
 ds:
     tableRef opt_period opt_as
@@ -605,11 +600,6 @@ tableRef:
     IDENTIFIER
     {
         $$ = &tableRef{table: $1}
-    }
-|
-    IDENTIFIER '.' IDENTIFIER
-    {
-        $$ = &tableRef{db: $1, table: $3}
     }
 
 opt_period:

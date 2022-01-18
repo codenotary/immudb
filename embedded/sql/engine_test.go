@@ -1207,9 +1207,6 @@ func TestQuery(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.Query("SELECT id FROM db2.table1", nil, nil)
-	require.Equal(t, ErrDatabaseDoesNotExist, err)
-
 	_, err = engine.Query("SELECT id FROM table1", nil, nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
@@ -1225,7 +1222,7 @@ func TestQuery(t *testing.T) {
 	params := make(map[string]interface{})
 	params["id"] = 0
 
-	r, err := engine.Query("SELECT id FROM db1.table1 WHERE id >= @id", nil, nil)
+	r, err := engine.Query("SELECT id FROM table1 WHERE id >= @id", nil, nil)
 	require.NoError(t, err)
 
 	orderBy := r.OrderBy()
@@ -1241,7 +1238,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.Query("SELECT * FROM db1.table1", nil, nil)
+	r, err = engine.Query("SELECT * FROM table1", nil, nil)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1304,7 +1301,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		row, err := r.Read()
-		require.Equal(t, ErrColumnDoesNotExist, err)
+		require.ErrorIs(t, err, ErrColumnDoesNotExist)
 		require.Nil(t, row)
 
 		err = r.Close()
@@ -4850,19 +4847,67 @@ func TestCatalogQueries(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
+	t.Run("without a handler, multi database stmts are locally resolved", func(t *testing.T) {
+		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+		require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
-	require.NoError(t, err)
+		err = engine.SetDefaultDatabase("db1")
+		require.NoError(t, err)
 
-	r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
-	require.NoError(t, err)
+		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
+		require.NoError(t, err)
 
-	row, err := r.Read()
-	require.NoError(t, err)
-	require.NotNil(t, row)
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Equal(t, "db1", row.ValuesBySelector["(db1.databases.name)"].Value())
 
-	err = r.Close()
-	require.NoError(t, err)
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("with a handler, multi database stmts are delegated to the handler", func(t *testing.T) {
+		dbs := []string{"db1", "db2"}
+
+		handler := &multidbHandler{
+			dbs: dbs,
+		}
+		engine.SetMultiDBHandler(handler)
+
+		//_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+		//require.ErrorIs(t, err, ErrNoSupported)
+
+		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
+		require.NoError(t, err)
+
+		for _, db := range dbs {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.NotNil(t, row)
+			require.NotNil(t, row)
+			require.Equal(t, db, row.ValuesBySelector["(db1.databases.name)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+}
+
+type multidbHandler struct {
+	dbs []string
+}
+
+func (h *multidbHandler) ListDatabases() ([]string, error) {
+	return h.dbs, nil
+}
+
+func (h *multidbHandler) CreateDatabase(db string) error {
+	return ErrNoSupported
+}
+
+func (h *multidbHandler) UseDatabase(db string) error {
+	return ErrNoSupported
 }

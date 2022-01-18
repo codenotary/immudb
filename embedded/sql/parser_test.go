@@ -765,7 +765,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id, title FROM db1.table1 AS t1",
+			input: "SELECT id, title FROM table1 AS t1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -773,12 +773,12 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					ds: &tableRef{table: "table1", as: "t1"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT t1.id, title FROM db1.table1 t1",
+			input: "SELECT t1.id, title FROM table1 t1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -786,20 +786,20 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{table: "t1", col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					ds: &tableRef{table: "table1", as: "t1"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE payload >= x'AED0393F'",
+			input: "SELECT table1.id, title FROM table1 AS t1 WHERE payload >= x'AED0393F'",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{table: "table1", col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
 						op: GE,
 						left: &ColSelector{

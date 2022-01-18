@@ -3451,17 +3451,32 @@ func (stmt *ListDatabasesStmt) Alias() string {
 	return stmt.as
 }
 
-func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
 	cols := make([]ColDescriptor, 1)
 	cols[0] = ColDescriptor{
 		Column: "name",
 		Type:   VarcharType,
 	}
 
-	values := make([][]ValueExp, len(tx.catalog.Databases()))
+	var dbs []string
 
-	for i, db := range tx.catalog.Databases() {
-		values[i] = []ValueExp{&Varchar{val: db.name}}
+	if tx.engine.multidbHandler == nil {
+		dbs = make([]string, len(tx.catalog.Databases()))
+
+		for i, db := range tx.catalog.Databases() {
+			dbs[i] = db.name
+		}
+	} else {
+		dbs, err = tx.engine.multidbHandler.ListDatabases()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]ValueExp, len(dbs))
+
+	for i, db := range dbs {
+		values[i] = []ValueExp{&Varchar{val: db}}
 	}
 
 	return newValuesRowReader(tx, cols, stmt.Alias(), values)
