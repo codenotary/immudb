@@ -4,11 +4,43 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
-<a name="v1.2.1"></a>
-## [v1.2.1] - 0001-01-01
+<a name="v1.2.2"></a>
+## [v1.2.2] - 2022-01-17
+### Bug Fixes
+- registering connection in order to make possible conn recycling
+- **Dockerfile:** Add ca-certificates.crt file to immudb image
+- **client/file_cache:** Fix storing immudb state in file cache
+- **embedded/immustore:** Avoid deadlock when acquire vLog lock
+- **embedded/sql:** max key len validations
+- **embedded/sql:** consider not null flag is on for auto incremental column
+- **pkg/server:** validate if db is not replica then other replication attributes are not set
+- **pkg/stdlib:** fix last insert id generation
 
-<a name="v1.2.0"></a>
-## [v1.2.0] - 2021-12-13
+### Changes
+- create code of conduct markdown file ([#1051](https://github.com/vchain-us/immudb/issues/1051))
+- **cmd/immuclient:** return actual login error
+- **embedded/sql:** wip client provided auto-incremental values
+- **embedded/sql:** wip client provided auto-incremental values
+- **embedded/sql:** wip client provided auto-incremental values
+- **embedded/sql:** add first and last insert pks retrivial methods
+- **embedded/sql:** change column constraints ordering
+- **metrics:** Add indexer metrics
+- **metrics:** Add more s3-related metrics
+- **pkg/database:** pre-validation of duplicated entries in execAll operation
+- **pkg/database:** temporarily disable execall validations
+- **pkg/database:** instantiate tx holder only in safe mode
+- **pkg/database:** self-contained noWait execAll
+- **pkg/database:** descriptive error messages
+- **pkg/replication:** delay replication after failure
+- **pkg/stdlib:** clean connection registration and leftovers
+
+### Features
+- **embedded/sql:** support for basic insert conflict handling
+- **s3:** Add support for AWS V4 signatures
+
+
+<a name="v1.2.1"></a>
+## [v1.2.1] - 2021-12-14
 ### Bug Fixes
 - fix interactive use database
 - **database:** Internal consistency check on data reads
@@ -2389,9 +2421,9 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.1...HEAD
-[v1.2.1]: https://github.com/vchain-us/immudb/compare/v1.2.0...v1.2.1
-[v1.2.0]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...v1.2.0
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.2...HEAD
+[v1.2.2]: https://github.com/vchain-us/immudb/compare/v1.2.1...v1.2.2
+[v1.2.1]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...v1.2.1
 [v1.2.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.1.0...v1.2.0-RC1
 [v1.1.0]: https://github.com/vchain-us/immudb/compare/v1.0.5...v1.1.0
 [v1.0.5]: https://github.com/vchain-us/immudb/compare/v1.0.1...v1.0.5
