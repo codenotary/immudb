@@ -27,7 +27,6 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
-	"github.com/rs/xid"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -66,7 +65,7 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 	}
 }
 
-func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, error) {
+func (s *Session) NewTransaction(ctx context.Context, mode schema.TxMode) (transactions.Transaction, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -77,12 +76,6 @@ func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, 
 	if mode == schema.TxMode_ReadOnly {
 		return nil, ErrReadOnlyTXNotAllowed
 	}
-
-	sqlTx, _, err := s.database.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	if mode == schema.TxMode_ReadWrite {
 		if s.readWriteTxOngoing {
 			return nil, ErrOngoingReadWriteTx
@@ -90,10 +83,12 @@ func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, 
 		s.readWriteTxOngoing = true
 	}
 
-	transactionID := xid.New().String()
-	tx := transactions.NewTransaction(sqlTx, transactionID, mode, s.database, s.id)
-	s.transactions[transactionID] = tx
+	tx, err := transactions.NewTransaction(ctx, mode, s.database, s.id)
+	if err != nil {
+		return nil, err
+	}
 
+	s.transactions[tx.GetID()] = tx
 	return tx, nil
 }
 
