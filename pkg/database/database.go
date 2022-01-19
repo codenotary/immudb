@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -92,6 +93,8 @@ type DB interface {
 	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
 
 	// SQL-related
+	NewSQLTx(ctx context.Context) (*sql.SQLTx, error)
+
 	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
 	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
 
@@ -142,15 +145,15 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
+func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	logger.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
 
 	dbi := &db{
-		Logger:  logger,
+		Logger:  log,
 		options: op,
 		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
@@ -162,7 +165,7 @@ func OpenDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(logger))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(log))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -171,6 +174,8 @@ func OpenDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
 	if op.replica {
 		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
@@ -243,15 +248,15 @@ func (d *db) initSQLEngine() error {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
+func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	logger.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
+	log.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
 
 	dbi := &db{
-		Logger:  logger,
+		Logger:  log,
 		options: op,
 		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
@@ -268,7 +273,7 @@ func NewDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(logger))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(log))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -277,6 +282,8 @@ func NewDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
+
+	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
 	if !op.replica {
 		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)

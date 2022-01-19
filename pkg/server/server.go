@@ -382,7 +382,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err = s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+		s.sysDB, err = database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
@@ -403,7 +403,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+	s.sysDB, err = database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 	_, err = s.OS.Stat(defaultDbRootDir)
 	if err == nil {
-		db, err := database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+		db, err := database.OpenDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
@@ -466,7 +466,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		return err
 	}
 
-	db, err := database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+	db, err := database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 
 		s.logDBOptions(dbname, dbOpts)
 
-		db, err := database.OpenDB(dbname, s.databaseOptionsFrom(dbOpts), s.Logger)
+		db, err := database.OpenDB(dbname, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' could not be loaded. Reason: %v", dbname, err)
 			s.dbList.Put(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
@@ -812,7 +812,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		return nil, err
 	}
 
-	db, err := database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+	db, err := database.NewDB(dbOpts.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -887,7 +887,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		return nil, fmt.Errorf("%w: while loading database settings", err)
 	}
 
-	db, err = database.OpenDB(req.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+	db, err = database.OpenDB(req.Database, s.multidbHandler(), s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("%w: while opening database", err)
 	}

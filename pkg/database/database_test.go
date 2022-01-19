@@ -63,7 +63,7 @@ func makeDb() (DB, func()) {
 }
 
 func makeDbWith(dbName string, opts *Options) (DB, func()) {
-	db, err := NewDB(dbName, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB(dbName, nil, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -81,7 +81,7 @@ func makeDbWith(dbName string, opts *Options) (DB, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	db, err := NewDB("mydb", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB("mydb", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -125,7 +125,7 @@ func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {
 	err = os.MkdirAll(filepath.Join(options.GetDBRootPath(), "EdithPiaf"), os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err = NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
@@ -133,13 +133,13 @@ func TestDbCreationInInvalidDirectory(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("/?")
 	defer os.RemoveAll(options.GetDBRootPath())
 
-	_, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("Paris")
-	db, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -163,19 +163,19 @@ func TestDbCreation(t *testing.T) {
 
 func TestOpenWithMissingDBDirectories(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("Paris")
-	_, err := OpenDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := OpenDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestOpenWithIllegalDBName(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("Paris")
-	_, err := OpenDB("", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := OpenDB("", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
 func TestOpenDB(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("Paris")
-	db, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -185,7 +185,7 @@ func TestOpenDB(t *testing.T) {
 		t.Fatalf("Error closing store %s", err)
 	}
 
-	db, err = OpenDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err = OpenDB("EdithPiaf", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error opening database %s", err)
 	}
@@ -202,11 +202,11 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 	defer os.RemoveAll("data_v1.1.0")
 
 	sysOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
-	sysDB, err := OpenDB("systemdb", sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	sysDB, err := OpenDB("systemdb", nil, sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	dbOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
-	db, err := OpenDB("defaultdb", dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := OpenDB("defaultdb", nil, dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	err = db.Close()
