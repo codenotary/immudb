@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"path/filepath"
 	"time"
 
@@ -128,6 +129,10 @@ func (db *closedDB) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.V
 }
 
 func (db *closedDB) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (db *closedDB) NewSQLTx(ctx context.Context) (*sql.SQLTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
