@@ -81,42 +81,11 @@ WEBCONSOLE=default  make dist
 ```
 
 > Distribution files will be created into the `dist` directory.
+>
+## 5. Create a pre-release in GitHub
+On GitHub, [draft a new release](https://github.com/vchain-us/immudb/releases) and upload the `dist` files using the follwing template
 
-## 5. Validate dist files
-
-Each file generated in the `dist` directory should be quickly checked.
-For every platform do the following:
- * Run immudb server, make sure it works as expected
- * Check the webconsole - make sure it shows correct versions on the footer after login
- * connect to the immudb server with immuclient and perform few get/set operations
- * connect to the immudb server with immuadmin and perform few operations such as creating and listing databases
-
-## 6. Notarize git repository and binaries
-
-After completing tests notarize git repository and dist files using the immudb@codenotary.com account:
-
-```sh
-export VCN_NOTARIZATION_PASSWORD
-read -s VCN_NOTARIZATION_PASSWORD
-
-vcn n -p git://.
-
-make dist/sign
-```
-
-## 7. Push and edit the release on github
-
-Push your commits and tag:
-
-```sh
-git push
-git push --tags
-```
-
-> From now on, your relase will be publicy visible, and github actions should start building docker images for `immudb`.
-
-Now you can edit the vX.Y.Z newly created [release on GitHub](https://github.com/vchain-us/immudb/releases), using the follwing template
-
+> Assets will not be available until the release is published so postpone links generation.
 ```md
 # Changelog
 
@@ -147,14 +116,46 @@ File | SHA256
 <!-- use `make dist/binary.md` to generate the downloads links and checksums -->
 ```
 
-Mark this tag as a `pre-release` for now.
+## 6. Validate dist files
 
-Finally, uploads all files from `dist`.
+Each file generated in the `dist` directory should be quickly checked in all architectures.
+For every platform do the following:
+ * Run immudb server, make sure it works as expected
+ * Check the webconsole - make sure it shows correct versions on the footer after login
+ * connect to the immudb server with immuclient and perform few get/set operations
+ * connect to the immudb server with immuadmin and perform few operations such as creating and listing databases
+
+## 7. Notarize git repository and binaries
+After completing tests notarize git repository and dist files using the immudb@codenotary.com account:
+
+```sh
+export CAS_NOTARIZATION_PASSWORD
+read -s CAS_NOTARIZATION_PASSWORD
+
+cas n -p git://.
+
+make dist/sign
+```
+
+## 8. Push and edit the release on github
+Now it's possible to generate link to the binaries in github pre-release page.
+
+Push your commits and tag:
+
+```sh
+git push
+git push --tags
+```
+Then it's needed to choose the appropriate tag on the newly created release.
+
+> From now on, your relase will be publicy visible, and github actions should start building docker images for `immudb`.
+
+Mark this tag as a `pre-release` for now.
 
 Do the final check of uploaded binaries by doing manual smoke tests,
 once everything works correctly, uncheck the `pre-release` mark.
 
-## 6. Create documentation for the version
+## 9. Create documentation for the version
 
 Documentation is kept inside the [immudb.io repo](https://github.com/codenotary/immudb.io).
 
@@ -168,7 +169,7 @@ Once those changes end up in master, the documentation will be compiled and depl
 [index.js]: https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/theme/util/index.js#L242
 [enhanceApp.js]: https://github.com/codenotary/immudb.io/blob/master/src/.vuepress/enhanceApp.js#L27
 
-## 7. Update immudb readme on docker hub
+## 10. Update immudb readme on docker hub
 
 Once the release is done, make sure that the readme in docker hub are up-to-date.
 For immudb please edit  the Readme in https://hub.docker.com/repository/docker/codenotary/immudb
