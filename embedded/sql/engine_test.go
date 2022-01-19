@@ -16,6 +16,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -311,18 +312,21 @@ func TestTimestampCasts(t *testing.T) {
 	})
 
 	t.Run("test casting from null values", func(t *testing.T) {
-		_, _, err = engine.Exec(`
+		_, _, err = engine.Exec(
+			`
 			CREATE TABLE IF NOT EXISTS values_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, str VARCHAR, i INTEGER, PRIMARY KEY id);
 			INSERT INTO values_table(ts, str,i) VALUES(NOW(), NULL, NULL);
 		`, nil, nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(`
+		_, _, err = engine.Exec(
+			`
 			UPDATE values_table SET ts = CAST(str AS TIMESTAMP);
 		`, nil, nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec(`
+		_, _, err = engine.Exec(
+			`
 			UPDATE values_table SET ts = CAST(i AS TIMESTAMP);
 		`, nil, nil)
 		require.NoError(t, err)
@@ -716,7 +720,8 @@ func TestAutoIncrementPK(t *testing.T) {
 	require.Equal(t, int64(6), ctxs[0].LastInsertedPKs()["table1"])
 	require.Equal(t, 1, ctxs[0].UpdatedRows())
 
-	_, ctxs, err = engine.Exec(`
+	_, ctxs, err = engine.Exec(
+		`
 		BEGIN TRANSACTION;
 			INSERT INTO table1(title) VALUES ('name7');
 			INSERT INTO table1(title) VALUES ('name8');
@@ -4860,7 +4865,7 @@ func TestCatalogQueries(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Equal(t, "db1", row.ValuesBySelector["(db1.databases.name)"].Value())
+		require.Equal(t, "db1", row.ValuesBySelector["(*.databases.name)"].Value())
 
 		_, err = r.Read()
 		require.ErrorIs(t, err, ErrNoMoreRows)
@@ -4874,8 +4879,11 @@ func TestCatalogQueries(t *testing.T) {
 		}
 		engine.SetMultiDBHandler(handler)
 
-		//_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-		//require.ErrorIs(t, err, ErrNoSupported)
+		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+		require.ErrorIs(t, err, ErrNoSupported)
+
+		_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
+		require.ErrorIs(t, err, ErrNoSupported)
 
 		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
 		require.NoError(t, err)
@@ -4885,7 +4893,7 @@ func TestCatalogQueries(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, row)
 			require.NotNil(t, row)
-			require.Equal(t, db, row.ValuesBySelector["(db1.databases.name)"].Value())
+			require.Equal(t, db, row.ValuesBySelector["(*.databases.name)"].Value())
 		}
 
 		_, err = r.Read()
@@ -4900,14 +4908,14 @@ type multidbHandler struct {
 	dbs []string
 }
 
-func (h *multidbHandler) ListDatabases() ([]string, error) {
+func (h *multidbHandler) ListDatabases(ctx context.Context) ([]string, error) {
 	return h.dbs, nil
 }
 
-func (h *multidbHandler) CreateDatabase(db string) error {
+func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
 	return ErrNoSupported
 }
 
-func (h *multidbHandler) UseDatabase(db string) error {
+func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
 	return ErrNoSupported
 }
