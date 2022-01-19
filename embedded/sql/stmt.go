@@ -140,7 +140,13 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 		return nil, err
 	}
 
-	return tx.engine.newTx(true)
+	ntx, err := tx.engine.NewTx(tx.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ntx.explicitClose = true
+	return ntx, nil
 }
 
 type CommitStmt struct {
@@ -182,6 +188,14 @@ func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQL
 }
 
 func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.multidbHandler != nil {
+		if tx.explicitClose {
+			return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
+		}
+
+		return nil, tx.engine.multidbHandler.CreateDatabase(tx.ctx, stmt.DB)
+	}
+
 	id := uint32(len(tx.catalog.dbsByID) + 1)
 
 	db, err := tx.catalog.newDatabase(id, stmt.DB)
@@ -206,6 +220,14 @@ func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 }
 
 func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.engine.multidbHandler != nil {
+		if tx.explicitClose {
+			return nil, fmt.Errorf("%w: database selectiion can not be done within a transaction", ErrNonTransactionalStmt)
+		}
+
+		return nil, tx.engine.multidbHandler.UseDatabase(tx.ctx, stmt.DB)
+	}
+
 	return tx, tx.useDatabase(stmt.DB)
 }
 
@@ -3467,7 +3489,7 @@ func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{},
 			dbs[i] = db.name
 		}
 	} else {
-		dbs, err = tx.engine.multidbHandler.ListDatabases()
+		dbs, err = tx.engine.multidbHandler.ListDatabases(tx.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -3479,7 +3501,7 @@ func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{},
 		values[i] = []ValueExp{&Varchar{val: db}}
 	}
 
-	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+	return newValuesRowReader(tx, cols, "*", stmt.Alias(), values)
 }
 
 type ListTablesStmt struct {
@@ -3528,7 +3550,7 @@ func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, Sc
 		values[i] = []ValueExp{&Varchar{val: t.name}}
 	}
 
-	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+	return newValuesRowReader(tx, cols, db.name, stmt.Alias(), values)
 }
 
 type ListColumnsStmt struct {
@@ -3621,7 +3643,7 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		}
 	}
 
-	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
 }
 
 type ListIndexesStmt struct {
@@ -3676,5 +3698,5 @@ func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		i++
 	}
 
-	return newValuesRowReader(tx, cols, stmt.Alias(), values)
+	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
 }

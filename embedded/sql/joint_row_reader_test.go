@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -36,7 +37,7 @@ func TestJointRowReader(t *testing.T) {
 	_, err = newJointRowReader(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	tx, err := engine.newTx(false)
+	tx, err := engine.NewTx(context.Background())
 	require.NoError(t, err)
 
 	db, err := tx.catalog.newDatabase(1, "db1")

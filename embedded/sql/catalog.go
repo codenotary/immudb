@@ -278,7 +278,9 @@ func (i *Index) prefix() string {
 func (i *Index) Name() string {
 	var buf bytes.Buffer
 
-	buf.WriteString("(")
+	buf.WriteString(i.table.name)
+
+	buf.WriteString("[")
 
 	for c, col := range i.cols {
 		buf.WriteString(col.colName)
@@ -288,7 +290,7 @@ func (i *Index) Name() string {
 		}
 	}
 
-	buf.WriteString(")")
+	buf.WriteString("]")
 
 	return buf.String()
 }

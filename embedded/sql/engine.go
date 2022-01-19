@@ -17,6 +17,7 @@ package sql
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -72,6 +73,7 @@ var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUN
 var ErrTxDoesNotExist = errors.New("tx does not exist")
 var ErrNestedTxNotSupported = errors.New("nested tx are not supported")
 var ErrNoOngoingTx = errors.New("no ongoing transaction")
+var ErrNonTransactionalStmt = errors.New("non transactional statement")
 var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing parameter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
@@ -105,14 +107,16 @@ type Engine struct {
 }
 
 type MultiDBHandler interface {
-	ListDatabases() ([]string, error)
-	CreateDatabase(db string) error
-	UseDatabase(db string) error
+	ListDatabases(ctx context.Context) ([]string, error)
+	CreateDatabase(ctx context.Context, db string) error
+	UseDatabase(ctx context.Context, db string) error
 }
 
 //SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
 	engine *Engine
+
+	ctx context.Context
 
 	tx *store.OngoingTx
 
@@ -159,7 +163,7 @@ func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
 }
 
 func (e *Engine) SetDefaultDatabase(dbName string) error {
-	tx, err := e.newTx(false)
+	tx, err := e.NewTx(context.Background())
 	if err != nil {
 		return err
 	}
@@ -185,7 +189,7 @@ func (e *Engine) DefaultDatabase() string {
 	return e.defaultDatabase
 }
 
-func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
+func (e *Engine) NewTx(ctx context.Context) (*SQLTx, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
@@ -214,12 +218,12 @@ func (e *Engine) newTx(explicitClose bool) (*SQLTx, error) {
 
 	return &SQLTx{
 		engine:           e,
+		ctx:              ctx,
 		tx:               tx,
 		catalog:          catalog,
 		currentDB:        currentDB,
 		lastInsertedPKs:  make(map[string]int64),
 		firstInsertedPKs: make(map[string]int64),
-		explicitClose:    explicitClose,
 	}, nil
 }
 
@@ -1132,8 +1136,16 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if currTx == nil || currTx.closed {
+			var ctx context.Context
+
+			if currTx == nil {
+				ctx = context.Background()
+			} else {
+				ctx = currTx.ctx
+			}
+
 			// begin tx with implicit commit
-			currTx, err = e.newTx(false)
+			currTx, err = e.NewTx(ctx)
 			if err != nil {
 				return nil, committedTxs, err
 			}
@@ -1198,7 +1210,7 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.newTx(false)
+		qtx, err = e.NewTx(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -1233,7 +1245,7 @@ func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.newTx(false)
+		qtx, err = e.NewTx(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -1260,7 +1272,7 @@ func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (param
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.newTx(false)
+		qtx, err = e.NewTx(context.Background())
 		if err != nil {
 			return nil, err
 		}
