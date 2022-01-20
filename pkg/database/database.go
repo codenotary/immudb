@@ -175,9 +175,9 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
-	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-
 	if op.replica {
+		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
+
 		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 		return dbi, nil
 	}
@@ -195,6 +195,8 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 			return
 		}
+
+		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
 		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 	}()
@@ -283,8 +285,6 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
-
 	if !op.replica {
 		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
 		if err != nil {
@@ -296,6 +296,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 	}
+
+	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
 	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", dbName, op.replica)
 
