@@ -1138,10 +1138,12 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		if currTx == nil || currTx.closed {
 			var ctx context.Context
 
-			if currTx == nil {
-				ctx = context.Background()
-			} else {
+			if currTx != nil {
 				ctx = currTx.ctx
+			} else if tx != nil {
+				ctx = tx.ctx
+			} else {
+				ctx = context.Background()
 			}
 
 			// begin tx with implicit commit
