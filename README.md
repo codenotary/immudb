@@ -23,9 +23,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
 
-```
 Don't forget to ⭐ this repo if you like immudb!
-```
 
 [:tada: 7M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
@@ -237,8 +235,6 @@ You can generate your own benchmarks using the `stress_tool` under `embedded/too
 ## Roadmap
 
 The following topics are important to us and are planned or already being worked on:
-
-
 
 * Data pruning
 * Compression
