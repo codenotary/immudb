@@ -211,7 +211,7 @@ dist/winsign:
 
 .PHONY: dist/sign
 dist/sign:
-	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
+	for f in ./dist/*; do cas n $$f; printf "\n\n"; done
 
 
 .PHONY: dist/binary.md
