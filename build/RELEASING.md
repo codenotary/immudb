@@ -132,6 +132,7 @@ After completing tests notarize git repository and dist files using the immudb@c
 export CAS_NOTARIZATION_PASSWORD
 read -s CAS_NOTARIZATION_PASSWORD
 
+cas login
 cas n -p git://.
 
 make dist/sign
