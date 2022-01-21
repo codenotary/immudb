@@ -2155,7 +2155,7 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 			cols[i] = col
 		}
 
-		index, ok := table.indexes[indexKeyFrom(cols)]
+		index, ok := table.indexesByName[indexName(table.name, cols)]
 		if !ok {
 			return nil, ErrNoAvailableIndex
 		}
@@ -3576,12 +3576,20 @@ func (stmt *ListColumnsStmt) Alias() string {
 func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 	cols := []ColDescriptor{
 		{
+			Column: "table",
+			Type:   VarcharType,
+		},
+		{
 			Column: "name",
 			Type:   VarcharType,
 		},
 		{
 			Column: "type",
 			Type:   VarcharType,
+		},
+		{
+			Column: "max_length",
+			Type:   IntegerType,
 		},
 		{
 			Column: "nullable",
@@ -3626,15 +3634,11 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 			}
 		}
 
-		var maxLen string
-
-		if c.MaxLen() > 0 && (c.Type() == VarcharType || c.Type() == BLOBType) {
-			maxLen = fmt.Sprintf("[%d]", c.MaxLen())
-		}
-
 		values[i] = []ValueExp{
+			&Varchar{val: table.name},
 			&Varchar{val: c.colName},
-			&Varchar{val: c.colType + maxLen},
+			&Varchar{val: c.colType},
+			&Number{val: int64(c.MaxLen())},
 			&Bool{val: c.IsNullable()},
 			&Bool{val: c.autoIncrement},
 			&Bool{val: indexed},
@@ -3667,18 +3671,23 @@ func (stmt *ListIndexesStmt) Alias() string {
 }
 
 func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
-	cols := make([]ColDescriptor, 3)
-	cols[0] = ColDescriptor{
-		Column: "name",
-		Type:   VarcharType,
-	}
-	cols[1] = ColDescriptor{
-		Column: "unique",
-		Type:   BooleanType,
-	}
-	cols[2] = ColDescriptor{
-		Column: "primary",
-		Type:   BooleanType,
+	cols := []ColDescriptor{
+		{
+			Column: "table",
+			Type:   VarcharType,
+		},
+		{
+			Column: "name",
+			Type:   VarcharType,
+		},
+		{
+			Column: "unique",
+			Type:   BooleanType,
+		},
+		{
+			Column: "primary",
+			Type:   BooleanType,
+		},
 	}
 
 	table, err := stmt.tableRef.referencedTable(tx)
@@ -3688,14 +3697,13 @@ func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 
 	values := make([][]ValueExp, len(table.indexes))
 
-	i := 0
-	for _, index := range table.indexes {
+	for i, index := range table.indexes {
 		values[i] = []ValueExp{
+			&Varchar{val: table.name},
 			&Varchar{val: index.Name()},
 			&Bool{val: index.unique},
 			&Bool{val: index.IsPrimary()},
 		}
-		i++
 	}
 
 	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)

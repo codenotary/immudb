@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -438,16 +437,6 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	}
 
 	return nil
-}
-
-func indexKeyFrom(cols []*Column) string {
-	var buf bytes.Buffer
-
-	for _, col := range cols {
-		buf.WriteString(strconv.FormatUint(uint64(col.id), 16))
-	}
-
-	return buf.String()
 }
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
