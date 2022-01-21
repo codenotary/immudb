@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 type multidbHandler struct {
@@ -34,7 +35,8 @@ func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
 }
 
 func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
-	return ErrNotSupported
+	_, err := h.s.CreateDatabase(ctx, &schema.Database{DatabaseName: db})
+	return err
 }
 
 func (h *multidbHandler) ListDatabases(ctx context.Context) ([]string, error) {
