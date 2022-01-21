@@ -64,14 +64,14 @@ func TestUseDatabaseStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input:          "USE DATABASE db1",
+			input:          "USE db1",
 			expectedOutput: []SQLStmt{&UseDatabaseStmt{DB: "db1"}},
 			expectedError:  nil,
 		},
 		{
-			input:          "USE db1",
-			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT at position 7"),
+			input:          "USE DATABASE db1",
+			expectedOutput: []SQLStmt{&UseDatabaseStmt{DB: "db1"}},
+			expectedError:  nil,
 		},
 	}
 
