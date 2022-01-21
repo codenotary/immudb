@@ -150,8 +150,16 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MinScore.Score))
 		}
 		// here we compose the offset if Max score filter is provided only if is reversed order
-		if req.MaxScore != nil && req.Desc {
-			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MaxScore.Score))
+		if req.Desc {
+			var maxScore float64
+
+			if req.MaxScore == nil {
+				maxScore = math.MaxFloat64
+			} else {
+				maxScore = req.MaxScore.Score
+			}
+
+			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(maxScore))
 		}
 	} else {
 		seekKey = make([]byte, len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey)+txIDLen)
