@@ -18,11 +18,12 @@ package heartbeater
 
 import (
 	"context"
+	stdos "os"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
-	stdos "os"
-	"time"
 )
 
 type heartBeater struct {
@@ -52,6 +53,8 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 	go func() {
 		for {
 			select {
+			// case <-ctx.Done():
+			// 	return
 			case <-hb.done:
 				return
 			case t := <-hb.t.C:
@@ -66,7 +69,10 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 }
 
 func (hb *heartBeater) Stop() {
-	hb.done <- true
+	select {
+	case hb.done <- true:
+	default:
+	}
 }
 
 func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {

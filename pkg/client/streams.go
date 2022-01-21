@@ -139,7 +139,15 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	start := time.Now()
 	defer c.Logger.Debugf("StreamVerifiedSet finished in %s", time.Since(start))
 
-	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
+	currentDatabase := c.Options.CurrentDatabase
+	session, err := c.SessionService.SessionFromCtx(ctx)
+	if err != nil && currentDatabase == "" {
+		return nil, err
+	} else if err == nil {
+		currentDatabase = session.Database
+	}
+
+	state, err := c.StateService.GetState(ctx, currentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +261,12 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	}
 
 	newState := &schema.ImmutableState{
-		Db:        c.currentDatabase(),
+		Db: func() string {
+			if currentDatabase == "" {
+				return DefaultDB
+			}
+			return currentDatabase
+		}(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: verifiableTx.Signature,
@@ -269,7 +282,7 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 		}
 	}
 
-	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	err = c.StateService.SetState(currentDatabase, newState)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +301,15 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	}
 	defer c.StateService.CacheUnlock()
 
-	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
+	currentDatabase := c.Options.CurrentDatabase
+	session, err := c.SessionService.SessionFromCtx(ctx)
+	if err != nil && currentDatabase == "" {
+		return nil, err
+	} else if err == nil {
+		currentDatabase = session.Database
+	}
+
+	state, err := c.StateService.GetState(ctx, currentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +387,12 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	}
 
 	newState := &schema.ImmutableState{
-		Db:        c.currentDatabase(),
+		Db: func() string {
+			if currentDatabase == "" {
+				return DefaultDB
+			}
+			return currentDatabase
+		}(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: vEntry.VerifiableTx.Signature,
@@ -382,7 +408,7 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 		}
 	}
 
-	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	err = c.StateService.SetState(session.Database, newState)
 	if err != nil {
 		return nil, err
 	}

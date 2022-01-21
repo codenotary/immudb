@@ -28,7 +28,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/heartbeater"
+	"github.com/codenotary/immudb/pkg/client/sessionservice"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -70,6 +70,7 @@ type ImmuClient interface {
 	Logout(ctx context.Context) error
 
 	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error)
+	OpenSessionNew(ctx context.Context, user []byte, pass []byte, database string) (*sessionservice.Session, error)
 	CloseSession(ctx context.Context) error
 
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
@@ -183,12 +184,11 @@ type immuClient struct {
 	Options              *Options
 	clientConn           *grpc.ClientConn
 	ServiceClient        schema.ImmuServiceClient
-	StateService         state.StateService
 	Tkns                 tokenservice.TokenService
 	serverSigningPubKey  *ecdsa.PublicKey
 	StreamServiceFactory stream.ServiceFactory
-	SessionID            string
-	HeartBeater          heartbeater.HeartBeater
+	SessionService       sessionservice.SessionService
+	StateService         state.StateService
 }
 
 // NewClient ...
@@ -199,7 +199,9 @@ func NewClient() *immuClient {
 		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 		Tkns:                 tokenservice.NewInmemoryTokenService(),
+		SessionService:       sessionservice.NewSessionService(),
 	}
+
 	return c
 }
 
@@ -1452,9 +1454,13 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	c.Options.CurrentDatabase = db.DatabaseName
 
-	if c.SessionID == "" {
-		if err = c.Tkns.SetToken(db.DatabaseName, result.Token); err != nil {
-			return nil, errors.FromError(err)
+	_, err = c.SessionService.SessionFromCtx(ctx)
+	if err != nil {
+		_, err = c.SessionService.GetSession("")
+		if err != nil {
+			if err = c.Tkns.SetToken(db.DatabaseName, result.Token); err != nil {
+				return nil, errors.FromError(err)
+			}
 		}
 	}
 

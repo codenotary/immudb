@@ -18,26 +18,49 @@ package client
 
 import (
 	"context"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
 // SessionIDInjectorInterceptor inject sessionID or transactionID into the outgoing context
 func (c *immuClient) SessionIDInjectorInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	ctx = c.populateCtx(ctx)
+	if method != "/immudb.schema.ImmuService/OpenSession" {
+		var err error
+		ctx, err = c.populateCtx(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	ris := invoker(ctx, method, req, reply, cc, opts...)
 	return ris
 }
 
 // ClientStreamInterceptor gRPC client interceptor for streams
 func (c *immuClient) SessionIDInjectorStreamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	ctx = c.populateCtx(ctx)
+	if method != "/immudb.schema.ImmuService/OpenSession" {
+		var err error
+		ctx, err = c.populateCtx(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return streamer(ctx, desc, cc, method, opts...)
 }
 
-func (c *immuClient) populateCtx(ctx context.Context) context.Context {
-	if c.GetSessionID() != "" {
-		ctx = metadata.AppendToOutgoingContext(ctx, "sessionid", c.GetSessionID())
+func (c *immuClient) populateCtx(ctx context.Context) (context.Context, error) {
+	_, err := c.SessionService.SessionFromCtx(ctx)
+	if err != nil {
+		// Try to use default single sessionID
+		session, err := c.SessionService.GetSession("")
+		if err != nil {
+			return ctx, err
+		}
+
+		ctx = metadata.AppendToOutgoingContext(ctx, "sessionid", session.SessionID)
 	}
-	return ctx
+
+	return ctx, nil
 }
