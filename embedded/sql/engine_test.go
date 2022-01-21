@@ -413,7 +413,7 @@ func TestFloatType(t *testing.T) {
 
 		row, err := r.Read()
 		require.NoError(t, err)
-		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
 	})
 
 	t.Run("must accept float as parameter", func(t *testing.T) {
@@ -431,7 +431,7 @@ func TestFloatType(t *testing.T) {
 
 		row, err := r.Read()
 		require.NoError(t, err)
-		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
 		require.Equal(t, 0.4, row.ValuesByPosition[0].Value())
 	})
 
@@ -451,7 +451,7 @@ func TestFloatType(t *testing.T) {
 
 		row, err := r.Read()
 		require.NoError(t, err)
-		require.Equal(t, FloatType, row.ValuesByPosition[0].Type())
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
 		require.Equal(t, 0.78, row.ValuesByPosition[0].Value())
 
 		_, err = r.Read()
@@ -511,7 +511,8 @@ func TestFloatIndexOnNegatives(t *testing.T) {
 	_, _, err = engine.Exec("CREATE INDEX ON float_index(ft)", nil, nil)
 	require.NoError(t, err)
 
-	floatSerie := []float64{-1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0, math.MaxFloat64, -math.MaxFloat64}
+	var z float64
+	floatSerie := []float64{z /*0*/, -z /*-0*/, 1 / z /*+Inf*/, -1 / z /*-Inf*/, +z / z /*NaN*/, -z / z /*NaN*/, -1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0, math.MaxFloat64, -math.MaxFloat64, math.SmallestNonzeroFloat64}
 
 	for _, ft := range floatSerie {
 		_, _, err = engine.Exec("INSERT INTO float_index(ft) VALUES(@ft)", map[string]interface{}{"ft": ft}, nil)
@@ -528,11 +529,107 @@ func TestFloatIndexOnNegatives(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		val := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value()
+		if i == 0 {
+			require.True(t, math.IsNaN(val.(float64)))
+			continue
+		}
+		if i == 1 {
+			require.True(t, math.IsNaN(val.(float64)))
+			continue
+		}
+		if i == 7 { // negative zero
+			require.True(t, math.Signbit(val.(float64)))
+		}
+		if i == 8 { // positive zero
+			require.False(t, math.Signbit(val.(float64)))
+		}
+		if i == 9 { // positive zero
+			require.False(t, math.Signbit(val.(float64)))
+		}
+		if i == 10 {
+			require.Equal(t, math.SmallestNonzeroFloat64, val)
+		}
 		require.Equal(t, floatSerie[i], val)
 	}
 
 	_, err = r.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
+func TestFloatCasts(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS float_table (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	for _, d := range []struct {
+		str string
+		f   float64
+	}{
+		{"0.5", 0.5},
+		{".1", 0.1},
+	} {
+		t.Run(fmt.Sprintf("insert a float value using a cast from '%s'", d.str), func(t *testing.T) {
+			_, _, err = engine.Exec(
+				fmt.Sprintf("INSERT INTO float_table(ft) VALUES(CAST('%s' AS FLOAT))", d.str), nil, nil)
+			require.NoError(t, err)
+
+			r, err := engine.Query("SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil, nil)
+			require.NoError(t, err)
+			defer r.Close()
+
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+			require.Equal(t, d.f, row.ValuesByPosition[0].Value())
+		})
+	}
+
+	t.Run("insert a float value using a cast from INTEGER", func(t *testing.T) {
+		_, _, err = engine.Exec(
+			"INSERT INTO float_table(ft) VALUES(CAST(123456 AS FLOAT))", nil, nil)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+		require.Equal(t, float64(123456), row.ValuesByPosition[0].Value())
+	})
+
+	t.Run("test casting from null values", func(t *testing.T) {
+		_, _, err = engine.Exec(`
+			CREATE TABLE IF NOT EXISTS values_table (id INTEGER AUTO_INCREMENT, ft FLOAT, str VARCHAR, i INTEGER, PRIMARY KEY id);
+			INSERT INTO values_table(ft, str,i) VALUES(NULL, NULL, NULL);
+		`, nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			UPDATE values_table SET ft = CAST(str AS FLOAT);
+		`, nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			UPDATE values_table SET ft = CAST(i AS FLOAT);
+		`, nil, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("test casting invalid string", func(t *testing.T) {
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(CAST('not a float' AS FLOAT))", nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "can not cast")
+
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(CAST(@ft AS FLOAT))", map[string]interface{}{
+			"ft": strings.Repeat("long string ", 1000),
+		}, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "can not cast")
+	})
+
 }
 
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {

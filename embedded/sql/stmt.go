@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,7 +65,7 @@ const (
 	BooleanType   SQLValueType = "BOOLEAN"
 	VarcharType   SQLValueType = "VARCHAR"
 	BLOBType      SQLValueType = "BLOB"
-	FloatType     SQLValueType = "FLOAT"
+	Float64Type   SQLValueType = "FLOAT"
 	TimestampType SQLValueType = "TIMESTAMP"
 	AnyType       SQLValueType = "ANY"
 )
@@ -1779,55 +1780,55 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
-type Float struct {
+type Float64 struct {
 	val float64
 }
 
-func (v *Float) Type() SQLValueType {
-	return FloatType
+func (v *Float64) Type() SQLValueType {
+	return Float64Type
 }
 
-func (v *Float) IsNull() bool {
+func (v *Float64) IsNull() bool {
 	return false
 }
 
-func (v *Float) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	return FloatType, nil
+func (v *Float64) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	return Float64Type, nil
 }
 
-func (v *Float) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if t != TimestampType {
-		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, FloatType, t)
+func (v *Float64) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if t != Float64Type {
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, Float64Type, t)
 	}
 
 	return nil
 }
 
-func (v *Float) substitute(params map[string]interface{}) (ValueExp, error) {
+func (v *Float64) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Float) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Float64) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
-func (v *Float) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+func (v *Float64) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
 }
 
-func (v *Float) isConstant() bool {
+func (v *Float64) isConstant() bool {
 	return true
 }
 
-func (v *Float) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+func (v *Float64) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
-func (v *Float) Value() interface{} {
+func (v *Float64) Value() interface{} {
 	return v.val
 }
 
-func (v *Float) Compare(val TypedValue) (int, error) {
+func (v *Float64) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
 	}
@@ -1958,6 +1959,41 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 					ErrIllegalArguments,
 					str,
 				)
+			}, nil
+		}
+
+		return nil, fmt.Errorf(
+			"%w: only INTEGER and VARCHAR types can be cast as TIMESTAMP",
+			ErrUnsupportedCast,
+		)
+	}
+
+	if dst == Float64Type {
+
+		if src == IntegerType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return &NullValue{t: Float64Type}, nil
+				}
+				return &Float64{val: float64(val.Value().(int64))}, nil
+			}, nil
+		}
+
+		if src == VarcharType {
+			return func(val TypedValue) (TypedValue, error) {
+				if val.Value() == nil {
+					return &NullValue{t: Float64Type}, nil
+				}
+
+				s, err := strconv.ParseFloat(val.Value().(string), 64)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"%w: can not cast string '%s' as a FLOAT",
+						ErrIllegalArguments,
+						val.Value().(string),
+					)
+				}
+				return &Float64{val: s}, nil
 			}, nil
 		}
 
@@ -2106,7 +2142,9 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 			return &Timestamp{val: v.Truncate(time.Microsecond).UTC()}, nil
 		}
 	case float64:
-		return &Float{val: v}, nil
+		{
+			return &Float64{val: v}, nil
+		}
 	}
 
 	return nil, ErrUnsupportedParameter

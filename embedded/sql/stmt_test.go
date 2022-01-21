@@ -32,6 +32,7 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -143,6 +144,15 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 			requiredType:  IntegerType,
 			expectedError: ErrInvalidTypes,
 		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "ft"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -164,6 +174,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -212,6 +223,15 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			requiredType:  IntegerType,
 			expectedError: ErrInvalidTypes,
 		},
+		{
+			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Bool{val: true}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -233,6 +253,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -398,6 +419,15 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			requiredType:  VarcharType,
 			expectedError: ErrInvalidCondition,
 		},
+		{
+			exp:           &LikeBoolExp{val: &ColSelector{col: "ft"}, pattern: &Varchar{val: ""}},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrInvalidTypes,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -419,6 +449,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -458,6 +489,15 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			requiredType:  VarcharType,
 			expectedError: ErrIllegalArguments,
 		},
+		{
+			exp:           &FnCall{fn: "LOWER"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  Float64Type,
+			expectedError: ErrIllegalArguments,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -479,6 +519,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 	cols["(db1.mytable.active)"] = ColDescriptor{Type: BooleanType}
 	cols["(db1.mytable.payload)"] = ColDescriptor{Type: BLOBType}
 	cols["COUNT(db1.mytable.*)"] = ColDescriptor{Type: IntegerType}
+	cols["(db1.mytable.ft)"] = ColDescriptor{Type: Float64Type}
 
 	params := make(map[string]SQLValueType)
 
@@ -906,4 +947,61 @@ func TestDistinctRowReaderErrors(t *testing.T) {
 	require.ErrorIs(t, err, errDummy)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)
+
+}
+
+func TestFloat64Type(t *testing.T) {
+
+	ts := &Float64{val: 0.0}
+
+	t.Run("comparison functions", func(t *testing.T) {
+
+		cmp, err := ts.Compare(&Float64{val: 0.0})
+		require.NoError(t, err)
+		require.Equal(t, 0, cmp)
+
+		cmp, err = ts.Compare(&Float64{val: 0.1})
+		require.NoError(t, err)
+		require.Equal(t, cmp, -1)
+
+		cmp, err = ts.Compare(&Float64{val: -0.1})
+		require.NoError(t, err)
+		require.Equal(t, cmp, 1)
+
+		cmp, err = ts.Compare(&NullValue{t: Float64Type})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = ts.Compare(&NullValue{t: AnyType})
+		require.NoError(t, err)
+		require.Equal(t, 1, cmp)
+
+		cmp, err = (&NullValue{t: Float64Type}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+
+		cmp, err = (&NullValue{t: AnyType}).Compare(ts)
+		require.NoError(t, err)
+		require.Equal(t, -1, cmp)
+	})
+
+	it, err := ts.inferType(map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+	require.Equal(t, Float64Type, it)
+
+	err = ts.requiresType(Float64Type, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.NoError(t, err)
+
+	err = ts.requiresType(IntegerType, map[string]ColDescriptor{}, map[string]string{}, "", "")
+	require.ErrorIs(t, err, ErrInvalidTypes)
+
+	v, err := ts.substitute(map[string]interface{}{})
+	require.NoError(t, err)
+	require.Equal(t, ts, v)
+
+	v = ts.reduceSelectors(&Row{}, "", "")
+	require.Equal(t, ts, v)
+
+	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
+	require.NoError(t, err)
 }

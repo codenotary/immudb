@@ -667,7 +667,7 @@ func asType(t string) (SQLValueType, error) {
 		t == VarcharType ||
 		t == BLOBType ||
 		t == TimestampType ||
-		t == FloatType {
+		t == Float64Type {
 		return t, nil
 	}
 
@@ -890,7 +890,7 @@ func EncodeValue(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
-	case FloatType:
+	case Float64Type:
 		{
 			floatVal, ok := val.(float64)
 			if !ok {
@@ -1039,7 +1039,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 
 			return encv[:], nil
 		}
-	case FloatType:
+	case Float64Type:
 		{
 			floatVal, ok := val.(float64)
 			if !ok {
@@ -1137,14 +1137,14 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 
 			return &Timestamp{val: TimeFromInt64(int64(v))}, voff, nil
 		}
-	case FloatType:
+	case Float64Type:
 		{
 			if vlen != 8 {
 				return nil, 0, ErrCorruptedData
 			}
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
-			return &Float{val: math.Float64frombits(v)}, voff, nil
+			return &Float64{val: math.Float64frombits(v)}, voff, nil
 		}
 	}
 
