@@ -17,9 +17,11 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 )
 
 type multidbHandler struct {
@@ -31,7 +33,12 @@ func (s *ImmuServer) multidbHandler() sql.MultiDBHandler {
 }
 
 func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
-	return ErrNotSupported
+	if auth.GetAuthTypeFromContext(ctx) != auth.SessionAuth {
+		return fmt.Errorf("%w: database selection from SQL statements requires session based authentication", ErrNotSupported)
+	}
+
+	_, err := h.s.UseDatabase(ctx, &schema.Database{DatabaseName: db})
+	return err
 }
 
 func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
