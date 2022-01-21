@@ -183,6 +183,11 @@ ddlstmt:
         $$ = &CreateDatabaseStmt{DB: $3}
     }
 |
+    USE IDENTIFIER
+    {
+        $$ = &UseDatabaseStmt{DB: $2}
+    }
+|
     USE DATABASE IDENTIFIER
     {
         $$ = &UseDatabaseStmt{DB: $3}
