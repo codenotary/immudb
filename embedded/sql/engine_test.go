@@ -4843,10 +4843,10 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 	}
 }
 
-func TestCatalogQueries(t *testing.T) {
-	st, err := store.Open("catalog_queries", store.DefaultOptions())
+func TestMultiDBCatalogQueries(t *testing.T) {
+	st, err := store.Open("multidb_catalog_queries", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog_queries")
+	defer os.RemoveAll("multidb_catalog_queries")
 	defer st.Close()
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
@@ -4918,4 +4918,201 @@ func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
 
 func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
 	return ErrNoSupported
+}
+
+func TestSingleDBCatalogQueries(t *testing.T) {
+	st, err := store.Open("singledb_catalog_queries", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("singledb_catalog_queries")
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		USE DATABASE db1;
+
+		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
+		CREATE INDEX ON mytable1(title);
+	
+		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
+		CREATE INDEX ON mytable2(name);
+		CREATE UNIQUE INDEX ON mytable2(name, active);
+	`, nil, tx)
+	require.NoError(t, err)
+
+	defer tx.Cancel()
+
+	t.Run("querying tables without any condition should return all tables", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM TABLES", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.tables.name)"].Value())
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].Value())
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("querying tables with name equality comparison should return only one table", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM TABLES WHERE name = 'mytable2'", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.tables.name)"].Value())
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("unconditional index query should return all the indexes of mytable1", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM mytable1.INDEXES", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].Value())
+		require.Equal(t, "mytable1[id]", row.ValuesBySelector["(db1.indexes.name)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.indexes.table)"].Value())
+		require.Equal(t, "mytable1[title]", row.ValuesBySelector["(db1.indexes.name)"].Value())
+		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("unconditional index query should return all the indexes of mytable2", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM mytable2.INDEXES", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
+		require.Equal(t, "mytable2[id]", row.ValuesBySelector["(db1.indexes.name)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
+		require.Equal(t, "mytable2[name]", row.ValuesBySelector["(db1.indexes.name)"].Value())
+		require.False(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.indexes.table)"].Value())
+		require.Equal(t, "mytable2[name,active]", row.ValuesBySelector["(db1.indexes.name)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.indexes.unique)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.indexes.primary)"].Value().(bool))
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("unconditional column query should return all the columns of mytable1", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM mytable1.COLUMNS", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].Value())
+		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].Value())
+		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].Value())
+		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].Value())
+		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable1", row.ValuesBySelector["(db1.columns.table)"].Value())
+		require.Equal(t, "title", row.ValuesBySelector["(db1.columns.name)"].Value())
+		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].Value())
+		require.Equal(t, int64(256), row.ValuesBySelector["(db1.columns.max_length)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
+
+	t.Run("unconditional column query should return all the columns of mytable2", func(t *testing.T) {
+		r, err := engine.Query("SELECT * FROM mytable2.COLUMNS", nil, tx)
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
+		require.Equal(t, "id", row.ValuesBySelector["(db1.columns.name)"].Value())
+		require.Equal(t, IntegerType, row.ValuesBySelector["(db1.columns.type)"].Value())
+		require.Equal(t, int64(8), row.ValuesBySelector["(db1.columns.max_length)"].Value())
+		require.False(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
+		require.Equal(t, "name", row.ValuesBySelector["(db1.columns.name)"].Value())
+		require.Equal(t, VarcharType, row.ValuesBySelector["(db1.columns.type)"].Value())
+		require.Equal(t, int64(100), row.ValuesBySelector["(db1.columns.max_length)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+
+		row, err = r.Read()
+		require.NoError(t, err)
+		require.Equal(t, "mytable2", row.ValuesBySelector["(db1.columns.table)"].Value())
+		require.Equal(t, "active", row.ValuesBySelector["(db1.columns.name)"].Value())
+		require.Equal(t, BooleanType, row.ValuesBySelector["(db1.columns.type)"].Value())
+		require.Equal(t, int64(1), row.ValuesBySelector["(db1.columns.max_length)"].Value())
+		require.True(t, row.ValuesBySelector["(db1.columns.nullable)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.auto_increment)"].Value().(bool))
+		require.True(t, row.ValuesBySelector["(db1.columns.indexed)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.primary)"].Value().(bool))
+		require.False(t, row.ValuesBySelector["(db1.columns.unique)"].Value().(bool))
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+	})
 }
