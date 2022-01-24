@@ -4883,6 +4883,9 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoSupported)
 
 		_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("USE DATABASE db1; USE DATABASE db1", nil, nil)
 		require.ErrorIs(t, err, ErrNoSupported)
 
 		r, err := engine.Query("SELECT * FROM DATABASES", nil, nil)
@@ -4917,7 +4920,7 @@ func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
 }
 
 func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
-	return ErrNoSupported
+	return nil
 }
 
 func TestSingleDBCatalogQueries(t *testing.T) {
