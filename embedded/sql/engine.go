@@ -28,7 +28,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-var ErrNoSupported = errors.New("not yet supported")
+var ErrNoSupported = errors.New("not supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrParsingError = errors.New("parsing error")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
@@ -1119,9 +1119,17 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 	currTx := tx
 
+	changedDB := false
+
 	for _, stmt := range stmts {
 		if stmt == nil {
 			return nil, nil, ErrIllegalArguments
+		}
+
+		_, isDBSelectionStmt := stmt.(*UseDatabaseStmt)
+
+		if changedDB && e.multidbHandler != nil && isDBSelectionStmt {
+			return nil, nil, fmt.Errorf("%w: database selection may be executed as a single operation or be the last one", ErrNoSupported)
 		}
 
 		if currTx == nil || currTx.closed {
@@ -1147,6 +1155,8 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			currTx.Cancel()
 			return nil, committedTxs, err
 		}
+
+		changedDB = isDBSelectionStmt
 
 		if !currTx.closed && !currTx.explicitClose && e.autocommit {
 			err = currTx.commit()
