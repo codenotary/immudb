@@ -327,7 +327,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(sel, nil)
+		rr, err := s.database.SQLQueryRowReader(sel, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
