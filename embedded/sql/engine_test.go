@@ -4462,7 +4462,15 @@ func TestTemporalQueries(t *testing.T) {
 		})
 
 		t.Run("querying data since tx date should return the last row", func(t *testing.T) {
-			r, err := engine.Query("SELECT id, title FROM table1 SINCE CAST(@ts AS TIMESTAMP)", map[string]interface{}{"ts": hdr.Ts}, nil)
+			q := "SELECT id, title FROM table1 SINCE CAST(@ts AS TIMESTAMP) UNTIL now()"
+
+			params, err := engine.InferParameters(q, nil)
+			require.NoError(t, err)
+			require.NotNil(t, params)
+			require.Len(t, params, 1)
+			require.Equal(t, AnyType, params["ts"])
+
+			r, err := engine.Query(q, map[string]interface{}{"ts": hdr.Ts}, nil)
 			require.NoError(t, err)
 
 			row, err := r.Read()

@@ -47,6 +47,8 @@ func TestDistinctRowReader(t *testing.T) {
 	_, err = rowReader.Columns()
 	require.Equal(t, errDummy, err)
 
+	require.Nil(t, rowReader.Parameters())
+
 	err = rowReader.InferParameters(nil)
 	require.NoError(t, err)
 
