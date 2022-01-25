@@ -53,6 +53,10 @@ func (dr *distinctRowReader) TableAlias() string {
 	return dr.rowReader.TableAlias()
 }
 
+func (dr *distinctRowReader) Parameters() map[string]interface{} {
+	return dr.rowReader.Parameters()
+}
+
 func (dr *distinctRowReader) SetParameters(params map[string]interface{}) error {
 	return dr.rowReader.SetParameters(params)
 }

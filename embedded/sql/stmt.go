@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -778,11 +777,11 @@ func (tx *SQLTx) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 	}
 
 	scanSpecs := &ScanSpecs{
-		index:         table.primaryIndex,
+		Index:         table.primaryIndex,
 		rangesByColID: pkRanges,
 	}
 
-	r, err := newRawRowReader(tx, table, nil, table.name, scanSpecs)
+	r, err := newRawRowReader(tx, nil, table, period{}, table.name, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +961,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 	}
 	defer rowReader.Close()
 
-	table := rowReader.ScanSpecs().index.table
+	table := rowReader.ScanSpecs().Index.table
 
 	err = stmt.validate(table)
 	if err != nil {
@@ -1067,7 +1066,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	}
 	defer rowReader.Close()
 
-	table := rowReader.ScanSpecs().index.table
+	table := rowReader.ScanSpecs().Index.table
 
 	for {
 		row, err := rowReader.Read()
@@ -1963,12 +1962,6 @@ type SelectStmt struct {
 	as        string
 }
 
-type ScanSpecs struct {
-	index         *Index
-	rangesByColID map[uint32]*typedValueRange
-	descOrder     bool
-}
-
 func (stmt *SelectStmt) Limit() int {
 	return stmt.limit
 }
@@ -2043,14 +2036,14 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = newJointRowReader(rowReader, stmt.joins, params)
+		rowReader, err = newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if stmt.where != nil {
-		rowReader, err = newConditionalRowReader(rowReader, stmt.where, params)
+		rowReader, err = newConditionalRowReader(rowReader, stmt.where)
 		if err != nil {
 			return nil, err
 		}
@@ -2076,7 +2069,7 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 		}
 
 		if stmt.having != nil {
-			rowReader, err = newConditionalRowReader(rowReader, stmt.having, params)
+			rowReader, err = newConditionalRowReader(rowReader, stmt.having)
 			if err != nil {
 				return nil, err
 			}
@@ -2185,9 +2178,9 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	}
 
 	return &ScanSpecs{
-		index:         sortingIndex,
+		Index:         sortingIndex,
 		rangesByColID: rangesByColID,
-		descOrder:     descOrder,
+		DescOrder:     descOrder,
 	}, nil
 }
 
@@ -2339,34 +2332,7 @@ func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpec
 		return nil, err
 	}
 
-	if stmt.period.start == nil && stmt.period.end == nil {
-		return newRawRowReader(tx, table, nil, stmt.as, scanSpecs)
-	}
-
-	initialTxID := uint64(0)
-	finalTxID := uint64(math.MaxUint64)
-
-	if stmt.period.start != nil {
-		initialTxID, err = stmt.period.start.instant.resolve(tx, params, true, stmt.period.start.inclusive)
-		if err == store.ErrTxNotFound {
-			initialTxID = uint64(math.MaxUint64)
-		}
-		if err != nil && err != store.ErrTxNotFound {
-			return nil, err
-		}
-	}
-
-	if stmt.period.end != nil {
-		finalTxID, err = stmt.period.end.instant.resolve(tx, params, false, stmt.period.end.inclusive)
-		if err == store.ErrTxNotFound {
-			finalTxID = uint64(0)
-		}
-		if err != nil && err != store.ErrTxNotFound {
-			return nil, err
-		}
-	}
-
-	return newRawRowReader(tx, table, &txRange{initialTxID: initialTxID, finalTxID: finalTxID}, stmt.as, scanSpecs)
+	return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 }
 
 func (stmt *tableRef) Alias() string {

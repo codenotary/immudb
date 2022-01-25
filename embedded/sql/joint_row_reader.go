@@ -29,11 +29,9 @@ type jointRowReader struct {
 
 	rowReaders       []RowReader
 	rowReadersValues []map[string]TypedValue
-
-	params map[string]interface{}
 }
 
-func newJointRowReader(rowReader RowReader, joins []*JoinSpec, params map[string]interface{}) (*jointRowReader, error) {
+func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
 	if rowReader == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -45,7 +43,6 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec, params map[string
 	}
 
 	return &jointRowReader{
-		params:           params,
 		rowReader:        rowReader,
 		joins:            joins,
 		rowReaders:       []RowReader{rowReader},
@@ -93,7 +90,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +130,7 @@ func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -176,15 +173,12 @@ func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) er
 	return err
 }
 
+func (jointr *jointRowReader) Parameters() map[string]interface{} {
+	return jointr.rowReader.Parameters()
+}
+
 func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error {
-	err := jointr.rowReader.SetParameters(params)
-	if err != nil {
-		return err
-	}
-
-	jointr.params, err = normalizeParams(params)
-
-	return err
+	return jointr.rowReader.SetParameters(params)
 }
 
 func (jointr *jointRowReader) Read() (row *Row, err error) {
@@ -238,7 +232,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				indexOn: jspec.indexOn,
 			}
 
-			reader, err := jointq.Resolve(jointr.Tx(), jointr.params, nil)
+			reader, err := jointq.Resolve(jointr.Tx(), jointr.Parameters(), nil)
 			if err != nil {
 				return nil, err
 			}

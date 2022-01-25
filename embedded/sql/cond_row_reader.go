@@ -19,15 +19,12 @@ type conditionalRowReader struct {
 	rowReader RowReader
 
 	condition ValueExp
-
-	params map[string]interface{}
 }
 
-func newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
+func newConditionalRowReader(rowReader RowReader, condition ValueExp) (*conditionalRowReader, error) {
 	return &conditionalRowReader{
 		rowReader: rowReader,
 		condition: condition,
-		params:    params,
 	}, nil
 }
 
@@ -47,15 +44,12 @@ func (cr *conditionalRowReader) TableAlias() string {
 	return cr.rowReader.TableAlias()
 }
 
+func (cr *conditionalRowReader) Parameters() map[string]interface{} {
+	return cr.rowReader.Parameters()
+}
+
 func (cr *conditionalRowReader) SetParameters(params map[string]interface{}) error {
-	err := cr.rowReader.SetParameters(params)
-	if err != nil {
-		return err
-	}
-
-	cr.params, err = normalizeParams(params)
-
-	return err
+	return cr.rowReader.SetParameters(params)
 }
 
 func (cr *conditionalRowReader) OrderBy() []ColDescriptor {
@@ -97,7 +91,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		cond, err := cr.condition.substitute(cr.params)
+		cond, err := cr.condition.substitute(cr.Parameters())
 		if err != nil {
 			return nil, err
 		}
