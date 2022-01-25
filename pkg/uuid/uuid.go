@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package uuid
 
 import (
 	"context"
@@ -52,14 +52,14 @@ func NewUUIDContext(id xid.ID) uuidContext {
 // In earlier versions, the file was located inside default DB directory. Now, it
 // is moved to the data directory. This function migrates the file to data directory
 // in case it exists in the default db directory.
-func getOrSetUUID(dataDir, defaultDbDir string) (xid.ID, error) {
+func GetOrSetUUID(dataDir, defaultDbDir string) (xid.ID, error) {
 	fileInDataDir := path.Join(dataDir, IDENTIFIER_FNAME)
-	if fileExists(fileInDataDir) {
+	if FileExists(fileInDataDir) {
 		return getUUID(fileInDataDir)
 	}
 
 	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
-	if fileExists(fileInDefaultDbDir) {
+	if FileExists(fileInDefaultDbDir) {
 		guid, err := getUUID(fileInDefaultDbDir)
 		if err != nil {
 			return guid, err
@@ -98,9 +98,9 @@ func moveUUIDFile(guid xid.ID, fileInDataDir, fileInDefaultDbDir string) error {
 	return err
 }
 
-// fileExists checks if a file exists and is not a directory before we
+// FileExists checks if a file exists and is not a directory before we
 // try using it to prevent further errors.
-func fileExists(filename string) bool {
+func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false

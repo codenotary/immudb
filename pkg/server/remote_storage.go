@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -46,16 +47,16 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 
 	ctx := context.Background()
 
-	hasRemoteIdentifier, err := storage.Exists(ctx, IDENTIFIER_FNAME)
+	hasRemoteIdentifier, err := storage.Exists(ctx, uuid.IDENTIFIER_FNAME)
 	if err != nil {
 		return err
 	}
 
-	localIdentifierFile := filepath.Join(s.Options.Dir, IDENTIFIER_FNAME)
+	localIdentifierFile := filepath.Join(s.Options.Dir, uuid.IDENTIFIER_FNAME)
 
 	if hasRemoteIdentifier {
 
-		remoteIdStream, err := storage.Get(ctx, IDENTIFIER_FNAME, 0, -1)
+		remoteIdStream, err := storage.Get(ctx, uuid.IDENTIFIER_FNAME, 0, -1)
 		if err != nil {
 			return err
 		}
@@ -65,7 +66,7 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 			return err
 		}
 
-		if !fileExists(localIdentifierFile) {
+		if !uuid.FileExists(localIdentifierFile) {
 			err := ioutil.WriteFile(localIdentifierFile, remoteId, os.ModePerm)
 			if err != nil {
 				return err
@@ -102,7 +103,7 @@ func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) erro
 
 func (s *ImmuServer) updateRemoteUUID(remoteStorage remotestorage.Storage) error {
 	ctx := context.Background()
-	return remoteStorage.Put(ctx, IDENTIFIER_FNAME, filepath.Join(s.Options.Dir, IDENTIFIER_FNAME))
+	return remoteStorage.Put(ctx, uuid.IDENTIFIER_FNAME, filepath.Join(s.Options.Dir, uuid.IDENTIFIER_FNAME))
 }
 
 func (s *ImmuServer) storeOptionsForDB(name string, remoteStorage remotestorage.Storage, stOpts *store.Options) *store.Options {

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	muuid "github.com/codenotary/immudb/pkg/uuid"
 	"io"
 	"io/ioutil"
 	"os"
@@ -225,7 +226,7 @@ func TestInitializeRemoteStorageIdentifierMismatch(t *testing.T) {
 	m := memory.Open()
 	storeData(t, m, "immudb.identifier", []byte{1, 2, 3, 4, 5})
 
-	_, err := getOrSetUUID("./data", "./data")
+	_, err := muuid.GetOrSetUUID("./data", "./data")
 	require.NoError(t, err)
 
 	err = s.initializeRemoteStorage(m)
@@ -276,7 +277,7 @@ func TestUpdateRemoteUUID(t *testing.T) {
 	s := DefaultServer()
 	m := memory.Open()
 
-	uuid, err := getOrSetUUID("./data", "./data")
+	uuid, err := muuid.GetOrSetUUID("./data", "./data")
 	require.NoError(t, err)
 	s.UUID = uuid
 

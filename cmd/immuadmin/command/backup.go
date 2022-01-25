@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/uuid"
 	stdos "os"
 	"path"
 	"runtime"
@@ -324,10 +325,10 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 		return "", err
 	}
 	// remove the immudb.identifier file from the backup
-	if err = b.os.Remove(snapshotPath + "/" + server.IDENTIFIER_FNAME); err != nil {
+	if err = b.os.Remove(snapshotPath + "/" + uuid.IDENTIFIER_FNAME); err != nil {
 		fmt.Fprintf(stdos.Stderr,
 			"error removing immudb identifier file %s from db snapshot %s: %v",
-			server.IDENTIFIER_FNAME, snapshotPath, err)
+			uuid.IDENTIFIER_FNAME, snapshotPath, err)
 	}
 	if uncompressed {
 		absSnapshotPath, err := b.os.Abs(snapshotPath)
@@ -418,8 +419,8 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 		}
 	}
 	// keep the same db identifier
-	serverIDSrc := path.Join(dst, server.IDENTIFIER_FNAME)
-	serverIDDst := path.Join(extractedSnapshotDir, server.IDENTIFIER_FNAME)
+	serverIDSrc := path.Join(dst, uuid.IDENTIFIER_FNAME)
+	serverIDDst := path.Join(extractedSnapshotDir, uuid.IDENTIFIER_FNAME)
 	if err = b.copier.CopyFile(serverIDSrc, serverIDDst); err != nil {
 		fmt.Fprintf(stdos.Stderr,
 			"error copying immudb identifier file %s to %s: %v",

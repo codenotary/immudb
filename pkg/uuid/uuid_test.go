@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package uuid
 
 import (
 	"context"
@@ -29,13 +29,13 @@ import (
 )
 
 func TestNewUUID(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
+	id, err := GetOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
 
-	if !fileExists(IDENTIFIER_FNAME) {
+	if !FileExists(IDENTIFIER_FNAME) {
 		t.Errorf("uuid file not created, %s", err)
 	}
 
@@ -48,13 +48,13 @@ func TestNewUUID(t *testing.T) {
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID("./", "./defaultDb")
+	id, err := GetOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
 
-	if !fileExists(IDENTIFIER_FNAME) {
+	if !FileExists(IDENTIFIER_FNAME) {
 		t.Errorf("uuid file not created, %s", err)
 	}
 
@@ -74,17 +74,17 @@ func TestMigrateUUID(t *testing.T) {
 	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(fileInDefaultDbDir, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID("./", defaultDbDir)
+	id, err := GetOrSetUUID("./", defaultDbDir)
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(fileInDefaultDbDir)
 	defer os.RemoveAll(IDENTIFIER_FNAME)
 
-	if !fileExists(IDENTIFIER_FNAME) {
+	if !FileExists(IDENTIFIER_FNAME) {
 		t.Errorf("uuid file not created, %s", err)
 	}
-	if fileExists(fileInDefaultDbDir) {
+	if FileExists(fileInDefaultDbDir) {
 		t.Errorf("uuid file not moved, %s", err)
 	}
 
@@ -95,7 +95,7 @@ func TestMigrateUUID(t *testing.T) {
 }
 
 func TestUUIDContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
+	id, err := GetOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -132,7 +132,7 @@ func TestUUIDContextSetter(t *testing.T) {
 }
 
 func TestUUIDStreamContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
+	id, err := GetOrSetUUID("./", "./defaultDb")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}

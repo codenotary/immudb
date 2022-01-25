@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/uuid"
 	"io/ioutil"
 	"log"
 	"net"
@@ -167,7 +168,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
-	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
+	if s.UUID, err = uuid.GetOrSetUUID(dataDir, systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 	if remoteStorage != nil {
@@ -201,7 +202,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	//<===
 
-	uuidContext := NewUUIDContext(s.UUID)
+	uuidContext := uuid.NewUUIDContext(s.UUID)
 
 	uis := []grpc.UnaryServerInterceptor{
 		ErrorMapper, // converts errors in gRPC ones. Need to be the first

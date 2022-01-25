@@ -28,8 +28,8 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
-	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/state"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )
