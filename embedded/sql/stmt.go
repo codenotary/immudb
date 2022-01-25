@@ -1778,15 +1778,12 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 }
 
 func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	valType, err := c.val.inferType(cols, params, implicitDB, implicitTable)
+	_, err := c.val.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
 
-	_, err = getConverter(valType, c.t)
-	if err != nil {
-		return AnyType, err
-	}
+	// val type may be restrtiicted by compatible conversions, but multiple types may be compatible...
 
 	return c.t, nil
 }
