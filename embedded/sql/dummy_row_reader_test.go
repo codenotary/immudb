@@ -65,6 +65,10 @@ func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
 	return nil, nil
 }
 
+func (r *dummyRowReader) Parameters() map[string]interface{} {
+	return nil
+}
+
 func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
 	return nil
 }

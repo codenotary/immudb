@@ -44,7 +44,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 
 	t.Run("fail on invalid hrange", func(t *testing.T) {
 		scanSpecs := &ScanSpecs{
-			index: index,
+			Index: index,
 			rangesByColID: map[uint32]*typedValueRange{
 				4: {
 					hRange: &typedValueSemiRange{
@@ -60,7 +60,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 
 	t.Run("fail on invalid lrange", func(t *testing.T) {
 		scanSpecs := &ScanSpecs{
-			index: index,
+			Index: index,
 			rangesByColID: map[uint32]*typedValueRange{
 				4: {
 					lRange: &typedValueSemiRange{

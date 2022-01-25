@@ -48,7 +48,7 @@ func TestGroupedRowReader(t *testing.T) {
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
 
-	r, err := newRawRowReader(tx, table, nil, "", &ScanSpecs{index: table.primaryIndex})
+	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
 	gr, err := newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
@@ -66,6 +66,6 @@ func TestGroupedRowReader(t *testing.T) {
 
 	scanSpecs := gr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
-	require.NotNil(t, scanSpecs.index)
-	require.True(t, scanSpecs.index.IsPrimary())
+	require.NotNil(t, scanSpecs.Index)
+	require.True(t, scanSpecs.Index.IsPrimary())
 }

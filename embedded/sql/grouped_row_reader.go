@@ -170,6 +170,10 @@ func (gr *groupedRowReader) InferParameters(params map[string]SQLValueType) erro
 	return gr.rowReader.InferParameters(params)
 }
 
+func (gr *groupedRowReader) Parameters() map[string]interface{} {
+	return gr.rowReader.Parameters()
+}
+
 func (gr *groupedRowReader) SetParameters(params map[string]interface{}) error {
 	return gr.rowReader.SetParameters(params)
 }
