@@ -22,7 +22,7 @@ import (
 )
 
 const DefaultFileSize = 1 << 26 // 64Mb
-const DefaultMaxOpenedFiles = 10
+const DefaultMaxOpenedFiles = 100
 const DefaultFileMode = os.FileMode(0755)
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
