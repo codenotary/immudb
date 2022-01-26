@@ -11,12 +11,14 @@ import (
 	"github.com/codenotary/immudb/pkg/state"
 	"github.com/codenotary/immudb/pkg/uuid"
 	"os"
+	"sync"
 )
 
 const DefaultDir = "."
 const DefaultDatabseName = "mydatabase"
 
 type Embed struct {
+	l    sync.Mutex
 	uuid string
 
 	dir          string
@@ -74,11 +76,9 @@ func Open(setters ...EmbedOption) (*Embed, error) {
 	return e, nil
 }
 
-func (e *Embed) Set(req *schema.SetRequest) (*schema.TxHeader, error) {
-	return e.db.Set(req)
-}
-
 func (c *Embed) VerifiedSet(key []byte, value []byte) error {
+	c.l.Lock()
+	defer c.l.Unlock()
 	// here we retrieve the current state of the database from stateService implementation (CAS)
 	state, err := c.stateService.GetState(context.TODO(), c.db.GetName())
 	if err != nil {
@@ -123,6 +123,8 @@ func (c *Embed) VerifiedSet(key []byte, value []byte) error {
 
 // VerifiedGet ...
 func (c *Embed) VerifiedGet(key []byte) (vi *schema.Entry, err error) {
+	c.l.Lock()
+	defer c.l.Unlock()
 
 	state, err := c.stateService.GetState(context.TODO(), c.db.GetName())
 	if err != nil {
