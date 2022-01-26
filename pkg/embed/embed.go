@@ -2,12 +2,14 @@ package embed
 
 import (
 	"context"
+	"crypto/sha256"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/proof"
 	"github.com/codenotary/immudb/pkg/state"
+	"github.com/codenotary/immudb/pkg/uuid"
 	"os"
 )
 
@@ -15,6 +17,8 @@ const DefaultDir = "."
 const DefaultDatabseName = "mydatabase"
 
 type Embed struct {
+	uuid string
+
 	dir          string
 	databaseName string
 
@@ -44,6 +48,12 @@ func Open(setters ...EmbedOption) (*Embed, error) {
 		WithDBRootPath(e.dir).
 		WithStoreOptions(e.storeOptions)
 
+	xid, err := uuid.GetOrSetUUID(e.dir, e.databaseName)
+	if err != nil {
+		return nil, err
+	}
+	e.uuid = xid.String()
+
 	db, err := database.NewDB(op, e.log)
 	if err != nil {
 		return nil, err
@@ -54,6 +64,12 @@ func Open(setters ...EmbedOption) (*Embed, error) {
 			return nil, err
 		}
 	}
+
+	if st, ok := e.stateService.(*embedStateService); ok {
+		st.InjectDB(db)
+		st.InjectUUID(e.uuid)
+	}
+
 	e.db = db
 	return e, nil
 }
@@ -93,10 +109,9 @@ func (c *Embed) VerifiedSet(key []byte, value []byte) error {
 	targetAlh := tx.Header().Alh()
 
 	newState := &schema.ImmutableState{
-		Db:        c.db.GetName(),
-		TxId:      targetID,
-		TxHash:    targetAlh[:],
-		Signature: verifiableTx.Signature,
+		Db:     c.db.GetName(),
+		TxId:   targetID,
+		TxHash: targetAlh[:],
 	}
 
 	err = c.stateService.SetState(c.db.GetName(), newState)
@@ -104,4 +119,58 @@ func (c *Embed) VerifiedSet(key []byte, value []byte) error {
 		return err
 	}
 	return nil
+}
+
+// VerifiedGet ...
+func (c *Embed) VerifiedGet(key []byte) (vi *schema.Entry, err error) {
+
+	state, err := c.stateService.GetState(context.TODO(), c.db.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	req := &schema.VerifiableGetRequest{
+		KeyRequest: &schema.KeyRequest{
+			Key: key,
+		},
+		ProveSinceTx: state.TxId,
+	}
+
+	vEntry, err := c.db.VerifiableGet(req)
+	if err != nil {
+		return nil, err
+	}
+
+	err = proof.Verify(vEntry.VerifiableTx, state, &proof.Inclusion{
+		Key: key,
+		Val: vEntry.Entry.Value,
+	})
+
+	var targetID uint64
+	var targetAlh [sha256.Size]byte
+
+	var vTx uint64
+
+	vTx = vEntry.Entry.Tx
+
+	if state.TxId <= vTx {
+		targetID = vTx
+		targetAlh = schema.DualProofFromProto(vEntry.VerifiableTx.DualProof).TargetTxHeader.Alh()
+	} else {
+		targetID = state.TxId
+		targetAlh = schema.DigestFromProto(state.TxHash)
+	}
+
+	newState := &schema.ImmutableState{
+		Db:     c.db.GetName(),
+		TxId:   targetID,
+		TxHash: targetAlh[:],
+	}
+
+	err = c.stateService.SetState(c.db.GetName(), newState)
+	if err != nil {
+		return nil, err
+	}
+
+	return vEntry.Entry, nil
 }
