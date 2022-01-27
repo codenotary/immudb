@@ -503,7 +503,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	}
 
 	if tx.header.Alh() != alh {
-		return ErrorCorruptedTxData
+		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, tx.header.ID)
 	}
 
 	return nil
