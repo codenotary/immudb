@@ -334,7 +334,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 		}
 		idx.stateCond.L.Unlock()
 
-		err = idx.indexSince(lastIndexedTx+1, 10)
+		err = idx.indexTX(lastIndexedTx + 1)
 		if err == ErrAlreadyClosed || err == tbtree.ErrAlreadyClosed {
 			return
 		}
@@ -345,76 +345,66 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 	}
 }
 
-func (idx *indexer) indexSince(txID uint64, limit int) error {
-	txReader, err := idx.store.newTxReader(txID, false, idx.tx)
+func (idx *indexer) indexTX(txID uint64) error {
+	err := idx.store.ReadTx(txID, idx.tx)
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < limit; i++ {
-		tx, err := txReader.Read()
-		if err == ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return err
-		}
+	txEntries := idx.tx.Entries()
 
-		txEntries := tx.Entries()
+	var txmd []byte
 
-		var txmd []byte
-
-		if tx.header.Metadata != nil {
-			txmd = tx.header.Metadata.Bytes()
-		}
-
-		txmdLen := len(txmd)
-
-		for i, e := range txEntries {
-			// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
-			var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
-			o := 0
-
-			binary.BigEndian.PutUint32(b[o:], uint32(e.vLen))
-			o += lszSize
-
-			binary.BigEndian.PutUint64(b[o:], uint64(e.vOff))
-			o += offsetSize
-
-			copy(b[o:], e.hVal[:])
-			o += sha256.Size
-
-			binary.BigEndian.PutUint16(b[o:], uint16(txmdLen))
-			o += sszSize
-
-			copy(b[o:], txmd)
-			o += txmdLen
-
-			var kvmd []byte
-
-			if e.md != nil {
-				kvmd = e.md.Bytes()
-			}
-
-			kvmdLen := len(kvmd)
-
-			binary.BigEndian.PutUint16(b[o:], uint16(kvmdLen))
-			o += sszSize
-
-			copy(b[o:], kvmd)
-			o += kvmdLen
-
-			idx.store._kvs[i].K = e.key()
-			idx.store._kvs[i].V = b[:o]
-		}
-
-		err = idx.index.BulkInsert(idx.store._kvs[:len(txEntries)])
-		if err != nil {
-			return err
-		}
-
-		idx.metricsLastIndexedTrx.Set(float64(txID + uint64(i)))
+	if idx.tx.header.Metadata != nil {
+		txmd = idx.tx.header.Metadata.Bytes()
 	}
+
+	txmdLen := len(txmd)
+
+	for i, e := range txEntries {
+		// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
+		var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
+		o := 0
+
+		binary.BigEndian.PutUint32(b[o:], uint32(e.vLen))
+		o += lszSize
+
+		binary.BigEndian.PutUint64(b[o:], uint64(e.vOff))
+		o += offsetSize
+
+		copy(b[o:], e.hVal[:])
+		o += sha256.Size
+
+		binary.BigEndian.PutUint16(b[o:], uint16(txmdLen))
+		o += sszSize
+
+		copy(b[o:], txmd)
+		o += txmdLen
+
+		var kvmd []byte
+
+		if e.md != nil {
+			kvmd = e.md.Bytes()
+		}
+
+		kvmdLen := len(kvmd)
+
+		binary.BigEndian.PutUint16(b[o:], uint16(kvmdLen))
+		o += sszSize
+
+		copy(b[o:], kvmd)
+		o += kvmdLen
+
+		idx.store._kvs[i].K = e.key()
+		idx.store._kvs[i].V = b[:o]
+	}
+
+	err = idx.index.BulkInsert(idx.store._kvs[:len(txEntries)])
+	if err != nil {
+		return err
+	}
+
+	idx.metricsLastIndexedTrx.Set(float64(txID))
 
 	return nil
 }
