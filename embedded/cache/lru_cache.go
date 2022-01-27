@@ -143,6 +143,13 @@ func (c *LRUCache) Size() int {
 	return c.size
 }
 
+func (c *LRUCache) EntriesCount() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.lruList.Len()
+}
+
 func (c *LRUCache) Apply(fun func(k interface{}, v interface{}) error) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

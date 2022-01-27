@@ -34,6 +34,8 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -478,26 +480,54 @@ func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
-	t.cache.Put(n.offset(), n)
+	r, _, _ := t.cache.Put(n.offset(), n)
+	if r != nil {
+		metricsCacheEvict.WithLabelValues(t.path).Inc()
+	}
 }
+
+var metricsCacheSizeStats = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_cache_size",
+}, []string{"id"})
+
+var metricsCacheHit = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_cache_hit",
+}, []string{"id"})
+
+var metricsCacheMiss = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_cache_miss",
+}, []string{"id"})
+
+var metricsCacheEvict = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_cache_evict",
+}, []string{"id"})
 
 func (t *TBtree) nodeAt(offset int64) (node, error) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
+	size := t.cache.EntriesCount()
+	metricsCacheSizeStats.WithLabelValues(t.path).Set(float64(size))
+
 	v, err := t.cache.Get(offset)
 	if err == nil {
+		metricsCacheHit.WithLabelValues(t.path).Inc()
 		return v.(node), nil
 	}
 
 	if err == cache.ErrKeyNotFound {
+		metricsCacheMiss.WithLabelValues(t.path).Inc()
+
 		n, err := t.readNodeAt(offset)
 
 		if err != nil {
 			return nil, err
 		}
 
-		t.cache.Put(n.offset(), n)
+		r, _, _ := t.cache.Put(n.offset(), n)
+		if r != nil {
+			metricsCacheEvict.WithLabelValues(t.path).Inc()
+		}
 
 		return n, nil
 	}
