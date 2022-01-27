@@ -63,6 +63,8 @@ func TestValidOptions(t *testing.T) {
 
 	require.False(t, opts.WithReadOnly(false).ReadOnly)
 
+	require.False(t, opts.IndexOpts.WithSynced(false).Synced)
+
 	require.NotNil(t, opts.WithLog(DefaultOptions().log))
 
 	require.True(t, validOptions(opts))
@@ -101,4 +103,5 @@ func TestValidOptions(t *testing.T) {
 	require.True(t, validOptions(opts))
 	require.Equal(t, 3, indexOpts.WithCompactionThld(3).CompactionThld)
 	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
+	require.Equal(t, true, indexOpts.WithSynced(true).Synced)
 }
