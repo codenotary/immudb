@@ -1328,7 +1328,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	if sourceTx.header.BlTxID > targetTx.header.BlTxID {
-		return nil, ErrorCorruptedTxData
+		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrorCorruptedTxData, sourceTx.header.ID)
 	}
 
 	if sourceTx.header.BlTxID > 0 {
@@ -1673,7 +1673,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 	err = tx.readFrom(r)
 	if err == io.EOF {
-		return ErrorCorruptedTxData
+		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
 	}
 
 	return err
