@@ -1786,6 +1786,11 @@ func (s *ImmuStore) Sync() error {
 		return err
 	}
 
+	err = s.aht.Sync()
+	if err != nil {
+		return err
+	}
+
 	return s.indexer.Sync()
 }
 
