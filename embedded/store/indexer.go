@@ -214,13 +214,13 @@ func (idx *indexer) CompactIndex() (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.store.notify(Info, true, "Compacting index '%s'...", idx.store.path)
+	idx.store.log.Infof("Compacting index '%s'...", idx.store.path)
 
 	defer func() {
 		if err == nil {
-			idx.store.notify(Info, true, "Index '%s' sucessfully compacted", idx.store.path)
+			idx.store.log.Infof("Index '%s' sucessfully compacted", idx.store.path)
 		} else {
-			idx.store.notify(Info, true, "Compaction of index '%s' returned: %v", idx.store.path, err)
+			idx.store.log.Warningf("Error while compacting index '%s': %v", idx.store.path, err)
 		}
 	}()
 
@@ -311,7 +311,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			return
 		}
 		if err != nil {
-			idx.store.notify(Error, true, "Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.log.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 
@@ -339,7 +339,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			return
 		}
 		if err != nil {
-			idx.store.notify(Error, true, "Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.log.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 	}
