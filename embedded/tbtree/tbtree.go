@@ -1480,12 +1480,27 @@ func (n *innerNode) maxKey() []byte {
 }
 
 func (n *innerNode) indexOf(key []byte) int {
-	for i := 0; i < len(n.nodes); i++ {
-		if bytes.Compare(key, n.nodes[i].maxKey()) < 1 {
-			return i
+	left := 0
+	right := len(n.nodes) - 1
+
+	var middle int
+	var diff int
+
+	for left < right {
+		middle = left + (right-left)/2
+
+		diff = bytes.Compare(n.nodes[middle].maxKey(), key)
+
+		if diff == 0 {
+			return middle
+		} else if diff < 0 {
+			left = middle + 1
+		} else {
+			right = middle
 		}
 	}
-	return len(n.nodes) - 1
+
+	return left
 }
 
 func (n *innerNode) split() (node, error) {
@@ -1881,17 +1896,27 @@ func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, desc
 }
 
 func (l *leafNode) indexOf(key []byte) (index int, found bool) {
-	for i := 0; i < len(l.values); i++ {
-		if bytes.Equal(l.values[i].key, key) {
-			return i, true
-		}
+	left := 0
+	right := len(l.values)
 
-		if bytes.Compare(l.values[i].key, key) == 1 {
-			return i, false
+	var middle int
+	var diff int
+
+	for left < right {
+		middle = left + (right-left)/2
+
+		diff = bytes.Compare(l.values[middle].key, key)
+
+		if diff == 0 {
+			return middle, true
+		} else if diff < 0 {
+			left = middle + 1
+		} else {
+			right = middle
 		}
 	}
 
-	return len(l.values), false
+	return left, false
 }
 
 func (l *leafNode) minKey() []byte {
