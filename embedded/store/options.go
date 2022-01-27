@@ -91,6 +91,7 @@ type IndexOptions struct {
 	RenewSnapRootAfter    time.Duration
 	CompactionThld        int
 	DelayDuringCompaction time.Duration
+	Synced                bool
 }
 
 func DefaultOptions() *Options {
@@ -137,6 +138,7 @@ func DefaultIndexOptions() *IndexOptions {
 		RenewSnapRootAfter:    time.Duration(1000) * time.Millisecond,
 		CompactionThld:        tbtree.DefaultCompactionThld,
 		DelayDuringCompaction: 0,
+		Synced:                true,
 	}
 }
 
@@ -321,5 +323,10 @@ func (opts *IndexOptions) WithCompactionThld(compactionThld int) *IndexOptions {
 
 func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.Duration) *IndexOptions {
 	opts.DelayDuringCompaction = delayDuringCompaction
+	return opts
+}
+
+func (opts *IndexOptions) WithSynced(synced bool) *IndexOptions {
+	opts.Synced = synced
 	return opts
 }
