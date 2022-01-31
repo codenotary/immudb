@@ -255,7 +255,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		// TODO: semantic validation and further ammendment procedures may be done instead of a full initialization
 		t, err := OpenWith(path, nLog, hLog, cLog, opts)
 		if err != nil {
-			opts.log.Infof("Error reading snapshot at '%s'. %v", snapPath, err)
+			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
 
 			err = nLog.Close()
 			if err != nil {
@@ -269,7 +269,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 			err = discardSnapshots(path, snapIDs[i-1:i], opts.log)
 			if err != nil {
-				opts.log.Warningf("Error discarding snapshots at '%s'. %v", path, err)
+				opts.log.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
 			}
 
 			continue
@@ -280,14 +280,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		// Discard older snapshots upon sucessful validation
 		err = discardSnapshots(path, snapIDs[:i-1], opts.log)
 		if err != nil {
-			opts.log.Warningf("Error discarding snapshots at '%s'. %v", path, err)
+			opts.log.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
 		}
 
 		return t, nil
 	}
 
 	// No snapshot present or none was valid, fresh initialization
-	opts.log.Infof("Starting with an empty index...")
 
 	err = hLog.SetOffset(0)
 	if err != nil {
@@ -332,7 +331,7 @@ func recoverFullSnapshots(path, prefix string, log logger.Logger) (snapIDs []uin
 
 			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
 			if err != nil {
-				log.Warningf("invalid folder found '%s'", f.Name())
+				log.Warningf("Invalid folder found '%s'", f.Name())
 				continue
 			}
 
@@ -424,6 +423,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		snapshots:             make(map[uint64]*Snapshot),
 	}
 
+	discardedRoots := 0
+
 	for cLogSize > 0 {
 		var b [cLogEntrySize]byte
 		n, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
@@ -432,12 +433,13 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("%w: while loading index commit log", err)
+			return nil, fmt.Errorf("%w: while loading index commit log at '%s'", err, path)
 		}
 
-		if t.synced && b[0]&0x80 != 0 {
+		if b[0]&0x80 != 0 {
 			// async entry
 			cLogSize -= cLogEntrySize
+			discardedRoots++
 			continue
 		}
 
@@ -448,7 +450,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		t.root, err = t.readNodeAt(committedRootOffset)
 		if err != nil {
-			return nil, fmt.Errorf("%w: while loading index", err)
+			return nil, fmt.Errorf("%w: while loading index at '%s'", err, path)
 		}
 
 		t.lastSyncedAt = t.root.ts()
@@ -473,6 +475,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	if err != nil {
 		return nil, fmt.Errorf("%w: while loading index commit log", err)
 	}
+
+	opts.log.Infof("Index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedRoots)
 
 	return t, nil
 }
@@ -849,66 +853,68 @@ func (aw *appendableWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func (t *TBtree) warn(formattedMessage string, err error) error {
-	t.log.Warningf(formattedMessage, err)
-	return err
+func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
+	t.log.Warningf(formattedMessage, args)
+	return fmt.Errorf(formattedMessage, args...)
 }
 
 func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
-	t.log.Infof("Flushing index '%s'...", t.path)
+	t.log.Infof("Flushing index '%s' {ts=%d}...", t.path, t.root.ts())
 
-	if !t.root.mutated() {
-		t.log.Infof("Flushing not needed at '%s'", t.path)
+	if !t.root.mutated() && !ensureSync {
+		t.log.Infof("Flushing not needed at '%s' {ts=%d}", t.path, t.root.ts())
 		return 0, 0, nil
-	}
-
-	snapshot := t.newSnapshot(0, t.root)
-
-	// will overwrite partially written and uncommitted data
-	// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
-	err = t.hLog.SetOffset(t.committedHLogSize)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	err = t.nLog.SetOffset(t.committedNLogSize)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	wopts := &WriteOpts{
-		OnlyMutated:    true,
-		BaseNLogOffset: t.committedNLogSize,
-		BaseHLogOffset: t.committedHLogSize,
-		commitLog:      true,
-	}
-
-	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
-	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	explicitSync := !t.synced && (ensureSync || t.root.ts()-t.lastSyncedAt >= uint64(t.syncThld))
 
-	err = t.hLog.Flush()
-	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
-	}
+	if t.root.mutated() {
+		snapshot := t.newSnapshot(0, t.root)
 
-	err = t.nLog.Flush()
-	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
-	}
-
-	if explicitSync {
-		err = t.hLog.Sync()
+		// will overwrite partially written and uncommitted data
+		// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
+		err = t.hLog.SetOffset(t.committedHLogSize)
 		if err != nil {
-			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+			return 0, 0, err
 		}
 
-		err = t.nLog.Sync()
+		err = t.nLog.SetOffset(t.committedNLogSize)
 		if err != nil {
-			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+			return 0, 0, err
+		}
+
+		wopts := &WriteOpts{
+			OnlyMutated:    true,
+			BaseNLogOffset: t.committedNLogSize,
+			BaseHLogOffset: t.committedHLogSize,
+			commitLog:      true,
+		}
+
+		_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+		if err != nil {
+			return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		}
+
+		err = t.hLog.Flush()
+		if err != nil {
+			return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		}
+
+		err = t.nLog.Flush()
+		if err != nil {
+			return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		}
+
+		if explicitSync {
+			err = t.hLog.Sync()
+			if err != nil {
+				return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+			}
+
+			err = t.nLog.Sync()
+			if err != nil {
+				return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+			}
 		}
 	}
 
@@ -928,18 +934,18 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 
 	_, _, err = t.cLog.Append(cb[:])
 	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
 	if explicitSync {
 		err = t.cLog.Sync()
 		if err != nil {
-			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 		}
 	}
 
@@ -957,11 +963,12 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		off:     t.root.offset(),
 	}
 
+	t.log.Infof("Index '%s' {ts=%d} successfully flushed", t.path, t.root.ts())
+
 	if t.synced || explicitSync {
 		t.lastSyncedAt = t.root.ts()
+		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.lastSyncedAt)
 	}
-
-	t.log.Infof("Flushing index '%s' successfully completed", t.path)
 
 	return wN, wH, nil
 }
