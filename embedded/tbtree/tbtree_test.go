@@ -651,6 +651,12 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, len(bs), nil
 		}
+		nLog.FlushFn = func() error {
+			return nil
+		}
+		nLog.SyncFn = func() error {
+			return nil
+		}
 		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, injectedError
 		}
@@ -979,6 +985,46 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestTBTreeReOpenSynced(t *testing.T) {
+	tbtree, err := Open("test_tree_reopen_synced", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("test_tree_reopen_synced")
+
+	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	require.NoError(t, err)
+
+	_, _, err = tbtree.Flush()
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	t.Run("opening in async mode inserted data should be loaded", func(t *testing.T) {
+		tbtree, err := Open("test_tree_reopen_synced", DefaultOptions())
+		require.NoError(t, err)
+
+		_, _, _, err = tbtree.Get([]byte("k0"))
+		require.NoError(t, err)
+
+		err = tbtree.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("opening in sync mode inserted data should not be loaded", func(t *testing.T) {
+		opts := DefaultOptions().WithSynced(true).WithSyncThld(0)
+
+		tbtree, err = Open("test_tree_reopen_synced", opts)
+		require.NoError(t, err)
+
+		_, _, _, err = tbtree.Get([]byte("k0"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		err = tbtree.Close()
+		require.NoError(t, err)
+	})
+}
+
 func BenchmarkRandomInsertion(b *testing.B) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
@@ -988,7 +1034,8 @@ func BenchmarkRandomInsertion(b *testing.B) {
 			WithMaxNodeSize(DefaultMaxNodeSize).
 			WithCacheSize(10_000).
 			WithSynced(false).
-			WithFlushThld(100_000)
+			WithFlushThld(100_000).
+			WithSyncThld(1_000_000)
 
 		tbtree, _ := Open("test_tree_brnd", opts)
 		defer os.RemoveAll("test_tree_brnd")
@@ -996,7 +1043,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 		kCount := 1_000_000
 
 		for i := 0; i < kCount; i++ {
-			k := make([]byte, 4)
+			k := make([]byte, 8)
 			binary.BigEndian.PutUint32(k, rnd.Uint32())
 
 			v := make([]byte, 8)
