@@ -86,6 +86,7 @@ type TBtree struct {
 	maxNodeSize           int
 	insertionCount        int
 	flushThld             int
+	syncThld              int
 	maxActiveSnapshots    int
 	renewSnapRootAfter    time.Duration
 	readOnly              bool
@@ -103,6 +104,8 @@ type TBtree struct {
 	maxSnapshotID  uint64
 	lastSnapRoot   node
 	lastSnapRootAt time.Time
+
+	lastSyncedAt uint64
 
 	committedLogSize  int64
 	committedNLogSize int64
@@ -403,12 +406,10 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		nLog:                  nLog,
 		hLog:                  hLog,
 		cLog:                  cLog,
-		committedLogSize:      cLogSize,
-		committedNLogSize:     0, // If garbage is accepted then t.committedNLogSize should be set to its size during initialization
-		committedHLogSize:     hLog.Offset(),
 		cache:                 cache,
 		maxNodeSize:           maxNodeSize,
 		flushThld:             opts.flushThld,
+		syncThld:              opts.syncThld,
 		renewSnapRootAfter:    opts.renewSnapRootAfter,
 		maxActiveSnapshots:    opts.maxActiveSnapshots,
 		fileSize:              opts.fileSize,
@@ -423,28 +424,55 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		snapshots:             make(map[uint64]*Snapshot),
 	}
 
-	var root node
-
-	if cLogSize == 0 {
-		root = &leafNode{t: t, maxSize: maxNodeSize, mut: true, _minKey: t.greatestKey}
-	} else {
+	for cLogSize > 0 {
 		var b [cLogEntrySize]byte
-		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err != nil {
-			return nil, err
+		n, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+		if err == io.EOF {
+			cLogSize -= int64(n)
+			break
 		}
+		if err != nil {
+			return nil, fmt.Errorf("%w: while loading index commit log", err)
+		}
+
+		if t.synced && b[0]&0x80 != 0 {
+			// async entry
+			cLogSize -= cLogEntrySize
+			continue
+		}
+
+		// remove async flag
+		b[0] &= 0x7F
 
 		committedRootOffset := int64(binary.BigEndian.Uint64(b[:]))
 
-		root, err = t.readNodeAt(committedRootOffset)
+		t.root, err = t.readNodeAt(committedRootOffset)
+		if err != nil {
+			return nil, fmt.Errorf("%w: while loading index", err)
+		}
+
+		t.lastSyncedAt = t.root.ts()
+		t.committedNLogSize = committedRootOffset + int64(t.root.size())
+
+		break
+	}
+
+	if t.root == nil {
+		t.root = &leafNode{t: t, maxSize: maxNodeSize, mut: true, _minKey: t.greatestKey}
+
+		err = hLog.SetOffset(0)
 		if err != nil {
 			return nil, err
 		}
-
-		t.committedNLogSize = committedRootOffset + int64(root.size())
 	}
 
-	t.root = root
+	t.committedLogSize = cLogSize
+	t.committedHLogSize = hLog.Offset()
+
+	err = t.cLog.SetOffset(cLogSize)
+	if err != nil {
+		return nil, fmt.Errorf("%w: while loading index commit log", err)
+	}
 
 	return t, nil
 }
@@ -467,6 +495,7 @@ func (t *TBtree) GetOptions() *Options {
 		WithLog(t.log).
 		WithCacheSize(t.cacheSize).
 		WithFlushThld(t.flushThld).
+		WithSyncThld(t.syncThld).
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
 		WithMaxNodeSize(t.maxNodeSize).
 		WithRenewSnapRootAfter(t.renewSnapRootAfter).
@@ -792,7 +821,12 @@ func (t *TBtree) sync() error {
 		return err
 	}
 
-	return t.cLog.Sync()
+	err = t.cLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
@@ -803,7 +837,7 @@ func (t *TBtree) Flush() (wN, wH int64, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree()
+	return t.flushTree(false)
 }
 
 type appendableWriter struct {
@@ -820,7 +854,7 @@ func (t *TBtree) warn(formattedMessage string, err error) error {
 	return err
 }
 
-func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
+func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	t.log.Infof("Flushing index '%s'...", t.path)
 
 	if !t.root.mutated() {
@@ -832,6 +866,11 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 
 	// will overwrite partially written and uncommitted data
 	// if garbage is accepted then t.committedNLogSize should be set to its size during initialization
+	err = t.hLog.SetOffset(t.committedHLogSize)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	err = t.nLog.SetOffset(t.committedNLogSize)
 	if err != nil {
 		return 0, 0, err
@@ -849,14 +888,28 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
+	explicitSync := !t.synced && (ensureSync || t.root.ts()-t.lastSyncedAt >= uint64(t.syncThld))
+
+	err = t.hLog.Flush()
+	if err != nil {
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
+	}
+
 	err = t.nLog.Flush()
 	if err != nil {
 		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
-	err = t.hLog.Flush()
-	if err != nil {
-		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
+	if explicitSync {
+		err = t.hLog.Sync()
+		if err != nil {
+			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+		}
+
+		err = t.nLog.Sync()
+		if err != nil {
+			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+		}
 	}
 
 	// will overwrite partially written and uncommitted data
@@ -867,6 +920,12 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
+
+	if !t.synced && !explicitSync {
+		// async flag in the msb is set
+		cb[0] |= 0x80
+	}
+
 	_, _, err = t.cLog.Append(cb[:])
 	if err != nil {
 		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
@@ -875,6 +934,13 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	err = t.cLog.Flush()
 	if err != nil {
 		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
+	}
+
+	if explicitSync {
+		err = t.cLog.Sync()
+		if err != nil {
+			return 0, 0, t.warn("Syncing index '%s' returned: %v", err)
+		}
 	}
 
 	t.insertionCount = 0
@@ -891,13 +957,17 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		off:     t.root.offset(),
 	}
 
+	if t.synced || explicitSync {
+		t.lastSyncedAt = t.root.ts()
+	}
+
 	t.log.Infof("Flushing index '%s' successfully completed", t.path)
 
 	return wN, wH, nil
 }
 
 func (t *TBtree) currentSnapshot() (*Snapshot, error) {
-	_, _, err := t.flushTree()
+	_, _, err := t.flushTree(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1010,19 +1080,20 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 		return err
 	}
 
-	var cb [cLogEntrySize]byte
-	binary.BigEndian.PutUint64(cb[:], uint64(offset))
-	_, _, err = cLog.Append(cb[:])
-	if err != nil {
-		return err
-	}
-
 	err = nLog.Flush()
 	if err != nil {
 		return err
 	}
 
 	err = nLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	var cb [cLogEntrySize]byte
+	binary.BigEndian.PutUint64(cb[:], uint64(offset))
+
+	_, _, err = cLog.Append(cb[:])
 	if err != nil {
 		return err
 	}
@@ -1052,7 +1123,7 @@ func (t *TBtree) Close() error {
 		return ErrSnapshotsNotClosed
 	}
 
-	_, _, err := t.flushTree()
+	_, _, err := t.flushTree(true)
 	if err != nil {
 		return err
 	}
@@ -1149,7 +1220,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	if t.insertionCount >= t.flushThld {
-		_, _, err := t.flushTree()
+		_, _, err := t.flushTree(false)
 		return err
 	}
 
@@ -1182,7 +1253,7 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 
-		_, _, err := t.flushTree()
+		_, _, err := t.flushTree(false)
 		if err != nil {
 			return nil, err
 		}
