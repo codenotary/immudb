@@ -86,6 +86,7 @@ type Options struct {
 type IndexOptions struct {
 	CacheSize             int
 	FlushThld             int
+	SyncThld              int
 	MaxActiveSnapshots    int
 	MaxNodeSize           int
 	RenewSnapRootAfter    time.Duration
@@ -298,6 +299,11 @@ func (opts *IndexOptions) WithCacheSize(cacheSize int) *IndexOptions {
 
 func (opts *IndexOptions) WithFlushThld(flushThld int) *IndexOptions {
 	opts.FlushThld = flushThld
+	return opts
+}
+
+func (opts *IndexOptions) WithSyncThld(syncThld int) *IndexOptions {
+	opts.SyncThld = syncThld
 	return opts
 }
 

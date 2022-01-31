@@ -96,6 +96,7 @@ func TestValidOptions(t *testing.T) {
 
 	require.Equal(t, 100, indexOpts.WithCacheSize(100).CacheSize)
 	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).FlushThld)
+	require.Equal(t, 10_000, indexOpts.WithSyncThld(10_000).SyncThld)
 	require.Equal(t, 10, indexOpts.WithMaxActiveSnapshots(10).MaxActiveSnapshots)
 	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).MaxNodeSize)
 	require.Equal(t, time.Duration(1000)*time.Millisecond,

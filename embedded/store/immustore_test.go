@@ -491,6 +491,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 						// One clog entry
 						return 8, nil
 					},
+					AppendFn: func(bs []byte) (off int64, n int, err error) {
+						return 0, 0, nil
+					},
 					ReadAtFn: func(bs []byte, off int64) (int, error) {
 						buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 						require.Less(t, off, int64(len(buff)))
@@ -500,6 +503,13 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 						md := appendable.NewMetadata(nil)
 						md.PutInt(tbtree.MetaMaxNodeSize, tbtree.DefaultMaxNodeSize)
 						return md.Bytes()
+					},
+					SetOffsetFn: func(off int64) error { return nil },
+					FlushFn: func() error {
+						return nil
+					},
+					SyncFn: func() error {
+						return nil
 					},
 					CloseFn: func() error { return nil },
 				}, nil

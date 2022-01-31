@@ -427,6 +427,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithSynced(opts.IndexOpts.Synced). // index is built from derived data and can be re-generated
 		WithCacheSize(opts.IndexOpts.CacheSize).
 		WithFlushThld(opts.IndexOpts.FlushThld).
+		WithSyncThld(opts.IndexOpts.SyncThld).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
