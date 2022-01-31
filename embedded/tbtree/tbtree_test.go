@@ -213,8 +213,8 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
 
-	require.Nil(t, tree.warn("message", nil))
-	require.Equal(t, ErrorMaxKVLenExceeded, tree.warn("%v", ErrorMaxKVLenExceeded))
+	require.Error(t, tree.wrapNwarn("message"))
+	require.ErrorIs(t, tree.wrapNwarn("%w", ErrorMaxKVLenExceeded), ErrorMaxKVLenExceeded)
 
 	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
 	require.Equal(t, ErrorMaxKVLenExceeded, err)
@@ -985,40 +985,33 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestTBTreeReOpenSynced(t *testing.T) {
-	tbtree, err := Open("test_tree_reopen_synced", DefaultOptions())
+func TestTBTreeReOpen(t *testing.T) {
+	tbtree, err := Open("test_tree_reopen", DefaultOptions())
 	require.NoError(t, err)
 
-	defer os.RemoveAll("test_tree_reopen_synced")
+	defer os.RemoveAll("test_tree_reopen")
 
-	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
 
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
+	err = tbtree.Insert([]byte("k1"), []byte("v1"))
+	require.NoError(t, err)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	t.Run("opening in async mode inserted data should be loaded", func(t *testing.T) {
-		tbtree, err := Open("test_tree_reopen_synced", DefaultOptions())
+	t.Run("reopening btree after gracefully close should read all data", func(t *testing.T) {
+		tbtree, err := Open("test_tree_reopen", DefaultOptions())
 		require.NoError(t, err)
 
 		_, _, _, err = tbtree.Get([]byte("k0"))
 		require.NoError(t, err)
 
-		err = tbtree.Close()
+		_, _, _, err = tbtree.Get([]byte("k1"))
 		require.NoError(t, err)
-	})
-
-	t.Run("opening in sync mode inserted data should not be loaded", func(t *testing.T) {
-		opts := DefaultOptions().WithSynced(true).WithSyncThld(0)
-
-		tbtree, err = Open("test_tree_reopen_synced", opts)
-		require.NoError(t, err)
-
-		_, _, _, err = tbtree.Get([]byte("k0"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		err = tbtree.Close()
 		require.NoError(t, err)
