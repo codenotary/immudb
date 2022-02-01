@@ -96,12 +96,13 @@ type MultiFileAppendable struct {
 	currAppID int64
 	currApp   appendable.Appendable
 
-	path     string
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
-	fileSize int
-	fileExt  string
+	path      string
+	readOnly  bool
+	synced    bool
+	blockSize int
+	fileMode  os.FileMode
+	fileSize  int
+	fileExt   string
 
 	closed bool
 
@@ -143,6 +144,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		WithReadOnly(opts.readOnly).
 		WithSynced(opts.synced).
 		WithFileMode(opts.fileMode).
+		WithBlockSize(opts.blockSize).
 		WithCompressionFormat(opts.compressionFormat).
 		WithCompresionLevel(opts.compressionLevel).
 		WithMetadata(m.Bytes())
@@ -167,6 +169,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		readOnly:    opts.readOnly,
 		synced:      opts.synced,
 		fileMode:    opts.fileMode,
+		blockSize:   opts.blockSize,
 		fileSize:    fileSize,
 		fileExt:     opts.fileExt,
 		closed:      false,
@@ -347,6 +350,7 @@ func (mf *MultiFileAppendable) openAppendable(appname string, activeChunk bool) 
 		WithReadOnly(mf.readOnly).
 		WithSynced(mf.synced).
 		WithFileMode(mf.fileMode).
+		WithBlockSize(mf.blockSize).
 		WithCompressionFormat(mf.currApp.CompressionFormat()).
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
 		WithMetadata(mf.currApp.Metadata())

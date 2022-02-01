@@ -83,7 +83,7 @@ func TestSingleApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
-	n , err = a.ReadAt(bs, 1000)
+	n, err = a.ReadAt(bs, 1000)
 	require.Equal(t, n, 0)
 	require.Equal(t, err, io.EOF)
 
