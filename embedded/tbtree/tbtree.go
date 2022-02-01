@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1161,6 +1162,15 @@ func (t *TBtree) Insert(key []byte, value []byte) error {
 }
 
 func (t *TBtree) BulkInsert(kvs []*KV) error {
+	if len(kvs) == 0 {
+		return ErrIllegalArguments
+	}
+
+	// entries are sorted in ascending order to increase cache hits
+	sort.Slice(kvs, func(i, j int) bool {
+		return bytes.Compare(kvs[i].K, kvs[j].K) < 1
+	})
+
 	t.rwmutex.Lock()
 
 	defer func() {
@@ -1182,10 +1192,6 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	ts := t.root.ts() + 1
-
-	if len(kvs) == 0 {
-		return ErrIllegalArguments
-	}
 
 	for _, kv := range kvs {
 		if kv.K == nil || kv.V == nil {
