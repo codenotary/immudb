@@ -681,6 +681,9 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 	cLog := &mocked.MockedAppendable{}
 
 	t.Run("Should fail while dumping the snapshot", func(t *testing.T) {
+		nLog.OffsetFn = func() int64 {
+			return 0
+		}
 		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, injectedError
 		}
@@ -1311,10 +1314,10 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		opts := DefaultOptions().
 			WithMaxNodeSize(DefaultMaxNodeSize).
-			WithCacheSize(1000).
-			WithFlushThld(100_000).
-			WithSyncThld(1_000_000).
-			WithFlushBufferSize(DefaultFlushBufferSize * 4)
+			WithFlushBufferSize(DefaultFlushBufferSize * 4).
+			WithCacheSize(1).
+			WithFlushThld(100).
+			WithSyncThld(1_000_000)
 
 		tbtree, err := Open("test_tree_brnd", opts)
 		if err != nil {

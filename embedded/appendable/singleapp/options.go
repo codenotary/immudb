@@ -22,6 +22,7 @@ import (
 )
 
 const DefaultFileMode = os.FileMode(0644)
+const DefaultBlockSize = appendable.DefaultBlockSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultReadBufferSize = 4096
@@ -31,6 +32,8 @@ type Options struct {
 	readOnly bool
 	synced   bool
 	fileMode os.FileMode
+
+	blockSize int
 
 	compressionFormat int
 	compressionLevel  int
@@ -46,6 +49,7 @@ func DefaultOptions() *Options {
 		readOnly:          false,
 		synced:            true,
 		fileMode:          DefaultFileMode,
+		blockSize:         DefaultBlockSize,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
 		readBufferSize:    DefaultReadBufferSize,
@@ -71,6 +75,11 @@ func (opts *Options) WithSynced(synced bool) *Options {
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
+	return opts
+}
+
+func (opts *Options) WithBlockSize(blockSize int) *Options {
+	opts.blockSize = blockSize
 	return opts
 }
 

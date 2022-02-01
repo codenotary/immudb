@@ -21,6 +21,7 @@ import (
 	"io"
 )
 
+const DefaultBlockSize = 4096
 const DefaultCompressionFormat = NoCompression
 const DefaultCompressionLevel = BestSpeed
 

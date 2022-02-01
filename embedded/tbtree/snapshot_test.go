@@ -16,10 +16,10 @@ limitations under the License.
 package tbtree
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,8 +39,12 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NotNil(t, snapshot)
 	require.NoError(t, err)
 
-	dumpNBuf := new(bytes.Buffer)
-	dumpHBuf := new(bytes.Buffer)
+	dumpNBuf, err := singleapp.Open("test_tree_w/node", singleapp.DefaultOptions())
+	require.NoError(t, err)
+
+	dumpHBuf, err := singleapp.Open("test_tree_w/h", singleapp.DefaultOptions())
+	require.NoError(t, err)
+
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
 		BaseNLogOffset: 0,
@@ -49,7 +53,10 @@ func TestSnapshotSerialization(t *testing.T) {
 	}
 	_, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
 	require.NoError(t, err)
-	require.True(t, dumpNBuf.Len() == 0)
+
+	sz, err := dumpNBuf.Size()
+	require.NoError(t, err)
+	require.True(t, sz == 0)
 
 	_, _, _, err = snapshot.Get(nil)
 	require.Equal(t, ErrIllegalArguments, err)
@@ -69,8 +76,12 @@ func TestSnapshotSerialization(t *testing.T) {
 	snapshot, err = tbtree.Snapshot()
 	require.NoError(t, err)
 
-	fulldumpNBuf := new(bytes.Buffer)
-	fulldumpHBuf := new(bytes.Buffer)
+	fulldumpNBuf, err := singleapp.Open("test_tree_w/fnode", singleapp.DefaultOptions())
+	require.NoError(t, err)
+
+	fulldumpHBuf, err := singleapp.Open("test_tree_w/fh", singleapp.DefaultOptions())
+	require.NoError(t, err)
+
 	wopts = &WriteOpts{
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
@@ -79,7 +90,10 @@ func TestSnapshotSerialization(t *testing.T) {
 	}
 	_, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
 	require.NoError(t, err)
-	require.True(t, fulldumpNBuf.Len() > 0)
+
+	sz, err = fulldumpNBuf.Size()
+	require.NoError(t, err)
+	require.True(t, sz > 0)
 
 	err = snapshot.Close()
 	require.NoError(t, err)

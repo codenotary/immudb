@@ -37,6 +37,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, "aof", opts.WithFileExt("aof").GetFileExt())
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).fileMode)
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).GetFileMode())
+	require.Equal(t, DefaultBlockSize, opts.WithBlockSize(DefaultBlockSize).GetBlockSize())
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).fileSize)
 	require.Equal(t, DefaultMaxOpenedFiles, opts.WithMaxOpenedFiles(DefaultMaxOpenedFiles).maxOpenedFiles)
 	require.Equal(t, []byte{}, opts.WithMetadata([]byte{}).metadata)

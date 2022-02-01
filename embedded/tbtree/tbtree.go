@@ -222,7 +222,7 @@ type node interface {
 	size() (int, error)
 	mutated() bool
 	offset() int64
-	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
+	writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
 }
 
 type writeProgressOutputFunc func(innerNodesWritten int, leafNodesWritten int, entriesWritten int)
@@ -296,6 +296,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
 		WithWriteBufferSize(opts.flushBufferSize).
+		WithBlockSize(opts.maxNodeSize).
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -965,15 +966,6 @@ func (t *TBtree) Flush() (wN, wH int64, err error) {
 	return t.flushTree(false)
 }
 
-type appendableWriter struct {
-	appendable.Appendable
-}
-
-func (aw *appendableWriter) Write(b []byte) (int, error) {
-	_, n, err := aw.Append(b)
-	return n, err
-}
-
 func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 	t.log.Warningf(formattedMessage, args)
 	return fmt.Errorf(formattedMessage, args...)
@@ -1022,7 +1014,7 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		reportProgress: progressOutputFunc,
 	}
 
-	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+	_, wN, wH, err = snapshot.WriteTo(t.nLog, t.hLog, wopts)
 	if err != nil {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
@@ -1303,7 +1295,7 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 		reportProgress: progressOutput,
 	}
 
-	_, wN, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
+	_, wN, _, err := snapshot.WriteTo(nLog, nil, wopts)
 	if err != nil {
 		return err
 	}
