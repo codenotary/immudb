@@ -29,6 +29,7 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
@@ -130,6 +131,8 @@ func (opts *Options) DefaultStoreOptions() *store.Options {
 	indexOptions := store.DefaultIndexOptions().
 		WithRenewSnapRootAfter(0).
 		WithCompactionThld(0).
+		WithSynced(false).
+		WithSyncThld(tbtree.DefaultSyncThld).
 		WithDelayDuringCompaction(10 * time.Millisecond)
 
 	return store.DefaultOptions().
