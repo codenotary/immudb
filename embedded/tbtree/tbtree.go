@@ -35,8 +35,6 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -123,7 +121,7 @@ type TBtree struct {
 type path []*innerNode
 
 type node interface {
-	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
+	insertAt(key []byte, value []byte, ts uint64) (node, node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
 	findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
@@ -520,22 +518,6 @@ func (t *TBtree) cachePut(n node) {
 	}
 }
 
-var metricsCacheSizeStats = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "immudb_btree_cache_size",
-}, []string{"id"})
-
-var metricsCacheHit = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "immudb_btree_cache_hit",
-}, []string{"id"})
-
-var metricsCacheMiss = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "immudb_btree_cache_miss",
-}, []string{"id"})
-
-var metricsCacheEvict = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "immudb_btree_cache_evict",
-}, []string{"id"})
-
 func (t *TBtree) nodeAt(offset int64) (node, error) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
@@ -817,13 +799,15 @@ func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 		return false, ErrAlreadyClosed
 	}
 
-	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, false)
+	path, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, false)
 	if err == ErrKeyNotFound {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
+
+	metricsBtreeDepth.WithLabelValues(t.path).Set(float64(len(path) + 1))
 
 	v := leaf.values[off]
 
@@ -891,6 +875,8 @@ func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 
 func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	t.log.Infof("Flushing index '%s' {ts=%d}...", t.path, t.root.ts())
+
+	metricsFlushingNodesProgress.WithLabelValues(t.path).Set(float64(0))
 
 	if !t.root.mutated() && !ensureSync {
 		t.log.Infof("Flushing not needed at '%s' {ts=%d}", t.path, t.root.ts())
@@ -1247,7 +1233,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		v := make([]byte, len(kv.V))
 		copy(v, kv.V)
 
-		n1, n2, err := t.root.insertAt(k, v, ts)
+		n1, n2, depth, err := t.root.insertAt(k, v, ts)
 		if err != nil {
 			return err
 		}
@@ -1266,7 +1252,10 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 			}
 
 			t.root = newRoot
+			depth++
 		}
+
+		metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
 
 		t.insertionCount++
 	}
@@ -1344,21 +1333,21 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
-func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	if !n.mut {
 		return n.copyOnInsertAt(key, value, ts)
 	}
 	return n.updateOnInsertAt(key, value, ts)
 }
 
-func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
 
-	c1, c2, err := c.insertAt(key, value, ts)
+	c1, c2, depth, err := c.insertAt(key, value, ts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
 	n._ts = ts
@@ -1375,7 +1364,7 @@ func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 no
 
 		n.nodes[insertAt] = c1
 
-		return n, nil, nil
+		return n, nil, depth + 1, nil
 	}
 
 	if bytes.Compare(n._minKey, c1.minKey()) > 0 {
@@ -1401,17 +1390,17 @@ func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 no
 
 	n2, err = n.split()
 
-	return n, n2, err
+	return n, n2, depth + 1, err
 }
 
-func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
 
-	c1, c2, err := c.insertAt(key, value, ts)
+	c1, c2, depth, err := c.insertAt(key, value, ts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
 	if c2 == nil {
@@ -1443,7 +1432,7 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 			copy(newNode.nodes[insertAt+1:], n.nodes[insertAt+1:])
 		}
 
-		return newNode, nil, nil
+		return newNode, nil, depth + 1, nil
 	}
 
 	minKey := n._minKey
@@ -1477,7 +1466,7 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 
 	n2, err = newNode.split()
 
-	return newNode, n2, err
+	return newNode, n2, depth + 1, err
 }
 
 func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -1501,6 +1490,7 @@ func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int
 }
 
 func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
 	if descOrder {
 		for i := len(n.nodes); i > 0; i-- {
 			minKey := n.nodes[i-1].minKey()
@@ -1573,6 +1563,8 @@ func (n *innerNode) maxKey() []byte {
 }
 
 func (n *innerNode) indexOf(key []byte) int {
+	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
+
 	left := 0
 	right := len(n.nodes) - 1
 
@@ -1598,6 +1590,7 @@ func (n *innerNode) indexOf(key []byte) int {
 
 func (n *innerNode) split() (node, error) {
 	if n.size() <= n.maxSize {
+		metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
 		return nil, nil
 	}
 
@@ -1619,6 +1612,9 @@ func (n *innerNode) split() (node, error) {
 
 	n.updateTs()
 
+	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
+	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(newNode.nodes)))
+
 	return newNode, nil
 }
 
@@ -1633,10 +1629,10 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 
-func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	n, err := r.t.nodeAt(r.off)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	return n.insertAt(key, value, ts)
 }
@@ -1691,14 +1687,14 @@ func (r *nodeRef) offset() int64 {
 
 ////////////////////////////////////////////////////////////
 
-func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	if !l.mut {
 		return l.copyOnInsertAt(key, value, ts)
 	}
 	return l.updateOnInsertAt(key, value, ts)
 }
 
-func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	i, found := l.indexOf(key)
 
 	l._ts = ts
@@ -1709,7 +1705,7 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 		l.values[i].ts = ts
 		l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
 
-		return l, nil, nil
+		return l, nil, 0, nil
 	}
 
 	if bytes.Compare(l._minKey, key) > 0 {
@@ -1741,10 +1737,10 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 
 	n2, err = l.split()
 
-	return l, n2, err
+	return l, n2, 1, err
 }
 
-func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
 	i, found := l.indexOf(key)
 
 	if found {
@@ -1789,7 +1785,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			}
 		}
 
-		return newLeaf, nil, nil
+		return newLeaf, nil, 1, nil
 	}
 
 	minKey := l._minKey
@@ -1845,7 +1841,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 
 	n2, err = newLeaf.split()
 
-	return newLeaf, n2, err
+	return newLeaf, n2, 1, err
 }
 
 func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -1948,6 +1944,7 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
 	if descOrder {
 		for i := len(l.values); i > 0; i-- {
 			key := l.values[i-1].key
@@ -1978,6 +1975,8 @@ func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, desc
 }
 
 func (l *leafNode) indexOf(key []byte) (index int, found bool) {
+	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
+
 	left := 0
 	right := len(l.values)
 
@@ -2043,6 +2042,7 @@ func (l *leafNode) offset() int64 {
 
 func (l *leafNode) split() (node, error) {
 	if l.size() <= l.maxSize {
+		metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
 		return nil, nil
 	}
 
@@ -2063,6 +2063,9 @@ func (l *leafNode) split() (node, error) {
 	l._maxKey = l.values[splitIndex-1].key
 
 	l.updateTs()
+
+	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
+	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(newLeaf.values)))
 
 	return newLeaf, nil
 }
