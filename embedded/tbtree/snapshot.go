@@ -52,7 +52,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 	v := make([]byte, len(value))
 	copy(v, value)
 
-	n1, n2, err := s.root.insertAt(k, v, s.ts)
+	n1, n2, depth, err := s.root.insertAt(k, v, s.ts)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,10 @@ func (s *Snapshot) Set(key, value []byte) error {
 		}
 
 		s.root = newRoot
+		depth++
 	}
+
+	metricsBtreeDepth.WithLabelValues(s.t.path).Set(float64(depth))
 
 	return nil
 }
@@ -340,6 +343,9 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		n.t.cachePut(n)
 	}
 
+	metricsFlushingNodesProgress.WithLabelValues(n.t.path).Inc()
+	metricsFlushingNodesTotal.WithLabelValues(n.t.path).Inc()
+
 	return nOff, wN, chw, nil
 }
 
@@ -434,6 +440,9 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 
 		l.t.cachePut(l)
 	}
+
+	metricsFlushingNodesProgress.WithLabelValues(l.t.path).Inc()
+	metricsFlushingNodesTotal.WithLabelValues(l.t.path).Inc()
 
 	return nOff, wN, accH, nil
 }
