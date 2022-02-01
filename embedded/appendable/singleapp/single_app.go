@@ -38,6 +38,7 @@ var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
 const (
+	metaBlockSize         = "BLOCK_SIZE"
 	metaCompressionFormat = "COMPRESSION_FORMAT"
 	metaCompressionLevel  = "COMPRESSION_LEVEL"
 	metaWrappedMeta       = "WRAPPED_METADATA"
@@ -46,6 +47,7 @@ const (
 type AppendableFile struct {
 	f *os.File
 
+	blockSize         int
 	compressionFormat int
 	compressionLevel  int
 
@@ -90,22 +92,24 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	}
 
 	var metadata []byte
+	var blockSize int
 	var compressionFormat int
 	var compressionLevel int
 	var baseOffset int64
 
 	if notExist {
 		m := appendable.NewMetadata(nil)
+		m.PutInt(metaBlockSize, opts.blockSize)
 		m.PutInt(metaCompressionFormat, opts.compressionFormat)
 		m.PutInt(metaCompressionLevel, opts.compressionLevel)
 		m.Put(metaWrappedMeta, opts.metadata)
 
-		mBs := m.Bytes()
-		mLenBs := make([]byte, 4)
-		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
-
 		w := bufio.NewWriter(f)
 
+		mBs := m.Bytes()
+
+		mLenBs := make([]byte, 4)
+		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
 		_, err := w.Write(mLenBs)
 		if err != nil {
 			return nil, err
@@ -116,16 +120,24 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
+		paddingLen := appendable.PaddingLen(4+len(mBs), opts.blockSize)
+
+		_, err = w.Write(make([]byte, paddingLen))
+		if err != nil {
+			return nil, err
+		}
+
 		err = w.Flush()
 		if err != nil {
 			return nil, err
 		}
 
+		blockSize = opts.blockSize
 		compressionFormat = opts.compressionFormat
 		compressionLevel = opts.compressionLevel
 		metadata = opts.metadata
 
-		baseOffset = int64(4 + len(mBs))
+		baseOffset = int64(4 + len(mBs) + paddingLen)
 	} else {
 		r := bufio.NewReader(f)
 
@@ -135,13 +147,23 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, ErrCorruptedMetadata
 		}
 
-		mBs := make([]byte, binary.BigEndian.Uint32(mLenBs))
+		mLen := int(binary.BigEndian.Uint32(mLenBs))
+
+		mBs := make([]byte, mLen)
 		_, err = r.Read(mBs)
 		if err != nil {
 			return nil, ErrCorruptedMetadata
 		}
 
+		paddingLen := appendable.PaddingLen(4+mLen, opts.blockSize)
+
 		m := appendable.NewMetadata(mBs)
+
+		bsz, ok := m.GetInt(metaBlockSize)
+		if !ok {
+			return nil, ErrCorruptedMetadata
+		}
+		blockSize = bsz
 
 		cf, ok := m.GetInt(metaCompressionFormat)
 		if !ok {
@@ -160,7 +182,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, ErrCorruptedMetadata
 		}
 
-		baseOffset = int64(4 + len(mBs))
+		baseOffset = int64(4 + len(mBs) + paddingLen)
 	}
 
 	off, err := f.Seek(0, io.SeekEnd)
@@ -175,6 +197,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 
 	return &AppendableFile{
 		f:                 f,
+		blockSize:         blockSize,
 		compressionFormat: compressionFormat,
 		compressionLevel:  compressionLevel,
 		metadata:          metadata,
@@ -217,6 +240,10 @@ func (aof *AppendableFile) Copy(dstPath string) error {
 	}
 
 	return dstFile.Sync()
+}
+
+func (aof *AppendableFile) BlockSize() int {
+	return aof.blockSize
 }
 
 func (aof *AppendableFile) CompressionFormat() int {

@@ -24,6 +24,7 @@ import (
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxOpenedFiles = 10
 const DefaultFileMode = os.FileMode(0755)
+const DefaultBlockSize = appendable.DefaultBlockSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
@@ -35,6 +36,7 @@ type Options struct {
 	fileExt           string
 	metadata          []byte
 	maxOpenedFiles    int
+	blockSize         int
 	compressionFormat int
 	compressionLevel  int
 }
@@ -47,6 +49,7 @@ func DefaultOptions() *Options {
 		fileSize:          DefaultFileSize,
 		fileExt:           "aof",
 		maxOpenedFiles:    DefaultMaxOpenedFiles,
+		blockSize:         DefaultBlockSize,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
 	}
@@ -71,6 +74,11 @@ func (opt *Options) WithSynced(synced bool) *Options {
 
 func (opt *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opt.fileMode = fileMode
+	return opt
+}
+
+func (opt *Options) WithBlockSize(blockSize int) *Options {
+	opt.blockSize = blockSize
 	return opt
 }
 
@@ -110,4 +118,8 @@ func (opt *Options) GetFileExt() string {
 
 func (opt *Options) GetFileMode() os.FileMode {
 	return opt.fileMode
+}
+
+func (opt *Options) GetBlockSize() int {
+	return opt.blockSize
 }

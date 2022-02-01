@@ -208,6 +208,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		WithSynced(opts.synced).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
+		WithBlockSize(opts.maxNodeSize).
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -455,7 +456,9 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		t.lastSyncedAt = t.root.ts()
-		t.committedNLogSize = committedRootOffset + int64(t.root.size())
+
+		paddingLen := appendable.PaddingLen(t.root.size(), t.maxNodeSize)
+		t.committedNLogSize = committedRootOffset + int64(t.root.size()+paddingLen)
 
 		break
 	}
@@ -519,6 +522,10 @@ func (t *TBtree) cachePut(n node) {
 }
 
 func (t *TBtree) nodeAt(offset int64) (node, error) {
+	if offset%int64(t.maxNodeSize) != 0 {
+		return nil, fmt.Errorf("%w: attempt to read node at an invalid offset", ErrCorruptedFile)
+	}
+
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 

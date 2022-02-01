@@ -21,6 +21,8 @@ import (
 	"errors"
 	"io"
 	"sync"
+
+	"github.com/codenotary/immudb/embedded/appendable"
 )
 
 var ErrNoMoreEntries = errors.New("no more entries")
@@ -295,8 +297,9 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	}
 
 	size := n.size()
+	paddingLen := appendable.PaddingLen(size, n.maxSize)
 
-	buf := make([]byte, size)
+	buf := make([]byte, size+paddingLen)
 	bi := 0
 
 	buf[bi] = InnerNodeType
@@ -313,12 +316,12 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		bi += n
 	}
 
-	wn, err := nw.Write(buf[:bi])
+	wn, err := nw.Write(buf)
 	if err != nil {
 		return 0, int64(wn), chw, err
 	}
 
-	wN = cnw + int64(size)
+	wN = cnw + int64(wn)
 	nOff = writeOpts.BaseNLogOffset + cnw
 
 	if writeOpts.commitLog {
@@ -355,7 +358,9 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 	}
 
 	size := l.size()
-	buf := make([]byte, size)
+	paddingLen := appendable.PaddingLen(size, l.maxSize)
+
+	buf := make([]byte, size+paddingLen)
 	bi := 0
 
 	buf[bi] = LeafNodeType
@@ -426,16 +431,16 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		}
 	}
 
-	n, err := nw.Write(buf[:bi])
+	n, err := nw.Write(buf)
 	if err != nil {
 		return 0, int64(n), accH, err
 	}
 
-	wN = int64(size)
+	wN = int64(n)
 	nOff = writeOpts.BaseNLogOffset
 
 	if writeOpts.commitLog {
-		l.off = writeOpts.BaseNLogOffset
+		l.off = nOff
 		l.mut = false
 
 		l.t.cachePut(l)

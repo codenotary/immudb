@@ -17,6 +17,7 @@ package appendable
 
 import "compress/flate"
 
+const DefaultBlockSize = 4096
 const DefaultCompressionFormat = NoCompression
 const DefaultCompressionLevel = BestSpeed
 
@@ -48,4 +49,12 @@ type Appendable interface {
 	Copy(dstPath string) error
 	CompressionFormat() int
 	CompressionLevel() int
+}
+
+func PaddingLen(sz, blockSize int) int {
+	if sz < blockSize {
+		return blockSize - sz
+	} else {
+		return sz % blockSize
+	}
 }
