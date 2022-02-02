@@ -120,11 +120,13 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
-		paddingLen := appendable.PaddingLen(4+len(mBs), opts.blockSize)
+		paddingLen := paddingLen(4+len(mBs), opts.blockSize)
 
-		_, err = w.Write(make([]byte, paddingLen))
-		if err != nil {
-			return nil, err
+		if paddingLen > 0 {
+			_, err = w.Write(make([]byte, paddingLen))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = w.Flush()
@@ -155,7 +157,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, ErrCorruptedMetadata
 		}
 
-		paddingLen := appendable.PaddingLen(4+mLen, opts.blockSize)
+		paddingLen := paddingLen(4+mLen, opts.blockSize)
 
 		m := appendable.NewMetadata(mBs)
 
@@ -208,6 +210,10 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		offset:            off - baseOffset,
 		closed:            false,
 	}, nil
+}
+
+func paddingLen(sz, blockSize int) int {
+	return blockSize - sz%blockSize
 }
 
 func (aof *AppendableFile) Copy(dstPath string) error {
