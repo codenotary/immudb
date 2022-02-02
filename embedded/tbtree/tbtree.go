@@ -1196,9 +1196,19 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		return ErrIllegalArguments
 	}
 
-	// entries are sorted in ascending order to increase cache hits
+	for _, kv := range kvs {
+		if kv == nil || kv.K == nil || kv.V == nil {
+			return ErrIllegalArguments
+		}
+
+		if len(kv.K)+len(kv.V)+45 > t.maxNodeSize {
+			return ErrorMaxKVLenExceeded
+		}
+	}
+
+	// sort entries to increase cache hits
 	sort.Slice(kvs, func(i, j int) bool {
-		return bytes.Compare(kvs[i].K, kvs[j].K) < 1
+		return bytes.Compare(kvs[i].K, kvs[j].K) < 0
 	})
 
 	t.rwmutex.Lock()
@@ -1224,14 +1234,6 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	ts := t.root.ts() + 1
 
 	for _, kv := range kvs {
-		if kv.K == nil || kv.V == nil {
-			return ErrIllegalArguments
-		}
-
-		if len(kv.K)+len(kv.V)+45 > t.maxNodeSize {
-			return ErrorMaxKVLenExceeded
-		}
-
 		k := make([]byte, len(kv.K))
 		copy(k, kv.K)
 
