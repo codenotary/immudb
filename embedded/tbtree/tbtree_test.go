@@ -823,7 +823,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.Sync()
 	require.Equal(t, err, ErrAlreadyClosed)
 
-	err = tbtree.Insert(nil, nil)
+	err = tbtree.Insert([]byte("key"), []byte("value"))
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	_, err = tbtree.Snapshot()
@@ -1085,10 +1085,36 @@ func BenchmarkRandomRead(b *testing.B) {
 	tbtree.Close()
 }
 
-func BenchmarkAscendingInsertioin(b *testing.B) {
-	seed := rand.NewSource(time.Now().UnixNano())
-	rnd := rand.New(seed)
+func BenchmarkAscendingBulkInsertion(b *testing.B) {
+	opts := DefaultOptions().
+		WithMaxNodeSize(DefaultMaxNodeSize).
+		WithCacheSize(100_000).
+		WithSynced(false).
+		WithFlushThld(100_000).
+		WithSyncThld(1_000_000)
 
+	tbtree, err := Open("bench_tree_asc", opts)
+	if err != nil {
+		panic(err)
+	}
+
+	defer tbtree.Close()
+
+	defer os.RemoveAll("bench_tree_asc")
+
+	kBulkCount := 1000
+	kBulkSize := 1000
+	ascMode := true
+
+	for i := 0; i < b.N; i++ {
+		err = bulkInsert(tbtree, kBulkCount, kBulkSize, ascMode)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkDescendingBulkInsertion(b *testing.B) {
 	opts := DefaultOptions().
 		WithMaxNodeSize(DefaultMaxNodeSize).
 		WithCacheSize(10_000).
@@ -1096,35 +1122,98 @@ func BenchmarkAscendingInsertioin(b *testing.B) {
 		WithFlushThld(100_000).
 		WithSyncThld(1_000_000)
 
-	tbtree, err := Open("test_tree_brnd", opts)
+	tbtree, err := Open("bench_tree_asc", opts)
 	if err != nil {
 		panic(err)
 	}
 
 	defer tbtree.Close()
 
-	defer os.RemoveAll("test_tree_brnd")
+	defer os.RemoveAll("bench_tree_asc")
 
-	kCount := 10_000_000
-	ascMode := true
+	kBulkCount := 1000
+	kBulkSize := 1000
+	ascMode := false
 
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < kCount; j++ {
-			k := make([]byte, 4)
-			if ascMode {
-				binary.BigEndian.PutUint32(k, uint32(j))
+		err = bulkInsert(tbtree, kBulkCount, kBulkSize, ascMode)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func bulkInsert(tbtree *TBtree, bulkCount, bulkSize int, asc bool) error {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(seed)
+
+	kvs := make([]*KV, bulkSize)
+
+	for i := 0; i < bulkCount; i++ {
+		for j := 0; j < bulkSize; j++ {
+			key := make([]byte, 8)
+			if asc {
+				binary.BigEndian.PutUint64(key, uint64(i*bulkSize+j))
 			} else {
-				binary.BigEndian.PutUint32(k, uint32(kCount-j))
+				binary.BigEndian.PutUint64(key, uint64((bulkCount-i)*bulkSize-j))
 			}
 
-			v := make([]byte, 32)
-			rnd.Read(v)
+			value := make([]byte, 32)
+			rnd.Read(value)
 
-			err = tbtree.Insert(k, v)
+			kvs[j] = &KV{K: key, V: value}
+		}
+
+		err := tbtree.BulkInsert(kvs)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func BenchmarkRandomBulkInsertion(b *testing.B) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(seed)
+
+	for i := 0; i < b.N; i++ {
+		opts := DefaultOptions().
+			WithMaxNodeSize(DefaultMaxNodeSize).
+			WithCacheSize(1000).
+			WithSynced(false).
+			WithFlushThld(1_000_000).
+			WithSyncThld(1_000_000)
+
+		tbtree, err := Open("test_tree_brnd", opts)
+		if err != nil {
+			panic(err)
+		}
+
+		defer os.RemoveAll("test_tree_brnd")
+
+		kBulkCount := 1000
+		kBulkSize := 1000
+
+		kvs := make([]*KV, kBulkSize)
+
+		for i := 0; i < kBulkCount; i++ {
+			for j := 0; j < kBulkSize; j++ {
+				k := make([]byte, 8)
+				v := make([]byte, 32)
+
+				rnd.Read(k)
+				rnd.Read(v)
+
+				kvs[j] = &KV{K: k, V: v}
+			}
+
+			err = tbtree.BulkInsert(kvs)
 			if err != nil {
 				panic(err)
 			}
 		}
-	}
 
+		tbtree.Close()
+	}
 }
