@@ -262,14 +262,14 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (s *Snapshot) WriteTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	return s.root.writeTo(nw, hw, writeOpts)
 }
 
-func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (n *innerNode) writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() {
 		return n.off, 0, 0, nil
 	}
@@ -297,10 +297,18 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	}
 
 	size := n.size()
-	paddingLen := appendable.PaddingLen(size, n.maxSize)
 
-	buf := make([]byte, size+paddingLen)
-	bi := 0
+	availableBytesInBlock := n.maxSize - int(nw.Offset()%int64(n.maxSize))
+
+	var leftPaddingLen int
+
+	if size > availableBytesInBlock {
+		// padding is needed when the node does not fit into a partially used block
+		leftPaddingLen = availableBytesInBlock
+	}
+
+	buf := make([]byte, leftPaddingLen+size)
+	bi := leftPaddingLen
 
 	buf[bi] = InnerNodeType
 	bi++
@@ -316,16 +324,16 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		bi += n
 	}
 
-	wn, err := nw.Write(buf)
+	_, wn, err := nw.Append(buf)
 	if err != nil {
 		return 0, int64(wn), chw, err
 	}
 
 	wN = cnw + int64(wn)
-	nOff = writeOpts.BaseNLogOffset + cnw
+	nOff = writeOpts.BaseNLogOffset + int64(leftPaddingLen) + cnw
 
 	if writeOpts.commitLog {
-		n.off = writeOpts.BaseNLogOffset + cnw
+		n.off = nOff
 		n.mut = false
 
 		nodes := make([]node, len(n.nodes))
@@ -352,16 +360,24 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	return nOff, wN, chw, nil
 }
 
-func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (l *leafNode) writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() {
 		return l.off, 0, 0, nil
 	}
 
 	size := l.size()
-	paddingLen := appendable.PaddingLen(size, l.maxSize)
 
-	buf := make([]byte, size+paddingLen)
-	bi := 0
+	availableBytesInBlock := l.maxSize - int(nw.Offset()%int64(l.maxSize))
+
+	var leftPaddingLen int
+
+	if size > availableBytesInBlock {
+		// padding is needed when the node does not fit into a partially used block
+		leftPaddingLen = availableBytesInBlock
+	}
+
+	buf := make([]byte, leftPaddingLen+size)
+	bi := leftPaddingLen
 
 	buf[bi] = LeafNodeType
 	bi++
@@ -408,7 +424,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 			binary.BigEndian.PutUint64(hbuf[hi:], uint64(v.hOff))
 			hi += 8
 
-			n, err := hw.Write(hbuf)
+			_, n, err := hw.Append(hbuf)
 			if err != nil {
 				return 0, 0, int64(n), err
 			}
@@ -431,13 +447,13 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		}
 	}
 
-	n, err := nw.Write(buf)
+	_, n, err := nw.Append(buf)
 	if err != nil {
 		return 0, int64(n), accH, err
 	}
 
 	wN = int64(n)
-	nOff = writeOpts.BaseNLogOffset
+	nOff = writeOpts.BaseNLogOffset + int64(leftPaddingLen)
 
 	if writeOpts.commitLog {
 		l.off = nOff
@@ -452,7 +468,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 	return nOff, wN, accH, nil
 }
 
-func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (n *nodeRef) writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated {
 		return n.offset(), 0, 0, nil
 	}

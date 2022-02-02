@@ -131,7 +131,7 @@ type node interface {
 	size() int
 	mutated() bool
 	offset() int64
-	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
+	writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
 }
 
 type WriteOpts struct {
@@ -522,10 +522,6 @@ func (t *TBtree) cachePut(n node) {
 }
 
 func (t *TBtree) nodeAt(offset int64) (node, error) {
-	if offset%int64(t.maxNodeSize) != 0 {
-		return nil, fmt.Errorf("%w: attempt to read node at an invalid offset", ErrCorruptedFile)
-	}
-
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
@@ -542,7 +538,6 @@ func (t *TBtree) nodeAt(offset int64) (node, error) {
 		metricsCacheMiss.WithLabelValues(t.path).Inc()
 
 		n, err := t.readNodeAt(offset)
-
 		if err != nil {
 			return nil, err
 		}
@@ -866,15 +861,6 @@ func (t *TBtree) Flush() (wN, wH int64, err error) {
 	return t.flushTree(false)
 }
 
-type appendableWriter struct {
-	appendable.Appendable
-}
-
-func (aw *appendableWriter) Write(b []byte) (int, error) {
-	_, n, err := aw.Append(b)
-	return n, err
-}
-
 func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 	t.log.Warningf(formattedMessage, args)
 	return fmt.Errorf(formattedMessage, args...)
@@ -914,7 +900,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 			commitLog:      true,
 		}
 
-		_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+		_, wN, wH, err = snapshot.WriteTo(t.nLog, t.hLog, wopts)
 		if err != nil {
 			return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 		}
@@ -1107,7 +1093,7 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 		BaseHLogOffset: 0,
 	}
 
-	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
+	offset, _, _, err := snapshot.WriteTo(nLog, nil, wopts)
 	if err != nil {
 		return err
 	}
