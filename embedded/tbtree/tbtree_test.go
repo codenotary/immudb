@@ -1084,3 +1084,47 @@ func BenchmarkRandomRead(b *testing.B) {
 
 	tbtree.Close()
 }
+
+func BenchmarkAscendingInsertioin(b *testing.B) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(seed)
+
+	opts := DefaultOptions().
+		WithMaxNodeSize(DefaultMaxNodeSize).
+		WithCacheSize(10_000).
+		WithSynced(false).
+		WithFlushThld(100_000).
+		WithSyncThld(1_000_000)
+
+	tbtree, err := Open("test_tree_brnd", opts)
+	if err != nil {
+		panic(err)
+	}
+
+	defer tbtree.Close()
+
+	defer os.RemoveAll("test_tree_brnd")
+
+	kCount := 10_000_000
+	ascMode := true
+
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < kCount; j++ {
+			k := make([]byte, 4)
+			if ascMode {
+				binary.BigEndian.PutUint32(k, uint32(j))
+			} else {
+				binary.BigEndian.PutUint32(k, uint32(kCount-j))
+			}
+
+			v := make([]byte, 32)
+			rnd.Read(v)
+
+			err = tbtree.Insert(k, v)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+}
