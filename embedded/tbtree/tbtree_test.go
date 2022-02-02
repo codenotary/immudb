@@ -640,6 +640,9 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 	cLog := &mocked.MockedAppendable{}
 
 	t.Run("Should fail while dumping the snapshot", func(t *testing.T) {
+		nLog.OffsetFn = func() int64 {
+			return 0
+		}
 		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, injectedError
 		}
