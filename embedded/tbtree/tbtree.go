@@ -456,9 +456,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		t.lastSyncedAt = t.root.ts()
-
-		paddingLen := appendable.PaddingLen(t.root.size(), t.maxNodeSize)
-		t.committedNLogSize = committedRootOffset + int64(t.root.size()+paddingLen)
+		t.committedNLogSize = committedRootOffset + int64(t.root.size())
 
 		break
 	}

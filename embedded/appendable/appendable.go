@@ -50,11 +50,3 @@ type Appendable interface {
 	CompressionFormat() int
 	CompressionLevel() int
 }
-
-func PaddingLen(sz, blockSize int) int {
-	if sz < blockSize {
-		return blockSize - sz
-	} else {
-		return sz % blockSize
-	}
-}
