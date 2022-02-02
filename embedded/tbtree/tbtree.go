@@ -1592,7 +1592,7 @@ func (n *innerNode) split() (node, error) {
 		return nil, nil
 	}
 
-	splitIndex, _ := n.splitInfo()
+	splitIndex := splitIndex(len(n.nodes))
 
 	newNode := &innerNode{
 		t:       n.t,
@@ -1611,17 +1611,6 @@ func (n *innerNode) split() (node, error) {
 	n.updateTs()
 
 	return newNode, nil
-}
-
-func (n *innerNode) splitInfo() (splitIndex int, splitSize int) {
-	for i := 0; i < len(n.nodes); i++ {
-		splitIndex = i
-		if splitSize+len(n.nodes[i].maxKey()) > n.maxSize {
-			break
-		}
-		splitSize += len(n.nodes[i].maxKey())
-	}
-	return
 }
 
 func (n *innerNode) updateTs() {
@@ -2048,7 +2037,7 @@ func (l *leafNode) split() (node, error) {
 		return nil, nil
 	}
 
-	splitIndex, _ := l.splitInfo()
+	splitIndex := splitIndex(len(l.values))
 
 	newLeaf := &leafNode{
 		t:       l.t,
@@ -2069,16 +2058,11 @@ func (l *leafNode) split() (node, error) {
 	return newLeaf, nil
 }
 
-func (l *leafNode) splitInfo() (splitIndex int, splitSize int) {
-	for i := 0; i < len(l.values); i++ {
-		splitIndex = i
-		if splitSize+l.values[i].size() > l.maxSize {
-			break
-		}
-		splitSize += l.values[i].size()
+func splitIndex(sz int) int {
+	if sz%2 == 0 {
+		return sz / 2
 	}
-
-	return
+	return sz/2 + 1
 }
 
 func (l *leafNode) updateTs() {
