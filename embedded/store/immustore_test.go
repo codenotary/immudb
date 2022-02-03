@@ -1063,7 +1063,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 	})
 
 	t.Run("non-expired keys should be reachable", func(t *testing.T) {
-		nearFuture := time.Now().Add(1 * time.Second)
+		nearFuture := time.Now().Add(2 * time.Second)
 
 		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
@@ -1086,7 +1086,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("expirableValue"), val)
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		// already expired
 		_, err = immuStore.Get([]byte("expirableKey"))
