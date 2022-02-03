@@ -1004,15 +1004,6 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	return wN, wH, nil
 }
 
-func (t *TBtree) currentSnapshot() (*Snapshot, error) {
-	_, _, err := t.flushTree(false)
-	if err != nil {
-		return nil, err
-	}
-
-	return t.newSnapshot(0, t.root), nil
-}
-
 // SnapshotCount returns the number of stored snapshots
 // Note: snapshotCount(compact(t)) = 1
 func (t *TBtree) SnapshotCount() (uint64, error) {
@@ -1028,6 +1019,15 @@ func (t *TBtree) SnapshotCount() (uint64, error) {
 
 func (t *TBtree) snapshotCount() uint64 {
 	return uint64(t.committedLogSize / cLogEntrySize)
+}
+
+func (t *TBtree) currentSnapshot() (*Snapshot, error) {
+	_, _, err := t.flushTree(true)
+	if err != nil {
+		return nil, err
+	}
+
+	return t.newSnapshot(0, t.root), nil
 }
 
 func (t *TBtree) Compact() (uint64, error) {
@@ -1046,32 +1046,33 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	snapshot, err := t.currentSnapshot()
-	if err != nil {
-		return 0, err
-	}
-
-	err = t.hLog.Sync()
+	snap, err := t.currentSnapshot()
 	if err != nil {
 		return 0, err
 	}
 
 	t.compacting = true
+	defer func() {
+		t.compacting = false
+	}()
 
+	// snapshot dumping without lock
 	t.rwmutex.Unlock()
-	err = t.fullDump(snapshot)
-	t.rwmutex.Lock()
+	defer t.rwmutex.Lock()
 
-	t.compacting = false
+	t.log.Infof("Dumping index '%s' {ts=%d}...", t.path, snap.Ts())
 
+	err = t.fullDump(snap)
 	if err != nil {
-		return 0, err
+		return 0, t.wrapNwarn("Dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
 	}
 
-	return snapshot.Ts(), nil
+	t.log.Infof("Index '%s' {ts=%d} successfully dumped", t.path, snap.Ts())
+
+	return snap.Ts(), nil
 }
 
-func (t *TBtree) fullDump(snapshot *Snapshot) error {
+func (t *TBtree) fullDump(snap *Snapshot) error {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
@@ -1084,7 +1085,7 @@ func (t *TBtree) fullDump(snapshot *Snapshot) error {
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")
-	nLogPath := filepath.Join(t.path, snapFolder(nodesFolderPrefix, snapshot.Ts()))
+	nLogPath := filepath.Join(t.path, snapFolder(nodesFolderPrefix, snap.Ts()))
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
 		return err
@@ -1094,7 +1095,7 @@ func (t *TBtree) fullDump(snapshot *Snapshot) error {
 	}()
 
 	appendableOpts.WithFileExt("ri")
-	cLogPath := filepath.Join(t.path, snapFolder(commitFolderPrefix, snapshot.Ts()))
+	cLogPath := filepath.Join(t.path, snapFolder(commitFolderPrefix, snap.Ts()))
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return err
@@ -1103,7 +1104,7 @@ func (t *TBtree) fullDump(snapshot *Snapshot) error {
 		cLog.Close()
 	}()
 
-	return t.fullDumpTo(snapshot, nLog, cLog)
+	return t.fullDumpTo(snap, nLog, cLog)
 }
 
 func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable) error {
@@ -1150,6 +1151,8 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 }
 
 func (t *TBtree) Close() error {
+	t.log.Infof("Closing index '%s' {ts=%d}...", t.path, t.root.ts())
+
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -1161,14 +1164,12 @@ func (t *TBtree) Close() error {
 		return ErrSnapshotsNotClosed
 	}
 
-	_, _, err := t.flushTree(true)
-	if err != nil {
-		return err
-	}
-
 	t.closed = true
 
 	merrors := multierr.NewMultiErr()
+
+	_, _, err := t.flushTree(true)
+	merrors.Append(err)
 
 	err = t.nLog.Close()
 	merrors.Append(err)
@@ -1179,7 +1180,13 @@ func (t *TBtree) Close() error {
 	err = t.cLog.Close()
 	merrors.Append(err)
 
-	return merrors.Reduce()
+	err = merrors.Reduce()
+	if err != nil {
+		return t.wrapNwarn("Closing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+	}
+
+	t.log.Infof("Index '%s' {ts=%d} successfully closed", t.path, t.root.ts())
+	return nil
 }
 
 type KV struct {
