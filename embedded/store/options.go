@@ -37,6 +37,9 @@ const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultTxLogCacheSize = 1000
 const DefaultMaxWaitees = 1000
+const DefaultVLogMaxOpenedFiles = 10
+const DefaultTxLogMaxOpenedFiles = 10
+const DefaultCommitLogMaxOpenedFiles = 10
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -108,9 +111,9 @@ func DefaultOptions() *Options {
 
 		TxLogCacheSize: DefaultTxLogCacheSize,
 
-		VLogMaxOpenedFiles:      10,
-		TxLogMaxOpenedFiles:     10,
-		CommitLogMaxOpenedFiles: 1,
+		VLogMaxOpenedFiles:      DefaultVLogMaxOpenedFiles,
+		TxLogMaxOpenedFiles:     DefaultTxLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles: DefaultCommitLogMaxOpenedFiles,
 
 		MaxWaitees: DefaultMaxWaitees,
 
@@ -136,7 +139,7 @@ func DefaultIndexOptions() *IndexOptions {
 		FlushThld:             tbtree.DefaultFlushThld,
 		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
 		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter:    time.Duration(1000) * time.Millisecond,
+		RenewSnapRootAfter:    tbtree.DefaultRenewSnapRootAfter,
 		CompactionThld:        tbtree.DefaultCompactionThld,
 		DelayDuringCompaction: 0,
 		Synced:                true,

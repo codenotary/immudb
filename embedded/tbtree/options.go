@@ -27,13 +27,14 @@ import (
 const DefaultMaxNodeSize = 4096
 const DefaultFlushThld = 100_000
 const DefaultSyncThld = 1_000_000
-const DefaultMaxActiveSnapshots = 100
+const DefaultMaxActiveSnapshots = 30
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxKeyLen = 1024
 const DefaultCompactionThld = 2
+const DefaultDelayDuringCompaction = time.Duration(0) * time.Millisecond
 
 const MinNodeSize = 128
 const MinCacheSize = 1
@@ -81,7 +82,7 @@ func DefaultOptions() *Options {
 		fileMode:              DefaultFileMode,
 		maxKeyLen:             DefaultMaxKeyLen,
 		compactionThld:        DefaultCompactionThld,
-		delayDuringCompaction: 0,
+		delayDuringCompaction: DefaultDelayDuringCompaction,
 
 		// options below are only set during initialization and stored as metadata
 		maxNodeSize: DefaultMaxNodeSize,
