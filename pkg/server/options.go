@@ -133,7 +133,8 @@ func (opts *Options) DefaultStoreOptions() *store.Options {
 		WithCompactionThld(0).
 		WithSynced(false).
 		WithSyncThld(tbtree.DefaultSyncThld).
-		WithDelayDuringCompaction(10 * time.Millisecond)
+		WithDelayDuringCompaction(10 * time.Millisecond).
+		WithMaxActiveSnapshots(100)
 
 	return store.DefaultOptions().
 		WithIndexOptions(indexOptions).
