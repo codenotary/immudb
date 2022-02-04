@@ -206,7 +206,6 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	//init follower server
 	replicationOpts := &server.ReplicationOptions{
-		MasterDatabase:   "defaultdb",
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       masterPort,
 		FollowerUsername: "immudb",

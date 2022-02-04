@@ -373,10 +373,17 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		panic("loadSystemDatabase should be called before any other database loading")
 	}
 
-	dbOpts := defaultDBOptions(s.Options.GetSystemAdminDBName())
+	dbOpts := s.defaultDBOptions(s.Options.GetSystemAdminDBName())
 
-	dbOpts.synced = s.Options.synced
-	dbOpts.Replica = s.Options.ReplicationOptions != nil
+	if dbOpts.Replica {
+		repOpts := s.Options.ReplicationOptions
+
+		dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb must have the same name as in master
+		dbOpts.MasterAddress = repOpts.MasterAddress
+		dbOpts.MasterPort = repOpts.MasterPort
+		dbOpts.FollowerUsername = repOpts.FollowerUsername
+		dbOpts.FollowerPassword = repOpts.FollowerPassword
+	}
 
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err := s.OS.Stat(systemDBRootDir)
@@ -386,11 +393,6 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
-		}
-
-		// replica of systemdb must have the same name as in master
-		if s.sysDB.IsReplica() {
-			s.Options.ReplicationOptions.MasterDatabase = s.sysDB.GetName()
 		}
 
 		if dbOpts.isReplicatorRequired() {
@@ -422,11 +424,6 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		s.Logger.Infof("Admin user '%s' successfully created", adminUsername)
 	}
 
-	// replica of systemdb must have the same name as in master
-	if s.sysDB.IsReplica() {
-		s.Options.ReplicationOptions.MasterDatabase = s.sysDB.GetName()
-	}
-
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(s.sysDB, dbOpts)
 		if err != nil {
@@ -443,10 +440,17 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		panic("loadDefaultDatabase should be called right after loading systemDatabase")
 	}
 
-	dbOpts := defaultDBOptions(s.Options.GetDefaultDBName())
+	dbOpts := s.defaultDBOptions(s.Options.GetDefaultDBName())
 
-	dbOpts.synced = s.Options.synced
-	dbOpts.Replica = s.Options.ReplicationOptions != nil
+	if dbOpts.Replica {
+		repOpts := s.Options.ReplicationOptions
+
+		dbOpts.MasterDatabase = dbOpts.Database // replica of defaultdb must have the same name as in master
+		dbOpts.MasterAddress = repOpts.MasterAddress
+		dbOpts.MasterPort = repOpts.MasterPort
+		dbOpts.FollowerUsername = repOpts.FollowerUsername
+		dbOpts.FollowerPassword = repOpts.FollowerPassword
+	}
 
 	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
 
@@ -457,11 +461,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
-		}
-
-		// replica of defaultdb must have the same name as in master
-		if db.IsReplica() {
-			s.Options.ReplicationOptions.MasterDatabase = db.GetName()
 		}
 
 		if dbOpts.isReplicatorRequired() {
@@ -483,11 +482,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 	db, err := database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
-	}
-
-	// replica of defaultdb must have the same name as in master
-	if db.IsReplica() {
-		s.Options.ReplicationOptions.MasterDatabase = db.GetName()
 	}
 
 	if dbOpts.isReplicatorRequired() {
@@ -778,9 +772,9 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, fmt.Errorf("database '%s' already exists", req.GetDatabaseName())
 	}
 
-	dbOpts := defaultDBOptions(req.DatabaseName)
+	dbOpts := s.defaultDBOptions(req.DatabaseName)
 
-	err = dbOpts.overwriteWith(req, false)
+	err = s.overwriteWith(dbOpts, req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -856,7 +850,7 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, err
 	}
 
-	err = dbOpts.overwriteWith(req, true)
+	err = s.overwriteWith(dbOpts, req, true)
 	if err != nil {
 		return nil, err
 	}

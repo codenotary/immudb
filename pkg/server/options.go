@@ -84,7 +84,6 @@ type RemoteStorageOptions struct {
 type ReplicationOptions struct {
 	MasterAddress    string
 	MasterPort       int
-	MasterDatabase   string
 	FollowerUsername string
 	FollowerPassword string
 }
@@ -439,11 +438,6 @@ func (opts *ReplicationOptions) WithMasterAddress(masterAddress string) *Replica
 
 func (opts *ReplicationOptions) WithMasterPort(masterPort int) *ReplicationOptions {
 	opts.MasterPort = masterPort
-	return opts
-}
-
-func (opts *ReplicationOptions) WithMasterDatabase(masterDatabase string) *ReplicationOptions {
-	opts.MasterDatabase = masterDatabase
 	return opts
 }
 
