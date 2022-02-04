@@ -76,11 +76,11 @@ type indexOptions struct {
 	DelayDuringCompaction int64 `json:"delayDuringCompaction"`
 }
 
-func defaultDBOptions(database string) *dbOptions {
+func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	return &dbOptions{
 		Database: database,
-		synced:   true,
-		Replica:  false,
+		synced:   s.Options.synced,
+		Replica:  s.Options.ReplicationOptions != nil,
 
 		FileSize:     store.DefaultFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -96,13 +96,13 @@ func defaultDBOptions(database string) *dbOptions {
 		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles: store.DefaultCommitLogMaxOpenedFiles,
 
-		IndexOptions: defaultIndexOptions(),
+		IndexOptions: s.defaultIndexOptions(),
 
 		CreatedAt: time.Now(),
 	}
 }
 
-func defaultIndexOptions() *indexOptions {
+func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 	return &indexOptions{
 		Synced:                false,
 		FlushThreshold:        tbtree.DefaultFlushThld,
@@ -168,7 +168,7 @@ var conditionalSet = func(condition bool, setter func()) {
 	}
 }
 
-func (opts *dbOptions) overwriteWith(settings *schema.DatabaseSettings, existentDB bool) error {
+func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettings, existentDB bool) error {
 	// replication options
 	if !settings.Replica &&
 		(settings.MasterDatabase != "" ||
@@ -221,7 +221,7 @@ func (opts *dbOptions) overwriteWith(settings *schema.DatabaseSettings, existent
 	// index options
 	if settings.IndexSettings != nil {
 		if opts.IndexOptions == nil {
-			opts.IndexOptions = defaultIndexOptions()
+			opts.IndexOptions = s.defaultIndexOptions()
 		}
 
 		opts.IndexOptions.Synced = settings.IndexSettings.Synced
@@ -286,7 +286,7 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 
 	e, err := s.sysDB.Get(&schema.KeyRequest{Key: optionsKey})
 	if err == store.ErrKeyNotFound && createIfNotExists {
-		options := defaultDBOptions(database)
+		options := s.defaultDBOptions(database)
 		err = s.saveDBOptions(options)
 		if err != nil {
 			return nil, err

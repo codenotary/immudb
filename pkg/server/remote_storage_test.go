@@ -302,7 +302,7 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	s := DefaultServer()
 	s.remoteStorage = memory.Open()
 
-	stOpts := s.databaseOptionsFrom(defaultDBOptions("testdb")).GetStoreOptions()
+	stOpts := s.databaseOptionsFrom(s.defaultDBOptions("testdb")).GetStoreOptions()
 
 	st, err := store.Open("data/testdb", stOpts)
 	require.NoError(t, err)
