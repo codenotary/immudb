@@ -34,7 +34,7 @@ const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxKeyLen = 1024
 const DefaultCompactionThld = 2
-const DefaultDelayDuringCompaction = time.Duration(0) * time.Millisecond
+const DefaultDelayDuringCompaction = time.Duration(10) * time.Millisecond
 
 const MinNodeSize = 128
 const MinCacheSize = 1

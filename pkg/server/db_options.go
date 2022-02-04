@@ -76,15 +76,18 @@ type indexOptions struct {
 	DelayDuringCompaction int64 `json:"delayDuringCompaction"`
 }
 
+const DefaultMaxValueLen = 1 << 25   //32Mb
+const DefaultStoreFileSize = 1 << 29 //512Mb
+
 func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	return &dbOptions{
 		Database: database,
 		synced:   s.Options.synced,
 		Replica:  s.Options.ReplicationOptions != nil,
 
-		FileSize:     store.DefaultFileSize,
+		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
-		MaxValueLen:  store.DefaultMaxValueLen,
+		MaxValueLen:  DefaultMaxValueLen,
 		MaxTxEntries: store.DefaultMaxTxEntries,
 
 		ExcludeCommitTime: false,

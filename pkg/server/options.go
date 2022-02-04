@@ -32,8 +32,6 @@ import (
 
 const SystemDBName = "systemdb"
 const DefaultDBName = "defaultdb"
-const DefaultMaxValueLen = 1 << 25   //32Mb
-const DefaultStoreFileSize = 1 << 29 //512Mb
 
 // Options server options list
 type Options struct {
