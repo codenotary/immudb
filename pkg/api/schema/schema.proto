@@ -366,17 +366,42 @@ message Database {
 
 message DatabaseSettings {
 	string databaseName = 1;
+
 	bool   replica = 2;
 	string masterDatabase = 3;
 	string masterAddress = 4;
 	uint32 masterPort = 5;
 	string followerUsername = 6;
 	string followerPassword = 7;
+
 	uint32 fileSize = 8;
 	uint32 maxKeyLen = 9;
 	uint32 maxValueLen = 10;
 	uint32 maxTxEntries = 11;
+
 	bool   excludeCommitTime = 12;
+
+	uint32 maxConcurrency = 13;
+	uint32 maxIOConcurrency = 14;
+
+	uint32 txLogCacheSize = 15;
+	uint32 vLogMaxOpenedFiles = 16;
+	uint32 txLogMaxOpenedFiles = 17;
+	uint32 commitLogMaxOpenedFiles = 18;
+
+	IndexSettings indexSettings = 19;
+}
+
+message IndexSettings {
+	bool 	synced = 1;
+	uint32	flushThreshold = 2;
+	uint32	syncThreshold = 3;
+	uint32	cacheSize = 4;
+	uint32	maxNodeSize = 5;
+	uint32	maxActiveSnapshots = 6;
+	uint64  renewSnapRootAfter = 7;
+	uint32	compactionThld = 8;
+	uint32	delayDuringCompaction = 9;
 }
 
 message Table {

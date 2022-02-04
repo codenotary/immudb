@@ -32,6 +32,7 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -216,7 +217,7 @@ func TestServerCreateDatabase(t *testing.T) {
 		MasterDatabase: "masterdb",
 	}
 	_, err = s.CreateDatabaseWith(ctx, dbSettings)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	newdb := &schema.Database{
 		DatabaseName: "lisbon",
@@ -364,12 +365,13 @@ func TestServerUpdateDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	newdb.Replica = false
+	newdb.MasterDatabase = ""
 	_, err = s.UpdateDatabase(ctx, newdb)
 	require.NoError(t, err)
 
-	settings, err := s.loadSettings("lisbon")
+	dbOpts, err := s.loadDBOptions("lisbon", false)
 	require.NoError(t, err)
-	require.Equal(t, false, settings.Replica)
+	require.Equal(t, false, dbOpts.Replica)
 }
 
 func TestServerLoaduserDatabase(t *testing.T) {
@@ -593,7 +595,7 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.CompactIndex(ctx, &emptypb.Empty{})
-	require.NoError(t, err)
+	require.ErrorIs(t, err, tbtree.ErrCompactionThresholdNotReached)
 
 	_, err = s.GetAll(ctx, nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
@@ -1443,7 +1445,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, errors.New("could not get loggedin user data"), err)
 
 	_, err = s.CreateDatabaseWith(userCtx, createDbReq)
-	require.Equal(t, errors.New("Logged In user does not have permissions for this operation"), err)
+	require.Equal(t, errors.New("logged In user does not have permissions for this operation"), err)
 
 	createDbReq.DatabaseName = SystemDBName
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)

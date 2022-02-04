@@ -27,7 +27,7 @@ import (
 const DefaultMaxNodeSize = 4096
 const DefaultFlushThld = 100_000
 const DefaultSyncThld = 1_000_000
-const DefaultMaxActiveSnapshots = 30
+const DefaultMaxActiveSnapshots = 100
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
