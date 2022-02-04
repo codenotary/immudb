@@ -22,11 +22,12 @@ import "github.com/codenotary/immudb/embedded/store"
 type Options struct {
 	dbName     string
 	dbRootPath string
-	storeOpts  *store.Options
 
-	corruptionChecker bool
+	storeOpts *store.Options
 
 	replica bool
+
+	corruptionChecker bool
 }
 
 // DefaultOption Initialise Db Optionts to default values

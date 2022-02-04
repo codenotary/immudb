@@ -17,7 +17,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -374,24 +373,18 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		panic("loadSystemDatabase should be called before any other database loading")
 	}
 
+	dbOpts := defaultDBOptions(s.Options.GetSystemAdminDBName())
+
+	dbOpts.synced = s.Options.synced
+	dbOpts.Replica = s.Options.ReplicationOptions != nil
+
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
-
-	// Do a copy of storeOpts to avoid modification of the original ones
-	storeOpts := s.storeOptionsForDB(s.Options.GetSystemAdminDBName(), remoteStorage, s.Options.DefaultStoreOptions()).
-		WithSynced(true)
-
-	op := database.DefaultOption().
-		WithDBName(s.Options.GetSystemAdminDBName()).
-		WithDBRootPath(dataDir).
-		WithStoreOptions(storeOpts).
-		AsReplica(s.Options.ReplicationOptions != nil)
-
 	_, err := s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(op, s.Logger)
+		s.sysDB, err = database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
-				"Use replication to recover from external source or start without data folder.", op.GetDBName())
+				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
 		}
 
@@ -400,8 +393,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 			s.Options.ReplicationOptions.MasterDatabase = s.sysDB.GetName()
 		}
 
-		if replicatorRequired(s.Options.ReplicationOptions) {
-			err = s.startReplicationFor(s.sysDB, s.Options.ReplicationOptions)
+		if dbOpts.isReplicatorRequired() {
+			err = s.startReplicationFor(s.sysDB, dbOpts)
 			if err != nil {
 				s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", s.sysDB.GetName(), err)
 			}
@@ -414,7 +407,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(op, s.Logger)
+	s.sysDB, err = database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -434,8 +427,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		s.Options.ReplicationOptions.MasterDatabase = s.sysDB.GetName()
 	}
 
-	if replicatorRequired(s.Options.ReplicationOptions) {
-		err = s.startReplicationFor(s.sysDB, s.Options.ReplicationOptions)
+	if dbOpts.isReplicatorRequired() {
+		err = s.startReplicationFor(s.sysDB, dbOpts)
 		if err != nil {
 			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", s.sysDB.GetName(), err)
 		}
@@ -450,20 +443,19 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		panic("loadDefaultDatabase should be called right after loading systemDatabase")
 	}
 
-	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
+	dbOpts := defaultDBOptions(s.Options.GetDefaultDBName())
 
-	op := database.DefaultOption().
-		WithDBName(s.Options.GetDefaultDBName()).
-		WithDBRootPath(dataDir).
-		WithStoreOptions(s.storeOptionsForDB(s.Options.GetDefaultDBName(), remoteStorage, s.Options.DefaultStoreOptions())).
-		AsReplica(s.Options.ReplicationOptions != nil)
+	dbOpts.synced = s.Options.synced
+	dbOpts.Replica = s.Options.ReplicationOptions != nil
+
+	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
 
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
-		db, err := database.OpenDB(op, s.Logger)
+		db, err := database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
-				"Use replication to recover from external source or start without data folder.", op.GetDBName())
+				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
 		}
 
@@ -472,8 +464,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 			s.Options.ReplicationOptions.MasterDatabase = db.GetName()
 		}
 
-		if replicatorRequired(s.Options.ReplicationOptions) {
-			err = s.startReplicationFor(db, s.Options.ReplicationOptions)
+		if dbOpts.isReplicatorRequired() {
+			err = s.startReplicationFor(db, dbOpts)
 			if err != nil {
 				s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 			}
@@ -488,7 +480,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		return err
 	}
 
-	db, err := database.NewDB(op, s.Logger)
+	db, err := database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -498,8 +490,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		s.Options.ReplicationOptions.MasterDatabase = db.GetName()
 	}
 
-	if replicatorRequired(s.Options.ReplicationOptions) {
-		err = s.startReplicationFor(db, s.Options.ReplicationOptions)
+	if dbOpts.isReplicatorRequired() {
+		err = s.startReplicationFor(db, dbOpts)
 		if err != nil {
 			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 		}
@@ -536,45 +528,20 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		pathparts := strings.Split(val, string(filepath.Separator))
 		dbname := pathparts[len(pathparts)-1]
 
-		settings, err := s.loadSettings(dbname)
+		dbOpts, err := s.loadDBOptions(dbname, true)
 		if err != nil {
-			if err != store.ErrKeyNotFound {
-				return err
-			}
-
-			settings = &dbSettings{
-				Database:  dbname,
-				Replica:   false,
-				UpdatedAt: time.Now(),
-			}
-
-			err = s.saveSettings(settings)
-			if err != nil {
-				return err
-			}
+			return err
 		}
 
-		op := database.DefaultOption().
-			WithDBName(dbname).
-			WithDBRootPath(dataDir).
-			WithStoreOptions(s.storeOptionsForDB(dbname, remoteStorage, s.Options.DefaultStoreOptions())).
-			AsReplica(settings.Replica)
-
-		if settings.ExcludeCommitTime {
-			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
-		} else {
-			op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
-		}
-
-		db, err := database.OpenDB(op, s.Logger)
+		db, err := database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
 		}
 
-		replicationOptions := replicationOptionsFrom(settings)
+		db.AsReplica(dbOpts.Replica)
 
-		if replicatorRequired(replicationOptions) {
-			err = s.startReplicationFor(db, replicationOptions)
+		if dbOpts.isReplicatorRequired() {
+			err = s.startReplicationFor(db, dbOpts)
 			if err != nil {
 				s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 			}
@@ -594,16 +561,20 @@ func (s *ImmuServer) replicationInProgressFor(db string) bool {
 	return ok
 }
 
-func (s *ImmuServer) startReplicationFor(db database.DB, replicationOptions *ReplicationOptions) error {
+func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) error {
+	if !dbOpts.isReplicatorRequired() {
+		return ErrReplicatorNotNeeded
+	}
+
 	s.replicationMutex.Lock()
 	defer s.replicationMutex.Unlock()
 
 	replicatorOpts := replication.DefaultOptions().
-		WithMasterDatabase(replicationOptions.MasterDatabase).
-		WithMasterAddress(replicationOptions.MasterAddress).
-		WithMasterPort(replicationOptions.MasterPort).
-		WithFollowerUsername(replicationOptions.FollowerUsername).
-		WithFollowerPassword(replicationOptions.FollowerPassword).
+		WithMasterDatabase(dbOpts.MasterDatabase).
+		WithMasterAddress(dbOpts.MasterAddress).
+		WithMasterPort(dbOpts.MasterPort).
+		WithFollowerUsername(dbOpts.FollowerUsername).
+		WithFollowerPassword(dbOpts.FollowerPassword).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
 	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
@@ -764,12 +735,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
 }
 
-var conditionalSet = func(condition bool, setter func()) {
-	if condition {
-		setter()
-	}
-}
-
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
@@ -792,7 +757,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	}
 
 	if !user.IsSysAdmin {
-		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
+		return nil, fmt.Errorf("logged In user does not have permissions for this operation")
 	}
 
 	if req.DatabaseName == SystemDBName {
@@ -813,55 +778,19 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, fmt.Errorf("database '%s' already exists", req.GetDatabaseName())
 	}
 
-	if !req.Replica &&
-		(req.MasterDatabase != "" ||
-			req.MasterAddress != "" ||
-			req.MasterPort > 0 ||
-			req.FollowerUsername != "" ||
-			req.FollowerPassword != "") {
-		return nil, ErrIllegalArguments
-	}
+	dbOpts := defaultDBOptions(req.DatabaseName)
 
-	settings := &dbSettings{
-		Database:          req.DatabaseName,
-		Replica:           req.Replica,
-		MasterDatabase:    req.MasterDatabase,
-		MasterAddress:     req.MasterAddress,
-		MasterPort:        int(req.MasterPort),
-		FollowerUsername:  req.FollowerUsername,
-		FollowerPassword:  req.FollowerPassword,
-		ExcludeCommitTime: req.ExcludeCommitTime,
-		CreatedBy:         user.Username,
-		CreatedAt:         time.Now(),
-	}
-
-	err = s.saveSettings(settings)
+	err = dbOpts.overwriteWith(req, false)
 	if err != nil {
 		return nil, err
 	}
 
-	dataDir := s.Options.Dir
-
-	stOpts := s.Options.DefaultStoreOptions()
-
-	conditionalSet(req.FileSize > 0, func() { stOpts.WithFileSize(int(req.FileSize)) })
-	conditionalSet(req.MaxKeyLen > 0, func() { stOpts.WithMaxKeyLen(int(req.MaxKeyLen)) })
-	conditionalSet(req.MaxValueLen > 0, func() { stOpts.WithMaxValueLen(int(req.MaxValueLen)) })
-	conditionalSet(req.MaxTxEntries > 0, func() { stOpts.WithMaxTxEntries(int(req.MaxTxEntries)) })
-
-	op := database.DefaultOption().
-		WithDBName(req.DatabaseName).
-		WithDBRootPath(dataDir).
-		WithStoreOptions(s.storeOptionsForDB(req.DatabaseName, s.remoteStorage, stOpts)).
-		AsReplica(settings.Replica)
-
-	if req.ExcludeCommitTime {
-		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
-	} else {
-		op.GetStoreOptions().WithTimeFunc(func() time.Time { return time.Now() })
+	err = s.saveDBOptions(dbOpts)
+	if err != nil {
+		return nil, err
 	}
 
-	db, err := database.NewDB(op, s.Logger)
+	db, err := database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -869,13 +798,11 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	s.dbList.Append(db)
 	s.multidbmode = true
 
-	replicationOptions := replicationOptionsFrom(settings)
+	db.AsReplica(dbOpts.Replica)
 
-	if replicatorRequired(replicationOptions) {
-		err = s.startReplicationFor(db, replicationOptions)
-		if err != nil {
-			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
-		}
+	err = s.startReplicationFor(db, dbOpts)
+	if err != nil && err != ErrReplicatorNotNeeded {
+		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 	}
 
 	return &empty.Empty{}, nil
@@ -917,74 +844,40 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, fmt.Errorf("you do not have permission on this database")
 	}
 
-	s.Logger.Infof("Updating settings of database '%s'...", db.GetName())
+	s.Logger.Infof("Updating database '%s'...", db.GetName())
 
 	err = s.stopReplicationFor(req.DatabaseName)
 	if err != nil && err != ErrReplicationNotInProgress {
 		s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.DatabaseName, err)
 	}
 
-	settings, err := s.loadSettings(req.DatabaseName)
-	if err != nil {
-		return nil, ErrEmptyAdminPassword
-	}
-
-	settings.Replica = req.Replica
-	settings.MasterDatabase = req.MasterDatabase
-	settings.MasterAddress = req.MasterAddress
-	settings.MasterPort = int(req.MasterPort)
-	settings.FollowerUsername = req.FollowerUsername
-	settings.FollowerPassword = req.FollowerPassword
-	settings.ExcludeCommitTime = req.ExcludeCommitTime
-	settings.UpdatedBy = user.Username
-	settings.UpdatedAt = time.Now()
-
-	err = s.saveSettings(settings)
+	dbOpts, err := s.loadDBOptions(req.DatabaseName, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if settings.ExcludeCommitTime {
-		db.UseTimeFunc(func() time.Time { return time.Unix(0, 0) })
-	} else {
-		db.UseTimeFunc(func() time.Time { return time.Now() })
+	err = dbOpts.overwriteWith(req, true)
+	if err != nil {
+		return nil, err
 	}
 
-	db.AsReplica(settings.Replica)
+	dbOpts.UpdatedBy = user.Username
 
-	replicationOptions := replicationOptionsFrom(settings)
+	err = s.saveDBOptions(dbOpts)
+	if err != nil {
+		return nil, err
+	}
 
-	if replicatorRequired(replicationOptions) {
-		err = s.startReplicationFor(db, replicationOptions)
-		if err != nil {
-			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
-		}
+	db.AsReplica(dbOpts.Replica)
+
+	err = s.startReplicationFor(db, dbOpts)
+	if err != nil && err != ErrReplicatorNotNeeded {
+		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 	}
 
 	s.Logger.Infof("Database '%s' successfully updated", db.GetName())
 
 	return &empty.Empty{}, nil
-}
-
-func replicationOptionsFrom(settings *dbSettings) *ReplicationOptions {
-	if settings == nil {
-		return nil
-	}
-
-	return &ReplicationOptions{
-		MasterDatabase:   settings.MasterDatabase,
-		MasterAddress:    settings.MasterAddress,
-		MasterPort:       settings.MasterPort,
-		FollowerUsername: settings.FollowerUsername,
-		FollowerPassword: settings.FollowerPassword,
-	}
-}
-
-func replicatorRequired(replicationOptions *ReplicationOptions) bool {
-	return replicationOptions != nil &&
-		replicationOptions.MasterDatabase != "" &&
-		replicationOptions.MasterAddress != "" &&
-		replicationOptions.MasterPort > 0
 }
 
 //DatabaseList returns a list of databases based on the requesting user permissins
@@ -1148,57 +1041,6 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 	}
 
 	return db, nil
-}
-
-type dbSettings struct {
-	Database          string    `json:"database"`
-	ExcludeCommitTime bool      `json:"excludeCommitTime"`
-	Replica           bool      `json:"replica"`
-	MasterDatabase    string    `json:"masterDatabase"`
-	MasterAddress     string    `json:"masterAddress"`
-	MasterPort        int       `json:"masterPort"`
-	FollowerUsername  string    `json:"followerUsername"`
-	FollowerPassword  string    `json:"followerPassword"`
-	CreatedBy         string    `json:"createdBy"`
-	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedBy         string    `json:"updatedBy"`
-	UpdatedAt         time.Time `json:"updatedAt"`
-}
-
-func (s *ImmuServer) loadSettings(database string) (*dbSettings, error) {
-	settingsKey := make([]byte, 1+len(database))
-	settingsKey[0] = KeyPrefixDBSettings
-	copy(settingsKey[1:], []byte(database))
-
-	e, err := s.sysDB.Get(&schema.KeyRequest{Key: settingsKey})
-	if err != nil {
-		return nil, err
-	}
-
-	var settings *dbSettings
-
-	err = json.Unmarshal(e.Value, &settings)
-	if err != nil {
-		return nil, err
-	}
-
-	return settings, nil
-}
-
-func (s *ImmuServer) saveSettings(settings *dbSettings) error {
-	settingsData, err := json.Marshal(settings)
-	if err != nil {
-		return err
-	}
-
-	settingsKey := make([]byte, 1+len(settings.Database))
-	settingsKey[0] = KeyPrefixDBSettings
-	copy(settingsKey[1:], []byte(settings.Database))
-
-	settingsKV := &schema.KeyValue{Key: settingsKey, Value: settingsData}
-	_, err = s.sysDB.Set(&schema.SetRequest{KVs: []*schema.KeyValue{settingsKV}})
-
-	return err
 }
 
 // isValidDBName checks if the provided database name meets the requirements

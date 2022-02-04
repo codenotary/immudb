@@ -22,14 +22,11 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
@@ -125,27 +122,6 @@ func DefaultOptions() *Options {
 		PgsqlServerPort:      5432,
 		SessionsOptions:      sessions.DefaultOptions(),
 	}
-}
-
-func (opts *Options) DefaultStoreOptions() *store.Options {
-	indexOptions := store.DefaultIndexOptions().
-		WithRenewSnapRootAfter(0).
-		WithCompactionThld(0).
-		WithSynced(false).
-		WithSyncThld(tbtree.DefaultSyncThld).
-		WithDelayDuringCompaction(10 * time.Millisecond).
-		WithMaxActiveSnapshots(100)
-
-	return store.DefaultOptions().
-		WithIndexOptions(indexOptions).
-		WithMaxLinearProofLen(0).
-		WithMaxConcurrency(30).
-		WithMaxIOConcurrency(1).
-		WithFileSize(DefaultStoreFileSize).
-		WithMaxKeyLen(store.DefaultMaxKeyLen).
-		WithMaxValueLen(DefaultMaxValueLen).
-		WithMaxTxEntries(store.DefaultMaxTxEntries).
-		WithSynced(opts.synced)
 }
 
 func DefaultRemoteStorageOptions() *RemoteStorageOptions {

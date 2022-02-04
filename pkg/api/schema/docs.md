@@ -29,6 +29,7 @@
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
+    - [IndexSettings](#immudb.schema.IndexSettings)
     - [KVMetadata](#immudb.schema.KVMetadata)
     - [Key](#immudb.schema.Key)
     - [KeyListRequest](#immudb.schema.KeyListRequest)
@@ -92,12 +93,12 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
     - [TxMode](#immudb.schema.TxMode)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -308,6 +309,13 @@
 | maxValueLen | [uint32](#uint32) |  |  |
 | maxTxEntries | [uint32](#uint32) |  |  |
 | excludeCommitTime | [bool](#bool) |  |  |
+| maxConcurrency | [uint32](#uint32) |  |  |
+| maxIOConcurrency | [uint32](#uint32) |  |  |
+| txLogCacheSize | [uint32](#uint32) |  |  |
+| vLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| txLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
 
 
 
@@ -528,6 +536,29 @@
 | leaf | [int32](#int32) |  |  |
 | width | [int32](#int32) |  |  |
 | terms | [bytes](#bytes) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.IndexSettings"></a>
+
+### IndexSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| synced | [bool](#bool) |  |  |
+| flushThreshold | [uint32](#uint32) |  |  |
+| syncThreshold | [uint32](#uint32) |  |  |
+| cacheSize | [uint32](#uint32) |  |  |
+| maxNodeSize | [uint32](#uint32) |  |  |
+| maxActiveSnapshots | [uint32](#uint32) |  |  |
+| renewSnapRootAfter | [uint64](#uint64) |  |  |
+| compactionThld | [uint32](#uint32) |  |  |
+| delayDuringCompaction | [uint32](#uint32) |  |  |
 
 
 
@@ -1584,7 +1615,7 @@
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1611,9 +1642,9 @@
 | ReadWrite | 2 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1683,7 +1714,7 @@ immudb gRPC &amp; REST service
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
-
+ 
 
 
 
@@ -1706,3 +1737,4 @@ immudb gRPC &amp; REST service
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+

@@ -41,6 +41,7 @@ var (
 	ErrNotSupported                = errors.New("operation not supported")
 	ErrNotLoggedIn                 = auth.ErrNotLoggedIn
 	ErrReplicationInProgress       = errors.New("replication already in progress")
+	ErrReplicatorNotNeeded         = errors.New("replicator is not needed")
 	ErrReplicationNotInProgress    = errors.New("replication is not in progress")
 	ErrSessionAlreadyPresent       = errors.New("session already present").WithCode(errors.CodInternalError)
 	ErrSessionNotFound             = errors.New("session not found").WithCode(errors.CodSqlserverRejectedEstablishmentOfSqlSession)

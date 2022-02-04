@@ -1453,6 +1453,33 @@
         },
         "excludeCommitTime": {
           "type": "boolean"
+        },
+        "maxConcurrency": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxIOConcurrency": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "txLogCacheSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "vLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "txLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "commitLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "indexSettings": {
+          "$ref": "#/definitions/schemaIndexSettings"
         }
       }
     },
@@ -1654,6 +1681,46 @@
             "type": "string",
             "format": "byte"
           }
+        }
+      }
+    },
+    "schemaIndexSettings": {
+      "type": "object",
+      "properties": {
+        "synced": {
+          "type": "boolean"
+        },
+        "flushThreshold": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "syncThreshold": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "cacheSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxNodeSize": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "maxActiveSnapshots": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "renewSnapRootAfter": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "compactionThld": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "delayDuringCompaction": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
