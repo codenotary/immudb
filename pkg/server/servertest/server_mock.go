@@ -264,7 +264,7 @@ func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.Database) (
 	return s.Srv.CreateDatabase(ctx, req)
 }
 
-func (s *ServerMock) CreateDatabaseWith(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
+func (s *ServerMock) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	return s.Srv.CreateDatabaseWith(ctx, req)
 }
 
@@ -276,12 +276,12 @@ func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 	return s.Srv.UseDatabase(ctx, req)
 }
 
-func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
+func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	return s.Srv.UpdateDatabase(ctx, req)
 }
 
-func (s *ServerMock) DatabaseSettings(ctx context.Context, req *schema.Database) (*schema.DBSettings, error) {
-	return s.Srv.DatabaseSettings(ctx, req)
+func (s *ServerMock) GetDatabaseSettings(ctx context.Context, req *empty.Empty) (*schema.DatabaseSettings, error) {
+	return s.Srv.GetDatabaseSettings(ctx, req)
 }
 
 func (s *ServerMock) CompactIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {

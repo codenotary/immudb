@@ -145,7 +145,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDBSettings"
+              "$ref": "#/definitions/schemaDatabaseSettings"
             }
           }
         ],
@@ -457,12 +457,12 @@
     },
     "/db/settings": {
       "post": {
-        "operationId": "ImmuService_DatabaseSettings",
+        "operationId": "ImmuService_GetDatabaseSettings",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaDBSettings"
+              "$ref": "#/definitions/schemaDatabaseSettings"
             }
           },
           "default": {
@@ -478,7 +478,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDatabase"
+              "properties": {}
             }
           }
         ],
@@ -714,7 +714,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDBSettings"
+              "$ref": "#/definitions/schemaDatabaseSettings"
             }
           }
         ],
@@ -1423,7 +1423,26 @@
         }
       }
     },
-    "schemaDBSettings": {
+    "schemaDatabase": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaDatabaseListResponse": {
+      "type": "object",
+      "properties": {
+        "databases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaDatabase"
+          }
+        }
+      }
+    },
+    "schemaDatabaseSettings": {
       "type": "object",
       "properties": {
         "databaseName": {
@@ -1493,25 +1512,6 @@
         },
         "indexSettings": {
           "$ref": "#/definitions/schemaIndexSettings"
-        }
-      }
-    },
-    "schemaDatabase": {
-      "type": "object",
-      "properties": {
-        "databaseName": {
-          "type": "string"
-        }
-      }
-    },
-    "schemaDatabaseListResponse": {
-      "type": "object",
-      "properties": {
-        "databases": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaDatabase"
-          }
         }
       }
     },

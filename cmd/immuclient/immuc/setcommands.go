@@ -240,7 +240,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	dbname := args[0]
 	ctx := context.Background()
 	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return nil, immuClient.CreateDatabase(ctx, &schema.DBSettings{
+		return nil, immuClient.CreateDatabase(ctx, &schema.DatabaseSettings{
 			DatabaseName: string(dbname),
 		})
 	}); err != nil {

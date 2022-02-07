@@ -360,7 +360,7 @@ func (cl *commandlineHotBck) hotRestore(cmd *cobra.Command) {
 			}
 			if params.replica {
 				defer func() {
-					err = cl.immuClient.UpdateDatabase(cl.context, &schema.DBSettings{DatabaseName: args[0], Replica: false})
+					err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: args[0], Replica: false})
 					if err != nil {
 						fmt.Fprintf(cl.cmd.ErrOrStderr(), "Error switching off replica mode for db: %v", err)
 					}
@@ -509,7 +509,7 @@ func (cl *commandlineHotBck) useDb(name string, replica bool) (uint64, []byte, e
 	cl.context = metadata.NewOutgoingContext(cl.context, metadata.Pairs("authorization", udr.GetToken()))
 
 	if replica {
-		err = cl.immuClient.UpdateDatabase(cl.context, &schema.DBSettings{DatabaseName: name, Replica: true})
+		err = cl.immuClient.UpdateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true})
 		if err != nil {
 			return 0, nil, fmt.Errorf("cannot switch on replica mode for db: %v", err)
 		}
@@ -530,7 +530,7 @@ func (cl *commandlineHotBck) useDb(name string, replica bool) (uint64, []byte, e
 }
 
 func (cl *commandlineHotBck) createDb(name string) error {
-	err := cl.immuClient.CreateDatabase(cl.context, &schema.DBSettings{DatabaseName: name, Replica: true, MasterDatabase: "dummy"})
+	err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true, MasterDatabase: "dummy"})
 	if err != nil {
 		return err
 	}

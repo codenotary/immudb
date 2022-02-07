@@ -211,7 +211,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	_, err = s.CreateDatabase(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	dbSettings := &schema.DBSettings{
+	dbSettings := &schema.DatabaseSettings{
 		DatabaseName:   "lisbon",
 		Replica:        false,
 		MasterDatabase: "masterdb",
@@ -242,7 +242,7 @@ func TestServerCreateDatabaseCaseError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Login error %v", err)
 	}
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: "MyDatabase",
 	}
 	md := metadata.Pairs("authorization", lr.Token)
@@ -275,7 +275,7 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		dbname := fmt.Sprintf("db%d", i)
 
-		db := &schema.DBSettings{
+		db := &schema.DatabaseSettings{
 			DatabaseName: dbname,
 		}
 		_, err = s.CreateDatabaseWith(ctx, db)
@@ -323,7 +323,7 @@ func TestServerUpdateDatabase(t *testing.T) {
 
 	s.Initialize()
 
-	_, err := s.UpdateDatabase(ctx, &schema.DBSettings{})
+	_, err := s.UpdateDatabase(ctx, &schema.DatabaseSettings{})
 	require.Equal(t, ErrAuthMustBeEnabled, err)
 
 	s = DefaultServer().WithOptions(serverOptions.WithAuth(true)).(*ImmuServer)
@@ -344,19 +344,19 @@ func TestServerUpdateDatabase(t *testing.T) {
 	_, err = s.UpdateDatabase(ctx, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	dbSettings := &schema.DBSettings{
+	dbSettings := &schema.DatabaseSettings{
 		DatabaseName: serverOptions.defaultDBName,
 	}
 	_, err = s.UpdateDatabase(ctx, dbSettings)
 	require.Equal(t, ErrReservedDatabase, err)
 
-	dbSettings = &schema.DBSettings{
+	dbSettings = &schema.DatabaseSettings{
 		DatabaseName: fmt.Sprintf("nodb%v", time.Now()),
 	}
 	_, err = s.UpdateDatabase(ctx, dbSettings)
 	require.Equal(t, database.ErrDatabaseNotExists, err)
 
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName:   "lisbon",
 		Replica:        true,
 		MasterDatabase: "defaultdb",
@@ -394,7 +394,7 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
@@ -1006,7 +1006,7 @@ func TestServerDbOperations(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 		FileSize:     1 << 20,
 	}
@@ -1324,7 +1324,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 
 	someDb1 := "somedatabase1"
-	_, err = s.CreateDatabaseWith(adminCtx, &schema.DBSettings{DatabaseName: someDb1})
+	_, err = s.CreateDatabaseWith(adminCtx, &schema.DatabaseSettings{DatabaseName: someDb1})
 	require.NoError(t, err)
 
 	_, err = s.UseDatabase(userCtx, &schema.Database{DatabaseName: someDb1})
@@ -1432,7 +1432,7 @@ func TestServerErrors(t *testing.T) {
 
 	// CreateDatabase errors
 	someDb2 := "somedatabase2"
-	createDbReq := &schema.DBSettings{DatabaseName: someDb2}
+	createDbReq := &schema.DatabaseSettings{DatabaseName: someDb2}
 	s.Options.auth = false
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
@@ -1712,10 +1712,10 @@ func TestServerMaintenanceMode(t *testing.T) {
 	_, err = s.SetActiveUser(context.Background(), nil)
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
-	_, err = s.CreateDatabaseWith(context.Background(), &schema.DBSettings{})
+	_, err = s.CreateDatabaseWith(context.Background(), &schema.DatabaseSettings{})
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
-	_, err = s.UpdateDatabase(context.Background(), &schema.DBSettings{})
+	_, err = s.UpdateDatabase(context.Background(), &schema.DatabaseSettings{})
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 
 	_, err = s.Set(context.Background(), nil)

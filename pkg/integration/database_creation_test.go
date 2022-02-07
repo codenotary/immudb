@@ -44,7 +44,7 @@ func TestCreateDatabase(t *testing.T) {
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
-	dbSettings := &schema.DBSettings{
+	dbSettings := &schema.DatabaseSettings{
 		DatabaseName:            "db1",
 		Replica:                 false,
 		FileSize:                1 << 20,
@@ -73,7 +73,10 @@ func TestCreateDatabase(t *testing.T) {
 	err = client.CreateDatabase(context.Background(), dbSettings)
 	require.NoError(t, err)
 
-	settings, err := client.DatabaseSettings(context.Background(), &schema.Database{DatabaseName: "db1"})
+	_, err = client.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db1"})
+	require.NoError(t, err)
+
+	settings, err := client.GetDatabaseSettings(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, dbSettings.DatabaseName, settings.DatabaseName)
 	require.Equal(t, dbSettings.Replica, settings.Replica)
