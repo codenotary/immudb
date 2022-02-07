@@ -13,9 +13,9 @@
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
+    - [DBSettings](#immudb.schema.DBSettings)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
-    - [DatabaseSettings](#immudb.schema.DatabaseSettings)
     - [DebugInfo](#immudb.schema.DebugInfo)
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
@@ -259,39 +259,9 @@
 
 
 
-<a name="immudb.schema.Database"></a>
+<a name="immudb.schema.DBSettings"></a>
 
-### Database
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| databaseName | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.DatabaseListResponse"></a>
-
-### DatabaseListResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| databases | [Database](#immudb.schema.Database) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.DatabaseSettings"></a>
-
-### DatabaseSettings
+### DBSettings
 
 
 
@@ -316,6 +286,36 @@
 | txLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Database"></a>
+
+### Database
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| databaseName | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DatabaseListResponse"></a>
+
+### DatabaseListResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| databases | [Database](#immudb.schema.Database) | repeated |  |
 
 
 
@@ -1691,10 +1691,11 @@ immudb gRPC &amp; REST service
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZEntries](#immudb.schema.ZEntries) |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: kept for backward compatibility |
-| CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CreateDatabaseWith | [DBSettings](#immudb.schema.DBSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
-| UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| UpdateDatabase | [DBSettings](#immudb.schema.DBSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| DatabaseSettings | [Database](#immudb.schema.Database) | [DBSettings](#immudb.schema.DBSettings) |  |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

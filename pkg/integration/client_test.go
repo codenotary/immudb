@@ -428,7 +428,7 @@ func TestReplica(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+	err = client.CreateDatabase(ctx, &schema.DBSettings{
 		DatabaseName:   "db1",
 		Replica:        true,
 		MasterDatabase: "defaultdb",
@@ -441,7 +441,7 @@ func TestReplica(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Token)
 
-	err = client.UpdateDatabase(ctx, &schema.DatabaseSettings{
+	err = client.UpdateDatabase(ctx, &schema.DBSettings{
 		DatabaseName: "db1",
 		Replica:      true,
 	})
@@ -476,7 +476,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+	err = client.CreateDatabase(ctx, &schema.DBSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
@@ -493,7 +493,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
 	require.NoError(t, err)
 
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+	err = client.CreateDatabase(ctx, &schema.DBSettings{
 		DatabaseName: "db2",
 	})
 	require.NoError(t, err)
@@ -533,7 +533,7 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 	_, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
-	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+	err = client.CreateDatabase(context.TODO(), &schema.DBSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
@@ -547,7 +547,7 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 	_, err = client.VerifiedSet(context.TODO(), []byte(`db1-my`), []byte(`item`))
 	require.NoError(t, err)
 
-	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+	err = client.CreateDatabase(context.TODO(), &schema.DBSettings{
 		DatabaseName: "db2",
 	})
 	require.NoError(t, err)
@@ -750,7 +750,7 @@ func TestUserManagement(t *testing.T) {
 		userPassword    = "1Password!*"
 		userNewPassword = "2Password!*"
 		testDBName      = "test"
-		testDB          = &schema.DatabaseSettings{DatabaseName: testDBName}
+		testDB          = &schema.DBSettings{DatabaseName: testDBName}
 		err             error
 		usrList         *schema.UserList
 		immudbUser      *schema.User
@@ -866,7 +866,7 @@ func TestDatabaseManagement(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	err1 := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: "test"})
+	err1 := client.CreateDatabase(ctx, &schema.DBSettings{DatabaseName: "test"})
 	require.Nil(t, err1)
 
 	resp2, err2 := client.DatabaseList(ctx)
@@ -1470,7 +1470,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		testUserContext = context.TODO()
 	)
 	// step 1: create test database
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
+	err = client.CreateDatabase(ctx, &schema.DBSettings{DatabaseName: testDBName})
 	require.Nil(t, err)
 
 	// step 2: create test user with read write permissions to the test db

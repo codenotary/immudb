@@ -71,9 +71,9 @@ type indexOptions struct {
 	CacheSize             int   `json:"cacheSize"`
 	MaxNodeSize           int   `json:"maxNodeSize"` // permanent
 	MaxActiveSnapshots    int   `json:"maxActiveSnapshots"`
-	RenewSnapRootAfter    int64 `json:"renewSnapRootAfter"`
+	RenewSnapRootAfter    int64 `json:"renewSnapRootAfter"` // ms
 	CompactionThld        int   `json:"compactionThld"`
-	DelayDuringCompaction int64 `json:"delayDuringCompaction"`
+	DelayDuringCompaction int64 `json:"delayDuringCompaction"` // ms
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
@@ -154,6 +154,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithVLogMaxOpenedFiles(opts.VLogMaxOpenedFiles).
 		WithTxLogMaxOpenedFiles(opts.TxLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.CommitLogMaxOpenedFiles).
+		WithMaxLinearProofLen(0). // fixed no limitation, it may be customized in the future
 		WithIndexOptions(indexOpts)
 
 	if opts.ExcludeCommitTime {
@@ -165,13 +166,53 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	return stOpts
 }
 
+func (opts *dbOptions) databaseSettings() *schema.DBSettings {
+	return &schema.DBSettings{
+		DatabaseName: opts.Database,
+
+		Replica:          opts.Replica,
+		MasterDatabase:   opts.MasterDatabase,
+		MasterAddress:    opts.MasterAddress,
+		MasterPort:       uint32(opts.MasterPort),
+		FollowerUsername: opts.FollowerUsername,
+		FollowerPassword: opts.FollowerPassword,
+
+		FileSize:     uint32(opts.FileSize),
+		MaxKeyLen:    uint32(opts.MaxKeyLen),
+		MaxValueLen:  uint32(opts.MaxValueLen),
+		MaxTxEntries: uint32(opts.MaxTxEntries),
+
+		ExcludeCommitTime: opts.ExcludeCommitTime,
+
+		MaxConcurrency:   uint32(opts.MaxConcurrency),
+		MaxIOConcurrency: uint32(opts.MaxIOConcurrency),
+
+		TxLogCacheSize:          uint32(opts.TxLogCacheSize),
+		VLogMaxOpenedFiles:      uint32(opts.VLogMaxOpenedFiles),
+		TxLogMaxOpenedFiles:     uint32(opts.TxLogMaxOpenedFiles),
+		CommitLogMaxOpenedFiles: uint32(opts.CommitLogMaxOpenedFiles),
+
+		IndexSettings: &schema.IndexSettings{
+			Synced:                opts.IndexOptions.Synced,
+			FlushThreshold:        uint32(opts.IndexOptions.FlushThreshold),
+			SyncThreshold:         uint32(opts.IndexOptions.SyncThreshold),
+			CacheSize:             uint32(opts.IndexOptions.CacheSize),
+			MaxNodeSize:           uint32(opts.IndexOptions.MaxNodeSize),
+			MaxActiveSnapshots:    uint32(opts.IndexOptions.MaxActiveSnapshots),
+			RenewSnapRootAfter:    uint64(opts.IndexOptions.RenewSnapRootAfter),
+			CompactionThld:        uint32(opts.IndexOptions.CompactionThld),
+			DelayDuringCompaction: uint32(opts.IndexOptions.DelayDuringCompaction),
+		},
+	}
+}
+
 var conditionalSet = func(condition bool, setter func()) {
 	if condition {
 		setter()
 	}
 }
 
-func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettings, existentDB bool) error {
+func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DBSettings, existentDB bool) error {
 	// replication options
 	if !settings.Replica &&
 		(settings.MasterDatabase != "" ||
@@ -183,26 +224,34 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 	}
 
 	if existentDB {
+		// permanent settings can not be changed after database is created
+		// in the future, some settings may turn into non-permanent
+
 		if settings.FileSize > 0 {
-			return fmt.Errorf("%w: file size can not be modified", ErrIllegalArguments)
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "file size", opts.Database)
 		}
 
 		if settings.MaxKeyLen > 0 {
-			return fmt.Errorf("%w: max key lenght can not be modified", ErrIllegalArguments)
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max key lenght", opts.Database)
 		}
 
 		if settings.MaxValueLen > 0 {
-			return fmt.Errorf("%w: max value lenght can not be modified", ErrIllegalArguments)
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max value lenght", opts.Database)
 		}
 
 		if settings.MaxTxEntries > 0 {
-			return fmt.Errorf("%w: max number of entries per transaction can not be modified", ErrIllegalArguments)
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments,
+				"max number of entries per transaction", opts.Database)
 		}
 
 		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize > 0 {
-			return fmt.Errorf("%w: max node size can not be modified", ErrIllegalArguments)
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max node size", opts.Database)
 		}
+
+		opts.UpdatedAt = time.Now()
 	}
+
+	opts.synced = s.Options.synced
 
 	opts.Replica = settings.Replica
 	opts.MasterDatabase = settings.MasterDatabase
@@ -211,15 +260,21 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 	opts.FollowerUsername = settings.FollowerUsername
 	opts.FollowerPassword = settings.FollowerPassword
 
+	conditionalSet(settings.FileSize > 0, func() { opts.FileSize = int(settings.FileSize) })
+	conditionalSet(settings.MaxKeyLen > 0, func() { opts.MaxKeyLen = int(settings.MaxKeyLen) })
+	conditionalSet(settings.MaxValueLen > 0, func() { opts.MaxValueLen = int(settings.MaxValueLen) })
+	conditionalSet(settings.MaxTxEntries > 0, func() { opts.MaxTxEntries = int(settings.MaxTxEntries) })
+
 	// store options
 	opts.ExcludeCommitTime = settings.ExcludeCommitTime
 
 	conditionalSet(settings.MaxConcurrency > 0, func() { opts.MaxConcurrency = int(settings.MaxConcurrency) })
 	conditionalSet(settings.MaxIOConcurrency > 0, func() { opts.MaxIOConcurrency = int(settings.MaxIOConcurrency) })
+
 	conditionalSet(settings.TxLogCacheSize > 0, func() { opts.TxLogCacheSize = int(settings.TxLogCacheSize) })
 	conditionalSet(settings.VLogMaxOpenedFiles > 0, func() { opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles) })
 	conditionalSet(settings.TxLogMaxOpenedFiles > 0, func() { opts.TxLogMaxOpenedFiles = int(settings.TxLogMaxOpenedFiles) })
-	conditionalSet(settings.CommitLogMaxOpenedFiles > 0, func() { opts.MaxConcurrency = int(settings.CommitLogMaxOpenedFiles) })
+	conditionalSet(settings.CommitLogMaxOpenedFiles > 0, func() { opts.CommitLogMaxOpenedFiles = int(settings.CommitLogMaxOpenedFiles) })
 
 	// index options
 	if settings.IndexSettings != nil {
@@ -254,8 +309,6 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 			opts.IndexOptions.DelayDuringCompaction = int64(settings.IndexSettings.DelayDuringCompaction)
 		})
 	}
-
-	opts.UpdatedAt = time.Now()
 
 	return nil
 }
