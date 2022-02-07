@@ -114,7 +114,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
@@ -251,7 +251,7 @@ func TestServerUsermanagement(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.DBSettings{
+	newdb := &schema.DatabaseSettings{
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)

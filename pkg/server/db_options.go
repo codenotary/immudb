@@ -166,8 +166,8 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	return stOpts
 }
 
-func (opts *dbOptions) databaseSettings() *schema.DBSettings {
-	return &schema.DBSettings{
+func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
+	return &schema.DatabaseSettings{
 		DatabaseName: opts.Database,
 
 		Replica:          opts.Replica,
@@ -212,7 +212,7 @@ var conditionalSet = func(condition bool, setter func()) {
 	}
 }
 
-func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DBSettings, existentDB bool) error {
+func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettings, existentDB bool) error {
 	// replication options
 	if !settings.Replica &&
 		(settings.MasterDatabase != "" ||

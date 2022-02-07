@@ -726,11 +726,11 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		return nil, ErrIllegalArguments
 	}
 
-	return s.CreateDatabaseWith(ctx, &schema.DBSettings{DatabaseName: req.DatabaseName})
+	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
+func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if req == nil {
@@ -803,7 +803,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DBSetti
 }
 
 // UpdateDatabase Updates database settings
-func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
+func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("updatedatabase")
 
 	if req == nil {
@@ -874,31 +874,13 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DBSettings)
 	return &empty.Empty{}, nil
 }
 
-func (s *ImmuServer) DatabaseSettings(ctx context.Context, req *schema.Database) (*schema.DBSettings, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	if !s.Options.GetAuth() {
-		return nil, ErrAuthMustBeEnabled
-	}
-
-	if req.DatabaseName == s.Options.defaultDBName || req.DatabaseName == SystemDBName {
-		return nil, ErrReservedDatabase
-	}
-
-	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+func (s *ImmuServer) GetDatabaseSettings(ctx context.Context, _ *empty.Empty) (*schema.DatabaseSettings, error) {
+	db, err := s.getDBFromCtx(ctx, "DatabaseSettings")
 	if err != nil {
-		return nil, fmt.Errorf("could not get loggedin user data")
+		return nil, err
 	}
 
-	//if the requesting user has admin permission on this database
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("you do not have permission on this database")
-	}
-
-	dbOpts, err := s.loadDBOptions(req.DatabaseName, false)
+	dbOpts, err := s.loadDBOptions(db.GetName(), false)
 	if err != nil {
 		return nil, err
 	}
