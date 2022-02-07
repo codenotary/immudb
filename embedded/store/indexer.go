@@ -219,8 +219,10 @@ func (idx *indexer) CompactIndex() (err error) {
 	defer func() {
 		if err == nil {
 			idx.store.log.Infof("Index '%s' sucessfully compacted", idx.store.path)
+		} else if err == tbtree.ErrCompactionThresholdNotReached {
+			idx.store.log.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
-			idx.store.log.Warningf("Error while compacting index '%s': %v", idx.store.path, err)
+			idx.store.log.Warningf("%v: while compacting index '%s'", idx.store.path, err)
 		}
 	}()
 
