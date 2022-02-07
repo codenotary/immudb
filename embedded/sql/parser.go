@@ -115,6 +115,7 @@ var boolValues = map[string]bool{
 var cmpOps = map[string]CmpOperator{
 	"=":  EQ,
 	"!=": NE,
+	"<>": NE,
 	"<":  LT,
 	"<=": LE,
 	">":  GT,

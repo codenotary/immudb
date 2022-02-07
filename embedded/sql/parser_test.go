@@ -744,6 +744,46 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE id <> 1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					where: &CmpBoolExp{
+						op: NE,
+						left: &ColSelector{
+							col: "id",
+						},
+						right: &Number{val: 1},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE id != 1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					where: &CmpBoolExp{
+						op: NE,
+						left: &ColSelector{
+							col: "id",
+						},
+						right: &Number{val: 1},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= NOW() AND name = @pname",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
@@ -1355,7 +1395,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			BEGIN TRANSACTION;
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1');
-				
+
 				UPSERT INTO table2 (id) VALUES (10);
 			COMMIT;
 
