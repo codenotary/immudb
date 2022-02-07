@@ -109,7 +109,7 @@ func TestReplication(t *testing.T) {
 	fctx := metadata.NewOutgoingContext(context.Background(), fmd)
 
 	// create database as replica in follower server
-	err = followerClient.CreateDatabase(fctx, &schema.DatabaseSettings{
+	err = followerClient.CreateDatabase(fctx, &schema.DBSettings{
 		DatabaseName:     "replicateddb",
 		Replica:          true,
 		MasterDatabase:   "defaultdb",
@@ -122,7 +122,7 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
+	err = followerClient.UpdateDatabase(fctx, &schema.DBSettings{
 		DatabaseName:     "replicateddb",
 		Replica:          true,
 		MasterDatabase:   "defaultdb",

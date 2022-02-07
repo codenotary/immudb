@@ -186,7 +186,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettings, error) {
+func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DBSettings, error) {
 	excludeCommitTime, err := flags.GetBool("exclude-commit-time")
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 	}
 
 	if !replicationEnabled {
-		return &schema.DatabaseSettings{
+		return &schema.DBSettings{
 			DatabaseName:      db,
 			ExcludeCommitTime: excludeCommitTime,
 		}, nil
@@ -229,7 +229,7 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 		return nil, err
 	}
 
-	return &schema.DatabaseSettings{
+	return &schema.DBSettings{
 		DatabaseName:      db,
 		ExcludeCommitTime: excludeCommitTime,
 		Replica:           replicationEnabled,

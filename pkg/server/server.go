@@ -726,11 +726,11 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		return nil, ErrIllegalArguments
 	}
 
-	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
+	return s.CreateDatabaseWith(ctx, &schema.DBSettings{DatabaseName: req.DatabaseName})
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if req == nil {
@@ -803,7 +803,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 }
 
 // UpdateDatabase Updates database settings
-func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DBSettings) (*empty.Empty, error) {
 	s.Logger.Debugf("updatedatabase")
 
 	if req == nil {
@@ -872,6 +872,38 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	s.Logger.Infof("Database '%s' successfully updated", db.GetName())
 
 	return &empty.Empty{}, nil
+}
+
+func (s *ImmuServer) DatabaseSettings(ctx context.Context, req *schema.Database) (*schema.DBSettings, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
+	}
+
+	if req.DatabaseName == s.Options.defaultDBName || req.DatabaseName == SystemDBName {
+		return nil, ErrReservedDatabase
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("you do not have permission on this database")
+	}
+
+	dbOpts, err := s.loadDBOptions(req.DatabaseName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return dbOpts.databaseSettings(), nil
 }
 
 //DatabaseList returns a list of databases based on the requesting user permissins

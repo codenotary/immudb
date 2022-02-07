@@ -18,6 +18,9 @@ package integration
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -25,8 +28,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"os"
-	"testing"
 )
 
 func TestTransaction_SetAndGet(t *testing.T) {
@@ -157,7 +158,7 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	client2 := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	err = client2.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	err = client2.CreateDatabase(context.TODO(), &schema.DatabaseSettings{DatabaseName: "db2"})
+	err = client2.CreateDatabase(context.TODO(), &schema.DBSettings{DatabaseName: "db2"})
 	require.NoError(t, err)
 	_, err = client2.UseDatabase(context.TODO(), &schema.Database{DatabaseName: "db2"})
 	require.NoError(t, err)

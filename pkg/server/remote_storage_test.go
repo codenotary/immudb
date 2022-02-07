@@ -362,7 +362,7 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	newdb := &schema.DatabaseSettings{
+	newdb := &schema.DBSettings{
 		DatabaseName: "newdb",
 	}
 
