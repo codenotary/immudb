@@ -36,6 +36,10 @@ const DefaultMaxKeyLen = 1024
 const DefaultCompactionThld = 2
 const DefaultDelayDuringCompaction = time.Duration(10) * time.Millisecond
 
+const DefaultNodesLogMaxOpenedFiles = 10
+const DefaultHistoryLogMaxOpenedFiles = 1
+const DefaultCommitLogMaxOpenedFiles = 1
+
 const MinNodeSize = 128
 const MinCacheSize = 1
 
@@ -56,6 +60,10 @@ type Options struct {
 	readOnly           bool
 	synced             bool
 	fileMode           os.FileMode
+
+	nodesLogMaxOpenedFiles   int
+	historyLogMaxOpenedFiles int
+	commitLogMaxOpenedFiles  int
 
 	maxKeyLen int
 
@@ -84,6 +92,10 @@ func DefaultOptions() *Options {
 		compactionThld:        DefaultCompactionThld,
 		delayDuringCompaction: DefaultDelayDuringCompaction,
 
+		nodesLogMaxOpenedFiles:   DefaultNodesLogMaxOpenedFiles,
+		historyLogMaxOpenedFiles: DefaultHistoryLogMaxOpenedFiles,
+		commitLogMaxOpenedFiles:  DefaultCommitLogMaxOpenedFiles,
+
 		// options below are only set during initialization and stored as metadata
 		maxNodeSize: DefaultMaxNodeSize,
 		fileSize:    DefaultFileSize,
@@ -97,6 +109,11 @@ func validOptions(opts *Options) bool {
 		(opts.synced || opts.syncThld > 0) &&
 		(!opts.synced || opts.syncThld == 0) &&
 		(opts.synced || opts.flushThld <= opts.syncThld) &&
+
+		opts.nodesLogMaxOpenedFiles > 0 &&
+		opts.historyLogMaxOpenedFiles > 0 &&
+		opts.commitLogMaxOpenedFiles > 0 &&
+
 		opts.maxActiveSnapshots > 0 &&
 		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize &&
@@ -152,6 +169,21 @@ func (opts *Options) WithSynced(synced bool) *Options {
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
+	return opts
+}
+
+func (opts *Options) WithNodesLogMaxOpenedFiles(nodesLogMaxOpenedFiles int) *Options {
+	opts.nodesLogMaxOpenedFiles = nodesLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *Options) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles int) *Options {
+	opts.historyLogMaxOpenedFiles = historyLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
+	opts.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opts
 }
 

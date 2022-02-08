@@ -402,6 +402,9 @@ message IndexSettings {
 	uint64  renewSnapRootAfter = 7;
 	uint32	compactionThld = 8;
 	uint32	delayDuringCompaction = 9;
+	uint32  nodesLogMaxOpenedFiles = 10;
+	uint32  historyLogMaxOpenedFiles = 11;
+	uint32  commitLogMaxOpenedFiles = 12;
 }
 
 message Table {

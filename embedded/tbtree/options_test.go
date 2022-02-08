@@ -49,6 +49,10 @@ func TestValidOptions(t *testing.T) {
 	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.NotNil(t, opts.WithLog(DefaultOptions().log))
 
+	require.Equal(t, 2, opts.WithNodesLogMaxOpenedFiles(2).nodesLogMaxOpenedFiles)
+	require.Equal(t, 3, opts.WithHistoryLogMaxOpenedFiles(3).historyLogMaxOpenedFiles)
+	require.Equal(t, 1, opts.WithCommitLogMaxOpenedFiles(1).commitLogMaxOpenedFiles)
+
 	require.True(t, validOptions(opts))
 
 	require.True(t, opts.WithReadOnly(true).readOnly)

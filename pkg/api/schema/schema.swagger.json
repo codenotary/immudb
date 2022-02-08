@@ -1753,6 +1753,18 @@
         "delayDuringCompaction": {
           "type": "integer",
           "format": "int64"
+        },
+        "nodesLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "historyLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "commitLogMaxOpenedFiles": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
