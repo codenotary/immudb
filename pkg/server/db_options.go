@@ -82,8 +82,10 @@ const DefaultStoreFileSize = 1 << 29 //512Mb
 func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	return &dbOptions{
 		Database: database,
-		synced:   s.Options.synced,
-		Replica:  s.Options.ReplicationOptions != nil,
+
+		synced: s.Options.synced,
+
+		Replica: s.Options.ReplicationOptions != nil,
 
 		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -340,9 +342,10 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 	optionsKey[0] = KeyPrefixDBSettings
 	copy(optionsKey[1:], []byte(database))
 
+	options := s.defaultDBOptions(database)
+
 	e, err := s.sysDB.Get(&schema.KeyRequest{Key: optionsKey})
 	if err == store.ErrKeyNotFound && createIfNotExists {
-		options := s.defaultDBOptions(database)
 		err = s.saveDBOptions(options)
 		if err != nil {
 			return nil, err
@@ -353,7 +356,6 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 		return nil, err
 	}
 
-	var options *dbOptions
 	err = json.Unmarshal(e.Value, &options)
 	if err != nil {
 		return nil, err
