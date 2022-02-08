@@ -101,8 +101,12 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).MaxNodeSize)
 	require.Equal(t, time.Duration(1000)*time.Millisecond,
 		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).RenewSnapRootAfter)
-	require.True(t, validOptions(opts))
+	require.Equal(t, 10, indexOpts.WithNodesLogMaxOpenedFiles(10).NodesLogMaxOpenedFiles)
+	require.Equal(t, 11, indexOpts.WithHistoryLogMaxOpenedFiles(11).HistoryLogMaxOpenedFiles)
+	require.Equal(t, 12, indexOpts.WithCommitLogMaxOpenedFiles(12).CommitLogMaxOpenedFiles)
 	require.Equal(t, 3, indexOpts.WithCompactionThld(3).CompactionThld)
 	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
 	require.Equal(t, true, indexOpts.WithSynced(true).Synced)
+
+	require.True(t, validOptions(opts))
 }
