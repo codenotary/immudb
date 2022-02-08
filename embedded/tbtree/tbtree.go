@@ -84,20 +84,23 @@ type TBtree struct {
 
 	root node
 
-	maxNodeSize           int
-	insertionCount        int
-	flushThld             int
-	syncThld              int
-	maxActiveSnapshots    int
-	renewSnapRootAfter    time.Duration
-	readOnly              bool
-	synced                bool
-	cacheSize             int
-	fileSize              int
-	fileMode              os.FileMode
-	maxKeyLen             int
-	compactionThld        int
-	delayDuringCompaction time.Duration
+	maxNodeSize              int
+	insertionCount           int
+	flushThld                int
+	syncThld                 int
+	maxActiveSnapshots       int
+	renewSnapRootAfter       time.Duration
+	readOnly                 bool
+	synced                   bool
+	cacheSize                int
+	fileSize                 int
+	fileMode                 os.FileMode
+	maxKeyLen                int
+	compactionThld           int
+	delayDuringCompaction    time.Duration
+	nodesLogMaxOpenedFiles   int
+	historyLogMaxOpenedFiles int
+	commitLogMaxOpenedFiles  int
 
 	greatestKey []byte
 
@@ -219,6 +222,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	}
 
 	appendableOpts.WithFileExt("hx")
+	appendableOpts.WithMaxOpenedFiles(opts.historyLogMaxOpenedFiles)
 	hLog, err := appFactory(path, historyFolder, appendableOpts)
 	if err != nil {
 		return nil, err
@@ -242,12 +246,14 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		opts.log.Infof("Reading snapshot at '%s'...", snapPath)
 
 		appendableOpts.WithFileExt("n")
+		appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 		nLog, err := appFactory(path, nFolder, appendableOpts)
 		if err != nil {
 			return nil, err
 		}
 
 		appendableOpts.WithFileExt("ri")
+		appendableOpts.WithMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 		cLog, err := appFactory(path, cFolder, appendableOpts)
 		if err != nil {
 			return nil, err
@@ -295,12 +301,14 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	}
 
 	appendableOpts.WithFileExt("n")
+	appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 	nLog, err := appFactory(path, nodesFolderPrefix, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableOpts.WithFileExt("ri")
+	appendableOpts.WithMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLog, err := appFactory(path, commitFolderPrefix, appendableOpts)
 	if err != nil {
 		return nil, err
@@ -401,27 +409,30 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	t := &TBtree{
-		path:                  path,
-		log:                   opts.log,
-		nLog:                  nLog,
-		hLog:                  hLog,
-		cLog:                  cLog,
-		cache:                 cache,
-		maxNodeSize:           maxNodeSize,
-		flushThld:             opts.flushThld,
-		syncThld:              opts.syncThld,
-		renewSnapRootAfter:    opts.renewSnapRootAfter,
-		maxActiveSnapshots:    opts.maxActiveSnapshots,
-		fileSize:              opts.fileSize,
-		cacheSize:             opts.cacheSize,
-		fileMode:              opts.fileMode,
-		maxKeyLen:             opts.maxKeyLen,
-		compactionThld:        opts.compactionThld,
-		delayDuringCompaction: opts.delayDuringCompaction,
-		greatestKey:           greatestKeyOfSize(opts.maxKeyLen),
-		readOnly:              opts.readOnly,
-		synced:                opts.synced,
-		snapshots:             make(map[uint64]*Snapshot),
+		path:                     path,
+		log:                      opts.log,
+		nLog:                     nLog,
+		hLog:                     hLog,
+		cLog:                     cLog,
+		cache:                    cache,
+		maxNodeSize:              maxNodeSize,
+		flushThld:                opts.flushThld,
+		syncThld:                 opts.syncThld,
+		renewSnapRootAfter:       opts.renewSnapRootAfter,
+		maxActiveSnapshots:       opts.maxActiveSnapshots,
+		fileSize:                 opts.fileSize,
+		cacheSize:                opts.cacheSize,
+		fileMode:                 opts.fileMode,
+		maxKeyLen:                opts.maxKeyLen,
+		compactionThld:           opts.compactionThld,
+		delayDuringCompaction:    opts.delayDuringCompaction,
+		nodesLogMaxOpenedFiles:   opts.nodesLogMaxOpenedFiles,
+		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
+		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
+		greatestKey:              greatestKeyOfSize(opts.maxKeyLen),
+		readOnly:                 opts.readOnly,
+		synced:                   opts.synced,
+		snapshots:                make(map[uint64]*Snapshot),
 	}
 
 	discardedRoots := 0
@@ -505,7 +516,10 @@ func (t *TBtree) GetOptions() *Options {
 		WithMaxNodeSize(t.maxNodeSize).
 		WithRenewSnapRootAfter(t.renewSnapRootAfter).
 		WithCompactionThld(t.compactionThld).
-		WithDelayDuringCompaction(t.delayDuringCompaction)
+		WithDelayDuringCompaction(t.delayDuringCompaction).
+		WithNodesLogMaxOpenedFiles(t.nodesLogMaxOpenedFiles).
+		WithHistoryLogMaxOpenedFiles(t.historyLogMaxOpenedFiles).
+		WithCommitLogMaxOpenedFiles(t.commitLogMaxOpenedFiles)
 }
 
 func (t *TBtree) cachePut(n node) {

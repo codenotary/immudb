@@ -559,6 +559,9 @@
 | renewSnapRootAfter | [uint64](#uint64) |  |  |
 | compactionThld | [uint32](#uint32) |  |  |
 | delayDuringCompaction | [uint32](#uint32) |  |  |
+| nodesLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| historyLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 
 
 

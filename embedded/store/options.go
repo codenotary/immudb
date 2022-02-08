@@ -87,15 +87,18 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	CacheSize             int
-	FlushThld             int
-	SyncThld              int
-	MaxActiveSnapshots    int
-	MaxNodeSize           int
-	RenewSnapRootAfter    time.Duration
-	CompactionThld        int
-	DelayDuringCompaction time.Duration
-	Synced                bool
+	CacheSize                int
+	FlushThld                int
+	SyncThld                 int
+	MaxActiveSnapshots       int
+	MaxNodeSize              int
+	RenewSnapRootAfter       time.Duration
+	CompactionThld           int
+	DelayDuringCompaction    time.Duration
+	Synced                   bool
+	NodesLogMaxOpenedFiles   int
+	HistoryLogMaxOpenedFiles int
+	CommitLogMaxOpenedFiles  int
 }
 
 func DefaultOptions() *Options {
@@ -135,14 +138,17 @@ func DefaultOptions() *Options {
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		CacheSize:             tbtree.DefaultCacheSize,
-		FlushThld:             tbtree.DefaultFlushThld,
-		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
-		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter:    tbtree.DefaultRenewSnapRootAfter,
-		CompactionThld:        tbtree.DefaultCompactionThld,
-		DelayDuringCompaction: 0,
-		Synced:                true,
+		CacheSize:                tbtree.DefaultCacheSize,
+		FlushThld:                tbtree.DefaultFlushThld,
+		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
+		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
+		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter,
+		CompactionThld:           tbtree.DefaultCompactionThld,
+		DelayDuringCompaction:    0,
+		Synced:                   true,
+		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
+		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
 	}
 }
 
@@ -180,7 +186,10 @@ func validIndexOptions(opts *IndexOptions) bool {
 		opts.FlushThld > 0 &&
 		opts.MaxActiveSnapshots > 0 &&
 		opts.MaxNodeSize > 0 &&
-		opts.RenewSnapRootAfter >= 0
+		opts.RenewSnapRootAfter >= 0 &&
+		opts.NodesLogMaxOpenedFiles > 0 &&
+		opts.HistoryLogMaxOpenedFiles > 0 &&
+		opts.CommitLogMaxOpenedFiles > 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -337,5 +346,20 @@ func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.D
 
 func (opts *IndexOptions) WithSynced(synced bool) *IndexOptions {
 	opts.Synced = synced
+	return opts
+}
+
+func (opts *IndexOptions) WithNodesLogMaxOpenedFiles(nodesLogMaxOpenedFiles int) *IndexOptions {
+	opts.NodesLogMaxOpenedFiles = nodesLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *IndexOptions) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles int) *IndexOptions {
+	opts.HistoryLogMaxOpenedFiles = historyLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *IndexOptions {
+	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opts
 }

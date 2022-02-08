@@ -65,15 +65,18 @@ type dbOptions struct {
 }
 
 type indexOptions struct {
-	Synced                bool  `json:"synced"`
-	FlushThreshold        int   `json:"flushThreshold"`
-	SyncThreshold         int   `json:"syncThreshold"`
-	CacheSize             int   `json:"cacheSize"`
-	MaxNodeSize           int   `json:"maxNodeSize"` // permanent
-	MaxActiveSnapshots    int   `json:"maxActiveSnapshots"`
-	RenewSnapRootAfter    int64 `json:"renewSnapRootAfter"` // ms
-	CompactionThld        int   `json:"compactionThld"`
-	DelayDuringCompaction int64 `json:"delayDuringCompaction"` // ms
+	Synced                   bool  `json:"synced"`
+	FlushThreshold           int   `json:"flushThreshold"`
+	SyncThreshold            int   `json:"syncThreshold"`
+	CacheSize                int   `json:"cacheSize"`
+	MaxNodeSize              int   `json:"maxNodeSize"` // permanent
+	MaxActiveSnapshots       int   `json:"maxActiveSnapshots"`
+	RenewSnapRootAfter       int64 `json:"renewSnapRootAfter"` // ms
+	CompactionThld           int   `json:"compactionThld"`
+	DelayDuringCompaction    int64 `json:"delayDuringCompaction"` // ms
+	NodesLogMaxOpenedFiles   int   `json:"nodesLogMaxOpenedFiles"`
+	HistoryLogMaxOpenedFiles int   `json:"historyLogMaxOpenedFiles"`
+	CommitLogMaxOpenedFiles  int   `json:"commitLogMaxOpenedFiles"`
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
@@ -109,15 +112,18 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 
 func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 	return &indexOptions{
-		Synced:                false,
-		FlushThreshold:        tbtree.DefaultFlushThld,
-		SyncThreshold:         tbtree.DefaultSyncThld,
-		CacheSize:             tbtree.DefaultCacheSize,
-		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
-		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
-		RenewSnapRootAfter:    tbtree.DefaultRenewSnapRootAfter.Milliseconds(),
-		CompactionThld:        tbtree.DefaultCompactionThld,
-		DelayDuringCompaction: tbtree.DefaultDelayDuringCompaction.Milliseconds(),
+		Synced:                   false,
+		FlushThreshold:           tbtree.DefaultFlushThld,
+		SyncThreshold:            tbtree.DefaultSyncThld,
+		CacheSize:                tbtree.DefaultCacheSize,
+		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
+		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
+		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter.Milliseconds(),
+		CompactionThld:           tbtree.DefaultCompactionThld,
+		DelayDuringCompaction:    tbtree.DefaultDelayDuringCompaction.Milliseconds(),
+		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
+		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
 	}
 }
 
@@ -141,7 +147,10 @@ func (opts *dbOptions) storeOptions() *store.Options {
 			WithMaxActiveSnapshots(opts.IndexOptions.MaxActiveSnapshots).
 			WithRenewSnapRootAfter(time.Millisecond * time.Duration(opts.IndexOptions.RenewSnapRootAfter)).
 			WithCompactionThld(opts.IndexOptions.CompactionThld).
-			WithDelayDuringCompaction(time.Millisecond * time.Duration(opts.IndexOptions.DelayDuringCompaction))
+			WithDelayDuringCompaction(time.Millisecond * time.Duration(opts.IndexOptions.DelayDuringCompaction)).
+			WithNodesLogMaxOpenedFiles(opts.IndexOptions.NodesLogMaxOpenedFiles).
+			WithHistoryLogMaxOpenedFiles(opts.IndexOptions.HistoryLogMaxOpenedFiles).
+			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles)
 	}
 
 	stOpts := store.DefaultOptions().
@@ -195,15 +204,18 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 		CommitLogMaxOpenedFiles: uint32(opts.CommitLogMaxOpenedFiles),
 
 		IndexSettings: &schema.IndexSettings{
-			Synced:                opts.IndexOptions.Synced,
-			FlushThreshold:        uint32(opts.IndexOptions.FlushThreshold),
-			SyncThreshold:         uint32(opts.IndexOptions.SyncThreshold),
-			CacheSize:             uint32(opts.IndexOptions.CacheSize),
-			MaxNodeSize:           uint32(opts.IndexOptions.MaxNodeSize),
-			MaxActiveSnapshots:    uint32(opts.IndexOptions.MaxActiveSnapshots),
-			RenewSnapRootAfter:    uint64(opts.IndexOptions.RenewSnapRootAfter),
-			CompactionThld:        uint32(opts.IndexOptions.CompactionThld),
-			DelayDuringCompaction: uint32(opts.IndexOptions.DelayDuringCompaction),
+			Synced:                   opts.IndexOptions.Synced,
+			FlushThreshold:           uint32(opts.IndexOptions.FlushThreshold),
+			SyncThreshold:            uint32(opts.IndexOptions.SyncThreshold),
+			CacheSize:                uint32(opts.IndexOptions.CacheSize),
+			MaxNodeSize:              uint32(opts.IndexOptions.MaxNodeSize),
+			MaxActiveSnapshots:       uint32(opts.IndexOptions.MaxActiveSnapshots),
+			RenewSnapRootAfter:       uint64(opts.IndexOptions.RenewSnapRootAfter),
+			CompactionThld:           uint32(opts.IndexOptions.CompactionThld),
+			DelayDuringCompaction:    uint32(opts.IndexOptions.DelayDuringCompaction),
+			NodesLogMaxOpenedFiles:   uint32(opts.IndexOptions.NodesLogMaxOpenedFiles),
+			HistoryLogMaxOpenedFiles: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles),
+			CommitLogMaxOpenedFiles:  uint32(opts.IndexOptions.CommitLogMaxOpenedFiles),
 		},
 	}
 }
@@ -309,6 +321,15 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 		})
 		conditionalSet(settings.IndexSettings.DelayDuringCompaction > 0, func() {
 			opts.IndexOptions.DelayDuringCompaction = int64(settings.IndexSettings.DelayDuringCompaction)
+		})
+		conditionalSet(settings.IndexSettings.NodesLogMaxOpenedFiles > 0, func() {
+			opts.IndexOptions.NodesLogMaxOpenedFiles = int(settings.IndexSettings.NodesLogMaxOpenedFiles)
+		})
+		conditionalSet(settings.IndexSettings.HistoryLogMaxOpenedFiles > 0, func() {
+			opts.IndexOptions.HistoryLogMaxOpenedFiles = int(settings.IndexSettings.HistoryLogMaxOpenedFiles)
+		})
+		conditionalSet(settings.IndexSettings.CommitLogMaxOpenedFiles > 0, func() {
+			opts.IndexOptions.CommitLogMaxOpenedFiles = int(settings.IndexSettings.CommitLogMaxOpenedFiles)
 		})
 	}
 

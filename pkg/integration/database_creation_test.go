@@ -59,15 +59,18 @@ func TestCreateDatabase(t *testing.T) {
 		TxLogMaxOpenedFiles:     4,
 		CommitLogMaxOpenedFiles: 2,
 		IndexSettings: &schema.IndexSettings{
-			Synced:                false,
-			FlushThreshold:        256,
-			SyncThreshold:         512,
-			CacheSize:             1024,
-			MaxNodeSize:           8192,
-			MaxActiveSnapshots:    3,
-			RenewSnapRootAfter:    5000,
-			CompactionThld:        5,
-			DelayDuringCompaction: 1,
+			Synced:                   false,
+			FlushThreshold:           256,
+			SyncThreshold:            512,
+			CacheSize:                1024,
+			MaxNodeSize:              8192,
+			MaxActiveSnapshots:       3,
+			RenewSnapRootAfter:       5000,
+			CompactionThld:           5,
+			DelayDuringCompaction:    1,
+			NodesLogMaxOpenedFiles:   20,
+			HistoryLogMaxOpenedFiles: 15,
+			CommitLogMaxOpenedFiles:  3,
 		},
 	}
 	err = client.CreateDatabase(context.Background(), dbSettings)
@@ -101,4 +104,7 @@ func TestCreateDatabase(t *testing.T) {
 	require.Equal(t, dbSettings.IndexSettings.RenewSnapRootAfter, settings.IndexSettings.RenewSnapRootAfter)
 	require.Equal(t, dbSettings.IndexSettings.CompactionThld, settings.IndexSettings.CompactionThld)
 	require.Equal(t, dbSettings.IndexSettings.DelayDuringCompaction, settings.IndexSettings.DelayDuringCompaction)
+	require.Equal(t, dbSettings.IndexSettings.NodesLogMaxOpenedFiles, settings.IndexSettings.NodesLogMaxOpenedFiles)
+	require.Equal(t, dbSettings.IndexSettings.HistoryLogMaxOpenedFiles, settings.IndexSettings.HistoryLogMaxOpenedFiles)
+	require.Equal(t, dbSettings.IndexSettings.CommitLogMaxOpenedFiles, settings.IndexSettings.CommitLogMaxOpenedFiles)
 }
