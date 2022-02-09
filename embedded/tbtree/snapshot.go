@@ -61,13 +61,10 @@ func (s *Snapshot) Set(key, value []byte) error {
 		s.root = n1
 	} else {
 		newRoot := &innerNode{
-			t:       s.t,
-			nodes:   []node{n1, n2},
-			_minKey: n1.minKey(),
-			_maxKey: n2.maxKey(),
-			_ts:     s.ts,
-			maxSize: s.t.maxNodeSize,
-			mut:     true,
+			t:     s.t,
+			nodes: []node{n1, n2},
+			_ts:   s.ts,
+			mut:   true,
 		}
 
 		s.root = newRoot
@@ -302,9 +299,6 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	buf[bi] = InnerNodeType
 	bi++
 
-	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
-	bi += 4
-
 	binary.BigEndian.PutUint32(buf[bi:], uint32(len(n.nodes)))
 	bi += 4
 
@@ -331,9 +325,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 			nodes[i] = &nodeRef{
 				t:       n.t,
 				_minKey: c.minKey(),
-				_maxKey: c.maxKey(),
 				_ts:     c.ts(),
-				_size:   c.size(),
 				off:     c.offset(),
 			}
 		}
@@ -360,9 +352,6 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 
 	buf[bi] = LeafNodeType
 	bi++
-
-	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
-	bi += 4
 
 	binary.BigEndian.PutUint32(buf[bi:], uint32(len(l.values)))
 	bi += 4
@@ -479,18 +468,8 @@ func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	copy(buf[i:], minKey)
 	i += len(minKey)
 
-	maxKey := n.maxKey()
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(maxKey)))
-	i += 4
-
-	copy(buf[i:], maxKey)
-	i += len(maxKey)
-
 	binary.BigEndian.PutUint64(buf[i:], n.ts())
 	i += 8
-
-	binary.BigEndian.PutUint32(buf[i:], uint32(n.size()))
-	i += 4
 
 	binary.BigEndian.PutUint64(buf[i:], uint64(offset))
 	i += 8
