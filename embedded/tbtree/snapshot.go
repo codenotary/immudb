@@ -299,8 +299,8 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	buf[bi] = InnerNodeType
 	bi++
 
-	binary.BigEndian.PutUint32(buf[bi:], uint32(len(n.nodes)))
-	bi += 4
+	binary.BigEndian.PutUint16(buf[bi:], uint16(len(n.nodes)))
+	bi += 2
 
 	for i, c := range n.nodes {
 		n := writeNodeRefToWithOffset(c, offsets[i], buf[bi:])
@@ -353,20 +353,20 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 	buf[bi] = LeafNodeType
 	bi++
 
-	binary.BigEndian.PutUint32(buf[bi:], uint32(len(l.values)))
-	bi += 4
+	binary.BigEndian.PutUint16(buf[bi:], uint16(len(l.values)))
+	bi += 2
 
 	accH := int64(0)
 
 	for _, v := range l.values {
-		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.key)))
-		bi += 4
+		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.key)))
+		bi += 2
 
 		copy(buf[bi:], v.key)
 		bi += len(v.key)
 
-		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.value)))
-		bi += 4
+		binary.BigEndian.PutUint16(buf[bi:], uint16(len(v.value)))
+		bi += 2
 
 		copy(buf[bi:], v.value)
 		bi += len(v.value)
@@ -462,8 +462,8 @@ func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	i := 0
 
 	minKey := n.minKey()
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(minKey)))
-	i += 4
+	binary.BigEndian.PutUint16(buf[i:], uint16(len(minKey)))
+	i += 2
 
 	copy(buf[i:], minKey)
 	i += len(minKey)
