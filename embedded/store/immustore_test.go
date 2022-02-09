@@ -470,10 +470,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					ReadAtFn: func(bs []byte, off int64) (int, error) {
 						buff := []byte{
 							tbtree.LeafNodeType,
-							0, 0, 0, 1, // One node
-							0, 0, 0, 1, // Key size
-							'k',        // key
-							0, 0, 0, 1, // Value size
+							0, 1, // One node
+							0, 1, // Key size
+							'k',  // key
+							0, 1, // Value size
 							'v',                    // value
 							0, 0, 0, 0, 0, 0, 0, 1, // Timestamp
 							0, 0, 0, 0, 0, 0, 0, 0, // hOffs
