@@ -44,7 +44,7 @@ type ReaderSpec struct {
 }
 
 func (r *Reader) Reset() error {
-	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 	}
 
 	if r.leafNode == nil {
-		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 		if err == ErrKeyNotFound {
 			return nil, 0, 0, ErrNoMoreEntries
 		}
@@ -84,18 +84,12 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 
 				parent := r.path[len(r.path)-1]
 
-				var parentPath []*innerNode
+				var parentPath []*pathNode
 				if len(r.path) > 1 {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				//neqKey := r.leafNode.maxKey() TODO COMPLETE IMPLEMENTATION
-				var neqKey []byte
-				if r.descOrder {
-					neqKey = r.leafNode.minKey()
-				}
-
-				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
+				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
@@ -164,7 +158,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 	}
 
 	if r.leafNode == nil {
-		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 		if err == ErrKeyNotFound {
 			return nil, nil, 0, 0, ErrNoMoreEntries
 		}
@@ -186,18 +180,12 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 				parent := r.path[len(r.path)-1]
 
-				var parentPath []*innerNode
+				var parentPath []*pathNode
 				if len(r.path) > 1 {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				//neqKey := r.leafNode.maxKey() TODO COMPLETE IMPLEMENTATION
-				var neqKey []byte
-				if r.descOrder {
-					neqKey = r.leafNode.minKey()
-				}
-
-				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
+				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]

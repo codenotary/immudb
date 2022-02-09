@@ -120,13 +120,18 @@ type TBtree struct {
 	rwmutex sync.RWMutex
 }
 
-type path []*innerNode
+type path []*pathNode
+
+type pathNode struct {
+	node   *innerNode
+	offset int
+}
 
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
-	findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
+	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
 	ts() uint64
 	setTs(ts uint64) (node, error)
@@ -767,7 +772,7 @@ func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 		return false, ErrAlreadyClosed
 	}
 
-	path, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, false)
+	path, leaf, off, err := t.root.findLeafNode(prefix, nil, 0, neq, false)
 	if err == ErrKeyNotFound {
 		return false, nil
 	}
@@ -1426,37 +1431,50 @@ func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int
 	return n.nodes[n.indexOf(key)].history(key, offset, descOrder, limit)
 }
 
-func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+func (n *innerNode) findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
+
 	if descOrder {
-		for i := len(n.nodes); i > 0; i-- {
-			minKey := n.nodes[i-1].minKey()
+		for i := offset; i < len(n.nodes); i++ {
+			j := len(n.nodes) - 1 - i
+			minKey := n.nodes[j].minKey()
 
 			if len(neqKey) > 0 && bytes.Compare(minKey, neqKey) >= 0 {
 				continue
 			}
 
 			if bytes.Compare(minKey, keyPrefix) < 1 {
-				return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+				return n.nodes[j].findLeafNode(keyPrefix, append(path, &pathNode{node: n, offset: i}), 0, neqKey, descOrder)
 			}
 		}
 
 		return nil, nil, 0, ErrKeyNotFound
 	}
 
-	for i := 1; i < len(n.nodes); i++ {
-		maxKey := n.nodes[i].minKey()
+	if offset > len(n.nodes)-1 {
+		return nil, nil, 0, ErrKeyNotFound
+	}
 
-		if len(neqKey) > 0 && bytes.Compare(maxKey, neqKey) <= 0 {
+	for i := offset; i < len(n.nodes)-1; i++ {
+		nextMinKey := n.nodes[i+1].minKey()
+
+		if bytes.Compare(keyPrefix, nextMinKey) >= 0 {
 			continue
 		}
 
-		if bytes.Compare(keyPrefix, maxKey) < 1 {
-			return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+		if len(neqKey) > 0 && bytes.Compare(nextMinKey, neqKey) < 0 {
+			continue
 		}
+
+		path, leafNode, off, err := n.nodes[i].findLeafNode(keyPrefix, append(path, &pathNode{node: n, offset: i}), 0, neqKey, descOrder)
+		if err == ErrKeyNotFound {
+			continue
+		}
+
+		return path, leafNode, off, err
 	}
 
-	return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+	return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, &pathNode{node: n, offset: len(n.nodes) - 1}), 0, neqKey, descOrder)
 }
 
 func (n *innerNode) ts() uint64 {
@@ -1512,18 +1530,18 @@ func (n *innerNode) indexOf(key []byte) int {
 	var diff int
 
 	for left < right {
-		middle = left + (right-left)/2
+		middle = left + (right-left)/2 + 1
 
-		maxKey := n.nodes[middle+1].minKey()
+		minKey := n.nodes[middle].minKey()
 
-		diff = bytes.Compare(maxKey, key)
+		diff = bytes.Compare(minKey, key)
 
 		if diff == 0 {
 			return middle
 		} else if diff < 0 {
-			left = middle + 1
+			left = middle
 		} else {
-			right = middle
+			right = middle - 1
 		}
 	}
 
@@ -1590,12 +1608,12 @@ func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) 
 	return n.history(key, offset, descOrder, limit)
 }
 
-func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	return n.findLeafNode(keyPrefix, path, neqKey, descOrder)
+	return n.findLeafNode(keyPrefix, path, offset, neqKey, descOrder)
 }
 
 func (r *nodeRef) minKey() []byte {
@@ -1861,7 +1879,7 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 	return tss, nil
 }
 
-func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+func (l *leafNode) findLeafNode(keyPrefix []byte, path path, _ int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
 	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
 	if descOrder {
 		for i := len(l.values); i > 0; i-- {

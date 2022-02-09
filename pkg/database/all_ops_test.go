@@ -650,7 +650,7 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 
 		zList, err := db.ZScan(&schema.ZScanRequest{
 			Set:     []byte(set),
-			SinceTx: 10,
+			SinceTx: 11,
 		})
 		require.NoError(t, err)
 		require.Len(t, zList.Entries, 10)
