@@ -126,7 +126,7 @@ func (s *Snapshot) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 		return false, ErrAlreadyClosed
 	}
 
-	_, leaf, off, err := s.root.findLeafNode(prefix, nil, neq, false)
+	_, leaf, off, err := s.root.findLeafNode(prefix, nil, 0, neq, false)
 	if err == ErrKeyNotFound {
 		return false, nil
 	}

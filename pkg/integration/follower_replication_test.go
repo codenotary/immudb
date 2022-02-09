@@ -68,12 +68,12 @@ func TestReplication(t *testing.T) {
 		followerServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer func() {
 		masterServer.Stop()
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 
 		followerServer.Stop()
 	}()
@@ -120,7 +120,7 @@ func TestReplication(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
 		DatabaseName:     "replicateddb",
@@ -149,7 +149,7 @@ func TestReplication(t *testing.T) {
 	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))
