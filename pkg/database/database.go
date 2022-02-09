@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
@@ -56,6 +57,7 @@ type DB interface {
 	UseTimeFunc(timeFunc store.TimeFunc) error
 
 	// State
+	Health() (waitingCount int, lastReleaseAt time.Time)
 	CurrentState() (*schema.ImmutableState, error)
 	Size() (uint64, error)
 
@@ -125,7 +127,7 @@ type db struct {
 	sqlInitCancel chan (struct{})
 	sqlInit       sync.WaitGroup
 
-	mutex sync.RWMutex
+	mutex *instrumentedRWMutex
 
 	Logger  logger.Logger
 	options *Options
@@ -143,6 +145,7 @@ func OpenDB(op *Options, log logger.Logger) (DB, error) {
 		Logger:  log,
 		options: op,
 		name:    op.dbName,
+		mutex:   &instrumentedRWMutex{},
 	}
 
 	dbDir := dbi.path()
@@ -242,6 +245,7 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 		Logger:  log,
 		options: op,
 		name:    op.dbName,
+		mutex:   &instrumentedRWMutex{},
 	}
 
 	dbDir := filepath.Join(op.GetDBRootPath(), op.GetDBName())
@@ -476,6 +480,10 @@ func (d *db) readMetadataAndValue(key []byte, atTx uint64, tx *store.Tx) (*store
 	}
 
 	return entry.Metadata(), v, nil
+}
+
+func (d *db) Health() (waitingCount int, lastReleaseAt time.Time) {
+	return d.mutex.State()
 }
 
 // CurrentState ...

@@ -24,6 +24,21 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
+func (i *immuc) DatabaseHealth(args []string) (string, error) {
+	ctx := context.Background()
+	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Health(ctx)
+	})
+	if err != nil {
+		rpcerrors := strings.SplitAfter(err.Error(), "=")
+		if len(rpcerrors) > 1 {
+			return rpcerrors[len(rpcerrors)-1], nil
+		}
+		return "", err
+	}
+	return PrintHealth(state.(*schema.DatabaseHealthResponse)), nil
+}
+
 func (i *immuc) CurrentState(args []string) (string, error) {
 	ctx := context.Background()
 	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {

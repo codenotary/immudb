@@ -60,6 +60,10 @@ func PrintSetItem(set []byte, referencedkey []byte, score float64, txhdr *schema
 		verified)
 }
 
+func PrintHealth(res *schema.DatabaseHealthResponse) string {
+	return fmt.Sprintf("pendingRequests:		%d\nlastRequestCompletedAt:		%s\n", res.PendingRequests, time.Unix(0, res.LastRequestCompletedAt*int64(time.Millisecond)))
+}
+
 // PrintState ...
 func PrintState(root *schema.ImmutableState) string {
 	if root.TxId == 0 {

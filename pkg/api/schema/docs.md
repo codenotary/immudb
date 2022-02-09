@@ -14,6 +14,7 @@
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
+    - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [DatabaseSettings](#immudb.schema.DatabaseSettings)
     - [DebugInfo](#immudb.schema.DebugInfo)
@@ -268,6 +269,22 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | databaseName | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DatabaseHealthResponse"></a>
+
+### DatabaseHealthResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pendingRequests | [uint32](#uint32) |  |  |
+| lastRequestCompletedAt | [int64](#int64) |  |  |
 
 
 
@@ -1689,6 +1706,7 @@ immudb gRPC &amp; REST service
 | TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
 | History | [HistoryRequest](#immudb.schema.HistoryRequest) | [Entries](#immudb.schema.Entries) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
+| DatabaseHealth | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse) |  |
 | CurrentState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |
 | SetReference | [ReferenceRequest](#immudb.schema.ReferenceRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
 | VerifiableSetReference | [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |

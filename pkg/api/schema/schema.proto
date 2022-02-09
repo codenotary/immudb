@@ -283,6 +283,11 @@ message HealthResponse {
 	string version = 2;
 }
 
+message DatabaseHealthResponse {
+	uint32 pendingRequests = 1;
+	int64 lastRequestCompletedAt = 2;
+}
+
 message ImmutableState {
 	string db = 1;
 	uint64 txId = 2;
@@ -743,6 +748,15 @@ service ImmuService {
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
 			get: "/health"
+		};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+			security: {} // no security
+		};
+	};
+
+	rpc DatabaseHealth (google.protobuf.Empty) returns (DatabaseHealthResponse){
+		option (google.api.http) = {
+			get: "/db/health"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 			security: {} // no security

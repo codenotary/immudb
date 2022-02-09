@@ -2,10 +2,25 @@ package server
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 )
+
+func (s *ImmuServer) DatabaseHealth(ctx context.Context, _ *empty.Empty) (*schema.DatabaseHealthResponse, error) {
+	db, err := s.getDBFromCtx(ctx, "DatabaseHealth")
+	if err != nil {
+		return nil, err
+	}
+
+	waitingRequests, lastReleaseAt := db.Health()
+
+	return &schema.DatabaseHealthResponse{
+		PendingRequests:        uint32(waitingRequests),
+		LastRequestCompletedAt: lastReleaseAt.UnixMilli(),
+	}, nil
+}
 
 // CurrentState ...
 func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.ImmutableState, error) {

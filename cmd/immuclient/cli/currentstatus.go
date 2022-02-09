@@ -16,6 +16,10 @@ limitations under the License.
 
 package cli
 
+func (cli *cli) health(args []string) (string, error) {
+	return cli.immucl.DatabaseHealth(args)
+}
+
 func (cli *cli) currentState(args []string) (string, error) {
 	return cli.immucl.CurrentState(args)
 }
