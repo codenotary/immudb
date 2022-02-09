@@ -20,6 +20,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func (cl *commandline) health(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "health",
+		Short:             "Return the number of pending requests and the time of the last operation was completed",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.DatabaseHealth(args)
+			if err != nil {
+				cl.quit(err)
+			}
+			fprintln(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(0),
+	}
+	cmd.AddCommand(ccmd)
+}
+
 func (cl *commandline) currentState(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "current",

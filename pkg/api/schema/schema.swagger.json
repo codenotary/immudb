@@ -301,6 +301,29 @@
         ]
       }
     },
+    "/db/health": {
+      "get": {
+        "operationId": "ImmuService_DatabaseHealth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseHealthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ],
+        "security": []
+      }
+    },
     "/db/history": {
       "post": {
         "operationId": "ImmuService_History",
@@ -1434,6 +1457,19 @@
       "properties": {
         "databaseName": {
           "type": "string"
+        }
+      }
+    },
+    "schemaDatabaseHealthResponse": {
+      "type": "object",
+      "properties": {
+        "pendingRequests": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastRequestCompletedAt": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

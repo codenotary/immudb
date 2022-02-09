@@ -276,6 +276,10 @@ func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 	return s.Srv.UseDatabase(ctx, req)
 }
 
+func (s *ServerMock) DatabaseHealth(ctx context.Context, req *empty.Empty) (*schema.DatabaseHealthResponse, error) {
+	return s.Srv.DatabaseHealth(ctx, req)
+}
+
 func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
 	return s.Srv.UpdateDatabase(ctx, req)
 }

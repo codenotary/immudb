@@ -106,6 +106,7 @@ type ImmuClient interface {
 
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
+	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
@@ -535,6 +536,14 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 
 	return nil
+}
+
+func (c *immuClient) Health(ctx context.Context) (*schema.DatabaseHealthResponse, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.DatabaseHealth(ctx, &empty.Empty{})
 }
 
 // CurrentState returns current database state

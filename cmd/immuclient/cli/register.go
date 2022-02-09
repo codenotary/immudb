@@ -44,6 +44,7 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"delete", "Delete item having the specified key", cli.deleteKey, []string{"key"}, false})
 
 	// Current status commands
+	cli.Register(&command{"health", "Return the number of pending requests and the time of the last operation was completed", cli.health, nil, false})
 	cli.Register(&command{"current", "Return the last tx and hash stored locally", cli.currentState, nil, false})
 
 	// Reference commands
