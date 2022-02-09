@@ -152,8 +152,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Error while reading a single leaf node content", func(t *testing.T) {
 		nLogBuffer := []byte{
 			LeafNodeType, // Node type
-			0, 0, 0, 0,   // Size, ignored
-			0, 0, 0, 1, // 1 child
+			0, 0, 0, 1,   // 1 child
 			0, 0, 0, 1, // key size
 			123,        // key
 			0, 0, 0, 1, // value size
@@ -180,14 +179,10 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Error while reading an inner node content", func(t *testing.T) {
 		nLogBuffer := []byte{
 			InnerNodeType, // Node type
-			0, 0, 0, 0,    // Size, ignored
-			0, 0, 0, 1, // 1 child
+			0, 0, 0, 1,    // 1 child
 			0, 0, 0, 1, // min key size
-			0,          // min key
-			0, 0, 0, 1, // max key size
-			1,                      // max key
+			0,                      // min key
 			0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
-			0, 0, 0, 0, // size
 			0, 0, 0, 0, 0, 0, 0, 0, // offset
 		}
 		for i := 1; i < len(nLogBuffer); i++ {

@@ -89,7 +89,8 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				neqKey := r.leafNode.maxKey()
+				//neqKey := r.leafNode.maxKey() TODO COMPLETE IMPLEMENTATION
+				var neqKey []byte
 				if r.descOrder {
 					neqKey = r.leafNode.minKey()
 				}
@@ -190,7 +191,8 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				neqKey := r.leafNode.maxKey()
+				//neqKey := r.leafNode.maxKey() TODO COMPLETE IMPLEMENTATION
+				var neqKey []byte
 				if r.descOrder {
 					neqKey = r.leafNode.minKey()
 				}
