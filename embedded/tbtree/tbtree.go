@@ -249,30 +249,39 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 		nLog, err := appFactory(path, nFolder, appendableOpts)
 		if err != nil {
-			return nil, err
+			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			continue
 		}
 
 		appendableOpts.WithFileExt("ri")
 		appendableOpts.WithMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 		cLog, err := appFactory(path, cFolder, appendableOpts)
 		if err != nil {
-			return nil, err
+			nLog.Close()
+			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			continue
 		}
 
-		// TODO: semantic validation and further ammendment procedures may be done instead of a full initialization
-		t, err := OpenWith(path, nLog, hLog, cLog, opts)
+		var t *TBtree
+		var discardSnapshot bool
+
+		cLogSize, err := cLog.Size()
+		if err == nil && cLogSize < cLogEntrySize {
+			opts.log.Infof("Reading snapshot at '%s' returned: %s", snapPath, "empty snapshot")
+			discardSnapshot = true
+		}
+		if !discardSnapshot && cLogSize >= cLogEntrySize {
+			// TODO: semantic validation and further ammendment procedures may be done instead of a full initialization
+			t, err = OpenWith(path, nLog, hLog, cLog, opts)
+		}
 		if err != nil {
 			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			discardSnapshot = true
+		}
 
-			err = nLog.Close()
-			if err != nil {
-				return nil, err
-			}
-
-			err = cLog.Close()
-			if err != nil {
-				return nil, err
-			}
+		if discardSnapshot {
+			nLog.Close()
+			cLog.Close()
 
 			err = discardSnapshots(path, snapIDs[i-1:i], opts.log)
 			if err != nil {
