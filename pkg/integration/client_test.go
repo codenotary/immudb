@@ -937,21 +937,24 @@ func TestImmuClient_SetAll(t *testing.T) {
 
 	setRequest = &schema.SetRequest{KVs: []*schema.KeyValue{
 		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
-		{Key: []byte("4,5,6"), Value: []byte("6,5,4")},
+		{Key: []byte("4,5,6"), Value: []byte("6,5,4"), Metadata: &schema.KVMetadata{NonIndexeable: true}},
 	}}
 
 	_, err = client.SetAll(ctx, setRequest)
 	require.NoError(t, err)
-
-	time.Sleep(1 * time.Millisecond)
 
 	err = client.CompactIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
-		require.NoError(t, err)
-		require.Equal(t, kv.Value, i.GetValue())
+
+		if kv.Metadata != nil && kv.Metadata.NonIndexeable {
+			require.Contains(t, err.Error(), "key not found")
+		} else {
+			require.NoError(t, err)
+			require.Equal(t, kv.Value, i.GetValue())
+		}
 	}
 
 	err = client.Disconnect()
