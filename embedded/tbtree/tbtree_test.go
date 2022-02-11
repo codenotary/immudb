@@ -1018,6 +1018,40 @@ func TestTBTreeReOpen(t *testing.T) {
 	})
 }
 
+func TestTBTreeIncreaseTs(t *testing.T) {
+	tbtree, err := Open("test_tree_increase_ts", DefaultOptions().WithFlushThld(2))
+	require.NoError(t, err)
+
+	defer os.RemoveAll("test_tree_increase_ts")
+
+	require.Equal(t, uint64(0), tbtree.Ts())
+
+	err = tbtree.Insert([]byte("k0"), []byte("v0"))
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), tbtree.Ts())
+
+	err = tbtree.IncreaseTs(tbtree.Ts() - 1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = tbtree.IncreaseTs(tbtree.Ts())
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
+	require.NoError(t, err)
+
+	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(3), tbtree.Ts())
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	err = tbtree.IncreaseTs(tbtree.Ts() + 1)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
 func BenchmarkRandomInsertion(b *testing.B) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
