@@ -131,6 +131,7 @@ type node interface {
 	minKey() []byte
 	maxKey() []byte
 	ts() uint64
+	setTs(ts uint64) (node, error)
 	size() int
 	mutated() bool
 	offset() int64
@@ -1198,6 +1199,31 @@ func (t *TBtree) Close() error {
 	return nil
 }
 
+func (t *TBtree) IncreaseTs(ts uint64) error {
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	root, err := t.root.setTs(ts)
+	if err != nil {
+		return err
+	}
+
+	t.root = root
+
+	t.insertionCount++
+
+	if t.insertionCount >= t.flushThld {
+		_, _, err := t.flushTree(false)
+		return err
+	}
+
+	return nil
+}
+
 type KV struct {
 	K []byte
 	V []byte
@@ -1549,6 +1575,15 @@ func (n *innerNode) ts() uint64 {
 	return n._ts
 }
 
+func (n *innerNode) setTs(ts uint64) (node, error) {
+	if n._ts >= ts {
+		return nil, ErrIllegalArguments
+	}
+
+	n._ts = ts
+	return n, nil
+}
+
 func (n *innerNode) size() int {
 	size := 1 // Node type
 
@@ -1694,6 +1729,15 @@ func (r *nodeRef) maxKey() []byte {
 
 func (r *nodeRef) ts() uint64 {
 	return r._ts
+}
+
+func (r *nodeRef) setTs(ts uint64) (node, error) {
+	n, err := r.t.nodeAt(r.off)
+	if err != nil {
+		return nil, err
+	}
+
+	return n.setTs(ts)
 }
 
 func (r *nodeRef) size() int {
@@ -2033,6 +2077,15 @@ func (l *leafNode) maxKey() []byte {
 
 func (l *leafNode) ts() uint64 {
 	return l._ts
+}
+
+func (l *leafNode) setTs(ts uint64) (node, error) {
+	if l._ts >= ts {
+		return nil, ErrIllegalArguments
+	}
+
+	l._ts = ts
+	return l, nil
 }
 
 func (l *leafNode) size() int {
