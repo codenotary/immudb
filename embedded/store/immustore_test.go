@@ -1192,6 +1192,73 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	require.Equal(t, []byte{1, 1, 1}, v)
 }
 
+func TestImmudbStoreNonIndexableEntries(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, _ := Open("data_kv_metadata_non_indexable", opts)
+	defer os.RemoveAll("data_kv_metadata_non_indexable")
+
+	tx, err := immuStore.NewTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	md := NewKVMetadata()
+	err = md.AsNonIndexable(true)
+	require.NoError(t, err)
+
+	err = tx.Set([]byte("nonIndexedKey"), md, []byte("nonIndexedValue"))
+	require.NoError(t, err)
+
+	err = tx.Set([]byte("indexedKey"), nil, []byte("indexedValue"))
+	require.NoError(t, err)
+
+	_, err = tx.Commit()
+	require.NoError(t, err)
+
+	_, err = immuStore.Get([]byte("nonIndexedKey"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	valRef, err := immuStore.Get([]byte("indexedKey"))
+	require.NoError(t, err)
+	require.NotNil(t, valRef)
+
+	val, err := valRef.Resolve()
+	require.NoError(t, err)
+	require.Equal(t, []byte("indexedValue"), val)
+
+	// commit tx with all non-indexable entries
+	tx, err = immuStore.NewTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	err = tx.Set([]byte("nonIndexedKey1"), md, []byte("nonIndexedValue1"))
+	require.NoError(t, err)
+
+	_, err = tx.Commit()
+	require.NoError(t, err)
+
+	_, err = immuStore.Get([]byte("nonIndexedKey1"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	// commit simple tx with an indexable entry
+	tx, err = immuStore.NewTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	err = tx.Set([]byte("indexedKey1"), nil, []byte("indexedValue1"))
+	require.NoError(t, err)
+
+	_, err = tx.Commit()
+	require.NoError(t, err)
+
+	valRef, err = immuStore.Get([]byte("indexedKey1"))
+	require.NoError(t, err)
+	require.NotNil(t, valRef)
+
+	val, err = valRef.Resolve()
+	require.NoError(t, err)
+	require.Equal(t, []byte("indexedValue1"), val)
+}
+
 func TestImmudbStoreCommitWith(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_commit_with", opts)

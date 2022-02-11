@@ -363,7 +363,13 @@ func (idx *indexer) indexTX(txID uint64) error {
 
 	txmdLen := len(txmd)
 
-	for i, e := range txEntries {
+	indexableEntries := 0
+
+	for _, e := range txEntries {
+		if e.md != nil && e.md.NonIndexable() {
+			continue
+		}
+
 		// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
 		var b [lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen]byte
 		o := 0
@@ -397,11 +403,17 @@ func (idx *indexer) indexTX(txID uint64) error {
 		copy(b[o:], kvmd)
 		o += kvmdLen
 
-		idx.store._kvs[i].K = e.key()
-		idx.store._kvs[i].V = b[:o]
+		idx.store._kvs[indexableEntries].K = e.key()
+		idx.store._kvs[indexableEntries].V = b[:o]
+
+		indexableEntries++
 	}
 
-	err = idx.index.BulkInsert(idx.store._kvs[:len(txEntries)])
+	if indexableEntries == 0 {
+		err = idx.index.IncreaseTs(txID)
+	} else {
+		err = idx.index.BulkInsert(idx.store._kvs[:indexableEntries])
+	}
 	if err != nil {
 		return err
 	}
