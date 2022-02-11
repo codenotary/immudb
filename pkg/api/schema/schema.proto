@@ -218,6 +218,7 @@ message TxEntry {
 message KVMetadata {
 	bool deleted = 1;
 	Expiration expiration = 2;
+	bool nonIndexeable = 3;
 }
 
 message Expiration {
