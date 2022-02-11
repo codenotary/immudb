@@ -578,6 +578,7 @@
 | ----- | ---- | ----- | ----------- |
 | deleted | [bool](#bool) |  |  |
 | expiration | [Expiration](#immudb.schema.Expiration) |  |  |
+| nonIndexeable | [bool](#bool) |  |  |
 
 
 
