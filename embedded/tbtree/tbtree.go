@@ -540,7 +540,7 @@ func (t *TBtree) cachePut(n node) {
 	}
 }
 
-func (t *TBtree) nodeAt(offset int64) (node, error) {
+func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
 
@@ -557,14 +557,15 @@ func (t *TBtree) nodeAt(offset int64) (node, error) {
 		metricsCacheMiss.WithLabelValues(t.path).Inc()
 
 		n, err := t.readNodeAt(offset)
-
 		if err != nil {
 			return nil, err
 		}
 
-		r, _, _ := t.cache.Put(n.offset(), n)
-		if r != nil {
-			metricsCacheEvict.WithLabelValues(t.path).Inc()
+		if updateCache {
+			r, _, _ := t.cache.Put(n.offset(), n)
+			if r != nil {
+				metricsCacheEvict.WithLabelValues(t.path).Inc()
+			}
 		}
 
 		return n, nil
@@ -1687,7 +1688,7 @@ func (n *innerNode) updateTs() {
 ////////////////////////////////////////////////////////////
 
 func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
-	n, err := r.t.nodeAt(r.off)
+	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -1695,7 +1696,7 @@ func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 nod
 }
 
 func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
-	n, err := r.t.nodeAt(r.off)
+	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -1703,7 +1704,7 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error
 }
 
 func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
-	n, err := r.t.nodeAt(r.off)
+	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1711,7 +1712,7 @@ func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) 
 }
 
 func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
-	n, err := r.t.nodeAt(r.off)
+	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, nil, 0, err
 	}
