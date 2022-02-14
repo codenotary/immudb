@@ -452,7 +452,7 @@ func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, w
 		return n.offset(), 0, 0, nil
 	}
 
-	node, err := n.t.nodeAt(n.off)
+	node, err := n.t.nodeAt(n.off, false)
 	if err != nil {
 		return 0, 0, 0, err
 	}

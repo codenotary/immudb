@@ -44,7 +44,7 @@ func consistencyCheck(t *testing.T, tbtree *TBtree, n node) {
 
 	case *nodeRef:
 		// check if reference is consistent with the node
-		sub, err := tbtree.nodeAt(n.off)
+		sub, err := tbtree.nodeAt(n.off, true)
 		require.NoError(t, err)
 		require.True(t, bytes.Equal(n._minKey, sub.minKey()))
 		require.True(t, bytes.Equal(n._maxKey, sub.maxKey()))
