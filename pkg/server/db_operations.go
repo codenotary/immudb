@@ -2,11 +2,16 @@ package server
 
 import (
 	"context"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 )
+
+func unixMilli(t time.Time) int64 {
+	return t.Unix()*1e3 + int64(t.Nanosecond())/1e3
+}
 
 func (s *ImmuServer) DatabaseHealth(ctx context.Context, _ *empty.Empty) (*schema.DatabaseHealthResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DatabaseHealth")
@@ -18,7 +23,7 @@ func (s *ImmuServer) DatabaseHealth(ctx context.Context, _ *empty.Empty) (*schem
 
 	return &schema.DatabaseHealthResponse{
 		PendingRequests:        uint32(waitingRequests),
-		LastRequestCompletedAt: lastReleaseAt.UnixMilli(),
+		LastRequestCompletedAt: unixMilli(lastReleaseAt),
 	}, nil
 }
 
