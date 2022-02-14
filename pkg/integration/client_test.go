@@ -1285,12 +1285,18 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
 
 	r, err := client.CurrentState(ctx)
-
+	require.NoError(t, err)
 	require.IsType(t, &schema.ImmutableState{}, r)
-	require.Nil(t, err)
+
+	healthRes, err := client.Health(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, healthRes)
+	require.Equal(t, uint32(0x0), healthRes.PendingRequests)
+
 	client.Disconnect()
 }
 
