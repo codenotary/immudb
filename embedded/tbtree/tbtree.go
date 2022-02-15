@@ -270,7 +270,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 			opts.log.Infof("Skipping snapshot at '%s', reading commit data returned: %s", snapPath, "empty snapshot")
 			discardSnapshot = true
 		}
-		if !discardSnapshot && cLogSize >= cLogEntrySize {
+		if err == nil && !discardSnapshot {
 			// TODO: semantic validation and further amendment procedures may be done instead of a full initialization
 			t, err = OpenWith(path, nLog, hLog, cLog, opts)
 		}
