@@ -188,7 +188,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		masterServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer masterServer.Stop()
 
@@ -229,7 +229,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		followerServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer followerServer.Stop()
 
@@ -254,7 +254,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))

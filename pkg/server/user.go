@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -207,9 +208,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 
 		return userlist, nil
 
-	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()) == auth.PermissionAdmin {
+	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetName()) == auth.PermissionAdmin {
 		// for admin users return only users for the database that is has selected
-		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()
+		selectedDbname := s.dbList.GetByIndex(dbInd).GetName()
 		userlist := &schema.UserList{}
 
 		for i := 0; i < len(itemList.Entries); i++ {

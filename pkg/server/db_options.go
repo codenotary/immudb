@@ -129,7 +129,6 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 
 func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 	return database.DefaultOption().
-		WithDBName(opts.Database).
 		WithDBRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
 		AsReplica(opts.Replica)

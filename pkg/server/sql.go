@@ -38,7 +38,7 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDBName(),
+			Db:     db.GetName(),
 			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}

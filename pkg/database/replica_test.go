@@ -30,9 +30,9 @@ import (
 func TestReadOnlyReplica(t *testing.T) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").AsReplica(true)
+	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(true)
 
-	replica, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	replica, err := NewDB("db", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	defer os.RemoveAll(options.dbRootPath)
@@ -40,7 +40,7 @@ func TestReadOnlyReplica(t *testing.T) {
 	err = replica.Close()
 	require.NoError(t, err)
 
-	replica, err = OpenDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	replica, err = OpenDB("db", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	_, err = replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
@@ -97,9 +97,9 @@ func TestReadOnlyReplica(t *testing.T) {
 func TestSwitchToReplica(t *testing.T) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").AsReplica(false)
+	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(false)
 
-	replica, rcloser := makeDbWith(options)
+	replica, rcloser := makeDbWith("db", options)
 	defer rcloser()
 
 	_, _, err := replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"}, nil)
