@@ -85,7 +85,8 @@ type TBtree struct {
 	root node
 
 	maxNodeSize              int
-	insertionCount           int
+	insertionCountSinceFlush int
+	insertionCountSinceSync  int
 	flushThld                int
 	syncThld                 int
 	maxActiveSnapshots       int
@@ -108,8 +109,6 @@ type TBtree struct {
 	maxSnapshotID  uint64
 	lastSnapRoot   node
 	lastSnapRootAt time.Time
-
-	lastSyncedAt uint64
 
 	committedLogSize  int64
 	committedNLogSize int64
@@ -249,7 +248,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		appendableOpts.WithMaxOpenedFiles(opts.nodesLogMaxOpenedFiles)
 		nLog, err := appFactory(path, nFolder, appendableOpts)
 		if err != nil {
-			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			opts.log.Infof("Skipping snapshot at '%s', reading node data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -258,7 +257,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		cLog, err := appFactory(path, cFolder, appendableOpts)
 		if err != nil {
 			nLog.Close()
-			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			opts.log.Infof("Skipping snapshot at '%s', reading commit data returned: %v", snapPath, err)
 			continue
 		}
 
@@ -267,15 +266,15 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		cLogSize, err := cLog.Size()
 		if err == nil && cLogSize < cLogEntrySize {
-			opts.log.Infof("Reading snapshot at '%s' returned: %s", snapPath, "empty snapshot")
+			opts.log.Infof("Skipping snapshot at '%s', reading commit data returned: %s", snapPath, "empty snapshot")
 			discardSnapshot = true
 		}
 		if !discardSnapshot && cLogSize >= cLogEntrySize {
-			// TODO: semantic validation and further ammendment procedures may be done instead of a full initialization
+			// TODO: semantic validation and further amendment procedures may be done instead of a full initialization
 			t, err = OpenWith(path, nLog, hLog, cLog, opts)
 		}
 		if err != nil {
-			opts.log.Infof("Reading snapshot at '%s' returned: %v", snapPath, err)
+			opts.log.Infof("Skipping snapshot at '%s', opening btree returned: %v", snapPath, err)
 			discardSnapshot = true
 		}
 
@@ -293,7 +292,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 		opts.log.Infof("Successfully read snapshot at '%s'", snapPath)
 
-		// Discard older snapshots upon sucessful validation
+		// Discard older snapshots upon successful validation
 		err = discardSnapshots(path, snapIDs[:i-1], opts.log)
 		if err != nil {
 			opts.log.Warningf("Discarding snapshots at '%s' returned: %v", path, err)
@@ -349,7 +348,7 @@ func recoverFullSnapshots(path, prefix string, log logger.Logger) (snapIDs []uin
 
 			id, err := strconv.ParseInt(strings.TrimPrefix(f.Name(), prefix), 10, 64)
 			if err != nil {
-				log.Warningf("Invalid folder found '%s'", f.Name())
+				log.Warningf("Invalid folder found '%s', skipped during index selection", f.Name())
 				continue
 			}
 
@@ -474,7 +473,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 			return nil, fmt.Errorf("%w: while loading index at '%s'", err, path)
 		}
 
-		t.lastSyncedAt = t.root.ts()
 		t.committedNLogSize = committedRootOffset + int64(t.root.size())
 
 		break
@@ -906,7 +904,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		return 0, 0, nil
 	}
 
-	explicitSync := !t.synced && (ensureSync || t.root.ts()-t.lastSyncedAt >= uint64(t.syncThld))
+	explicitSync := !t.synced && (ensureSync || t.insertionCountSinceSync >= t.syncThld)
 
 	if t.root.mutated() {
 		snapshot := t.newSnapshot(0, t.root)
@@ -989,7 +987,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		}
 	}
 
-	t.insertionCount = 0
+	t.insertionCountSinceFlush = 0
 	t.committedLogSize += cLogEntrySize
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
@@ -1006,8 +1004,8 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	t.log.Infof("Index '%s' {ts=%d} successfully flushed", t.path, t.root.ts())
 
 	if t.synced || explicitSync {
-		t.lastSyncedAt = t.root.ts()
-		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.lastSyncedAt)
+		t.insertionCountSinceSync = 0
+		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.root.ts())
 	}
 
 	return wN, wH, nil
@@ -1280,10 +1278,11 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 		metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
 
-		t.insertionCount++
+		t.insertionCountSinceFlush++
+		t.insertionCountSinceSync++
 	}
 
-	if t.insertionCount >= t.flushThld {
+	if t.insertionCountSinceFlush >= t.flushThld {
 		_, _, err := t.flushTree(false)
 		return err
 	}
