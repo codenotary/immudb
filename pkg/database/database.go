@@ -136,15 +136,19 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(op *Options, log logger.Logger) (DB, error) {
-	log.Infof("Opening database '%s' {replica = %v}...", op.dbName, op.replica)
+func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
+	if dbName == "" {
+		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
+	}
+
+	log.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
 
 	var err error
 
 	dbi := &db{
 		Logger:  log,
 		options: op,
-		name:    op.dbName,
+		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
 	}
 
@@ -166,7 +170,7 @@ func OpenDB(op *Options, log logger.Logger) (DB, error) {
 	}
 
 	if op.replica {
-		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", op.dbName, op.replica)
+		dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 		return dbi, nil
 	}
 
@@ -176,24 +180,24 @@ func OpenDB(op *Options, log logger.Logger) (DB, error) {
 	go func() {
 		defer dbi.sqlInit.Done()
 
-		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", op.dbName, op.replica)
+		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
 
 		err := dbi.initSQLEngine()
 		if err != nil {
-			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", op.dbName, op.replica, err)
+			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 			return
 		}
 
-		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", op.dbName, op.replica)
+		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 	}()
 
-	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", op.dbName, op.replica)
+	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 
 	return dbi, nil
 }
 
 func (d *db) path() string {
-	return filepath.Join(d.options.GetDBRootPath(), d.options.GetDBName())
+	return filepath.Join(d.options.GetDBRootPath(), d.GetName())
 }
 
 func (d *db) initSQLEngine() error {
@@ -236,19 +240,23 @@ func (d *db) initSQLEngine() error {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(op *Options, log logger.Logger) (DB, error) {
-	log.Infof("Creating database '%s' {replica = %v}...", op.dbName, op.replica)
+func NewDB(dbName string, op *Options, log logger.Logger) (DB, error) {
+	if dbName == "" {
+		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
+	}
+
+	log.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
 
 	var err error
 
 	dbi := &db{
 		Logger:  log,
 		options: op,
-		name:    op.dbName,
+		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
 	}
 
-	dbDir := filepath.Join(op.GetDBRootPath(), op.GetDBName())
+	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
 
 	if _, dbErr := os.Stat(dbDir); dbErr == nil {
 		return nil, fmt.Errorf("Database directories already exist: %s", dbDir)
@@ -280,7 +288,7 @@ func NewDB(op *Options, log logger.Logger) (DB, error) {
 		}
 	}
 
-	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", op.dbName, op.replica)
+	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", dbName, op.replica)
 
 	return dbi, nil
 }
@@ -978,9 +986,6 @@ func (d *db) Close() error {
 
 // GetName ...
 func (d *db) GetName() string {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
 	return d.name
 }
 

@@ -388,7 +388,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
 	_, err := s.OS.Stat(systemDBRootDir)
 	if err == nil {
-		s.sysDB, err = database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+		s.sysDB, err = database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
@@ -409,7 +409,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		return err
 	}
 
-	s.sysDB, err = database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+	s.sysDB, err = database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -456,7 +456,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 	_, err := s.OS.Stat(defaultDbRootDir)
 	if err == nil {
-		db, err := database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+		db, err := database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
@@ -479,7 +479,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		return err
 	}
 
-	db, err := database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+	db, err := database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return err
 	}
@@ -527,7 +527,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return err
 		}
 
-		db, err := database.OpenDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+		db, err := database.OpenDB(dbname, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
 		}
@@ -784,7 +784,7 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		return nil, err
 	}
 
-	db, err := database.NewDB(s.databaseOptionsFrom(dbOpts), s.Logger)
+	db, err := database.NewDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -908,12 +908,12 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
 			val := s.dbList.GetByIndex(int64(i))
-			if val.GetOptions().GetDBName() == SystemDBName {
+			if val.GetName() == SystemDBName {
 				//do not put sysemdb in the list
 				continue
 			}
 			db := &schema.Database{
-				DatabaseName: val.GetOptions().GetDBName(),
+				DatabaseName: val.GetName(),
 			}
 			dbList.Databases = append(dbList.Databases, db)
 		}
@@ -1044,7 +1044,7 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 		return db, nil
 	}
 
-	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetOptions().GetDBName()), methodName); !ok {
+	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetName()), methodName); !ok {
 		return nil, ErrPermissionDenied
 	}
 
@@ -1086,14 +1086,14 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	//check if there are user created databases, should be zero for auth to be off
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
-		if (val.GetOptions().GetDBName() != s.Options.defaultDBName) &&
-			(val.GetOptions().GetDBName() != s.Options.systemAdminDBName) {
+		if (val.GetName() != s.Options.defaultDBName) &&
+			(val.GetName() != s.Options.systemAdminDBName) {
 			return true
 		}
 	}
 
 	//check if there is only default database
-	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(defaultDbIndex).GetOptions().GetDBName() == s.Options.defaultDBName) {
+	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(defaultDbIndex).GetName() == s.Options.defaultDBName) {
 		return false
 	}
 

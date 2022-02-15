@@ -39,7 +39,7 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB(database.DefaultOption().AsReplica(true), logger)
+	db, err := database.NewDB("replicated_defaultdb", database.DefaultOption().AsReplica(true), logger)
 	require.NoError(t, err)
 
 	defer os.RemoveAll(db.GetOptions().GetDBRootPath())

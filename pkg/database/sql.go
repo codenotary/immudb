@@ -149,7 +149,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
-		colIdsByName[sql.EncodeSelector("", d.options.dbName, table.Name(), col.Name())] = col.ID()
+		colIdsByName[sql.EncodeSelector("", d.GetName(), table.Name(), col.Name())] = col.ID()
 		colTypesByID[col.ID()] = col.Type()
 		colLenByID[col.ID()] = int32(col.MaxLen())
 	}
@@ -404,7 +404,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	for i, c := range colDescriptors {
 		des := &sql.ColDescriptor{
 			AggFn:    c.AggFn,
-			Database: d.options.dbName,
+			Database: d.GetName(),
 			Table:    c.Table,
 			Column:   c.Column,
 			Type:     c.Type,
