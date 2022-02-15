@@ -1213,9 +1213,10 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 
 	t.root = root
 
-	t.insertionCount++
+	t.insertionCountSinceFlush++
+	t.insertionCountSinceSync++
 
-	if t.insertionCount >= t.flushThld {
+	if t.insertionCountSinceFlush >= t.flushThld {
 		_, _, err := t.flushTree(false)
 		return err
 	}
@@ -1732,7 +1733,7 @@ func (r *nodeRef) ts() uint64 {
 }
 
 func (r *nodeRef) setTs(ts uint64) (node, error) {
-	n, err := r.t.nodeAt(r.off)
+	n, err := r.t.nodeAt(r.off, false)
 	if err != nil {
 		return nil, err
 	}
