@@ -642,6 +642,7 @@
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
