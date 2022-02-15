@@ -256,6 +256,12 @@
             "required": false,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -1812,6 +1818,9 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },

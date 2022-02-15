@@ -254,6 +254,7 @@ message KeyRequest {
 	bytes key = 1;
     uint64 atTx = 2;
 	uint64 sinceTx = 3;
+	bool  noWait = 4;
 }
 
 message KeyListRequest {

@@ -366,14 +366,16 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	waitUntilTx := req.SinceTx
-	if waitUntilTx == 0 {
-		waitUntilTx = currTxID
-	}
+	if !req.NoWait {
+		waitUntilTx := req.SinceTx
+		if waitUntilTx == 0 {
+			waitUntilTx = currTxID
+		}
 
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
-	if err != nil {
-		return nil, err
+		err := d.WaitForIndexingUpto(waitUntilTx, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
