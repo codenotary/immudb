@@ -48,13 +48,18 @@ func TestInstrumentedMutex(t *testing.T) {
 	wg.Add(1)
 
 	go func() {
+		wg.Done()
+
 		mutex.RLock()
 		releasedAt = time.Now()
 		mutex.RUnlock()
+
 		wg.Done()
 	}()
 
-	time.Sleep(10 * time.Millisecond)
+	wg.Wait()
+
+	wg.Add(1)
 
 	waitingCount, _ = mutex.State()
 	require.Equal(t, 1, waitingCount)
