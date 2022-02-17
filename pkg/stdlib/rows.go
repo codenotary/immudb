@@ -350,3 +350,25 @@ func (rows RowsAffected) RowsAffected() (int64, error) {
 	// TODO: consider the case when multiple txs are committed
 	return int64(rows.er.Txs[0].UpdatedRows), nil
 }
+
+// TxRowsAffected implements Result for an INSERT or UPDATE operation
+// which mutates a number of rows as part of a transaction.
+type TxRowsAffected struct {
+	er *schema.TxSQLExecResult
+}
+
+func (rows TxRowsAffected) LastInsertId() (int64, error) {
+	if rows.er != nil {
+		for _, v := range rows.er.GetLastInsertedPKs() {
+			return v.GetN(), nil
+		}
+	}
+	return 0, errors.New("unable to retrieve LastInsertId")
+}
+
+func (rows TxRowsAffected) RowsAffected() (int64, error) {
+	if rows.er != nil {
+		return int64(rows.er.GetUpdatedRows()), nil
+	}
+	return 0, nil
+}
