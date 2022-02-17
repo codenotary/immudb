@@ -169,7 +169,7 @@ func committerWithTxs(ctx context.Context, client immudb.ImmuClient, c cfg, entr
 	}
 	for i := 0; i < c.kvCount; i++ {
 		entry := <-entries
-		err = tx.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+		_, err = tx.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
 			map[string]interface{}{"id": entry.id, "value": entry.value})
 		if err != nil {
 			log.Fatalf("Transactions committer %d: Error while inserting value %d [%d]: %s", cid, entry.id, i, err)
