@@ -71,6 +71,8 @@
     - [TxList](#immudb.schema.TxList)
     - [TxMetadata](#immudb.schema.TxMetadata)
     - [TxRequest](#immudb.schema.TxRequest)
+    - [TxSQLExecResult](#immudb.schema.TxSQLExecResult)
+    - [TxSQLExecResult.LastInsertedPKsEntry](#immudb.schema.TxSQLExecResult.LastInsertedPKsEntry)
     - [TxScanRequest](#immudb.schema.TxScanRequest)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest)
@@ -1244,6 +1246,38 @@
 
 
 
+<a name="immudb.schema.TxSQLExecResult"></a>
+
+### TxSQLExecResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| updatedRows | [uint32](#uint32) |  |  |
+| lastInsertedPKs | [TxSQLExecResult.LastInsertedPKsEntry](#immudb.schema.TxSQLExecResult.LastInsertedPKsEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxSQLExecResult.LastInsertedPKsEntry"></a>
+
+### TxSQLExecResult.LastInsertedPKsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.TxScanRequest"></a>
 
 ### TxScanRequest
@@ -1687,7 +1721,7 @@ immudb gRPC &amp; REST service
 | NewTx | [NewTxRequest](#immudb.schema.NewTxRequest) | [NewTxResponse](#immudb.schema.NewTxResponse) |  |
 | Commit | [.google.protobuf.Empty](#google.protobuf.Empty) | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) |  |
 | Rollback | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| TxSQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| TxSQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [TxSQLExecResult](#immudb.schema.TxSQLExecResult) |  |
 | TxSQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

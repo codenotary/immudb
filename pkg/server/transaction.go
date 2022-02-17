@@ -85,25 +85,25 @@ func (s *ImmuServer) Rollback(ctx context.Context, _ *empty.Empty) (*empty.Empty
 	return new(empty.Empty), s.SessManager.RollbackTransaction(tx)
 }
 
-func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*schema.TxSQLExecResult, error) {
 	if request == nil {
 		return nil, ErrIllegalArguments
 	}
 
 	if s.Options.GetMaintenance() {
-		return new(empty.Empty), ErrNotAllowedInMaintenanceMode
+		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
 	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
-		return new(empty.Empty), err
+		return nil, err
 	}
 
 	if tx.GetMode() != schema.TxMode_ReadWrite {
-		return new(empty.Empty), ErrReadWriteTxNotOngoing
+		return nil, ErrReadWriteTxNotOngoing
 	}
 
-	return new(empty.Empty), tx.SQLExec(request)
+	return tx.SQLExec(request)
 }
 
 func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
