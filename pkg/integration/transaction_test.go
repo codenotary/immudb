@@ -367,3 +367,69 @@ func TestTransaction_HandlingReadConflict(t *testing.T) {
 	err = client.CloseSession(ctx)
 	require.NoError(t, err)
 }
+
+func TestTxSQLExecResult(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	ctx := context.Background()
+
+	err := client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	// Create the tables table1 and table2 with an auto increment primary key.
+	xres, err := client.SQLExec(ctx, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+
+	xres, err = client.SQLExec(ctx, "CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+
+	// Begin a transaction.
+	tx, err := client.NewTx(ctx)
+	require.NoError(t, err)
+
+	// Insert three rows into table1.
+	txres, err := tx.SQLExec(ctx, "INSERT INTO table1 (name) VALUES ('first'),('second'),('third')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 3 rows were updated,
+	// and the last inserted primary has to be 3.
+	require.Equal(t, uint32(3), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table1": {Value: &schema.SQLValue_N{N: 3}}}, txres.GetLastInsertedPKs())
+
+	// Insert four rows into table2.
+	txres, err = tx.SQLExec(ctx, "INSERT INTO table2 (name) VALUES ('first'),('second'),('third'),('fourth')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 4 rows were updated,
+	// and the last inserted primary has to be 4.
+	require.Equal(t, uint32(4), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 4}}}, txres.GetLastInsertedPKs())
+
+	// Insert two more rows into table1.
+	txres, err = tx.SQLExec(ctx, "INSERT INTO table1 (name) VALUES ('fourth'),('fifth')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 2 rows were updated,
+	// and the last inserted primary key has to be 5 (as 3 rows were inserted beforehand.)
+	require.Equal(t, uint32(2), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table1": {Value: &schema.SQLValue_N{N: 5}}}, txres.GetLastInsertedPKs())
+
+	// Commit the transaction.
+	commitRes, err := tx.Commit(ctx)
+	require.NoError(t, err)
+	// In total there have been 9 updates rows, and the the last inserted primary keys are
+	// table1: 5, table2: 4 .
+	require.Equal(t, uint32(9), commitRes.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{
+		"table1": {Value: &schema.SQLValue_N{N: 5}},
+		"table2": {Value: &schema.SQLValue_N{N: 4}}},
+		commitRes.GetLastInsertedPKs())
+}
