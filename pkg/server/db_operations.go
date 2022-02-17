@@ -10,7 +10,7 @@ import (
 )
 
 func unixMilli(t time.Time) int64 {
-	return t.Unix()*1e3 + int64(t.Nanosecond())/1e3
+	return t.Unix()*1e3 + int64(t.Nanosecond())/1e6
 }
 
 func (s *ImmuServer) DatabaseHealth(ctx context.Context, _ *empty.Empty) (*schema.DatabaseHealthResponse, error) {
