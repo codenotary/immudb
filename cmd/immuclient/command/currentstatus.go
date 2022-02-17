@@ -23,7 +23,7 @@ import (
 func (cl *commandline) health(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "health",
-		Short:             "Return the number of pending requests and the time of the last operation was completed",
+		Short:             "Return the number of pending requests and the time the last request was completed",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
