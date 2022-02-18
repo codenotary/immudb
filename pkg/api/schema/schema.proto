@@ -554,6 +554,11 @@ message NewTxResponse {
 	string transactionID = 1;
 }
 
+message TxSQLExecResult {
+	uint32 updatedRows = 2;
+	map<string, SQLValue> lastInsertedPKs = 3;
+}
+
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
@@ -628,7 +633,7 @@ service ImmuService {
 	rpc Commit (google.protobuf.Empty) returns (CommittedSQLTx){};
 	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
 
-	rpc TxSQLExec(SQLExecRequest) returns (google.protobuf.Empty) {};
+	rpc TxSQLExec(SQLExecRequest) returns (TxSQLExecResult) {};
 	rpc TxSQLQuery(SQLQueryRequest) returns (SQLQueryResult) {};
 
 	rpc Login (LoginRequest) returns (LoginResponse){

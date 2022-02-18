@@ -38,7 +38,7 @@ type Transaction interface {
 	Rollback() error
 	Commit() ([]*sql.SQLTx, error)
 	GetSessionID() string
-	SQLExec(request *schema.SQLExecRequest) error
+	SQLExec(request *schema.SQLExecRequest) (*schema.TxSQLExecResult, error)
 	SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 }
 
@@ -91,11 +91,37 @@ func (tx *transaction) GetSessionID() string {
 	return tx.sessionID
 }
 
-func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (err error) {
+func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (*schema.TxSQLExecResult, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
+	var err error
+	// Store the updated rows and the last inserted PKs before executing the request.
+	prevUpdatedRows := tx.sqlTx.UpdatedRows()
+	prevLastInsertedPKs := make(map[string]int64, len(tx.sqlTx.LastInsertedPKs()))
+	for k, n := range tx.sqlTx.LastInsertedPKs() {
+		prevLastInsertedPKs[k] = n
+	}
 	tx.sqlTx, _, err = tx.db.SQLExec(request, tx.sqlTx)
-	return err
+	if err != nil {
+		return nil, err
+	}
+
+	// Compare the stored values of updated rows and last inserted PKs with the current values,
+	// to determine how many rows have been updated by this request, and which primary keys
+	// have been inserted by it.
+	lastInsertedPKs := make(map[string]*schema.SQLValue, len(tx.sqlTx.LastInsertedPKs()))
+	for k, n := range tx.sqlTx.LastInsertedPKs() {
+		prevN, ok := prevLastInsertedPKs[k]
+		if !ok || prevN != n {
+			lastInsertedPKs[k] = &schema.SQLValue{Value: &schema.SQLValue_N{N: n}}
+		}
+	}
+
+	res := &schema.TxSQLExecResult{
+		UpdatedRows:     uint32(tx.sqlTx.UpdatedRows() - prevUpdatedRows),
+		LastInsertedPKs: lastInsertedPKs,
+	}
+	return res, err
 }
 
 func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {

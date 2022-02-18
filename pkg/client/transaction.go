@@ -28,7 +28,7 @@ type Tx interface {
 	Commit(ctx context.Context) (*schema.CommittedSQLTx, error)
 	Rollback(ctx context.Context) error
 
-	SQLExec(ctx context.Context, sql string, params map[string]interface{}) error
+	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.TxSQLExecResult, error)
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
 }
 
@@ -61,16 +61,16 @@ func (c *immuClient) NewTx(ctx context.Context) (Tx, error) {
 	return tx, nil
 }
 
-func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) error {
+func (c *tx) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.TxSQLExecResult, error) {
 	namedParams, err := schema.EncodeParams(params)
 	if err != nil {
-		return errors.FromError(err)
+		return nil, errors.FromError(err)
 	}
-	_, err = c.ic.ServiceClient.TxSQLExec(c.populateCtx(ctx), &schema.SQLExecRequest{
+	res, err := c.ic.ServiceClient.TxSQLExec(c.populateCtx(ctx), &schema.SQLExecRequest{
 		Sql:    sql,
 		Params: namedParams,
 	})
-	return errors.FromError(err)
+	return res, errors.FromError(err)
 }
 
 func (c *tx) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {

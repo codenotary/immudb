@@ -60,13 +60,11 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 	}
 
 	if c.tx != nil {
-		err = c.tx.SQLExec(ctx, query, vals)
+		txExecResult, err := c.tx.SQLExec(ctx, query, vals)
 		if err != nil {
 			return nil, err
 		}
-		return RowsAffected{&schema.SQLExecResult{
-			OngoingTx: true,
-		}}, nil
+		return TxRowsAffected{er: txExecResult}, nil
 	}
 
 	execResult, err := c.immuClient.SQLExec(ctx, query, vals)

@@ -47,7 +47,7 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	// tx mode
 	tx, err := client.NewTx(context.TODO())
 	require.NoError(t, err)
-	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+	_, err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
 		id INTEGER,
 		title VARCHAR,
 		active BOOLEAN,
@@ -62,8 +62,9 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	params["active"] = true
 	params["payload"] = []byte{1, 2, 3}
 
-	err = tx.SQLExec(context.TODO(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
+	txRes, err := tx.SQLExec(context.TODO(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 
 	res, err := tx.SQLQuery(context.TODO(), "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params)
 	require.NoError(t, err)
@@ -93,7 +94,7 @@ func TestTransaction_Rollback(t *testing.T) {
 
 	tx, err := client.NewTx(context.TODO())
 	require.NoError(t, err)
-	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+	_, err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
 		id INTEGER,
 		PRIMARY KEY id
 		);`, nil)
@@ -152,7 +153,7 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 	txDefaultDB, err := client.NewTx(context.TODO())
-	err = txDefaultDB.SQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
+	_, err = txDefaultDB.SQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
 	client2 := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
@@ -164,10 +165,11 @@ func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
 	require.NoError(t, err)
 	txDb2, err := client2.NewTx(context.TODO())
 	require.NoError(t, err)
-	err = txDb2.SQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
+	_, err = txDb2.SQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
-	err = txDb2.SQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
+	txRes, err := txDb2.SQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 
 	txh1, err := txDefaultDB.Commit(context.TODO())
 	require.NoError(t, err)
@@ -209,7 +211,7 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 	tx, err := client.NewTx(ctx)
 	require.NoError(t, err)
 
-	err = tx.SQLExec(ctx, `
+	_, err = tx.SQLExec(ctx, `
 		CREATE TABLE IF NOT EXISTS balance(
 			id INTEGER,
 			balance INTEGER,
@@ -218,10 +220,11 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 		`, nil)
 	require.NoError(t, err)
 
-	err = tx.SQLExec(ctx, `
+	txRes, err := tx.SQLExec(ctx, `
 		UPSERT INTO balance(id, balance) VALUES(1,100),(2,1500)
 		`, nil)
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 
 	_, err = tx.Commit(ctx)
 	require.NoError(t, err)
@@ -258,8 +261,9 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 90, qr.Rows[0].Values[0].GetN())
 
-	err = tx.SQLExec(updateStmt(1, 10))
+	txRes, err = tx.SQLExec(updateStmt(1, 10))
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 	_, err = tx.Commit(ctx)
 	require.EqualError(t, err, "tx read conflict")
 	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodInFailedSqlTransaction)
@@ -304,7 +308,7 @@ func TestTransaction_HandlingReadConflict(t *testing.T) {
 	tx, err := client.NewTx(ctx)
 	require.NoError(t, err)
 
-	err = tx.SQLExec(ctx, `
+	_, err = tx.SQLExec(ctx, `
 		CREATE TABLE IF NOT EXISTS balance(
 			id INTEGER,
 			balance INTEGER,
@@ -313,10 +317,11 @@ func TestTransaction_HandlingReadConflict(t *testing.T) {
 		`, nil)
 	require.NoError(t, err)
 
-	err = tx.SQLExec(ctx, `
+	txRes, err := tx.SQLExec(ctx, `
 		UPSERT INTO balance(id, balance) VALUES(1,100),(2,1500)
 		`, nil)
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 
 	_, err = tx.Commit(ctx)
 	require.NoError(t, err)
@@ -353,11 +358,78 @@ func TestTransaction_HandlingReadConflict(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 90, qr.Rows[0].Values[0].GetN())
 
-	err = tx.SQLExec(updateStmt(1, 10))
+	txRes, err = tx.SQLExec(updateStmt(1, 10))
 	require.NoError(t, err)
+	require.NotNil(t, txRes)
 	_, err = tx.Commit(ctx)
 	require.EqualError(t, err, "tx read conflict")
 
 	err = client.CloseSession(ctx)
 	require.NoError(t, err)
+}
+
+func TestTxSQLExecResult(t *testing.T) {
+	options := server.DefaultOptions()
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	ctx := context.Background()
+
+	err := client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	// Create the tables table1 and table2 with an auto increment primary key.
+	xres, err := client.SQLExec(ctx, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+
+	xres, err = client.SQLExec(ctx, "CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil)
+	require.NoError(t, err)
+	require.Len(t, xres.Txs, 1)
+
+	// Begin a transaction.
+	tx, err := client.NewTx(ctx)
+	require.NoError(t, err)
+
+	// Insert three rows into table1.
+	txres, err := tx.SQLExec(ctx, "INSERT INTO table1 (name) VALUES ('first'),('second'),('third')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 3 rows were updated,
+	// and the last inserted primary has to be 3.
+	require.Equal(t, uint32(3), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table1": {Value: &schema.SQLValue_N{N: 3}}}, txres.GetLastInsertedPKs())
+
+	// Insert four rows into table2.
+	txres, err = tx.SQLExec(ctx, "INSERT INTO table2 (name) VALUES ('first'),('second'),('third'),('fourth')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 4 rows were updated,
+	// and the last inserted primary has to be 4.
+	require.Equal(t, uint32(4), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 4}}}, txres.GetLastInsertedPKs())
+
+	// Insert two more rows into table1.
+	txres, err = tx.SQLExec(ctx, "INSERT INTO table1 (name) VALUES ('fourth'),('fifth')", nil)
+	require.NoError(t, err)
+	// The result has to denote that 2 rows were updated,
+	// and the last inserted primary key has to be 5 (as 3 rows were inserted beforehand.)
+	require.Equal(t, uint32(2), txres.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{"table1": {Value: &schema.SQLValue_N{N: 5}}}, txres.GetLastInsertedPKs())
+
+	// Commit the transaction.
+	commitRes, err := tx.Commit(ctx)
+	require.NoError(t, err)
+	// In total there have been 9 updates rows, and the the last inserted primary keys are
+	// table1: 5, table2: 4 .
+	require.Equal(t, uint32(9), commitRes.GetUpdatedRows())
+	require.Equal(t, map[string]*schema.SQLValue{
+		"table1": {Value: &schema.SQLValue_N{N: 5}},
+		"table2": {Value: &schema.SQLValue_N{N: 4}}},
+		commitRes.GetLastInsertedPKs())
 }

@@ -2357,6 +2357,21 @@
       ],
       "default": "ReadOnly"
     },
+    "schemaTxSQLExecResult": {
+      "type": "object",
+      "properties": {
+        "updatedRows": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastInsertedPKs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/schemaSQLValue"
+          }
+        }
+      }
+    },
     "schemaTxScanRequest": {
       "type": "object",
       "properties": {

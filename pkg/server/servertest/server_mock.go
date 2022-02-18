@@ -41,7 +41,7 @@ type ServerMock struct {
 	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
 
-func (s *ServerMock) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*empty.Empty, error) {
+func (s *ServerMock) TxSQLExec(ctx context.Context, request *schema.SQLExecRequest) (*schema.TxSQLExecResult, error) {
 	return s.Srv.TxSQLExec(ctx, request)
 }
 
