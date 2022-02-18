@@ -58,7 +58,6 @@ type Options struct {
 	renewSnapRootAfter time.Duration
 	cacheSize          int
 	readOnly           bool
-	synced             bool
 	fileMode           os.FileMode
 
 	nodesLogMaxOpenedFiles   int
@@ -86,7 +85,6 @@ func DefaultOptions() *Options {
 		renewSnapRootAfter:    DefaultRenewSnapRootAfter,
 		cacheSize:             DefaultCacheSize,
 		readOnly:              false,
-		synced:                false,
 		fileMode:              DefaultFileMode,
 		maxKeyLen:             DefaultMaxKeyLen,
 		compactionThld:        DefaultCompactionThld,
@@ -106,10 +104,7 @@ func validOptions(opts *Options) bool {
 	return opts != nil &&
 		opts.maxNodeSize >= MinNodeSize &&
 		opts.flushThld > 0 &&
-		(opts.synced || opts.syncThld > 0) &&
-		(!opts.synced || opts.syncThld == 0) &&
-		(opts.synced || opts.flushThld <= opts.syncThld) &&
-
+		opts.flushThld <= opts.syncThld &&
 		opts.nodesLogMaxOpenedFiles > 0 &&
 		opts.historyLogMaxOpenedFiles > 0 &&
 		opts.commitLogMaxOpenedFiles > 0 &&
@@ -159,11 +154,6 @@ func (opts *Options) WithCacheSize(cacheSize int) *Options {
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
-	return opts
-}
-
-func (opts *Options) WithSynced(synced bool) *Options {
-	opts.synced = synced
 	return opts
 }
 

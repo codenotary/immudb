@@ -65,7 +65,6 @@ type dbOptions struct {
 }
 
 type indexOptions struct {
-	Synced                   bool  `json:"synced"`
 	FlushThreshold           int   `json:"flushThreshold"`
 	SyncThreshold            int   `json:"syncThreshold"`
 	CacheSize                int   `json:"cacheSize"`
@@ -112,7 +111,6 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 
 func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 	return &indexOptions{
-		Synced:                   false,
 		FlushThreshold:           tbtree.DefaultFlushThld,
 		SyncThreshold:            tbtree.DefaultSyncThld,
 		CacheSize:                tbtree.DefaultCacheSize,
@@ -138,7 +136,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	indexOpts := store.DefaultIndexOptions()
 
 	if opts.IndexOptions != nil {
-		indexOpts.WithSynced(opts.IndexOptions.Synced).
+		indexOpts.
 			WithFlushThld(opts.IndexOptions.FlushThreshold).
 			WithSyncThld(opts.IndexOptions.SyncThreshold).
 			WithCacheSize(opts.IndexOptions.CacheSize).
@@ -203,7 +201,6 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 		CommitLogMaxOpenedFiles: uint32(opts.CommitLogMaxOpenedFiles),
 
 		IndexSettings: &schema.IndexSettings{
-			Synced:                   opts.IndexOptions.Synced,
 			FlushThreshold:           uint32(opts.IndexOptions.FlushThreshold),
 			SyncThreshold:            uint32(opts.IndexOptions.SyncThreshold),
 			CacheSize:                uint32(opts.IndexOptions.CacheSize),
@@ -294,8 +291,6 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 		if opts.IndexOptions == nil {
 			opts.IndexOptions = s.defaultIndexOptions()
 		}
-
-		opts.IndexOptions.Synced = settings.IndexSettings.Synced
 
 		conditionalSet(settings.IndexSettings.FlushThreshold > 0, func() {
 			opts.IndexOptions.FlushThreshold = int(settings.IndexSettings.FlushThreshold)

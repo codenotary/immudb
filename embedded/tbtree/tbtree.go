@@ -92,7 +92,6 @@ type TBtree struct {
 	maxActiveSnapshots       int
 	renewSnapRootAfter       time.Duration
 	readOnly                 bool
-	synced                   bool
 	cacheSize                int
 	fileSize                 int
 	fileMode                 os.FileMode
@@ -208,7 +207,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.readOnly).
-		WithSynced(opts.synced).
+		WithSynced(false).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
 		WithMetadata(metadata.Bytes())
@@ -440,7 +439,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
 		greatestKey:              greatestKeyOfSize(opts.maxKeyLen),
 		readOnly:                 opts.readOnly,
-		synced:                   opts.synced,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
@@ -515,7 +513,6 @@ func (t *TBtree) GetOptions() *Options {
 		WithFileMode(t.fileMode).
 		WithFileSize(t.fileSize).
 		WithMaxKeyLen(t.maxKeyLen).
-		WithSynced(t.synced).
 		WithLog(t.log).
 		WithCacheSize(t.cacheSize).
 		WithFlushThld(t.flushThld).
@@ -906,7 +903,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		return 0, 0, nil
 	}
 
-	explicitSync := !t.synced && (ensureSync || t.insertionCountSinceSync >= t.syncThld)
+	sync := ensureSync || t.insertionCountSinceSync >= t.syncThld
 
 	if t.root.mutated() {
 		snapshot := t.newSnapshot(0, t.root)
@@ -945,7 +942,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 			return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 		}
 
-		if explicitSync {
+		if sync {
 			err = t.hLog.Sync()
 			if err != nil {
 				return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
@@ -967,7 +964,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
 
-	if !t.synced && !explicitSync {
+	if !sync {
 		// async flag in the msb is set
 		cb[0] |= 0x80
 	}
@@ -982,7 +979,7 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
-	if explicitSync {
+	if sync {
 		err = t.cLog.Sync()
 		if err != nil {
 			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
@@ -990,6 +987,13 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 	}
 
 	t.insertionCountSinceFlush = 0
+	t.log.Infof("Index '%s' {ts=%d} successfully flushed", t.path, t.root.ts())
+
+	if sync {
+		t.insertionCountSinceSync = 0
+		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.root.ts())
+	}
+
 	t.committedLogSize += cLogEntrySize
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
@@ -1001,13 +1005,6 @@ func (t *TBtree) flushTree(ensureSync bool) (wN int64, wH int64, err error) {
 		_ts:     t.root.ts(),
 		_size:   t.root.size(),
 		off:     t.root.offset(),
-	}
-
-	t.log.Infof("Index '%s' {ts=%d} successfully flushed", t.path, t.root.ts())
-
-	if t.synced || explicitSync {
-		t.insertionCountSinceSync = 0
-		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.root.ts())
 	}
 
 	return wN, wH, nil
