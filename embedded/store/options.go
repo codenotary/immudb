@@ -95,7 +95,6 @@ type IndexOptions struct {
 	RenewSnapRootAfter       time.Duration
 	CompactionThld           int
 	DelayDuringCompaction    time.Duration
-	Synced                   bool
 	NodesLogMaxOpenedFiles   int
 	HistoryLogMaxOpenedFiles int
 	CommitLogMaxOpenedFiles  int
@@ -140,12 +139,12 @@ func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
 		CacheSize:                tbtree.DefaultCacheSize,
 		FlushThld:                tbtree.DefaultFlushThld,
+		SyncThld:                 tbtree.DefaultSyncThld,
 		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
 		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
 		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter,
 		CompactionThld:           tbtree.DefaultCompactionThld,
 		DelayDuringCompaction:    0,
-		Synced:                   true,
 		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
 		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
@@ -341,11 +340,6 @@ func (opts *IndexOptions) WithCompactionThld(compactionThld int) *IndexOptions {
 
 func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.Duration) *IndexOptions {
 	opts.DelayDuringCompaction = delayDuringCompaction
-	return opts
-}
-
-func (opts *IndexOptions) WithSynced(synced bool) *IndexOptions {
-	opts.Synced = synced
 	return opts
 }
 

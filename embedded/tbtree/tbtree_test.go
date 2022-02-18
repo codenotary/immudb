@@ -740,7 +740,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 }
 
 func TestTBTreeHistory(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
+	opts := DefaultOptions().WithMaxNodeSize(256).WithFlushThld(100)
 	tbtree, err := Open("test_tree_history", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_history")
@@ -769,7 +769,7 @@ func TestTBTreeHistory(t *testing.T) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
+	opts := DefaultOptions().WithMaxNodeSize(256).WithFlushThld(100)
 	tbtree, err := Open("test_tree_iasc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_iasc")
@@ -912,7 +912,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(1000).WithSynced(false)
+	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(1000)
 	tbtree, err := Open("test_tree_irnd", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_irnd")
@@ -1060,7 +1060,6 @@ func BenchmarkRandomInsertion(b *testing.B) {
 		opts := DefaultOptions().
 			WithMaxNodeSize(DefaultMaxNodeSize).
 			WithCacheSize(10_000).
-			WithSynced(false).
 			WithFlushThld(100_000).
 			WithSyncThld(1_000_000)
 
@@ -1090,7 +1089,6 @@ func BenchmarkRandomRead(b *testing.B) {
 	opts := DefaultOptions().
 		WithMaxNodeSize(DefaultMaxNodeSize).
 		WithCacheSize(100_000).
-		WithSynced(false).
 		WithFlushThld(100_000)
 
 	tbtree, _ := Open("test_tree_brnd", opts)
@@ -1123,7 +1121,6 @@ func BenchmarkAscendingBulkInsertion(b *testing.B) {
 	opts := DefaultOptions().
 		WithMaxNodeSize(DefaultMaxNodeSize).
 		WithCacheSize(100_000).
-		WithSynced(false).
 		WithFlushThld(100_000).
 		WithSyncThld(1_000_000)
 
@@ -1152,7 +1149,6 @@ func BenchmarkDescendingBulkInsertion(b *testing.B) {
 	opts := DefaultOptions().
 		WithMaxNodeSize(DefaultMaxNodeSize).
 		WithCacheSize(10_000).
-		WithSynced(false).
 		WithFlushThld(100_000).
 		WithSyncThld(1_000_000)
 
@@ -1215,7 +1211,6 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 		opts := DefaultOptions().
 			WithMaxNodeSize(DefaultMaxNodeSize).
 			WithCacheSize(1000).
-			WithSynced(false).
 			WithFlushThld(1_000_000).
 			WithSyncThld(1_000_000)
 
