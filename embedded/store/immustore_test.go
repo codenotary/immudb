@@ -484,17 +484,25 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					},
 					CloseFn: func() error { return nil },
 				}, nil
+			case "index/history":
+				return &mocked.MockedAppendable{
+					SetOffsetFn: func(off int64) error { return nil },
+					SizeFn: func() (int64, error) {
+						return 0, nil
+					},
+					CloseFn: func() error { return nil },
+				}, nil
 			case "index/commit":
 				return &mocked.MockedAppendable{
 					SizeFn: func() (int64, error) {
 						// One clog entry
-						return 8, nil
+						return 16, nil
 					},
 					AppendFn: func(bs []byte) (off int64, n int, err error) {
 						return 0, 0, nil
 					},
 					ReadAtFn: func(bs []byte, off int64) (int, error) {
-						buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+						buff := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 						require.Less(t, off, int64(len(buff)))
 						return copy(bs, buff[off:]), nil
 					},

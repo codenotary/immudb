@@ -61,6 +61,17 @@ func TestEdgeCases(t *testing.T) {
 		require.ErrorIs(t, err, ErrCorruptedCLog)
 	})
 
+	t.Run("Should fail reading version from metadata", func(t *testing.T) {
+		cLog.MetadataFn = func() []byte {
+			md := appendable.NewMetadata(nil)
+			md.PutInt(MetaVersion, 1)
+			return md.Bytes()
+		}
+
+		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
+		require.ErrorIs(t, err, ErrIncompatibleDataFormat)
+	})
+
 	t.Run("Should fail reading cLogSize", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
@@ -190,6 +201,14 @@ func TestEdgeCases(t *testing.T) {
 		for i := 1; i < len(nLogBuffer); i++ {
 			injectedError := fmt.Errorf("Injected error %d", i)
 			buff := nLogBuffer[:i]
+
+			cLog.MetadataFn = func() []byte {
+				md := appendable.NewMetadata(nil)
+				md.PutInt(MetaVersion, 2)
+				md.PutInt(MetaMaxNodeSize, 1)
+				return md.Bytes()
+			}
+
 			nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 				if off >= int64(len(buff)) {
 					return 0, injectedError
@@ -197,6 +216,7 @@ func TestEdgeCases(t *testing.T) {
 
 				return copy(bs, buff[off:]), nil
 			}
+
 			_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
 			require.ErrorIs(t, err, injectedError)
 		}
