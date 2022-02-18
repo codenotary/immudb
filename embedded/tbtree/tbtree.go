@@ -467,10 +467,10 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		committedRootOffset := int64(binary.BigEndian.Uint64(b[:]))
-		committedHLogOffset := int64(binary.BigEndian.Uint64(b[8:]))
+		committedHLogSize := int64(binary.BigEndian.Uint64(b[8:]))
 
-		t.root, err = t.readNodeAt(committedRootOffset)
-		if err == io.EOF || hLogSize < committedHLogOffset {
+		root, err := t.readNodeAt(committedRootOffset)
+		if err == io.EOF || hLogSize < committedHLogSize {
 			// incomplete snapshot
 			t.committedLogSize -= cLogEntrySize
 			discardedRoots++
@@ -480,24 +480,25 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 			return nil, fmt.Errorf("%w: while loading index at '%s'", err, path)
 		}
 
+		t.root = root
 		t.committedNLogSize = committedRootOffset + int64(t.root.size())
-		t.committedHLogSize = committedHLogOffset
-
-		err = t.hLog.SetOffset(t.committedHLogSize)
-		if err != nil {
-			return nil, fmt.Errorf("%w: while setting initial offset of history log for index '%s'", err, path)
-		}
-
-		err = t.cLog.SetOffset(t.committedLogSize)
-		if err != nil {
-			return nil, fmt.Errorf("%w: while setting initial offset of commit log for index '%s'", err, path)
-		}
+		t.committedHLogSize = committedHLogSize
 
 		break
 	}
 
 	if t.root == nil {
 		t.root = &leafNode{t: t, mut: true}
+	}
+
+	err = t.hLog.SetOffset(t.committedHLogSize)
+	if err != nil {
+		return nil, fmt.Errorf("%w: while setting initial offset of history log for index '%s'", err, path)
+	}
+
+	err = t.cLog.SetOffset(t.committedLogSize)
+	if err != nil {
+		return nil, fmt.Errorf("%w: while setting initial offset of commit log for index '%s'", err, path)
 	}
 
 	opts.log.Infof("Index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedRoots)

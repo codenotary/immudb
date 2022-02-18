@@ -1035,6 +1035,66 @@ func TestTBTreeReOpen(t *testing.T) {
 	})
 }
 
+func TestTBTreeSelfHealingHistory(t *testing.T) {
+	tbtree, err := Open("test_tree_self_healing_history", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("test_tree_self_healing_history")
+
+	err = tbtree.Insert([]byte("k0"), []byte("v0"))
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	os.RemoveAll("test_tree_self_healing_history/history")
+
+	tbtree, err = Open("test_tree_self_healing_history", DefaultOptions())
+	require.NoError(t, err)
+
+	_, _, _, err = tbtree.Get([]byte("k0"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	tbtree, err = Open("test_tree_self_healing_history", DefaultOptions())
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
+func TestTBTreeSelfHealingNodes(t *testing.T) {
+	tbtree, err := Open("test_tree_self_healing_nodes", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("test_tree_self_healing_nodes")
+
+	err = tbtree.Insert([]byte("k0"), []byte("v0"))
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	os.RemoveAll("test_tree_self_healing_nodes/nodes")
+
+	tbtree, err = Open("test_tree_self_healing_nodes", DefaultOptions())
+	require.NoError(t, err)
+
+	_, _, _, err = tbtree.Get([]byte("k0"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	tbtree, err = Open("test_tree_self_healing_nodes", DefaultOptions())
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
 func TestTBTreeIncreaseTs(t *testing.T) {
 	tbtree, err := Open("test_tree_increase_ts", DefaultOptions().WithFlushThld(2))
 	require.NoError(t, err)
