@@ -51,8 +51,9 @@ var ErrCorruptedFile = errors.New("file is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrCompactAlreadyInProgress = errors.New("compact already in progress")
 var ErrCompactionThresholdNotReached = errors.New("compaction threshold not yet reached")
+var ErrIncompatibleDataFormat = errors.New("incompatible data format")
 
-const Version = 1
+const Version = 2
 
 const cLogEntrySize = 8 // root node offset
 
@@ -387,6 +388,14 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
+
+	version, ok := metadata.GetInt(MetaVersion)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	if version < Version {
+		return nil, fmt.Errorf("%w: index data was generated using older and incompatible version", ErrIncompatibleDataFormat)
+	}
 
 	maxNodeSize, ok := metadata.GetInt(MetaMaxNodeSize)
 	if !ok {
