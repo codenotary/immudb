@@ -103,8 +103,6 @@ type TBtree struct {
 	historyLogMaxOpenedFiles int
 	commitLogMaxOpenedFiles  int
 
-	greatestKey []byte
-
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
 	lastSnapRoot   node
@@ -436,7 +434,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		nodesLogMaxOpenedFiles:   opts.nodesLogMaxOpenedFiles,
 		historyLogMaxOpenedFiles: opts.historyLogMaxOpenedFiles,
 		commitLogMaxOpenedFiles:  opts.commitLogMaxOpenedFiles,
-		greatestKey:              greatestKeyOfSize(opts.maxKeyLen),
 		readOnly:                 opts.readOnly,
 		snapshots:                make(map[uint64]*Snapshot),
 	}
