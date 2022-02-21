@@ -64,6 +64,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Should fail reading cLogSize", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(MetaVersion, Version)
 			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
 		}
@@ -89,6 +90,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Should succeed", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
+			md.PutInt(MetaVersion, Version)
 			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
 		}
