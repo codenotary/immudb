@@ -500,6 +500,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					},
 					MetadataFn: func() []byte {
 						md := appendable.NewMetadata(nil)
+						md.PutInt(tbtree.MetaVersion, tbtree.Version)
 						md.PutInt(tbtree.MetaMaxNodeSize, tbtree.DefaultMaxNodeSize)
 						return md.Bytes()
 					},
