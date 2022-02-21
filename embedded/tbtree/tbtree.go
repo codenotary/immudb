@@ -89,6 +89,7 @@ type TBtree struct {
 	insertionCountSinceSync  int
 	flushThld                int
 	syncThld                 int
+	flushBufferSize          int
 	maxActiveSnapshots       int
 	renewSnapRootAfter       time.Duration
 	readOnly                 bool
@@ -210,6 +211,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		WithSynced(false).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
+		WithWriteBufferSize(opts.flushBufferSize).
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -426,6 +428,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		maxNodeSize:              maxNodeSize,
 		flushThld:                opts.flushThld,
 		syncThld:                 opts.syncThld,
+		flushBufferSize:          opts.flushBufferSize,
 		renewSnapRootAfter:       opts.renewSnapRootAfter,
 		maxActiveSnapshots:       opts.maxActiveSnapshots,
 		fileSize:                 opts.fileSize,
@@ -517,6 +520,7 @@ func (t *TBtree) GetOptions() *Options {
 		WithCacheSize(t.cacheSize).
 		WithFlushThld(t.flushThld).
 		WithSyncThld(t.syncThld).
+		WithFlushBufferSize(t.flushBufferSize).
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
 		WithMaxNodeSize(t.maxNodeSize).
 		WithRenewSnapRootAfter(t.renewSnapRootAfter).
@@ -1088,6 +1092,7 @@ func (t *TBtree) fullDump(snap *Snapshot) error {
 		WithSynced(false).
 		WithFileSize(t.fileSize).
 		WithFileMode(t.fileMode).
+		WithWriteBufferSize(t.flushBufferSize).
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")

@@ -67,6 +67,7 @@ type dbOptions struct {
 type indexOptions struct {
 	FlushThreshold           int   `json:"flushThreshold"`
 	SyncThreshold            int   `json:"syncThreshold"`
+	FlushBufferSize          int   `json:"flushBufferSize"`
 	CacheSize                int   `json:"cacheSize"`
 	MaxNodeSize              int   `json:"maxNodeSize"` // permanent
 	MaxActiveSnapshots       int   `json:"maxActiveSnapshots"`
@@ -113,6 +114,7 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 	return &indexOptions{
 		FlushThreshold:           tbtree.DefaultFlushThld,
 		SyncThreshold:            tbtree.DefaultSyncThld,
+		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
 		CacheSize:                tbtree.DefaultCacheSize,
 		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
 		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
@@ -139,6 +141,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		indexOpts.
 			WithFlushThld(opts.IndexOptions.FlushThreshold).
 			WithSyncThld(opts.IndexOptions.SyncThreshold).
+			WithFlushBufferSize(opts.IndexOptions.FlushBufferSize).
 			WithCacheSize(opts.IndexOptions.CacheSize).
 			WithMaxNodeSize(opts.IndexOptions.MaxNodeSize).
 			WithMaxActiveSnapshots(opts.IndexOptions.MaxActiveSnapshots).
@@ -203,6 +206,7 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 		IndexSettings: &schema.IndexSettings{
 			FlushThreshold:           uint32(opts.IndexOptions.FlushThreshold),
 			SyncThreshold:            uint32(opts.IndexOptions.SyncThreshold),
+			FlushBufferSize:          uint32(opts.IndexOptions.FlushBufferSize),
 			CacheSize:                uint32(opts.IndexOptions.CacheSize),
 			MaxNodeSize:              uint32(opts.IndexOptions.MaxNodeSize),
 			MaxActiveSnapshots:       uint32(opts.IndexOptions.MaxActiveSnapshots),
@@ -297,6 +301,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 		})
 		conditionalSet(settings.IndexSettings.SyncThreshold > 0, func() {
 			opts.IndexOptions.SyncThreshold = int(settings.IndexSettings.SyncThreshold)
+		})
+		conditionalSet(settings.IndexSettings.FlushBufferSize > 0, func() {
+			opts.IndexOptions.FlushBufferSize = int(settings.IndexSettings.FlushBufferSize)
 		})
 		conditionalSet(settings.IndexSettings.CacheSize > 0, func() {
 			opts.IndexOptions.CacheSize = int(settings.IndexSettings.CacheSize)

@@ -427,6 +427,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithCacheSize(opts.IndexOpts.CacheSize).
 		WithFlushThld(opts.IndexOpts.FlushThld).
 		WithSyncThld(opts.IndexOpts.SyncThld).
+		WithFlushBufferSize(opts.IndexOpts.FlushBufferSize).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
 		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).

@@ -412,6 +412,7 @@ message IndexSettings {
 	uint32  nodesLogMaxOpenedFiles = 10;
 	uint32  historyLogMaxOpenedFiles = 11;
 	uint32  commitLogMaxOpenedFiles = 12;
+	uint32  flushBufferSize = 13;
 }
 
 message Table {

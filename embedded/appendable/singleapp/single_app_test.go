@@ -30,7 +30,11 @@ import (
 )
 
 func TestSingleApp(t *testing.T) {
-	a, err := Open("testdata.aof", DefaultOptions())
+	opts := DefaultOptions().
+		WithReadBufferSize(DefaultReadBufferSize * 2).
+		WithWriteBufferSize(DefaultWriteBufferSize * 5)
+
+	a, err := Open("testdata.aof", opts)
 	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
@@ -83,7 +87,7 @@ func TestSingleApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
-	n , err = a.ReadAt(bs, 1000)
+	n, err = a.ReadAt(bs, 1000)
 	require.Equal(t, n, 0)
 	require.Equal(t, err, io.EOF)
 
@@ -380,6 +384,8 @@ func TestSingleAppLZWCompression(t *testing.T) {
 
 func TestSingleAppCantCreateFile(t *testing.T) {
 	dir, err := ioutil.TempDir(os.TempDir(), "singleapp")
+	require.NoError(t, err)
+
 	defer os.RemoveAll(dir)
 	os.Mkdir(filepath.Join(dir, "exists"), 0644)
 

@@ -27,6 +27,7 @@ import (
 const DefaultMaxNodeSize = 4096
 const DefaultFlushThld = 100_000
 const DefaultSyncThld = 1_000_000
+const DefaultFlushBufferSize = 4096
 const DefaultMaxActiveSnapshots = 100
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
@@ -54,6 +55,7 @@ type Options struct {
 
 	flushThld          int
 	syncThld           int
+	flushBufferSize    int
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
 	cacheSize          int
@@ -81,6 +83,7 @@ func DefaultOptions() *Options {
 		log:                   logger.NewSimpleLogger("immudb ", os.Stderr),
 		flushThld:             DefaultFlushThld,
 		syncThld:              DefaultSyncThld,
+		flushBufferSize:       DefaultFlushBufferSize,
 		maxActiveSnapshots:    DefaultMaxActiveSnapshots,
 		renewSnapRootAfter:    DefaultRenewSnapRootAfter,
 		cacheSize:             DefaultCacheSize,
@@ -105,6 +108,7 @@ func validOptions(opts *Options) bool {
 		opts.maxNodeSize >= MinNodeSize &&
 		opts.flushThld > 0 &&
 		opts.flushThld <= opts.syncThld &&
+		opts.flushBufferSize > 0 &&
 		opts.nodesLogMaxOpenedFiles > 0 &&
 		opts.historyLogMaxOpenedFiles > 0 &&
 		opts.commitLogMaxOpenedFiles > 0 &&
@@ -134,6 +138,11 @@ func (opts *Options) WithFlushThld(flushThld int) *Options {
 
 func (opts *Options) WithSyncThld(syncThld int) *Options {
 	opts.syncThld = syncThld
+	return opts
+}
+
+func (opts *Options) WithFlushBufferSize(size int) *Options {
+	opts.flushBufferSize = size
 	return opts
 }
 

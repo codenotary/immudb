@@ -96,12 +96,14 @@ type MultiFileAppendable struct {
 	currAppID int64
 	currApp   appendable.Appendable
 
-	path     string
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
-	fileSize int
-	fileExt  string
+	path            string
+	readOnly        bool
+	synced          bool
+	fileMode        os.FileMode
+	fileSize        int
+	fileExt         string
+	readBufferSize  int
+	writeBufferSize int
 
 	closed bool
 
@@ -145,6 +147,8 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		WithFileMode(opts.fileMode).
 		WithCompressionFormat(opts.compressionFormat).
 		WithCompresionLevel(opts.compressionLevel).
+		WithReadBufferSize(opts.readBufferSize).
+		WithWriteBufferSize(opts.writeBufferSize).
 		WithMetadata(m.Bytes())
 
 	currApp, currAppID, err := hooks.OpenInitialAppendable(opts, appendableOpts)
@@ -160,17 +164,19 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
 	return &MultiFileAppendable{
-		appendables: appendableLRUCache{cache: cache},
-		currAppID:   currAppID,
-		currApp:     currApp,
-		path:        path,
-		readOnly:    opts.readOnly,
-		synced:      opts.synced,
-		fileMode:    opts.fileMode,
-		fileSize:    fileSize,
-		fileExt:     opts.fileExt,
-		closed:      false,
-		hooks:       hooks,
+		appendables:     appendableLRUCache{cache: cache},
+		currAppID:       currAppID,
+		currApp:         currApp,
+		path:            path,
+		readOnly:        opts.readOnly,
+		synced:          opts.synced,
+		fileMode:        opts.fileMode,
+		fileSize:        fileSize,
+		fileExt:         opts.fileExt,
+		readBufferSize:  opts.readBufferSize,
+		writeBufferSize: opts.writeBufferSize,
+		closed:          false,
+		hooks:           hooks,
 	}, nil
 }
 
@@ -347,6 +353,8 @@ func (mf *MultiFileAppendable) openAppendable(appname string, activeChunk bool) 
 		WithReadOnly(mf.readOnly).
 		WithSynced(mf.synced).
 		WithFileMode(mf.fileMode).
+		WithReadBufferSize(mf.readBufferSize).
+		WithWriteBufferSize(mf.writeBufferSize).
 		WithCompressionFormat(mf.currApp.CompressionFormat()).
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
 		WithMetadata(mf.currApp.Metadata())
