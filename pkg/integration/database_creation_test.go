@@ -62,6 +62,7 @@ func TestCreateDatabase(t *testing.T) {
 			Synced:                   false,
 			FlushThreshold:           256,
 			SyncThreshold:            512,
+			FlushBufferSize:          128,
 			CacheSize:                1024,
 			MaxNodeSize:              8192,
 			MaxActiveSnapshots:       3,
@@ -98,6 +99,7 @@ func TestCreateDatabase(t *testing.T) {
 	require.Equal(t, dbSettings.IndexSettings.Synced, settings.IndexSettings.Synced)
 	require.Equal(t, dbSettings.IndexSettings.FlushThreshold, settings.IndexSettings.FlushThreshold)
 	require.Equal(t, dbSettings.IndexSettings.SyncThreshold, settings.IndexSettings.SyncThreshold)
+	require.Equal(t, dbSettings.IndexSettings.FlushBufferSize, settings.IndexSettings.FlushBufferSize)
 	require.Equal(t, dbSettings.IndexSettings.CacheSize, settings.IndexSettings.CacheSize)
 	require.Equal(t, dbSettings.IndexSettings.MaxNodeSize, settings.IndexSettings.MaxNodeSize)
 	require.Equal(t, dbSettings.IndexSettings.MaxActiveSnapshots, settings.IndexSettings.MaxActiveSnapshots)

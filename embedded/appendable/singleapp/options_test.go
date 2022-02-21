@@ -42,6 +42,10 @@ func TestValidOptions(t *testing.T) {
 	require.True(t, opts.WithSynced(true).synced)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
+
+	require.Equal(t, DefaultReadBufferSize+1, opts.WithReadBufferSize(DefaultReadBufferSize+1).GetReadBufferSize())
+	require.Equal(t, DefaultWriteBufferSize+2, opts.WithWriteBufferSize(DefaultWriteBufferSize+2).GetWriteBufferSize())
+
 	require.True(t, opts.Valid())
 
 	require.True(t, opts.WithReadOnly(true).readOnly)

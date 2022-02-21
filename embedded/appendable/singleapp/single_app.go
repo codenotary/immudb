@@ -51,6 +51,9 @@ type AppendableFile struct {
 
 	metadata []byte
 
+	readBufferSize  int
+	writeBufferSize int
+
 	readOnly bool
 	synced   bool
 
@@ -170,13 +173,15 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 
 	var w *bufio.Writer
 	if !opts.readOnly {
-		w = bufio.NewWriter(f)
+		w = bufio.NewWriterSize(f, opts.writeBufferSize)
 	}
 
 	return &AppendableFile{
 		f:                 f,
 		compressionFormat: compressionFormat,
 		compressionLevel:  compressionLevel,
+		readBufferSize:    opts.readBufferSize,
+		writeBufferSize:   opts.writeBufferSize,
 		metadata:          metadata,
 		readOnly:          opts.readOnly,
 		synced:            opts.synced,
@@ -384,7 +389,7 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
-	br := bufio.NewReader(aof.f)
+	br := bufio.NewReaderSize(aof.f, aof.readBufferSize)
 
 	clenBs := make([]byte, 4)
 	_, err = br.Read(clenBs)

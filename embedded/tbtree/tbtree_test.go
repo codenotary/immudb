@@ -1211,8 +1211,9 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 		opts := DefaultOptions().
 			WithMaxNodeSize(DefaultMaxNodeSize).
 			WithCacheSize(1000).
-			WithFlushThld(1_000_000).
-			WithSyncThld(1_000_000)
+			WithFlushThld(100_000).
+			WithSyncThld(1_000_000).
+			WithFlushBufferSize(DefaultFlushBufferSize * 4)
 
 		tbtree, err := Open("test_tree_brnd", opts)
 		if err != nil {

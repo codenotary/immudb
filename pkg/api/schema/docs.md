@@ -579,6 +579,7 @@
 | nodesLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | historyLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+| flushBufferSize | [uint32](#uint32) |  |  |
 
 
 

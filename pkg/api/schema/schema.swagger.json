@@ -1807,6 +1807,10 @@
         "commitLogMaxOpenedFiles": {
           "type": "integer",
           "format": "int64"
+        },
+        "flushBufferSize": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
