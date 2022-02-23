@@ -12,7 +12,7 @@ jobs:
     steps:
       - run: |
           sudo apt update && sudo apt install curl -y
-          curl -L -o /tmp/vcn -H "Accept: application/octet-stream" -H "Authorization: token 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" https://api.github.com/repos/codenotary/vcn-enterprise/releases/assets/55117082
+          curl -L -o /tmp/vcn -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.VCN_ENTERPRISE_TOKEN }}" https://api.github.com/repos/codenotary/vcn-enterprise/releases/assets/55117082
           CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
           echo $CHECKSUM
           curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
