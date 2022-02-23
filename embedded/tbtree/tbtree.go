@@ -447,13 +447,14 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		snapshots:                make(map[uint64]*Snapshot),
 	}
 
+	t.committedLogSize = cLogSize
 	discardedRoots := 0
 
-	for cLogSize > 0 {
+	for t.committedLogSize > 0 {
 		var b [cLogEntrySize]byte
-		n, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+		n, err := cLog.ReadAt(b[:], t.committedLogSize-cLogEntrySize)
 		if err == io.EOF {
-			cLogSize -= int64(n)
+			t.committedLogSize -= int64(n)
 			break
 		}
 		if err != nil {
@@ -462,7 +463,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		if b[0]&0x80 != 0 {
 			// async entry
-			cLogSize -= cLogEntrySize
+			t.committedLogSize -= int64(n)
 			discardedRoots++
 			continue
 		}
@@ -487,16 +488,15 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		err = hLog.SetOffset(0)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: while setting initial offset of history log for index '%s'", err, path)
 		}
 	}
 
-	t.committedLogSize = cLogSize
 	t.committedHLogSize = hLog.Offset()
 
-	err = t.cLog.SetOffset(cLogSize)
+	err = t.cLog.SetOffset(t.committedLogSize)
 	if err != nil {
-		return nil, fmt.Errorf("%w: while loading index commit log", err)
+		return nil, fmt.Errorf("%w: while setting initial offset of commit log for index '%s'", err, path)
 	}
 
 	opts.log.Infof("Index '%s' {ts=%d, discarded_snapshots=%d} successfully loaded", path, t.Ts(), discardedRoots)
