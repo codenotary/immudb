@@ -558,14 +558,14 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 			return nil, fmt.Errorf("%w: while deserializing index commit log entry at '%s'", err, path)
 		}
 
-		nLogChecksum, nerr := t.nLog.Checksum(cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
+		nLogChecksum, nerr := appendable.Checksum(t.nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
 		if nerr != nil && nerr != io.EOF {
-			return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", err, path)
+			return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", nerr, path)
 		}
 
-		hLogChecksum, herr := t.hLog.Checksum(cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
+		hLogChecksum, herr := appendable.Checksum(t.hLog, cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
 		if herr != nil && herr != io.EOF {
-			return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", err, path)
+			return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", herr, path)
 		}
 
 		mustDiscard := nerr == io.EOF ||
@@ -574,6 +574,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 			hLogChecksum != cLogEntry.hLogChecksum
 
 		if mustDiscard {
+			t.log.Infof("Discarding snapshots due to checksum mismatch at '%s'", path)
+
 			discardedCLogEntries += int(t.committedLogSize/cLogEntrySize) + 1
 
 			validatedCLogEntry = nil
@@ -1054,12 +1056,12 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		finalHLogSize:   t.committedHLogSize + wH,
 	}
 
-	cLogEntry.nLogChecksum, err = t.nLog.Checksum(t.committedNLogSize, wN)
+	cLogEntry.nLogChecksum, err = appendable.Checksum(t.nLog, t.committedNLogSize, wN)
 	if err != nil {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
 
-	cLogEntry.hLogChecksum, err = t.hLog.Checksum(t.committedHLogSize, wH)
+	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, t.committedHLogSize, wH)
 	if err != nil {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
@@ -1250,12 +1252,12 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 		finalHLogSize:   hLogSize,
 	}
 
-	cLogEntry.nLogChecksum, err = nLog.Checksum(cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
+	cLogEntry.nLogChecksum, err = appendable.Checksum(nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
 	if err != nil {
 		return err
 	}
 
-	cLogEntry.hLogChecksum, err = t.hLog.Checksum(cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
+	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
 	if err != nil {
 		return err
 	}
