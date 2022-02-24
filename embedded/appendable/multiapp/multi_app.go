@@ -16,6 +16,7 @@ limitations under the License.
 package multiapp
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -493,6 +494,24 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 
 	metricsReadBytes.Add(float64(r))
 	return r, nil
+}
+
+func (mf *MultiFileAppendable) Checksum(off, len int64) (checksum [sha256.Size]byte, err error) {
+	var size int64
+
+	size, err = mf.Size()
+	if err != nil {
+		return
+	}
+
+	if size < off+len {
+		err = fmt.Errorf("%w: appendable size is smaller than required for checksum calculation", io.EOF)
+		return
+	}
+
+	// TODO: TO BE IMPLEMENTED
+
+	return
 }
 
 func (mf *MultiFileAppendable) Flush() error {

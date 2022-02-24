@@ -17,6 +17,7 @@ package tbtree
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -47,8 +48,16 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(path, nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	nLog := &mocked.MockedAppendable{}
-	hLog := &mocked.MockedAppendable{}
+	nLog := &mocked.MockedAppendable{
+		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
+			return
+		},
+	}
+	hLog := &mocked.MockedAppendable{
+		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
+			return
+		},
+	}
 	cLog := &mocked.MockedAppendable{}
 
 	injectedError := errors.New("error")
@@ -142,6 +151,8 @@ func TestEdgeCases(t *testing.T) {
 			for i := range bs {
 				bs[i] = 0
 			}
+			binary.BigEndian.PutUint64(bs[8:], 1)  // set final size
+			binary.BigEndian.PutUint32(bs[16:], 1) // set a min node size
 			return len(bs), nil
 		}
 		nLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
@@ -653,7 +664,11 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 
 	injectedError := errors.New("error")
 
-	nLog := &mocked.MockedAppendable{}
+	nLog := &mocked.MockedAppendable{
+		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
+			return
+		},
+	}
 	cLog := &mocked.MockedAppendable{}
 
 	t.Run("Should fail while dumping the snapshot", func(t *testing.T) {

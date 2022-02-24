@@ -15,7 +15,10 @@ limitations under the License.
 */
 package appendable
 
-import "compress/flate"
+import (
+	"compress/flate"
+	"crypto/sha256"
+)
 
 const DefaultCompressionFormat = NoCompression
 const DefaultCompressionLevel = BestSpeed
@@ -44,6 +47,7 @@ type Appendable interface {
 	Flush() error
 	Sync() error
 	ReadAt(bs []byte, off int64) (int, error)
+	Checksum(off, len int64) ([sha256.Size]byte, error)
 	Close() error
 	Copy(dstPath string) error
 	CompressionFormat() int
