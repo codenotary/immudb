@@ -2,6 +2,7 @@ package remoteapp
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
@@ -122,6 +123,10 @@ func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 	//	return n, io.EOF
 	// }
 	// return n, nil
+}
+
+func (r *remoteStorageReader) Checksum(off, len int64) ([sha256.Size]byte, error) {
+	panic("unimplemented")
 }
 
 func (r *remoteStorageReader) Close() error {

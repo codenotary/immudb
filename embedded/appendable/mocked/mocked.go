@@ -15,6 +15,8 @@ limitations under the License.
 */
 package mocked
 
+import "crypto/sha256"
+
 type MockedAppendable struct {
 	MetadataFn          func() []byte
 	SizeFn              func() (int64, error)
@@ -24,6 +26,7 @@ type MockedAppendable struct {
 	FlushFn             func() error
 	SyncFn              func() error
 	ReadAtFn            func(bs []byte, off int64) (int, error)
+	ChecksumFn          func(off, len int64) ([sha256.Size]byte, error)
 	CopyFn              func(dstPath string) error
 	CloseFn             func() error
 	CompressionFormatFn func() int
@@ -64,6 +67,10 @@ func (a *MockedAppendable) Sync() error {
 
 func (a *MockedAppendable) ReadAt(bs []byte, off int64) (int, error) {
 	return a.ReadAtFn(bs, off)
+}
+
+func (a *MockedAppendable) Checksum(off, len int64) ([sha256.Size]byte, error) {
+	return a.ChecksumFn(off, len)
 }
 
 func (a *MockedAppendable) Close() error {

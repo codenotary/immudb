@@ -257,7 +257,7 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset int64, wN, wH int64, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -283,7 +283,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 
 		no, wn, wh, err := c.writeTo(nw, hw, wopts)
 		if err != nil {
-			return 0, wn, wh, err
+			return 0, cnw, chw, err
 		}
 
 		offsets[i] = no
@@ -291,7 +291,10 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		chw += wh
 	}
 
-	size := n.size()
+	size, err := n.size()
+	if err != nil {
+		return 0, cnw, chw, err
+	}
 
 	buf := make([]byte, size)
 	bi := 0
@@ -346,7 +349,11 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		return l.off, 0, 0, nil
 	}
 
-	size := l.size()
+	size, err := l.size()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
 	buf := make([]byte, size)
 	bi := 0
 
