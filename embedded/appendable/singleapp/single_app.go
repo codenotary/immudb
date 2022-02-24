@@ -22,10 +22,8 @@ import (
 	"compress/gzip"
 	"compress/lzw"
 	"compress/zlib"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -422,24 +420,6 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	if n < len(bs) {
 		err = io.EOF
 	}
-
-	return
-}
-
-func (aof *AppendableFile) Checksum(off, len int64) (checksum [sha256.Size]byte, err error) {
-	var size int64
-
-	size, err = aof.Size()
-	if err != nil {
-		return
-	}
-
-	if size < off+len {
-		err = fmt.Errorf("%w: appendable size is smaller than required for checksum calculation", io.EOF)
-		return
-	}
-
-	// TODO: TO BE IMPLEMENTED
 
 	return
 }

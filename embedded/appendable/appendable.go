@@ -18,6 +18,7 @@ package appendable
 import (
 	"compress/flate"
 	"crypto/sha256"
+	"io"
 )
 
 const DefaultCompressionFormat = NoCompression
@@ -47,9 +48,22 @@ type Appendable interface {
 	Flush() error
 	Sync() error
 	ReadAt(bs []byte, off int64) (int, error)
-	Checksum(off, len int64) ([sha256.Size]byte, error)
 	Close() error
 	Copy(dstPath string) error
 	CompressionFormat() int
 	CompressionLevel() int
+}
+
+func Checksum(rAt io.ReaderAt, off, n int64) (checksum [sha256.Size]byte, err error) {
+	h := sha256.New()
+	r := io.NewSectionReader(rAt, off, n)
+
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return
+	}
+
+	copy(checksum[:], h.Sum(nil))
+
+	return checksum, nil
 }
