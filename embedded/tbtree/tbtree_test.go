@@ -48,16 +48,8 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(path, nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	nLog := &mocked.MockedAppendable{
-		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
-			return
-		},
-	}
-	hLog := &mocked.MockedAppendable{
-		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
-			return
-		},
-	}
+	nLog := &mocked.MockedAppendable{}
+	hLog := &mocked.MockedAppendable{}
 	cLog := &mocked.MockedAppendable{}
 
 	injectedError := errors.New("error")
@@ -168,6 +160,18 @@ func TestEdgeCases(t *testing.T) {
 			require.Less(t, off, int64(len(nLogBuffer)))
 			l := copy(bs, nLogBuffer[off:])
 			return l, nil
+		}
+		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			binary.BigEndian.PutUint64(bs[8:], 1)  // set final size
+			binary.BigEndian.PutUint32(bs[16:], 1) // set a min node size
+
+			nLogChecksum, err := appendable.Checksum(nLog, 0, 1)
+			copy(bs[20:], nLogChecksum[:])
+
+			hLogChecksum := sha256.Sum256(nil)
+			copy(bs[68:], hLogChecksum[:])
+
+			return len(bs), err
 		}
 		_, err = OpenWith(path, nLog, hLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, ErrReadingFileContent)
@@ -664,11 +668,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 
 	injectedError := errors.New("error")
 
-	nLog := &mocked.MockedAppendable{
-		ChecksumFn: func(off, len int64) (checksum [sha256.Size]byte, err error) {
-			return
-		},
-	}
+	nLog := &mocked.MockedAppendable{}
 	cLog := &mocked.MockedAppendable{}
 
 	t.Run("Should fail while dumping the snapshot", func(t *testing.T) {
