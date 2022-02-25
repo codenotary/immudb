@@ -462,47 +462,66 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	vLog.CloseFn = func() error { return nil }
 	txLog.CloseFn = func() error { return nil }
 	cLog.CloseFn = func() error { return nil }
+
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog,
 		optsCopy.WithAppFactory(func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
+			nLog := &mocked.MockedAppendable{
+				ReadAtFn: func(bs []byte, off int64) (int, error) {
+					buff := []byte{
+						tbtree.LeafNodeType,
+						0, 1, // One node
+						0, 1, // Key size
+						'k',  // key
+						0, 1, // Value size
+						'v',                    // value
+						0, 0, 0, 0, 0, 0, 0, 1, // Timestamp
+						0, 0, 0, 0, 0, 0, 0, 0, // hOffs
+						0, 0, 0, 0, 0, 0, 0, 0, // hSize
+					}
+					require.Less(t, off, int64(len(buff)))
+					return copy(bs, buff[off:]), nil
+				},
+				SyncFn:  func() error { return nil },
+				CloseFn: func() error { return nil },
+			}
+
+			hLog := &mocked.MockedAppendable{
+				SetOffsetFn: func(off int64) error { return nil },
+				SizeFn: func() (int64, error) {
+					return 0, nil
+				},
+				SyncFn:  func() error { return nil },
+				CloseFn: func() error { return nil },
+			}
+
 			switch subPath {
 			case "index/nodes":
-				return &mocked.MockedAppendable{
-					ReadAtFn: func(bs []byte, off int64) (int, error) {
-						buff := []byte{
-							tbtree.LeafNodeType,
-							0, 1, // One node
-							0, 1, // Key size
-							'k',  // key
-							0, 1, // Value size
-							'v',                    // value
-							0, 0, 0, 0, 0, 0, 0, 1, // Timestamp
-							0, 0, 0, 0, 0, 0, 0, 0, // hOffs
-							0, 0, 0, 0, 0, 0, 0, 0, // hSize
-						}
-						require.Less(t, off, int64(len(buff)))
-						return copy(bs, buff[off:]), nil
-					},
-					CloseFn: func() error { return nil },
-				}, nil
+				return nLog, nil
 			case "index/history":
-				return &mocked.MockedAppendable{
-					SetOffsetFn: func(off int64) error { return nil },
-					SizeFn: func() (int64, error) {
-						return 0, nil
-					},
-					CloseFn: func() error { return nil },
-				}, nil
+				return hLog, nil
 			case "index/commit":
 				return &mocked.MockedAppendable{
 					SizeFn: func() (int64, error) {
 						// One clog entry
-						return 16, nil
+						return 100, nil
 					},
 					AppendFn: func(bs []byte) (off int64, n int, err error) {
 						return 0, 0, nil
 					},
 					ReadAtFn: func(bs []byte, off int64) (int, error) {
-						buff := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+						buff := [20 + 32 + 16 + 32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 33}
+						nLogChecksum, err := appendable.Checksum(nLog, 0, 33)
+						if err != nil {
+							return 0, err
+						}
+						copy(buff[20:], nLogChecksum[:])
+
+						hLogChecksum, err := appendable.Checksum(hLog, 0, 0)
+						if err != nil {
+							return 0, err
+						}
+						copy(buff[20+32+16:], hLogChecksum[:])
+
 						require.Less(t, off, int64(len(buff)))
 						return copy(bs, buff[off:]), nil
 					},

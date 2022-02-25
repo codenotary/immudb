@@ -118,11 +118,14 @@ func (e *cLogEntry) serialize() []byte {
 	return b[:]
 }
 
-func (e *cLogEntry) deserialize(b []byte) (int, error) {
-	if len(b) < cLogEntrySize {
-		return 0, fmt.Errorf("%w: not enough data to read cLogEntry", ErrIllegalArguments)
-	}
+func (e *cLogEntry) isValid() bool {
+	return e.initialHLogSize <= e.finalNLogSize &&
+		e.rootNodeSize > 0 &&
+		int64(e.rootNodeSize) <= e.finalNLogSize &&
+		e.initialHLogSize <= e.finalHLogSize
+}
 
+func (e *cLogEntry) deserialize(b []byte) {
 	e.synced = b[0]&0x80 == 0
 	b[0] &= 0x7F // remove syncing flag
 
@@ -137,10 +140,6 @@ func (e *cLogEntry) deserialize(b []byte) (int, error) {
 	e.rootNodeSize = int(binary.BigEndian.Uint32(b[i:]))
 	i += 4
 
-	if e.initialHLogSize > e.finalNLogSize || e.rootNodeSize < 1 || int64(e.rootNodeSize) > e.finalNLogSize {
-		return i, fmt.Errorf("%w: while deserializing index commit log entry", ErrCorruptedCLog)
-	}
-
 	copy(e.nLogChecksum[:], b[i:])
 	i += sha256.Size
 
@@ -150,14 +149,8 @@ func (e *cLogEntry) deserialize(b []byte) (int, error) {
 	e.finalHLogSize = int64(binary.BigEndian.Uint64(b[i:]))
 	i += 8
 
-	if e.initialHLogSize > e.finalHLogSize {
-		return i, fmt.Errorf("%w: while deserializing index commit log entry", ErrCorruptedCLog)
-	}
-
 	copy(e.hLogChecksum[:], b[i:])
 	i += sha256.Size
-
-	return i, nil
 }
 
 // TBTree implements a timed-btree
@@ -553,28 +546,34 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		cLogEntry := &cLogEntry{}
-		_, err = cLogEntry.deserialize(b[:])
-		if err != nil {
-			return nil, fmt.Errorf("%w: while deserializing index commit log entry at '%s'", err, path)
+		cLogEntry.deserialize(b[:])
+
+		mustDiscard := !cLogEntry.isValid()
+		if mustDiscard {
+			err = fmt.Errorf("invalid clog entry")
 		}
 
-		nLogChecksum, nerr := appendable.Checksum(t.nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
-		if nerr != nil && nerr != io.EOF {
-			return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", nerr, path)
-		}
+		if !mustDiscard {
+			nLogChecksum, nerr := appendable.Checksum(t.nLog, cLogEntry.initialNLogSize, cLogEntry.finalNLogSize-cLogEntry.initialNLogSize)
+			if nerr != nil && nerr != io.EOF {
+				return nil, fmt.Errorf("%w: while calculating nodes log checksum at '%s'", nerr, path)
+			}
 
-		hLogChecksum, herr := appendable.Checksum(t.hLog, cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
-		if herr != nil && herr != io.EOF {
-			return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", herr, path)
-		}
+			hLogChecksum, herr := appendable.Checksum(t.hLog, cLogEntry.initialHLogSize, cLogEntry.finalHLogSize-cLogEntry.initialHLogSize)
+			if herr != nil && herr != io.EOF {
+				return nil, fmt.Errorf("%w: while calculating history log checksum at '%s'", herr, path)
+			}
 
-		mustDiscard := nerr == io.EOF ||
-			herr == io.EOF ||
-			nLogChecksum != cLogEntry.nLogChecksum ||
-			hLogChecksum != cLogEntry.hLogChecksum
+			mustDiscard = nerr == io.EOF ||
+				herr == io.EOF ||
+				nLogChecksum != cLogEntry.nLogChecksum ||
+				hLogChecksum != cLogEntry.hLogChecksum
+
+			err = fmt.Errorf("invalid checksum")
+		}
 
 		if mustDiscard {
-			t.log.Infof("Discarding snapshots due to checksum mismatch at '%s'", path)
+			t.log.Infof("Discarding snapshots due to %w at '%s'", err, path)
 
 			discardedCLogEntries += int(t.committedLogSize/cLogEntrySize) + 1
 
