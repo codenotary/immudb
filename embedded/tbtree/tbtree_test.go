@@ -675,7 +675,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		nLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -692,7 +692,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
 			return 0, 0, injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -706,7 +706,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		nLog.FlushFn = func() error {
 			return injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -723,7 +723,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		nLog.SyncFn = func() error {
 			return injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -743,7 +743,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		cLog.FlushFn = func() error {
 			return injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 
@@ -766,7 +766,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 		cLog.SyncFn = func() error {
 			return injectedError
 		}
-		err = tree.fullDumpTo(snap, nLog, cLog)
+		err = tree.fullDumpTo(snap, nLog, cLog, func(int, int, int) {})
 		require.ErrorIs(t, err, injectedError)
 	})
 }

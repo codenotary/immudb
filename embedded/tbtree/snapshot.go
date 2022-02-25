@@ -279,6 +279,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 			BaseNLogOffset: writeOpts.BaseNLogOffset + cnw,
 			BaseHLogOffset: writeOpts.BaseHLogOffset + chw,
 			commitLog:      writeOpts.commitLog,
+			reportProgress: writeOpts.reportProgress,
 		}
 
 		no, wn, wh, err := c.writeTo(nw, hw, wopts)
@@ -338,8 +339,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		n.t.cachePut(n)
 	}
 
-	metricsFlushingNodesProgress.WithLabelValues(n.t.path).Inc()
-	metricsFlushingNodesTotal.WithLabelValues(n.t.path).Inc()
+	writeOpts.reportProgress(1, 0, 0)
 
 	return nOff, wN, chw, nil
 }
@@ -437,8 +437,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		l.t.cachePut(l)
 	}
 
-	metricsFlushingNodesProgress.WithLabelValues(l.t.path).Inc()
-	metricsFlushingNodesTotal.WithLabelValues(l.t.path).Inc()
+	writeOpts.reportProgress(0, 1, len(l.values))
 
 	return nOff, wN, accH, nil
 }

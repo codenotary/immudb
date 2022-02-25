@@ -7,14 +7,44 @@ import (
 
 // TODO: Those should be put behind abstract metrics system to avoid dependency on
 //       prometheus inside embedded package
-var metricsFlushingNodesProgress = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "immudb_btree_flushing_nodes_progress",
-	Help: "Numbers of nodes written to disk during current flush process",
+var metricsFlushedNodesLastCycle = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_flushed_nodes_last_cycle",
+	Help: "Numbers of btree nodes written to disk during the last flush process",
+}, []string{"id", "kind"})
+
+var metricsFlushedNodesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_flushed_nodes_total",
+	Help: "Number of btree nodes written to disk during flush since the immudb process was started",
+}, []string{"id", "kind"})
+
+var metricsFlushedEntriesLastCycle = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_flushed_entries_last_cycle",
+	Help: "Numbers of btree entries written to disk during the last flush process",
 }, []string{"id"})
 
-var metricsFlushingNodesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "immudb_btree_flushing_nodes_total",
-	Help: "Number of nodes written to disk during all flush cycles",
+var metricsFlushedEntriesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_flushed_entries_total",
+	Help: "Number of btree entries written to disk during flush since the immudb process was started",
+}, []string{"id"})
+
+var metricsCompactedNodesLastCycle = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_compacted_nodes_last_cycle",
+	Help: "Numbers of btree nodes written to disk during the last compaction process",
+}, []string{"id", "kind"})
+
+var metricsCompactedNodesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_compacted_nodes_total",
+	Help: "Number of btree nodes written to disk during compaction since the immudb process was started",
+}, []string{"id", "kind"})
+
+var metricsCompactedEntriesLastCycle = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_compacted_entries_last_cycle",
+	Help: "Numbers of btree entries written to disk during the last compaction process",
+}, []string{"id"})
+
+var metricsCompactedEntriesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "immudb_btree_compacted_entries_total",
+	Help: "Number of btree entries written to disk during compaction since the immudb process was started",
 }, []string{"id"})
 
 var metricsCacheSizeStats = promauto.NewGaugeVec(prometheus.GaugeOpts{

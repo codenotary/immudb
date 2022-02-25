@@ -45,6 +45,7 @@ func TestSnapshotSerialization(t *testing.T) {
 		OnlyMutated:    true,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
+		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
 	}
 	_, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
 	require.NoError(t, err)
@@ -74,6 +75,7 @@ func TestSnapshotSerialization(t *testing.T) {
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
+		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
 	}
 	_, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
 	require.NoError(t, err)

@@ -36,6 +36,7 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -223,11 +224,15 @@ type node interface {
 	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
 }
 
+type writeProgressOutputFunc func(innerNodesWritten int, leafNodesWritten int, entriesWritten int)
+type writeFinnishOutputFunc func()
+
 type WriteOpts struct {
 	OnlyMutated    bool
 	BaseNLogOffset int64
 	BaseHLogOffset int64
 	commitLog      bool
+	reportProgress writeProgressOutputFunc
 }
 
 type innerNode struct {
@@ -976,8 +981,6 @@ func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 	t.log.Infof("Flushing index '%s' {ts=%d}...", t.path, t.root.ts())
 
-	metricsFlushingNodesProgress.WithLabelValues(t.path).Set(float64(0))
-
 	if !t.root.mutated() {
 		t.log.Infof("Flushing not needed at '%s' {ts=%d}", t.path, t.root.ts())
 		return 0, 0, nil
@@ -999,11 +1002,23 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		return 0, 0, err
 	}
 
+	progressOutputFunc, finishOutputFunc := t.buildWriteProgressOutput(
+		metricsFlushedNodesLastCycle,
+		metricsFlushedNodesTotal,
+		metricsFlushedEntriesLastCycle,
+		metricsFlushedEntriesTotal,
+		"Flushing",
+		t.root.ts(),
+		time.Minute,
+	)
+	defer finishOutputFunc()
+
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
 		BaseNLogOffset: t.committedNLogSize,
 		BaseHLogOffset: t.committedHLogSize,
 		commitLog:      true,
+		reportProgress: progressOutputFunc,
 	}
 
 	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
@@ -1119,6 +1134,66 @@ func (t *TBtree) snapshotCount() uint64 {
 	return uint64(t.committedLogSize / cLogEntrySize)
 }
 
+func (t *TBtree) buildWriteProgressOutput(
+	nodesLastCycle *prometheus.GaugeVec,
+	nodesTotal *prometheus.CounterVec,
+	entriesLastCycle *prometheus.GaugeVec,
+	entriesTotal *prometheus.CounterVec,
+	action string,
+	snapTS uint64,
+	logReportDelay time.Duration,
+) (
+	writeProgressOutputFunc,
+	writeFinnishOutputFunc,
+) {
+
+	iLastCycle := nodesLastCycle.WithLabelValues(t.path, "inner")
+	lLastCycle := nodesLastCycle.WithLabelValues(t.path, "leaf")
+	eLastCycle := entriesLastCycle.WithLabelValues(t.path)
+
+	iTotal := nodesTotal.WithLabelValues(t.path, "inner")
+	lTotal := nodesTotal.WithLabelValues(t.path, "leaf")
+	eTotal := entriesTotal.WithLabelValues(t.path)
+
+	innerNodes := 0
+	leafNodes := 0
+	entries := 0
+
+	lastProgressTime := time.Now()
+	progressFunc := func(innerNodesWritten, leafNodesWritten, entriesWritten int) {
+
+		innerNodes += innerNodesWritten
+		leafNodes += leafNodesWritten
+		entries += entriesWritten
+
+		iTotal.Add(float64(innerNodesWritten))
+		lTotal.Add(float64(leafNodesWritten))
+		eTotal.Add(float64(entriesWritten))
+
+		now := time.Now()
+		if now.Sub(lastProgressTime) > logReportDelay {
+			t.log.Infof(
+				"%s index '%s' {ts=%d} progress: %d inner nodes, %d leaf nodes, %d entries...",
+				action, t.path, snapTS, leafNodes, innerNodes, entries,
+			)
+			lastProgressTime = now
+		}
+	}
+
+	finishFunc := func() {
+		iLastCycle.Set(float64(innerNodes))
+		lLastCycle.Set(float64(leafNodes))
+		eLastCycle.Set(float64(entries))
+
+		t.log.Infof(
+			"%s index '%s' {ts=%d} finished with: %d inner nodes, %d leaf nodes, %d entries",
+			action, t.path, snapTS, leafNodes, innerNodes, entries,
+		)
+	}
+
+	return progressFunc, finishFunc
+}
+
 func (t *TBtree) Compact() (uint64, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
@@ -1156,7 +1231,18 @@ func (t *TBtree) Compact() (uint64, error) {
 
 	t.log.Infof("Dumping index '%s' {ts=%d}...", t.path, snap.Ts())
 
-	err = t.fullDump(snap)
+	progressOutput, finishOutput := t.buildWriteProgressOutput(
+		metricsCompactedNodesLastCycle,
+		metricsCompactedNodesTotal,
+		metricsCompactedEntriesLastCycle,
+		metricsCompactedEntriesTotal,
+		"Dumping",
+		snap.Ts(),
+		time.Minute,
+	)
+	defer finishOutput()
+
+	err = t.fullDump(snap, progressOutput)
 	if err != nil {
 		return 0, t.wrapNwarn("Dumping index '%s' {ts=%d} returned: %v", t.path, snap.Ts(), err)
 	}
@@ -1166,7 +1252,7 @@ func (t *TBtree) Compact() (uint64, error) {
 	return snap.Ts(), nil
 }
 
-func (t *TBtree) fullDump(snap *Snapshot) error {
+func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc) error {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
@@ -1199,14 +1285,15 @@ func (t *TBtree) fullDump(snap *Snapshot) error {
 		cLog.Close()
 	}()
 
-	return t.fullDumpTo(snap, nLog, cLog)
+	return t.fullDumpTo(snap, nLog, cLog, progressOutput)
 }
 
-func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable) error {
+func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable, progressOutput writeProgressOutputFunc) error {
 	wopts := &WriteOpts{
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
+		reportProgress: progressOutput,
 	}
 
 	_, wN, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
