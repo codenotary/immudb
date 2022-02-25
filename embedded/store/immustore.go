@@ -321,7 +321,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	committedAlh := sha256.Sum256(nil)
 
 	if cLogSize > 0 {
-		txReader := appendable.NewReaderFrom(txLog, committedTxOffset, committedTxSize)
+		txReader, err := appendable.NewReaderFrom(txLog, committedTxOffset, txLog.BlockSize())
+		if err != nil {
+			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
+		}
 
 		tx := txs.Front().Value.(*Tx)
 		err = tx.readFrom(txReader)
@@ -1467,20 +1470,20 @@ type slicedReaderAt struct {
 }
 
 func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
-	if off < r.off || int(off-r.off) > len(bs) {
-		return 0, ErrIllegalState
+	if off < r.off {
+		return 0, ErrIllegalArguments
 	}
 
 	o := int(off - r.off)
 	available := len(r.bs) - o
 
-	copy(bs, r.bs[o:minInt(available, len(bs))])
+	copy(bs, r.bs[o:o+minInt(available, len(bs))])
 
 	if len(bs) > available {
 		return available, io.EOF
 	}
 
-	return available, nil
+	return len(bs), nil
 }
 
 func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
@@ -1660,7 +1663,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		cacheMiss = true
 	}
 
-	txOff, txSize, err := s.txOffsetAndSize(txID)
+	txOff, _, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
@@ -1673,7 +1676,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		txr = &slicedReaderAt{bs: txbs.([]byte), off: txOff}
 	}
 
-	r := appendable.NewReaderFrom(txr, txOff, txSize)
+	r, _ := appendable.NewReaderFrom(txr, txOff, s.txLog.BlockSize())
 
 	err = tx.readFrom(r)
 	if err == io.EOF {

@@ -35,7 +35,11 @@ func (w *mockedIOReaderAt) ReadAt(b []byte, off int64) (int, error) {
 func TestReader(t *testing.T) {
 	a := &mocked.MockedAppendable{}
 
-	r := NewReaderFrom(a, 0, 1024)
+	_, err := NewReaderFrom(a, 0, 0)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	r, err := NewReaderFrom(a, 0, 1024)
+	require.NoError(t, err)
 	require.NotNil(t, r)
 
 	r.Reset()
@@ -45,7 +49,7 @@ func TestReader(t *testing.T) {
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
 	}
-	_, err := r.Read([]byte{0})
+	_, err = r.Read([]byte{0})
 	require.Error(t, err)
 
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
@@ -76,9 +80,10 @@ func TestReader(t *testing.T) {
 func TestMockedReader(t *testing.T) {
 	mockedReaderAt := &mockedIOReaderAt{}
 
-	r := NewReaderFrom(mockedReaderAt, 0, 1024)
+	r, err := NewReaderFrom(mockedReaderAt, 0, 1024)
+	require.NoError(t, err)
 	require.NotNil(t, r)
 
-	_, err := r.ReadByte()
+	_, err = r.ReadByte()
 	require.Error(t, err)
 }

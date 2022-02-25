@@ -282,6 +282,10 @@ func (mf *MultiFileAppendable) Size() (int64, error) {
 	return mf.currAppID*int64(mf.fileSize) + currSize, nil
 }
 
+func (mf *MultiFileAppendable) BlockSize() int {
+	return mf.blockSize
+}
+
 func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()

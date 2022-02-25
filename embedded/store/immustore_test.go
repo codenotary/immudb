@@ -420,9 +420,15 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Fail to read last transaction
 	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		buff := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		buff := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 		require.Less(t, off, int64(len(buff)))
 		return copy(bs, buff[off:]), nil
+	}
+	txLog.SizeFn = func() (int64, error) {
+		return 1, nil
+	}
+	txLog.BlockSizeFn = func() int {
+		return 4096
 	}
 	txLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, injectedError
@@ -481,6 +487,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					require.Less(t, off, int64(len(buff)))
 					return copy(bs, buff[off:]), nil
 				},
+				BlockSizeFn: func() int {
+					return 4096
+				},
 				SyncFn:  func() error { return nil },
 				CloseFn: func() error { return nil },
 			}
@@ -489,6 +498,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 				SetOffsetFn: func(off int64) error { return nil },
 				SizeFn: func() (int64, error) {
 					return 0, nil
+				},
+				BlockSizeFn: func() int {
+					return 4096
 				},
 				SyncFn:  func() error { return nil },
 				CloseFn: func() error { return nil },
@@ -504,6 +516,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 					SizeFn: func() (int64, error) {
 						// One clog entry
 						return 100, nil
+					},
+					BlockSizeFn: func() int {
+						return 4096
 					},
 					AppendFn: func(bs []byte) (off int64, n int, err error) {
 						return 0, 0, nil
@@ -682,8 +697,8 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	defer os.RemoveAll("data_indexing")
 	require.NotNil(t, immuStore)
 
-	txCount := 1000
-	eCount := 10
+	txCount := 10
+	eCount := 1000
 
 	for i := 0; i < txCount; i++ {
 		tx, err := immuStore.NewWriteOnlyTx()

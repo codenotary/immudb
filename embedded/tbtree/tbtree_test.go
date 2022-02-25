@@ -48,9 +48,21 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(path, nil, nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	nLog := &mocked.MockedAppendable{}
-	hLog := &mocked.MockedAppendable{}
-	cLog := &mocked.MockedAppendable{}
+	nLog := &mocked.MockedAppendable{
+		BlockSizeFn: func() int {
+			return 4096
+		},
+	}
+	hLog := &mocked.MockedAppendable{
+		BlockSizeFn: func() int {
+			return 4096
+		},
+	}
+	cLog := &mocked.MockedAppendable{
+		BlockSizeFn: func() int {
+			return 4096
+		},
+	}
 
 	injectedError := errors.New("error")
 

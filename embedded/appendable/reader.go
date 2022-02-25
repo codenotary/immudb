@@ -21,29 +21,33 @@ import (
 )
 
 type Reader struct {
-	rAt       io.ReaderAt
-	data      []byte
-	dataIndex int
-	eof       bool
-	readIndex int
-	offset    int64
+	rAt    io.ReaderAt
+	buf    []byte
+	woff   int
+	eof    bool
+	roff   int
+	offset int64
 }
 
-func NewReaderFrom(rAt io.ReaderAt, off int64, size int) *Reader {
-	return &Reader{
-		rAt:       rAt,
-		data:      make([]byte, size),
-		dataIndex: 0,
-		eof:       false,
-		readIndex: 0,
-		offset:    off,
+func NewReaderFrom(rAt io.ReaderAt, off int64, blockSize int) (*Reader, error) {
+	if blockSize <= 0 {
+		return nil, ErrIllegalArguments
 	}
+
+	return &Reader{
+		rAt:    rAt,
+		buf:    make([]byte, blockSize),
+		woff:   0,
+		eof:    false,
+		roff:   0,
+		offset: off,
+	}, nil
 }
 
 func (r *Reader) Reset() {
-	r.dataIndex = 0
+	r.woff = 0
 	r.eof = false
-	r.readIndex = 0
+	r.roff = 0
 	r.offset = 0
 }
 
@@ -52,28 +56,36 @@ func (r *Reader) Offset() int64 {
 }
 
 func (r *Reader) Read(bs []byte) (n int, err error) {
-	l := 0
+	read := 0
 
 	for {
-		nl := min(r.dataIndex-r.readIndex, len(bs)-l)
+		availableInBuffer := r.woff - r.roff
+		remainsToRead := len(bs) - read
 
-		copy(bs[l:], r.data[r.readIndex:r.readIndex+nl])
-		r.readIndex += nl
+		toReadInIteration := min(availableInBuffer, remainsToRead)
 
-		l += nl
+		copy(bs[read:], r.buf[r.roff:r.roff+toReadInIteration])
+		r.roff += toReadInIteration
 
-		if l == len(bs) {
+		read += toReadInIteration
+
+		if read == len(bs) {
 			break
 		}
+
+		// buffer was consumed and more data needs to be read
 
 		if r.eof {
 			return 0, io.EOF
 		}
 
-		n, err := r.rAt.ReadAt(r.data, r.offset)
+		// ensure block-aligned read
+		remainsToReadInCurrentBlock := len(r.buf) - int(r.offset%int64(len(r.buf)))
 
-		r.dataIndex = n
-		r.readIndex = 0
+		n, err := r.rAt.ReadAt(r.buf[:remainsToReadInCurrentBlock], r.offset)
+
+		r.woff = n
+		r.roff = 0
 		r.offset += int64(n)
 
 		if err == io.EOF {
@@ -82,11 +94,11 @@ func (r *Reader) Read(bs []byte) (n int, err error) {
 		}
 
 		if err != nil {
-			return l + n, err
+			return read + n, err
 		}
 	}
 
-	return l, nil
+	return read, nil
 }
 
 func (r *Reader) ReadByte() (byte, error) {

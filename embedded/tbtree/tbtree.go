@@ -701,7 +701,7 @@ func (t *TBtree) nodeAt(offset int64, updateCache bool) (node, error) {
 }
 
 func (t *TBtree) readNodeAt(off int64) (node, error) {
-	r := appendable.NewReaderFrom(t.nLog, off, t.maxNodeSize)
+	r, _ := appendable.NewReaderFrom(t.nLog, off, t.nLog.BlockSize())
 	return t.readNodeFrom(r)
 }
 
@@ -2111,7 +2111,7 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 	ti := uint64(len(leafValue.tss))
 
 	for tssOff < tssLen {
-		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
+		r, _ := appendable.NewReaderFrom(l.t.hLog, hOff, l.t.hLog.BlockSize())
 
 		hc, err := r.ReadUint32()
 		if err != nil {
@@ -2318,7 +2318,7 @@ func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (ts, 
 	skippedUpdates := uint64(0)
 
 	for i := uint64(0); i < lv.hCount; i++ {
-		r := appendable.NewReaderFrom(hLog, hOff, DefaultMaxNodeSize)
+		r, _ := appendable.NewReaderFrom(hLog, hOff, hLog.BlockSize())
 
 		hc, err := r.ReadUint32()
 		if err != nil {

@@ -31,7 +31,8 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 
 	a := &mocked.MockedAppendable{}
 
-	r := appendable.NewReaderFrom(a, 0, 1)
+	r, err := appendable.NewReaderFrom(a, 0, 1)
+	require.NoError(t, err)
 	require.NotNil(t, r)
 
 	tx := newTx(1, 32)
@@ -40,7 +41,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
 	}
-	err := tx.readFrom(r)
+	err = tx.readFrom(r)
 	require.Error(t, err)
 
 	// Should fail while reading Ts

@@ -18,12 +18,15 @@ package appendable
 import (
 	"compress/flate"
 	"crypto/sha256"
+	"errors"
 	"io"
 )
 
 const DefaultBlockSize = 4096
 const DefaultCompressionFormat = NoCompression
 const DefaultCompressionLevel = BestSpeed
+
+var ErrIllegalArguments = errors.New("illegal arguments")
 
 const (
 	NoCompression = iota
@@ -43,6 +46,7 @@ const (
 type Appendable interface {
 	Metadata() []byte
 	Size() (int64, error)
+	BlockSize() int
 	Offset() int64
 	SetOffset(off int64) error
 	Append(bs []byte) (off int64, n int, err error)

@@ -66,6 +66,10 @@ func (r *remoteStorageReader) Size() (int64, error) {
 	panic("unimplemented")
 }
 
+func (r *remoteStorageReader) BlockSize() int {
+	panic("unimplemented")
+}
+
 func (r *remoteStorageReader) Offset() int64 {
 	panic("unimplemented")
 }

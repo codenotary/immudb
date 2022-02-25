@@ -18,6 +18,7 @@ package mocked
 type MockedAppendable struct {
 	MetadataFn          func() []byte
 	SizeFn              func() (int64, error)
+	BlockSizeFn         func() int
 	OffsetFn            func() int64
 	SetOffsetFn         func(off int64) error
 	AppendFn            func(bs []byte) (off int64, n int, err error)
@@ -40,6 +41,10 @@ func (a *MockedAppendable) Copy(dstPath string) error {
 
 func (a *MockedAppendable) Size() (int64, error) {
 	return a.SizeFn()
+}
+
+func (a *MockedAppendable) BlockSize() int {
+	return a.BlockSizeFn()
 }
 
 func (a *MockedAppendable) Offset() int64 {
