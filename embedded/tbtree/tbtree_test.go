@@ -76,7 +76,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("Should fail reading version from metadata", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
-			md := appendable.NewMetadata(nil)
+			md, _ := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, 1)
 			return md.Bytes()
 		}
@@ -87,7 +87,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("Should fail reading cLogSize", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
-			md := appendable.NewMetadata(nil)
+			md, _ := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
 			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
@@ -113,7 +113,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("Should succeed", func(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
-			md := appendable.NewMetadata(nil)
+			md, _ := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
 			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
@@ -230,7 +230,7 @@ func TestEdgeCases(t *testing.T) {
 			buff := nLogBuffer[:i]
 
 			cLog.MetadataFn = func() []byte {
-				md := appendable.NewMetadata(nil)
+				md, _ := appendable.NewMetadata(nil)
 				md.PutInt(MetaVersion, 2)
 				md.PutInt(MetaMaxNodeSize, 1)
 				return md.Bytes()

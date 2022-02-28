@@ -19,22 +19,30 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 )
+
+var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
 type Metadata struct {
 	data map[string][]byte
 }
 
-func NewMetadata(b []byte) *Metadata {
+func NewMetadata(b []byte) (*Metadata, error) {
 	m := &Metadata{
 		data: make(map[string][]byte),
 	}
+
 	if b != nil {
 		bb := bytes.NewBuffer(b)
-		m.ReadFrom(bufio.NewReader(bb))
+		_, err := m.ReadFrom(bufio.NewReader(bb))
+		if err != nil {
+			return nil, err
+		}
 	}
-	return m
+
+	return m, nil
 }
 
 func (m *Metadata) Bytes() []byte {
@@ -50,6 +58,11 @@ func (m *Metadata) ReadFrom(r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	if len(lenb) != 4 {
+		return 0, ErrCorruptedMetadata
+	}
+
 	len := int(binary.BigEndian.Uint32(lenb))
 
 	for i := 0; i < len; i++ {

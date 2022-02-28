@@ -38,7 +38,8 @@ func (w *mockedIOWriter) Write(b []byte) (int, error) {
 }
 
 func TestMedatada(t *testing.T) {
-	md := NewMetadata(nil)
+	md, err := NewMetadata(nil)
+	require.NoError(t, err)
 
 	_, found := md.Get("key")
 	require.False(t, found)
@@ -56,7 +57,8 @@ func TestMedatada(t *testing.T) {
 		require.Equal(t, i, v)
 	}
 
-	md1 := NewMetadata(md.Bytes())
+	md1, err := NewMetadata(md.Bytes())
+	require.NoError(t, err)
 
 	for i := 0; i < 10; i++ {
 		v, found := md1.GetInt(fmt.Sprintf("key_%d", i))
@@ -65,7 +67,7 @@ func TestMedatada(t *testing.T) {
 	}
 
 	mockedReader := &mockedIOReader{}
-	_, err := md.ReadFrom(mockedReader)
+	_, err = md.ReadFrom(mockedReader)
 	require.Error(t, err)
 
 	mockedWriter := &mockedIOWriter{}

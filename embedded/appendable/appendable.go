@@ -59,6 +59,10 @@ type Appendable interface {
 	CompressionLevel() int
 }
 
+func PaddingLen(sz, blockSize int) int {
+	return blockSize - sz%blockSize
+}
+
 func Checksum(rAt io.ReaderAt, off, n int64) (checksum [sha256.Size]byte, err error) {
 	h := sha256.New()
 	r := io.NewSectionReader(rAt, off, n)

@@ -286,7 +286,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		return nil, ErrorPathIsNotADirectory
 	}
 
-	metadata := appendable.NewMetadata(nil)
+	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
 
@@ -477,7 +477,10 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		return nil, ErrIllegalArguments
 	}
 
-	metadata := appendable.NewMetadata(cLog.Metadata())
+	metadata, err := appendable.NewMetadata(cLog.Metadata())
+	if err != nil {
+		return nil, err
+	}
 
 	version, ok := metadata.GetInt(MetaVersion)
 	if !ok {
@@ -1246,7 +1249,7 @@ func (t *TBtree) Compact() (uint64, error) {
 }
 
 func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc) error {
-	metadata := appendable.NewMetadata(nil)
+	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
 

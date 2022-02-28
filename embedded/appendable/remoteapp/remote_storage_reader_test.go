@@ -2,12 +2,15 @@ package remoteapp
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/stretchr/testify/require"
@@ -58,11 +61,20 @@ func TestRemoteStorageSync(t *testing.T) {
 
 func TestRemoteStorageReadAt(t *testing.T) {
 	m := memory.Open()
-	storeData(t, m, "fl", []byte{
-		0, 0, 0, 4, // Dummy empty header
-		0, 0, 0, 0,
-		1, 2, 3, 4, // Data, 4 bytes
-	})
+
+	md, err := appendable.NewMetadata(nil)
+	require.NoError(t, err)
+
+	md.PutInt(singleapp.MetaBlockSize, 4096)
+
+	mdBs := md.Bytes()
+
+	d := make([]byte, 4+len(mdBs)+appendable.PaddingLen(4+len(mdBs), 4096))
+	binary.BigEndian.PutUint32(d, uint32(len(mdBs)))
+	copy(d[4:], mdBs)
+	d = append(d, 1, 2, 3, 4) // Data, 4 bytes
+
+	storeData(t, m, "fl", d)
 
 	r, err := openRemoteStorageReader(m, "fl")
 	require.NoError(t, err)

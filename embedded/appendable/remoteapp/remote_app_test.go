@@ -374,18 +374,22 @@ func TestRemoteStorageMetrics(t *testing.T) {
 		expectedCount   int
 		expectedStorage int
 	}{
-		{"Active", 1, 169},
-		{"Remote", 4, 4 * 170},
+		{"Active", 1, 4096 + len(dataWritten)%10},
+		{"Remote", 4, 4 * (4096 + 10)},
 		{"Uploading", 0, 0},
 	} {
 		t.Run("Checking count for "+d.state, func(t *testing.T) {
 			g, err := metricsChunkCounts.GetMetricWithLabelValues("", d.state)
 			require.NoError(t, err)
+
 			require.EqualValues(t, d.expectedCount, testutil.ToFloat64(g))
 
 			g, err = metricsChunkDataBytes.GetMetricWithLabelValues("", d.state)
 			require.NoError(t, err)
-			require.EqualValues(t, d.expectedStorage, testutil.ToFloat64(g))
+
+			s := testutil.ToFloat64(g)
+
+			require.EqualValues(t, d.expectedStorage, s)
 		})
 	}
 

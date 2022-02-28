@@ -29,7 +29,9 @@ import (
 )
 
 func TestMultiApp(t *testing.T) {
-	md := appendable.NewMetadata(nil)
+	md, err := appendable.NewMetadata(nil)
+	require.NoError(t, err)
+
 	md.PutInt("mkey1", 1)
 
 	a, err := Open("testdata", DefaultOptions().WithMetadata(md.Bytes()))
@@ -48,7 +50,10 @@ func TestMultiApp(t *testing.T) {
 
 	require.Equal(t, int64(0), a.Offset())
 
-	mkey1, found := appendable.NewMetadata(a.Metadata()).GetInt("mkey1")
+	md, err = appendable.NewMetadata(a.Metadata())
+	require.NoError(t, err)
+
+	mkey1, found := md.GetInt("mkey1")
 	require.True(t, found)
 	require.Equal(t, 1, mkey1)
 

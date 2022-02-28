@@ -182,7 +182,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, ErrorPathIsNotADirectory
 	}
 
-	metadata := appendable.NewMetadata(nil)
+	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(metaVersion, Version)
 	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
@@ -243,7 +243,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, ErrIllegalArguments
 	}
 
-	metadata := appendable.NewMetadata(cLog.Metadata())
+	metadata, _ := appendable.NewMetadata(cLog.Metadata())
 
 	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {

@@ -24,6 +24,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -35,13 +36,12 @@ var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("single-file appendable already closed")
 var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
-var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
 const (
-	metaBlockSize         = "BLOCK_SIZE"
-	metaCompressionFormat = "COMPRESSION_FORMAT"
-	metaCompressionLevel  = "COMPRESSION_LEVEL"
-	metaWrappedMeta       = "WRAPPED_METADATA"
+	MetaBlockSize         = "BLOCK_SIZE"
+	MetaCompressionFormat = "COMPRESSION_FORMAT"
+	MetaCompressionLevel  = "COMPRESSION_LEVEL"
+	MetaWrappedMeta       = "WRAPPED_METADATA"
 )
 
 type AppendableFile struct {
@@ -101,11 +101,15 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	var baseOffset int64
 
 	if notExist {
-		m := appendable.NewMetadata(nil)
-		m.PutInt(metaBlockSize, opts.blockSize)
-		m.PutInt(metaCompressionFormat, opts.compressionFormat)
-		m.PutInt(metaCompressionLevel, opts.compressionLevel)
-		m.Put(metaWrappedMeta, opts.metadata)
+		m, err := appendable.NewMetadata(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		m.PutInt(MetaBlockSize, opts.blockSize)
+		m.PutInt(MetaCompressionFormat, opts.compressionFormat)
+		m.PutInt(MetaCompressionLevel, opts.compressionLevel)
+		m.Put(MetaWrappedMeta, opts.metadata)
 
 		w := bufio.NewWriter(f)
 
@@ -113,7 +117,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 
 		mLenBs := make([]byte, 4)
 		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
-		_, err := w.Write(mLenBs)
+		_, err = w.Write(mLenBs)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +127,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
-		paddingLen := paddingLen(4+len(mBs), opts.blockSize)
+		paddingLen := appendable.PaddingLen(4+len(mBs), opts.blockSize)
 
 		if paddingLen > 0 {
 			_, err = w.Write(make([]byte, paddingLen))
@@ -149,7 +153,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		mLenBs := make([]byte, 4)
 		_, err := r.Read(mLenBs)
 		if err != nil {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 
 		mLen := int(binary.BigEndian.Uint32(mLenBs))
@@ -157,36 +161,38 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		mBs := make([]byte, mLen)
 		_, err = r.Read(mBs)
 		if err != nil {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 
-		paddingLen := paddingLen(4+mLen, opts.blockSize)
+		m, err := appendable.NewMetadata(mBs)
+		if err != nil {
+			return nil, fmt.Errorf("%w: corrupted metadata", err)
+		}
 
-		m := appendable.NewMetadata(mBs)
-
-		bsz, ok := m.GetInt(metaBlockSize)
+		bsz, ok := m.GetInt(MetaBlockSize)
 		if !ok {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 		blockSize = bsz
 
-		cf, ok := m.GetInt(metaCompressionFormat)
+		cf, ok := m.GetInt(MetaCompressionFormat)
 		if !ok {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 		compressionFormat = cf
 
-		cl, ok := m.GetInt(metaCompressionLevel)
+		cl, ok := m.GetInt(MetaCompressionLevel)
 		if !ok {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 		compressionLevel = cl
 
-		metadata, ok = m.Get(metaWrappedMeta)
+		metadata, ok = m.Get(MetaWrappedMeta)
 		if !ok {
-			return nil, ErrCorruptedMetadata
+			return nil, appendable.ErrCorruptedMetadata
 		}
 
+		paddingLen := appendable.PaddingLen(4+mLen, blockSize)
 		baseOffset = int64(4 + len(mBs) + paddingLen)
 	}
 
@@ -215,10 +221,6 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		offset:            off - baseOffset,
 		closed:            false,
 	}, nil
-}
-
-func paddingLen(sz, blockSize int) int {
-	return blockSize - sz%blockSize
 }
 
 func (aof *AppendableFile) Copy(dstPath string) error {

@@ -153,7 +153,6 @@ func (r *RemoteStorageAppendable) uploadFinished(chunkID int64, state chunkState
 }
 
 func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool) {
-
 	appName := r.appendableName(chunkID)
 	fileName := filepath.Join(r.path, appName)
 

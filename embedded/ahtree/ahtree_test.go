@@ -337,7 +337,9 @@ func TestEdgeCases(t *testing.T) {
 			return 0, nil
 		}
 
-		metadata := appendable.NewMetadata(nil)
+		metadata, err := appendable.NewMetadata(nil)
+		require.NoError(t, err)
+
 		metadata.PutInt(MetaVersion, Version)
 
 		pLog.MetadataFn = metadata.Bytes
@@ -352,7 +354,7 @@ func TestEdgeCases(t *testing.T) {
 			return 0, injectedErr
 		}
 
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 		require.ErrorIs(t, err, injectedErr)
 	})
 

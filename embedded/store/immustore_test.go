@@ -298,7 +298,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Should fail reading maxTxEntries from metadata
 	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
+		md, _ := appendable.NewMetadata(nil)
 		md.PutInt(metaFileSize, 1)
 		return md.Bytes()
 	}
@@ -307,7 +307,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Should fail reading maxKeyLen from metadata
 	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
+		md, _ := appendable.NewMetadata(nil)
 		md.PutInt(metaFileSize, 1)
 		md.PutInt(metaMaxTxEntries, 4)
 		return md.Bytes()
@@ -317,7 +317,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	// Should fail reading maxKeyLen from metadata
 	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
+		md, _ := appendable.NewMetadata(nil)
 		md.PutInt(metaFileSize, 1)
 		md.PutInt(metaMaxTxEntries, 4)
 		md.PutInt(metaMaxKeyLen, 8)
@@ -327,7 +327,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
+		md, _ := appendable.NewMetadata(nil)
 		md.PutInt(metaFileSize, 1)
 		md.PutInt(metaMaxTxEntries, 4)
 		md.PutInt(metaMaxKeyLen, 8)
@@ -541,7 +541,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 						return copy(bs, buff[off:]), nil
 					},
 					MetadataFn: func() []byte {
-						md := appendable.NewMetadata(nil)
+						md, _ := appendable.NewMetadata(nil)
 						md.PutInt(tbtree.MetaVersion, tbtree.Version)
 						md.PutInt(tbtree.MetaMaxNodeSize, tbtree.DefaultMaxNodeSize)
 						return md.Bytes()
@@ -2013,7 +2013,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 	opts := DefaultOptions().WithMaxConcurrency(1)
 
-	metadata := appendable.NewMetadata(nil)
+	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(metaFileSize, opts.FileSize)
 	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
 	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)

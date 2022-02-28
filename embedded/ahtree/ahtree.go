@@ -93,7 +93,11 @@ func Open(path string, opts *Options) (*AHtree, error) {
 		return nil, ErrorPathIsNotADirectory
 	}
 
-	metadata := appendable.NewMetadata(nil)
+	metadata, err := appendable.NewMetadata(nil)
+	if err != nil {
+		return nil, err
+	}
+
 	metadata.PutInt(MetaVersion, Version)
 
 	appendableOpts := multiapp.DefaultOptions().

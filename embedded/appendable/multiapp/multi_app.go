@@ -138,7 +138,11 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		return nil, ErrorPathIsNotADirectory
 	}
 
-	m := appendable.NewMetadata(nil)
+	m, err := appendable.NewMetadata(nil)
+	if err != nil {
+		return nil, err
+	}
+
 	m.PutInt(metaFileSize, opts.fileSize)
 	m.Put(metaWrappedMeta, opts.metadata)
 
@@ -163,7 +167,15 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		return nil, err
 	}
 
-	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
+	md, err := appendable.NewMetadata(currApp.Metadata())
+	if err != nil {
+		return nil, err
+	}
+
+	fileSize, ok := md.GetInt(metaFileSize)
+	if !ok {
+		return nil, appendable.ErrCorruptedMetadata
+	}
 
 	return &MultiFileAppendable{
 		appendables:     appendableLRUCache{cache: cache},
@@ -263,7 +275,9 @@ func (mf *MultiFileAppendable) Metadata() []byte {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
-	bs, _ := appendable.NewMetadata(mf.currApp.Metadata()).Get(metaWrappedMeta)
+	md, _ := appendable.NewMetadata(mf.currApp.Metadata())
+	bs, _ := md.Get(metaWrappedMeta)
+
 	return bs
 }
 
@@ -306,6 +320,11 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 		available := mf.fileSize - int(mf.currApp.Offset())
 
 		if available <= 0 {
+			err = mf.currApp.Flush()
+			if err != nil {
+				return off, n, err
+			}
+
 			_, ejectedApp, err := mf.appendables.Put(mf.currAppID, mf.currApp)
 			if err != nil {
 				return off, n, err

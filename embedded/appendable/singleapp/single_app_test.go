@@ -148,7 +148,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should fail reading metadata len
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 
 	mLenBs := make([]byte, 4)
 	binary.BigEndian.PutUint32(mLenBs, 1)
@@ -162,7 +162,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
@@ -171,7 +171,8 @@ func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
 
 	defer os.Remove(f.Name())
 
-	m := appendable.NewMetadata(nil)
+	m, err := appendable.NewMetadata(nil)
+	require.NoError(t, err)
 
 	mBs := m.Bytes()
 	mLenBs := make([]byte, 4)
@@ -189,7 +190,7 @@ func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
@@ -198,8 +199,10 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 
 	defer os.Remove(f.Name())
 
-	m := appendable.NewMetadata(nil)
-	m.PutInt(metaCompressionFormat, appendable.NoCompression)
+	m, err := appendable.NewMetadata(nil)
+	require.NoError(t, err)
+
+	m.PutInt(MetaCompressionFormat, appendable.NoCompression)
 
 	mBs := m.Bytes()
 	mLenBs := make([]byte, 4)
@@ -217,7 +220,7 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
@@ -226,9 +229,11 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 	defer os.Remove(f.Name())
 
-	m := appendable.NewMetadata(nil)
-	m.PutInt(metaCompressionFormat, appendable.NoCompression)
-	m.PutInt(metaCompressionLevel, appendable.DefaultCompression)
+	m, err := appendable.NewMetadata(nil)
+	require.NoError(t, err)
+
+	m.PutInt(MetaCompressionFormat, appendable.NoCompression)
+	m.PutInt(MetaCompressionLevel, appendable.DefaultCompression)
 
 	mBs := m.Bytes()
 	mLenBs := make([]byte, 4)
@@ -246,7 +251,7 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 }
 
 func TestSingleAppEdgeCases(t *testing.T) {
