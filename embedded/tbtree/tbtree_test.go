@@ -89,7 +89,6 @@ func TestEdgeCases(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md, _ := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
-			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
 		}
 
@@ -115,7 +114,6 @@ func TestEdgeCases(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md, _ := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
-			md.PutInt(MetaMaxNodeSize, 1)
 			return md.Bytes()
 		}
 		cLog.SizeFn = func() (int64, error) {
@@ -232,7 +230,6 @@ func TestEdgeCases(t *testing.T) {
 			cLog.MetadataFn = func() []byte {
 				md, _ := appendable.NewMetadata(nil)
 				md.PutInt(MetaVersion, 2)
-				md.PutInt(MetaMaxNodeSize, 1)
 				return md.Bytes()
 			}
 

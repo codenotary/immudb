@@ -59,8 +59,7 @@ var ErrTargetPathAlreadyExists = errors.New("target folder already exists")
 const Version = 2
 
 const (
-	MetaVersion     = "VERSION"
-	MetaMaxNodeSize = "MAX_NODE_SIZE"
+	MetaVersion = "VERSION"
 )
 
 const (
@@ -288,7 +287,6 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
-	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.readOnly).
@@ -490,11 +488,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		return nil, fmt.Errorf("%w: index data was generated using older and incompatible version", ErrIncompatibleDataFormat)
 	}
 
-	maxNodeSize, ok := metadata.GetInt(MetaMaxNodeSize)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-
 	cLogSize, err := cLog.Size()
 	if err != nil {
 		return nil, err
@@ -521,7 +514,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		hLog:                     hLog,
 		cLog:                     cLog,
 		cache:                    cache,
-		maxNodeSize:              maxNodeSize,
+		maxNodeSize:              cLog.BlockSize(),
 		flushThld:                opts.flushThld,
 		syncThld:                 opts.syncThld,
 		flushBufferSize:          opts.flushBufferSize,
@@ -740,6 +733,10 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 	childCount, err := r.ReadUint16()
 	if err != nil {
 		return nil, err
+	}
+
+	if childCount == 0 {
+		return nil, fmt.Errorf("%w: attempt to read empty inner node", ErrCorruptedFile)
 	}
 
 	n := &innerNode{
@@ -1251,7 +1248,6 @@ func (t *TBtree) Compact() (uint64, error) {
 func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc) error {
 	metadata, _ := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
-	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(false).
@@ -1259,6 +1255,7 @@ func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc
 		WithFileSize(t.fileSize).
 		WithFileMode(t.fileMode).
 		WithWriteBufferSize(t.flushBufferSize).
+		WithBlockSize(t.maxNodeSize).
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")
@@ -1332,6 +1329,8 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 	// initial and final sizes are set to the same value so to avoid calculating digests of everything
 	// it's safe as node and history log files are already synced
 	cLogEntry := &cLogEntry{
+		synced: true,
+
 		initialNLogSize: wN,
 		finalNLogSize:   wN,
 		rootNodeSize:    rootSize,

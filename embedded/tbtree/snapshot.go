@@ -328,7 +328,7 @@ func (n *innerNode) writeTo(nw, hw appendable.Appendable, writeOpts *WriteOpts) 
 	}
 
 	wN = cnw + int64(wn)
-	nOff = writeOpts.BaseNLogOffset + int64(leftPaddingLen) + cnw
+	nOff = writeOpts.BaseNLogOffset + cnw + int64(leftPaddingLen)
 
 	if writeOpts.commitLog {
 		n.off = nOff

@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/fs"
@@ -196,18 +197,12 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 	defer os.RemoveAll("data_v1.1.0")
 
 	sysOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
-	sysDB, err := OpenDB("systemdb", sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
-	require.NoError(t, err)
+	_, err := OpenDB("systemdb", sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 
 	dbOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
-	db, err := OpenDB("defaultdb", dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
-	require.NoError(t, err)
-
-	err = db.Close()
-	require.NoError(t, err)
-
-	err = sysDB.Close()
-	require.NoError(t, err)
+	_, err = OpenDB("defaultdb", dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.ErrorIs(t, err, appendable.ErrCorruptedMetadata)
 }
 
 func TestDbSynchronousSet(t *testing.T) {
