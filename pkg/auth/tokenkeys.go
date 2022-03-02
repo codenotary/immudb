@@ -55,6 +55,13 @@ func generateKeys(Username string) error {
 	return nil
 }
 
+func getTokenForUser(Username string) (*tokenKeyPair, bool) {
+	tokenKeyPairs.RLock()
+	defer tokenKeyPairs.RUnlock()
+	kp, ok := tokenKeyPairs.keysPerUser[Username]
+	return kp, ok
+}
+
 func updateLastTokenGeneratedAt(Username string) {
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
