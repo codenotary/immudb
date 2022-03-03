@@ -117,7 +117,7 @@ func validOptions(opts *Options) bool {
 		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize &&
 		opts.maxKeyLen > 0 &&
-		opts.compactionThld >= 0 &&
+		opts.compactionThld > 0 &&
 		opts.log != nil
 }
 

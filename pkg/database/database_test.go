@@ -51,7 +51,7 @@ func makeDb() (DB, func()) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(1))
 
 	return makeDbWith("db", options)
 }

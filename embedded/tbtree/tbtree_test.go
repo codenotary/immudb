@@ -552,7 +552,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	// Starting with an invalid folder name
 	os.MkdirAll(filepath.Join(d, fmt.Sprintf("%s1z", commitFolderPrefix)), 0777)
 
-	tree, err := Open(d, DefaultOptions().WithCompactionThld(0))
+	tree, err := Open(d, DefaultOptions().WithCompactionThld(1))
 	require.NoError(t, err)
 
 	snapc, err := tree.SnapshotCount()
@@ -562,6 +562,12 @@ func TestSnapshotRecovery(t *testing.T) {
 	err = tree.BulkInsert([]*KV{
 		{K: []byte("key1"), V: []byte("value1")},
 	})
+	require.NoError(t, err)
+
+	_, err = tree.Compact()
+	require.ErrorIs(t, err, ErrCompactionThresholdNotReached)
+
+	_, _, err = tree.Flush()
 	require.NoError(t, err)
 
 	c, err := tree.Compact()
@@ -586,6 +592,9 @@ func TestSnapshotRecovery(t *testing.T) {
 	c, err = tree.Compact()
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), c)
+
+	_, _, err = tree.Flush()
+	require.NoError(t, err)
 
 	snapc, err = tree.SnapshotCount()
 	require.NoError(t, err)
