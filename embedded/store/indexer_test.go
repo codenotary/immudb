@@ -40,11 +40,11 @@ func TestClosedIndexerFailures(t *testing.T) {
 	defer os.RemoveAll(d)
 
 	store, err := Open(d, DefaultOptions().WithIndexOptions(
-		DefaultIndexOptions().WithCompactionThld(0),
+		DefaultIndexOptions().WithCompactionThld(1),
 	))
 	require.NoError(t, err)
 
-	store.indexer.closed = true
+	err = store.indexer.Close()
 	require.NoError(t, err)
 
 	indexer := store.indexer

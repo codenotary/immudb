@@ -227,6 +227,9 @@ func (idx *indexer) CompactIndex() (err error) {
 	}()
 
 	_, err = idx.index.Compact()
+	if err == tbtree.ErrAlreadyClosed {
+		return ErrAlreadyClosed
+	}
 	if err != nil {
 		return err
 	}
