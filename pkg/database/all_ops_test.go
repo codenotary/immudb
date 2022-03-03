@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +94,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 			case <-ticker.C:
 				{
 					err := compactIndex(db, cleanUpTimeout)
-					if err != nil && err != sql.ErrAlreadyClosed {
+					if err != nil && err != sql.ErrAlreadyClosed && err != tbtree.ErrCompactionThresholdNotReached {
 						panic(err)
 					}
 				}
