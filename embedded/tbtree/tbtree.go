@@ -54,6 +54,7 @@ var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrCompactAlreadyInProgress = errors.New("compact already in progress")
 var ErrCompactionThresholdNotReached = errors.New("compaction threshold not yet reached")
 var ErrIncompatibleDataFormat = errors.New("incompatible data format")
+var ErrTargetPathAlreadyExists = errors.New("target folder already exists")
 
 const Version = 2
 
@@ -1277,6 +1278,12 @@ func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc
 
 	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(t.path, snapFolder(commitFolderPrefix, snap.Ts()))
+
+	_, err = os.Stat(cLogPath)
+	if err == nil {
+		return fmt.Errorf("%w: while dumping index to '%s'", ErrTargetPathAlreadyExists, cLogPath)
+	}
+
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return err
