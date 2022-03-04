@@ -168,11 +168,11 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, fmt.Errorf("%w: corrupted metadata", err)
 		}
 
+		blockSize = DefaultBlockSize
 		bsz, ok := m.GetInt(MetaBlockSize)
-		if !ok {
-			return nil, appendable.ErrCorruptedMetadata
+		if ok {
+			blockSize = bsz
 		}
-		blockSize = bsz
 
 		cf, ok := m.GetInt(MetaCompressionFormat)
 		if !ok {
