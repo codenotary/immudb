@@ -202,7 +202,7 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 	m, err := appendable.NewMetadata(nil)
 	require.NoError(t, err)
 
-	m.PutInt(MetaCompressionFormat, appendable.NoCompression)
+	m.PutInt(metaCompressionFormat, appendable.NoCompression)
 
 	mBs := m.Bytes()
 	mLenBs := make([]byte, 4)
@@ -232,8 +232,8 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 	m, err := appendable.NewMetadata(nil)
 	require.NoError(t, err)
 
-	m.PutInt(MetaCompressionFormat, appendable.NoCompression)
-	m.PutInt(MetaCompressionLevel, appendable.DefaultCompression)
+	m.PutInt(metaCompressionFormat, appendable.NoCompression)
+	m.PutInt(metaCompressionLevel, appendable.DefaultCompression)
 
 	mBs := m.Bytes()
 	mLenBs := make([]byte, 4)

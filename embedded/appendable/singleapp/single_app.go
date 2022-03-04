@@ -38,10 +38,10 @@ var ErrAlreadyClosed = errors.New("single-file appendable already closed")
 var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
 
 const (
-	MetaBlockSize         = "BLOCK_SIZE"
-	MetaCompressionFormat = "COMPRESSION_FORMAT"
-	MetaCompressionLevel  = "COMPRESSION_LEVEL"
-	MetaWrappedMeta       = "WRAPPED_METADATA"
+	metaBlockSize         = "BLOCK_SIZE"
+	metaCompressionFormat = "COMPRESSION_FORMAT"
+	metaCompressionLevel  = "COMPRESSION_LEVEL"
+	metaWrappedMeta       = "WRAPPED_METADATA"
 )
 
 type AppendableFile struct {
@@ -106,10 +106,10 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
-		m.PutInt(MetaBlockSize, opts.blockSize)
-		m.PutInt(MetaCompressionFormat, opts.compressionFormat)
-		m.PutInt(MetaCompressionLevel, opts.compressionLevel)
-		m.Put(MetaWrappedMeta, opts.metadata)
+		m.PutInt(metaBlockSize, opts.blockSize)
+		m.PutInt(metaCompressionFormat, opts.compressionFormat)
+		m.PutInt(metaCompressionLevel, opts.compressionLevel)
+		m.Put(metaWrappedMeta, opts.metadata)
 
 		w := bufio.NewWriter(f)
 
@@ -169,24 +169,24 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		}
 
 		blockSize = DefaultBlockSize
-		bsz, ok := m.GetInt(MetaBlockSize)
+		bsz, ok := m.GetInt(metaBlockSize)
 		if ok {
 			blockSize = bsz
 		}
 
-		cf, ok := m.GetInt(MetaCompressionFormat)
+		cf, ok := m.GetInt(metaCompressionFormat)
 		if !ok {
 			return nil, appendable.ErrCorruptedMetadata
 		}
 		compressionFormat = cf
 
-		cl, ok := m.GetInt(MetaCompressionLevel)
+		cl, ok := m.GetInt(metaCompressionLevel)
 		if !ok {
 			return nil, appendable.ErrCorruptedMetadata
 		}
 		compressionLevel = cl
 
-		metadata, ok = m.Get(MetaWrappedMeta)
+		metadata, ok = m.Get(metaWrappedMeta)
 		if !ok {
 			return nil, appendable.ErrCorruptedMetadata
 		}

@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 
 	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -45,21 +44,13 @@ func openRemoteStorageReader(r remotestorage.Storage, name string) (*remoteStora
 
 	mdLen := int(binary.BigEndian.Uint32(data))
 
-	md, err := appendable.NewMetadata(data[4:])
+	_, err = appendable.NewMetadata(data[4:])
 	if err != nil {
 		metricsCorruptedMetadata.Inc()
 		return nil, ErrCorruptedMetadata
 	}
 
-	blockSize, ok := md.GetInt(singleapp.MetaBlockSize)
-	if !ok {
-		metricsCorruptedMetadata.Inc()
-		return nil, ErrCorruptedMetadata
-	}
-
-	paddingLen := appendable.PaddingLen(4+mdLen, blockSize)
-
-	baseOffset := int64(4 + mdLen + paddingLen)
+	baseOffset := int64(4 + mdLen)
 	if baseOffset > int64(len(data)) {
 		metricsCorruptedMetadata.Inc()
 		return nil, ErrCorruptedMetadata

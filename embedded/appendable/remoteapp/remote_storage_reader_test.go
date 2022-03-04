@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/appendable"
-	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/remotestorage/memory"
 	"github.com/stretchr/testify/require"
@@ -65,11 +64,9 @@ func TestRemoteStorageReadAt(t *testing.T) {
 	md, err := appendable.NewMetadata(nil)
 	require.NoError(t, err)
 
-	md.PutInt(singleapp.MetaBlockSize, 4096)
-
 	mdBs := md.Bytes()
 
-	d := make([]byte, 4+len(mdBs)+appendable.PaddingLen(4+len(mdBs), 4096))
+	d := make([]byte, 4+len(mdBs))
 	binary.BigEndian.PutUint32(d, uint32(len(mdBs)))
 	copy(d[4:], mdBs)
 	d = append(d, 1, 2, 3, 4) // Data, 4 bytes
