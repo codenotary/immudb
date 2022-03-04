@@ -114,9 +114,10 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		w := bufio.NewWriter(f)
 
 		mBs := m.Bytes()
+		paddingLen := appendable.PaddingLen(4+len(mBs), opts.blockSize)
 
 		mLenBs := make([]byte, 4)
-		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
+		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)+paddingLen))
 		_, err = w.Write(mLenBs)
 		if err != nil {
 			return nil, err
@@ -126,8 +127,6 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		paddingLen := appendable.PaddingLen(4+len(mBs), opts.blockSize)
 
 		if paddingLen > 0 {
 			_, err = w.Write(make([]byte, paddingLen))
@@ -192,8 +191,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, appendable.ErrCorruptedMetadata
 		}
 
-		paddingLen := appendable.PaddingLen(4+mLen, blockSize)
-		baseOffset = int64(4 + len(mBs) + paddingLen)
+		baseOffset = int64(4 + len(mBs))
 	}
 
 	off, err := f.Seek(0, io.SeekEnd)
