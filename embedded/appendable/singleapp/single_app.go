@@ -24,6 +24,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -272,6 +273,21 @@ func (aof *AppendableFile) SetOffset(off int64) error {
 	}
 
 	aof.offset = off
+	return nil
+}
+
+func (aof *AppendableFile) DiscardUpto(off int64) error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
+	if aof.offset < off {
+		return fmt.Errorf("%w: discard beyond existent data boundaries", ErrIllegalArguments)
+	}
+
 	return nil
 }
 

@@ -20,6 +20,7 @@ type MockedAppendable struct {
 	SizeFn              func() (int64, error)
 	OffsetFn            func() int64
 	SetOffsetFn         func(off int64) error
+	DiscardUptoFn       func(off int64) error
 	AppendFn            func(bs []byte) (off int64, n int, err error)
 	FlushFn             func() error
 	SyncFn              func() error
@@ -48,6 +49,10 @@ func (a *MockedAppendable) Offset() int64 {
 
 func (a *MockedAppendable) SetOffset(off int64) error {
 	return a.SetOffsetFn(off)
+}
+
+func (a *MockedAppendable) DiscardUpto(off int64) error {
+	return a.DiscardUptoFn(off)
 }
 
 func (a *MockedAppendable) Append(bs []byte) (off int64, n int, err error) {

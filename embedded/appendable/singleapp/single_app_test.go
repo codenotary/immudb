@@ -399,3 +399,25 @@ func TestSingleAppCantCreateFile(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exists")
 }
+
+func TestSingleAppDiscard(t *testing.T) {
+	app, err := Open("testdata_discard.aof", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("testdata_discard.aof")
+
+	err = app.DiscardUpto(0)
+	require.NoError(t, err)
+
+	err = app.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	off, n, err := app.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+
+	err = app.DiscardUpto(off + int64(n))
+	require.NoError(t, err)
+
+	err = app.Close()
+	require.NoError(t, err)
+}

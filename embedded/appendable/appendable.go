@@ -44,6 +44,7 @@ type Appendable interface {
 	Size() (int64, error)
 	Offset() int64
 	SetOffset(off int64) error
+	DiscardUpto(off int64) error
 	Append(bs []byte) (off int64, n int, err error)
 	Flush() error
 	Sync() error
