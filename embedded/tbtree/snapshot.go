@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"sync"
 )
 
@@ -257,21 +258,23 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset int64, wN, wH int64, err error) {
+func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, minOffset int64, wN, wH int64, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	return s.root.writeTo(nw, hw, writeOpts)
 }
 
-func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() {
-		return n.off, 0, 0, nil
+		return n.off, n._minOff, 0, 0, nil
 	}
 
 	var cnw, chw int64
 
 	offsets := make([]int64, len(n.nodes))
+	minOffsets := make([]int64, len(n.nodes))
+	minOff = math.MaxInt64
 
 	for i, c := range n.nodes {
 		wopts := &WriteOpts{
@@ -282,19 +285,25 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 			reportProgress: writeOpts.reportProgress,
 		}
 
-		no, wn, wh, err := c.writeTo(nw, hw, wopts)
+		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts)
 		if err != nil {
-			return 0, cnw, chw, err
+			return 0, 0, cnw, chw, err
 		}
 
 		offsets[i] = no
+		minOffsets[i] = mo
+
+		if minOff > mo {
+			minOff = mo
+		}
+
 		cnw += wn
 		chw += wh
 	}
 
 	size, err := n.size()
 	if err != nil {
-		return 0, cnw, chw, err
+		return 0, 0, cnw, chw, err
 	}
 
 	buf := make([]byte, size)
@@ -307,13 +316,13 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 	bi += 2
 
 	for i, c := range n.nodes {
-		n := writeNodeRefToWithOffset(c, offsets[i], buf[bi:])
+		n := writeNodeRefToWithOffset(c, offsets[i], minOffsets[i], buf[bi:])
 		bi += n
 	}
 
 	wn, err := nw.Write(buf[:bi])
 	if err != nil {
-		return 0, int64(wn), chw, err
+		return 0, 0, int64(wn), chw, err
 	}
 
 	wN = cnw + int64(size)
@@ -321,6 +330,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 
 	if writeOpts.commitLog {
 		n.off = writeOpts.BaseNLogOffset + cnw
+		n._minOff = minOff
 		n.mut = false
 
 		nodes := make([]node, len(n.nodes))
@@ -331,6 +341,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 				_minKey: c.minKey(),
 				_ts:     c.ts(),
 				off:     c.offset(),
+				_minOff: c.minOffset(),
 			}
 		}
 
@@ -341,17 +352,17 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 
 	writeOpts.reportProgress(1, 0, 0)
 
-	return nOff, wN, chw, nil
+	return nOff, minOff, wN, chw, nil
 }
 
-func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() {
-		return l.off, 0, 0, nil
+		return l.off, l.off, 0, 0, nil
 	}
 
 	size, err := l.size()
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
 	buf := make([]byte, size)
@@ -401,7 +412,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 
 			n, err := hw.Write(hbuf)
 			if err != nil {
-				return 0, 0, int64(n), err
+				return 0, 0, 0, int64(n), err
 			}
 
 			hOff = writeOpts.BaseHLogOffset + accH
@@ -424,14 +435,14 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 
 	n, err := nw.Write(buf[:bi])
 	if err != nil {
-		return 0, int64(n), accH, err
+		return 0, 0, int64(n), accH, err
 	}
 
 	wN = int64(size)
 	nOff = writeOpts.BaseNLogOffset
 
 	if writeOpts.commitLog {
-		l.off = writeOpts.BaseNLogOffset
+		l.off = nOff
 		l.mut = false
 
 		l.t.cachePut(l)
@@ -439,32 +450,33 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 
 	writeOpts.reportProgress(0, 1, len(l.values))
 
-	return nOff, wN, accH, nil
+	return nOff, nOff, wN, accH, nil
 }
 
-func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated {
-		return n.offset(), 0, 0, nil
+		return n.offset(), minOff, 0, 0, nil
 	}
 
 	node, err := n.t.nodeAt(n.off, false)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
-	off, wn, wh, err := node.writeTo(nw, hw, writeOpts)
+	off, mOff, wn, wh, err := node.writeTo(nw, hw, writeOpts)
 	if err != nil {
-		return 0, wn, wh, err
+		return 0, 0, wn, wh, err
 	}
 
 	if writeOpts.commitLog {
 		n.off = off
+		n._minOff = mOff
 	}
 
-	return off, wn, wh, nil
+	return off, mOff, wn, wh, nil
 }
 
-func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
+func writeNodeRefToWithOffset(n node, offset, minOff int64, buf []byte) int {
 	i := 0
 
 	minKey := n.minKey()
@@ -478,6 +490,9 @@ func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	i += 8
 
 	binary.BigEndian.PutUint64(buf[i:], uint64(offset))
+	i += 8
+
+	binary.BigEndian.PutUint64(buf[i:], uint64(minOff))
 	i += 8
 
 	return i

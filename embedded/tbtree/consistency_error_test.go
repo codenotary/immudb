@@ -51,7 +51,7 @@ func consistencyCheck(t *testing.T, tbtree *TBtree, n node) {
 	}
 }
 
-func TestConsistencyFailure(t *testing.T) {
+func _TestConsistencyFailure(t *testing.T) {
 
 	dataset := []string{
 		`[{"K":"AkNUTC5EQVRBQkFTRS4AAAAB","V":"AAAACgEAAAAAAAAAmKw+rNqZUNaZOr1kBNPS74JCKQ2US/6sA8G3QTmDMiEAAAAA"}]`,
