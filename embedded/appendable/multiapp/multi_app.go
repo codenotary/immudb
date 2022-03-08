@@ -366,6 +366,10 @@ func (mf *MultiFileAppendable) Offset() int64 {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
+	return mf.offset()
+}
+
+func (mf *MultiFileAppendable) offset() int64 {
 	return mf.currAppID*int64(mf.fileSize) + mf.currApp.Offset()
 }
 
@@ -408,6 +412,43 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 	}
 
 	return mf.currApp.SetOffset(off % int64(mf.fileSize))
+}
+
+func (mf *MultiFileAppendable) DiscardUpto(off int64) error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
+	if mf.closed {
+		return ErrAlreadyClosed
+	}
+
+	if mf.offset() < off {
+		return fmt.Errorf("%w: discard beyond existent data boundaries", ErrIllegalArguments)
+	}
+
+	appID := appendableID(off, mf.fileSize)
+
+	for i := int64(0); i < appID; i++ {
+		if i == mf.currAppID {
+			break
+		}
+
+		app, err := mf.appendables.Pop(i)
+		if err == nil {
+			err = app.Close()
+			if err != nil {
+				return err
+			}
+		}
+
+		appFile := filepath.Join(mf.path, appendableName(i, mf.fileExt))
+		err = os.Remove(appFile)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, error) {

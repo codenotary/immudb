@@ -69,7 +69,12 @@ func (r *remoteStorageReader) Size() (int64, error) {
 func (r *remoteStorageReader) Offset() int64 {
 	panic("unimplemented")
 }
+
 func (r *remoteStorageReader) SetOffset(off int64) error {
+	panic("unimplemented")
+}
+
+func (r *remoteStorageReader) DiscardUpto(off int64) error {
 	panic("unimplemented")
 }
 
