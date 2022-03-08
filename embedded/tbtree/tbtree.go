@@ -1037,9 +1037,18 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		reportProgress: progressOutputFunc,
 	}
 
-	_, _, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+	currentMinOffset := t.root.minOffset()
+
+	_, minOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+	}
+
+	if minOffset > currentMinOffset {
+		err = t.nLog.DiscardUpto(minOffset)
+		if err != nil {
+			t.log.Warningf("Discarding data at index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		}
 	}
 
 	err = t.hLog.Flush()
