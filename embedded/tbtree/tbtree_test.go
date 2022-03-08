@@ -212,6 +212,7 @@ func TestEdgeCases(t *testing.T) {
 			0,                      // min key
 			0, 0, 0, 0, 0, 0, 0, 0, // Timestamp
 			0, 0, 0, 0, 0, 0, 0, 0, // offset
+			0, 0, 0, 0, 0, 0, 0, 0, // min offset
 		}
 		for i := 1; i < len(nLogBuffer); i++ {
 			injectedError := fmt.Errorf("Injected error %d", i)

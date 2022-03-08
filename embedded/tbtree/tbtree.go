@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -222,7 +223,8 @@ type node interface {
 	size() (int, error)
 	mutated() bool
 	offset() int64
-	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
+	minOffset() int64
+	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error)
 }
 
 type writeProgressOutputFunc func(innerNodesWritten int, leafNodesWritten int, entriesWritten int)
@@ -237,11 +239,12 @@ type WriteOpts struct {
 }
 
 type innerNode struct {
-	t     *TBtree
-	nodes []node
-	_ts   uint64
-	off   int64
-	mut   bool
+	t       *TBtree
+	nodes   []node
+	_ts     uint64
+	off     int64
+	_minOff int64
+	mut     bool
 }
 
 type leafNode struct {
@@ -257,6 +260,7 @@ type nodeRef struct {
 	_minKey []byte
 	_ts     uint64
 	off     int64
+	_minOff int64
 }
 
 type leafValue struct {
@@ -739,8 +743,9 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 	}
 
 	n := &innerNode{
-		t:     t,
-		nodes: make([]node, childCount),
+		t:       t,
+		nodes:   make([]node, childCount),
+		_minOff: math.MaxInt64,
 	}
 
 	for c := 0; c < int(childCount); c++ {
@@ -753,6 +758,10 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 
 		if n._ts < nref._ts {
 			n._ts = nref._ts
+		}
+
+		if n._minOff > nref._minOff {
+			n._minOff = nref._minOff
 		}
 	}
 
@@ -781,11 +790,17 @@ func (t *TBtree) readNodeRefFrom(r *appendable.Reader) (*nodeRef, error) {
 		return nil, err
 	}
 
+	minOff, err := r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+
 	return &nodeRef{
 		t:       t,
 		_minKey: minKey,
 		_ts:     ts,
 		off:     int64(off),
+		_minOff: int64(minOff),
 	}, nil
 }
 
@@ -1022,7 +1037,7 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		reportProgress: progressOutputFunc,
 	}
 
-	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+	_, _, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
 		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
 	}
@@ -1113,6 +1128,7 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 		_minKey: t.root.minKey(),
 		_ts:     t.root.ts(),
 		off:     t.root.offset(),
+		_minOff: t.root.minOffset(),
 	}
 
 	return wN, wH, nil
@@ -1303,7 +1319,7 @@ func (t *TBtree) fullDumpTo(snapshot *Snapshot, nLog, cLog appendable.Appendable
 		reportProgress: progressOutput,
 	}
 
-	_, wN, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
+	_, _, wN, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
 	if err != nil {
 		return err
 	}
@@ -1598,7 +1614,7 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 }
 
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
-	if !n.mut {
+	if !n.mutated() {
 		return n.copyOnInsertAt(key, value, ts)
 	}
 	return n.updateOnInsertAt(key, value, ts)
@@ -1766,8 +1782,9 @@ func (n *innerNode) size() (int, error) {
 	for _, c := range n.nodes {
 		size += 2               // minKey length
 		size += len(c.minKey()) // minKey
-		size += 8               // Ts
-		size += 8               // Offset
+		size += 8               // ts
+		size += 8               // offset
+		size += 8               // min offset
 	}
 
 	return size, nil
@@ -1779,6 +1796,10 @@ func (n *innerNode) mutated() bool {
 
 func (n *innerNode) offset() int64 {
 	return n.off
+}
+
+func (n *innerNode) minOffset() int64 {
+	return n._minOff
 }
 
 func (n *innerNode) minKey() []byte {
@@ -1834,11 +1855,11 @@ func (n *innerNode) split() (node, error) {
 		nodes: n.nodes[splitIndex:],
 		mut:   true,
 	}
-	newNode.updateTs()
+	newNode.update()
 
 	n.nodes = n.nodes[:splitIndex]
 
-	n.updateTs()
+	n.update()
 
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(newNode.nodes)))
@@ -1846,11 +1867,17 @@ func (n *innerNode) split() (node, error) {
 	return newNode, nil
 }
 
-func (n *innerNode) updateTs() {
+func (n *innerNode) update() {
 	n._ts = 0
+	n._minOff = math.MaxInt64
+
 	for i := 0; i < len(n.nodes); i++ {
 		if n.ts() < n.nodes[i].ts() {
 			n._ts = n.nodes[i].ts()
+		}
+
+		if n._minOff > n.nodes[i].minOffset() && !n.nodes[i].mutated() {
+			n._minOff = n.nodes[i].minOffset()
 		}
 	}
 }
@@ -1897,6 +1924,10 @@ func (r *nodeRef) ts() uint64 {
 	return r._ts
 }
 
+func (r *nodeRef) minOffset() int64 {
+	return r._minOff
+}
+
 func (r *nodeRef) setTs(ts uint64) (node, error) {
 	n, err := r.t.nodeAt(r.off, false)
 	if err != nil {
@@ -1926,7 +1957,7 @@ func (r *nodeRef) offset() int64 {
 ////////////////////////////////////////////////////////////
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
-	if !l.mut {
+	if !l.mutated() {
 		return l.copyOnInsertAt(key, value, ts)
 	}
 	return l.updateOnInsertAt(key, value, ts)
@@ -2223,6 +2254,10 @@ func (l *leafNode) minKey() []byte {
 
 func (l *leafNode) ts() uint64 {
 	return l._ts
+}
+
+func (l *leafNode) minOffset() int64 {
+	return l.off
 }
 
 func (l *leafNode) setTs(ts uint64) (node, error) {
