@@ -1816,8 +1816,22 @@ func (n *innerNode) setTs(ts uint64) (node, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	n._ts = ts
-	return n, nil
+	if n.mut {
+		n._ts = ts
+		return n, nil
+	}
+
+	newNode := &innerNode{
+		t:       n.t,
+		nodes:   make([]node, len(n.nodes)),
+		_ts:     ts,
+		mut:     true,
+		_minOff: n._minOff,
+	}
+
+	copy(newNode.nodes, n.nodes)
+
+	return newNode, nil
 }
 
 func (n *innerNode) size() (int, error) {
@@ -2317,8 +2331,30 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	l._ts = ts
-	return l, nil
+	if l.mut {
+		l._ts = ts
+		return l, nil
+	}
+
+	newLeaf := &leafNode{
+		t:      l.t,
+		values: make([]*leafValue, len(l.values)),
+		_ts:    ts,
+		mut:    true,
+	}
+
+	for i := 0; i < len(l.values); i++ {
+		newLeaf.values[i] = &leafValue{
+			key:    l.values[i].key,
+			value:  l.values[i].value,
+			ts:     l.values[i].ts,
+			tss:    l.values[i].tss,
+			hOff:   l.values[i].hOff,
+			hCount: l.values[i].hCount,
+		}
+	}
+
+	return newLeaf, nil
 }
 
 func (l *leafNode) size() (int, error) {
