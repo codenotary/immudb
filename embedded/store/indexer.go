@@ -222,7 +222,7 @@ func (idx *indexer) CompactIndex() (err error) {
 		} else if err == tbtree.ErrCompactionThresholdNotReached {
 			idx.store.log.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
-			idx.store.log.Warningf("%v: while compacting index '%s'", idx.store.path, err)
+			idx.store.log.Warningf("%v: while compacting index '%s'", err, idx.store.path)
 		}
 	}()
 
@@ -235,6 +235,21 @@ func (idx *indexer) CompactIndex() (err error) {
 	}
 
 	return idx.restartIndex()
+}
+
+func (idx *indexer) FlushIndex(rewritePercentage int) (err error) {
+	idx.compactionMutex.Lock()
+	defer idx.compactionMutex.Unlock()
+
+	_, _, err = idx.index.FlushWith(rewritePercentage)
+	if err == tbtree.ErrAlreadyClosed {
+		return ErrAlreadyClosed
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (idx *indexer) stop() {
