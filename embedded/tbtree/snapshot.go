@@ -259,6 +259,10 @@ func (s *Snapshot) Close() error {
 }
 
 func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, minOffset int64, wN, wH int64, err error) {
+	if nw == nil || writeOpts == nil {
+		return 0, 0, 0, 0, ErrIllegalArguments
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -266,7 +270,7 @@ func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, 
 }
 
 func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated && !n.mutated() {
+	if writeOpts.OnlyMutated && !n.mutated() && n._minOff >= writeOpts.MinOffset {
 		return n.off, n._minOff, 0, 0, nil
 	}
 
@@ -283,6 +287,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 			BaseHLogOffset: writeOpts.BaseHLogOffset + chw,
 			commitLog:      writeOpts.commitLog,
 			reportProgress: writeOpts.reportProgress,
+			MinOffset:      writeOpts.MinOffset,
 		}
 
 		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts)
@@ -293,8 +298,8 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 		offsets[i] = no
 		minOffsets[i] = mo
 
-		if minOff > mo {
-			minOff = mo
+		if minOff > minOffsets[i] {
+			minOff = minOffsets[i]
 		}
 
 		cnw += wn
@@ -356,7 +361,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 }
 
 func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated && !l.mutated() {
+	if writeOpts.OnlyMutated && !l.mutated() && l.off >= writeOpts.MinOffset {
 		return l.off, l.off, 0, 0, nil
 	}
 
@@ -454,8 +459,8 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff
 }
 
 func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
-	if writeOpts.OnlyMutated {
-		return n.offset(), minOff, 0, 0, nil
+	if writeOpts.OnlyMutated && n._minOff >= writeOpts.MinOffset {
+		return n.off, n._minOff, 0, 0, nil
 	}
 
 	node, err := n.t.nodeAt(n.off, false)

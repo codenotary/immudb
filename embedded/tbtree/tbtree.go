@@ -236,6 +236,7 @@ type WriteOpts struct {
 	BaseHLogOffset int64
 	commitLog      bool
 	reportProgress writeProgressOutputFunc
+	MinOffset      int64
 }
 
 type innerNode struct {
@@ -942,7 +943,7 @@ func (t *TBtree) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	_, _, err := t.flushTree(true)
+	_, _, err := t.flushTree(0, true)
 	if err != nil {
 		return err
 	}
@@ -970,6 +971,10 @@ func (t *TBtree) ensureSync() error {
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
+	return t.FlushWith(0)
+}
+
+func (t *TBtree) FlushWith(cleanupPercentage int) (wN, wH int64, err error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -977,7 +982,7 @@ func (t *TBtree) Flush() (wN, wH int64, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(false)
+	return t.flushTree(cleanupPercentage, false)
 }
 
 type appendableWriter struct {
@@ -994,11 +999,15 @@ func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 	return fmt.Errorf(formattedMessage, args...)
 }
 
-func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
-	t.log.Infof("Flushing index '%s' {ts=%d}...", t.path, t.root.ts())
+func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int64, err error) {
+	if cleanupPercentage < 0 || cleanupPercentage > 100 {
+		return 0, 0, fmt.Errorf("%w: invalid cleanupPercentage", ErrIllegalArguments)
+	}
 
-	if !t.root.mutated() {
-		t.log.Infof("Flushing not needed at '%s' {ts=%d}", t.path, t.root.ts())
+	t.log.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%d}...", t.path, t.root.ts(), cleanupPercentage)
+
+	if !t.root.mutated() && cleanupPercentage == 0 {
+		t.log.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%d}", t.path, t.root.ts(), cleanupPercentage)
 		return 0, 0, nil
 	}
 
@@ -1029,47 +1038,62 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 	)
 	defer finishOutputFunc()
 
+	currentMinOffset := t.root.minOffset()
+
+	expectedNewMinOffset := currentMinOffset + ((t.committedNLogSize-currentMinOffset)*int64(cleanupPercentage))/100
+
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
 		BaseNLogOffset: t.committedNLogSize,
 		BaseHLogOffset: t.committedHLogSize,
 		commitLog:      true,
 		reportProgress: progressOutputFunc,
+		MinOffset:      expectedNewMinOffset,
 	}
 
-	currentMinOffset := t.root.minOffset()
-
-	_, minOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
+	_, actualNewMinOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
-	}
-
-	if minOffset > currentMinOffset {
-		err = t.nLog.DiscardUpto(minOffset)
-		if err != nil {
-			t.log.Warningf("Discarding data at index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
-		}
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
+	}
+
+	if actualNewMinOffset > currentMinOffset {
+		t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
+			t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+
+		err = t.nLog.DiscardUpto(actualNewMinOffset)
+		if err != nil {
+			t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+				t.path, t.root.ts(), cleanupPercentage, err)
+		}
+
+		t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
+			t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
 	}
 
 	if sync {
 		err = t.hLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 
 		err = t.nLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 	}
 
@@ -1097,35 +1121,42 @@ func (t *TBtree) flushTree(synced bool) (wN int64, wH int64, err error) {
 
 	cLogEntry.nLogChecksum, err = appendable.Checksum(t.nLog, t.committedNLogSize, wN)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, t.committedHLogSize, wH)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	_, _, err = t.cLog.Append(cLogEntry.serialize())
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	t.insertionCountSinceFlush = 0
-	t.log.Infof("Index '%s' {ts=%d} successfully flushed", t.path, t.root.ts())
+	t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully flushed",
+		t.path, t.root.ts(), cleanupPercentage)
 
 	if sync {
 		err = t.cLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d} returned: %v", t.path, t.root.ts(), err)
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 
 		t.insertionCountSinceSync = 0
-		t.log.Infof("Index '%s' {ts=%d} successfully synced", t.path, t.root.ts())
+		t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully synced",
+			t.path, t.root.ts(), cleanupPercentage)
 	}
 
 	t.committedLogSize += cLogEntrySize
@@ -1236,7 +1267,7 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	_, _, err := t.flushTree(false)
+	_, _, err := t.flushTree(0, false)
 	if err != nil {
 		return 0, err
 	}
@@ -1416,7 +1447,7 @@ func (t *TBtree) Close() error {
 
 	merrors := multierr.NewMultiErr()
 
-	_, _, err := t.flushTree(true)
+	_, _, err := t.flushTree(0, true)
 	merrors.Append(err)
 
 	err = t.ensureSync()
@@ -1459,7 +1490,7 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 	t.insertionCountSinceSync++
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(false)
+		_, _, err := t.flushTree(0, false)
 		return err
 	}
 
@@ -1539,6 +1570,8 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 				mut:   true,
 			}
 
+			newRoot.update()
+
 			t.root = newRoot
 			depth++
 		}
@@ -1550,7 +1583,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(false)
+		_, _, err := t.flushTree(0, false)
 		return err
 	}
 
@@ -1583,7 +1616,7 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 
-		_, _, err := t.flushTree(false)
+		_, _, err := t.flushTree(0, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1640,7 +1673,6 @@ func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 no
 	}
 
 	n._ts = ts
-	n.mut = true
 
 	if c2 == nil {
 		n.nodes[insertAt] = c1
@@ -1678,10 +1710,11 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 
 	if c2 == nil {
 		newNode := &innerNode{
-			t:     n.t,
-			nodes: make([]node, len(n.nodes)),
-			_ts:   ts,
-			mut:   true,
+			t:       n.t,
+			nodes:   make([]node, len(n.nodes)),
+			_ts:     ts,
+			mut:     true,
+			_minOff: n._minOff,
 		}
 
 		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -1696,10 +1729,11 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 	}
 
 	newNode := &innerNode{
-		t:     n.t,
-		nodes: make([]node, len(n.nodes)+1),
-		_ts:   ts,
-		mut:   true,
+		t:       n.t,
+		nodes:   make([]node, len(n.nodes)+1),
+		_ts:     ts,
+		mut:     true,
+		_minOff: n._minOff,
 	}
 
 	copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -1864,6 +1898,7 @@ func (n *innerNode) split() (node, error) {
 		nodes: n.nodes[splitIndex:],
 		mut:   true,
 	}
+
 	newNode.update()
 
 	n.nodes = n.nodes[:splitIndex]
@@ -1878,16 +1913,22 @@ func (n *innerNode) split() (node, error) {
 
 func (n *innerNode) update() {
 	n._ts = 0
-	n._minOff = math.MaxInt64
+	minOff := int64(math.MaxInt64)
 
 	for i := 0; i < len(n.nodes); i++ {
 		if n.ts() < n.nodes[i].ts() {
 			n._ts = n.nodes[i].ts()
 		}
 
-		if n._minOff > n.nodes[i].minOffset() && !n.nodes[i].mutated() {
-			n._minOff = n.nodes[i].minOffset()
+		if minOff > n.nodes[i].minOffset() && !n.nodes[i].mutated() {
+			minOff = n.nodes[i].minOffset()
 		}
+	}
+
+	if minOff == int64(math.MaxInt64) {
+		n._minOff = 0
+	} else {
+		n._minOff = minOff
 	}
 }
 
@@ -1976,7 +2017,6 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 	i, found := l.indexOf(key)
 
 	l._ts = ts
-	l.mut = true
 
 	if found {
 		l.values[i].value = value
