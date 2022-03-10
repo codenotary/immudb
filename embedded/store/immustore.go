@@ -693,8 +693,8 @@ func (s *ImmuStore) CompactIndex() error {
 	return s.indexer.CompactIndex()
 }
 
-func (s *ImmuStore) FlushIndex(rewritePercentage int) error {
-	return s.indexer.FlushIndex(rewritePercentage)
+func (s *ImmuStore) FlushIndex(cleanupPercentage int) error {
+	return s.indexer.FlushIndex(cleanupPercentage)
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen int) int {

@@ -140,11 +140,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				DatabaseName: args[0],
 			})
 			if err != nil {
-				cl.quit(err)
-			}
-			if err != nil {
 				return err
 			}
+
 			cl.immuClient.GetOptions().CurrentDatabase = args[0]
 			if err = cl.ts.SetToken(args[0], resp.Token); err != nil {
 				return err
@@ -156,18 +154,38 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.MaximumNArgs(2),
 	}
 
+	fcc := &cobra.Command{
+		Use:               "flush command",
+		Short:             "Flush database index",
+		Example:           "flush",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cleanupPercentage, err := cmd.Flags().GetInt("cleanup-percentage")
+			if err != nil {
+				return err
+			}
+
+			err = cl.immuClient.FlushIndex(cl.context, cleanupPercentage)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully flushed\n")
+			return nil
+		},
+		Args: cobra.ExactArgs(0),
+	}
+	fcc.Flags().Int("cleanup-percentage", 0, "set cleanup percentage")
+
 	ccc := &cobra.Command{
 		Use:               "compact command",
 		Short:             "Compact database index",
 		Example:           "compact",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := cl.immuClient.CompactIndex(cl.context, &emptypb.Empty{})
-			if err != nil {
-				cl.quit(err)
-			}
 			if err != nil {
 				return err
 			}
@@ -178,6 +196,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(0),
 	}
 
+	ccmd.AddCommand(fcc)
 	ccmd.AddCommand(ccc)
 	ccmd.AddCommand(ccu)
 	ccmd.AddCommand(ccd)

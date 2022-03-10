@@ -416,6 +416,10 @@ message IndexSettings {
 	uint32  cleanupPercentage = 14; // ignored if greater than 100
 }
 
+message FlushIndexRequest {
+	uint32  cleanupPercentage = 1;
+}
+
 message Table {
 	string tableName = 1;
 }
@@ -848,6 +852,12 @@ service ImmuService {
 		option (google.api.http) = {
 			post: "/db/settings"
 			body: "*"
+		};
+	}
+
+	rpc FlushIndex(FlushIndexRequest) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/db/flushindex"
 		};
 	}
 

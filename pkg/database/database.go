@@ -114,6 +114,7 @@ type DB interface {
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 
 	// Maintenance
+	FlushIndex(req *schema.FlushIndexRequest) error
 	CompactIndex() error
 
 	Close() error
@@ -300,6 +301,14 @@ func (d *db) isReplica() bool {
 // UseTimeFunc ...
 func (d *db) UseTimeFunc(timeFunc store.TimeFunc) error {
 	return d.st.UseTimeFunc(timeFunc)
+}
+
+func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
+	if req == nil {
+		return store.ErrIllegalArguments
+	}
+
+	return d.st.FlushIndex(int(req.CleanupPercentage))
 }
 
 // CompactIndex ...

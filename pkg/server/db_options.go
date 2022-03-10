@@ -81,7 +81,7 @@ type indexOptions struct {
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
-const DefaultStoreFileSize = 1 << 25 //1 << 29 //512Mb
+const DefaultStoreFileSize = 1 << 29 //512Mb
 
 func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	return &dbOptions{

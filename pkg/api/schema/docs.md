@@ -26,6 +26,7 @@
     - [ErrorInfo](#immudb.schema.ErrorInfo)
     - [ExecAllRequest](#immudb.schema.ExecAllRequest)
     - [Expiration](#immudb.schema.Expiration)
+    - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -483,6 +484,21 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | expiresAt | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.FlushIndexRequest"></a>
+
+### FlushIndexRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cleanupPercentage | [uint32](#uint32) |  |  |
 
 
 
@@ -1721,6 +1737,7 @@ immudb gRPC &amp; REST service
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | GetDatabaseSettings | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettings](#immudb.schema.DatabaseSettings) |  |
+| FlushIndex | [FlushIndexRequest](#immudb.schema.FlushIndexRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
