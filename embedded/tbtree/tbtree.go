@@ -1166,14 +1166,6 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
 
-	t.root = &nodeRef{
-		t:       t,
-		_minKey: t.root.minKey(),
-		_ts:     t.root.ts(),
-		off:     t.root.offset(),
-		_minOff: t.root.minOffset(),
-	}
-
 	return wN, wH, nil
 }
 
