@@ -340,6 +340,17 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 	return vtx, nil
 }
 
+func (s *ImmuServer) FlushIndex(ctx context.Context, req *schema.FlushIndexRequest) (*empty.Empty, error) {
+	db, err := s.getDBFromCtx(ctx, "FlushIndex")
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.FlushIndex(req)
+
+	return &empty.Empty{}, err
+}
+
 func (s *ImmuServer) CompactIndex(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
 	db, err := s.getDBFromCtx(ctx, "CompactIndex")
 	if err != nil {

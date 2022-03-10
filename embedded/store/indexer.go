@@ -237,11 +237,11 @@ func (idx *indexer) CompactIndex() (err error) {
 	return idx.restartIndex()
 }
 
-func (idx *indexer) FlushIndex(rewritePercentage int) (err error) {
+func (idx *indexer) FlushIndex(cleanupPercentage int) (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	_, _, err = idx.index.FlushWith(rewritePercentage)
+	_, _, err = idx.index.FlushWith(cleanupPercentage)
 	if err == tbtree.ErrAlreadyClosed {
 		return ErrAlreadyClosed
 	}

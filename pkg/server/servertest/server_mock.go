@@ -288,6 +288,10 @@ func (s *ServerMock) GetDatabaseSettings(ctx context.Context, req *empty.Empty) 
 	return s.Srv.GetDatabaseSettings(ctx, req)
 }
 
+func (s *ServerMock) FlushIndex(ctx context.Context, req *schema.FlushIndexRequest) (*empty.Empty, error) {
+	return s.Srv.FlushIndex(ctx, req)
+}
+
 func (s *ServerMock) CompactIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return s.Srv.CompactIndex(ctx, req)
 }

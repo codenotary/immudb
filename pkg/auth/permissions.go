@@ -47,6 +47,7 @@ var maintenanceMethods = map[string]struct{}{
 	// admin methods
 	"ListUsers":    {},
 	"Dump":         {},
+	"FlushIndex":   {},
 	"CompactIndex": {},
 }
 
@@ -115,6 +116,7 @@ var methodsPermissions = map[string][]uint32{
 	"UpdateMTLSConfig": {PermissionSysAdmin},
 	"CreateDatabase":   {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"FlushIndex":       {PermissionSysAdmin, PermissionAdmin},
 	"CompactIndex":     {PermissionSysAdmin, PermissionAdmin},
 	"ExportTx":         {PermissionSysAdmin, PermissionAdmin},
 	"ReplicateTx":      {PermissionSysAdmin, PermissionAdmin},
