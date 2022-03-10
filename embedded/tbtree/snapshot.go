@@ -340,21 +340,24 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 		if n.mut {
 			n.mut = false
 
-			nodes := make([]node, len(n.nodes))
-
 			for i, c := range n.nodes {
-				nodes[i] = &nodeRef{
+				_, isNodeRef := c.(*nodeRef)
+
+				if isNodeRef {
+					n.nodes[i] = c
+					continue
+				}
+
+				n.nodes[i] = &nodeRef{
 					t:       n.t,
 					_minKey: c.minKey(),
 					_ts:     c.ts(),
 					off:     c.offset(),
 					_minOff: c.minOffset(),
 				}
+
+				n.t.cachePut(c)
 			}
-
-			n.nodes = nodes
-
-			n.t.cachePut(n)
 		}
 	}
 
