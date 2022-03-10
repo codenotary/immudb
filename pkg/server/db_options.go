@@ -68,6 +68,7 @@ type indexOptions struct {
 	FlushThreshold           int   `json:"flushThreshold"`
 	SyncThreshold            int   `json:"syncThreshold"`
 	FlushBufferSize          int   `json:"flushBufferSize"`
+	CleanupPercentage        int   `json:"cleanupPercentage"`
 	CacheSize                int   `json:"cacheSize"`
 	MaxNodeSize              int   `json:"maxNodeSize"` // permanent
 	MaxActiveSnapshots       int   `json:"maxActiveSnapshots"`
@@ -80,7 +81,7 @@ type indexOptions struct {
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
-const DefaultStoreFileSize = 1 << 29 //512Mb
+const DefaultStoreFileSize = 1 << 25 //1 << 29 //512Mb
 
 func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	return &dbOptions{
@@ -115,6 +116,7 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 		FlushThreshold:           tbtree.DefaultFlushThld,
 		SyncThreshold:            tbtree.DefaultSyncThld,
 		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
+		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
 		CacheSize:                tbtree.DefaultCacheSize,
 		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
 		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
@@ -142,6 +144,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 			WithFlushThld(opts.IndexOptions.FlushThreshold).
 			WithSyncThld(opts.IndexOptions.SyncThreshold).
 			WithFlushBufferSize(opts.IndexOptions.FlushBufferSize).
+			WithCleanupPercentage(opts.IndexOptions.CleanupPercentage).
 			WithCacheSize(opts.IndexOptions.CacheSize).
 			WithMaxNodeSize(opts.IndexOptions.MaxNodeSize).
 			WithMaxActiveSnapshots(opts.IndexOptions.MaxActiveSnapshots).
@@ -207,6 +210,7 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 			FlushThreshold:           uint32(opts.IndexOptions.FlushThreshold),
 			SyncThreshold:            uint32(opts.IndexOptions.SyncThreshold),
 			FlushBufferSize:          uint32(opts.IndexOptions.FlushBufferSize),
+			CleanupPercentage:        uint32(opts.IndexOptions.CleanupPercentage),
 			CacheSize:                uint32(opts.IndexOptions.CacheSize),
 			MaxNodeSize:              uint32(opts.IndexOptions.MaxNodeSize),
 			MaxActiveSnapshots:       uint32(opts.IndexOptions.MaxActiveSnapshots),
@@ -304,6 +308,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 		})
 		conditionalSet(settings.IndexSettings.FlushBufferSize > 0, func() {
 			opts.IndexOptions.FlushBufferSize = int(settings.IndexSettings.FlushBufferSize)
+		})
+		conditionalSet(settings.IndexSettings.CleanupPercentage <= 100, func() {
+			opts.IndexOptions.CleanupPercentage = int(settings.IndexSettings.CleanupPercentage)
 		})
 		conditionalSet(settings.IndexSettings.CacheSize > 0, func() {
 			opts.IndexOptions.CacheSize = int(settings.IndexSettings.CacheSize)

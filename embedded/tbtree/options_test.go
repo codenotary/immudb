@@ -42,6 +42,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultFlushThld, opts.WithFlushThld(DefaultFlushThld).flushThld)
 	require.Equal(t, DefaultSyncThld, opts.WithSyncThld(DefaultSyncThld).syncThld)
 	require.Equal(t, DefaultFlushBufferSize, opts.WithFlushBufferSize(DefaultFlushBufferSize).flushBufferSize)
+	require.Equal(t, DefaultCleanUpPercentage+1, opts.WithCleanupPercentage(DefaultCleanUpPercentage+1).cleanupPercentage)
 
 	require.Equal(t, DefaultMaxActiveSnapshots, opts.WithMaxActiveSnapshots(DefaultMaxActiveSnapshots).maxActiveSnapshots)
 	require.Equal(t, DefaultMaxNodeSize, opts.WithMaxNodeSize(DefaultMaxNodeSize).maxNodeSize)

@@ -568,18 +568,19 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | synced | [bool](#bool) |  |  |
-| flushThreshold | [uint32](#uint32) |  |  |
-| syncThreshold | [uint32](#uint32) |  |  |
-| cacheSize | [uint32](#uint32) |  |  |
-| maxNodeSize | [uint32](#uint32) |  |  |
-| maxActiveSnapshots | [uint32](#uint32) |  |  |
-| renewSnapRootAfter | [uint64](#uint64) |  |  |
-| compactionThld | [uint32](#uint32) |  |  |
-| delayDuringCompaction | [uint32](#uint32) |  |  |
-| nodesLogMaxOpenedFiles | [uint32](#uint32) |  |  |
-| historyLogMaxOpenedFiles | [uint32](#uint32) |  |  |
-| commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
-| flushBufferSize | [uint32](#uint32) |  |  |
+| flushThreshold | [uint32](#uint32) |  | ignored with zero value |
+| syncThreshold | [uint32](#uint32) |  | ignored with zero value |
+| cacheSize | [uint32](#uint32) |  | ignored with zero value |
+| maxNodeSize | [uint32](#uint32) |  | ignored with zero value |
+| maxActiveSnapshots | [uint32](#uint32) |  | ignored with zero value |
+| renewSnapRootAfter | [uint64](#uint64) |  | ignored with zero value |
+| compactionThld | [uint32](#uint32) |  | ignored with zero value |
+| delayDuringCompaction | [uint32](#uint32) |  | ignored with zero value |
+| nodesLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
+| historyLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
+| commitLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
+| flushBufferSize | [uint32](#uint32) |  | ignored with zero value |
+| cleanupPercentage | [uint32](#uint32) |  | ignored if greater than 100 |
 
 
 

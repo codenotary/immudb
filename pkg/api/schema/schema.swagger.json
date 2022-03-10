@@ -1811,6 +1811,10 @@
         "flushBufferSize": {
           "type": "integer",
           "format": "int64"
+        },
+        "cleanupPercentage": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

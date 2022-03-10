@@ -401,18 +401,19 @@ message DatabaseSettings {
 
 message IndexSettings {
 	bool 	synced = 1;
-	uint32	flushThreshold = 2;
-	uint32	syncThreshold = 3;
-	uint32	cacheSize = 4;
-	uint32	maxNodeSize = 5;
-	uint32	maxActiveSnapshots = 6;
-	uint64  renewSnapRootAfter = 7;
-	uint32	compactionThld = 8;
-	uint32	delayDuringCompaction = 9;
-	uint32  nodesLogMaxOpenedFiles = 10;
-	uint32  historyLogMaxOpenedFiles = 11;
-	uint32  commitLogMaxOpenedFiles = 12;
-	uint32  flushBufferSize = 13;
+	uint32	flushThreshold = 2; // ignored with zero value
+	uint32	syncThreshold = 3; // ignored with zero value
+	uint32	cacheSize = 4; // ignored with zero value
+	uint32	maxNodeSize = 5; // ignored with zero value
+	uint32	maxActiveSnapshots = 6; // ignored with zero value
+	uint64  renewSnapRootAfter = 7; // ignored with zero value
+	uint32	compactionThld = 8; // ignored with zero value
+	uint32	delayDuringCompaction = 9; // ignored with zero value
+	uint32  nodesLogMaxOpenedFiles = 10; // ignored with zero value
+	uint32  historyLogMaxOpenedFiles = 11; // ignored with zero value
+	uint32  commitLogMaxOpenedFiles = 12; // ignored with zero value
+	uint32  flushBufferSize = 13;	// ignored with zero value
+	uint32  cleanupPercentage = 14; // ignored if greater than 100
 }
 
 message Table {

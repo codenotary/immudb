@@ -91,6 +91,7 @@ type IndexOptions struct {
 	FlushThld                int
 	SyncThld                 int
 	FlushBufferSize          int
+	CleanupPercentage        int
 	MaxActiveSnapshots       int
 	MaxNodeSize              int
 	RenewSnapRootAfter       time.Duration
@@ -142,6 +143,7 @@ func DefaultIndexOptions() *IndexOptions {
 		FlushThld:                tbtree.DefaultFlushThld,
 		SyncThld:                 tbtree.DefaultSyncThld,
 		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
+		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
 		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
 		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
 		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter,
@@ -186,6 +188,7 @@ func validIndexOptions(opts *IndexOptions) bool {
 		opts.CacheSize > 0 &&
 		opts.FlushThld > 0 &&
 		opts.FlushBufferSize > 0 &&
+		opts.CleanupPercentage >= 0 && opts.CleanupPercentage <= 100 &&
 		opts.MaxActiveSnapshots > 0 &&
 		opts.MaxNodeSize > 0 &&
 		opts.RenewSnapRootAfter >= 0 &&
@@ -323,6 +326,11 @@ func (opts *IndexOptions) WithSyncThld(syncThld int) *IndexOptions {
 
 func (opts *IndexOptions) WithFlushBufferSize(flushBufferSize int) *IndexOptions {
 	opts.FlushBufferSize = flushBufferSize
+	return opts
+}
+
+func (opts *IndexOptions) WithCleanupPercentage(cleanupPercentage int) *IndexOptions {
+	opts.CleanupPercentage = cleanupPercentage
 	return opts
 }
 
