@@ -177,6 +177,7 @@ type TBtree struct {
 	flushThld                int
 	syncThld                 int
 	flushBufferSize          int
+	cleanupPercentage        int
 	maxActiveSnapshots       int
 	renewSnapRootAfter       time.Duration
 	readOnly                 bool
@@ -526,6 +527,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		flushThld:                opts.flushThld,
 		syncThld:                 opts.syncThld,
 		flushBufferSize:          opts.flushBufferSize,
+		cleanupPercentage:        opts.cleanupPercentage,
 		renewSnapRootAfter:       opts.renewSnapRootAfter,
 		maxActiveSnapshots:       opts.maxActiveSnapshots,
 		fileSize:                 opts.fileSize,
@@ -650,6 +652,7 @@ func (t *TBtree) GetOptions() *Options {
 		WithFlushThld(t.flushThld).
 		WithSyncThld(t.syncThld).
 		WithFlushBufferSize(t.flushBufferSize).
+		WithCleanupPercentage(t.cleanupPercentage).
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
 		WithMaxNodeSize(t.maxNodeSize).
 		WithRenewSnapRootAfter(t.renewSnapRootAfter).
@@ -971,7 +974,7 @@ func (t *TBtree) ensureSync() error {
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
-	return t.FlushWith(0)
+	return t.FlushWith(t.cleanupPercentage)
 }
 
 func (t *TBtree) FlushWith(cleanupPercentage int) (wN, wH int64, err error) {
@@ -1583,7 +1586,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(0, false)
+		_, _, err := t.flushTree(t.cleanupPercentage, false)
 		return err
 	}
 

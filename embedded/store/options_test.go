@@ -105,6 +105,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 3, indexOpts.WithCompactionThld(3).CompactionThld)
 	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
 	require.Equal(t, 4096*2, indexOpts.WithFlushBufferSize(4096*2).FlushBufferSize)
+	require.Equal(t, 10, indexOpts.WithCleanupPercentage(10).CleanupPercentage)
 
 	require.True(t, validOptions(opts))
 }
