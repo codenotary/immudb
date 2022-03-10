@@ -59,9 +59,12 @@ func Checksum(rAt io.ReaderAt, off, n int64) (checksum [sha256.Size]byte, err er
 	h := sha256.New()
 	r := io.NewSectionReader(rAt, off, n)
 
-	_, err = io.Copy(h, r)
+	c, err := io.Copy(h, r)
 	if err != nil {
 		return
+	}
+	if c < n {
+		return checksum, io.EOF
 	}
 
 	copy(checksum[:], h.Sum(nil))

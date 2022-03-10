@@ -586,7 +586,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		if mustDiscard {
-			t.log.Infof("Discarding snapshots due to %w at '%s'", err, path)
+			t.log.Infof("Discarding snapshots due to %v at '%s'", err, path)
 
 			discardedCLogEntries += int(t.committedLogSize/cLogEntrySize) + 1
 
