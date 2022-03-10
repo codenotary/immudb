@@ -336,23 +336,26 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 	if writeOpts.commitLog {
 		n.off = writeOpts.BaseNLogOffset + cnw
 		n._minOff = minOff
-		n.mut = false
 
-		nodes := make([]node, len(n.nodes))
+		if n.mut {
+			n.mut = false
 
-		for i, c := range n.nodes {
-			nodes[i] = &nodeRef{
-				t:       n.t,
-				_minKey: c.minKey(),
-				_ts:     c.ts(),
-				off:     c.offset(),
-				_minOff: c.minOffset(),
+			nodes := make([]node, len(n.nodes))
+
+			for i, c := range n.nodes {
+				nodes[i] = &nodeRef{
+					t:       n.t,
+					_minKey: c.minKey(),
+					_ts:     c.ts(),
+					off:     c.offset(),
+					_minOff: c.minOffset(),
+				}
 			}
+
+			n.nodes = nodes
+
+			n.t.cachePut(n)
 		}
-
-		n.nodes = nodes
-
-		n.t.cachePut(n)
 	}
 
 	writeOpts.reportProgress(1, 0, 0)
@@ -448,9 +451,11 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff
 
 	if writeOpts.commitLog {
 		l.off = nOff
-		l.mut = false
 
-		l.t.cachePut(l)
+		if l.mut {
+			l.mut = false
+			l.t.cachePut(l)
+		}
 	}
 
 	writeOpts.reportProgress(0, 1, len(l.values))
