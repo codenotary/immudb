@@ -250,11 +250,12 @@ type innerNode struct {
 }
 
 type leafNode struct {
-	t      *TBtree
-	values []*leafValue
-	_ts    uint64
-	off    int64
-	mut    bool
+	t       *TBtree
+	values  []*leafValue
+	_ts     uint64
+	off     int64
+	_minOff int64
+	mut     bool
 }
 
 type nodeRef struct {
@@ -734,6 +735,7 @@ func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
 			return nil, err
 		}
 		n.off = off
+		n._minOff = off
 		return n, nil
 	}
 
@@ -1014,8 +1016,6 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 		return 0, 0, nil
 	}
 
-	sync := synced || t.insertionCountSinceSync >= t.syncThld
-
 	snapshot := t.newSnapshot(0, t.root)
 
 	// will overwrite partially written and uncommitted data
@@ -1072,19 +1072,7 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
-	if actualNewMinOffset > currentMinOffset {
-		t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
-			t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
-
-		err = t.nLog.DiscardUpto(actualNewMinOffset)
-		if err != nil {
-			t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
-				t.path, t.root.ts(), cleanupPercentage, err)
-		}
-
-		t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
-			t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
-	}
+	sync := synced || t.insertionCountSinceSync >= t.syncThld
 
 	if sync {
 		err = t.hLog.Sync()
@@ -1160,6 +1148,20 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 		t.insertionCountSinceSync = 0
 		t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully synced",
 			t.path, t.root.ts(), cleanupPercentage)
+
+		if actualNewMinOffset > currentMinOffset {
+			t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
+				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+
+			err = t.nLog.DiscardUpto(actualNewMinOffset)
+			if err != nil {
+				t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+					t.path, t.root.ts(), cleanupPercentage, err)
+			}
+
+			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
+				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+		}
 	}
 
 	t.committedLogSize += cLogEntrySize
@@ -2064,10 +2066,11 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 
 	if found {
 		newLeaf := &leafNode{
-			t:      l.t,
-			values: make([]*leafValue, len(l.values)),
-			_ts:    ts,
-			mut:    true,
+			t:       l.t,
+			values:  make([]*leafValue, len(l.values)),
+			_ts:     ts,
+			_minOff: l._minOff,
+			mut:     true,
 		}
 
 		for pi := 0; pi < i; pi++ {
@@ -2105,10 +2108,11 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 	}
 
 	newLeaf := &leafNode{
-		t:      l.t,
-		values: make([]*leafValue, len(l.values)+1),
-		_ts:    ts,
-		mut:    true,
+		t:       l.t,
+		values:  make([]*leafValue, len(l.values)+1),
+		_ts:     ts,
+		_minOff: l._minOff,
+		mut:     true,
 	}
 
 	for pi := 0; pi < i; pi++ {
@@ -2315,7 +2319,7 @@ func (l *leafNode) ts() uint64 {
 }
 
 func (l *leafNode) minOffset() int64 {
-	return l.off
+	return l._minOff
 }
 
 func (l *leafNode) setTs(ts uint64) (node, error) {
@@ -2329,10 +2333,11 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 	}
 
 	newLeaf := &leafNode{
-		t:      l.t,
-		values: make([]*leafValue, len(l.values)),
-		_ts:    ts,
-		mut:    true,
+		t:       l.t,
+		values:  make([]*leafValue, len(l.values)),
+		_ts:     ts,
+		_minOff: l._minOff,
+		mut:     true,
 	}
 
 	for i := 0; i < len(l.values); i++ {
