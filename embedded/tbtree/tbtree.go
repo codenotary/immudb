@@ -987,7 +987,7 @@ func (t *TBtree) FlushWith(cleanupPercentage int) (wN, wH int64, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(cleanupPercentage, false)
+	return t.flushTree(cleanupPercentage, cleanupPercentage > 0)
 }
 
 type appendableWriter struct {
