@@ -454,6 +454,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff
 
 	if writeOpts.commitLog {
 		l.off = nOff
+		l._minOff = nOff
 
 		if l.mut {
 			l.mut = false
