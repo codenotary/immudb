@@ -104,7 +104,7 @@ type ImmuClient interface {
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
-	FlushIndex(ctx context.Context, cleanupPercentage int) error
+	FlushIndex(ctx context.Context, cleanupPercentage int, synced bool) error
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
 	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
@@ -1497,12 +1497,15 @@ func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseS
 	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
 }
 
-func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage int) error {
+func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage int, synced bool) error {
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
 
-	_, err := c.ServiceClient.FlushIndex(ctx, &schema.FlushIndexRequest{CleanupPercentage: uint32(cleanupPercentage)})
+	_, err := c.ServiceClient.FlushIndex(ctx, &schema.FlushIndexRequest{
+		CleanupPercentage: uint32(cleanupPercentage),
+		Synced:            synced,
+	})
 
 	return err
 }

@@ -166,7 +166,12 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			err = cl.immuClient.FlushIndex(cl.context, cleanupPercentage)
+			synced, err := cmd.Flags().GetBool("synced")
+			if err != nil {
+				return err
+			}
+
+			err = cl.immuClient.FlushIndex(cl.context, cleanupPercentage, synced)
 			if err != nil {
 				return err
 			}
@@ -177,6 +182,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(0),
 	}
 	fcc.Flags().Int("cleanup-percentage", 0, "set cleanup percentage")
+	fcc.Flags().Bool("synced", true, "synced mode enables physical data deletion")
 
 	ccc := &cobra.Command{
 		Use:               "compact command",
