@@ -976,10 +976,10 @@ func (t *TBtree) ensureSync() error {
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
-	return t.FlushWith(t.cleanupPercentage)
+	return t.FlushWith(t.cleanupPercentage, false)
 }
 
-func (t *TBtree) FlushWith(cleanupPercentage int) (wN, wH int64, err error) {
+func (t *TBtree) FlushWith(cleanupPercentage int, synced bool) (wN, wH int64, err error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -987,7 +987,7 @@ func (t *TBtree) FlushWith(cleanupPercentage int) (wN, wH int64, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(cleanupPercentage, cleanupPercentage > 0)
+	return t.flushTree(cleanupPercentage, synced)
 }
 
 type appendableWriter struct {

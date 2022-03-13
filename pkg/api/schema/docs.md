@@ -499,6 +499,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | cleanupPercentage | [uint32](#uint32) |  |  |
+| synced | [bool](#bool) |  |  |
 
 
 
