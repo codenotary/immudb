@@ -418,6 +418,7 @@ message IndexSettings {
 
 message FlushIndexRequest {
 	uint32  cleanupPercentage = 1;
+	bool    synced = 2;
 }
 
 message Table {
