@@ -949,30 +949,7 @@ func (t *TBtree) Sync() error {
 	}
 
 	_, _, err := t.flushTree(0, true)
-	if err != nil {
-		return err
-	}
-
-	return t.ensureSync()
-}
-
-func (t *TBtree) ensureSync() error {
-	err := t.nLog.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = t.hLog.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = t.cLog.Sync()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (t *TBtree) Flush() (wN, wH int64, err error) {
@@ -1149,11 +1126,19 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 		t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully synced",
 			t.path, t.root.ts(), cleanupPercentage)
 
-		if actualNewMinOffset > currentMinOffset {
+		// prevent discarding data referenced by opened snapshots
+		discardableNLogOffset := actualNewMinOffset
+		for _, snap := range t.snapshots {
+			if snap.root.minOffset() < discardableNLogOffset {
+				discardableNLogOffset = snap.root.minOffset()
+			}
+		}
+
+		if discardableNLogOffset > currentMinOffset {
 			t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
 				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
 
-			err = t.nLog.DiscardUpto(actualNewMinOffset)
+			err = t.nLog.DiscardUpto(discardableNLogOffset)
 			if err != nil {
 				t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
 					t.path, t.root.ts(), cleanupPercentage, err)
@@ -1161,6 +1146,18 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 
 			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
 				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+		}
+
+		discardableCommitLogOffset := t.committedLogSize - int64(cLogEntrySize*len(t.snapshots)+1)
+		if discardableCommitLogOffset > 0 {
+			t.log.Infof("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d}...", t.path, t.root.ts(), len(t.snapshots))
+
+			err = t.cLog.DiscardUpto(discardableCommitLogOffset)
+			if err != nil {
+				t.log.Warningf("Discarding older snapshots at index '%s' {ts=%d, opened_snapshots=%d} returned: %v", t.path, t.root.ts(), len(t.snapshots), err)
+			}
+
+			t.log.Infof("Older snapshots at index '%s' {ts=%d, opened_snapshots=%d} successfully discarded", t.path, t.root.ts(), len(t.snapshots))
 		}
 	}
 
@@ -1445,9 +1442,6 @@ func (t *TBtree) Close() error {
 	merrors := multierr.NewMultiErr()
 
 	_, _, err := t.flushTree(0, true)
-	merrors.Append(err)
-
-	err = t.ensureSync()
 	merrors.Append(err)
 
 	err = t.nLog.Close()
