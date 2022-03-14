@@ -40,7 +40,10 @@ type Snapshot struct {
 	readers     map[int]io.Closer
 	maxReaderID int
 	closed      bool
-	mutex       sync.RWMutex
+
+	_buf []byte
+
+	mutex sync.RWMutex
 }
 
 func (s *Snapshot) Set(key, value []byte) error {
@@ -266,10 +269,10 @@ func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (rootOffset, 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.root.writeTo(nw, hw, writeOpts)
+	return s.root.writeTo(nw, hw, writeOpts, s._buf)
 }
 
-func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
+func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() && n._minOff >= writeOpts.MinOffset {
 		return n.off, n._minOff, 0, 0, nil
 	}
@@ -290,7 +293,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 			MinOffset:      writeOpts.MinOffset,
 		}
 
-		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts)
+		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts, buf)
 		if err != nil {
 			return 0, 0, cnw, chw, err
 		}
@@ -298,7 +301,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 		offsets[i] = no
 		minOffsets[i] = mo
 
-		if minOff > minOffsets[i] {
+		if minOffsets[i] < minOff {
 			minOff = minOffsets[i]
 		}
 
@@ -311,7 +314,6 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 		return 0, 0, cnw, chw, err
 	}
 
-	buf := make([]byte, size)
 	bi := 0
 
 	buf[bi] = InnerNodeType
@@ -366,7 +368,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOf
 	return nOff, minOff, wN, chw, nil
 }
 
-func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
+func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() && l.off >= writeOpts.MinOffset {
 		return l.off, l.off, 0, 0, nil
 	}
@@ -376,7 +378,6 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff
 		return 0, 0, 0, 0, err
 	}
 
-	buf := make([]byte, size)
 	bi := 0
 
 	buf[bi] = LeafNodeType
@@ -467,7 +468,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff
 	return nOff, nOff, wN, accH, nil
 }
 
-func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error) {
+func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && n._minOff >= writeOpts.MinOffset {
 		return n.off, n._minOff, 0, 0, nil
 	}
@@ -477,7 +478,7 @@ func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff 
 		return 0, 0, 0, 0, err
 	}
 
-	off, mOff, wn, wh, err := node.writeTo(nw, hw, writeOpts)
+	off, mOff, wn, wh, err := node.writeTo(nw, hw, writeOpts, buf)
 	if err != nil {
 		return 0, 0, wn, wh, err
 	}

@@ -225,7 +225,7 @@ type node interface {
 	mutated() bool
 	offset() int64
 	minOffset() int64
-	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff, minOff int64, wN, wH int64, err error)
+	writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error)
 }
 
 type writeProgressOutputFunc func(innerNodesWritten int, leafNodesWritten int, entriesWritten int)
@@ -1634,6 +1634,7 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 		ts:      root.ts() + 1,
 		root:    root,
 		readers: make(map[int]io.Closer),
+		_buf:    make([]byte, t.maxNodeSize),
 	}
 }
 
