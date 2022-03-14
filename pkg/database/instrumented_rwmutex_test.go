@@ -35,14 +35,15 @@ func TestInstrumentedMutex(t *testing.T) {
 	waitingCount, _ = mutex.State()
 	require.Equal(t, 0, waitingCount)
 
-	releasedAt := time.Now()
-	mutex.Unlock()
+	justBeforeRelease := time.Now()
 
 	time.Sleep(1 * time.Millisecond)
 
+	mutex.Unlock()
+
 	waitingCount, lastReleaseAt := mutex.State()
 	require.Equal(t, 0, waitingCount)
-	require.True(t, lastReleaseAt.After(releasedAt))
+	require.True(t, lastReleaseAt.After(justBeforeRelease))
 
 	mutex.Lock()
 
@@ -56,7 +57,10 @@ func TestInstrumentedMutex(t *testing.T) {
 
 		time.Sleep(1 * time.Millisecond)
 
-		releasedAt = time.Now()
+		justBeforeRelease = time.Now()
+
+		time.Sleep(1 * time.Millisecond)
+
 		mutex.RUnlock()
 
 		wg.Done()
@@ -75,5 +79,5 @@ func TestInstrumentedMutex(t *testing.T) {
 
 	waitingCount, lastReleaseAt = mutex.State()
 	require.Equal(t, 0, waitingCount)
-	require.True(t, lastReleaseAt.After(releasedAt))
+	require.True(t, lastReleaseAt.After(justBeforeRelease))
 }
