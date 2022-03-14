@@ -1374,7 +1374,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	require.NoError(t, err)
 
 	err = immuStore.CompactIndex()
-	require.Equal(t, tbtree.ErrCompactionThresholdNotReached, err)
+	require.ErrorIs(t, err, tbtree.ErrCompactionThresholdNotReached)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
