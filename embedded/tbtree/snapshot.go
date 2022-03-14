@@ -279,19 +279,20 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) 
 
 	var cnw, chw int64
 
+	wopts := &WriteOpts{
+		OnlyMutated:    writeOpts.OnlyMutated,
+		commitLog:      writeOpts.commitLog,
+		reportProgress: writeOpts.reportProgress,
+		MinOffset:      writeOpts.MinOffset,
+	}
+
 	offsets := make([]int64, len(n.nodes))
 	minOffsets := make([]int64, len(n.nodes))
 	minOff = math.MaxInt64
 
 	for i, c := range n.nodes {
-		wopts := &WriteOpts{
-			OnlyMutated:    writeOpts.OnlyMutated,
-			BaseNLogOffset: writeOpts.BaseNLogOffset + cnw,
-			BaseHLogOffset: writeOpts.BaseHLogOffset + chw,
-			commitLog:      writeOpts.commitLog,
-			reportProgress: writeOpts.reportProgress,
-			MinOffset:      writeOpts.MinOffset,
-		}
+		wopts.BaseNLogOffset = writeOpts.BaseNLogOffset + cnw
+		wopts.BaseHLogOffset = writeOpts.BaseHLogOffset + chw
 
 		no, mo, wn, wh, err := c.writeTo(nw, hw, wopts, buf)
 		if err != nil {
