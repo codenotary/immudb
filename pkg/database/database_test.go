@@ -584,6 +584,12 @@ func TestHistory(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	err := db.FlushIndex(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = db.FlushIndex(&schema.FlushIndexRequest{CleanupPercentage: 100, Synced: true})
+	require.NoError(t, err)
+
 	meta, err := db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
 	require.NoError(t, err)
 	lastTx = meta.Id
