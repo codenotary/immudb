@@ -108,7 +108,7 @@ type DB interface {
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
-	ExportTxByID(req *schema.TxRequest) ([]byte, error)
+	ExportTxByID(req *schema.ExportTxRequest) ([]byte, error)
 	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
@@ -785,10 +785,22 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, err
 	}
 
-	return schema.TxToProto(tx), nil
+	stx := schema.TxToProto(tx)
+
+	if req.IncludeValues {
+		for i, e := range tx.Entries() {
+			v, err := d.st.ReadValue(e)
+			if err != nil {
+				return nil, err
+			}
+			stx.Entries[i].Value = v
+		}
+	}
+
+	return stx, nil
 }
 
-func (d *db) ExportTxByID(req *schema.TxRequest) ([]byte, error) {
+func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -859,8 +871,20 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, err
 	}
 
+	sReqTx := schema.TxToProto(reqTx)
+
+	if req.IncludeValues {
+		for i, e := range reqTx.Entries() {
+			v, err := d.st.ReadValue(e)
+			if err != nil {
+				return nil, err
+			}
+			sReqTx.Entries[i].Value = v
+		}
+	}
+
 	return &schema.VerifiableTx{
-		Tx:        schema.TxToProto(reqTx),
+		Tx:        sReqTx,
 		DualProof: schema.DualProofToProto(dualProof),
 	}, nil
 }
@@ -897,7 +921,19 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			return nil, err
 		}
 
-		txList.Txs = append(txList.Txs, schema.TxToProto(tx))
+		sTx := schema.TxToProto(tx)
+
+		if req.IncludeValues {
+			for i, e := range tx.Entries() {
+				v, err := d.st.ReadValue(e)
+				if err != nil {
+					return nil, err
+				}
+				sTx.Entries[i].Value = v
+			}
+		}
+
+		txList.Txs = append(txList.Txs, sTx)
 	}
 
 	return txList, nil

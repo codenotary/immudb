@@ -33,6 +33,7 @@
     - [ErrorInfo](#immudb.schema.ErrorInfo)
     - [ExecAllRequest](#immudb.schema.ExecAllRequest)
     - [Expiration](#immudb.schema.Expiration)
+    - [ExportTxRequest](#immudb.schema.ExportTxRequest)
     - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
@@ -604,6 +605,21 @@ Reserved to reply with more advanced response later
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | expiresAt | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ExportTxRequest"></a>
+
+### ExportTxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [uint64](#uint64) |  |  |
 
 
 
@@ -1333,6 +1349,7 @@ Reserved to reply with more advanced response later
 | hValue | [bytes](#bytes) |  |  |
 | vLen | [int32](#int32) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
+| value | [bytes](#bytes) |  | value must be ignored when len(value) == 0 and vLen &gt; 0. Otherwise, sha256(value) must be equal to hValue |
 
 
 
@@ -1396,6 +1413,7 @@ Reserved to reply with more advanced response later
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
+| includeValues | [bool](#bool) |  |  |
 
 
 
@@ -1413,6 +1431,7 @@ Reserved to reply with more advanced response later
 | initialTx | [uint64](#uint64) |  |  |
 | limit | [uint32](#uint32) |  |  |
 | desc | [bool](#bool) |  |  |
+| includeValues | [bool](#bool) |  |  |
 
 
 
@@ -1695,6 +1714,7 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
+| includeValues | [bool](#bool) |  |  |
 
 
 
@@ -1892,7 +1912,7 @@ immudb gRPC &amp; REST service
 | streamZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamHistory | [HistoryRequest](#immudb.schema.HistoryRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
-| exportTx | [TxRequest](#immudb.schema.TxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
+| exportTx | [ExportTxRequest](#immudb.schema.ExportTxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
 | replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |

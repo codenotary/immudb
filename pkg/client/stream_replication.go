@@ -21,7 +21,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func (c *immuClient) ExportTx(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_ExportTxClient, error) {
+func (c *immuClient) ExportTx(ctx context.Context, req *schema.ExportTxRequest) (schema.ImmuService_ExportTxClient, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}

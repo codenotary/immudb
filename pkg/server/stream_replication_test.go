@@ -39,7 +39,7 @@ func TestExportTxEdgeCases(t *testing.T) {
 	err := s.ExportTx(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	err = s.ExportTx(&schema.TxRequest{Tx: 1}, &immuServiceExportTxServer{})
+	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
 	require.Error(t, err)
 
 	ctx := context.Background()
@@ -53,10 +53,10 @@ func TestExportTxEdgeCases(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	err = s.ExportTx(&schema.TxRequest{Tx: 0}, &immuServiceExportTxServer{})
+	err = s.ExportTx(&schema.ExportTxRequest{Tx: 0}, &immuServiceExportTxServer{})
 	require.Equal(t, ErrIllegalArguments, err)
 
-	err = s.ExportTx(&schema.TxRequest{Tx: 1}, &immuServiceExportTxServer{})
+	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
 	require.Error(t, err)
 }
 

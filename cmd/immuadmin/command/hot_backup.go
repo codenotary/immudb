@@ -249,7 +249,7 @@ func (cl *commandlineHotBck) runHotBackup(output io.Writer, startTx uint64, prog
 }
 
 func (cl *commandlineHotBck) backupTx(tx uint64, output io.Writer) error {
-	stream, err := cl.immuClient.ExportTx(cl.context, &schema.TxRequest{Tx: tx})
+	stream, err := cl.immuClient.ExportTx(cl.context, &schema.ExportTxRequest{Tx: tx})
 	if err != nil {
 		return fmt.Errorf("failed to export transaction: %w", err)
 	}

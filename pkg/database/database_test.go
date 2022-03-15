@@ -510,14 +510,31 @@ func TestTxByID(t *testing.T) {
 	_, err := db.TxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
+	var txhdr *schema.TxHeader
+
 	for ind, val := range kvs {
-		txhdr, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		txhdr, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 		require.Equal(t, uint64(ind+2), txhdr.Id)
 	}
 
-	_, err = db.TxByID(&schema.TxRequest{Tx: uint64(1)})
-	require.NoError(t, err)
+	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, IncludeValues: true})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+
+		hval := sha256.Sum256(tx.Entries[0].Value)
+		require.Equal(t, tx.Entries[0].HValue, hval[:])
+	})
+
+	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Len(t, tx.Entries[0].Value, 0)
+	})
 }
 
 func TestVerifiableTxByID(t *testing.T) {
@@ -527,16 +544,37 @@ func TestVerifiableTxByID(t *testing.T) {
 	_, err := db.VerifiableTxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
+	var txhdr *schema.TxHeader
+
 	for _, val := range kvs {
-		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		txhdr, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 	}
 
-	_, err = db.VerifiableTxByID(&schema.VerifiableTxRequest{
-		Tx:           uint64(1),
-		ProveSinceTx: 0,
+	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
+			Tx:            txhdr.Id,
+			ProveSinceTx:  0,
+			IncludeValues: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, vtx)
+		require.Len(t, vtx.Tx.Entries, 1)
+
+		hval := sha256.Sum256(vtx.Tx.Entries[0].Value)
+		require.Equal(t, vtx.Tx.Entries[0].HValue, hval[:])
 	})
-	require.NoError(t, err)
+
+	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
+			Tx:           txhdr.Id,
+			ProveSinceTx: 0,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, vtx)
+		require.Len(t, vtx.Tx.Entries, 1)
+		require.Len(t, vtx.Tx.Entries[0].Value, 0)
+	})
 }
 
 func TestTxScan(t *testing.T) {
@@ -562,15 +600,34 @@ func TestTxScan(t *testing.T) {
 	})
 	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
 
-	txList, err := db.TxScan(&schema.TxScanRequest{
-		InitialTx: 1,
-	})
-	require.NoError(t, err)
-	require.Len(t, txList.Txs, len(kvs)+1)
+	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+		txList, err := db.TxScan(&schema.TxScanRequest{
+			InitialTx:     1,
+			IncludeValues: true,
+		})
+		require.NoError(t, err)
+		require.Len(t, txList.Txs, len(kvs)+1)
 
-	for i := 0; i < len(kvs); i++ {
-		require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
-	}
+		for i := 0; i < len(kvs); i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
+
+			hval := sha256.Sum256(txList.Txs[i+1].Entries[0].Value)
+			require.Equal(t, txList.Txs[i+1].Entries[0].HValue, hval[:])
+		}
+	})
+
+	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+		txList, err := db.TxScan(&schema.TxScanRequest{
+			InitialTx: 1,
+		})
+		require.NoError(t, err)
+		require.Len(t, txList.Txs, len(kvs)+1)
+
+		for i := 0; i < len(kvs); i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
+			require.Len(t, txList.Txs[i+1].Entries[0].Value, 0)
+		}
+	})
 }
 
 func TestHistory(t *testing.T) {
