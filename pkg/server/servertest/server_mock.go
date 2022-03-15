@@ -105,7 +105,7 @@ func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer
 	return s.Srv.StreamHistory(request, historyServer)
 }
 
-func (s *ServerMock) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
+func (s *ServerMock) ExportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer) error {
 	return s.Srv.ExportTx(req, txsServer)
 }
 

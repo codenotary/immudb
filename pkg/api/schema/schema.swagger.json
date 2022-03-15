@@ -816,6 +816,12 @@
             "required": true,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "includeValues",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -1077,6 +1083,12 @@
             "required": false,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "includeValues",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -2516,6 +2528,10 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -2594,6 +2610,9 @@
           "format": "int64"
         },
         "desc": {
+          "type": "boolean"
+        },
+        "includeValues": {
           "type": "boolean"
         }
       }

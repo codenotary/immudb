@@ -213,6 +213,7 @@ message TxEntry {
 	bytes hValue = 2;
 	int32 vLen = 3;
 	KVMetadata metadata = 4;
+	bytes value = 5; // value must be ignored when len(value) == 0 and vLen > 0. Otherwise, sha256(value) must be equal to hValue
 }
 
 message KVMetadata {
@@ -350,21 +351,28 @@ message VerifiableZAddRequest {
 
 message TxRequest {
 	uint64 tx = 1;
+	bool   includeValues = 2;
 }
 
 message VerifiableTxRequest {
 	uint64 tx = 1;
 	uint64 proveSinceTx = 2;
+	bool   includeValues = 3;
 }
 
 message TxScanRequest {
 	uint64 initialTx = 1;
 	uint32 limit = 2;
     bool   desc = 3;
+	bool   includeValues = 4;
 }
 
 message TxList {
 	repeated Tx txs = 1;
+}
+
+message ExportTxRequest {
+	uint64 tx = 1;
 }
 
 message Database {
@@ -964,7 +972,7 @@ service ImmuService {
 	rpc streamExecAll(stream Chunk) returns (TxHeader) {};
 
 	// Replication
-	rpc exportTx(TxRequest) returns (stream Chunk) {};
+	rpc exportTx(ExportTxRequest) returns (stream Chunk) {};
 	rpc replicateTx(stream Chunk) returns (TxHeader) {};
 
 	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {

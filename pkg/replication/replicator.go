@@ -245,7 +245,7 @@ func (txr *TxReplicator) disconnect() {
 }
 
 func (txr *TxReplicator) fetchTX() ([]byte, error) {
-	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.TxRequest{Tx: txr.nextTx})
+	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{Tx: txr.nextTx})
 	if err != nil {
 		return nil, err
 	}

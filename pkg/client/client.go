@@ -168,7 +168,7 @@ type ImmuClient interface {
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error)
 
-	ExportTx(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_ExportTxClient, error)
+	ExportTx(ctx context.Context, req *schema.ExportTxRequest) (schema.ImmuService_ExportTxClient, error)
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)

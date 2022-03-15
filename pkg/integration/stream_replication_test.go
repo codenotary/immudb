@@ -76,7 +76,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	rctx := metadata.NewOutgoingContext(context.Background(), rmd)
 
 	for i := uint64(1); i <= 2; i++ {
-		exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: i})
+		exportTxStream, err := client.ExportTx(ctx, &schema.ExportTxRequest{Tx: i})
 		require.NoError(t, err)
 
 		replicateTxStream, err := client.ReplicateTx(rctx)
@@ -109,7 +109,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	err = client.Disconnect()
 	require.NoError(t, err)
 
-	_, err = client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
+	_, err = client.ExportTx(ctx, &schema.ExportTxRequest{Tx: 1})
 	require.Equal(t, ic.ErrNotConnected, err)
 
 	_, err = client.ReplicateTx(rctx)
