@@ -354,6 +354,9 @@ func TestMultiAppDiscard(t *testing.T) {
 	err = a.Close()
 	require.NoError(t, err)
 
+	err = a.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
 	a, err = Open("testdata_discard", DefaultOptions().WithFileSize(1))
 	require.NoError(t, err)
 

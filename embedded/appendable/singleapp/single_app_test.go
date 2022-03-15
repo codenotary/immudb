@@ -251,7 +251,7 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 func TestSingleAppEdgeCases(t *testing.T) {
 	_, err := Open("testdata.aof", nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
@@ -264,34 +264,37 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = a.Close()
 	require.NoError(t, err)
 
 	_, err = a.Size()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Copy("copy.aof")
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.SetOffset(0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = a.ReadAt([]byte{}, 0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Flush()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Sync()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	err = a.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
 func TestSingleAppZLibCompression(t *testing.T) {
