@@ -39,6 +39,9 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NotNil(t, snapshot)
 	require.NoError(t, err)
 
+	_, _, _, _, err = snapshot.WriteTo(nil, nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	dumpNBuf := new(bytes.Buffer)
 	dumpHBuf := new(bytes.Buffer)
 	wopts := &WriteOpts{
