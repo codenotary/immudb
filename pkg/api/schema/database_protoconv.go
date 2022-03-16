@@ -49,8 +49,8 @@ func KVMetadataToProto(md *store.KVMetadata) *KVMetadata {
 	}
 
 	kvmd := &KVMetadata{
-		Deleted:       md.Deleted(),
-		NonIndexeable: md.NonIndexable(),
+		Deleted:      md.Deleted(),
+		NonIndexable: md.NonIndexable(),
 	}
 
 	if md.IsExpirable() {
@@ -98,7 +98,7 @@ func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
 		kvmd.ExpiresAt(time.Unix(md.Expiration.ExpiresAt, 0))
 	}
 
-	kvmd.AsNonIndexable(md.NonIndexeable)
+	kvmd.AsNonIndexable(md.NonIndexable)
 
 	return kvmd
 }

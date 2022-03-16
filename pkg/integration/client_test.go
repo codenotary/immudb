@@ -937,7 +937,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 
 	setRequest = &schema.SetRequest{KVs: []*schema.KeyValue{
 		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
-		{Key: []byte("4,5,6"), Value: []byte("6,5,4"), Metadata: &schema.KVMetadata{NonIndexeable: true}},
+		{Key: []byte("4,5,6"), Value: []byte("6,5,4"), Metadata: &schema.KVMetadata{NonIndexable: true}},
 	}}
 
 	_, err = client.SetAll(ctx, setRequest)
@@ -949,7 +949,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
 
-		if kv.Metadata != nil && kv.Metadata.NonIndexeable {
+		if kv.Metadata != nil && kv.Metadata.NonIndexable {
 			require.Contains(t, err.Error(), "key not found")
 		} else {
 			require.NoError(t, err)
