@@ -289,7 +289,7 @@ func TestDbSetGet(t *testing.T) {
 			targetAlh = trustedAlh
 		}
 
-		entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value)
+		entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value, nil)
 
 		entrySpecDigest, err := store.EntrySpecDigestFor(int(txhdr.Version))
 		require.NoError(t, err)
@@ -927,6 +927,160 @@ func TestHistory(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, inc.Entries)
+}
+
+func TestConstrainedSet(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:         []byte("key-no-constraints"),
+			Value:       []byte("value"),
+			Constraints: nil,
+		}},
+	})
+	require.NoError(t, err, "could not set a value without constraints")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustExist: true,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not detect missing key when MustExist constraint was present")
+
+	tx1, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustNotExist: true,
+			},
+		}},
+	})
+	require.NoError(t, err,
+		"failed to add a key with MustNotExist constraint even though the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustNotExist: true,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not detect existing key even though MustNotExist constraint was used")
+
+	tx2, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustExist: true,
+			},
+		}},
+	})
+	require.NoError(t, err,
+		"did not add a key even though MustExist constraint was successful")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				NotModifiedAfterTX: tx1.Id,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not detect constraint of the NotModifiedAfterTX constraint")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				NotModifiedAfterTX: tx2.Id,
+			},
+		}},
+	})
+	require.NoError(t, err,
+		"did not add valid entry with NotModifiedAfterTX constraint")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				NotModifiedAfterTX: tx2.Id,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not detect failed NotModifiedAfterTX constraint after new entry was added")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key2"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				NotModifiedAfterTX: tx2.Id,
+			},
+		}},
+	})
+	require.NoError(t, err,
+		"did not add entry with NotModifiedAfterTX constraint when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key3"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustExist:          true,
+				NotModifiedAfterTX: tx2.Id,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not detect failed mix of NotModifiedAfterTX and MustExist constraints when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key3"),
+			Value: []byte("value"),
+			Constraints: &schema.KVConstraints{
+				MustExist:    true,
+				MustNotExist: true,
+			},
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraint,
+		"did not detect failed mix of MustNotExist and MustExist constraints when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key4-no-constraints"),
+				Value: []byte("value"),
+			},
+			{
+				Key:   []byte("key5-with-constraints"),
+				Value: []byte("value"),
+				Constraints: &schema.KVConstraints{
+					MustExist: true,
+				},
+			},
+		},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
+		"did not fail even though one of KV entries failed constraint check")
 }
 
 /*

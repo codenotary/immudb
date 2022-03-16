@@ -50,11 +50,12 @@ func EncodeKey(key []byte) []byte {
 	return WrapWithPrefix(key, SetKeyPrefix)
 }
 
-func EncodeEntrySpec(key []byte, md *store.KVMetadata, value []byte) *store.EntrySpec {
+func EncodeEntrySpec(key []byte, md *store.KVMetadata, value []byte, c *store.KVConstraints) *store.EntrySpec {
 	return &store.EntrySpec{
-		Key:      WrapWithPrefix(key, SetKeyPrefix),
-		Metadata: md,
-		Value:    WrapWithPrefix(value, PlainValuePrefix),
+		Key:         WrapWithPrefix(key, SetKeyPrefix),
+		Metadata:    md,
+		Value:       WrapWithPrefix(value, PlainValuePrefix),
+		Constraints: c,
 	}
 }
 

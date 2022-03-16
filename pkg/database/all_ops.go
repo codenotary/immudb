@@ -72,13 +72,23 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 			switch x := op.Operation.(type) {
 
 			case *schema.Op_Kv:
+
+				if x.Kv.Constraints != nil {
+					return nil, fmt.Errorf("KV Constraints are not allowed in ExecAll")
+				}
+
 				kmap[sha256.Sum256(x.Kv.Key)] = true
 
 				if len(x.Kv.Key) == 0 {
 					return nil, store.ErrIllegalArguments
 				}
 
-				e = EncodeEntrySpec(x.Kv.Key, schema.KVMetadataFromProto(x.Kv.Metadata), x.Kv.Value)
+				e = EncodeEntrySpec(
+					x.Kv.Key,
+					schema.KVMetadataFromProto(x.Kv.Metadata),
+					x.Kv.Value,
+					nil, // TODO: Constraints
+				)
 
 			case *schema.Op_Ref:
 				if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {

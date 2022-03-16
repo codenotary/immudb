@@ -218,7 +218,12 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 		}
 
 		md := tx.Entries()[i].Metadata()
-		e := database.EncodeEntrySpec(kv.Key, md, kv.Value)
+		e := database.EncodeEntrySpec(
+			kv.Key,
+			md,
+			kv.Value,
+			nil,
+		)
 
 		verifies = store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 		if !verifies {
@@ -326,7 +331,12 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		e = database.EncodeEntrySpec(req.KeyRequest.Key, schema.KVMetadataFromProto(vEntry.Entry.Metadata), vEntry.Entry.Value)
+		e = database.EncodeEntrySpec(
+			req.KeyRequest.Key,
+			schema.KVMetadataFromProto(vEntry.Entry.Metadata),
+			vEntry.Entry.Value,
+			nil,
+		)
 	} else {
 		ref := vEntry.Entry.ReferencedBy
 		vTx = ref.Tx

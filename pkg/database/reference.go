@@ -38,6 +38,10 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, store.ErrIllegalArguments
 	}
 
+	if req.Constraints != nil {
+		return nil, fmt.Errorf("constraints for references are not supported")
+	}
+
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 

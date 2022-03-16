@@ -51,6 +51,8 @@ var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx ex
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrInvalidConstraint = errors.New("invalid constraint")
+var ErrConstraintFailed = errors.New("constraint failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
@@ -883,6 +885,18 @@ func (s *ImmuStore) NewTx() (*OngoingTx, error) {
 	return newReadWriteTx(s)
 }
 
+func (s *ImmuStore) checkKVConstraints(tx *OngoingTx, snap *tbtree.Snapshot) error {
+	for _, e := range tx.entries {
+		if e.Constraints != nil {
+			err := e.Constraints.check(e.Key, snap)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
 	if otx == nil {
 		return nil, ErrIllegalArguments
@@ -891,6 +905,26 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	err := s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
+	}
+
+	// first check is performed on the snapshot taken when opening the transaction,
+	// this will prevent acquiring the write lock and putting garbage into
+	// appendables if we can already determine that constraints are not met.
+	//
+	// A corner case is if the DB fails to meet constraints now but would fulfill
+	// those during final commit phase - but in such case, we are allowed to reason
+	// about the DB state in any point in time between both snapshots are checked.
+	if otx.HasConstrainedKVEntries() {
+		snap, err := s.indexer.SnapshotSince(s.indexer.Ts())
+		if err != nil {
+			return nil, err
+		}
+
+		err = s.checkKVConstraints(otx, snap)
+		snap.Close()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// early check to reduce amount of garbage when tx is not finally committed
@@ -904,6 +938,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
 	}
+
 	s.mutex.Unlock()
 
 	var ts int64
@@ -1002,6 +1037,28 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
+	}
+
+	if otx.HasConstrainedKVEntries() {
+		// Constraints must be executed with up-to-date tree
+		err = s.WaitForIndexingUpto(tx.header.ID, nil)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
+
+		upToDateSnap, err := s.indexer.SnapshotSince(tx.header.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		defer upToDateSnap.Close()
+
+		err = s.checkKVConstraints(otx, upToDateSnap)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
 	}
 
 	for i := 0; i < tx.header.NEntries; i++ {
@@ -1777,6 +1834,13 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 		}
 		if len(kv.Value) > s.maxValueLen {
 			return ErrorMaxValueLenExceeded
+		}
+
+		if kv.Constraints != nil {
+			err := kv.Constraints.validate()
+			if err != nil {
+				return err
+			}
 		}
 
 		b64k := base64.StdEncoding.EncodeToString(kv.Key)

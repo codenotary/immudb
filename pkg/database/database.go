@@ -354,9 +354,14 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 		}
 		keys[kid] = struct{}{}
 
-		e := EncodeEntrySpec(kv.Key, schema.KVMetadataFromProto(kv.Metadata), kv.Value)
+		e := EncodeEntrySpec(
+			kv.Key,
+			schema.KVMetadataFromProto(kv.Metadata),
+			kv.Value,
+			schema.KVConstraintsFromProto(kv.Constraints),
+		)
 
-		err = tx.Set(e.Key, e.Metadata, e.Value)
+		err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, e.Constraints)
 		if err != nil {
 			return nil, err
 		}
@@ -699,7 +704,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 
 		md.AsDeleted(true)
 
-		e := EncodeEntrySpec(k, md, nil)
+		e := EncodeEntrySpec(k, md, nil, nil)
 
 		err = tx.Delete(e.Key)
 		if err != nil {

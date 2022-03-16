@@ -650,7 +650,12 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		e = database.EncodeEntrySpec(kReq.Key, schema.KVMetadataFromProto(vEntry.Entry.Metadata), vEntry.Entry.Value)
+		e = database.EncodeEntrySpec(
+			kReq.Key,
+			schema.KVMetadataFromProto(vEntry.Entry.Metadata),
+			vEntry.Entry.Value,
+			nil,
+		)
 	} else {
 		ref := vEntry.Entry.ReferencedBy
 		vTx = ref.Tx
@@ -857,7 +862,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, store.ErrCorruptedData
 	}
 
-	e := database.EncodeEntrySpec(key, md, value)
+	e := database.EncodeEntrySpec(key, md, value, nil)
 
 	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
