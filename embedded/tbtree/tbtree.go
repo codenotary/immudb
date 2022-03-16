@@ -199,6 +199,7 @@ type TBtree struct {
 	committedLogSize  int64
 	committedNLogSize int64
 	committedHLogSize int64
+	minOffset         int64
 
 	compacting bool
 
@@ -223,8 +224,8 @@ type node interface {
 	setTs(ts uint64) (node, error)
 	size() (int, error)
 	mutated() bool
-	offset() int64
-	minOffset() int64
+	offset() int64    // only valid when !mutated()
+	minOffset() int64 // only valid when !mutated()
 	writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (nOff, minOff int64, wN, wH int64, err error)
 }
 
@@ -250,12 +251,11 @@ type innerNode struct {
 }
 
 type leafNode struct {
-	t       *TBtree
-	values  []*leafValue
-	_ts     uint64
-	off     int64
-	_minOff int64
-	mut     bool
+	t      *TBtree
+	values []*leafValue
+	_ts    uint64
+	off    int64
+	mut    bool
 }
 
 type nodeRef struct {
@@ -617,6 +617,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 		t.committedNLogSize = validatedCLogEntry.finalNLogSize
 		t.committedHLogSize = validatedCLogEntry.finalHLogSize
+		t.minOffset = t.root.minOffset()
 	}
 
 	err = t.hLog.SetOffset(t.committedHLogSize)
@@ -735,7 +736,6 @@ func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
 			return nil, err
 		}
 		n.off = off
-		n._minOff = off
 		return n, nil
 	}
 
@@ -1018,9 +1018,7 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 	)
 	defer finishOutputFunc()
 
-	currentMinOffset := t.root.minOffset()
-
-	expectedNewMinOffset := currentMinOffset + ((t.committedNLogSize-currentMinOffset)*int64(cleanupPercentage))/100
+	expectedNewMinOffset := t.minOffset + ((t.committedNLogSize-t.minOffset)*int64(cleanupPercentage))/100
 
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
@@ -1134,9 +1132,9 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 			}
 		}
 
-		if discardableNLogOffset > currentMinOffset {
+		if discardableNLogOffset > t.minOffset {
 			t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
-				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+				t.path, t.root.ts(), cleanupPercentage, t.minOffset, actualNewMinOffset)
 
 			err = t.nLog.DiscardUpto(discardableNLogOffset)
 			if err != nil {
@@ -1145,7 +1143,7 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 			}
 
 			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
-				t.path, t.root.ts(), cleanupPercentage, currentMinOffset, actualNewMinOffset)
+				t.path, t.root.ts(), cleanupPercentage, t.minOffset, actualNewMinOffset)
 		}
 
 		discardableCommitLogOffset := t.committedLogSize - int64(cLogEntrySize*len(t.snapshots)+1)
@@ -1161,6 +1159,7 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 		}
 	}
 
+	t.minOffset = t.root.minOffset()
 	t.committedLogSize += cLogEntrySize
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
@@ -1481,7 +1480,7 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 	t.insertionCountSinceSync++
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(0, false)
+		_, _, err := t.flushTree(t.cleanupPercentage, false)
 		return err
 	}
 
@@ -1560,8 +1559,6 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 				_ts:   ts,
 				mut:   true,
 			}
-
-			newRoot.update()
 
 			t.root = newRoot
 			depth++
@@ -1811,11 +1808,10 @@ func (n *innerNode) setTs(ts uint64) (node, error) {
 	}
 
 	newNode := &innerNode{
-		t:       n.t,
-		nodes:   make([]node, len(n.nodes)),
-		_ts:     ts,
-		mut:     true,
-		_minOff: n._minOff,
+		t:     n.t,
+		nodes: make([]node, len(n.nodes)),
+		_ts:   ts,
+		mut:   true,
 	}
 
 	copy(newNode.nodes, n.nodes)
@@ -1905,11 +1901,11 @@ func (n *innerNode) split() (node, error) {
 		mut:   true,
 	}
 
-	newNode.update()
+	newNode.updateTs()
 
 	n.nodes = n.nodes[:splitIndex]
 
-	n.update()
+	n.updateTs()
 
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(newNode.nodes)))
@@ -1917,24 +1913,13 @@ func (n *innerNode) split() (node, error) {
 	return newNode, nil
 }
 
-func (n *innerNode) update() {
+func (n *innerNode) updateTs() {
 	n._ts = 0
-	minOff := int64(math.MaxInt64)
 
 	for i := 0; i < len(n.nodes); i++ {
 		if n.ts() < n.nodes[i].ts() {
 			n._ts = n.nodes[i].ts()
 		}
-
-		if minOff > n.nodes[i].minOffset() && !n.nodes[i].mutated() {
-			minOff = n.nodes[i].minOffset()
-		}
-	}
-
-	if minOff == int64(math.MaxInt64) {
-		n._minOff = 0
-	} else {
-		n._minOff = minOff
 	}
 }
 
@@ -2061,11 +2046,10 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 
 	if found {
 		newLeaf := &leafNode{
-			t:       l.t,
-			values:  make([]*leafValue, len(l.values)),
-			_ts:     ts,
-			_minOff: l._minOff,
-			mut:     true,
+			t:      l.t,
+			values: make([]*leafValue, len(l.values)),
+			_ts:    ts,
+			mut:    true,
 		}
 
 		for pi := 0; pi < i; pi++ {
@@ -2103,11 +2087,10 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 	}
 
 	newLeaf := &leafNode{
-		t:       l.t,
-		values:  make([]*leafValue, len(l.values)+1),
-		_ts:     ts,
-		_minOff: l._minOff,
-		mut:     true,
+		t:      l.t,
+		values: make([]*leafValue, len(l.values)+1),
+		_ts:    ts,
+		mut:    true,
 	}
 
 	for pi := 0; pi < i; pi++ {
@@ -2314,7 +2297,7 @@ func (l *leafNode) ts() uint64 {
 }
 
 func (l *leafNode) minOffset() int64 {
-	return l._minOff
+	return l.off
 }
 
 func (l *leafNode) setTs(ts uint64) (node, error) {
@@ -2328,11 +2311,10 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 	}
 
 	newLeaf := &leafNode{
-		t:       l.t,
-		values:  make([]*leafValue, len(l.values)),
-		_ts:     ts,
-		_minOff: l._minOff,
-		mut:     true,
+		t:      l.t,
+		values: make([]*leafValue, len(l.values)),
+		_ts:    ts,
+		mut:    true,
 	}
 
 	for i := 0; i < len(l.values); i++ {

@@ -347,7 +347,6 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) 
 				_, isNodeRef := c.(*nodeRef)
 
 				if isNodeRef {
-					n.nodes[i] = c
 					continue
 				}
 
@@ -456,7 +455,6 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts, buf []byte) (
 
 	if writeOpts.commitLog {
 		l.off = nOff
-		l._minOff = nOff
 
 		if l.mut {
 			l.mut = false
