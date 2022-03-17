@@ -57,7 +57,7 @@ var ErrCompactionThresholdNotReached = errors.New("compaction threshold not yet 
 var ErrIncompatibleDataFormat = errors.New("incompatible data format")
 var ErrTargetPathAlreadyExists = errors.New("target folder already exists")
 
-const Version = 2
+const Version = 3
 
 const (
 	MetaVersion     = "VERSION"
