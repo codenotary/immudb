@@ -81,6 +81,8 @@ var ErrMetadataUnsupported = errors.New(
 		"do not use metadata-related features such as expiration and logical deletion",
 )
 
+var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization method")
+
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 

@@ -119,7 +119,7 @@ func (hdr *TxHeader) Bytes() ([]byte, error) {
 		}
 	default:
 		{
-			return nil, fmt.Errorf("missing tx header serialization method for version %d", hdr.Version)
+			return nil, fmt.Errorf("%w for version %d", ErrUnsupportedTxHeaderVersion, hdr.Version)
 		}
 	}
 
