@@ -420,3 +420,35 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 
 	return options, nil
 }
+
+func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
+	// This list is manually updated to ensure we don't expose sensitive information
+	// in logs such as replication passwords
+	s.Logger.Infof("Option for %s Synced: %v", database, opts.synced)
+	s.Logger.Infof("Option for %s Replica: %v", database, opts.Replica)
+	s.Logger.Infof("Option for %s FileSize: %v", database, opts.FileSize)
+	s.Logger.Infof("Option for %s MaxKeyLen: %v", database, opts.MaxKeyLen)
+	s.Logger.Infof("Option for %s MaxValueLen: %v", database, opts.MaxValueLen)
+	s.Logger.Infof("Option for %s MaxTxEntries: %v", database, opts.MaxTxEntries)
+	s.Logger.Infof("Option for %s ExcludeCommitTime: %v", database, opts.ExcludeCommitTime)
+	s.Logger.Infof("Option for %s MaxConcurrency: %v", database, opts.MaxConcurrency)
+	s.Logger.Infof("Option for %s MaxIOConcurrency: %v", database, opts.MaxIOConcurrency)
+	s.Logger.Infof("Option for %s TxLogCacheSize: %v", database, opts.TxLogCacheSize)
+	s.Logger.Infof("Option for %s VLogMaxOpenedFiles: %v", database, opts.VLogMaxOpenedFiles)
+	s.Logger.Infof("Option for %s TxLogMaxOpenedFiles: %v", database, opts.TxLogMaxOpenedFiles)
+	s.Logger.Infof("Option for %s CommitLogMaxOpenedFiles: %v", database, opts.CommitLogMaxOpenedFiles)
+	s.Logger.Infof("Option for %s WriteTxHeaderVersion: %v", database, opts.WriteTxHeaderVersion)
+	s.Logger.Infof("Option for %s IndexOptions.FlushThreshold: %v", database, opts.IndexOptions.FlushThreshold)
+	s.Logger.Infof("Option for %s IndexOptions.SyncThreshold: %v", database, opts.IndexOptions.SyncThreshold)
+	s.Logger.Infof("Option for %s IndexOptions.FlushBufferSize: %v", database, opts.IndexOptions.FlushBufferSize)
+	s.Logger.Infof("Option for %s IndexOptions.CleanupPercentage: %v", database, opts.IndexOptions.CleanupPercentage)
+	s.Logger.Infof("Option for %s IndexOptions.CacheSize: %v", database, opts.IndexOptions.CacheSize)
+	s.Logger.Infof("Option for %s IndexOptions.MaxNodeSize: %v", database, opts.IndexOptions.MaxNodeSize)
+	s.Logger.Infof("Option for %s IndexOptions.MaxActiveSnapshots: %v", database, opts.IndexOptions.MaxActiveSnapshots)
+	s.Logger.Infof("Option for %s IndexOptions.RenewSnapRootAfter: %v", database, opts.IndexOptions.RenewSnapRootAfter)
+	s.Logger.Infof("Option for %s IndexOptions.CompactionThld: %v", database, opts.IndexOptions.CompactionThld)
+	s.Logger.Infof("Option for %s IndexOptions.DelayDuringCompaction: %v", database, opts.IndexOptions.DelayDuringCompaction)
+	s.Logger.Infof("Option for %s IndexOptions.NodesLogMaxOpenedFiles: %v", database, opts.IndexOptions.NodesLogMaxOpenedFiles)
+	s.Logger.Infof("Option for %s IndexOptions.HistoryLogMaxOpenedFiles: %v", database, opts.IndexOptions.HistoryLogMaxOpenedFiles)
+	s.Logger.Infof("Option for %s IndexOptions.CommitLogMaxOpenedFiles: %v", database, opts.IndexOptions.CommitLogMaxOpenedFiles)
+}

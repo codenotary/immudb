@@ -442,6 +442,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 
 	dbOpts := s.defaultDBOptions(s.Options.GetDefaultDBName())
 
+	s.logDBOptions(s.Options.GetDefaultDBName(), dbOpts)
+
 	if dbOpts.Replica {
 		repOpts := s.Options.ReplicationOptions
 
@@ -526,6 +528,8 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 		if err != nil {
 			return err
 		}
+
+		s.logDBOptions(dbname, dbOpts)
 
 		db, err := database.OpenDB(dbname, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
