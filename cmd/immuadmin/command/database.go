@@ -127,6 +127,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cu.Flags().Uint32("replication-master-port", 3322, "set master port")
 	cu.Flags().String("replication-follower-username", "", "set username used for replication")
 	cu.Flags().String("replication-follower-password", "", "set password used for replication")
+	cu.Flags().Bool("proof-compatibility-1.1", false, "enable proof compatibility with immudb 1.1 by disabling metadata")
 
 	ccu := &cobra.Command{
 		Use:               "use command",
@@ -212,7 +213,13 @@ func (cl *commandline) database(cmd *cobra.Command) {
 }
 
 func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettings, error) {
-	excludeCommitTime, err := flags.GetBool("exclude-commit-time")
+
+	var err error
+	ret := &schema.DatabaseSettings{
+		DatabaseName: db,
+	}
+
+	ret.ExcludeCommitTime, err = flags.GetBool("exclude-commit-time")
 	if err != nil {
 		return nil, err
 	}
@@ -222,46 +229,47 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 		return nil, err
 	}
 
-	if !replicationEnabled {
-		return &schema.DatabaseSettings{
-			DatabaseName:      db,
-			ExcludeCommitTime: excludeCommitTime,
-		}, nil
+	if replicationEnabled {
+		ret.MasterDatabase, err = flags.GetString("replication-master-database")
+		if err != nil {
+			return nil, err
+		}
+
+		ret.MasterAddress, err = flags.GetString("replication-master-address")
+		if err != nil {
+			return nil, err
+		}
+
+		ret.MasterPort, err = flags.GetUint32("replication-master-port")
+		if err != nil {
+			return nil, err
+		}
+
+		ret.FollowerUsername, err = flags.GetString("replication-follower-username")
+		if err != nil {
+			return nil, err
+		}
+
+		ret.FollowerPassword, err = flags.GetString("replication-follower-password")
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	masterDatabase, err := flags.GetString("replication-master-database")
-	if err != nil {
-		return nil, err
+	if flags.Changed("proof-compatibility-1.1") {
+
+		compat, err := flags.GetBool("proof-compatibility-1.1")
+		if err != nil {
+			return nil, err
+		}
+
+		if compat {
+			ret.WriteTxHeaderVersion = &schema.WriteTxHeaderVersion{Version: 0}
+		} else {
+			ret.WriteTxHeaderVersion = &schema.WriteTxHeaderVersion{UseDefault: true}
+		}
+
 	}
 
-	masterAddress, err := flags.GetString("replication-master-address")
-	if err != nil {
-		return nil, err
-	}
-
-	masterPort, err := flags.GetUint32("replication-master-port")
-	if err != nil {
-		return nil, err
-	}
-
-	followerUsername, err := flags.GetString("replication-follower-username")
-	if err != nil {
-		return nil, err
-	}
-
-	followerPassword, err := flags.GetString("replication-follower-password")
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema.DatabaseSettings{
-		DatabaseName:      db,
-		ExcludeCommitTime: excludeCommitTime,
-		Replica:           replicationEnabled,
-		MasterDatabase:    masterDatabase,
-		MasterAddress:     masterAddress,
-		MasterPort:        masterPort,
-		FollowerUsername:  followerUsername,
-		FollowerPassword:  followerPassword,
-	}, nil
+	return ret, nil
 }

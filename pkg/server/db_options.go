@@ -225,8 +225,8 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 			CommitLogMaxOpenedFiles:  uint32(opts.IndexOptions.CommitLogMaxOpenedFiles),
 		},
 
-		WriteTxHeaderVersion: &schema.ConditionalValue{
-			IntVal: uint32(opts.WriteTxHeaderVersion),
+		WriteTxHeaderVersion: &schema.WriteTxHeaderVersion{
+			Version: uint32(opts.WriteTxHeaderVersion),
 		},
 	}
 }
@@ -300,7 +300,14 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 	conditionalSet(settings.VLogMaxOpenedFiles > 0, func() { opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles) })
 	conditionalSet(settings.TxLogMaxOpenedFiles > 0, func() { opts.TxLogMaxOpenedFiles = int(settings.TxLogMaxOpenedFiles) })
 	conditionalSet(settings.CommitLogMaxOpenedFiles > 0, func() { opts.CommitLogMaxOpenedFiles = int(settings.CommitLogMaxOpenedFiles) })
-	conditionalSet(settings.WriteTxHeaderVersion != nil, func() { opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.GetIntVal()) })
+
+	if settings.WriteTxHeaderVersion != nil {
+		if settings.WriteTxHeaderVersion.UseDefault {
+			opts.WriteTxHeaderVersion = store.DefaultWriteTxHeaderVersion
+		} else {
+			opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.Version)
+		}
+	}
 
 	// index options
 	if settings.IndexSettings != nil {

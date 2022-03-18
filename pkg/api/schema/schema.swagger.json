@@ -1469,16 +1469,6 @@
         }
       }
     },
-    "schemaConditionalValue": {
-      "type": "object",
-      "properties": {
-        "intVal": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "title": "Wrapper around a single value that allows sending it conditionally"
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1603,7 +1593,7 @@
           "$ref": "#/definitions/schemaIndexSettings"
         },
         "writeTxHeaderVersion": {
-          "$ref": "#/definitions/schemaConditionalValue"
+          "$ref": "#/definitions/schemaWriteTxHeaderVersion"
         }
       }
     },
@@ -2616,6 +2606,19 @@
           "format": "uint64"
         }
       }
+    },
+    "schemaWriteTxHeaderVersion": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "useDefault": {
+          "type": "boolean"
+        }
+      },
+      "title": "Wrapper around a single value that allows sending it conditionally"
     },
     "schemaZAddRequest": {
       "type": "object",

@@ -372,8 +372,9 @@ message Database {
 }
 
 // Wrapper around a single value that allows sending it conditionally
-message ConditionalValue {
-	uint32 intVal = 1;
+message WriteTxHeaderVersion {
+	uint32 version = 1;
+	bool useDefault = 2;
 };
 
 message DatabaseSettings {
@@ -403,7 +404,7 @@ message DatabaseSettings {
 
 	IndexSettings indexSettings = 19;
 
-	ConditionalValue writeTxHeaderVersion = 20;
+	WriteTxHeaderVersion writeTxHeaderVersion = 20;
 }
 
 message IndexSettings {
