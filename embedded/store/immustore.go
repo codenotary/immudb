@@ -76,6 +76,11 @@ var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exc
 
 var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
 
+var ErrMetadataUnsupported = errors.New(
+	"metadata is unsupported when in 1.1 compatibility mode, " +
+		"do not use metadata-related features such as expiration and logical deletion",
+)
+
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
 
@@ -1500,7 +1505,10 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 
 	var buf bytes.Buffer
 
-	hdrBs := tx.Header().Bytes()
+	hdrBs, err := tx.Header().Bytes()
+	if err != nil {
+		return nil, err
+	}
 
 	var b [lszSize]byte
 	binary.BigEndian.PutUint32(b[:], uint32(len(hdrBs)))

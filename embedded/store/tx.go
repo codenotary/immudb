@@ -73,7 +73,7 @@ func (tx *Tx) Header() *TxHeader {
 	return tx.header
 }
 
-func (hdr *TxHeader) Bytes() []byte {
+func (hdr *TxHeader) Bytes() ([]byte, error) {
 	// ID + PrevAlh + Ts + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
 	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + lszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
@@ -93,6 +93,10 @@ func (hdr *TxHeader) Bytes() []byte {
 	switch hdr.Version {
 	case 0:
 		{
+			if hdr.Metadata != nil && len(hdr.Metadata.Bytes()) > 0 {
+				return nil, ErrMetadataUnsupported
+			}
+
 			binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
 			i += sszSize
 		}
@@ -115,7 +119,7 @@ func (hdr *TxHeader) Bytes() []byte {
 		}
 	default:
 		{
-			panic(fmt.Errorf("missing tx header serialization method for version %d", hdr.Version))
+			return nil, fmt.Errorf("missing tx header serialization method for version %d", hdr.Version)
 		}
 	}
 
@@ -129,7 +133,7 @@ func (hdr *TxHeader) Bytes() []byte {
 	copy(b[i:], hdr.BlRoot[:])
 	i += sha256.Size
 
-	return b[:i]
+	return b[:i], nil
 }
 
 func (hdr *TxHeader) ReadFrom(b []byte) error {
@@ -295,7 +299,10 @@ func (tx *Tx) BuildHashTree() error {
 	}
 
 	for i, e := range tx.Entries() {
-		digests[i] = txEntryDigest(e)
+		digests[i], err = txEntryDigest(e)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = tx.htree.BuildWith(digests)
@@ -565,18 +572,22 @@ func (e *TxEntry) VLen() int {
 	return e.vLen
 }
 
-type TxEntryDigest func(e *TxEntry) [sha256.Size]byte
+type TxEntryDigest func(e *TxEntry) ([sha256.Size]byte, error)
 
-func TxEntryDigest_v1_1(e *TxEntry) [sha256.Size]byte {
+func TxEntryDigest_v1_1(e *TxEntry) ([sha256.Size]byte, error) {
+	if e.md != nil && len(e.md.Bytes()) > 0 {
+		return [sha256.Size]byte{}, ErrMetadataUnsupported
+	}
+
 	b := make([]byte, e.kLen+sha256.Size)
 
 	copy(b[:], e.k[:e.kLen])
 	copy(b[e.kLen:], e.hVal[:])
 
-	return sha256.Sum256(b)
+	return sha256.Sum256(b), nil
 }
 
-func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
+func TxEntryDigest_v1_2(e *TxEntry) ([sha256.Size]byte, error) {
 	var mdbs []byte
 
 	if e.md != nil {
@@ -603,5 +614,5 @@ func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
 	copy(b[i:], e.hVal[:])
 	i += sha256.Size
 
-	return sha256.Sum256(b[:i])
+	return sha256.Sum256(b[:i]), nil
 }
