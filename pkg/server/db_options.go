@@ -55,6 +55,7 @@ type dbOptions struct {
 	VLogMaxOpenedFiles      int `json:"vLogMaxOpenedFiles"`
 	TxLogMaxOpenedFiles     int `json:"txLogMaxOpenedFiles"`
 	CommitLogMaxOpenedFiles int `json:"commitLogMaxOpenedFiles"`
+	WriteTxHeaderVersion    int `json:"writeTxHeaderVersion"`
 
 	IndexOptions *indexOptions `json:"indexOptions"`
 
@@ -104,6 +105,7 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 		VLogMaxOpenedFiles:      store.DefaultVLogMaxOpenedFiles,
 		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles: store.DefaultCommitLogMaxOpenedFiles,
+		WriteTxHeaderVersion:    store.DefaultWriteTxHeaderVersion,
 
 		IndexOptions: s.defaultIndexOptions(),
 
@@ -222,6 +224,10 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
 			HistoryLogMaxOpenedFiles: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles),
 			CommitLogMaxOpenedFiles:  uint32(opts.IndexOptions.CommitLogMaxOpenedFiles),
 		},
+
+		WriteTxHeaderVersion: &schema.ConditionalValue{
+			IntVal: uint32(opts.WriteTxHeaderVersion),
+		},
 	}
 }
 
@@ -294,6 +300,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 	conditionalSet(settings.VLogMaxOpenedFiles > 0, func() { opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles) })
 	conditionalSet(settings.TxLogMaxOpenedFiles > 0, func() { opts.TxLogMaxOpenedFiles = int(settings.TxLogMaxOpenedFiles) })
 	conditionalSet(settings.CommitLogMaxOpenedFiles > 0, func() { opts.CommitLogMaxOpenedFiles = int(settings.CommitLogMaxOpenedFiles) })
+	conditionalSet(settings.WriteTxHeaderVersion != nil, func() { opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.GetIntVal()) })
 
 	// index options
 	if settings.IndexSettings != nil {
@@ -341,6 +348,26 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 			opts.IndexOptions.CommitLogMaxOpenedFiles = int(settings.IndexSettings.CommitLogMaxOpenedFiles)
 		})
 	}
+
+	err := opts.Validate()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (opts *dbOptions) Validate() error {
+	if !opts.Replica &&
+		(opts.MasterDatabase != "" ||
+			opts.MasterAddress != "" ||
+			opts.MasterPort > 0 ||
+			opts.FollowerUsername != "" ||
+			opts.FollowerPassword != "") {
+		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
+	}
+
+	// TODO: Check store options if are valid
 
 	return nil
 }

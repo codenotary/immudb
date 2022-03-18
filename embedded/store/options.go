@@ -40,6 +40,7 @@ const DefaultMaxWaitees = 1000
 const DefaultVLogMaxOpenedFiles = 10
 const DefaultTxLogMaxOpenedFiles = 10
 const DefaultCommitLogMaxOpenedFiles = 10
+const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -126,7 +127,7 @@ func DefaultOptions() *Options {
 			return time.Now()
 		},
 
-		WriteTxHeaderVersion: MaxTxHeaderVersion,
+		WriteTxHeaderVersion: DefaultWriteTxHeaderVersion,
 
 		// options below are only set during initialization and stored as metadata
 		MaxTxEntries:      DefaultMaxTxEntries,

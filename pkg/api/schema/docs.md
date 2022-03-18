@@ -12,6 +12,7 @@
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
+    - [ConditionalValue](#immudb.schema.ConditionalValue)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
@@ -243,6 +244,21 @@
 
 
 
+<a name="immudb.schema.ConditionalValue"></a>
+
+### ConditionalValue
+Wrapper around a single value that allows sending it conditionally
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| intVal | [uint32](#uint32) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.CreateUserRequest"></a>
 
 ### CreateUserRequest
@@ -334,6 +350,7 @@
 | txLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
 | indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
+| writeTxHeaderVersion | [ConditionalValue](#immudb.schema.ConditionalValue) |  |  |
 
 
 

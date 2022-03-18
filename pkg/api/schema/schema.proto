@@ -371,6 +371,11 @@ message Database {
 	string databaseName = 1;
 }
 
+// Wrapper around a single value that allows sending it conditionally
+message ConditionalValue {
+	uint32 intVal = 1;
+};
+
 message DatabaseSettings {
 	string databaseName = 1;
 
@@ -397,6 +402,8 @@ message DatabaseSettings {
 	uint32 commitLogMaxOpenedFiles = 18;
 
 	IndexSettings indexSettings = 19;
+
+	ConditionalValue writeTxHeaderVersion = 20;
 }
 
 message IndexSettings {
