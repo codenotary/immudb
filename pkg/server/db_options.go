@@ -162,6 +162,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithMaxKeyLen(opts.MaxKeyLen).
 		WithMaxValueLen(opts.MaxValueLen).
 		WithMaxTxEntries(opts.MaxTxEntries).
+		WithWriteTxHeaderVersion(opts.WriteTxHeaderVersion).
 		WithMaxConcurrency(opts.MaxConcurrency).
 		WithMaxIOConcurrency(opts.MaxIOConcurrency).
 		WithTxLogCacheSize(opts.TxLogCacheSize).

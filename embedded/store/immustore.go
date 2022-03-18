@@ -88,7 +88,7 @@ const sszSize = 2
 const offsetSize = 8
 
 const Version = 1
-const TxHeaderVersion = 1
+const MaxTxHeaderVersion = 1
 
 const (
 	metaVersion      = "VERSION"
@@ -132,6 +132,8 @@ type ImmuStore struct {
 	maxLinearProofLen int
 
 	maxTxSize int
+
+	writeTxHeaderVersion int
 
 	timeFunc TimeFunc
 
@@ -399,6 +401,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		maxLinearProofLen: opts.MaxLinearProofLen,
 
 		maxTxSize: maxTxSize,
+
+		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
 		timeFunc: opts.TimeFunc,
 
@@ -895,7 +899,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
-		version = TxHeaderVersion
+		version = s.writeTxHeaderVersion
 	} else {
 		ts = expectedHeader.Ts
 		blTxID = expectedHeader.BlTxID
@@ -1264,7 +1268,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.header.Version = TxHeaderVersion
+	tx.header.Version = s.writeTxHeaderVersion
 	tx.header.NEntries = len(entries)
 
 	for i, e := range entries {

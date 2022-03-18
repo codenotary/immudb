@@ -69,6 +69,7 @@ type Options struct {
 	VLogMaxOpenedFiles      int
 	TxLogMaxOpenedFiles     int
 	CommitLogMaxOpenedFiles int
+	WriteTxHeaderVersion    int
 
 	MaxWaitees int
 
@@ -125,6 +126,8 @@ func DefaultOptions() *Options {
 			return time.Now()
 		},
 
+		WriteTxHeaderVersion: MaxTxHeaderVersion,
+
 		// options below are only set during initialization and stored as metadata
 		MaxTxEntries:      DefaultMaxTxEntries,
 		MaxKeyLen:         DefaultMaxKeyLen,
@@ -171,6 +174,9 @@ func validOptions(opts *Options) bool {
 		opts.MaxWaitees >= 0 &&
 
 		opts.TimeFunc != nil &&
+
+		opts.WriteTxHeaderVersion >= 0 &&
+		opts.WriteTxHeaderVersion <= MaxTxHeaderVersion &&
 
 		// options below are only set during initialization and stored as metadata
 		opts.MaxTxEntries > 0 &&
@@ -289,6 +295,11 @@ func (opts *Options) WithMaxWaitees(maxWaitees int) *Options {
 
 func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 	opts.TimeFunc = timeFunc
+	return opts
+}
+
+func (opts *Options) WithWriteTxHeaderVersion(version int) *Options {
+	opts.WriteTxHeaderVersion = version
 	return opts
 }
 
