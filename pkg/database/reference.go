@@ -38,10 +38,6 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, store.ErrIllegalArguments
 	}
 
-	if req.Constraints != nil {
-		return nil, fmt.Errorf("constraints for references are not supported")
-	}
-
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -81,9 +77,15 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	}
 	defer tx.Cancel()
 
-	e := EncodeReference(req.Key, nil, req.ReferencedKey, req.AtTx)
+	e := EncodeReference(
+		req.Key,
+		nil,
+		req.ReferencedKey,
+		req.AtTx,
+		schema.KVConstraintsFromProto(req.Constraints),
+	)
 
-	err = tx.Set(e.Key, e.Metadata, e.Value)
+	err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, e.Constraints)
 	if err != nil {
 		return nil, err
 	}

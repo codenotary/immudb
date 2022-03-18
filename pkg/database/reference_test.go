@@ -88,7 +88,7 @@ func TestStoreReference(t *testing.T) {
 	var eh [sha256.Size]byte
 	copy(eh[:], vitem.VerifiableTx.Tx.Header.EH)
 
-	entrySpec := EncodeReference([]byte(`myTag`), nil, []byte(`firstKey`), 0)
+	entrySpec := EncodeReference([]byte(`myTag`), nil, []byte(`firstKey`), 0, nil)
 
 	entrySpecDigest, err := store.EntrySpecDigestFor(int(txhdr.Version))
 	require.NoError(t, err)
@@ -384,4 +384,29 @@ func TestStoreVerifiableReference(t *testing.T) {
 	firstItemRet, err := db.Get(keyReq)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
+}
+
+func TestStoreReferenceWithConstraints(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+		Key:   []byte("key"),
+		Value: []byte("value"),
+	}}})
+	require.NoError(t, err)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Constraints: &schema.KVConstraints{
+			MustExist: true,
+		},
+	})
+	require.ErrorIs(t, err, store.ErrConstraintFailed)
+
+	_, err = db.Get(&schema.KeyRequest{
+		Key: []byte("reference"),
+	})
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
 }

@@ -137,9 +137,9 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 				// reference arguments are converted in regular key value items and then atomically inserted
 				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
-					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, txID)
+					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, txID, nil)
 				} else {
-					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, x.Ref.AtTx)
+					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, x.Ref.AtTx, nil)
 				}
 
 			case *schema.Op_ZAdd:
