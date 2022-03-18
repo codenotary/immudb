@@ -73,10 +73,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 			case *schema.Op_Kv:
 
-				if x.Kv.Constraints != nil {
-					return nil, fmt.Errorf("KV Constraints are not allowed in ExecAll")
-				}
-
 				kmap[sha256.Sum256(x.Kv.Key)] = true
 
 				if len(x.Kv.Key) == 0 {
@@ -87,7 +83,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					x.Kv.Key,
 					schema.KVMetadataFromProto(x.Kv.Metadata),
 					x.Kv.Value,
-					nil, // TODO: Constraints
+					schema.KVConstraintsFromProto(x.Kv.Constraints),
 				)
 
 			case *schema.Op_Ref:
@@ -137,9 +133,21 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 				// reference arguments are converted in regular key value items and then atomically inserted
 				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
-					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, txID, nil)
+					e = EncodeReference(
+						x.Ref.Key,
+						nil,
+						x.Ref.ReferencedKey,
+						txID,
+						schema.KVConstraintsFromProto(x.Ref.Constraints),
+					)
 				} else {
-					e = EncodeReference(x.Ref.Key, nil, x.Ref.ReferencedKey, x.Ref.AtTx, nil)
+					e = EncodeReference(
+						x.Ref.Key,
+						nil,
+						x.Ref.ReferencedKey,
+						x.Ref.AtTx,
+						schema.KVConstraintsFromProto(x.Ref.Constraints),
+					)
 				}
 
 			case *schema.Op_ZAdd:

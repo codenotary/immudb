@@ -885,8 +885,17 @@ func (s *ImmuStore) NewTx() (*OngoingTx, error) {
 	return newReadWriteTx(s)
 }
 
-func (s *ImmuStore) checkKVConstraints(tx *OngoingTx, snap *tbtree.Snapshot) error {
-	for _, e := range tx.entries {
+func hasConstrainedKVEntries(entries []*EntrySpec) bool {
+	for _, e := range entries {
+		if e.Constraints != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func checkKVConstraints(entries []*EntrySpec, snap *tbtree.Snapshot) error {
+	for _, e := range entries {
 		if e.Constraints != nil {
 			err := e.Constraints.check(e.Key, snap)
 			if err != nil {
@@ -914,13 +923,13 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	// A corner case is if the DB fails to meet constraints now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	if otx.HasConstrainedKVEntries() {
+	if hasConstrainedKVEntries(otx.entries) {
 		snap, err := s.indexer.SnapshotSince(s.indexer.Ts())
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.checkKVConstraints(otx, snap)
+		err = checkKVConstraints(otx.entries, snap)
 		snap.Close()
 		if err != nil {
 			return nil, err
@@ -1039,7 +1048,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrTxReadConflict
 	}
 
-	if otx.HasConstrainedKVEntries() {
+	if hasConstrainedKVEntries(otx.entries) {
 		// Constraints must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(tx.header.ID, nil)
 		if err != nil {
@@ -1054,7 +1063,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 
 		defer upToDateSnap.Close()
 
-		err = s.checkKVConstraints(otx, upToDateSnap)
+		err = checkKVConstraints(otx.entries, upToDateSnap)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1329,12 +1338,32 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
+	// first check is performed on the snapshot taken when opening the transaction,
+	// this will prevent acquiring the write lock and putting garbage into
+	// appendables if we can already determine that constraints are not met.
+	//
+	// A corner case is if the DB fails to meet constraints now but would fulfill
+	// those during final commit phase - but in such case, we are allowed to reason
+	// about the DB state in any point in time between both snapshots are checked.
+	if hasConstrainedKVEntries(entries) {
+		snap, err := s.indexer.SnapshotSince(s.indexer.Ts())
+		if err != nil {
+			return nil, err
+		}
+
+		err = checkKVConstraints(entries, snap)
+		snap.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	appendableCh := make(chan appendableResult)
 	go s.appendData(entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		<-appendableCh // wait for data to be writen
+		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
@@ -1352,14 +1381,37 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 
 	err = tx.BuildHashTree()
 	if err != nil {
-		<-appendableCh // wait for data to be writen
+		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 
-	r := <-appendableCh // wait for data to be writen
+	r := <-appendableCh // wait for data to be written
 	err = r.err
 	if err != nil {
 		return nil, err
+	}
+
+	if hasConstrainedKVEntries(entries) {
+		s.indexer.Resume()
+		// Constraints must be executed with up-to-date tree
+		err = s.WaitForIndexingUpto(tx.header.ID, nil)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
+
+		upToDateSnap, err := s.indexer.SnapshotSince(tx.header.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		defer upToDateSnap.Close()
+
+		err = checkKVConstraints(entries, upToDateSnap)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
 	}
 
 	for i := 0; i < tx.header.NEntries; i++ {

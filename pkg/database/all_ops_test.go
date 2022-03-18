@@ -1189,6 +1189,90 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	require.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
 }
 
+func TestOps_Constrains(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Kv{
+			Kv: &schema.KeyValue{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+				Constraints: &schema.KVConstraints{
+					MustExist: true,
+				},
+			},
+		},
+	}}})
+	require.ErrorIs(t, err, store.ErrConstraintFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Kv{
+			Kv: &schema.KeyValue{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+				Constraints: &schema.KVConstraints{
+					MustNotExist: true,
+				},
+			},
+		},
+	}}})
+	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Kv{
+			Kv: &schema.KeyValue{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+				Constraints: &schema.KVConstraints{
+					MustNotExist: true,
+				},
+			},
+		},
+	}}})
+	require.ErrorIs(t, err, store.ErrConstraintFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Kv{
+			Kv: &schema.KeyValue{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+				Constraints: &schema.KVConstraints{
+					MustExist: true,
+				},
+			},
+		},
+	}}})
+	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Ref{
+			Ref: &schema.ReferenceRequest{
+				Key:           []byte("reference"),
+				ReferencedKey: []byte("key"),
+				Constraints: &schema.KVConstraints{
+					MustExist: true,
+				},
+			},
+		},
+	}}})
+	require.ErrorIs(t, err, store.ErrConstraintFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
+		Operation: &schema.Op_Ref{
+			Ref: &schema.ReferenceRequest{
+				Key:           []byte("reference"),
+				ReferencedKey: []byte("key"),
+				Constraints: &schema.KVConstraints{
+					MustNotExist: true,
+				},
+			},
+		},
+	}}})
+	require.NoError(t, err)
+
+}
+
 /*
 func TestOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 	st, closer := makeStore()
