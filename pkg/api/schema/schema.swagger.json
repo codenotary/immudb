@@ -1118,10 +1118,43 @@
             "format": "uint64"
           },
           {
-            "name": "includeValues",
+            "name": "entriesSpec.kvEntriesSpec.action",
             "in": "query",
             "required": false,
-            "type": "boolean"
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "entriesSpec.zEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "entriesSpec.sqlEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
           }
         ],
         "tags": [
@@ -2689,8 +2722,8 @@
         "desc": {
           "type": "boolean"
         },
-        "includeValues": {
-          "type": "boolean"
+        "entriesSpec": {
+          "$ref": "#/definitions/schemaEntriesSpec"
         }
       }
     },

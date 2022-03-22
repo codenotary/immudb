@@ -1468,7 +1468,7 @@ Reserved to reply with more advanced response later
 | initialTx | [uint64](#uint64) |  |  |
 | limit | [uint32](#uint32) |  |  |
 | desc | [bool](#bool) |  |  |
-| includeValues | [bool](#bool) |  |  |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 
 
 
@@ -1751,7 +1751,7 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
-| includeValues | [bool](#bool) |  |  |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 
 
 
