@@ -993,6 +993,17 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	return t, err
 }
 
+func (c *immuClient) TxByIDWithSpec(ctx context.Context, tx uint64, spec *schema.EntriesSpec) (*schema.Tx, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.TxById(ctx, &schema.TxRequest{
+		Tx:          tx,
+		EntriesSpec: spec,
+	})
+}
+
 // VerifiedTxByID returns a verified tx
 func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
 	err := c.StateService.CacheLock()
