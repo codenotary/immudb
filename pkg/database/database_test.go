@@ -17,6 +17,7 @@ package database
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -510,30 +511,58 @@ func TestTxByID(t *testing.T) {
 	_, err := db.TxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
-	var txhdr *schema.TxHeader
-
-	for ind, val := range kvs {
-		txhdr, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
-		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), txhdr.Id)
-	}
-
-	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
-		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, IncludeValues: true})
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Len(t, tx.Entries, 1)
-
-		hval := sha256.Sum256(tx.Entries[0].Value)
-		require.Equal(t, tx.Entries[0].HValue, hval[:])
+	txhdr, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{Key: []byte("key0"), Value: []byte("value0")},
+			{Key: []byte("key1"), Value: []byte("value1")},
+			{Key: []byte("key2"), Value: []byte("value2")},
+		},
 	})
+	require.NoError(t, err)
 
-	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+	t.Run("values are not resolved", func(t *testing.T) {
 		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id})
 		require.NoError(t, err)
 		require.NotNil(t, tx)
-		require.Len(t, tx.Entries, 1)
-		require.Len(t, tx.Entries[0].Value, 0)
+		require.Len(t, tx.Entries, 3)
+		require.Len(t, tx.KvEntries, 0)
+		require.Len(t, tx.ZEntries, 0)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+	})
+
+	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 3)
+		require.Len(t, tx.KvEntries, 0)
+		require.Len(t, tx.ZEntries, 0)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+	})
+
+	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 0)
+		require.Len(t, tx.KvEntries, 3)
+		require.Len(t, tx.ZEntries, 0)
+
+		for i, e := range tx.KvEntries {
+			require.Equal(t, []byte(fmt.Sprintf("key%d", i)), e.Key)
+			require.Equal(t, []byte(fmt.Sprintf("value%d", i)), e.Value)
+		}
 	})
 }
 
