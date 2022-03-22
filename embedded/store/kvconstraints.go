@@ -23,8 +23,8 @@ func (cs *KVConstraints) validate() error {
 	return nil
 }
 
-func (cs *KVConstraints) check(key []byte, snap *tbtree.Snapshot) error {
-	_, tx, _, err := snap.Get(key)
+func (cs *KVConstraints) check(key []byte, idx *indexer) error {
+	_, tx, _, err := idx.Get(key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return fmt.Errorf("couldn't check KV constraint: %w", err)
 	}

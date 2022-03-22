@@ -894,10 +894,10 @@ func hasConstrainedKVEntries(entries []*EntrySpec) bool {
 	return false
 }
 
-func checkKVConstraints(entries []*EntrySpec, snap *tbtree.Snapshot) error {
+func (s *ImmuStore) checkKVConstraints(entries []*EntrySpec) error {
 	for _, e := range entries {
 		if e.Constraints != nil {
-			err := e.Constraints.check(e.Key, snap)
+			err := e.Constraints.check(e.Key, s.indexer)
 			if err != nil {
 				return err
 			}
@@ -923,17 +923,9 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	// A corner case is if the DB fails to meet constraints now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	if hasConstrainedKVEntries(otx.entries) {
-		snap, err := s.indexer.SnapshotSince(s.indexer.Ts())
-		if err != nil {
-			return nil, err
-		}
-
-		err = checkKVConstraints(otx.entries, snap)
-		snap.Close()
-		if err != nil {
-			return nil, err
-		}
+	err = s.checkKVConstraints(otx.entries)
+	if err != nil {
+		return nil, err
 	}
 
 	// early check to reduce amount of garbage when tx is not finally committed
@@ -1056,14 +1048,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 			return nil, err
 		}
 
-		upToDateSnap, err := s.indexer.SnapshotSince(tx.header.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		defer upToDateSnap.Close()
-
-		err = checkKVConstraints(otx.entries, upToDateSnap)
+		err = s.checkKVConstraints(otx.entries)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1345,17 +1330,9 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	// A corner case is if the DB fails to meet constraints now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	if hasConstrainedKVEntries(entries) {
-		snap, err := s.indexer.SnapshotSince(s.indexer.Ts())
-		if err != nil {
-			return nil, err
-		}
-
-		err = checkKVConstraints(entries, snap)
-		snap.Close()
-		if err != nil {
-			return nil, err
-		}
+	err = s.checkKVConstraints(entries)
+	if err != nil {
+		return nil, err
 	}
 
 	appendableCh := make(chan appendableResult)
@@ -1400,14 +1377,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 			return nil, err
 		}
 
-		upToDateSnap, err := s.indexer.SnapshotSince(tx.header.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		defer upToDateSnap.Close()
-
-		err = checkKVConstraints(entries, upToDateSnap)
+		err = s.checkKVConstraints(entries)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
