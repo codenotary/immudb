@@ -533,7 +533,7 @@ func TestTxByID(t *testing.T) {
 		}
 	})
 
-	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+	t.Run("raw values should be returned but entries not fully resolved", func(t *testing.T) {
 		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
 		}})
@@ -549,7 +549,7 @@ func TestTxByID(t *testing.T) {
 		}
 	})
 
-	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+	t.Run("kv enttries should be resolved", func(t *testing.T) {
 		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
 		}})
@@ -580,11 +580,15 @@ func TestVerifiableTxByID(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+	t.Run("values should be returned", func(t *testing.T) {
 		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
-			Tx:            txhdr.Id,
-			ProveSinceTx:  0,
-			IncludeValues: true,
+			Tx:           txhdr.Id,
+			ProveSinceTx: 0,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{
+					Action: schema.EntryTypeAction_RAW_VALUE,
+				},
+			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, vtx)
@@ -594,7 +598,7 @@ func TestVerifiableTxByID(t *testing.T) {
 		require.Equal(t, vtx.Tx.Entries[0].HValue, hval[:])
 	})
 
-	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+	t.Run("values should not be returned", func(t *testing.T) {
 		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
 			Tx:           txhdr.Id,
 			ProveSinceTx: 0,
@@ -629,10 +633,14 @@ func TestTxScan(t *testing.T) {
 	})
 	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
 
-	t.Run("values should be resolved when IncludesValues is true", func(t *testing.T) {
+	t.Run("values should be returned", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
-			InitialTx:     1,
-			IncludeValues: true,
+			InitialTx: 1,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{
+					Action: schema.EntryTypeAction_RAW_VALUE,
+				},
+			},
 		})
 		require.NoError(t, err)
 		require.Len(t, txList.Txs, len(kvs)+1)
@@ -645,7 +653,7 @@ func TestTxScan(t *testing.T) {
 		}
 	})
 
-	t.Run("values are not resolved when IncludesValues is false", func(t *testing.T) {
+	t.Run("values should not be returned", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
 			InitialTx: 1,
 		})

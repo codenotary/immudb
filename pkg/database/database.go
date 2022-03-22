@@ -790,7 +790,11 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, err
 	}
 
-	if req.EntriesSpec == nil {
+	return d.serializeTx(tx, req.EntriesSpec)
+}
+
+func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, error) {
+	if spec == nil {
 		return schema.TxToProto(tx), nil
 	}
 
@@ -802,14 +806,12 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		switch e.Key()[0] {
 		case SetKeyPrefix:
 			{
-				spec := req.EntriesSpec.KvEntriesSpec
-
-				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+				if spec.KvEntriesSpec == nil || spec.KvEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
 					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
-				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.KvEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
@@ -818,7 +820,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 					return nil, err
 				}
 
-				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+				if spec.KvEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					kve := schema.TxEntryToProto(e)
 					kve.Value = v
 					stx.Entries = append(stx.Entries, kve)
@@ -835,18 +837,16 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 			}
 		case SortedSetKeyPrefix:
 			{
-				spec := req.EntriesSpec.ZEntriesSpec
-
-				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+				if spec.ZEntriesSpec == nil || spec.ZEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
 					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
-				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
-				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
 					if err != nil {
 						return nil, err
@@ -896,18 +896,16 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 			}
 		case SQLPrefix:
 			{
-				spec := req.EntriesSpec.SqlEntriesSpec
-
-				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+				if spec.SqlEntriesSpec == nil || spec.SqlEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
 					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
-				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
-				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
 					if err != nil {
 						return nil, err
@@ -998,16 +996,9 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, err
 	}
 
-	sReqTx := schema.TxToProto(reqTx)
-
-	if req.IncludeValues {
-		for i, e := range reqTx.Entries() {
-			v, err := d.st.ReadValue(e)
-			if err != nil {
-				return nil, err
-			}
-			sReqTx.Entries[i].Value = v
-		}
+	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec)
+	if err != nil {
+		return nil, err
 	}
 
 	return &schema.VerifiableTx{
@@ -1048,16 +1039,9 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			return nil, err
 		}
 
-		sTx := schema.TxToProto(tx)
-
-		if req.IncludeValues {
-			for i, e := range tx.Entries() {
-				v, err := d.st.ReadValue(e)
-				if err != nil {
-					return nil, err
-				}
-				sTx.Entries[i].Value = v
-			}
+		sTx, err := d.serializeTx(tx, req.EntriesSpec)
+		if err != nil {
+			return nil, err
 		}
 
 		txList.Txs = append(txList.Txs, sTx)

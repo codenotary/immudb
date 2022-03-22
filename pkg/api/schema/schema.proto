@@ -376,14 +376,14 @@ enum EntryTypeAction {
 message VerifiableTxRequest {
 	uint64 tx = 1;
 	uint64 proveSinceTx = 2;
-	bool   includeValues = 3;
+	EntriesSpec entriesSpec = 3;
 }
 
 message TxScanRequest {
 	uint64 initialTx = 1;
 	uint32 limit = 2;
     bool   desc = 3;
-	bool   includeValues = 4;
+	EntriesSpec entriesSpec = 4;
 }
 
 message TxList {
