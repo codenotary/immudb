@@ -818,10 +818,43 @@
             "format": "uint64"
           },
           {
-            "name": "includeValues",
+            "name": "entriesSpec.kvEntriesSpec.action",
             "in": "query",
             "required": false,
-            "type": "boolean"
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "entriesSpec.zEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "entriesSpec.sqlEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE",
+              "EXCLUDE"
+            ],
+            "default": "ONLY_DIGEST"
           }
         ],
         "tags": [
@@ -1848,6 +1881,20 @@
         }
       }
     },
+    "schemaEntriesSpec": {
+      "type": "object",
+      "properties": {
+        "kvEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        },
+        "zEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        },
+        "sqlEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        }
+      }
+    },
     "schemaEntry": {
       "type": "object",
       "properties": {
@@ -1880,6 +1927,24 @@
         "count": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "schemaEntryTypeAction": {
+      "type": "string",
+      "enum": [
+        "ONLY_DIGEST",
+        "RAW_VALUE",
+        "RESOLVE",
+        "EXCLUDE"
+      ],
+      "default": "ONLY_DIGEST"
+    },
+    "schemaEntryTypeSpec": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/schemaEntryTypeAction"
         }
       }
     },
@@ -2507,6 +2572,18 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaTxEntry"
+          }
+        },
+        "kvEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaEntry"
+          }
+        },
+        "zEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZEntry"
           }
         }
       }

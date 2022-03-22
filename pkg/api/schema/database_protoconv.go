@@ -27,19 +27,23 @@ func TxToProto(tx *store.Tx) *Tx {
 	entries := make([]*TxEntry, len(tx.Entries()))
 
 	for i, e := range tx.Entries() {
-		hValue := e.HVal()
-
-		entries[i] = &TxEntry{
-			Key:      e.Key(),
-			Metadata: KVMetadataToProto(e.Metadata()),
-			HValue:   hValue[:],
-			VLen:     int32(e.VLen()),
-		}
+		entries[i] = TxEntryToProto(e)
 	}
 
 	return &Tx{
 		Header:  TxHeaderToProto(tx.Header()),
 		Entries: entries,
+	}
+}
+
+func TxEntryToProto(e *store.TxEntry) *TxEntry {
+	hValue := e.HVal()
+
+	return &TxEntry{
+		Key:      e.Key(),
+		Metadata: KVMetadataToProto(e.Metadata()),
+		HValue:   hValue[:],
+		VLen:     int32(e.VLen()),
 	}
 }
 

@@ -28,8 +28,10 @@
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
     - [Entries](#immudb.schema.Entries)
+    - [EntriesSpec](#immudb.schema.EntriesSpec)
     - [Entry](#immudb.schema.Entry)
     - [EntryCount](#immudb.schema.EntryCount)
+    - [EntryTypeSpec](#immudb.schema.EntryTypeSpec)
     - [ErrorInfo](#immudb.schema.ErrorInfo)
     - [ExecAllRequest](#immudb.schema.ExecAllRequest)
     - [Expiration](#immudb.schema.Expiration)
@@ -105,6 +107,7 @@
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
   
+    - [EntryTypeAction](#immudb.schema.EntryTypeAction)
     - [PermissionAction](#immudb.schema.PermissionAction)
     - [TxMode](#immudb.schema.TxMode)
   
@@ -529,6 +532,23 @@ Reserved to reply with more advanced response later
 
 
 
+<a name="immudb.schema.EntriesSpec"></a>
+
+### EntriesSpec
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| kvEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
+| zEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
+| sqlEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Entry"></a>
 
 ### Entry
@@ -558,6 +578,21 @@ Reserved to reply with more advanced response later
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | count | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.EntryTypeSpec"></a>
+
+### EntryTypeSpec
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| action | [EntryTypeAction](#immudb.schema.EntryTypeAction) |  |  |
 
 
 
@@ -1331,6 +1366,8 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | header | [TxHeader](#immudb.schema.TxHeader) |  |  |
 | entries | [TxEntry](#immudb.schema.TxEntry) | repeated |  |
+| kvEntries | [Entry](#immudb.schema.Entry) | repeated |  |
+| zEntries | [ZEntry](#immudb.schema.ZEntry) | repeated |  |
 
 
 
@@ -1413,7 +1450,7 @@ Reserved to reply with more advanced response later
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
-| includeValues | [bool](#bool) |  |  |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 
 
 
@@ -1816,6 +1853,20 @@ Reserved to reply with more advanced response later
 
 
  
+
+
+<a name="immudb.schema.EntryTypeAction"></a>
+
+### EntryTypeAction
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| ONLY_DIGEST | 0 |  |
+| RAW_VALUE | 1 |  |
+| RESOLVE | 2 |  |
+| EXCLUDE | 3 |  |
+
 
 
 <a name="immudb.schema.PermissionAction"></a>

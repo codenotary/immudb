@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -434,6 +435,10 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 		}
 	}
 
+	return d.resolveValue(key, val, resolved, txID, md, index, tx)
+}
+
+func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata, index store.KeyIndex, tx *store.Tx) (*schema.Entry, error) {
 	if len(val) < 1 {
 		return nil, fmt.Errorf(
 			"%w: internal value consistency error - missing value prefix",
@@ -477,7 +482,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 		Key:      TrimPrefix(key),
 		Metadata: schema.KVMetadataToProto(md),
 		Value:    TrimPrefix(val),
-	}, err
+	}, nil
 }
 
 func (d *db) readMetadataAndValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata, []byte, error) {
@@ -785,15 +790,137 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, err
 	}
 
-	stx := schema.TxToProto(tx)
+	if req.EntriesSpec == nil {
+		return schema.TxToProto(tx), nil
+	}
 
-	if req.IncludeValues {
-		for i, e := range tx.Entries() {
-			v, err := d.st.ReadValue(e)
-			if err != nil {
-				return nil, err
+	stx := &schema.Tx{
+		Header: schema.TxHeaderToProto(tx.Header()),
+	}
+
+	for _, e := range tx.Entries() {
+		switch e.Key()[0] {
+		case SetKeyPrefix:
+			{
+				spec := req.EntriesSpec.KvEntriesSpec
+
+				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+					break
+				}
+
+				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+					break
+				}
+
+				v, err := d.st.ReadValue(e)
+				if err != nil {
+					return nil, err
+				}
+
+				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+					kve := schema.TxEntryToProto(e)
+					kve.Value = v
+					stx.Entries = append(stx.Entries, kve)
+					break
+				}
+
+				// resolve entry
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), d.st, d.st.NewTxHolder())
+				if err != nil {
+					return nil, err
+				}
+
+				stx.KvEntries = append(stx.KvEntries, kve)
 			}
-			stx.Entries[i].Value = v
+		case SortedSetKeyPrefix:
+			{
+				spec := req.EntriesSpec.ZEntriesSpec
+
+				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+					break
+				}
+
+				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+					break
+				}
+
+				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+					v, err := d.st.ReadValue(e)
+					if err != nil {
+						return nil, err
+					}
+
+					kve := schema.TxEntryToProto(e)
+					kve.Value = v
+					stx.Entries = append(stx.Entries, kve)
+					break
+				}
+
+				// zKey = [1+setLenLen+set+scoreLen+keyLenLen+1+key+txIDLen]
+				zKey := e.Key()
+
+				setLen := int(binary.BigEndian.Uint64(zKey[1:]))
+				set := make([]byte, setLen)
+				copy(set, zKey[1+setLenLen:])
+
+				scoreOff := 1 + setLenLen + setLen
+				scoreB := binary.BigEndian.Uint64(zKey[scoreOff:])
+				score := math.Float64frombits(scoreB)
+
+				keyOff := scoreOff + scoreLen + keyLenLen
+				key := make([]byte, len(zKey)-keyOff-txIDLen)
+				copy(key, zKey[keyOff:])
+
+				atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
+
+				e, err := d.getAt(key, atTx, 1, d.st, tx)
+				if err == store.ErrKeyNotFound {
+					// ignore deleted ones (referenced key may have been deleted)
+					continue
+				}
+				if err != nil {
+					return nil, err
+				}
+
+				zentry := &schema.ZEntry{
+					Set:   set,
+					Key:   key[1:],
+					Entry: e,
+					Score: score,
+					AtTx:  atTx,
+				}
+
+				stx.ZEntries = append(stx.ZEntries, zentry)
+			}
+		case SQLPrefix:
+			{
+				spec := req.EntriesSpec.SqlEntriesSpec
+
+				if spec == nil || spec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+					break
+				}
+
+				if spec.Action == schema.EntryTypeAction_EXCLUDE {
+					break
+				}
+
+				if spec.Action == schema.EntryTypeAction_RAW_VALUE {
+					v, err := d.st.ReadValue(e)
+					if err != nil {
+						return nil, err
+					}
+
+					kve := schema.TxEntryToProto(e)
+					kve.Value = v
+					stx.Entries = append(stx.Entries, kve)
+					break
+				}
+
+				return nil, fmt.Errorf("%w: sql entry resolution is not supported", ErrIllegalArguments)
+			}
 		}
 	}
 

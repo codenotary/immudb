@@ -206,6 +206,8 @@ message DualProof {
 message Tx {
 	TxHeader header = 1;
 	repeated TxEntry entries = 2;
+	repeated Entry  kvEntries = 3;
+	repeated ZEntry zEntries = 4;
 }
 
 message TxEntry {
@@ -350,8 +352,25 @@ message VerifiableZAddRequest {
 }
 
 message TxRequest {
-	uint64 tx = 1;
-	bool   includeValues = 2;
+	uint64      tx = 1;
+	EntriesSpec entriesSpec = 2;
+}
+
+message EntriesSpec {
+	EntryTypeSpec kvEntriesSpec  = 1;
+	EntryTypeSpec zEntriesSpec   = 2;
+	EntryTypeSpec sqlEntriesSpec = 3;
+}
+
+message EntryTypeSpec {
+	EntryTypeAction action = 1;
+}
+
+enum EntryTypeAction {
+	ONLY_DIGEST = 0;
+	RAW_VALUE   = 1;
+	RESOLVE     = 2;
+	EXCLUDE     = 3;
 }
 
 message VerifiableTxRequest {
