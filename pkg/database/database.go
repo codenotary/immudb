@@ -783,18 +783,46 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, ErrIllegalArguments
 	}
 
+	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
+
 	tx := d.st.NewTxHolder()
 
 	// key-value inclusion proof
-	err := d.st.ReadTx(req.Tx, tx)
+	err = d.st.ReadTx(req.Tx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return d.serializeTx(tx, req.EntriesSpec)
+	return d.serializeTx(tx, req.EntriesSpec, snap)
 }
 
-func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, error) {
+func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
+	currTxID, _ := d.st.Alh()
+
+	if txID > currTxID {
+		return nil, ErrIllegalArguments
+	}
+
+	waitUntilTx := txID
+	if waitUntilTx == 0 {
+		waitUntilTx = currTxID
+	}
+
+	if !noWait {
+		err := d.st.WaitForIndexingUpto(waitUntilTx, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return d.st.SnapshotSince(waitUntilTx)
+}
+
+func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
 	if spec == nil {
 		return schema.TxToProto(tx), nil
 	}
@@ -820,6 +848,9 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 				}
 
 				v, err := d.st.ReadValue(e)
+				if err == store.ErrExpiredEntry {
+					break
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -836,7 +867,11 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 				}
 
 				// resolve entry
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), d.st, txHolder)
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), snap, txHolder)
+				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+					// ignore deleted ones (referenced key may have been deleted)
+					break
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -856,6 +891,9 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 
 				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
+					if err == store.ErrExpiredEntry {
+						break
+					}
 					if err != nil {
 						return nil, err
 					}
@@ -887,10 +925,10 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 					txHolder = d.st.NewTxHolder()
 				}
 
-				e, err := d.getAt(key, atTx, 1, d.st, txHolder)
-				if err == store.ErrKeyNotFound {
+				e, err := d.getAt(key, atTx, 1, snap, txHolder)
+				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
-					continue
+					break
 				}
 				if err != nil {
 					return nil, err
@@ -919,6 +957,9 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 
 				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_RAW_VALUE {
 					v, err := d.st.ReadValue(e)
+					if err == store.ErrExpiredEntry {
+						break
+					}
 					if err != nil {
 						return nil, err
 					}
@@ -969,13 +1010,19 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 	lastTxID, _ := d.st.Alh()
 	if lastTxID < req.ProveSinceTx {
-		return nil, ErrIllegalState
+		return nil, fmt.Errorf("%w: latest txID=%d is lower than specified as initial tx=%d", ErrIllegalState, lastTxID, req.ProveSinceTx)
 	}
+
+	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
 
 	// key-value inclusion proof
 	reqTx := d.st.NewTxHolder()
 
-	err := d.st.ReadTx(req.Tx, reqTx)
+	err = d.st.ReadTx(req.Tx, reqTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1008,7 +1055,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, err
 	}
 
-	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec)
+	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec, snap)
 	if err != nil {
 		return nil, err
 	}
@@ -1035,6 +1082,12 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		limit = MaxKeyScanLimit
 	}
 
+	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
+
 	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, d.st.NewTxHolder())
 	if err != nil {
 		return nil, err
@@ -1051,7 +1104,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			return nil, err
 		}
 
-		sTx, err := d.serializeTx(tx, req.EntriesSpec)
+		sTx, err := d.serializeTx(tx, req.EntriesSpec, snap)
 		if err != nil {
 			return nil, err
 		}
