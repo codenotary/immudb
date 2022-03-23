@@ -139,6 +139,9 @@ type ImmuClient interface {
 
 	TxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
 	VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
+
+	TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error)
+
 	TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error)
 
 	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
@@ -993,15 +996,12 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	return t, err
 }
 
-func (c *immuClient) TxByIDWithSpec(ctx context.Context, tx uint64, spec *schema.EntriesSpec) (*schema.Tx, error) {
+func (c *immuClient) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	return c.ServiceClient.TxById(ctx, &schema.TxRequest{
-		Tx:          tx,
-		EntriesSpec: spec,
-	})
+	return c.ServiceClient.TxById(ctx, req)
 }
 
 // VerifiedTxByID returns a verified tx
