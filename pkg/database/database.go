@@ -403,11 +403,11 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
 }
 
-func (d *db) get(key []byte, index store.KeyIndex, tx *store.Tx) (*schema.Entry, error) {
-	return d.getAt(key, 0, 0, index, tx)
+func (d *db) get(key []byte, index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
+	return d.getAt(key, 0, 0, index, txHolder)
 }
 
-func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
+func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
 	var txID uint64
 	var val []byte
 	var md *store.KVMetadata
@@ -429,16 +429,17 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 	} else {
 		txID = atTx
 
-		md, val, err = d.readMetadataAndValue(key, atTx, tx)
+		md, val, err = d.readMetadataAndValue(key, atTx, txHolder)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.resolveValue(key, val, resolved, txID, md, index, tx)
+	return d.resolveValue(key, val, resolved, txID, md, index, txHolder)
 }
 
-func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata, index store.KeyIndex, tx *store.Tx) (*schema.Entry, error) {
+func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata,
+	index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
 	if len(val) < 1 {
 		return nil, fmt.Errorf(
 			"%w: internal value consistency error - missing value prefix",
@@ -462,7 +463,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
-		entry, err := d.getAt(refKey, atTx, resolved+1, index, tx)
+		entry, err := d.getAt(refKey, atTx, resolved+1, index, txHolder)
 		if err != nil {
 			return nil, err
 		}
@@ -802,6 +803,9 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 		Header: schema.TxHeaderToProto(tx.Header()),
 	}
 
+	// lazily initalized re-usable txHolder
+	var txHolder *store.Tx
+
 	for _, e := range tx.Entries() {
 		switch e.Key()[0] {
 		case SetKeyPrefix:
@@ -827,8 +831,12 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 					break
 				}
 
+				if txHolder == nil {
+					txHolder = d.st.NewTxHolder()
+				}
+
 				// resolve entry
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), d.st, d.st.NewTxHolder())
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), d.st, txHolder)
 				if err != nil {
 					return nil, err
 				}
@@ -875,7 +883,11 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec) (*schema.Tx, er
 
 				atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-				e, err := d.getAt(key, atTx, 1, d.st, tx)
+				if txHolder == nil {
+					txHolder = d.st.NewTxHolder()
+				}
+
+				e, err := d.getAt(key, atTx, 1, d.st, txHolder)
 				if err == store.ErrKeyNotFound {
 					// ignore deleted ones (referenced key may have been deleted)
 					continue
