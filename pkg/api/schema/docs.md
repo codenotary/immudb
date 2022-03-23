@@ -1868,10 +1868,10 @@ Reserved to reply with more advanced response later
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| ONLY_DIGEST | 0 |  |
-| RAW_VALUE | 1 |  |
-| RESOLVE | 2 |  |
-| EXCLUDE | 3 |  |
+| EXCLUDE | 0 |  |
+| ONLY_DIGEST | 1 |  |
+| RAW_VALUE | 2 |  |
+| RESOLVE | 3 |  |
 
 
 

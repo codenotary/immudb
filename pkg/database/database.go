@@ -838,12 +838,12 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 		switch e.Key()[0] {
 		case SetKeyPrefix:
 			{
-				if spec.KvEntriesSpec == nil || spec.KvEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
-					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+				if spec.KvEntriesSpec == nil || spec.KvEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
-				if spec.KvEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.KvEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
@@ -880,12 +880,12 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 			}
 		case SortedSetKeyPrefix:
 			{
-				if spec.ZEntriesSpec == nil || spec.ZEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
-					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+				if spec.ZEntriesSpec == nil || spec.ZEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
-				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.ZEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
@@ -946,12 +946,12 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 			}
 		case SQLPrefix:
 			{
-				if spec.SqlEntriesSpec == nil || spec.SqlEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
-					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
+				if spec.SqlEntriesSpec == nil || spec.SqlEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
 					break
 				}
 
-				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_EXCLUDE {
+				if spec.SqlEntriesSpec.Action == schema.EntryTypeAction_ONLY_DIGEST {
+					stx.Entries = append(stx.Entries, schema.TxEntryToProto(e))
 					break
 				}
 
