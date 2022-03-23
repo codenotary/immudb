@@ -17,12 +17,15 @@ package database
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1081,6 +1084,355 @@ func TestConstrainedSet(t *testing.T) {
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
 		"did not fail even though one of KV entries failed constraint check")
+}
+
+func TestConstrainedSetParallel(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	const parallelism = 10
+
+	runInParallel := func(f func(i int) error) (failCount int32, successCount int32, badErrorCount int32) {
+		var wg, wg2 sync.WaitGroup
+		wg.Add(parallelism)
+		wg2.Add(parallelism)
+
+		for i := 0; i < parallelism; i++ {
+			go func(i int) {
+				defer wg2.Done()
+
+				// Sync all goroutines to a single point
+				wg.Done()
+				wg.Wait()
+
+				err := f(i)
+
+				if err == nil {
+					atomic.AddInt32(&successCount, 1)
+				} else if errors.Is(err, store.ErrConstraintFailed) {
+					atomic.AddInt32(&failCount, 1)
+				} else {
+					log.Println(err)
+					atomic.AddInt32(&badErrorCount, 1)
+				}
+			}(i)
+		}
+
+		wg2.Wait()
+
+		return failCount, successCount, badErrorCount
+	}
+
+	t.Run("Set", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+						Constraints: &schema.KVConstraints{
+							MustNotExist: true,
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+						Constraints: &schema.KVConstraints{
+							MustExist: true,
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+				Key:   []byte(`key`),
+				Value: []byte(`base value`),
+			}}})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+						Constraints: &schema.KVConstraints{
+							NotModifiedAfterTX: tx.Id,
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("Reference", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Constraints: &schema.KVConstraints{
+						MustNotExist: true,
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Constraints: &schema.KVConstraints{
+						MustExist: true,
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.SetReference(&schema.ReferenceRequest{
+				Key:           []byte(`reference`),
+				ReferencedKey: []byte(`key`),
+			})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Constraints: &schema.KVConstraints{
+						NotModifiedAfterTX: tx.Id,
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("ExecAll-KV", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+								Constraints: &schema.KVConstraints{
+									MustNotExist: true,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+								Constraints: &schema.KVConstraints{
+									MustExist: true,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+				Key:   []byte(`key-ea`),
+				Value: []byte(`base value`),
+			}}})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+								Constraints: &schema.KVConstraints{
+									NotModifiedAfterTX: tx.Id,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("ExecAll-Ref", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+								Constraints: &schema.KVConstraints{
+									MustNotExist: true,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+								Constraints: &schema.KVConstraints{
+									MustExist: true,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.SetReference(&schema.ReferenceRequest{
+				Key:           []byte(`reference-ea`),
+				ReferencedKey: []byte(`key-ea`),
+			})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+								Constraints: &schema.KVConstraints{
+									NotModifiedAfterTX: tx.Id,
+								},
+							},
+						},
+					}},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
 }
 
 /*

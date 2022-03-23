@@ -1021,7 +1021,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 
 	if otx.hasConstrainedEntries() {
 		// Constraints must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(tx.header.ID, nil)
+		err = s.WaitForIndexingUpto(s.committedTxID, nil)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1356,7 +1356,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	if otx.hasConstrainedEntries() {
 		s.indexer.Resume()
 		// Constraints must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(tx.header.ID, nil)
+		err = s.WaitForIndexingUpto(committedTxID, nil)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
