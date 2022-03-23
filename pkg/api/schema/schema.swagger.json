@@ -855,6 +855,19 @@
               "EXCLUDE"
             ],
             "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -1155,6 +1168,19 @@
               "EXCLUDE"
             ],
             "default": "ONLY_DIGEST"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -2724,6 +2750,13 @@
         },
         "entriesSpec": {
           "$ref": "#/definitions/schemaEntriesSpec"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },

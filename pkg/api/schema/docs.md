@@ -1451,6 +1451,8 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
@@ -1469,6 +1471,8 @@ Reserved to reply with more advanced response later
 | limit | [uint32](#uint32) |  |  |
 | desc | [bool](#bool) |  |  |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
@@ -1752,6 +1756,8 @@ Reserved to reply with more advanced response later
 | tx | [uint64](#uint64) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
