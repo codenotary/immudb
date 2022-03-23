@@ -340,7 +340,7 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	} else {
 		ref := vEntry.Entry.ReferencedBy
 		vTx = ref.Tx
-		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx)
+		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx, nil)
 	}
 
 	if state.TxId <= vTx {

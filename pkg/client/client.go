@@ -659,7 +659,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	} else {
 		ref := vEntry.Entry.ReferencedBy
 		vTx = ref.Tx
-		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx)
+		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx, nil)
 	}
 
 	if state.TxId <= vTx {
@@ -1207,7 +1207,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		return nil, err
 	}
 
-	e := database.EncodeReference(key, nil, referencedKey, atTx)
+	e := database.EncodeReference(key, nil, referencedKey, atTx, nil)
 
 	verifies := store.VerifyInclusion(inclusionProof, entrySpecDigest(e), tx.Header().Eh)
 	if !verifies {
