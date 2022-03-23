@@ -283,3 +283,24 @@ func (tx *OngoingTx) Cancel() error {
 
 	return nil
 }
+
+func (tx *OngoingTx) hasConstrainedEntries() bool {
+	for _, e := range tx.entries {
+		if e.Constraints != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (tx *OngoingTx) checkWriteConstraints(idx *indexer) error {
+	for _, e := range tx.entries {
+		if e.Constraints != nil {
+			err := e.Constraints.check(e.Key, idx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

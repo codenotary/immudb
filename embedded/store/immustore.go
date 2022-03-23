@@ -885,27 +885,6 @@ func (s *ImmuStore) NewTx() (*OngoingTx, error) {
 	return newReadWriteTx(s)
 }
 
-func hasConstrainedKVEntries(entries []*EntrySpec) bool {
-	for _, e := range entries {
-		if e.Constraints != nil {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *ImmuStore) checkKVConstraints(entries []*EntrySpec) error {
-	for _, e := range entries {
-		if e.Constraints != nil {
-			err := e.Constraints.check(e.Key, s.indexer)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
 	if otx == nil {
 		return nil, ErrIllegalArguments
@@ -923,7 +902,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	// A corner case is if the DB fails to meet constraints now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	err = s.checkKVConstraints(otx.entries)
+	err = otx.checkWriteConstraints(s.indexer)
 	if err != nil {
 		return nil, err
 	}
@@ -1040,7 +1019,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrTxReadConflict
 	}
 
-	if hasConstrainedKVEntries(otx.entries) {
+	if otx.hasConstrainedEntries() {
 		// Constraints must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(tx.header.ID, nil)
 		if err != nil {
@@ -1048,7 +1027,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 			return nil, err
 		}
 
-		err = s.checkKVConstraints(otx.entries)
+		err = otx.checkWriteConstraints(s.indexer)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1307,18 +1286,24 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, ErrAlreadyClosed
 	}
 
+	otx, err := s.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
+	defer otx.Cancel()
+
 	s.indexer.Pause()
 	defer s.indexer.Resume()
 
 	committedTxID, _, _ := s.commitState()
 	txID := committedTxID + 1
 
-	entries, err := callback(txID, &unsafeIndex{st: s})
+	otx.entries, err = callback(txID, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.validateEntries(entries)
+	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
 	}
@@ -1330,13 +1315,13 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	// A corner case is if the DB fails to meet constraints now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	err = s.checkKVConstraints(entries)
+	err = otx.checkWriteConstraints(s.indexer)
 	if err != nil {
 		return nil, err
 	}
 
 	appendableCh := make(chan appendableResult)
-	go s.appendData(entries, appendableCh)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -1346,9 +1331,9 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	defer s.releaseAllocTx(tx)
 
 	tx.header.Version = s.writeTxHeaderVersion
-	tx.header.NEntries = len(entries)
+	tx.header.NEntries = len(otx.entries)
 
-	for i, e := range entries {
+	for i, e := range otx.entries {
 		txe := tx.entries[i]
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
@@ -1368,7 +1353,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	if hasConstrainedKVEntries(entries) {
+	if otx.hasConstrainedEntries() {
 		s.indexer.Resume()
 		// Constraints must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(tx.header.ID, nil)
@@ -1377,7 +1362,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 			return nil, err
 		}
 
-		err = s.checkKVConstraints(entries)
+		err = otx.checkWriteConstraints(s.indexer)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
