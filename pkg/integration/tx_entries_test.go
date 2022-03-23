@@ -103,7 +103,7 @@ func Test_GetTransactionEntries(t *testing.T) {
 		require.Equal(t, float64(10), tx.ZEntries[0].Score)
 	})
 
-	t.Run("only resolved kv entries are returned", func(t *testing.T) {
+	t.Run("only resolved kv entries should be returned", func(t *testing.T) {
 		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{
 				Action: schema.EntryTypeAction_RESOLVE,
@@ -126,7 +126,7 @@ func Test_GetTransactionEntries(t *testing.T) {
 		require.Equal(t, []byte("ref1"), tx.KvEntries[1].ReferencedBy.Key)
 	})
 
-	t.Run("only resolved zentries are returned", func(t *testing.T) {
+	t.Run("only resolved zentries should be returned", func(t *testing.T) {
 		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{
 				Action: schema.EntryTypeAction_EXCLUDE,
@@ -145,7 +145,7 @@ func Test_GetTransactionEntries(t *testing.T) {
 		require.Equal(t, float64(10), tx.ZEntries[0].Score)
 	})
 
-	t.Run("all entries are excluded", func(t *testing.T) {
+	t.Run("all entries should be excluded", func(t *testing.T) {
 		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{
 				Action: schema.EntryTypeAction_EXCLUDE,
@@ -160,15 +160,23 @@ func Test_GetTransactionEntries(t *testing.T) {
 		require.Empty(t, tx.ZEntries)
 	})
 
-	t.Run("all entries are unresolved", func(t *testing.T) {
-		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{})
+	t.Run("all entries should be unresolved if no spec is provided", func(t *testing.T) {
+		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, nil)
 		require.NoError(t, err)
 		require.Len(t, tx.Entries, 3)
 		require.Empty(t, tx.KvEntries)
 		require.Empty(t, tx.ZEntries)
 	})
 
-	t.Run("all kv entries are unresolved but including the raw value", func(t *testing.T) {
+	t.Run("no entries should be returned if an empty spec is provided", func(t *testing.T) {
+		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{})
+		require.NoError(t, err)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+	})
+
+	t.Run("all kv entries should be unresolved but including the raw value", func(t *testing.T) {
 		tx, err := client.TxByIDWithSpec(context.Background(), hdr.Id, &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{
 				Action: schema.EntryTypeAction_RAW_VALUE,

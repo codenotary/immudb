@@ -369,10 +369,10 @@ message EntryTypeSpec {
 }
 
 enum EntryTypeAction {
-	ONLY_DIGEST = 0;
-	RAW_VALUE   = 1;
-	RESOLVE     = 2;
-	EXCLUDE     = 3;
+	EXCLUDE     = 0;
+	ONLY_DIGEST = 1;
+	RAW_VALUE   = 2;
+	RESOLVE     = 3;
 }
 
 message VerifiableTxRequest {
