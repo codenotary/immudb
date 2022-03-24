@@ -1929,9 +1929,6 @@
     "schemaIndexSettings": {
       "type": "object",
       "properties": {
-        "synced": {
-          "$ref": "#/definitions/schemaConditionalBool"
-        },
         "flushThreshold": {
           "$ref": "#/definitions/schemaConditionalUint32"
         },

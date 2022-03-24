@@ -444,20 +444,19 @@ message DatabaseSettingsV2 {
 }
 
 message IndexSettings {
-	ConditionalBool    synced = 1;
-	ConditionalUint32  flushThreshold = 2;
-	ConditionalUint32  syncThreshold = 3;
-	ConditionalUint32  cacheSize = 4;
-	ConditionalUint32  maxNodeSize = 5;
-	ConditionalUint32  maxActiveSnapshots = 6;
-	ConditionalUint64  renewSnapRootAfter = 7;
-	ConditionalUint32  compactionThld = 8;
-	ConditionalUint32  delayDuringCompaction = 9;
-	ConditionalUint32  nodesLogMaxOpenedFiles = 10;
-	ConditionalUint32  historyLogMaxOpenedFiles = 11;
-	ConditionalUint32  commitLogMaxOpenedFiles = 12;
-	ConditionalUint32  flushBufferSize = 13;
-	ConditionalUint32  cleanupPercentage = 14;
+	ConditionalUint32  flushThreshold = 1;
+	ConditionalUint32  syncThreshold = 2;
+	ConditionalUint32  cacheSize = 3;
+	ConditionalUint32  maxNodeSize = 4;
+	ConditionalUint32  maxActiveSnapshots = 5;
+	ConditionalUint64  renewSnapRootAfter = 6;
+	ConditionalUint32  compactionThld = 7;
+	ConditionalUint32  delayDuringCompaction = 8;
+	ConditionalUint32  nodesLogMaxOpenedFiles = 9;
+	ConditionalUint32  historyLogMaxOpenedFiles = 10;
+	ConditionalUint32  commitLogMaxOpenedFiles = 11;
+	ConditionalUint32  flushBufferSize = 12;
+	ConditionalUint32  cleanupPercentage = 13;
 }
 
 message FlushIndexRequest {

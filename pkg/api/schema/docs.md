@@ -688,7 +688,6 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| synced | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
 | flushThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 | syncThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 | cacheSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
