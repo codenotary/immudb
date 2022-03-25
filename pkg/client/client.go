@@ -98,9 +98,12 @@ type ImmuClient interface {
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
+	CreateDatabaseV2(ctx context.Context, d *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
+	UpdateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error)
 	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
+	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsV2, error)
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
@@ -1448,6 +1451,21 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
+// CreateDatabaseV2 create a new database by making a grpc call
+func (c *immuClient) CreateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	appliedSettings, err := c.ServiceClient.CreateDatabaseWithV2(ctx, settings)
+
+	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
+
+	return appliedSettings, err
+}
+
 // UseDatabase create a new database by making a grpc call
 func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	start := time.Now()
@@ -1489,12 +1507,35 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
+// UpdateDatabaseV2 updates database settings
+func (c *immuClient) UpdateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.UpdateDatabaseV2(ctx, settings)
+
+	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
 func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
 	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
+}
+
+func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsV2, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.GetDatabaseSettingsV2(ctx, &empty.Empty{})
 }
 
 func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage int, synced bool) error {

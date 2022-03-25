@@ -371,12 +371,6 @@ message Database {
 	string databaseName = 1;
 }
 
-// Wrapper around a single value that allows sending it conditionally
-message WriteTxHeaderVersion {
-	uint32 version = 1;
-	bool useDefault = 2;
-};
-
 message DatabaseSettings {
 	string databaseName = 1;
 
@@ -393,35 +387,77 @@ message DatabaseSettings {
 	uint32 maxTxEntries = 11;
 
 	bool   excludeCommitTime = 12;
+}
 
-	uint32 maxConcurrency = 13;
-	uint32 maxIOConcurrency = 14;
+message DatabaseSettingsUpdateResult {	// Reserved to reply with more advanced response later
+	DatabaseSettingsV2 currentSettings = 1;
+}
 
-	uint32 txLogCacheSize = 15;
-	uint32 vLogMaxOpenedFiles = 16;
-	uint32 txLogMaxOpenedFiles = 17;
-	uint32 commitLogMaxOpenedFiles = 18;
+message ConditionalUint32 {
+	uint32 value = 1;
+}
+
+message ConditionalUint64 {
+	uint64 value = 1;
+}
+
+message ConditionalBool {
+	bool value = 1;
+}
+
+message ConditionalString {
+	string value = 1;
+}
+
+message ReplicationSettings {
+	ConditionalBool   replica = 1;
+	ConditionalString masterDatabase = 2;
+	ConditionalString masterAddress = 3;
+	ConditionalUint32 masterPort = 4;
+	ConditionalString followerUsername = 5;
+	ConditionalString followerPassword = 6;
+}
+
+message DatabaseSettingsV2 {
+	string databaseName = 1;
+
+	ReplicationSettings replicationSettings = 2;
+
+	ConditionalUint32 fileSize = 8;
+	ConditionalUint32 maxKeyLen = 9;
+	ConditionalUint32 maxValueLen = 10;
+	ConditionalUint32 maxTxEntries = 11;
+
+	ConditionalBool excludeCommitTime = 12;
+
+	ConditionalUint32 maxConcurrency = 13;
+	ConditionalUint32 maxIOConcurrency = 14;
+
+	ConditionalUint32 txLogCacheSize = 15;
+	ConditionalUint32 vLogMaxOpenedFiles = 16;
+	ConditionalUint32 txLogMaxOpenedFiles = 17;
+	ConditionalUint32 commitLogMaxOpenedFiles = 18;
 
 	IndexSettings indexSettings = 19;
 
-	WriteTxHeaderVersion writeTxHeaderVersion = 20;
+	ConditionalUint32 writeTxHeaderVersion = 20;
 }
 
 message IndexSettings {
-	bool 	synced = 1;
-	uint32	flushThreshold = 2; // ignored with zero value
-	uint32	syncThreshold = 3; // ignored with zero value
-	uint32	cacheSize = 4; // ignored with zero value
-	uint32	maxNodeSize = 5; // ignored with zero value
-	uint32	maxActiveSnapshots = 6; // ignored with zero value
-	uint64  renewSnapRootAfter = 7; // ignored with zero value
-	uint32	compactionThld = 8; // ignored with zero value
-	uint32	delayDuringCompaction = 9; // ignored with zero value
-	uint32  nodesLogMaxOpenedFiles = 10; // ignored with zero value
-	uint32  historyLogMaxOpenedFiles = 11; // ignored with zero value
-	uint32  commitLogMaxOpenedFiles = 12; // ignored with zero value
-	uint32  flushBufferSize = 13;	// ignored with zero value
-	uint32  cleanupPercentage = 14; // ignored if greater than 100
+	ConditionalBool    synced = 1;
+	ConditionalUint32  flushThreshold = 2;
+	ConditionalUint32  syncThreshold = 3;
+	ConditionalUint32  cacheSize = 4;
+	ConditionalUint32  maxNodeSize = 5;
+	ConditionalUint32  maxActiveSnapshots = 6;
+	ConditionalUint64  renewSnapRootAfter = 7;
+	ConditionalUint32  compactionThld = 8;
+	ConditionalUint32  delayDuringCompaction = 9;
+	ConditionalUint32  nodesLogMaxOpenedFiles = 10;
+	ConditionalUint32  historyLogMaxOpenedFiles = 11;
+	ConditionalUint32  commitLogMaxOpenedFiles = 12;
+	ConditionalUint32  flushBufferSize = 13;
+	ConditionalUint32  cleanupPercentage = 14;
 }
 
 message FlushIndexRequest {
@@ -830,9 +866,17 @@ service ImmuService {
 		};
 	}
 
+	// DEPRECATED: Use CreateDatabaseWithV2
 	rpc CreateDatabaseWith(DatabaseSettings) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/createwith"
+			body: "*"
+		};
+	}
+
+	rpc CreateDatabaseWithV2(DatabaseSettingsV2) returns (DatabaseSettingsV2) {
+		option (google.api.http) = {
+			post: "/db/createwith/v2"
 			body: "*"
 		};
 	}
@@ -850,6 +894,7 @@ service ImmuService {
 		};
 	}
 
+	// DEPRECATED: Use UpdateDatabaseV2
 	rpc UpdateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/update"
@@ -857,9 +902,24 @@ service ImmuService {
 		};
 	}
 
+	rpc UpdateDatabaseV2(DatabaseSettingsV2) returns (DatabaseSettingsUpdateResult) {
+		option (google.api.http) = {
+			post: "/db/update/v2"
+			body: "*"
+		};
+	}
+
+	// DEPRECATED: Use GetDatabaseSettingsV2
 	rpc GetDatabaseSettings(google.protobuf.Empty) returns (DatabaseSettings) {
 		option (google.api.http) = {
 			post: "/db/settings"
+			body: "*"
+		};
+	}
+
+	rpc GetDatabaseSettingsV2(google.protobuf.Empty) returns (DatabaseSettingsV2) {
+		option (google.api.http) = {
+			post: "/db/settings/v2"
 			body: "*"
 		};
 	}

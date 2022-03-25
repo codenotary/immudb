@@ -730,11 +730,30 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		return nil, ErrIllegalArguments
 	}
 
-	return s.CreateDatabaseWith(ctx, &schema.DatabaseSettings{DatabaseName: req.DatabaseName})
+	_, err := s.CreateDatabaseWithV2(ctx, &schema.DatabaseSettingsV2{DatabaseName: req.DatabaseName})
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
 }
 
-// CreateDatabase Create a new database instance
+// CreateDatabaseWith Create a new database instance
 func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	_, err := s.CreateDatabaseWithV2(ctx, dbSettingsToDbSettingsV2(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// CreateDatabaseWithV2 Create a new database instance
+func (s *ImmuServer) CreateDatabaseWithV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
 	s.Logger.Debugf("createdatabase")
 
 	if req == nil {
@@ -803,11 +822,25 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 	}
 
-	return &empty.Empty{}, nil
+	return dbOpts.databaseSettings(), nil
 }
 
 // UpdateDatabase Updates database settings
 func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	_, err := s.UpdateDatabaseV2(ctx, dbSettingsToDbSettingsV2(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// UpdateDatabaseV2 Updates database settings
+func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
 	s.Logger.Debugf("updatedatabase")
 
 	if req == nil {
@@ -875,10 +908,62 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 
 	s.Logger.Infof("Database '%s' successfully updated", db.GetName())
 
-	return &empty.Empty{}, nil
+	return &schema.DatabaseSettingsUpdateResult{
+		CurrentSettings: dbOpts.databaseSettings(),
+	}, nil
 }
 
 func (s *ImmuServer) GetDatabaseSettings(ctx context.Context, _ *empty.Empty) (*schema.DatabaseSettings, error) {
+	dbSettings, err := s.GetDatabaseSettingsV2(ctx, &empty.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	ret := &schema.DatabaseSettings{
+		DatabaseName: dbSettings.DatabaseName,
+	}
+
+	if dbSettings.ReplicationSettings != nil {
+		if dbSettings.ReplicationSettings.Replica != nil {
+			ret.Replica = dbSettings.ReplicationSettings.Replica.Value
+		}
+		if dbSettings.ReplicationSettings.MasterDatabase != nil {
+			ret.MasterDatabase = dbSettings.ReplicationSettings.MasterDatabase.Value
+		}
+		if dbSettings.ReplicationSettings.MasterAddress != nil {
+			ret.MasterAddress = dbSettings.ReplicationSettings.MasterAddress.Value
+		}
+		if dbSettings.ReplicationSettings.MasterPort != nil {
+			ret.MasterPort = dbSettings.ReplicationSettings.MasterPort.Value
+		}
+		if dbSettings.ReplicationSettings.FollowerUsername != nil {
+			ret.FollowerUsername = dbSettings.ReplicationSettings.FollowerUsername.Value
+		}
+		if dbSettings.ReplicationSettings.FollowerPassword != nil {
+			ret.FollowerPassword = dbSettings.ReplicationSettings.FollowerPassword.Value
+		}
+	}
+
+	if dbSettings.FileSize != nil {
+		ret.FileSize = dbSettings.FileSize.Value
+	}
+	if dbSettings.MaxKeyLen != nil {
+		ret.MaxKeyLen = dbSettings.MaxKeyLen.Value
+	}
+	if dbSettings.MaxValueLen != nil {
+		ret.MaxValueLen = dbSettings.MaxValueLen.Value
+	}
+	if dbSettings.MaxTxEntries != nil {
+		ret.MaxTxEntries = dbSettings.MaxTxEntries.Value
+	}
+	if dbSettings.ExcludeCommitTime != nil {
+		ret.ExcludeCommitTime = dbSettings.ExcludeCommitTime.Value
+	}
+
+	return ret, nil
+}
+
+func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *empty.Empty) (*schema.DatabaseSettingsV2, error) {
 	db, err := s.getDBFromCtx(ctx, "DatabaseSettings")
 	if err != nil {
 		return nil, err

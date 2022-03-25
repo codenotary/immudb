@@ -183,93 +183,112 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	return stOpts
 }
 
-func (opts *dbOptions) databaseSettings() *schema.DatabaseSettings {
-	return &schema.DatabaseSettings{
+func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
+
+	return &schema.DatabaseSettingsV2{
 		DatabaseName: opts.Database,
 
-		Replica:          opts.Replica,
-		MasterDatabase:   opts.MasterDatabase,
-		MasterAddress:    opts.MasterAddress,
-		MasterPort:       uint32(opts.MasterPort),
-		FollowerUsername: opts.FollowerUsername,
-		FollowerPassword: opts.FollowerPassword,
+		ReplicationSettings: &schema.ReplicationSettings{
+			Replica:          &schema.ConditionalBool{Value: opts.Replica},
+			MasterDatabase:   &schema.ConditionalString{Value: opts.MasterDatabase},
+			MasterAddress:    &schema.ConditionalString{Value: opts.MasterAddress},
+			MasterPort:       &schema.ConditionalUint32{Value: uint32(opts.MasterPort)},
+			FollowerUsername: &schema.ConditionalString{Value: opts.FollowerUsername},
+			FollowerPassword: &schema.ConditionalString{Value: opts.FollowerPassword},
+		},
 
-		FileSize:     uint32(opts.FileSize),
-		MaxKeyLen:    uint32(opts.MaxKeyLen),
-		MaxValueLen:  uint32(opts.MaxValueLen),
-		MaxTxEntries: uint32(opts.MaxTxEntries),
+		FileSize:     &schema.ConditionalUint32{Value: uint32(opts.FileSize)},
+		MaxKeyLen:    &schema.ConditionalUint32{Value: uint32(opts.MaxKeyLen)},
+		MaxValueLen:  &schema.ConditionalUint32{Value: uint32(opts.MaxValueLen)},
+		MaxTxEntries: &schema.ConditionalUint32{Value: uint32(opts.MaxTxEntries)},
 
-		ExcludeCommitTime: opts.ExcludeCommitTime,
+		ExcludeCommitTime: &schema.ConditionalBool{Value: opts.ExcludeCommitTime},
 
-		MaxConcurrency:   uint32(opts.MaxConcurrency),
-		MaxIOConcurrency: uint32(opts.MaxIOConcurrency),
+		MaxConcurrency:   &schema.ConditionalUint32{Value: uint32(opts.MaxConcurrency)},
+		MaxIOConcurrency: &schema.ConditionalUint32{Value: uint32(opts.MaxIOConcurrency)},
 
-		TxLogCacheSize:          uint32(opts.TxLogCacheSize),
-		VLogMaxOpenedFiles:      uint32(opts.VLogMaxOpenedFiles),
-		TxLogMaxOpenedFiles:     uint32(opts.TxLogMaxOpenedFiles),
-		CommitLogMaxOpenedFiles: uint32(opts.CommitLogMaxOpenedFiles),
+		TxLogCacheSize:          &schema.ConditionalUint32{Value: uint32(opts.TxLogCacheSize)},
+		VLogMaxOpenedFiles:      &schema.ConditionalUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
+		TxLogMaxOpenedFiles:     &schema.ConditionalUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
+		CommitLogMaxOpenedFiles: &schema.ConditionalUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
 
 		IndexSettings: &schema.IndexSettings{
-			FlushThreshold:           uint32(opts.IndexOptions.FlushThreshold),
-			SyncThreshold:            uint32(opts.IndexOptions.SyncThreshold),
-			FlushBufferSize:          uint32(opts.IndexOptions.FlushBufferSize),
-			CleanupPercentage:        uint32(opts.IndexOptions.CleanupPercentage),
-			CacheSize:                uint32(opts.IndexOptions.CacheSize),
-			MaxNodeSize:              uint32(opts.IndexOptions.MaxNodeSize),
-			MaxActiveSnapshots:       uint32(opts.IndexOptions.MaxActiveSnapshots),
-			RenewSnapRootAfter:       uint64(opts.IndexOptions.RenewSnapRootAfter),
-			CompactionThld:           uint32(opts.IndexOptions.CompactionThld),
-			DelayDuringCompaction:    uint32(opts.IndexOptions.DelayDuringCompaction),
-			NodesLogMaxOpenedFiles:   uint32(opts.IndexOptions.NodesLogMaxOpenedFiles),
-			HistoryLogMaxOpenedFiles: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles),
-			CommitLogMaxOpenedFiles:  uint32(opts.IndexOptions.CommitLogMaxOpenedFiles),
+			FlushThreshold:           &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
+			SyncThreshold:            &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
+			FlushBufferSize:          &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushBufferSize)},
+			CleanupPercentage:        &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CleanupPercentage)},
+			CacheSize:                &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CacheSize)},
+			MaxNodeSize:              &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxNodeSize)},
+			MaxActiveSnapshots:       &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxActiveSnapshots)},
+			RenewSnapRootAfter:       &schema.ConditionalUint64{Value: uint64(opts.IndexOptions.RenewSnapRootAfter)},
+			CompactionThld:           &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CompactionThld)},
+			DelayDuringCompaction:    &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.DelayDuringCompaction)},
+			NodesLogMaxOpenedFiles:   &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.NodesLogMaxOpenedFiles)},
+			HistoryLogMaxOpenedFiles: &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles)},
+			CommitLogMaxOpenedFiles:  &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CommitLogMaxOpenedFiles)},
 		},
 
-		WriteTxHeaderVersion: &schema.WriteTxHeaderVersion{
-			Version: uint32(opts.WriteTxHeaderVersion),
-		},
+		WriteTxHeaderVersion: &schema.ConditionalUint32{Value: uint32(opts.WriteTxHeaderVersion)},
 	}
 }
 
-var conditionalSet = func(condition bool, setter func()) {
-	if condition {
-		setter()
+// dbSettingsToDbSettingsV2 converts old schema.DatabaseSettings message into new schema.DatabaseSettingsV2
+// This is to add compatibility between old API using DatabaseSettings with new ones.
+// Only those fields that were present up to the 1.2.2 release are supported.
+// Changing any other fields requires new API calls.
+func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.DatabaseSettingsV2 {
+
+	conditionalUInt32 := func(v uint32) *schema.ConditionalUint32 {
+		if v > 0 {
+			return &schema.ConditionalUint32{
+				Value: v,
+			}
+		}
+		return nil
 	}
+
+	ret := &schema.DatabaseSettingsV2{
+		DatabaseName: settings.DatabaseName,
+		ReplicationSettings: &schema.ReplicationSettings{
+			Replica:          &schema.ConditionalBool{Value: settings.Replica},
+			MasterDatabase:   &schema.ConditionalString{Value: settings.MasterDatabase},
+			MasterAddress:    &schema.ConditionalString{Value: settings.MasterAddress},
+			MasterPort:       &schema.ConditionalUint32{Value: settings.MasterPort},
+			FollowerUsername: &schema.ConditionalString{Value: settings.FollowerUsername},
+			FollowerPassword: &schema.ConditionalString{Value: settings.FollowerPassword},
+		},
+		FileSize:     conditionalUInt32(settings.FileSize),
+		MaxKeyLen:    conditionalUInt32(settings.MaxKeyLen),
+		MaxValueLen:  conditionalUInt32(settings.MaxValueLen),
+		MaxTxEntries: conditionalUInt32(settings.MaxTxEntries),
+	}
+
+	return ret
 }
 
-func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettings, existentDB bool) error {
-	// replication options
-	if !settings.Replica &&
-		(settings.MasterDatabase != "" ||
-			settings.MasterAddress != "" ||
-			settings.MasterPort > 0 ||
-			settings.FollowerUsername != "" ||
-			settings.FollowerPassword != "") {
-		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
-	}
-
+func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettingsV2, existentDB bool) error {
 	if existentDB {
 		// permanent settings can not be changed after database is created
 		// in the future, some settings may turn into non-permanent
 
-		if settings.FileSize > 0 {
+		if settings.FileSize != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "file size", opts.Database)
 		}
 
-		if settings.MaxKeyLen > 0 {
-			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max key lenght", opts.Database)
+		if settings.MaxKeyLen != nil {
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max key length", opts.Database)
 		}
 
-		if settings.MaxValueLen > 0 {
-			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max value lenght", opts.Database)
+		if settings.MaxValueLen != nil {
+			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max value length", opts.Database)
 		}
 
-		if settings.MaxTxEntries > 0 {
+		if settings.MaxTxEntries != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments,
 				"max number of entries per transaction", opts.Database)
 		}
 
-		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize > 0 {
+		if settings.IndexSettings != nil && settings.IndexSettings.MaxNodeSize != nil {
 			return fmt.Errorf("%w: %s can not be changed after database creation ('%s')", ErrIllegalArguments, "max node size", opts.Database)
 		}
 
@@ -278,35 +297,72 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 
 	opts.synced = s.Options.synced
 
-	opts.Replica = settings.Replica
-	opts.MasterDatabase = settings.MasterDatabase
-	opts.MasterAddress = settings.MasterAddress
-	opts.MasterPort = int(settings.MasterPort)
-	opts.FollowerUsername = settings.FollowerUsername
-	opts.FollowerPassword = settings.FollowerPassword
+	if settings.ReplicationSettings != nil {
+		rs := settings.ReplicationSettings
 
-	conditionalSet(settings.FileSize > 0, func() { opts.FileSize = int(settings.FileSize) })
-	conditionalSet(settings.MaxKeyLen > 0, func() { opts.MaxKeyLen = int(settings.MaxKeyLen) })
-	conditionalSet(settings.MaxValueLen > 0, func() { opts.MaxValueLen = int(settings.MaxValueLen) })
-	conditionalSet(settings.MaxTxEntries > 0, func() { opts.MaxTxEntries = int(settings.MaxTxEntries) })
+		if rs.Replica != nil {
+			opts.Replica = rs.Replica.Value
+		}
+		if rs.MasterDatabase != nil {
+			opts.MasterDatabase = rs.MasterDatabase.Value
+		}
+		if rs.MasterAddress != nil {
+			opts.MasterAddress = rs.MasterAddress.Value
+		}
+		if rs.MasterPort != nil {
+			opts.MasterPort = int(rs.MasterPort.Value)
+		}
+		if rs.FollowerUsername != nil {
+			opts.FollowerUsername = rs.FollowerUsername.Value
+		}
+		if rs.FollowerPassword != nil {
+			opts.FollowerPassword = rs.FollowerPassword.Value
+		}
+	}
+
+	if settings.FileSize != nil {
+		opts.FileSize = int(settings.FileSize.Value)
+	}
+
+	if settings.MaxKeyLen != nil {
+		opts.MaxKeyLen = int(settings.MaxKeyLen.Value)
+	}
+
+	if settings.MaxValueLen != nil {
+		opts.MaxValueLen = int(settings.MaxValueLen.Value)
+	}
+
+	if settings.MaxTxEntries != nil {
+		opts.MaxTxEntries = int(settings.MaxTxEntries.Value)
+	}
 
 	// store options
-	opts.ExcludeCommitTime = settings.ExcludeCommitTime
+	if settings.ExcludeCommitTime != nil {
+		opts.ExcludeCommitTime = settings.ExcludeCommitTime.Value
+	}
 
-	conditionalSet(settings.MaxConcurrency > 0, func() { opts.MaxConcurrency = int(settings.MaxConcurrency) })
-	conditionalSet(settings.MaxIOConcurrency > 0, func() { opts.MaxIOConcurrency = int(settings.MaxIOConcurrency) })
+	if settings.MaxConcurrency != nil {
+		opts.MaxConcurrency = int(settings.MaxConcurrency.Value)
+	}
+	if settings.MaxIOConcurrency != nil {
+		opts.MaxIOConcurrency = int(settings.MaxIOConcurrency.Value)
+	}
 
-	conditionalSet(settings.TxLogCacheSize > 0, func() { opts.TxLogCacheSize = int(settings.TxLogCacheSize) })
-	conditionalSet(settings.VLogMaxOpenedFiles > 0, func() { opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles) })
-	conditionalSet(settings.TxLogMaxOpenedFiles > 0, func() { opts.TxLogMaxOpenedFiles = int(settings.TxLogMaxOpenedFiles) })
-	conditionalSet(settings.CommitLogMaxOpenedFiles > 0, func() { opts.CommitLogMaxOpenedFiles = int(settings.CommitLogMaxOpenedFiles) })
+	if settings.TxLogCacheSize != nil {
+		opts.TxLogCacheSize = int(settings.TxLogCacheSize.Value)
+	}
+	if settings.VLogMaxOpenedFiles != nil {
+		opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles.Value)
+	}
+	if settings.TxLogMaxOpenedFiles != nil {
+		opts.TxLogMaxOpenedFiles = int(settings.TxLogMaxOpenedFiles.Value)
+	}
+	if settings.CommitLogMaxOpenedFiles != nil {
+		opts.CommitLogMaxOpenedFiles = int(settings.CommitLogMaxOpenedFiles.Value)
+	}
 
 	if settings.WriteTxHeaderVersion != nil {
-		if settings.WriteTxHeaderVersion.UseDefault {
-			opts.WriteTxHeaderVersion = store.DefaultWriteTxHeaderVersion
-		} else {
-			opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.Version)
-		}
+		opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.Value)
 	}
 
 	// index options
@@ -315,45 +371,45 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 			opts.IndexOptions = s.defaultIndexOptions()
 		}
 
-		conditionalSet(settings.IndexSettings.FlushThreshold > 0, func() {
-			opts.IndexOptions.FlushThreshold = int(settings.IndexSettings.FlushThreshold)
-		})
-		conditionalSet(settings.IndexSettings.SyncThreshold > 0, func() {
-			opts.IndexOptions.SyncThreshold = int(settings.IndexSettings.SyncThreshold)
-		})
-		conditionalSet(settings.IndexSettings.FlushBufferSize > 0, func() {
-			opts.IndexOptions.FlushBufferSize = int(settings.IndexSettings.FlushBufferSize)
-		})
-		conditionalSet(settings.IndexSettings.CleanupPercentage <= 100, func() {
-			opts.IndexOptions.CleanupPercentage = int(settings.IndexSettings.CleanupPercentage)
-		})
-		conditionalSet(settings.IndexSettings.CacheSize > 0, func() {
-			opts.IndexOptions.CacheSize = int(settings.IndexSettings.CacheSize)
-		})
-		conditionalSet(settings.IndexSettings.MaxNodeSize > 0, func() {
-			opts.IndexOptions.MaxNodeSize = int(settings.IndexSettings.MaxNodeSize)
-		})
-		conditionalSet(settings.IndexSettings.MaxActiveSnapshots > 0, func() {
-			opts.IndexOptions.MaxActiveSnapshots = int(settings.IndexSettings.MaxActiveSnapshots)
-		})
-		conditionalSet(settings.IndexSettings.RenewSnapRootAfter > 0, func() {
-			opts.IndexOptions.RenewSnapRootAfter = int64(settings.IndexSettings.RenewSnapRootAfter)
-		})
-		conditionalSet(settings.IndexSettings.CompactionThld > 0, func() {
-			opts.IndexOptions.CompactionThld = int(settings.IndexSettings.CompactionThld)
-		})
-		conditionalSet(settings.IndexSettings.DelayDuringCompaction > 0, func() {
-			opts.IndexOptions.DelayDuringCompaction = int64(settings.IndexSettings.DelayDuringCompaction)
-		})
-		conditionalSet(settings.IndexSettings.NodesLogMaxOpenedFiles > 0, func() {
-			opts.IndexOptions.NodesLogMaxOpenedFiles = int(settings.IndexSettings.NodesLogMaxOpenedFiles)
-		})
-		conditionalSet(settings.IndexSettings.HistoryLogMaxOpenedFiles > 0, func() {
-			opts.IndexOptions.HistoryLogMaxOpenedFiles = int(settings.IndexSettings.HistoryLogMaxOpenedFiles)
-		})
-		conditionalSet(settings.IndexSettings.CommitLogMaxOpenedFiles > 0, func() {
-			opts.IndexOptions.CommitLogMaxOpenedFiles = int(settings.IndexSettings.CommitLogMaxOpenedFiles)
-		})
+		if settings.IndexSettings.FlushThreshold != nil {
+			opts.IndexOptions.FlushThreshold = int(settings.IndexSettings.FlushThreshold.Value)
+		}
+		if settings.IndexSettings.SyncThreshold != nil {
+			opts.IndexOptions.SyncThreshold = int(settings.IndexSettings.SyncThreshold.Value)
+		}
+		if settings.IndexSettings.FlushBufferSize != nil {
+			opts.IndexOptions.FlushBufferSize = int(settings.IndexSettings.FlushBufferSize.Value)
+		}
+		if settings.IndexSettings.CleanupPercentage != nil {
+			opts.IndexOptions.CleanupPercentage = int(settings.IndexSettings.CleanupPercentage.Value)
+		}
+		if settings.IndexSettings.CacheSize != nil {
+			opts.IndexOptions.CacheSize = int(settings.IndexSettings.CacheSize.Value)
+		}
+		if settings.IndexSettings.MaxNodeSize != nil {
+			opts.IndexOptions.MaxNodeSize = int(settings.IndexSettings.MaxNodeSize.Value)
+		}
+		if settings.IndexSettings.MaxActiveSnapshots != nil {
+			opts.IndexOptions.MaxActiveSnapshots = int(settings.IndexSettings.MaxActiveSnapshots.Value)
+		}
+		if settings.IndexSettings.RenewSnapRootAfter != nil {
+			opts.IndexOptions.RenewSnapRootAfter = int64(settings.IndexSettings.RenewSnapRootAfter.Value)
+		}
+		if settings.IndexSettings.CompactionThld != nil {
+			opts.IndexOptions.CompactionThld = int(settings.IndexSettings.CompactionThld.Value)
+		}
+		if settings.IndexSettings.DelayDuringCompaction != nil {
+			opts.IndexOptions.DelayDuringCompaction = int64(settings.IndexSettings.DelayDuringCompaction.Value)
+		}
+		if settings.IndexSettings.NodesLogMaxOpenedFiles != nil {
+			opts.IndexOptions.NodesLogMaxOpenedFiles = int(settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
+		}
+		if settings.IndexSettings.HistoryLogMaxOpenedFiles != nil {
+			opts.IndexOptions.HistoryLogMaxOpenedFiles = int(settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
+		}
+		if settings.IndexSettings.CommitLogMaxOpenedFiles != nil {
+			opts.IndexOptions.CommitLogMaxOpenedFiles = int(settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
+		}
 	}
 
 	err := opts.Validate()

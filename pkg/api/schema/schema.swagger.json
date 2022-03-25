@@ -124,6 +124,7 @@
     },
     "/db/createwith": {
       "post": {
+        "summary": "DEPRECATED: Use CreateDatabaseWithV2",
         "operationId": "ImmuService_CreateDatabaseWith",
         "responses": {
           "200": {
@@ -146,6 +147,38 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaDatabaseSettings"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/createwith/v2": {
+      "post": {
+        "operationId": "ImmuService_CreateDatabaseWithV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsV2"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsV2"
             }
           }
         ],
@@ -523,12 +556,12 @@
     },
     "/db/settings": {
       "post": {
-        "operationId": "ImmuService_GetDatabaseSettings",
+        "operationId": "ImmuService_GetDatabaseSettingsV2",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettings"
+              "$ref": "#/definitions/schemaDatabaseSettingsV2"
             }
           },
           "default": {
@@ -759,6 +792,7 @@
     },
     "/db/update": {
       "post": {
+        "summary": "DEPRECATED: Use UpdateDatabaseV2",
         "operationId": "ImmuService_UpdateDatabase",
         "responses": {
           "200": {
@@ -781,6 +815,38 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaDatabaseSettings"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/update/v2": {
+      "post": {
+        "operationId": "ImmuService_UpdateDatabaseV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsUpdateResult"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsV2"
             }
           }
         ],
@@ -1469,6 +1535,40 @@
         }
       }
     },
+    "schemaConditionalBool": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemaConditionalString": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaConditionalUint32": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "schemaConditionalUint64": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1564,36 +1664,64 @@
         },
         "excludeCommitTime": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaDatabaseSettingsUpdateResult": {
+      "type": "object",
+      "properties": {
+        "currentSettings": {
+          "$ref": "#/definitions/schemaDatabaseSettingsV2"
+        }
+      }
+    },
+    "schemaDatabaseSettingsV2": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
+        },
+        "replicationSettings": {
+          "$ref": "#/definitions/schemaReplicationSettings"
+        },
+        "fileSize": {
+          "$ref": "#/definitions/schemaConditionalUint32"
+        },
+        "maxKeyLen": {
+          "$ref": "#/definitions/schemaConditionalUint32"
+        },
+        "maxValueLen": {
+          "$ref": "#/definitions/schemaConditionalUint32"
+        },
+        "maxTxEntries": {
+          "$ref": "#/definitions/schemaConditionalUint32"
+        },
+        "excludeCommitTime": {
+          "$ref": "#/definitions/schemaConditionalBool"
         },
         "maxConcurrency": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "maxIOConcurrency": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "txLogCacheSize": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "vLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "txLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "commitLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "indexSettings": {
           "$ref": "#/definitions/schemaIndexSettings"
         },
         "writeTxHeaderVersion": {
-          "$ref": "#/definitions/schemaWriteTxHeaderVersion"
+          "$ref": "#/definitions/schemaConditionalUint32"
         }
       }
     },
@@ -1802,59 +1930,46 @@
       "type": "object",
       "properties": {
         "synced": {
-          "type": "boolean"
+          "$ref": "#/definitions/schemaConditionalBool"
         },
         "flushThreshold": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "syncThreshold": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "cacheSize": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "maxNodeSize": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "maxActiveSnapshots": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "renewSnapRootAfter": {
-          "type": "string",
-          "format": "uint64"
+          "$ref": "#/definitions/schemaConditionalUint64"
         },
         "compactionThld": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "delayDuringCompaction": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "nodesLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "historyLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "commitLogMaxOpenedFiles": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "flushBufferSize": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         },
         "cleanupPercentage": {
-          "type": "integer",
-          "format": "int64"
+          "$ref": "#/definitions/schemaConditionalUint32"
         }
       }
     },
@@ -2073,6 +2188,29 @@
         },
         "noWait": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaReplicationSettings": {
+      "type": "object",
+      "properties": {
+        "replica": {
+          "$ref": "#/definitions/schemaConditionalBool"
+        },
+        "masterDatabase": {
+          "$ref": "#/definitions/schemaConditionalString"
+        },
+        "masterAddress": {
+          "$ref": "#/definitions/schemaConditionalString"
+        },
+        "masterPort": {
+          "$ref": "#/definitions/schemaConditionalUint32"
+        },
+        "followerUsername": {
+          "$ref": "#/definitions/schemaConditionalString"
+        },
+        "followerPassword": {
+          "$ref": "#/definitions/schemaConditionalString"
         }
       }
     },
@@ -2606,19 +2744,6 @@
           "format": "uint64"
         }
       }
-    },
-    "schemaWriteTxHeaderVersion": {
-      "type": "object",
-      "properties": {
-        "version": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "useDefault": {
-          "type": "boolean"
-        }
-      },
-      "title": "Wrapper around a single value that allows sending it conditionally"
     },
     "schemaZAddRequest": {
       "type": "object",

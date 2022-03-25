@@ -18,6 +18,7 @@ package immuadmin
 
 import (
 	"fmt"
+	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -25,6 +26,18 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func addDbUpdateFlags(c *cobra.Command) {
+	c.Flags().Bool("exclude-commit-time", false,
+		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
+	c.Flags().Bool("replication-enabled", false, "set database as a replica")
+	c.Flags().String("replication-master-database", "", "set master database to be replicated")
+	c.Flags().String("replication-master-address", "", "set master address")
+	c.Flags().Uint32("replication-master-port", 0, "set master port")
+	c.Flags().String("replication-follower-username", "", "set username used for replication")
+	c.Flags().String("replication-follower-password", "", "set password used for replication")
+	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
+}
 
 func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
@@ -78,24 +91,18 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			if err := cl.immuClient.CreateDatabase(cl.context, settings); err != nil {
+			_, err = cl.immuClient.CreateDatabaseV2(cl.context, settings)
+			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully created\n", args[0], settings.Replica, settings.ExcludeCommitTime)
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' {%s} successfully created\n",
+				args[0], databaseSettingsStr(settings))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
-	cc.Flags().Bool("exclude-commit-time", false,
-		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	cc.Flags().Bool("replication-enabled", false, "set database as a replica")
-	cc.Flags().String("replication-master-database", "", "set master database to be replicated")
-	cc.Flags().String("replication-master-address", "127.0.0.1", "set master address")
-	cc.Flags().Uint32("replication-master-port", 3322, "set master port")
-	cc.Flags().String("replication-follower-username", "", "set username used for replication")
-	cc.Flags().String("replication-follower-password", "", "set password used for replication")
+	addDbUpdateFlags(cc)
 
 	cu := &cobra.Command{
 		Use:               "update",
@@ -109,25 +116,18 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			if err := cl.immuClient.UpdateDatabase(cl.context, settings); err != nil {
+			if _, err := cl.immuClient.UpdateDatabaseV2(cl.context, settings); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"database '%s' {replica: %v, exclude-commit-time: %v} successfully updated\n", args[0], settings.Replica, settings.ExcludeCommitTime)
+				"database '%s' {%s} successfully updated\n",
+				args[0], databaseSettingsStr(settings))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
-	cu.Flags().Bool("exclude-commit-time", false,
-		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	cu.Flags().Bool("replication-enabled", false, "set database as a replica")
-	cu.Flags().String("replication-master-database", "", "set master database to be replicated")
-	cu.Flags().String("replication-master-address", "127.0.0.1", "set master address")
-	cu.Flags().Uint32("replication-master-port", 3322, "set master port")
-	cu.Flags().String("replication-follower-username", "", "set username used for replication")
-	cu.Flags().String("replication-follower-password", "", "set password used for replication")
-	cu.Flags().Bool("proof-compatibility-1.1", false, "enable proof compatibility with immudb 1.1 by disabling metadata")
+	addDbUpdateFlags(cu)
 
 	ccu := &cobra.Command{
 		Use:               "use command",
@@ -212,64 +212,105 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettings, error) {
+func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettingsV2, error) {
 
 	var err error
-	ret := &schema.DatabaseSettings{
-		DatabaseName: db,
+
+	condBool := func(name string) (*schema.ConditionalBool, error) {
+		if flags.Changed(name) {
+			val, err := flags.GetBool(name)
+			if err != nil {
+				return nil, err
+			}
+			return &schema.ConditionalBool{Value: val}, nil
+		}
+		return nil, nil
 	}
 
-	ret.ExcludeCommitTime, err = flags.GetBool("exclude-commit-time")
+	condString := func(name string) (*schema.ConditionalString, error) {
+		if flags.Changed(name) {
+			val, err := flags.GetString(name)
+			if err != nil {
+				return nil, err
+			}
+			return &schema.ConditionalString{Value: val}, nil
+		}
+		return nil, nil
+	}
+
+	condUInt32 := func(name string) (*schema.ConditionalUint32, error) {
+		if flags.Changed(name) {
+			val, err := flags.GetUint32(name)
+			if err != nil {
+				return nil, err
+			}
+			return &schema.ConditionalUint32{Value: val}, nil
+		}
+		return nil, nil
+	}
+
+	ret := &schema.DatabaseSettingsV2{
+		DatabaseName:        db,
+		ReplicationSettings: &schema.ReplicationSettings{},
+	}
+
+	ret.ExcludeCommitTime, err = condBool("exclude-commit-time")
 	if err != nil {
 		return nil, err
 	}
 
-	replicationEnabled, err := flags.GetBool("replication-enabled")
+	ret.ReplicationSettings.Replica, err = condBool("replication-enabled")
 	if err != nil {
 		return nil, err
 	}
 
-	if replicationEnabled {
-		ret.MasterDatabase, err = flags.GetString("replication-master-database")
-		if err != nil {
-			return nil, err
-		}
-
-		ret.MasterAddress, err = flags.GetString("replication-master-address")
-		if err != nil {
-			return nil, err
-		}
-
-		ret.MasterPort, err = flags.GetUint32("replication-master-port")
-		if err != nil {
-			return nil, err
-		}
-
-		ret.FollowerUsername, err = flags.GetString("replication-follower-username")
-		if err != nil {
-			return nil, err
-		}
-
-		ret.FollowerPassword, err = flags.GetString("replication-follower-password")
-		if err != nil {
-			return nil, err
-		}
+	ret.ReplicationSettings.MasterDatabase, err = condString("replication-master-database")
+	if err != nil {
+		return nil, err
 	}
 
-	if flags.Changed("proof-compatibility-1.1") {
+	ret.ReplicationSettings.MasterAddress, err = condString("replication-master-address")
+	if err != nil {
+		return nil, err
+	}
 
-		compat, err := flags.GetBool("proof-compatibility-1.1")
-		if err != nil {
-			return nil, err
-		}
+	ret.ReplicationSettings.MasterPort, err = condUInt32("replication-master-port")
+	if err != nil {
+		return nil, err
+	}
 
-		if compat {
-			ret.WriteTxHeaderVersion = &schema.WriteTxHeaderVersion{Version: 0}
-		} else {
-			ret.WriteTxHeaderVersion = &schema.WriteTxHeaderVersion{UseDefault: true}
-		}
+	ret.ReplicationSettings.FollowerUsername, err = condString("replication-follower-username")
+	if err != nil {
+		return nil, err
+	}
 
+	ret.ReplicationSettings.FollowerPassword, err = condString("replication-follower-password")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.WriteTxHeaderVersion, err = condUInt32("write-tx-header-version")
+	if err != nil {
+		return nil, err
 	}
 
 	return ret, nil
+}
+
+func databaseSettingsStr(settings *schema.DatabaseSettingsV2) string {
+	propertiesStr := []string{}
+
+	if settings.ReplicationSettings != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("replica: %v", settings.ReplicationSettings.Replica.GetValue()))
+	}
+
+	if settings.ExcludeCommitTime != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("exclude-commit-time: %v", settings.ExcludeCommitTime.GetValue()))
+	}
+
+	if settings.WriteTxHeaderVersion != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("write-tx-header-version: %d", settings.WriteTxHeaderVersion.GetValue()))
+	}
+
+	return strings.Join(propertiesStr, ", ")
 }

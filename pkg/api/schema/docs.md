@@ -12,11 +12,17 @@
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
+    - [ConditionalBool](#immudb.schema.ConditionalBool)
+    - [ConditionalString](#immudb.schema.ConditionalString)
+    - [ConditionalUint32](#immudb.schema.ConditionalUint32)
+    - [ConditionalUint64](#immudb.schema.ConditionalUint64)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [DatabaseSettings](#immudb.schema.DatabaseSettings)
+    - [DatabaseSettingsUpdateResult](#immudb.schema.DatabaseSettingsUpdateResult)
+    - [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2)
     - [DebugInfo](#immudb.schema.DebugInfo)
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
@@ -51,6 +57,7 @@
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
+    - [ReplicationSettings](#immudb.schema.ReplicationSettings)
     - [RetryInfo](#immudb.schema.RetryInfo)
     - [Row](#immudb.schema.Row)
     - [SQLEntry](#immudb.schema.SQLEntry)
@@ -91,7 +98,6 @@
     - [VerifiableTx](#immudb.schema.VerifiableTx)
     - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
     - [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest)
-    - [WriteTxHeaderVersion](#immudb.schema.WriteTxHeaderVersion)
     - [ZAddRequest](#immudb.schema.ZAddRequest)
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
@@ -244,6 +250,66 @@
 
 
 
+<a name="immudb.schema.ConditionalBool"></a>
+
+### ConditionalBool
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ConditionalString"></a>
+
+### ConditionalString
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ConditionalUint32"></a>
+
+### ConditionalUint32
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ConditionalUint64"></a>
+
+### ConditionalUint64
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.CreateUserRequest"></a>
 
 ### CreateUserRequest
@@ -328,14 +394,50 @@
 | maxValueLen | [uint32](#uint32) |  |  |
 | maxTxEntries | [uint32](#uint32) |  |  |
 | excludeCommitTime | [bool](#bool) |  |  |
-| maxConcurrency | [uint32](#uint32) |  |  |
-| maxIOConcurrency | [uint32](#uint32) |  |  |
-| txLogCacheSize | [uint32](#uint32) |  |  |
-| vLogMaxOpenedFiles | [uint32](#uint32) |  |  |
-| txLogMaxOpenedFiles | [uint32](#uint32) |  |  |
-| commitLogMaxOpenedFiles | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DatabaseSettingsUpdateResult"></a>
+
+### DatabaseSettingsUpdateResult
+Reserved to reply with more advanced response later
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| currentSettings | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DatabaseSettingsV2"></a>
+
+### DatabaseSettingsV2
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| databaseName | [string](#string) |  |  |
+| replicationSettings | [ReplicationSettings](#immudb.schema.ReplicationSettings) |  |  |
+| fileSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxKeyLen | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxValueLen | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxTxEntries | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| excludeCommitTime | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
+| maxConcurrency | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxIOConcurrency | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| txLogCacheSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| vLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| txLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| commitLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 | indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
-| writeTxHeaderVersion | [WriteTxHeaderVersion](#immudb.schema.WriteTxHeaderVersion) |  |  |
+| writeTxHeaderVersion | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 
 
 
@@ -586,20 +688,20 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| synced | [bool](#bool) |  |  |
-| flushThreshold | [uint32](#uint32) |  | ignored with zero value |
-| syncThreshold | [uint32](#uint32) |  | ignored with zero value |
-| cacheSize | [uint32](#uint32) |  | ignored with zero value |
-| maxNodeSize | [uint32](#uint32) |  | ignored with zero value |
-| maxActiveSnapshots | [uint32](#uint32) |  | ignored with zero value |
-| renewSnapRootAfter | [uint64](#uint64) |  | ignored with zero value |
-| compactionThld | [uint32](#uint32) |  | ignored with zero value |
-| delayDuringCompaction | [uint32](#uint32) |  | ignored with zero value |
-| nodesLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
-| historyLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
-| commitLogMaxOpenedFiles | [uint32](#uint32) |  | ignored with zero value |
-| flushBufferSize | [uint32](#uint32) |  | ignored with zero value |
-| cleanupPercentage | [uint32](#uint32) |  | ignored if greater than 100 |
+| synced | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
+| flushThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| syncThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| cacheSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxNodeSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| maxActiveSnapshots | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| renewSnapRootAfter | [ConditionalUint64](#immudb.schema.ConditionalUint64) |  |  |
+| compactionThld | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| delayDuringCompaction | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| nodesLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| historyLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| commitLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| flushBufferSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| cleanupPercentage | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 
 
 
@@ -911,6 +1013,26 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ReplicationSettings"></a>
+
+### ReplicationSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| replica | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
+| masterDatabase | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
+| masterAddress | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
+| masterPort | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| followerUsername | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
+| followerPassword | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
 
 
 
@@ -1580,22 +1702,6 @@
 
 
 
-<a name="immudb.schema.WriteTxHeaderVersion"></a>
-
-### WriteTxHeaderVersion
-Wrapper around a single value that allows sending it conditionally
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| version | [uint32](#uint32) |  |  |
-| useDefault | [bool](#bool) |  |  |
-
-
-
-
-
-
 <a name="immudb.schema.ZAddRequest"></a>
 
 ### ZAddRequest
@@ -1751,11 +1857,14 @@ immudb gRPC &amp; REST service
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZEntries](#immudb.schema.ZEntries) |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: kept for backward compatibility |
-| CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseWithV2 |
+| CreateDatabaseWithV2 | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
-| UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| GetDatabaseSettings | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettings](#immudb.schema.DatabaseSettings) |  |
+| UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use UpdateDatabaseV2 |
+| UpdateDatabaseV2 | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) | [DatabaseSettingsUpdateResult](#immudb.schema.DatabaseSettingsUpdateResult) |  |
+| GetDatabaseSettings | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettings](#immudb.schema.DatabaseSettings) | DEPRECATED: Use GetDatabaseSettingsV2 |
+| GetDatabaseSettingsV2 | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |
 | FlushIndex | [FlushIndexRequest](#immudb.schema.FlushIndexRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
