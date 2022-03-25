@@ -544,7 +544,7 @@ func (cl *commandlineHotBck) createDb(name string) error {
 	return nil
 }
 
-// run actual restore. First transaction mayb e already restored, so use firstTx as start value, when set
+// run actual restore. First transaction maybe already restored, so use firstTx as start value, when set
 func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, firstTx uint64) error {
 	var bar *progressbar.ProgressBar
 	if progress {
