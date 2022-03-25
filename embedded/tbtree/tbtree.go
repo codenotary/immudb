@@ -620,6 +620,9 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		t.minOffset = t.root.minOffset()
 	}
 
+	metricsBtreeNodesDataBeginOffset.WithLabelValues(t.path).Set(float64(t.minOffset))
+	metricsBtreeNodesDataEndOffset.WithLabelValues(t.path).Set(float64(t.committedNLogSize))
+
 	err = t.hLog.SetOffset(t.committedHLogSize)
 	if err != nil {
 		return nil, fmt.Errorf("%w: while setting initial offset of history log for index '%s'", err, path)
@@ -1142,6 +1145,8 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 					t.path, t.root.ts(), cleanupPercentage, err)
 			}
 
+			metricsBtreeNodesDataBeginOffset.WithLabelValues(t.path).Set(float64(discardableNLogOffset))
+
 			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
 				t.path, t.root.ts(), cleanupPercentage, t.minOffset, actualNewMinOffset)
 		}
@@ -1163,6 +1168,8 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 	t.committedLogSize += cLogEntrySize
 	t.committedNLogSize += wN
 	t.committedHLogSize += wH
+
+	metricsBtreeNodesDataEndOffset.WithLabelValues(t.path).Set(float64(t.committedNLogSize))
 
 	return wN, wH, nil
 }

@@ -83,3 +83,13 @@ var metricsBtreeLeafNodeEntries = promauto.NewHistogramVec(prometheus.HistogramO
 	Help:    "Histogram of number of entries in as single leaf btree node, calculated when visiting btree nodes",
 	Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50, 75, 100, 200, 300, 500},
 }, []string{"id"})
+
+var metricsBtreeNodesDataBeginOffset = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_nodes_data_begin",
+	Help: "Beginning offset for btree nodes data file",
+}, []string{"id"})
+
+var metricsBtreeNodesDataEndOffset = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "immudb_btree_nodes_data_end",
+	Help: "End offset for btree nodes data appendable",
+}, []string{"id"})
