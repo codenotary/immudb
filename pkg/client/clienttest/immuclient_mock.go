@@ -61,9 +61,9 @@ type ImmuClientMock struct {
 	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.Entries, error)
 	CountF                func(context.Context, []byte) (*schema.EntryCount, error)
 	CreateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
-	CreateDatabaseV2F     func(context.Context, *schema.DatabaseSettingsUpdate) error
+	CreateDatabaseV2F     func(context.Context, *schema.DatabaseSettingsV2) error
 	UpdateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
-	UpdateDatabaseV2F     func(context.Context, *schema.DatabaseSettingsUpdate) (*schema.DatabaseSettingsUpdateResult, error)
+	UpdateDatabaseV2F     func(context.Context, *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error)
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
 	CreateUserF           func(context.Context, []byte, []byte, uint32, string) error
@@ -185,7 +185,7 @@ func (icm *ImmuClientMock) UpdateDatabase(ctx context.Context, s *schema.Databas
 }
 
 // UpdateDatabaseV2 ...
-func (icm *ImmuClientMock) UpdateDatabaseV2(ctx context.Context, s *schema.DatabaseSettingsUpdate) (*schema.DatabaseSettingsUpdateResult, error) {
+func (icm *ImmuClientMock) UpdateDatabaseV2(ctx context.Context, s *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
 	return icm.UpdateDatabaseV2F(ctx, s)
 }
 
@@ -250,7 +250,7 @@ func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Databa
 }
 
 // CreateDatabaseV2 ...
-func (icm *ImmuClientMock) CreateDatabaseV2(ctx context.Context, db *schema.DatabaseSettingsUpdate) error {
+func (icm *ImmuClientMock) CreateDatabaseV2(ctx context.Context, db *schema.DatabaseSettingsV2) error {
 	return icm.CreateDatabaseV2F(ctx, db)
 }
 

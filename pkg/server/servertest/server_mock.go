@@ -268,6 +268,10 @@ func (s *ServerMock) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	return s.Srv.CreateDatabaseWith(ctx, req)
 }
 
+func (s *ServerMock) CreateDatabaseWithV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
+	return s.Srv.CreateDatabaseWithV2(ctx, req)
+}
+
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	return s.Srv.DatabaseList(ctx, req)
 }
@@ -284,8 +288,16 @@ func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	return s.Srv.UpdateDatabase(ctx, req)
 }
 
+func (s *ServerMock) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
+	return s.Srv.UpdateDatabaseV2(ctx, req)
+}
+
 func (s *ServerMock) GetDatabaseSettings(ctx context.Context, req *empty.Empty) (*schema.DatabaseSettings, error) {
 	return s.Srv.GetDatabaseSettings(ctx, req)
+}
+
+func (s *ServerMock) GetDatabaseSettingsV2(ctx context.Context, req *empty.Empty) (*schema.DatabaseSettingsV2, error) {
+	return s.Srv.GetDatabaseSettingsV2(ctx, req)
 }
 
 func (s *ServerMock) FlushIndex(ctx context.Context, req *schema.FlushIndexRequest) (*empty.Empty, error) {
