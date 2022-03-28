@@ -308,7 +308,7 @@ func (d *db) FlushIndex(req *schema.FlushIndexRequest) error {
 		return store.ErrIllegalArguments
 	}
 
-	return d.st.FlushIndex(int(req.CleanupPercentage), req.Synced)
+	return d.st.FlushIndex(req.CleanupPercentage, req.Synced)
 }
 
 // CompactIndex ...

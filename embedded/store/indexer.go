@@ -237,7 +237,7 @@ func (idx *indexer) CompactIndex() (err error) {
 	return idx.restartIndex()
 }
 
-func (idx *indexer) FlushIndex(cleanupPercentage int, synced bool) (err error) {
+func (idx *indexer) FlushIndex(cleanupPercentage float32, synced bool) (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 

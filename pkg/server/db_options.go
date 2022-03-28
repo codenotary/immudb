@@ -66,19 +66,19 @@ type dbOptions struct {
 }
 
 type indexOptions struct {
-	FlushThreshold           int   `json:"flushThreshold"`
-	SyncThreshold            int   `json:"syncThreshold"`
-	FlushBufferSize          int   `json:"flushBufferSize"`
-	CleanupPercentage        int   `json:"cleanupPercentage"`
-	CacheSize                int   `json:"cacheSize"`
-	MaxNodeSize              int   `json:"maxNodeSize"` // permanent
-	MaxActiveSnapshots       int   `json:"maxActiveSnapshots"`
-	RenewSnapRootAfter       int64 `json:"renewSnapRootAfter"` // ms
-	CompactionThld           int   `json:"compactionThld"`
-	DelayDuringCompaction    int64 `json:"delayDuringCompaction"` // ms
-	NodesLogMaxOpenedFiles   int   `json:"nodesLogMaxOpenedFiles"`
-	HistoryLogMaxOpenedFiles int   `json:"historyLogMaxOpenedFiles"`
-	CommitLogMaxOpenedFiles  int   `json:"commitLogMaxOpenedFiles"`
+	FlushThreshold           int     `json:"flushThreshold"`
+	SyncThreshold            int     `json:"syncThreshold"`
+	FlushBufferSize          int     `json:"flushBufferSize"`
+	CleanupPercentage        float32 `json:"cleanupPercentage"`
+	CacheSize                int     `json:"cacheSize"`
+	MaxNodeSize              int     `json:"maxNodeSize"` // permanent
+	MaxActiveSnapshots       int     `json:"maxActiveSnapshots"`
+	RenewSnapRootAfter       int64   `json:"renewSnapRootAfter"` // ms
+	CompactionThld           int     `json:"compactionThld"`
+	DelayDuringCompaction    int64   `json:"delayDuringCompaction"` // ms
+	NodesLogMaxOpenedFiles   int     `json:"nodesLogMaxOpenedFiles"`
+	HistoryLogMaxOpenedFiles int     `json:"historyLogMaxOpenedFiles"`
+	CommitLogMaxOpenedFiles  int     `json:"commitLogMaxOpenedFiles"`
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
@@ -216,7 +216,7 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
 			FlushThreshold:           &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
 			SyncThreshold:            &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
 			FlushBufferSize:          &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushBufferSize)},
-			CleanupPercentage:        &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CleanupPercentage)},
+			CleanupPercentage:        &schema.ConditionalFloat{Value: opts.IndexOptions.CleanupPercentage},
 			CacheSize:                &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CacheSize)},
 			MaxNodeSize:              &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxNodeSize)},
 			MaxActiveSnapshots:       &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxActiveSnapshots)},
@@ -381,7 +381,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSet
 			opts.IndexOptions.FlushBufferSize = int(settings.IndexSettings.FlushBufferSize.Value)
 		}
 		if settings.IndexSettings.CleanupPercentage != nil {
-			opts.IndexOptions.CleanupPercentage = int(settings.IndexSettings.CleanupPercentage.Value)
+			opts.IndexOptions.CleanupPercentage = settings.IndexSettings.CleanupPercentage.Value
 		}
 		if settings.IndexSettings.CacheSize != nil {
 			opts.IndexOptions.CacheSize = int(settings.IndexSettings.CacheSize.Value)

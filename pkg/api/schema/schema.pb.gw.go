@@ -3646,7 +3646,7 @@ var (
 
 	pattern_ImmuService_GetDatabaseSettings_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "settings"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_GetDatabaseSettingsV2_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "settings"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_GetDatabaseSettingsV2_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"db", "settings", "v2"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_FlushIndex_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"db", "flushindex"}, "", runtime.AssumeColonVerbOpt(true)))
 

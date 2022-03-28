@@ -28,7 +28,7 @@ const DefaultMaxNodeSize = 4096
 const DefaultFlushThld = 100_000
 const DefaultSyncThld = 1_000_000
 const DefaultFlushBufferSize = 4096
-const DefaultCleanUpPercentage = 0
+const DefaultCleanUpPercentage float32 = 0
 const DefaultMaxActiveSnapshots = 100
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
@@ -57,7 +57,7 @@ type Options struct {
 	flushThld          int
 	syncThld           int
 	flushBufferSize    int
-	cleanupPercentage  int
+	cleanupPercentage  float32
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
 	cacheSize          int
@@ -150,7 +150,7 @@ func (opts *Options) WithFlushBufferSize(size int) *Options {
 	return opts
 }
 
-func (opts *Options) WithCleanupPercentage(cleanupPercentage int) *Options {
+func (opts *Options) WithCleanupPercentage(cleanupPercentage float32) *Options {
 	opts.cleanupPercentage = cleanupPercentage
 	return opts
 }
