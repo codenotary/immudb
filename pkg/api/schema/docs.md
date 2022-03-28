@@ -13,6 +13,7 @@
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
     - [ConditionalBool](#immudb.schema.ConditionalBool)
+    - [ConditionalFloat](#immudb.schema.ConditionalFloat)
     - [ConditionalString](#immudb.schema.ConditionalString)
     - [ConditionalUint32](#immudb.schema.ConditionalUint32)
     - [ConditionalUint64](#immudb.schema.ConditionalUint64)
@@ -259,6 +260,21 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | value | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ConditionalFloat"></a>
+
+### ConditionalFloat
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [float](#float) |  |  |
 
 
 
@@ -602,7 +618,7 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| cleanupPercentage | [uint32](#uint32) |  |  |
+| cleanupPercentage | [float](#float) |  |  |
 | synced | [bool](#bool) |  |  |
 
 
@@ -700,7 +716,7 @@ Reserved to reply with more advanced response later
 | historyLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 | commitLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
 | flushBufferSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| cleanupPercentage | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| cleanupPercentage | [ConditionalFloat](#immudb.schema.ConditionalFloat) |  |  |
 
 
 

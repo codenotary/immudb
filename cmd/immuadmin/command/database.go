@@ -162,7 +162,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cleanupPercentage, err := cmd.Flags().GetInt("cleanup-percentage")
+			cleanupPercentage, err := cmd.Flags().GetFloat32("cleanup-percentage")
 			if err != nil {
 				return err
 			}
@@ -182,7 +182,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(0),
 	}
-	fcc.Flags().Int("cleanup-percentage", 0, "set cleanup percentage")
+	fcc.Flags().Float32("cleanup-percentage", 0.00, "set cleanup percentage")
 	fcc.Flags().Bool("synced", true, "synced mode enables physical data deletion")
 
 	ccc := &cobra.Command{

@@ -401,6 +401,10 @@ message ConditionalUint64 {
 	uint64 value = 1;
 }
 
+message ConditionalFloat {
+	float value = 1;
+}
+
 message ConditionalBool {
 	bool value = 1;
 }
@@ -456,12 +460,12 @@ message IndexSettings {
 	ConditionalUint32  historyLogMaxOpenedFiles = 10;
 	ConditionalUint32  commitLogMaxOpenedFiles = 11;
 	ConditionalUint32  flushBufferSize = 12;
-	ConditionalUint32  cleanupPercentage = 13;
+	ConditionalFloat   cleanupPercentage = 13;
 }
 
 message FlushIndexRequest {
-	uint32  cleanupPercentage = 1;
-	bool    synced = 2;
+	float  cleanupPercentage = 1;
+	bool   synced = 2;
 }
 
 message Table {

@@ -177,7 +177,7 @@ type TBtree struct {
 	flushThld                int
 	syncThld                 int
 	flushBufferSize          int
-	cleanupPercentage        int
+	cleanupPercentage        float32
 	maxActiveSnapshots       int
 	renewSnapRootAfter       time.Duration
 	readOnly                 bool
@@ -959,7 +959,7 @@ func (t *TBtree) Flush() (wN, wH int64, err error) {
 	return t.FlushWith(t.cleanupPercentage, false)
 }
 
-func (t *TBtree) FlushWith(cleanupPercentage int, synced bool) (wN, wH int64, err error) {
+func (t *TBtree) FlushWith(cleanupPercentage float32, synced bool) (wN, wH int64, err error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -984,15 +984,15 @@ func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 	return fmt.Errorf(formattedMessage, args...)
 }
 
-func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int64, err error) {
+func (t *TBtree) flushTree(cleanupPercentage float32, synced bool) (wN int64, wH int64, err error) {
 	if cleanupPercentage < 0 || cleanupPercentage > 100 {
 		return 0, 0, fmt.Errorf("%w: invalid cleanupPercentage", ErrIllegalArguments)
 	}
 
-	t.log.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%d}...", t.path, t.root.ts(), cleanupPercentage)
+	t.log.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f}...", t.path, t.root.ts(), cleanupPercentage)
 
 	if !t.root.mutated() && cleanupPercentage == 0 {
-		t.log.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%d}", t.path, t.root.ts(), cleanupPercentage)
+		t.log.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
 		return 0, 0, nil
 	}
 
@@ -1021,7 +1021,7 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 	)
 	defer finishOutputFunc()
 
-	expectedNewMinOffset := t.minOffset + ((t.committedNLogSize-t.minOffset)*int64(cleanupPercentage))/100
+	expectedNewMinOffset := t.minOffset + int64((float32(t.committedNLogSize-t.minOffset)*cleanupPercentage)/100)
 
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
@@ -1034,19 +1034,19 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 
 	_, actualNewMinOffset, wN, wH, err := snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
@@ -1055,13 +1055,13 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 	if sync {
 		err = t.hLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 
 		err = t.nLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 	}
@@ -1090,41 +1090,41 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 
 	cLogEntry.nLogChecksum, err = appendable.Checksum(t.nLog, t.committedNLogSize, wN)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	cLogEntry.hLogChecksum, err = appendable.Checksum(t.hLog, t.committedHLogSize, wH)
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	_, _, err = t.cLog.Append(cLogEntry.serialize())
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+		return 0, 0, t.wrapNwarn("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
 	t.insertionCountSinceFlush = 0
-	t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully flushed",
+	t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f} successfully flushed",
 		t.path, t.root.ts(), cleanupPercentage)
 
 	if sync {
 		err = t.cLog.Sync()
 		if err != nil {
-			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+			return 0, 0, t.wrapNwarn("Syncing index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 				t.path, t.root.ts(), cleanupPercentage, err)
 		}
 
 		t.insertionCountSinceSync = 0
-		t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%d} successfully synced",
+		t.log.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f} successfully synced",
 			t.path, t.root.ts(), cleanupPercentage)
 
 		// prevent discarding data referenced by opened snapshots
@@ -1136,18 +1136,18 @@ func (t *TBtree) flushTree(cleanupPercentage int, synced bool) (wN int64, wH int
 		}
 
 		if discardableNLogOffset > t.minOffset {
-			t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d}...",
+			t.log.Infof("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f, current_min_offset=%d, new_min_offset=%d}...",
 				t.path, t.root.ts(), cleanupPercentage, t.minOffset, actualNewMinOffset)
 
 			err = t.nLog.DiscardUpto(discardableNLogOffset)
 			if err != nil {
-				t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d} returned: %v",
+				t.log.Warningf("Discarding unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f} returned: %v",
 					t.path, t.root.ts(), cleanupPercentage, err)
 			}
 
 			metricsBtreeNodesDataBeginOffset.WithLabelValues(t.path).Set(float64(discardableNLogOffset))
 
-			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%d, current_min_offset=%d, new_min_offset=%d} successfully discarded",
+			t.log.Infof("Unreferenced data at index '%s' {ts=%d, cleanup_percentage=%.2f, current_min_offset=%d, new_min_offset=%d} successfully discarded",
 				t.path, t.root.ts(), cleanupPercentage, t.minOffset, actualNewMinOffset)
 		}
 

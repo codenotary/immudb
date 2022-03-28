@@ -704,7 +704,7 @@ func (s *ImmuStore) CompactIndex() error {
 	return s.indexer.CompactIndex()
 }
 
-func (s *ImmuStore) FlushIndex(cleanupPercentage int, synced bool) error {
+func (s *ImmuStore) FlushIndex(cleanupPercentage float32, synced bool) error {
 	return s.indexer.FlushIndex(cleanupPercentage, synced)
 }
 

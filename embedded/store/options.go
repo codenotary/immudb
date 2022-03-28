@@ -93,7 +93,7 @@ type IndexOptions struct {
 	FlushThld                int
 	SyncThld                 int
 	FlushBufferSize          int
-	CleanupPercentage        int
+	CleanupPercentage        float32
 	MaxActiveSnapshots       int
 	MaxNodeSize              int
 	RenewSnapRootAfter       time.Duration
@@ -341,7 +341,7 @@ func (opts *IndexOptions) WithFlushBufferSize(flushBufferSize int) *IndexOptions
 	return opts
 }
 
-func (opts *IndexOptions) WithCleanupPercentage(cleanupPercentage int) *IndexOptions {
+func (opts *IndexOptions) WithCleanupPercentage(cleanupPercentage float32) *IndexOptions {
 	opts.CleanupPercentage = cleanupPercentage
 	return opts
 }
