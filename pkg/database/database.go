@@ -360,9 +360,20 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 			kv.Value,
 		)
 
-		err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, schema.KVConstraintsFromProto(kv.Constraints))
+		err = tx.Set(e.Key, e.Metadata, e.Value)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	for i := range req.Constraints {
+
+		c := schema.KVConstraintsFromProto(req.Constraints[i])
+		c.Key = EncodeKey(c.Key)
+
+		err = tx.AddKVConstraint(c)
+		if err != nil {
+			return nil, fmt.Errorf("invalid constraint: %w", err)
 		}
 	}
 

@@ -599,6 +599,7 @@
 | ----- | ---- | ----- | ----------- |
 | Operations | [Op](#immudb.schema.Op) | repeated |  |
 | noWait | [bool](#bool) |  |  |
+| Constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
 
 
 
@@ -771,6 +772,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  | key to check against |
 | mustExist | [bool](#bool) |  | If set to true, only store new value if existing one with same key already exists |
 | mustNotExist | [bool](#bool) |  | If set to true, only store new value if value with same key does not exist yet |
 | notModifiedAfterTX | [uint64](#uint64) |  | If set to value &gt; 0, only store new value if the existing value does not exist or was not modified after given transaction |
@@ -872,7 +874,6 @@
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
-| constraints | [KVConstraints](#immudb.schema.KVConstraints) |  |  |
 
 
 
@@ -1161,7 +1162,7 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
-| constraints | [KVConstraints](#immudb.schema.KVConstraints) |  |  |
+| constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
 
 
 
@@ -1401,6 +1402,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
+| constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
 | noWait | [bool](#bool) |  |  |
 
 

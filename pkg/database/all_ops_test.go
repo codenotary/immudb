@@ -1193,82 +1193,100 @@ func TestOps_Constrains(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	_, err := db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Kv{
-			Kv: &schema.KeyValue{
-				Key:   []byte("key"),
-				Value: []byte("value"),
-				Constraints: &schema.KVConstraints{
-					MustExist: true,
+	_, err := db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("key"),
+			MustExist: true,
+		}},
+	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed)
 
-	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Kv{
-			Kv: &schema.KeyValue{
-				Key:   []byte("key"),
-				Value: []byte("value"),
-				Constraints: &schema.KVConstraints{
-					MustNotExist: true,
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key"),
+			MustNotExist: true,
+		}},
+	})
 	require.NoError(t, err)
 
-	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Kv{
-			Kv: &schema.KeyValue{
-				Key:   []byte("key"),
-				Value: []byte("value"),
-				Constraints: &schema.KVConstraints{
-					MustNotExist: true,
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key"),
+			MustNotExist: true,
+		}},
+	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed)
 
-	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Kv{
-			Kv: &schema.KeyValue{
-				Key:   []byte("key"),
-				Value: []byte("value"),
-				Constraints: &schema.KVConstraints{
-					MustExist: true,
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("key"),
+			MustExist: true,
+		}},
+	})
 	require.NoError(t, err)
 
-	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Ref{
-			Ref: &schema.ReferenceRequest{
-				Key:           []byte("reference"),
-				ReferencedKey: []byte("key"),
-				Constraints: &schema.KVConstraints{
-					MustExist: true,
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("reference"),
+			MustExist: true,
+		}},
+	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed)
 
-	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{{
-		Operation: &schema.Op_Ref{
-			Ref: &schema.ReferenceRequest{
-				Key:           []byte("reference"),
-				ReferencedKey: []byte("key"),
-				Constraints: &schema.KVConstraints{
-					MustNotExist: true,
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
 				},
 			},
-		},
-	}}})
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("reference"),
+			MustNotExist: true,
+		}},
+	})
 	require.NoError(t, err)
 
 }

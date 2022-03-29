@@ -938,9 +938,8 @@ func TestConstrainedSet(t *testing.T) {
 
 	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
-			Key:         []byte("key-no-constraints"),
-			Value:       []byte("value"),
-			Constraints: nil,
+			Key:   []byte("key-no-constraints"),
+			Value: []byte("value"),
 		}},
 	})
 	require.NoError(t, err, "could not set a value without constraints")
@@ -949,9 +948,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustExist: true,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("key"),
+			MustExist: true,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
@@ -961,9 +961,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustNotExist: true,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key"),
+			MustNotExist: true,
 		}},
 	})
 	require.NoError(t, err,
@@ -973,9 +974,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustNotExist: true,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key"),
+			MustNotExist: true,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
@@ -985,9 +987,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustExist: true,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("key"),
+			MustExist: true,
 		}},
 	})
 	require.NoError(t, err,
@@ -997,9 +1000,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				NotModifiedAfterTX: tx1.Id,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:                []byte("key"),
+			NotModifiedAfterTX: tx1.Id,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
@@ -1009,9 +1013,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				NotModifiedAfterTX: tx2.Id,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:                []byte("key"),
+			NotModifiedAfterTX: tx2.Id,
 		}},
 	})
 	require.NoError(t, err,
@@ -1021,9 +1026,10 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				NotModifiedAfterTX: tx2.Id,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:                []byte("key"),
+			NotModifiedAfterTX: tx2.Id,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
@@ -1033,9 +1039,9 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key2"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				NotModifiedAfterTX: tx2.Id,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{Key: []byte("key2"),
+			NotModifiedAfterTX: tx2.Id,
 		}},
 	})
 	require.NoError(t, err,
@@ -1045,10 +1051,11 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key3"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustExist:          true,
-				NotModifiedAfterTX: tx2.Id,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:                []byte("key3"),
+			MustExist:          true,
+			NotModifiedAfterTX: tx2.Id,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
@@ -1058,10 +1065,11 @@ func TestConstrainedSet(t *testing.T) {
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key3"),
 			Value: []byte("value"),
-			Constraints: &schema.KVConstraints{
-				MustExist:    true,
-				MustNotExist: true,
-			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key3"),
+			MustExist:    true,
+			MustNotExist: true,
 		}},
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraint,
@@ -1076,11 +1084,12 @@ func TestConstrainedSet(t *testing.T) {
 			{
 				Key:   []byte("key5-with-constraints"),
 				Value: []byte("value"),
-				Constraints: &schema.KVConstraints{
-					MustExist: true,
-				},
 			},
 		},
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("key5-with-constraints"),
+			MustExist: true,
+		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
 		"did not fail even though one of KV entries failed constraint check")
@@ -1136,9 +1145,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 					KVs: []*schema.KeyValue{{
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-						Constraints: &schema.KVConstraints{
-							MustNotExist: true,
-						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:          []byte(`key`),
+						MustNotExist: true,
 					}},
 				})
 				return err
@@ -1156,9 +1166,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 					KVs: []*schema.KeyValue{{
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-						Constraints: &schema.KVConstraints{
-							MustExist: true,
-						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:       []byte(`key`),
+						MustExist: true,
 					}},
 				})
 				return err
@@ -1182,9 +1193,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 					KVs: []*schema.KeyValue{{
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-						Constraints: &schema.KVConstraints{
-							NotModifiedAfterTX: tx.Id,
-						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:                []byte(`key`),
+						NotModifiedAfterTX: tx.Id,
 					}},
 				})
 				return err
@@ -1208,9 +1220,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: &schema.KVConstraints{
+					Constraints: []*schema.KVConstraints{{
+						Key:          []byte(`reference`),
 						MustNotExist: true,
-					},
+					}},
 				})
 				return err
 			})
@@ -1226,9 +1239,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: &schema.KVConstraints{
+					Constraints: []*schema.KVConstraints{{
+						Key:       []byte(`reference`),
 						MustExist: true,
-					},
+					}},
 				})
 				return err
 			})
@@ -1250,9 +1264,10 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: &schema.KVConstraints{
+					Constraints: []*schema.KVConstraints{{
+						Key:                []byte(`reference`),
 						NotModifiedAfterTX: tx.Id,
-					},
+					}},
 				})
 				return err
 			})
@@ -1278,11 +1293,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Kv: &schema.KeyValue{
 								Key:   []byte(`key-ea`),
 								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-								Constraints: &schema.KVConstraints{
-									MustNotExist: true,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:          []byte(`key-ea`),
+						MustNotExist: true,
 					}},
 				})
 				return err
@@ -1302,11 +1318,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Kv: &schema.KeyValue{
 								Key:   []byte(`key-ea`),
 								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-								Constraints: &schema.KVConstraints{
-									MustExist: true,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:       []byte(`key-ea`),
+						MustExist: true,
 					}},
 				})
 				return err
@@ -1332,11 +1349,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Kv: &schema.KeyValue{
 								Key:   []byte(`key-ea`),
 								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
-								Constraints: &schema.KVConstraints{
-									NotModifiedAfterTX: tx.Id,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:                []byte(`key-ea`),
+						NotModifiedAfterTX: tx.Id,
 					}},
 				})
 				return err
@@ -1363,11 +1381,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Ref: &schema.ReferenceRequest{
 								Key:           []byte(`reference-ea`),
 								ReferencedKey: []byte(`key-ea`),
-								Constraints: &schema.KVConstraints{
-									MustNotExist: true,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:          []byte(`reference-ea`),
+						MustNotExist: true,
 					}},
 				})
 				return err
@@ -1387,11 +1406,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Ref: &schema.ReferenceRequest{
 								Key:           []byte(`reference-ea`),
 								ReferencedKey: []byte(`key-ea`),
-								Constraints: &schema.KVConstraints{
-									MustExist: true,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:       []byte(`reference-ea`),
+						MustExist: true,
 					}},
 				})
 				return err
@@ -1417,11 +1437,12 @@ func TestConstrainedSetParallel(t *testing.T) {
 							Ref: &schema.ReferenceRequest{
 								Key:           []byte(`reference-ea`),
 								ReferencedKey: []byte(`key-ea`),
-								Constraints: &schema.KVConstraints{
-									NotModifiedAfterTX: tx.Id,
-								},
 							},
 						},
+					}},
+					Constraints: []*schema.KVConstraints{{
+						Key:                []byte(`reference-ea`),
+						NotModifiedAfterTX: tx.Id,
 					}},
 				})
 				return err

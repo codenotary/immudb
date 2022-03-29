@@ -53,8 +53,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, []*store.KVConstraints, error) {
 		entries := make([]*store.EntrySpec, len(req.Operations))
 
-		var constraints []*store.KVConstraints
-
 		// In order to:
 		// * make a memory efficient check system for keys that need to be referenced
 		// * store the index of the future persisted zAdd referenced entries
@@ -86,12 +84,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 					schema.KVMetadataFromProto(x.Kv.Metadata),
 					x.Kv.Value,
 				)
-
-				c := schema.KVConstraintsFromProto(x.Kv.Constraints)
-				if c != nil {
-					c.Key = e.Key
-					constraints = append(constraints, c)
-				}
 
 			case *schema.Op_Ref:
 				if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {
@@ -146,13 +138,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 						x.Ref.ReferencedKey,
 						txID,
 					)
-
-					c := schema.KVConstraintsFromProto(x.Ref.Constraints)
-					if c != nil {
-						c.Key = e.Key
-						constraints = append(constraints, c)
-					}
-
 				} else {
 					e = EncodeReference(
 						x.Ref.Key,
@@ -160,12 +145,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 						x.Ref.ReferencedKey,
 						x.Ref.AtTx,
 					)
-
-					c := schema.KVConstraintsFromProto(x.Ref.Constraints)
-					if c != nil {
-						c.Key = e.Key
-						constraints = append(constraints, c)
-					}
 				}
 
 			case *schema.Op_ZAdd:
@@ -215,6 +194,13 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 			}
 
 			entries[i] = e
+		}
+
+		constraints := make([]*store.KVConstraints, len(req.Constraints))
+		for i := 0; i < len(req.Constraints); i++ {
+			c := schema.KVConstraintsFromProto(req.Constraints[i])
+			c.Key = EncodeKey(c.Key)
+			constraints[i] = c
 		}
 
 		return entries, constraints, nil

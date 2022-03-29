@@ -399,9 +399,10 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 	_, err = db.SetReference(&schema.ReferenceRequest{
 		Key:           []byte("reference"),
 		ReferencedKey: []byte("key"),
-		Constraints: &schema.KVConstraints{
+		Constraints: []*schema.KVConstraints{{
+			Key:       []byte("reference"),
 			MustExist: true,
-		},
+		}},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed)
 
@@ -409,27 +410,4 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 		Key: []byte("reference"),
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
-
-	_, err = db.SetReference(&schema.ReferenceRequest{
-		Key:           []byte("reference"),
-		ReferencedKey: []byte("key"),
-		Constraints: &schema.KVConstraints{
-			MustNotExist: true,
-		},
-	})
-	require.NoError(t, err)
-
-	_, err = db.Get(&schema.KeyRequest{
-		Key: []byte("reference"),
-	})
-	require.NoError(t, err)
-
-	_, err = db.SetReference(&schema.ReferenceRequest{
-		Key:           []byte("reference"),
-		ReferencedKey: []byte("key"),
-		Constraints: &schema.KVConstraints{
-			MustNotExist: true,
-		},
-	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed)
 }

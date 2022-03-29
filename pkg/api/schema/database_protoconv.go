@@ -113,6 +113,7 @@ func KVConstraintsFromProto(c *KVConstraints) *store.KVConstraints {
 	}
 
 	return &store.KVConstraints{
+		Key:                c.Key,
 		MustExist:          c.MustExist,
 		MustNotExist:       c.MustNotExist,
 		NotModifiedAfterTX: c.NotModifiedAfterTX,

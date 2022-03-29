@@ -84,9 +84,18 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		req.AtTx,
 	)
 
-	err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, schema.KVConstraintsFromProto(req.Constraints))
+	err = tx.Set(e.Key, e.Metadata, e.Value)
 	if err != nil {
 		return nil, err
+	}
+
+	for i := range req.Constraints {
+		c := schema.KVConstraintsFromProto(req.Constraints[i])
+		c.Key = EncodeKey(c.Key)
+		err = tx.AddKVConstraint(c)
+		if err != nil {
+			return nil, fmt.Errorf("invalid constraint: %w", err)
+		}
 	}
 
 	var hdr *store.TxHeader

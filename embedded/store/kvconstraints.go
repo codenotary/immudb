@@ -8,8 +8,7 @@ import (
 )
 
 type KVConstraints struct {
-	Key []byte
-
+	Key                []byte
 	MustExist          bool
 	MustNotExist       bool
 	NotModifiedAfterTX uint64

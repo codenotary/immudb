@@ -2000,6 +2000,12 @@
         },
         "noWait": {
           "type": "boolean"
+        },
+        "Constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKVConstraints"
+          }
         }
       }
     },
@@ -2141,6 +2147,11 @@
     "schemaKVConstraints": {
       "type": "object",
       "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte",
+          "title": "key to check against"
+        },
         "mustExist": {
           "type": "boolean",
           "title": "If set to true, only store new value if existing one with same key already exists"
@@ -2219,9 +2230,6 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
-        },
-        "constraints": {
-          "$ref": "#/definitions/schemaKVConstraints"
         }
       }
     },
@@ -2419,7 +2427,10 @@
           "type": "boolean"
         },
         "constraints": {
-          "$ref": "#/definitions/schemaKVConstraints"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKVConstraints"
+          }
         }
       }
     },
@@ -2650,6 +2661,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaKeyValue"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKVConstraints"
           }
         },
         "noWait": {

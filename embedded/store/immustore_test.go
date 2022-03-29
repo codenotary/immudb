@@ -608,7 +608,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.fetchAllocTx()
-	require.ErrorIs(t, err, ErrMaxConcurrencyLimitExceeded)
+	require.Equal(t, ErrMaxConcurrencyLimitExceeded, err)
 
 	immuStore.releaseAllocTx(tx1)
 
@@ -623,46 +623,34 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	targetTx := newTx(1, 1)
 	targetTx.header.ID = 1
 	_, err = immuStore.DualProof(sourceTx, targetTx)
-	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
+	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
 	_, err = immuStore.LinearProof(2, 1)
-	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
+	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
 	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
-	require.ErrorIs(t, err, ErrLinearProofMaxLenExceeded)
+	require.Equal(t, ErrLinearProofMaxLenExceeded, err)
 
 	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
-	require.ErrorIs(t, err, ErrKeyNotFound)
+	require.Equal(t, ErrKeyNotFound, err)
 
-	err = immuStore.validateOngoingTX(nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
+	err = immuStore.validateEntries(nil)
+	require.Equal(t, ErrorNoEntriesProvided, err)
 
-	err = immuStore.validateOngoingTX(&OngoingTx{})
-	require.ErrorIs(t, err, ErrorNoEntriesProvided)
-
-	err = immuStore.validateOngoingTX(&OngoingTx{
-		entries: make([]*EntrySpec, immuStore.maxTxEntries+1),
-	})
-
-	require.ErrorIs(t, err, ErrorMaxTxEntriesLimitExceeded)
+	err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
+	require.Equal(t, ErrorMaxTxEntriesLimitExceeded, err)
 
 	entry := &EntrySpec{Key: nil, Value: nil}
-	err = immuStore.validateOngoingTX(&OngoingTx{
-		entries: []*EntrySpec{entry},
-	})
-	require.ErrorIs(t, err, ErrNullKey)
+	err = immuStore.validateEntries([]*EntrySpec{entry})
+	require.Equal(t, ErrNullKey, err)
 
 	entry = &EntrySpec{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
-	err = immuStore.validateOngoingTX(&OngoingTx{
-		entries: []*EntrySpec{entry},
-	})
-	require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
+	err = immuStore.validateEntries([]*EntrySpec{entry})
+	require.Equal(t, ErrorMaxKeyLenExceeded, err)
 
 	entry = &EntrySpec{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
-	err = immuStore.validateOngoingTX(&OngoingTx{
-		entries: []*EntrySpec{entry},
-	})
-	require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
+	err = immuStore.validateEntries([]*EntrySpec{entry})
+	require.Equal(t, ErrorMaxValueLenExceeded, err)
 }
 
 func TestImmudbSetBlErr(t *testing.T) {

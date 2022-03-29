@@ -890,7 +890,12 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrIllegalArguments
 	}
 
-	err := s.validateOngoingTX(otx)
+	err := s.validateEntries(otx.entries)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.validateConstraints(otx.constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -1019,7 +1024,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrTxReadConflict
 	}
 
-	if otx.hasConstrainedEntries() {
+	if otx.hasConstraints() {
 		// Constraints must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(s.committedTxID, nil)
 		if err != nil {
@@ -1303,7 +1308,12 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	err = s.validateOngoingTX(otx)
+	err = s.validateEntries(otx.entries)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.validateConstraints(otx.constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -1353,7 +1363,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	if otx.hasConstrainedEntries() {
+	if otx.hasConstraints() {
 		s.indexer.Resume()
 		// Constraints must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(committedTxID, nil)
@@ -1821,20 +1831,17 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	return len(b), nil
 }
 
-func (s *ImmuStore) validateOngoingTX(tx *OngoingTx) error {
-	if tx == nil {
-		return ErrIllegalArguments
-	}
-	if len(tx.entries) == 0 {
+func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
+	if len(entries) == 0 {
 		return ErrorNoEntriesProvided
 	}
-	if len(tx.entries) > s.maxTxEntries {
+	if len(entries) > s.maxTxEntries {
 		return ErrorMaxTxEntriesLimitExceeded
 	}
 
-	m := make(map[string]struct{}, len(tx.entries))
+	m := make(map[string]struct{}, len(entries))
 
-	for _, kv := range tx.entries {
+	for _, kv := range entries {
 		if kv.Key == nil {
 			return ErrNullKey
 		}
@@ -1852,14 +1859,19 @@ func (s *ImmuStore) validateOngoingTX(tx *OngoingTx) error {
 		}
 		m[b64k] = struct{}{}
 	}
+	return nil
+}
 
-	for _, cs := range tx.constraints {
-		err := cs.validate()
+func (s *ImmuStore) validateConstraints(constraints []*KVConstraints) error {
+	for _, c := range constraints {
+		if c == nil {
+			return fmt.Errorf("invalid constraints: null constraint")
+		}
+		err := c.validate()
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid constraints: %w", err)
 		}
 	}
-
 	return nil
 }
 

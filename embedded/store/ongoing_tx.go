@@ -134,10 +134,6 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 }
 
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
-	return tx.SetWithConstraints(key, md, value, nil)
-}
-
-func (tx *OngoingTx) SetWithConstraints(key []byte, md *KVMetadata, value []byte, c *KVConstraints) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -185,12 +181,23 @@ func (tx *OngoingTx) SetWithConstraints(key []byte, md *KVMetadata, value []byte
 		tx.entriesByKey[kid] = len(tx.entriesByKey)
 	}
 
-	if c != nil {
-		c2 := *c
-		c2.Key = e.Key
-		tx.constraints = append(tx.constraints, &c2)
+	return nil
+}
+
+func (tx *OngoingTx) AddKVConstraint(c *KVConstraints) error {
+	if tx.closed {
+		return ErrAlreadyClosed
 	}
 
+	if len(c.Key) == 0 {
+		return ErrNullKey
+	}
+
+	if len(c.Key) > tx.st.maxKeyLen {
+		return ErrorMaxKeyLenExceeded
+	}
+
+	tx.constraints = append(tx.constraints, c)
 	return nil
 }
 
@@ -290,7 +297,7 @@ func (tx *OngoingTx) Cancel() error {
 	return nil
 }
 
-func (tx *OngoingTx) hasConstrainedEntries() bool {
+func (tx *OngoingTx) hasConstraints() bool {
 	return len(tx.constraints) > 0
 }
 
