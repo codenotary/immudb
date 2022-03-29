@@ -97,17 +97,20 @@ type ImmuClient interface {
 	SetupDialOptions(options *Options) []grpc.DialOption
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+	DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
-	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
+	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
+	OpenDatabase(ctx context.Context, r *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error)
+	CloseDatabase(ctx context.Context, r *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
 	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
 	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
-	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseNullableSettings, error)
+	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error)
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
-	FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) error
+	FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error)
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
 	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
@@ -1463,7 +1466,7 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 }
 
 // CreateDatabaseV2 create a new database by making a grpc call
-func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
+func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
@@ -1480,7 +1483,37 @@ func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings
 
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
 
-	return res.Settings, err
+	return res, nil
+}
+
+// OpenDatabase open an existent database by making a grpc call
+func (c *immuClient) OpenDatabase(ctx context.Context, r *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.OpenDatabase(ctx, r)
+
+	c.Logger.Debugf("OpenDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+// CloseDatabase close an existent database by making a grpc call
+func (c *immuClient) CloseDatabase(ctx context.Context, r *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.CloseDatabase(ctx, r)
+
+	c.Logger.Debugf("CloseDatabase finished in %s", time.Since(start))
+
+	return res, err
 }
 
 // UseDatabase create a new database by making a grpc call
@@ -1553,7 +1586,7 @@ func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseS
 	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
 }
 
-func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseNullableSettings, error) {
+func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -1563,20 +1596,23 @@ func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.Databas
 		return nil, errors.FromError(err)
 	}
 
-	return res.Settings, nil
+	return res, nil
 }
 
-func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) error {
+func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error) {
 	if !c.IsConnected() {
-		return errors.FromError(ErrNotConnected)
+		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	_, err := c.ServiceClient.FlushIndex(ctx, &schema.FlushIndexRequest{
+	res, err := c.ServiceClient.FlushIndex(ctx, &schema.FlushIndexRequest{
 		CleanupPercentage: cleanupPercentage,
 		Synced:            synced,
 	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
 
-	return err
+	return res, nil
 }
 
 func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
@@ -1640,6 +1676,14 @@ func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResp
 	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
 
 	return result, err
+}
+
+func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
 }
 
 // DEPRECATED: Please use CurrentState

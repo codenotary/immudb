@@ -37,39 +37,49 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().String("replication-follower-username", "", "set username used for replication")
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
+	c.Flags().Bool("auto-open", true, "enable database auto-open")
 }
 
 func (cl *commandline) database(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:     "database",
-		Short:   "Issue all database commands",
-		Aliases: []string{"d"},
-		//PersistentPreRunE: cl.ConfigChain(cl.connect),
+	dbCmd := &cobra.Command{
+		Use:               "database",
+		Short:             "Issue all database commands",
+		Aliases:           []string{"d"},
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "update", "use", "clean"},
+		ValidArgs:         []string{"list", "create", "open", "close", "update", "use", "flush", "compact"},
 	}
 
-	ccd := &cobra.Command{
+	listCmd := &cobra.Command{
 		Use:               "list",
 		Short:             "List all databases",
 		Aliases:           []string{"l"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immuClient.DatabaseList(cl.context)
+			resp, err := cl.immuClient.DatabaseListV2(cl.context)
 			if err != nil {
 				return err
 			}
 			c.PrintTable(
 				cmd.OutOrStdout(),
-				[]string{"Database Name"},
+				[]string{"Database Name", "Status"},
 				len(resp.Databases),
 				func(i int) []string {
-					row := make([]string, 1)
-					if cl.options.CurrentDatabase == resp.Databases[i].DatabaseName {
-						row[0] += fmt.Sprintf("*")
+					row := make([]string, 2)
+
+					db := resp.Databases[i]
+
+					if cl.options.CurrentDatabase == db.Name {
+						row[0] += "*"
 					}
-					row[0] += fmt.Sprintf("%s", resp.Databases[i].DatabaseName)
+					row[0] += db.Name
+
+					if db.GetOpen() {
+						row[1] += "OPEN"
+					} else {
+						row[1] += "CLOSED"
+					}
+
 					return row
 				},
 				fmt.Sprintf("%d database(s)", len(resp.Databases)),
@@ -79,7 +89,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(0),
 	}
 
-	cc := &cobra.Command{
+	createCmd := &cobra.Command{
 		Use:               "create",
 		Short:             "Create a new database",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -102,9 +112,49 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(1),
 	}
-	addDbUpdateFlags(cc)
+	addDbUpdateFlags(createCmd)
 
-	cu := &cobra.Command{
+	openCmd := &cobra.Command{
+		Use:               "open",
+		Short:             "Open database",
+		Example:           "open {database_name}",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := cl.immuClient.OpenDatabase(cl.context, &schema.OpenDatabaseRequest{
+				Database: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully opened\n", args[0])
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+
+	closeCmd := &cobra.Command{
+		Use:               "close",
+		Short:             "Close database",
+		Example:           "close {database_name}",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := cl.immuClient.CloseDatabase(cl.context, &schema.CloseDatabaseRequest{
+				Database: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully closed\n", args[0])
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+
+	updateCmd := &cobra.Command{
 		Use:               "update",
 		Short:             "Update database",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -127,10 +177,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(1),
 	}
-	addDbUpdateFlags(cu)
+	addDbUpdateFlags(updateCmd)
 
-	ccu := &cobra.Command{
-		Use:               "use command",
+	useCmd := &cobra.Command{
+		Use:               "use",
 		Short:             "Select database",
 		Example:           "use {database_name}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -149,14 +199,14 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Now using %s\n", args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "now using database '%s'\n", args[0])
 			return nil
 		},
 		Args: cobra.MaximumNArgs(2),
 	}
 
-	fcc := &cobra.Command{
-		Use:               "flush command",
+	flushCmd := &cobra.Command{
+		Use:               "flush",
 		Short:             "Flush database index",
 		Example:           "flush",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -172,21 +222,21 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			err = cl.immuClient.FlushIndex(cl.context, cleanupPercentage, synced)
+			_, err = cl.immuClient.FlushIndex(cl.context, cleanupPercentage, synced)
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully flushed\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "database index '%s' successfully flushed\n", args[0])
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
 	}
-	fcc.Flags().Float32("cleanup-percentage", 0.00, "set cleanup percentage")
-	fcc.Flags().Bool("synced", true, "synced mode enables physical data deletion")
+	flushCmd.Flags().Float32("cleanup-percentage", 0.00, "set cleanup percentage")
+	flushCmd.Flags().Bool("synced", true, "synced mode enables physical data deletion")
 
-	ccc := &cobra.Command{
-		Use:               "compact command",
+	compactCmd := &cobra.Command{
+		Use:               "compact",
 		Short:             "Compact database index",
 		Example:           "compact",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -197,19 +247,22 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully compacted\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "database index '%s' successfully compacted\n", args[0])
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
 	}
 
-	ccmd.AddCommand(fcc)
-	ccmd.AddCommand(ccc)
-	ccmd.AddCommand(ccu)
-	ccmd.AddCommand(ccd)
-	ccmd.AddCommand(cc)
-	ccmd.AddCommand(cu)
-	cmd.AddCommand(ccmd)
+	dbCmd.AddCommand(listCmd)
+	dbCmd.AddCommand(createCmd)
+	dbCmd.AddCommand(openCmd)
+	dbCmd.AddCommand(closeCmd)
+	dbCmd.AddCommand(useCmd)
+	dbCmd.AddCommand(updateCmd)
+	dbCmd.AddCommand(flushCmd)
+	dbCmd.AddCommand(compactCmd)
+
+	cmd.AddCommand(dbCmd)
 }
 
 func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNullableSettings, error) {
@@ -292,6 +345,11 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
+	ret.AutoOpen, err = condBool("auto-open")
+	if err != nil {
+		return nil, err
+	}
+
 	return ret, nil
 }
 
@@ -308,6 +366,10 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 
 	if settings.WriteTxHeaderVersion != nil {
 		propertiesStr = append(propertiesStr, fmt.Sprintf("write-tx-header-version: %d", settings.WriteTxHeaderVersion.GetValue()))
+	}
+
+	if settings.AutoOpen != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("auto-open: %v", settings.AutoOpen.GetValue()))
 	}
 
 	return strings.Join(propertiesStr, ", ")

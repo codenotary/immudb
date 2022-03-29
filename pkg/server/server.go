@@ -373,20 +373,13 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		panic("loadSystemDatabase should be called before any other database loading")
 	}
 
-	dbOpts := s.defaultDBOptions(s.Options.GetSystemAdminDBName())
-
-	if dbOpts.Replica {
-		repOpts := s.Options.ReplicationOptions
-
-		dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb must have the same name as in master
-		dbOpts.MasterAddress = repOpts.MasterAddress
-		dbOpts.MasterPort = repOpts.MasterPort
-		dbOpts.FollowerUsername = repOpts.FollowerUsername
-		dbOpts.FollowerPassword = repOpts.FollowerPassword
+	dbOpts, err := s.loadDBOptions(s.Options.GetSystemAdminDBName(), false)
+	if err != nil {
+		return fmt.Errorf("%w: while loading '%s' database settings", err, s.Options.GetSystemAdminDBName())
 	}
 
 	systemDBRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDBName())
-	_, err := s.OS.Stat(systemDBRootDir)
+	_, err = s.OS.Stat(systemDBRootDir)
 	if err == nil {
 		s.sysDB, err = database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
@@ -440,23 +433,14 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		panic("loadDefaultDatabase should be called right after loading systemDatabase")
 	}
 
-	dbOpts := s.defaultDBOptions(s.Options.GetDefaultDBName())
-
-	s.logDBOptions(s.Options.GetDefaultDBName(), dbOpts)
-
-	if dbOpts.Replica {
-		repOpts := s.Options.ReplicationOptions
-
-		dbOpts.MasterDatabase = dbOpts.Database // replica of defaultdb must have the same name as in master
-		dbOpts.MasterAddress = repOpts.MasterAddress
-		dbOpts.MasterPort = repOpts.MasterPort
-		dbOpts.FollowerUsername = repOpts.FollowerUsername
-		dbOpts.FollowerPassword = repOpts.FollowerPassword
+	dbOpts, err := s.loadDBOptions(s.Options.GetDefaultDBName(), false)
+	if err != nil {
+		return fmt.Errorf("%w: while loading '%s' database settings", err, s.Options.GetDefaultDBName())
 	}
 
 	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
 
-	_, err := s.OS.Stat(defaultDbRootDir)
+	_, err = s.OS.Stat(defaultDbRootDir)
 	if err == nil {
 		db, err := database.OpenDB(dbOpts.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
@@ -529,14 +513,18 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return err
 		}
 
-		s.logDBOptions(dbname, dbOpts)
+		if !dbOpts.AutoOpen.isEnabled() {
+			s.Logger.Infof("Database '%s' is closed (auto-open is disabled)", dbname)
+			s.dbList.Append(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
+			continue
+		}
 
 		db, err := database.OpenDB(dbname, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
 			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
 		}
 
-		db.AsReplica(dbOpts.Replica)
+		s.logDBOptions(dbname, dbOpts)
 
 		if dbOpts.isReplicatorRequired() {
 			err = s.startReplicationFor(db, dbOpts)
@@ -645,7 +633,7 @@ func (s *ImmuServer) Stop() error {
 //CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
 	for i := 0; i < s.dbList.Length(); i++ {
-		val := s.dbList.GetByIndex(int64(i))
+		val := s.dbList.GetByIndex(i)
 		val.Close()
 	}
 
@@ -818,7 +806,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	s.dbList.Append(db)
 	s.multidbmode = true
 
-	db.AsReplica(dbOpts.Replica)
+	s.logDBOptions(db.GetName(), dbOpts)
 
 	err = s.startReplicationFor(db, dbOpts)
 	if err != nil && err != ErrReplicatorNotNeeded {
@@ -828,6 +816,103 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	return &schema.CreateDatabaseResponse{
 		Name:     req.Name,
 		Settings: dbOpts.databaseNullableSettings(),
+	}, nil
+}
+
+func (s *ImmuServer) OpenDatabase(ctx context.Context, req *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
+	}
+
+	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
+		return nil, ErrReservedDatabase
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
+	}
+
+	db, err := s.dbList.GetByName(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	if !db.IsClosed() {
+		return nil, fmt.Errorf("%w: while opening database '%s'", ErrDatabaseAlreadyOpen, req.Database)
+	}
+
+	dbOpts, err := s.loadDBOptions(req.Database, false)
+	if err == store.ErrKeyNotFound {
+		return nil, database.ErrDatabaseNotExists
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: while loading database settings", err)
+	}
+
+	db, err = database.OpenDB(req.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
+	if err != nil {
+		s.Logger.Errorf("could not open database '%s'. Reason: %v", req.Database, err)
+		return nil, fmt.Errorf("could not open database '%s'. Reason: %w", req.Database, err)
+	}
+
+	s.dbList.Update(s.dbList.GetId(req.Database), db)
+
+	return &schema.OpenDatabaseResponse{
+		Database: req.Database,
+	}, nil
+}
+
+func (s *ImmuServer) CloseDatabase(ctx context.Context, req *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
+	}
+
+	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
+		return nil, ErrReservedDatabase
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
+	}
+
+	db, err := s.dbList.GetByName(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	if db.IsClosed() {
+		return nil, fmt.Errorf("%w: while closing database '%s'", store.ErrAlreadyClosed, req.Database)
+	}
+
+	err = db.Close()
+	if err != nil {
+		return nil, fmt.Errorf("%w: while closing database '%s'", err, req.Database)
+	}
+
+	return &schema.CloseDatabaseResponse{
+		Database: req.Database,
 	}, nil
 }
 
@@ -866,11 +951,6 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		return nil, ErrReservedDatabase
 	}
 
-	db, err := s.dbList.GetByName(req.Database)
-	if err != nil {
-		return nil, err
-	}
-
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get loggedin user data")
@@ -879,26 +959,34 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	//if the requesting user has admin permission on this database
 	if (!user.IsSysAdmin) &&
 		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("you do not have permission on this database")
-	}
-
-	s.Logger.Infof("Updating database '%s'...", req.Database)
-
-	err = s.stopReplicationFor(req.Database)
-	if err != nil && err != ErrReplicationNotInProgress {
-		s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
+		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
 	dbOpts, err := s.loadDBOptions(req.Database, false)
+	if err == store.ErrKeyNotFound {
+		return nil, database.ErrDatabaseNotExists
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: while loading database settings", err)
+	}
+
+	s.Logger.Infof("Updating database settings for '%s'...", req.Database)
+
+	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Settings != nil {
-		err = s.overwriteWith(dbOpts, req.Settings, true)
-		if err != nil {
-			return nil, err
+	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {
+		err = s.stopReplicationFor(req.Database)
+		if err != nil && err != ErrReplicationNotInProgress {
+			s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
 		}
+	}
+
+	err = s.overwriteWith(dbOpts, req.Settings, true)
+	if err != nil {
+		return nil, err
 	}
 
 	dbOpts.UpdatedBy = user.Username
@@ -908,14 +996,20 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		return nil, err
 	}
 
-	db.AsReplica(dbOpts.Replica)
+	s.logDBOptions(db.GetName(), dbOpts)
 
-	err = s.startReplicationFor(db, dbOpts)
-	if err != nil && err != ErrReplicatorNotNeeded {
-		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
+	if !db.IsClosed() {
+		db.AsReplica(dbOpts.Replica)
 	}
 
-	s.Logger.Infof("Database '%s' successfully updated", req.Database)
+	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {
+		err = s.startReplicationFor(db, dbOpts)
+		if err != nil && err != ErrReplicatorNotNeeded {
+			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
+		}
+	}
+
+	s.Logger.Infof("Database settings for '%s' successfully updated", req.Database)
 
 	return &schema.UpdateDatabaseResponse{
 		Database: req.Database,
@@ -990,44 +1084,75 @@ func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *schema.Databa
 	}, nil
 }
 
-//DatabaseList returns a list of databases based on the requesting user permissins
+//DatabaseList returns a list of databases based on the requesting user permissions
 func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.DatabaseListResponse, error) {
-	loggedInuser := &auth.User{}
-	var err error
+	dbsWithSettings, err := s.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
+	if err != nil {
+		return nil, err
+	}
 
+	resp := &schema.DatabaseListResponse{}
+
+	for _, db := range dbsWithSettings.Databases {
+		resp.Databases = append(resp.Databases, &schema.Database{DatabaseName: db.Name})
+	}
+
+	return resp, nil
+}
+
+//DatabaseList returns a list of databases based on the requesting user permissions
+func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseListRequestV2) (*schema.DatabaseListResponseV2, error) {
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 
-	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
 	}
 
-	dbList := &schema.DatabaseListResponse{}
+	resp := &schema.DatabaseListResponseV2{}
 
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
-			val := s.dbList.GetByIndex(int64(i))
-			if val.GetName() == SystemDBName {
-				//do not put sysemdb in the list
-				continue
+			db := s.dbList.GetByIndex(i)
+
+			dbOpts, err := s.loadDBOptions(db.GetName(), false)
+			if err != nil {
+				return nil, err
 			}
-			db := &schema.Database{
-				DatabaseName: val.GetName(),
+
+			dbWithSettings := &schema.DatabaseWithSettings{
+				Name:     db.GetName(),
+				Settings: dbOpts.databaseNullableSettings(),
+				Open:     !db.IsClosed(),
 			}
-			dbList.Databases = append(dbList.Databases, db)
+
+			resp.Databases = append(resp.Databases, dbWithSettings)
 		}
 	} else {
-		for _, val := range loggedInuser.Permissions {
-			db := &schema.Database{
-				DatabaseName: val.Database,
+		for _, perm := range loggedInuser.Permissions {
+			db, err := s.dbList.GetByName(perm.Database)
+			if err != nil {
+				return nil, err
 			}
-			dbList.Databases = append(dbList.Databases, db)
+
+			dbOpts, err := s.loadDBOptions(perm.Database, false)
+			if err != nil {
+				return nil, err
+			}
+
+			dbWithSettings := &schema.DatabaseWithSettings{
+				Name:     perm.Database,
+				Settings: dbOpts.databaseNullableSettings(),
+				Open:     !db.IsClosed(),
+			}
+
+			resp.Databases = append(resp.Databases, dbWithSettings)
 		}
 	}
 
-	return dbList, nil
+	return resp, nil
 }
 
 // UseDatabase ...
@@ -1058,12 +1183,19 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 	}
 
 	dbid := sysDBIndex
+	db := s.sysDB
 
 	if req.DatabaseName != SystemDBName {
 		//check if database exists
 		dbid = s.dbList.GetId(req.DatabaseName)
 		if dbid < 0 {
 			return nil, errors.New(fmt.Sprintf("'%s' does not exist", req.DatabaseName)).WithCode(errors.CodInvalidDatabaseName)
+		}
+
+		db = s.dbList.GetByIndex(dbid)
+
+		if db.IsClosed() {
+			return nil, store.ErrAlreadyClosed
 		}
 	}
 
@@ -1077,7 +1209,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
-	token, err := auth.GenerateToken(*user, dbid, s.Options.TokenExpiryTimeMin)
+	token, err := auth.GenerateToken(*user, int64(dbid), s.Options.TokenExpiryTimeMin)
 	if err != nil {
 		return nil, err
 	}
@@ -1091,7 +1223,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 		if err != nil {
 			return nil, err
 		}
-		sess.SetDatabase(s.dbList.GetByIndex(dbid))
+		sess.SetDatabase(db)
 	}
 
 	return &schema.UseDatabaseReply{
@@ -1184,7 +1316,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 
 	//check if there are user created databases, should be zero for auth to be off
 	for i := 0; i < s.dbList.Length(); i++ {
-		val := s.dbList.GetByIndex(int64(i))
+		val := s.dbList.GetByIndex(i)
 		if (val.GetName() != s.Options.defaultDBName) &&
 			(val.GetName() != s.Options.systemAdminDBName) {
 			return true

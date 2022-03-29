@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/codenotary/immudb/embedded/store"
 )
 
 func (s *ImmuServer) metricFuncServerUptimeCounter() float64 {
@@ -52,7 +54,7 @@ func (s *ImmuServer) metricFuncComputeDBSizes() (dbSizes map[string]float64) {
 
 	if s.dbList != nil {
 		for i := 0; i < s.dbList.Length(); i++ {
-			db := s.dbList.GetByIndex(int64(i))
+			db := s.dbList.GetByIndex(i)
 			dbName := db.GetName()
 			dbSize, err := dirSize(filepath.Join(s.Options.Dir, dbName))
 			if err != nil {
@@ -88,9 +90,12 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 
 	if s.dbList != nil {
 		for i := 0; i < s.dbList.Length(); i++ {
-			db := s.dbList.GetByIndex(int64(i))
+			db := s.dbList.GetByIndex(i)
 			dbName := db.GetName()
 			state, err := db.CurrentState()
+			if err == store.ErrAlreadyClosed {
+				continue
+			}
 			if err != nil {
 				s.Logger.Errorf(
 					"error getting current state of db %s to update the number of entries metric: %v",

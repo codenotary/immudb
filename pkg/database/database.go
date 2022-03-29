@@ -118,6 +118,7 @@ type DB interface {
 	FlushIndex(req *schema.FlushIndexRequest) error
 	CompactIndex() error
 
+	IsClosed() bool
 	Close() error
 }
 
@@ -145,8 +146,6 @@ func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 
 	log.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
 
-	var err error
-
 	dbi := &db{
 		Logger:  log,
 		options: op,
@@ -155,9 +154,8 @@ func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 	}
 
 	dbDir := dbi.path()
-
-	_, dbErr := os.Stat(dbDir)
-	if os.IsNotExist(dbErr) {
+	_, err := os.Stat(dbDir)
+	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
@@ -249,8 +247,6 @@ func NewDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 
 	log.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
 
-	var err error
-
 	dbi := &db{
 		Logger:  log,
 		options: op,
@@ -260,7 +256,8 @@ func NewDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 
 	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
 
-	if _, dbErr := os.Stat(dbDir); dbErr == nil {
+	_, err := os.Stat(dbDir)
+	if err == nil {
 		return nil, fmt.Errorf("Database directories already exist: %s", dbDir)
 	}
 
@@ -1208,6 +1205,13 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	return list, nil
 }
 
+func (d *db) IsClosed() bool {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.st.IsClosed()
+}
+
 //Close ...
 func (d *db) Close() error {
 	d.mutex.Lock()
@@ -1215,6 +1219,7 @@ func (d *db) Close() error {
 
 	if d.sqlInitCancel != nil {
 		close(d.sqlInitCancel)
+		d.sqlInitCancel = nil
 	}
 
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude

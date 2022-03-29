@@ -59,10 +59,24 @@ type dbOptions struct {
 
 	IndexOptions *indexOptions `json:"indexOptions"`
 
+	AutoOpen featureState `json:"autoOpen"` // unspecfied is considered as enabled for backward compatibility
+
 	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedBy string    `json:"updatedBy"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type featureState int
+
+const (
+	unspecifiedState featureState = iota
+	enabledState
+	disabledState
+)
+
+func (fs featureState) isEnabled() bool {
+	return fs == unspecifiedState || fs == enabledState
 }
 
 type indexOptions struct {
@@ -85,7 +99,7 @@ const DefaultMaxValueLen = 1 << 25   //32Mb
 const DefaultStoreFileSize = 1 << 29 //512Mb
 
 func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
-	return &dbOptions{
+	dbOpts := &dbOptions{
 		Database: database,
 
 		synced: s.Options.synced,
@@ -109,8 +123,22 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 
 		IndexOptions: s.defaultIndexOptions(),
 
+		AutoOpen: unspecifiedState,
+
 		CreatedAt: time.Now(),
 	}
+
+	if dbOpts.Replica && (database == s.Options.systemAdminDBName || database == s.Options.defaultDBName) {
+		repOpts := s.Options.ReplicationOptions
+
+		dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb and defaultdb must have the same name as in master
+		dbOpts.MasterAddress = repOpts.MasterAddress
+		dbOpts.MasterPort = repOpts.MasterPort
+		dbOpts.FollowerUsername = repOpts.FollowerUsername
+		dbOpts.FollowerPassword = repOpts.FollowerPassword
+	}
+
+	return dbOpts
 }
 
 func (s *ImmuServer) defaultIndexOptions() *indexOptions {
@@ -226,6 +254,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		},
 
 		WriteTxHeaderVersion: &schema.NullableUint32{Value: uint32(opts.WriteTxHeaderVersion)},
+
+		AutoOpen: &schema.NullableBool{Value: opts.AutoOpen.isEnabled()},
 	}
 }
 
@@ -361,6 +391,14 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		opts.WriteTxHeaderVersion = int(settings.WriteTxHeaderVersion.Value)
 	}
 
+	if settings.AutoOpen != nil {
+		if settings.AutoOpen.Value {
+			opts.AutoOpen = enabledState
+		} else {
+			opts.AutoOpen = disabledState
+		}
+	}
+
 	// index options
 	if settings.IndexSettings != nil {
 		if opts.IndexOptions == nil {
@@ -452,6 +490,10 @@ func (s *ImmuServer) saveDBOptions(options *dbOptions) error {
 }
 
 func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*dbOptions, error) {
+	if database == s.Options.systemAdminDBName || database == s.Options.defaultDBName {
+		return s.defaultDBOptions(database), nil
+	}
+
 	optionsKey := make([]byte, 1+len(database))
 	optionsKey[0] = KeyPrefixDBSettings
 	copy(optionsKey[1:], []byte(database))
@@ -481,6 +523,7 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	// This list is manually updated to ensure we don't expose sensitive information
 	// in logs such as replication passwords
+	s.Logger.Infof("Option for %s AutoOpen: %v", database, opts.AutoOpen.isEnabled())
 	s.Logger.Infof("Option for %s Synced: %v", database, opts.synced)
 	s.Logger.Infof("Option for %s Replica: %v", database, opts.Replica)
 	s.Logger.Infof("Option for %s FileSize: %v", database, opts.FileSize)

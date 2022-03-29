@@ -595,7 +595,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.True(t, errors.Is(client.UpdateAuthConfig(ctx, auth.KindPassword), ic.ErrNotConnected))
 	require.True(t, errors.Is(client.UpdateMTLSConfig(ctx, false), ic.ErrNotConnected))
 	require.True(t, errors.Is(client.CompactIndex(ctx, &emptypb.Empty{}), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.FlushIndex(ctx, 100, true), ic.ErrNotConnected))
+
+	_, err = client.FlushIndex(ctx, 100, true)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.True(t, errors.Is(err.(immuErrors.ImmuError), ic.ErrNotConnected))
@@ -685,6 +687,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.True(t, errors.Is(client.SetActiveUser(context.TODO(), nil), ic.ErrNotConnected))
 
 	_, err = client.DatabaseList(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.DatabaseListV2(context.TODO())
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 }
 
@@ -871,10 +876,15 @@ func TestDatabaseManagement(t *testing.T) {
 	require.Nil(t, err1)
 
 	resp2, err2 := client.DatabaseList(ctx)
-
 	require.Nil(t, err2)
 	require.IsType(t, &schema.DatabaseListResponse{}, resp2)
 	require.Len(t, resp2.Databases, 2)
+
+	resp3, err3 := client.DatabaseListV2(ctx)
+	require.Nil(t, err3)
+	require.IsType(t, &schema.DatabaseListResponseV2{}, resp3)
+	require.Len(t, resp3.Databases, 2)
+
 	client.Disconnect()
 }
 
@@ -991,13 +1001,13 @@ func TestImmuClient_GetAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 1)
 
-	err = client.FlushIndex(ctx, 10, true)
+	_, err = client.FlushIndex(ctx, 10, true)
 	require.NoError(t, err)
 
 	_, err = client.VerifiedSet(ctx, []byte(`bbb`), []byte(`val`))
 	require.NoError(t, err)
 
-	err = client.FlushIndex(ctx, 10, true)
+	_, err = client.FlushIndex(ctx, 10, true)
 	require.NoError(t, err)
 
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
