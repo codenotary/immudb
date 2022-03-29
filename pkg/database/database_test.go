@@ -511,37 +511,220 @@ func TestTxByID(t *testing.T) {
 	_, err := db.TxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
-	txhdr, err := db.Set(&schema.SetRequest{
+	txhdr1, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{Key: []byte("key0"), Value: []byte("value0")},
-			{Key: []byte("key1"), Value: []byte("value1")},
-			{Key: []byte("key2"), Value: []byte("value2")},
 		},
 	})
 	require.NoError(t, err)
 
-	t.Run("values are not resolved", func(t *testing.T) {
-		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id})
+	txhdr2, err := db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte("ref1"),
+						ReferencedKey: []byte("key0"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte("key1"),
+						Value: []byte("value1"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte("set1"),
+						Score: 10,
+						Key:   []byte("key1"),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER AUTO_INCREMENT, PRIMARY KEY id)"}, nil)
+	require.NoError(t, err)
+
+	_, ctx1, err := db.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable() VALUES ()"}, nil)
+	require.NoError(t, err)
+	require.Len(t, ctx1, 1)
+
+	txhdr3 := ctx1[0].TxHeader()
+
+	t.Run("values should not be resolved but digests returned in entries field", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id})
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Len(t, tx.Entries, 3)
-		require.Len(t, tx.KvEntries, 0)
-		require.Len(t, tx.ZEntries, 0)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
 
 		for _, e := range tx.Entries {
 			require.Len(t, e.Value, 0)
 		}
 	})
 
-	t.Run("raw values should be returned but entries not fully resolved", func(t *testing.T) {
-		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
-			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+	t.Run("values should not be resolved but digests returned in entries field", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+			ZEntriesSpec:  &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Len(t, tx.Entries, 3)
-		require.Len(t, tx.KvEntries, 0)
-		require.Len(t, tx.ZEntries, 0)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+	})
+
+	t.Run("no entries should be returned if not explicitly included", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+	})
+
+	t.Run("no entries should be returned if explicitly excluded", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+			ZEntriesSpec:  &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+	})
+
+	t.Run("raw entries should be returned", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
 
 		for _, e := range tx.Entries {
 			hval := sha256.Sum256(e.Value)
@@ -549,20 +732,42 @@ func TestTxByID(t *testing.T) {
 		}
 	})
 
-	t.Run("kv enttries should be resolved", func(t *testing.T) {
-		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr.Id, EntriesSpec: &schema.EntriesSpec{
+	t.Run("only kv entries should be resolved", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
 			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, tx)
-		require.Len(t, tx.Entries, 0)
-		require.Len(t, tx.KvEntries, 3)
-		require.Len(t, tx.ZEntries, 0)
+		require.Empty(t, tx.Entries)
+		require.Len(t, tx.KvEntries, 2)
+		require.Empty(t, tx.ZEntries)
 
 		for i, e := range tx.KvEntries {
 			require.Equal(t, []byte(fmt.Sprintf("key%d", i)), e.Key)
 			require.Equal(t, []byte(fmt.Sprintf("value%d", i)), e.Value)
 		}
+	})
+
+	t.Run("only zentries should be resolved", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Len(t, tx.ZEntries, 1)
+
+		require.Equal(t, []byte("set1"), tx.ZEntries[0].Set)
+		require.Equal(t, []byte("key1"), tx.ZEntries[0].Key)
+		require.Equal(t, float64(10), tx.ZEntries[0].Score)
+	})
+
+	t.Run("sql entries can not be resolved", func(t *testing.T) {
+		_, err := db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 }
 
