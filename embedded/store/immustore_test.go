@@ -608,7 +608,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.fetchAllocTx()
-	require.Equal(t, ErrMaxConcurrencyLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxConcurrencyLimitExceeded)
 
 	immuStore.releaseAllocTx(tx1)
 
@@ -623,34 +623,46 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	targetTx := newTx(1, 1)
 	targetTx.header.ID = 1
 	_, err = immuStore.DualProof(sourceTx, targetTx)
-	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
+	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
 	_, err = immuStore.LinearProof(2, 1)
-	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
+	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
 	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
-	require.Equal(t, ErrLinearProofMaxLenExceeded, err)
+	require.ErrorIs(t, err, ErrLinearProofMaxLenExceeded)
 
 	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
-	err = immuStore.validateEntries(nil)
-	require.Equal(t, ErrorNoEntriesProvided, err)
+	err = immuStore.validateOngoingTX(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
-	require.Equal(t, ErrorMaxTxEntriesLimitExceeded, err)
+	err = immuStore.validateOngoingTX(&OngoingTx{})
+	require.ErrorIs(t, err, ErrorNoEntriesProvided)
+
+	err = immuStore.validateOngoingTX(&OngoingTx{
+		entries: make([]*EntrySpec, immuStore.maxTxEntries+1),
+	})
+
+	require.ErrorIs(t, err, ErrorMaxTxEntriesLimitExceeded)
 
 	entry := &EntrySpec{Key: nil, Value: nil}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrNullKey, err)
+	err = immuStore.validateOngoingTX(&OngoingTx{
+		entries: []*EntrySpec{entry},
+	})
+	require.ErrorIs(t, err, ErrNullKey)
 
 	entry = &EntrySpec{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrorMaxKeyLenExceeded, err)
+	err = immuStore.validateOngoingTX(&OngoingTx{
+		entries: []*EntrySpec{entry},
+	})
+	require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
 
 	entry = &EntrySpec{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrorMaxValueLenExceeded, err)
+	err = immuStore.validateOngoingTX(&OngoingTx{
+		entries: []*EntrySpec{entry},
+	})
+	require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
@@ -1307,22 +1319,22 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	_, err = immuStore.CommitWith(nil, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, error) {
-		return nil, nil
+	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+		return nil, nil, nil
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, error) {
-		return nil, errors.New("error")
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+		return nil, nil, errors.New("error")
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Error(t, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, error) {
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: []byte("value")},
-		}, nil
+		}, nil, nil
 	}
 
 	hdr, err := immuStore.CommitWith(callback, true)
@@ -1501,10 +1513,10 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, error) {
+	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: nil},
-		}, nil
+		}, nil, nil
 	}, false)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 

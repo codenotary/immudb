@@ -82,10 +82,9 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		nil,
 		req.ReferencedKey,
 		req.AtTx,
-		schema.KVConstraintsFromProto(req.Constraints),
 	)
 
-	err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, e.Constraints)
+	err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, schema.KVConstraintsFromProto(req.Constraints))
 	if err != nil {
 		return nil, err
 	}

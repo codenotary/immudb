@@ -172,7 +172,7 @@ func TestSetBatch(t *testing.T) {
 
 			tx := schema.TxFromProto(vitem.VerifiableTx.Tx)
 
-			entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value, nil)
+			entrySpec := EncodeEntrySpec(vitem.Entry.Key, schema.KVMetadataFromProto(vitem.Entry.Metadata), vitem.Entry.Value)
 
 			entrySpecDigest, err := store.EntrySpecDigestFor(int(txhdr.Version))
 			require.NoError(t, err)

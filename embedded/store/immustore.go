@@ -890,7 +890,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrIllegalArguments
 	}
 
-	err := s.validateEntries(otx.entries)
+	err := s.validateOngoingTX(otx)
 	if err != nil {
 		return nil, err
 	}
@@ -1241,7 +1241,7 @@ func (s *ImmuStore) commitState() (txID uint64, txAlh [sha256.Size]byte, clogSiz
 	return s.committedTxID, s.committedAlh, s.committedTxLogSize
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error), waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error), waitForIndexing bool) (*TxHeader, error) {
 	hdr, err := s.commitWith(callback)
 	if err != nil {
 		return nil, err
@@ -1274,7 +1274,7 @@ func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, er
 	return index.st.GetWith(key, filters...)
 }
 
-func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error)) (*TxHeader, error) {
+func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error)) (*TxHeader, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1298,12 +1298,12 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	committedTxID, _, _ := s.commitState()
 	txID := committedTxID + 1
 
-	otx.entries, err = callback(txID, &unsafeIndex{st: s})
+	otx.entries, otx.constraints, err = callback(txID, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.validateEntries(otx.entries)
+	err = s.validateOngoingTX(otx)
 	if err != nil {
 		return nil, err
 	}
@@ -1821,17 +1821,20 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	return len(b), nil
 }
 
-func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
-	if len(entries) == 0 {
+func (s *ImmuStore) validateOngoingTX(tx *OngoingTx) error {
+	if tx == nil {
+		return ErrIllegalArguments
+	}
+	if len(tx.entries) == 0 {
 		return ErrorNoEntriesProvided
 	}
-	if len(entries) > s.maxTxEntries {
+	if len(tx.entries) > s.maxTxEntries {
 		return ErrorMaxTxEntriesLimitExceeded
 	}
 
-	m := make(map[string]struct{}, len(entries))
+	m := make(map[string]struct{}, len(tx.entries))
 
-	for _, kv := range entries {
+	for _, kv := range tx.entries {
 		if kv.Key == nil {
 			return ErrNullKey
 		}
@@ -1843,19 +1846,20 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 			return ErrorMaxValueLenExceeded
 		}
 
-		if kv.Constraints != nil {
-			err := kv.Constraints.validate()
-			if err != nil {
-				return err
-			}
-		}
-
 		b64k := base64.StdEncoding.EncodeToString(kv.Key)
 		if _, ok := m[b64k]; ok {
 			return ErrDuplicatedKey
 		}
 		m[b64k] = struct{}{}
 	}
+
+	for _, cs := range tx.constraints {
+		err := cs.validate()
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

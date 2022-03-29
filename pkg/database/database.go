@@ -358,10 +358,9 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 			kv.Key,
 			schema.KVMetadataFromProto(kv.Metadata),
 			kv.Value,
-			schema.KVConstraintsFromProto(kv.Constraints),
 		)
 
-		err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, e.Constraints)
+		err = tx.SetWithConstraints(e.Key, e.Metadata, e.Value, schema.KVConstraintsFromProto(kv.Constraints))
 		if err != nil {
 			return nil, err
 		}
@@ -704,7 +703,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 
 		md.AsDeleted(true)
 
-		e := EncodeEntrySpec(k, md, nil, nil)
+		e := EncodeEntrySpec(k, md, nil)
 
 		err = tx.Delete(e.Key)
 		if err != nil {

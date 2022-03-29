@@ -8,6 +8,8 @@ import (
 )
 
 type KVConstraints struct {
+	Key []byte
+
 	MustExist          bool
 	MustNotExist       bool
 	NotModifiedAfterTX uint64
@@ -23,8 +25,8 @@ func (cs *KVConstraints) validate() error {
 	return nil
 }
 
-func (cs *KVConstraints) check(key []byte, idx *indexer) error {
-	_, tx, _, err := idx.Get(key)
+func (cs *KVConstraints) check(idx *indexer) error {
+	_, tx, _, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return fmt.Errorf("couldn't check KV constraint: %w", err)
 	}

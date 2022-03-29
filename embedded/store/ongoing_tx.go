@@ -28,16 +28,17 @@ type OngoingTx struct {
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
 
+	constraints []*KVConstraints
+
 	metadata *TxMetadata
 
 	closed bool
 }
 
 type EntrySpec struct {
-	Key         []byte
-	Metadata    *KVMetadata
-	Value       []byte
-	Constraints *KVConstraints
+	Key      []byte
+	Metadata *KVMetadata
+	Value    []byte
 }
 
 func newWriteOnlyTx(s *ImmuStore) (*OngoingTx, error) {
@@ -172,10 +173,9 @@ func (tx *OngoingTx) SetWithConstraints(key []byte, md *KVMetadata, value []byte
 	}
 
 	e := &EntrySpec{
-		Key:         key,
-		Metadata:    md,
-		Value:       value,
-		Constraints: c,
+		Key:      key,
+		Metadata: md,
+		Value:    value,
 	}
 
 	if isKeyUpdate {
@@ -183,6 +183,12 @@ func (tx *OngoingTx) SetWithConstraints(key []byte, md *KVMetadata, value []byte
 	} else {
 		tx.entries = append(tx.entries, e)
 		tx.entriesByKey[kid] = len(tx.entriesByKey)
+	}
+
+	if c != nil {
+		c2 := *c
+		c2.Key = e.Key
+		tx.constraints = append(tx.constraints, &c2)
 	}
 
 	return nil
@@ -285,21 +291,14 @@ func (tx *OngoingTx) Cancel() error {
 }
 
 func (tx *OngoingTx) hasConstrainedEntries() bool {
-	for _, e := range tx.entries {
-		if e.Constraints != nil {
-			return true
-		}
-	}
-	return false
+	return len(tx.constraints) > 0
 }
 
 func (tx *OngoingTx) checkWriteConstraints(idx *indexer) error {
-	for _, e := range tx.entries {
-		if e.Constraints != nil {
-			err := e.Constraints.check(e.Key, idx)
-			if err != nil {
-				return err
-			}
+	for _, c := range tx.constraints {
+		err := c.check(idx)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
