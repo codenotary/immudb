@@ -1923,6 +1923,13 @@ func (s *ImmuStore) Sync() error {
 	return s.indexer.Sync()
 }
 
+func (s *ImmuStore) IsClosed() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.closed
+}
+
 func (s *ImmuStore) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

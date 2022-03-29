@@ -17,12 +17,13 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"math"
 	"net"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
@@ -47,7 +48,7 @@ type usernameToUserdataMap struct {
 
 //defaultDbIndex systemdb should always be in index 0
 const defaultDbIndex = 0
-const sysDBIndex = int64(math.MaxInt64)
+const sysDBIndex = math.MaxInt32
 
 // ImmuServer ...
 type ImmuServer struct {

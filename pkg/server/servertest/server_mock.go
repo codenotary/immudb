@@ -272,8 +272,20 @@ func (s *ServerMock) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	return s.Srv.CreateDatabaseV2(ctx, req)
 }
 
+func (s *ServerMock) OpenDatabase(ctx context.Context, req *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
+	return s.Srv.OpenDatabase(ctx, req)
+}
+
+func (s *ServerMock) CloseDatabase(ctx context.Context, req *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
+	return s.Srv.CloseDatabase(ctx, req)
+}
+
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	return s.Srv.DatabaseList(ctx, req)
+}
+
+func (s *ServerMock) DatabaseListV2(ctx context.Context, req *schema.DatabaseListRequestV2) (*schema.DatabaseListResponseV2, error) {
+	return s.Srv.DatabaseListV2(ctx, req)
 }
 
 func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*schema.UseDatabaseReply, error) {

@@ -517,6 +517,8 @@ message DatabaseNullableSettings {
 	IndexNullableSettings indexSettings = 19;
 
 	NullableUint32 writeTxHeaderVersion = 20;
+	
+	NullableBool autoOpen = 21;
 }
 
 message ReplicationNullableSettings {
@@ -542,6 +544,24 @@ message IndexNullableSettings {
 	NullableUint32  commitLogMaxOpenedFiles = 11;
 	NullableUint32  flushBufferSize = 12;
 	NullableFloat   cleanupPercentage = 13;
+}
+
+message OpenDatabaseRequest {
+	string database = 1;
+	// may add createIfNotExist
+}
+
+message OpenDatabaseResponse {
+	string database = 1;
+	// may add setttings
+}
+
+message CloseDatabaseRequest {
+	string database = 1;
+}
+
+message CloseDatabaseResponse {
+	string database = 1;
 }
 
 message FlushIndexRequest {
@@ -611,8 +631,21 @@ message SetActiveUserRequest {
 	string username = 2;
 }
 
-message DatabaseListResponse{
+message DatabaseListResponse {
 	repeated Database databases = 1;
+}
+
+message DatabaseListRequestV2 {
+}
+
+message DatabaseListResponseV2 {
+	repeated DatabaseWithSettings databases = 1;
+}
+
+message DatabaseWithSettings {
+	string name = 1;
+	DatabaseNullableSettings settings = 2;
+	bool open = 3;
 }
 
 message Chunk {
@@ -983,9 +1016,30 @@ service ImmuService {
 		};
 	}
 
-	rpc DatabaseList(google.protobuf.Empty) returns (DatabaseListResponse){
+	rpc OpenDatabase(OpenDatabaseRequest) returns (OpenDatabaseResponse) {
+		option (google.api.http) = {
+			post: "/db/open"
+			body: "*"
+		};
+	}
+
+	rpc CloseDatabase(CloseDatabaseRequest) returns (CloseDatabaseResponse) {
+		option (google.api.http) = {
+			post: "/db/close"
+			body: "*"
+		};
+	}
+
+	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
 			post: "/db/list"
+			body: "*"
+		};
+	};
+
+	rpc DatabaseListV2 (DatabaseListRequestV2) returns (DatabaseListResponseV2){
+		option (google.api.http) = {
+			post: "/db/list/v2"
 			body: "*"
 		};
 	};

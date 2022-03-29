@@ -150,7 +150,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	s.Logger.Debugf("ListUsers")
 
 	loggedInuser := &auth.User{}
-	var dbInd = int64(0)
+	var dbInd = 0
 	var err error
 	userlist := &schema.UserList{}
 
@@ -600,7 +600,7 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 	s.userdata.Userdata[u.Username] = u
 }
 
-func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
+func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth.User, error) {
 	if sessionID, err := sessions.GetSessionIDFromContext(ctx); err == nil {
 		sess, e := s.SessManager.GetSession(sessionID)
 		if e != nil {
@@ -614,7 +614,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 	}
 
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
-	return jsUser.DatabaseIndex, u, err
+	return int(jsUser.DatabaseIndex), u, err
 }
 
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
