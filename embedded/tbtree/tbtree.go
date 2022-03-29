@@ -1021,7 +1021,7 @@ func (t *TBtree) flushTree(cleanupPercentage float32, synced bool) (wN int64, wH
 	)
 	defer finishOutputFunc()
 
-	expectedNewMinOffset := t.minOffset + int64((float32(t.committedNLogSize-t.minOffset)*cleanupPercentage)/100)
+	expectedNewMinOffset := t.minOffset + int64((float64(t.committedNLogSize-t.minOffset)*float64(cleanupPercentage))/100)
 
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
