@@ -1072,7 +1072,7 @@ func TestConstrainedSet(t *testing.T) {
 			MustNotExist: true,
 		}},
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraint,
+	require.ErrorIs(t, err, store.ErrConstraintFailed,
 		"did not detect failed mix of MustNotExist and MustExist constraints when the key does not exist")
 
 	_, err = db.Set(&schema.SetRequest{

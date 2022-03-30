@@ -14,16 +14,6 @@ type KVConstraints struct {
 	NotModifiedAfterTX uint64
 }
 
-func (cs *KVConstraints) validate() error {
-	if !cs.MustExist && !cs.MustNotExist && cs.NotModifiedAfterTX == 0 {
-		return fmt.Errorf("%w: no constraint was set", ErrInvalidConstraint)
-	}
-	if cs.MustExist && cs.MustNotExist {
-		return fmt.Errorf("%w: conflicting MustExist and MustNotExist constraints", ErrInvalidConstraint)
-	}
-	return nil
-}
-
 func (cs *KVConstraints) check(idx *indexer) error {
 	_, tx, _, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {

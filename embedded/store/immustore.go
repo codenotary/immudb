@@ -51,7 +51,6 @@ var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx ex
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
-var ErrInvalidConstraint = errors.New("invalid constraint")
 var ErrConstraintFailed = errors.New("constraint failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
@@ -73,6 +72,13 @@ var ErrUnexpectedError = errors.New("unexpected error")
 var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
 var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
 var ErrInvalidOptions = errors.New("invalid options")
+
+var ErrInvalidConstraints = errors.New("invalid constraints")
+var ErrInvalidConstraintsTooMany = fmt.Errorf("%w: too many constraints", ErrInvalidConstraints)
+var ErrInvalidConstraintsNull = fmt.Errorf("%w: null constraint", ErrInvalidConstraints)
+var ErrInvalidConstraintsNullKey = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrNullKey)
+var ErrInvalidConstraintsMaxKeyLenExceeded = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrorMaxKeyLenExceeded)
+var ErrInvalidConstraintsDuplicateKey = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrDuplicatedKey)
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -1863,14 +1869,31 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 }
 
 func (s *ImmuStore) validateConstraints(constraints []*KVConstraints) error {
+
+	if len(constraints) > s.maxTxEntries {
+		return ErrInvalidConstraintsTooMany
+	}
+
+	m := make(map[string]struct{}, len(constraints))
+
 	for _, c := range constraints {
 		if c == nil {
-			return fmt.Errorf("invalid constraints: null constraint")
+			return ErrInvalidConstraintsNull
 		}
-		err := c.validate()
-		if err != nil {
-			return fmt.Errorf("invalid constraints: %w", err)
+
+		if c.Key == nil {
+			return ErrInvalidConstraintsNullKey
 		}
+
+		if len(c.Key) > s.maxKeyLen {
+			return ErrInvalidConstraintsMaxKeyLenExceeded
+		}
+
+		b64k := base64.StdEncoding.EncodeToString(c.Key)
+		if _, ok := m[b64k]; ok {
+			return ErrInvalidConstraintsDuplicateKey
+		}
+		m[b64k] = struct{}{}
 	}
 	return nil
 }

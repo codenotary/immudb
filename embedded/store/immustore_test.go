@@ -634,23 +634,63 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
 	require.Equal(t, ErrKeyNotFound, err)
 
-	err = immuStore.validateEntries(nil)
-	require.Equal(t, ErrorNoEntriesProvided, err)
+	t.Run("validateEntries", func(t *testing.T) {
+		err = immuStore.validateEntries(nil)
+		require.ErrorIs(t, err, ErrorNoEntriesProvided)
 
-	err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
-	require.Equal(t, ErrorMaxTxEntriesLimitExceeded, err)
+		err = immuStore.validateEntries(make([]*EntrySpec, immuStore.maxTxEntries+1))
+		require.ErrorIs(t, err, ErrorMaxTxEntriesLimitExceeded)
 
-	entry := &EntrySpec{Key: nil, Value: nil}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrNullKey, err)
+		entry := &EntrySpec{Key: nil, Value: nil}
+		err = immuStore.validateEntries([]*EntrySpec{entry})
+		require.ErrorIs(t, err, ErrNullKey)
 
-	entry = &EntrySpec{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrorMaxKeyLenExceeded, err)
+		entry = &EntrySpec{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
+		err = immuStore.validateEntries([]*EntrySpec{entry})
+		require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
 
-	entry = &EntrySpec{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
-	err = immuStore.validateEntries([]*EntrySpec{entry})
-	require.Equal(t, ErrorMaxValueLenExceeded, err)
+		entry = &EntrySpec{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
+		err = immuStore.validateEntries([]*EntrySpec{entry})
+		require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
+	})
+
+	t.Run("validateConstraints", func(t *testing.T) {
+		err = immuStore.validateConstraints(nil)
+		require.NoError(t, err)
+
+		err = immuStore.validateConstraints([]*KVConstraints{
+			nil,
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsNull)
+
+		err = immuStore.validateConstraints([]*KVConstraints{
+			{
+				MustExist: true,
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+
+		err = immuStore.validateConstraints([]*KVConstraints{
+			{
+				Key: make([]byte, immuStore.maxKeyLen+1),
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+
+		err = immuStore.validateConstraints([]*KVConstraints{
+			{
+				Key: []byte("key"),
+			},
+			{
+				Key: []byte("key"),
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsDuplicateKey)
+	})
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
