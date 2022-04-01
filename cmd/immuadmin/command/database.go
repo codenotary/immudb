@@ -86,18 +86,18 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		Example:           "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			settings, err := prepareDatabaseSettings(args[0], cmd.Flags())
+			settings, err := prepareDatabaseNullableSettings(cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			_, err = cl.immuClient.CreateDatabaseV2(cl.context, settings)
+			_, err = cl.immuClient.CreateDatabaseV2(cl.context, args[0], settings)
 			if err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' {%s} successfully created\n",
-				args[0], databaseSettingsStr(settings))
+				args[0], databaseNullableSettingsStr(settings))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -111,18 +111,18 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		Example:           "update {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			settings, err := prepareDatabaseSettings(args[0], cmd.Flags())
+			settings, err := prepareDatabaseNullableSettings(cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			if _, err := cl.immuClient.UpdateDatabaseV2(cl.context, settings); err != nil {
+			if _, err := cl.immuClient.UpdateDatabaseV2(cl.context, args[0], settings); err != nil {
 				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(),
 				"database '%s' {%s} successfully updated\n",
-				args[0], databaseSettingsStr(settings))
+				args[0], databaseNullableSettingsStr(settings))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -212,8 +212,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseSettingsV2, error) {
-
+func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNullableSettings, error) {
 	var err error
 
 	condBool := func(name string) (*schema.NullableBool, error) {
@@ -249,9 +248,8 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 		return nil, nil
 	}
 
-	ret := &schema.DatabaseSettingsV2{
-		DatabaseName:        db,
-		ReplicationSettings: &schema.ReplicationSettings{},
+	ret := &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{},
 	}
 
 	ret.ExcludeCommitTime, err = condBool("exclude-commit-time")
@@ -297,7 +295,7 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 	return ret, nil
 }
 
-func databaseSettingsStr(settings *schema.DatabaseSettingsV2) string {
+func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) string {
 	propertiesStr := []string{}
 
 	if settings.ReplicationSettings != nil {

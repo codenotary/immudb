@@ -422,8 +422,33 @@ message DatabaseSettings {
 	bool   excludeCommitTime = 12;
 }
 
-message DatabaseSettingsUpdateResult {	// Reserved to reply with more advanced response later
-	DatabaseSettingsV2 currentSettings = 1;
+message CreateDatabaseRequest {
+	string name = 1;
+	DatabaseNullableSettings settings = 2;
+}
+
+message CreateDatabaseResponse {
+	string name = 1;
+	DatabaseNullableSettings settings = 2;
+}
+
+message UpdateDatabaseRequest {
+	string database = 1;
+	DatabaseNullableSettings settings = 2;
+}
+
+message UpdateDatabaseResponse {	// Reserved to reply with more advanced response later
+	string database = 1;
+	DatabaseNullableSettings settings = 2;
+}
+
+message DatabaseSettingsRequest {
+
+}
+
+message DatabaseSettingsResponse {
+	string database = 1;
+	DatabaseNullableSettings settings = 2;
 }
 
 message NullableUint32 {
@@ -446,19 +471,8 @@ message NullableString {
 	string value = 1;
 }
 
-message ReplicationSettings {
-	NullableBool   replica = 1;
-	NullableString masterDatabase = 2;
-	NullableString masterAddress = 3;
-	NullableUint32 masterPort = 4;
-	NullableString followerUsername = 5;
-	NullableString followerPassword = 6;
-}
-
-message DatabaseSettingsV2 {
-	string databaseName = 1;
-
-	ReplicationSettings replicationSettings = 2;
+message DatabaseNullableSettings {
+	ReplicationNullableSettings replicationSettings = 2;
 
 	NullableUint32 fileSize = 8;
 	NullableUint32 maxKeyLen = 9;
@@ -475,12 +489,21 @@ message DatabaseSettingsV2 {
 	NullableUint32 txLogMaxOpenedFiles = 17;
 	NullableUint32 commitLogMaxOpenedFiles = 18;
 
-	IndexSettings indexSettings = 19;
+	IndexNullableSettings indexSettings = 19;
 
 	NullableUint32 writeTxHeaderVersion = 20;
 }
 
-message IndexSettings {
+message ReplicationNullableSettings {
+	NullableBool   replica = 1;
+	NullableString masterDatabase = 2;
+	NullableString masterAddress = 3;
+	NullableUint32 masterPort = 4;
+	NullableString followerUsername = 5;
+	NullableString followerPassword = 6;
+}
+
+message IndexNullableSettings {
 	NullableUint32  flushThreshold = 1;
 	NullableUint32  syncThreshold = 2;
 	NullableUint32  cacheSize = 3;
@@ -502,6 +525,7 @@ message FlushIndexRequest {
 }
 
 message FlushIndexResponse {
+	string database = 1;
 }
 
 message Table {
@@ -919,7 +943,7 @@ service ImmuService {
 		};
 	}
 
-	// DEPRECATED: Use CreateDatabaseWithV2
+	// DEPRECATED: Use CreateDatabaseV2
 	rpc CreateDatabaseWith(DatabaseSettings) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/db/createwith"
@@ -927,14 +951,14 @@ service ImmuService {
 		};
 	}
 
-	rpc CreateDatabaseWithV2(DatabaseSettingsV2) returns (DatabaseSettingsV2) {
+	rpc CreateDatabaseV2(CreateDatabaseRequest) returns (CreateDatabaseResponse) {
 		option (google.api.http) = {
-			post: "/db/createwith/v2"
+			post: "/db/create/v2"
 			body: "*"
 		};
 	}
 
-	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
+	rpc DatabaseList(google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
 			post: "/db/list"
 			body: "*"
@@ -955,7 +979,7 @@ service ImmuService {
 		};
 	}
 
-	rpc UpdateDatabaseV2(DatabaseSettingsV2) returns (DatabaseSettingsUpdateResult) {
+	rpc UpdateDatabaseV2(UpdateDatabaseRequest) returns (UpdateDatabaseResponse) {
 		option (google.api.http) = {
 			post: "/db/update/v2"
 			body: "*"
@@ -970,7 +994,7 @@ service ImmuService {
 		};
 	}
 
-	rpc GetDatabaseSettingsV2(google.protobuf.Empty) returns (DatabaseSettingsV2) {
+	rpc GetDatabaseSettingsV2(DatabaseSettingsRequest) returns (DatabaseSettingsResponse) {
 		option (google.api.http) = {
 			post: "/db/settings/v2"
 			body: "*"
