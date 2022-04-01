@@ -32,6 +32,7 @@
     - [Expiration](#immudb.schema.Expiration)
     - [ExportTxRequest](#immudb.schema.ExportTxRequest)
     - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
+    - [FlushIndexResponse](#immudb.schema.FlushIndexResponse)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -596,6 +597,16 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | cleanupPercentage | [float](#float) |  |  |
 | synced | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.FlushIndexResponse"></a>
+
+### FlushIndexResponse
+
 
 
 
@@ -1914,6 +1925,8 @@ immudb gRPC &amp; REST service
 | ListUsers | [.google.protobuf.Empty](#google.protobuf.Empty) | [UserList](#immudb.schema.UserList) |  |
 | CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | OpenSession | [OpenSessionRequest](#immudb.schema.OpenSessionRequest) | [OpenSessionResponse](#immudb.schema.OpenSessionResponse) |  |
@@ -1957,10 +1970,8 @@ immudb gRPC &amp; REST service
 | UpdateDatabaseV2 | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) | [DatabaseSettingsUpdateResult](#immudb.schema.DatabaseSettingsUpdateResult) |  |
 | GetDatabaseSettings | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettings](#immudb.schema.DatabaseSettings) | DEPRECATED: Use GetDatabaseSettingsV2 |
 | GetDatabaseSettingsV2 | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |
-| FlushIndex | [FlushIndexRequest](#immudb.schema.FlushIndexRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| FlushIndex | [FlushIndexRequest](#immudb.schema.FlushIndexRequest) | [FlushIndexResponse](#immudb.schema.FlushIndexResponse) |  |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | streamGet | [KeyRequest](#immudb.schema.KeyRequest) | [Chunk](#immudb.schema.Chunk) stream | Streams |
 | streamSet | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
 | streamVerifiableGet | [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest) | [Chunk](#immudb.schema.Chunk) stream |  |

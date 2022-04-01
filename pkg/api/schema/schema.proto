@@ -501,6 +501,9 @@ message FlushIndexRequest {
 	bool   synced = 2;
 }
 
+message FlushIndexResponse {
+}
+
 message Table {
 	string tableName = 1;
 }
@@ -696,6 +699,20 @@ service ImmuService {
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/user/password/change"
+			body: "*"
+		};
+	};
+
+	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			post: "/user/changepermission"
+			body: "*"
+		};
+	}
+
+	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/user/setactiveUser"
 			body: "*"
 		};
 	};
@@ -960,7 +977,7 @@ service ImmuService {
 		};
 	}
 
-	rpc FlushIndex(FlushIndexRequest) returns (google.protobuf.Empty) {
+	rpc FlushIndex(FlushIndexRequest) returns (FlushIndexResponse) {
 		option (google.api.http) = {
 			get: "/db/flushindex"
 		};
@@ -971,20 +988,6 @@ service ImmuService {
 			get: "/db/compactindex"
 		};
 	}
-
-	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
-		option (google.api.http) = {
-			post: "/user/changepermission"
-			body: "*"
-		};
-	}
-
-	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
-		option (google.api.http) = {
-			post: "/user/setactiveUser"
-			body: "*"
-		};
-	};
 
 	// Streams
 	rpc streamGet(KeyRequest) returns (stream Chunk) {};

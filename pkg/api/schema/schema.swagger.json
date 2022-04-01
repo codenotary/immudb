@@ -258,7 +258,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "properties": {}
+              "$ref": "#/definitions/schemaFlushIndexResponse"
             }
           },
           "default": {
@@ -1986,6 +1986,9 @@
           "format": "int64"
         }
       }
+    },
+    "schemaFlushIndexResponse": {
+      "type": "object"
     },
     "schemaHealthResponse": {
       "type": "object",
