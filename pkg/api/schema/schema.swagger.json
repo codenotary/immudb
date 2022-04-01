@@ -1672,49 +1672,6 @@
         }
       }
     },
-    "schemaConditionalBool": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "boolean"
-        }
-      }
-    },
-    "schemaConditionalFloat": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "number",
-          "format": "float"
-        }
-      }
-    },
-    "schemaConditionalString": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "string"
-        }
-      }
-    },
-    "schemaConditionalUint32": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "schemaConditionalUint64": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1831,43 +1788,43 @@
           "$ref": "#/definitions/schemaReplicationSettings"
         },
         "fileSize": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxKeyLen": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxValueLen": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxTxEntries": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "excludeCommitTime": {
-          "$ref": "#/definitions/schemaConditionalBool"
+          "$ref": "#/definitions/schemaNullableBool"
         },
         "maxConcurrency": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxIOConcurrency": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "txLogCacheSize": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "vLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "txLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "commitLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "indexSettings": {
           "$ref": "#/definitions/schemaIndexSettings"
         },
         "writeTxHeaderVersion": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },
@@ -2108,43 +2065,43 @@
       "type": "object",
       "properties": {
         "flushThreshold": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "syncThreshold": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "cacheSize": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxNodeSize": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "maxActiveSnapshots": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "renewSnapRootAfter": {
-          "$ref": "#/definitions/schemaConditionalUint64"
+          "$ref": "#/definitions/schemaNullableUint64"
         },
         "compactionThld": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "delayDuringCompaction": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "nodesLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "historyLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "commitLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "flushBufferSize": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "cleanupPercentage": {
-          "$ref": "#/definitions/schemaConditionalFloat"
+          "$ref": "#/definitions/schemaNullableFloat"
         }
       }
     },
@@ -2278,6 +2235,49 @@
         }
       }
     },
+    "schemaNullableBool": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemaNullableFloat": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
+    "schemaNullableString": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaNullableUint32": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "schemaNullableUint64": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "schemaOp": {
       "type": "object",
       "properties": {
@@ -2370,22 +2370,22 @@
       "type": "object",
       "properties": {
         "replica": {
-          "$ref": "#/definitions/schemaConditionalBool"
+          "$ref": "#/definitions/schemaNullableBool"
         },
         "masterDatabase": {
-          "$ref": "#/definitions/schemaConditionalString"
+          "$ref": "#/definitions/schemaNullableString"
         },
         "masterAddress": {
-          "$ref": "#/definitions/schemaConditionalString"
+          "$ref": "#/definitions/schemaNullableString"
         },
         "masterPort": {
-          "$ref": "#/definitions/schemaConditionalUint32"
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "followerUsername": {
-          "$ref": "#/definitions/schemaConditionalString"
+          "$ref": "#/definitions/schemaNullableString"
         },
         "followerPassword": {
-          "$ref": "#/definitions/schemaConditionalString"
+          "$ref": "#/definitions/schemaNullableString"
         }
       }
     },

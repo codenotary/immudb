@@ -12,11 +12,6 @@
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
-    - [ConditionalBool](#immudb.schema.ConditionalBool)
-    - [ConditionalFloat](#immudb.schema.ConditionalFloat)
-    - [ConditionalString](#immudb.schema.ConditionalString)
-    - [ConditionalUint32](#immudb.schema.ConditionalUint32)
-    - [ConditionalUint64](#immudb.schema.ConditionalUint64)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
@@ -55,6 +50,11 @@
     - [NamedParam](#immudb.schema.NamedParam)
     - [NewTxRequest](#immudb.schema.NewTxRequest)
     - [NewTxResponse](#immudb.schema.NewTxResponse)
+    - [NullableBool](#immudb.schema.NullableBool)
+    - [NullableFloat](#immudb.schema.NullableFloat)
+    - [NullableString](#immudb.schema.NullableString)
+    - [NullableUint32](#immudb.schema.NullableUint32)
+    - [NullableUint64](#immudb.schema.NullableUint64)
     - [Op](#immudb.schema.Op)
     - [OpenSessionRequest](#immudb.schema.OpenSessionRequest)
     - [OpenSessionResponse](#immudb.schema.OpenSessionResponse)
@@ -255,81 +255,6 @@
 
 
 
-<a name="immudb.schema.ConditionalBool"></a>
-
-### ConditionalBool
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| value | [bool](#bool) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ConditionalFloat"></a>
-
-### ConditionalFloat
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| value | [float](#float) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ConditionalString"></a>
-
-### ConditionalString
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| value | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ConditionalUint32"></a>
-
-### ConditionalUint32
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| value | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ConditionalUint64"></a>
-
-### ConditionalUint64
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| value | [uint64](#uint64) |  |  |
-
-
-
-
-
-
 <a name="immudb.schema.CreateUserRequest"></a>
 
 ### CreateUserRequest
@@ -445,19 +370,19 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | databaseName | [string](#string) |  |  |
 | replicationSettings | [ReplicationSettings](#immudb.schema.ReplicationSettings) |  |  |
-| fileSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxKeyLen | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxValueLen | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxTxEntries | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| excludeCommitTime | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
-| maxConcurrency | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxIOConcurrency | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| txLogCacheSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| vLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| txLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| commitLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| fileSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxKeyLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
-| writeTxHeaderVersion | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
+| writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
 
@@ -755,19 +680,19 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| flushThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| syncThreshold | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| cacheSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxNodeSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| maxActiveSnapshots | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| renewSnapRootAfter | [ConditionalUint64](#immudb.schema.ConditionalUint64) |  |  |
-| compactionThld | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| delayDuringCompaction | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| nodesLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| historyLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| commitLogMaxOpenedFiles | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| flushBufferSize | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| cleanupPercentage | [ConditionalFloat](#immudb.schema.ConditionalFloat) |  |  |
+| flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  |  |
+| compactionThld | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| delayDuringCompaction | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| nodesLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| historyLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| flushBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| cleanupPercentage | [NullableFloat](#immudb.schema.NullableFloat) |  |  |
 
 
 
@@ -982,6 +907,81 @@ Reserved to reply with more advanced response later
 
 
 
+<a name="immudb.schema.NullableBool"></a>
+
+### NullableBool
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NullableFloat"></a>
+
+### NullableFloat
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [float](#float) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NullableString"></a>
+
+### NullableString
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NullableUint32"></a>
+
+### NullableUint32
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NullableUint64"></a>
+
+### NullableUint64
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Op"></a>
 
 ### Op
@@ -1093,12 +1093,12 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| replica | [ConditionalBool](#immudb.schema.ConditionalBool) |  |  |
-| masterDatabase | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
-| masterAddress | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
-| masterPort | [ConditionalUint32](#immudb.schema.ConditionalUint32) |  |  |
-| followerUsername | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
-| followerPassword | [ConditionalString](#immudb.schema.ConditionalString) |  |  |
+| replica | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| masterDatabase | [NullableString](#immudb.schema.NullableString) |  |  |
+| masterAddress | [NullableString](#immudb.schema.NullableString) |  |  |
+| masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| followerUsername | [NullableString](#immudb.schema.NullableString) |  |  |
+| followerPassword | [NullableString](#immudb.schema.NullableString) |  |  |
 
 
 

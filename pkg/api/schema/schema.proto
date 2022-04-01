@@ -426,33 +426,33 @@ message DatabaseSettingsUpdateResult {	// Reserved to reply with more advanced r
 	DatabaseSettingsV2 currentSettings = 1;
 }
 
-message ConditionalUint32 {
+message NullableUint32 {
 	uint32 value = 1;
 }
 
-message ConditionalUint64 {
+message NullableUint64 {
 	uint64 value = 1;
 }
 
-message ConditionalFloat {
+message NullableFloat {
 	float value = 1;
 }
 
-message ConditionalBool {
+message NullableBool {
 	bool value = 1;
 }
 
-message ConditionalString {
+message NullableString {
 	string value = 1;
 }
 
 message ReplicationSettings {
-	ConditionalBool   replica = 1;
-	ConditionalString masterDatabase = 2;
-	ConditionalString masterAddress = 3;
-	ConditionalUint32 masterPort = 4;
-	ConditionalString followerUsername = 5;
-	ConditionalString followerPassword = 6;
+	NullableBool   replica = 1;
+	NullableString masterDatabase = 2;
+	NullableString masterAddress = 3;
+	NullableUint32 masterPort = 4;
+	NullableString followerUsername = 5;
+	NullableString followerPassword = 6;
 }
 
 message DatabaseSettingsV2 {
@@ -460,40 +460,40 @@ message DatabaseSettingsV2 {
 
 	ReplicationSettings replicationSettings = 2;
 
-	ConditionalUint32 fileSize = 8;
-	ConditionalUint32 maxKeyLen = 9;
-	ConditionalUint32 maxValueLen = 10;
-	ConditionalUint32 maxTxEntries = 11;
+	NullableUint32 fileSize = 8;
+	NullableUint32 maxKeyLen = 9;
+	NullableUint32 maxValueLen = 10;
+	NullableUint32 maxTxEntries = 11;
 
-	ConditionalBool excludeCommitTime = 12;
+	NullableBool excludeCommitTime = 12;
 
-	ConditionalUint32 maxConcurrency = 13;
-	ConditionalUint32 maxIOConcurrency = 14;
+	NullableUint32 maxConcurrency = 13;
+	NullableUint32 maxIOConcurrency = 14;
 
-	ConditionalUint32 txLogCacheSize = 15;
-	ConditionalUint32 vLogMaxOpenedFiles = 16;
-	ConditionalUint32 txLogMaxOpenedFiles = 17;
-	ConditionalUint32 commitLogMaxOpenedFiles = 18;
+	NullableUint32 txLogCacheSize = 15;
+	NullableUint32 vLogMaxOpenedFiles = 16;
+	NullableUint32 txLogMaxOpenedFiles = 17;
+	NullableUint32 commitLogMaxOpenedFiles = 18;
 
 	IndexSettings indexSettings = 19;
 
-	ConditionalUint32 writeTxHeaderVersion = 20;
+	NullableUint32 writeTxHeaderVersion = 20;
 }
 
 message IndexSettings {
-	ConditionalUint32  flushThreshold = 1;
-	ConditionalUint32  syncThreshold = 2;
-	ConditionalUint32  cacheSize = 3;
-	ConditionalUint32  maxNodeSize = 4;
-	ConditionalUint32  maxActiveSnapshots = 5;
-	ConditionalUint64  renewSnapRootAfter = 6;
-	ConditionalUint32  compactionThld = 7;
-	ConditionalUint32  delayDuringCompaction = 8;
-	ConditionalUint32  nodesLogMaxOpenedFiles = 9;
-	ConditionalUint32  historyLogMaxOpenedFiles = 10;
-	ConditionalUint32  commitLogMaxOpenedFiles = 11;
-	ConditionalUint32  flushBufferSize = 12;
-	ConditionalFloat   cleanupPercentage = 13;
+	NullableUint32  flushThreshold = 1;
+	NullableUint32  syncThreshold = 2;
+	NullableUint32  cacheSize = 3;
+	NullableUint32  maxNodeSize = 4;
+	NullableUint32  maxActiveSnapshots = 5;
+	NullableUint64  renewSnapRootAfter = 6;
+	NullableUint32  compactionThld = 7;
+	NullableUint32  delayDuringCompaction = 8;
+	NullableUint32  nodesLogMaxOpenedFiles = 9;
+	NullableUint32  historyLogMaxOpenedFiles = 10;
+	NullableUint32  commitLogMaxOpenedFiles = 11;
+	NullableUint32  flushBufferSize = 12;
+	NullableFloat   cleanupPercentage = 13;
 }
 
 message FlushIndexRequest {
