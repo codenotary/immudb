@@ -730,7 +730,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 		return nil, ErrIllegalArguments
 	}
 
-	_, err := s.CreateDatabaseWithV2(ctx, &schema.DatabaseSettingsV2{DatabaseName: req.DatabaseName})
+	_, err := s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{Name: req.DatabaseName})
 	if err != nil {
 		return nil, err
 	}
@@ -740,11 +740,16 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 
 // CreateDatabaseWith Create a new database instance
 func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
-	if req == nil {
-		return nil, ErrIllegalArguments
+	var settings *schema.DatabaseNullableSettings
+
+	if req != nil {
+		settings = dbSettingsToDBNullableSettings(req)
 	}
 
-	_, err := s.CreateDatabaseWithV2(ctx, dbSettingsToDbSettingsV2(req))
+	_, err := s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name:     req.DatabaseName,
+		Settings: settings,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -752,10 +757,8 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	return &empty.Empty{}, nil
 }
 
-// CreateDatabaseWithV2 Create a new database instance
-func (s *ImmuServer) CreateDatabaseWithV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
-	s.Logger.Debugf("createdatabase")
-
+// CreateDatabaseV2 Create a new database instance
+func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDatabaseRequest) (*schema.CreateDatabaseResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -777,29 +780,31 @@ func (s *ImmuServer) CreateDatabaseWithV2(ctx context.Context, req *schema.Datab
 		return nil, fmt.Errorf("logged In user does not have permissions for this operation")
 	}
 
-	if req.DatabaseName == SystemDBName {
+	if req.Name == SystemDBName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
 
-	if strings.ToLower(req.DatabaseName) != req.DatabaseName {
+	if strings.ToLower(req.Name) != req.Name {
 		return nil, fmt.Errorf("provide a lowercase database name")
 	}
 
-	req.DatabaseName = strings.ToLower(req.DatabaseName)
-	if err = isValidDBName(req.DatabaseName); err != nil {
+	req.Name = strings.ToLower(req.Name)
+	if err = isValidDBName(req.Name); err != nil {
 		return nil, err
 	}
 
 	//check if database exists
-	if s.dbList.GetId(req.GetDatabaseName()) >= 0 {
-		return nil, fmt.Errorf("database '%s' already exists", req.GetDatabaseName())
+	if s.dbList.GetId(req.Name) >= 0 {
+		return nil, fmt.Errorf("database '%s' already exists", req.Name)
 	}
 
-	dbOpts := s.defaultDBOptions(req.DatabaseName)
+	dbOpts := s.defaultDBOptions(req.Name)
 
-	err = s.overwriteWith(dbOpts, req, false)
-	if err != nil {
-		return nil, err
+	if req.Settings != nil {
+		err = s.overwriteWith(dbOpts, req.Settings, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = s.saveDBOptions(dbOpts)
@@ -822,7 +827,10 @@ func (s *ImmuServer) CreateDatabaseWithV2(ctx context.Context, req *schema.Datab
 		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
 	}
 
-	return dbOpts.databaseSettings(), nil
+	return &schema.CreateDatabaseResponse{
+		Name:     req.Name,
+		Settings: dbOpts.databaseNullableSettings(),
+	}, nil
 }
 
 // UpdateDatabase Updates database settings
@@ -831,7 +839,10 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 		return nil, ErrIllegalArguments
 	}
 
-	_, err := s.UpdateDatabaseV2(ctx, dbSettingsToDbSettingsV2(req))
+	_, err := s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
+		Database: req.DatabaseName,
+		Settings: dbSettingsToDBNullableSettings(req),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -840,9 +851,7 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 }
 
 // UpdateDatabaseV2 Updates database settings
-func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
-	s.Logger.Debugf("updatedatabase")
-
+func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDatabaseRequest) (*schema.UpdateDatabaseResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -855,11 +864,11 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseS
 		return nil, ErrAuthMustBeEnabled
 	}
 
-	if req.DatabaseName == s.Options.defaultDBName || req.DatabaseName == SystemDBName {
+	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
 		return nil, ErrReservedDatabase
 	}
 
-	db, err := s.dbList.GetByName(req.DatabaseName)
+	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -871,25 +880,27 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseS
 
 	//if the requesting user has admin permission on this database
 	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(req.DatabaseName, auth.PermissionAdmin)) {
+		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
 		return nil, fmt.Errorf("you do not have permission on this database")
 	}
 
-	s.Logger.Infof("Updating database '%s'...", db.GetName())
+	s.Logger.Infof("Updating database '%s'...", req.Database)
 
-	err = s.stopReplicationFor(req.DatabaseName)
+	err = s.stopReplicationFor(req.Database)
 	if err != nil && err != ErrReplicationNotInProgress {
-		s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.DatabaseName, err)
+		s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
 	}
 
-	dbOpts, err := s.loadDBOptions(req.DatabaseName, false)
+	dbOpts, err := s.loadDBOptions(req.Database, false)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.overwriteWith(dbOpts, req, true)
-	if err != nil {
-		return nil, err
+	if req.Settings != nil {
+		err = s.overwriteWith(dbOpts, req.Settings, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dbOpts.UpdatedBy = user.Username
@@ -903,67 +914,68 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseS
 
 	err = s.startReplicationFor(db, dbOpts)
 	if err != nil && err != ErrReplicatorNotNeeded {
-		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
+		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
 	}
 
-	s.Logger.Infof("Database '%s' successfully updated", db.GetName())
+	s.Logger.Infof("Database '%s' successfully updated", req.Database)
 
-	return &schema.DatabaseSettingsUpdateResult{
-		CurrentSettings: dbOpts.databaseSettings(),
+	return &schema.UpdateDatabaseResponse{
+		Database: req.Database,
+		Settings: dbOpts.databaseNullableSettings(),
 	}, nil
 }
 
 func (s *ImmuServer) GetDatabaseSettings(ctx context.Context, _ *empty.Empty) (*schema.DatabaseSettings, error) {
-	dbSettings, err := s.GetDatabaseSettingsV2(ctx, &empty.Empty{})
+	res, err := s.GetDatabaseSettingsV2(ctx, &schema.DatabaseSettingsRequest{})
 	if err != nil {
 		return nil, err
 	}
 
 	ret := &schema.DatabaseSettings{
-		DatabaseName: dbSettings.DatabaseName,
+		DatabaseName: res.Database,
 	}
 
-	if dbSettings.ReplicationSettings != nil {
-		if dbSettings.ReplicationSettings.Replica != nil {
-			ret.Replica = dbSettings.ReplicationSettings.Replica.Value
+	if res.Settings.ReplicationSettings != nil {
+		if res.Settings.ReplicationSettings.Replica != nil {
+			ret.Replica = res.Settings.ReplicationSettings.Replica.Value
 		}
-		if dbSettings.ReplicationSettings.MasterDatabase != nil {
-			ret.MasterDatabase = dbSettings.ReplicationSettings.MasterDatabase.Value
+		if res.Settings.ReplicationSettings.MasterDatabase != nil {
+			ret.MasterDatabase = res.Settings.ReplicationSettings.MasterDatabase.Value
 		}
-		if dbSettings.ReplicationSettings.MasterAddress != nil {
-			ret.MasterAddress = dbSettings.ReplicationSettings.MasterAddress.Value
+		if res.Settings.ReplicationSettings.MasterAddress != nil {
+			ret.MasterAddress = res.Settings.ReplicationSettings.MasterAddress.Value
 		}
-		if dbSettings.ReplicationSettings.MasterPort != nil {
-			ret.MasterPort = dbSettings.ReplicationSettings.MasterPort.Value
+		if res.Settings.ReplicationSettings.MasterPort != nil {
+			ret.MasterPort = res.Settings.ReplicationSettings.MasterPort.Value
 		}
-		if dbSettings.ReplicationSettings.FollowerUsername != nil {
-			ret.FollowerUsername = dbSettings.ReplicationSettings.FollowerUsername.Value
+		if res.Settings.ReplicationSettings.FollowerUsername != nil {
+			ret.FollowerUsername = res.Settings.ReplicationSettings.FollowerUsername.Value
 		}
-		if dbSettings.ReplicationSettings.FollowerPassword != nil {
-			ret.FollowerPassword = dbSettings.ReplicationSettings.FollowerPassword.Value
+		if res.Settings.ReplicationSettings.FollowerPassword != nil {
+			ret.FollowerPassword = res.Settings.ReplicationSettings.FollowerPassword.Value
 		}
 	}
 
-	if dbSettings.FileSize != nil {
-		ret.FileSize = dbSettings.FileSize.Value
+	if res.Settings.FileSize != nil {
+		ret.FileSize = res.Settings.FileSize.Value
 	}
-	if dbSettings.MaxKeyLen != nil {
-		ret.MaxKeyLen = dbSettings.MaxKeyLen.Value
+	if res.Settings.MaxKeyLen != nil {
+		ret.MaxKeyLen = res.Settings.MaxKeyLen.Value
 	}
-	if dbSettings.MaxValueLen != nil {
-		ret.MaxValueLen = dbSettings.MaxValueLen.Value
+	if res.Settings.MaxValueLen != nil {
+		ret.MaxValueLen = res.Settings.MaxValueLen.Value
 	}
-	if dbSettings.MaxTxEntries != nil {
-		ret.MaxTxEntries = dbSettings.MaxTxEntries.Value
+	if res.Settings.MaxTxEntries != nil {
+		ret.MaxTxEntries = res.Settings.MaxTxEntries.Value
 	}
-	if dbSettings.ExcludeCommitTime != nil {
-		ret.ExcludeCommitTime = dbSettings.ExcludeCommitTime.Value
+	if res.Settings.ExcludeCommitTime != nil {
+		ret.ExcludeCommitTime = res.Settings.ExcludeCommitTime.Value
 	}
 
 	return ret, nil
 }
 
-func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *empty.Empty) (*schema.DatabaseSettingsV2, error) {
+func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *schema.DatabaseSettingsRequest) (*schema.DatabaseSettingsResponse, error) {
 	db, err := s.getDBFromCtx(ctx, "DatabaseSettings")
 	if err != nil {
 		return nil, err
@@ -974,12 +986,14 @@ func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *empty.Empty) 
 		return nil, err
 	}
 
-	return dbOpts.databaseSettings(), nil
+	return &schema.DatabaseSettingsResponse{
+		Database: db.GetName(),
+		Settings: dbOpts.databaseNullableSettings(),
+	}, nil
 }
 
 //DatabaseList returns a list of databases based on the requesting user permissins
 func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.DatabaseListResponse, error) {
-	s.Logger.Debugf("DatabaseList")
 	loggedInuser := &auth.User{}
 	var err error
 
@@ -1020,8 +1034,6 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.
 
 // UseDatabase ...
 func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*schema.UseDatabaseReply, error) {
-	s.Logger.Debugf("UseDatabase %+v", req)
-
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}

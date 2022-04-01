@@ -12,13 +12,16 @@
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
     - [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry)
+    - [CreateDatabaseRequest](#immudb.schema.CreateDatabaseRequest)
+    - [CreateDatabaseResponse](#immudb.schema.CreateDatabaseResponse)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
+    - [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings)
     - [DatabaseSettings](#immudb.schema.DatabaseSettings)
-    - [DatabaseSettingsUpdateResult](#immudb.schema.DatabaseSettingsUpdateResult)
-    - [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2)
+    - [DatabaseSettingsRequest](#immudb.schema.DatabaseSettingsRequest)
+    - [DatabaseSettingsResponse](#immudb.schema.DatabaseSettingsResponse)
     - [DebugInfo](#immudb.schema.DebugInfo)
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
@@ -37,7 +40,7 @@
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
-    - [IndexSettings](#immudb.schema.IndexSettings)
+    - [IndexNullableSettings](#immudb.schema.IndexNullableSettings)
     - [KVMetadata](#immudb.schema.KVMetadata)
     - [Key](#immudb.schema.Key)
     - [KeyListRequest](#immudb.schema.KeyListRequest)
@@ -62,7 +65,7 @@
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
-    - [ReplicationSettings](#immudb.schema.ReplicationSettings)
+    - [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings)
     - [RetryInfo](#immudb.schema.RetryInfo)
     - [Row](#immudb.schema.Row)
     - [SQLEntry](#immudb.schema.SQLEntry)
@@ -85,6 +88,8 @@
     - [TxMetadata](#immudb.schema.TxMetadata)
     - [TxRequest](#immudb.schema.TxRequest)
     - [TxScanRequest](#immudb.schema.TxScanRequest)
+    - [UpdateDatabaseRequest](#immudb.schema.UpdateDatabaseRequest)
+    - [UpdateDatabaseResponse](#immudb.schema.UpdateDatabaseResponse)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [UseSnapshotRequest](#immudb.schema.UseSnapshotRequest)
     - [User](#immudb.schema.User)
@@ -256,6 +261,38 @@
 
 
 
+<a name="immudb.schema.CreateDatabaseRequest"></a>
+
+### CreateDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.CreateDatabaseResponse"></a>
+
+### CreateDatabaseResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.CreateUserRequest"></a>
 
 ### CreateUserRequest
@@ -320,6 +357,34 @@
 
 
 
+<a name="immudb.schema.DatabaseNullableSettings"></a>
+
+### DatabaseNullableSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| replicationSettings | [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings) |  |  |
+| fileSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxKeyLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| indexSettings | [IndexNullableSettings](#immudb.schema.IndexNullableSettings) |  |  |
+| writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.DatabaseSettings"></a>
 
 ### DatabaseSettings
@@ -346,44 +411,26 @@
 
 
 
-<a name="immudb.schema.DatabaseSettingsUpdateResult"></a>
+<a name="immudb.schema.DatabaseSettingsRequest"></a>
 
-### DatabaseSettingsUpdateResult
-Reserved to reply with more advanced response later
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| currentSettings | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |  |
+### DatabaseSettingsRequest
 
 
 
 
 
 
-<a name="immudb.schema.DatabaseSettingsV2"></a>
 
-### DatabaseSettingsV2
+<a name="immudb.schema.DatabaseSettingsResponse"></a>
+
+### DatabaseSettingsResponse
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databaseName | [string](#string) |  |  |
-| replicationSettings | [ReplicationSettings](#immudb.schema.ReplicationSettings) |  |  |
-| fileSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxKeyLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  |  |
-| maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| indexSettings | [IndexSettings](#immudb.schema.IndexSettings) |  |  |
-| writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| database | [string](#string) |  |  |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
 
 
 
@@ -609,6 +656,11 @@ Reserved to reply with more advanced response later
 
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+
+
 
 
 
@@ -683,9 +735,9 @@ Reserved to reply with more advanced response later
 
 
 
-<a name="immudb.schema.IndexSettings"></a>
+<a name="immudb.schema.IndexNullableSettings"></a>
 
-### IndexSettings
+### IndexNullableSettings
 
 
 
@@ -1096,9 +1148,9 @@ Reserved to reply with more advanced response later
 
 
 
-<a name="immudb.schema.ReplicationSettings"></a>
+<a name="immudb.schema.ReplicationNullableSettings"></a>
 
-### ReplicationSettings
+### ReplicationNullableSettings
 
 
 
@@ -1484,6 +1536,38 @@ Reserved to reply with more advanced response later
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 | noWait | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.UpdateDatabaseRequest"></a>
+
+### UpdateDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.UpdateDatabaseResponse"></a>
+
+### UpdateDatabaseResponse
+Reserved to reply with more advanced response later
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
 
 
 
@@ -1962,14 +2046,14 @@ immudb gRPC &amp; REST service
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZEntries](#immudb.schema.ZEntries) |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: kept for backward compatibility |
-| CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseWithV2 |
-| CreateDatabaseWithV2 | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |
+| CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseV2 |
+| CreateDatabaseV2 | [CreateDatabaseRequest](#immudb.schema.CreateDatabaseRequest) | [CreateDatabaseResponse](#immudb.schema.CreateDatabaseResponse) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use UpdateDatabaseV2 |
-| UpdateDatabaseV2 | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) | [DatabaseSettingsUpdateResult](#immudb.schema.DatabaseSettingsUpdateResult) |  |
+| UpdateDatabaseV2 | [UpdateDatabaseRequest](#immudb.schema.UpdateDatabaseRequest) | [UpdateDatabaseResponse](#immudb.schema.UpdateDatabaseResponse) |  |
 | GetDatabaseSettings | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettings](#immudb.schema.DatabaseSettings) | DEPRECATED: Use GetDatabaseSettingsV2 |
-| GetDatabaseSettingsV2 | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseSettingsV2](#immudb.schema.DatabaseSettingsV2) |  |
+| GetDatabaseSettingsV2 | [DatabaseSettingsRequest](#immudb.schema.DatabaseSettingsRequest) | [DatabaseSettingsResponse](#immudb.schema.DatabaseSettingsResponse) |  |
 | FlushIndex | [FlushIndexRequest](#immudb.schema.FlushIndexRequest) | [FlushIndexResponse](#immudb.schema.FlushIndexResponse) |  |
 | CompactIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | streamGet | [KeyRequest](#immudb.schema.KeyRequest) | [Chunk](#immudb.schema.Chunk) stream | Streams |

@@ -86,9 +86,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
-	dbSettings := &schema.DatabaseSettingsV2{
-		DatabaseName: "db1",
-		ReplicationSettings: &schema.ReplicationSettings{
+	dbNullableSettings := &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica: &schema.NullableBool{Value: false},
 		},
 		FileSize:                &schema.NullableUint32{Value: 1 << 20},
@@ -102,7 +101,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: 8},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: 4},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: 2},
-		IndexSettings: &schema.IndexSettings{
+		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: 256},
 			SyncThreshold:            &schema.NullableUint32{Value: 512},
 			FlushBufferSize:          &schema.NullableUint32{Value: 128},
@@ -117,7 +116,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: 3},
 		},
 	}
-	_, err = client.CreateDatabaseV2(context.Background(), dbSettings)
+	_, err = client.CreateDatabaseV2(context.Background(), "db1", dbNullableSettings)
 	require.NoError(t, err)
 
 	_, err = client.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db1"})
@@ -125,30 +124,29 @@ func TestCreateDatabaseV2(t *testing.T) {
 
 	settings, err := client.GetDatabaseSettingsV2(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, dbSettings.DatabaseName, settings.DatabaseName)
-	require.Equal(t, dbSettings.ReplicationSettings.Replica.Value, settings.ReplicationSettings.Replica.Value)
-	require.Equal(t, dbSettings.FileSize.Value, settings.FileSize.Value)
-	require.Equal(t, dbSettings.MaxKeyLen.Value, settings.MaxKeyLen.Value)
-	require.Equal(t, dbSettings.MaxValueLen.Value, settings.MaxValueLen.Value)
-	require.Equal(t, dbSettings.MaxTxEntries.Value, settings.MaxTxEntries.Value)
-	require.Equal(t, dbSettings.ExcludeCommitTime.Value, settings.ExcludeCommitTime.Value)
-	require.Equal(t, dbSettings.MaxConcurrency.Value, settings.MaxConcurrency.Value)
-	require.Equal(t, dbSettings.MaxIOConcurrency.Value, settings.MaxIOConcurrency.Value)
-	require.Equal(t, dbSettings.TxLogCacheSize.Value, settings.TxLogCacheSize.Value)
-	require.Equal(t, dbSettings.VLogMaxOpenedFiles.Value, settings.VLogMaxOpenedFiles.Value)
-	require.Equal(t, dbSettings.TxLogMaxOpenedFiles.Value, settings.TxLogMaxOpenedFiles.Value)
-	require.Equal(t, dbSettings.CommitLogMaxOpenedFiles.Value, settings.CommitLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.ReplicationSettings.Replica.Value, settings.ReplicationSettings.Replica.Value)
+	require.Equal(t, dbNullableSettings.FileSize.Value, settings.FileSize.Value)
+	require.Equal(t, dbNullableSettings.MaxKeyLen.Value, settings.MaxKeyLen.Value)
+	require.Equal(t, dbNullableSettings.MaxValueLen.Value, settings.MaxValueLen.Value)
+	require.Equal(t, dbNullableSettings.MaxTxEntries.Value, settings.MaxTxEntries.Value)
+	require.Equal(t, dbNullableSettings.ExcludeCommitTime.Value, settings.ExcludeCommitTime.Value)
+	require.Equal(t, dbNullableSettings.MaxConcurrency.Value, settings.MaxConcurrency.Value)
+	require.Equal(t, dbNullableSettings.MaxIOConcurrency.Value, settings.MaxIOConcurrency.Value)
+	require.Equal(t, dbNullableSettings.TxLogCacheSize.Value, settings.TxLogCacheSize.Value)
+	require.Equal(t, dbNullableSettings.VLogMaxOpenedFiles.Value, settings.VLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.TxLogMaxOpenedFiles.Value, settings.TxLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.CommitLogMaxOpenedFiles.Value, settings.CommitLogMaxOpenedFiles.Value)
 
-	require.Equal(t, dbSettings.IndexSettings.FlushThreshold.Value, settings.IndexSettings.FlushThreshold.Value)
-	require.Equal(t, dbSettings.IndexSettings.SyncThreshold.Value, settings.IndexSettings.SyncThreshold.Value)
-	require.Equal(t, dbSettings.IndexSettings.FlushBufferSize.Value, settings.IndexSettings.FlushBufferSize.Value)
-	require.Equal(t, dbSettings.IndexSettings.CacheSize.Value, settings.IndexSettings.CacheSize.Value)
-	require.Equal(t, dbSettings.IndexSettings.MaxNodeSize.Value, settings.IndexSettings.MaxNodeSize.Value)
-	require.Equal(t, dbSettings.IndexSettings.MaxActiveSnapshots.Value, settings.IndexSettings.MaxActiveSnapshots.Value)
-	require.Equal(t, dbSettings.IndexSettings.RenewSnapRootAfter.Value, settings.IndexSettings.RenewSnapRootAfter.Value)
-	require.Equal(t, dbSettings.IndexSettings.CompactionThld.Value, settings.IndexSettings.CompactionThld.Value)
-	require.Equal(t, dbSettings.IndexSettings.DelayDuringCompaction.Value, settings.IndexSettings.DelayDuringCompaction.Value)
-	require.Equal(t, dbSettings.IndexSettings.NodesLogMaxOpenedFiles.Value, settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
-	require.Equal(t, dbSettings.IndexSettings.HistoryLogMaxOpenedFiles.Value, settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
-	require.Equal(t, dbSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.FlushThreshold.Value, settings.IndexSettings.FlushThreshold.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.SyncThreshold.Value, settings.IndexSettings.SyncThreshold.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.FlushBufferSize.Value, settings.IndexSettings.FlushBufferSize.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.CacheSize.Value, settings.IndexSettings.CacheSize.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.MaxNodeSize.Value, settings.IndexSettings.MaxNodeSize.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.MaxActiveSnapshots.Value, settings.IndexSettings.MaxActiveSnapshots.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.RenewSnapRootAfter.Value, settings.IndexSettings.RenewSnapRootAfter.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.CompactionThld.Value, settings.IndexSettings.CompactionThld.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.DelayDuringCompaction.Value, settings.IndexSettings.DelayDuringCompaction.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.NodesLogMaxOpenedFiles.Value, settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.HistoryLogMaxOpenedFiles.Value, settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
 }

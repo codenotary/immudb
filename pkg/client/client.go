@@ -98,12 +98,12 @@ type ImmuClient interface {
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
-	CreateDatabaseV2(ctx context.Context, d *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error)
+	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
-	UpdateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error)
+	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
 	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
-	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsV2, error)
+	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseNullableSettings, error)
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
@@ -1463,18 +1463,24 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 }
 
 // CreateDatabaseV2 create a new database by making a grpc call
-func (c *immuClient) CreateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
+func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	appliedSettings, err := c.ServiceClient.CreateDatabaseWithV2(ctx, settings)
+	res, err := c.ServiceClient.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name:     name,
+		Settings: settings,
+	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
 
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
 
-	return appliedSettings, err
+	return res.Settings, err
 }
 
 // UseDatabase create a new database by making a grpc call
@@ -1519,18 +1525,24 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 }
 
 // UpdateDatabaseV2 updates database settings
-func (c *immuClient) UpdateDatabaseV2(ctx context.Context, settings *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
+func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	res, err := c.ServiceClient.UpdateDatabaseV2(ctx, settings)
+	res, err := c.ServiceClient.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
+		Database: database,
+		Settings: settings,
+	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
 
 	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
 
-	return res, err
+	return res.Settings, err
 }
 
 func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error) {
@@ -1541,12 +1553,17 @@ func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseS
 	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
 }
 
-func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsV2, error) {
+func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseNullableSettings, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	return c.ServiceClient.GetDatabaseSettingsV2(ctx, &empty.Empty{})
+	res, err := c.ServiceClient.GetDatabaseSettingsV2(ctx, &schema.DatabaseSettingsRequest{})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	return res.Settings, nil
 }
 
 func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) error {

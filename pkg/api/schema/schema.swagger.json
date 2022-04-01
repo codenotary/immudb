@@ -122,9 +122,41 @@
         ]
       }
     },
+    "/db/create/v2": {
+      "post": {
+        "operationId": "ImmuService_CreateDatabaseV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaCreateDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaCreateDatabaseRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/createwith": {
       "post": {
-        "summary": "DEPRECATED: Use CreateDatabaseWithV2",
+        "summary": "DEPRECATED: Use CreateDatabaseV2",
         "operationId": "ImmuService_CreateDatabaseWith",
         "responses": {
           "200": {
@@ -147,38 +179,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaDatabaseSettings"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/db/createwith/v2": {
-      "post": {
-        "operationId": "ImmuService_CreateDatabaseWithV2",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettingsV2"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettingsV2"
             }
           }
         ],
@@ -594,7 +594,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettingsV2"
+              "$ref": "#/definitions/schemaDatabaseSettingsResponse"
             }
           },
           "default": {
@@ -610,7 +610,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "properties": {}
+              "$ref": "#/definitions/schemaDatabaseSettingsRequest"
             }
           }
         ],
@@ -915,7 +915,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettingsUpdateResult"
+              "$ref": "#/definitions/schemaUpdateDatabaseResponse"
             }
           },
           "default": {
@@ -931,7 +931,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDatabaseSettingsV2"
+              "$ref": "#/definitions/schemaUpdateDatabaseRequest"
             }
           }
         ],
@@ -1672,6 +1672,28 @@
         }
       }
     },
+    "schemaCreateDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
+    "schemaCreateDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1724,6 +1746,53 @@
         }
       }
     },
+    "schemaDatabaseNullableSettings": {
+      "type": "object",
+      "properties": {
+        "replicationSettings": {
+          "$ref": "#/definitions/schemaReplicationNullableSettings"
+        },
+        "fileSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxKeyLen": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxValueLen": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxTxEntries": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "excludeCommitTime": {
+          "$ref": "#/definitions/schemaNullableBool"
+        },
+        "maxConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxIOConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "txLogCacheSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "vLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "txLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "commitLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "indexSettings": {
+          "$ref": "#/definitions/schemaIndexNullableSettings"
+        },
+        "writeTxHeaderVersion": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        }
+      }
+    },
     "schemaDatabaseSettings": {
       "type": "object",
       "properties": {
@@ -1770,61 +1839,17 @@
         }
       }
     },
-    "schemaDatabaseSettingsUpdateResult": {
-      "type": "object",
-      "properties": {
-        "currentSettings": {
-          "$ref": "#/definitions/schemaDatabaseSettingsV2"
-        }
-      }
+    "schemaDatabaseSettingsRequest": {
+      "type": "object"
     },
-    "schemaDatabaseSettingsV2": {
+    "schemaDatabaseSettingsResponse": {
       "type": "object",
       "properties": {
-        "databaseName": {
+        "database": {
           "type": "string"
         },
-        "replicationSettings": {
-          "$ref": "#/definitions/schemaReplicationSettings"
-        },
-        "fileSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "maxKeyLen": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "maxValueLen": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "maxTxEntries": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "excludeCommitTime": {
-          "$ref": "#/definitions/schemaNullableBool"
-        },
-        "maxConcurrency": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "maxIOConcurrency": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "txLogCacheSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "vLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "txLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "commitLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
-        },
-        "indexSettings": {
-          "$ref": "#/definitions/schemaIndexSettings"
-        },
-        "writeTxHeaderVersion": {
-          "$ref": "#/definitions/schemaNullableUint32"
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
         }
       }
     },
@@ -1988,7 +2013,12 @@
       }
     },
     "schemaFlushIndexResponse": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
     },
     "schemaHealthResponse": {
       "type": "object",
@@ -2064,7 +2094,7 @@
         }
       }
     },
-    "schemaIndexSettings": {
+    "schemaIndexNullableSettings": {
       "type": "object",
       "properties": {
         "flushThreshold": {
@@ -2369,7 +2399,7 @@
         }
       }
     },
-    "schemaReplicationSettings": {
+    "schemaReplicationNullableSettings": {
       "type": "object",
       "properties": {
         "replica": {
@@ -2760,6 +2790,28 @@
         },
         "noWait": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaUpdateDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
+    "schemaUpdateDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
         }
       }
     },

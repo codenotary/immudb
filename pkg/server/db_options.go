@@ -183,12 +183,9 @@ func (opts *dbOptions) storeOptions() *store.Options {
 	return stOpts
 }
 
-func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
-
-	return &schema.DatabaseSettingsV2{
-		DatabaseName: opts.Database,
-
-		ReplicationSettings: &schema.ReplicationSettings{
+func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettings {
+	return &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:          &schema.NullableBool{Value: opts.Replica},
 			MasterDatabase:   &schema.NullableString{Value: opts.MasterDatabase},
 			MasterAddress:    &schema.NullableString{Value: opts.MasterAddress},
@@ -212,7 +209,7 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
 
-		IndexSettings: &schema.IndexSettings{
+		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
 			SyncThreshold:            &schema.NullableUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
 			FlushBufferSize:          &schema.NullableUint32{Value: uint32(opts.IndexOptions.FlushBufferSize)},
@@ -236,7 +233,7 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
 // This is to add compatibility between old API using DatabaseSettings with new ones.
 // Only those fields that were present up to the 1.2.2 release are supported.
 // Changing any other fields requires new API calls.
-func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.DatabaseSettingsV2 {
+func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.DatabaseNullableSettings {
 
 	nullableUInt32 := func(v uint32) *schema.NullableUint32 {
 		if v > 0 {
@@ -247,9 +244,8 @@ func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.Databas
 		return nil
 	}
 
-	ret := &schema.DatabaseSettingsV2{
-		DatabaseName: settings.DatabaseName,
-		ReplicationSettings: &schema.ReplicationSettings{
+	ret := &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:          &schema.NullableBool{Value: settings.Replica},
 			MasterDatabase:   &schema.NullableString{Value: settings.MasterDatabase},
 			MasterAddress:    &schema.NullableString{Value: settings.MasterAddress},
@@ -266,7 +262,7 @@ func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.Databas
 	return ret
 }
 
-func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseSettingsV2, existentDB bool) error {
+func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNullableSettings, existentDB bool) error {
 	if existentDB {
 		// permanent settings can not be changed after database is created
 		// in the future, some settings may turn into non-permanent

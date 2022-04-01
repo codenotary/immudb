@@ -268,8 +268,8 @@ func (s *ServerMock) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 	return s.Srv.CreateDatabaseWith(ctx, req)
 }
 
-func (s *ServerMock) CreateDatabaseWithV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsV2, error) {
-	return s.Srv.CreateDatabaseWithV2(ctx, req)
+func (s *ServerMock) CreateDatabaseV2(ctx context.Context, req *schema.CreateDatabaseRequest) (*schema.CreateDatabaseResponse, error) {
+	return s.Srv.CreateDatabaseV2(ctx, req)
 }
 
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
@@ -288,7 +288,7 @@ func (s *ServerMock) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 	return s.Srv.UpdateDatabase(ctx, req)
 }
 
-func (s *ServerMock) UpdateDatabaseV2(ctx context.Context, req *schema.DatabaseSettingsV2) (*schema.DatabaseSettingsUpdateResult, error) {
+func (s *ServerMock) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDatabaseRequest) (*schema.UpdateDatabaseResponse, error) {
 	return s.Srv.UpdateDatabaseV2(ctx, req)
 }
 
@@ -296,7 +296,7 @@ func (s *ServerMock) GetDatabaseSettings(ctx context.Context, req *empty.Empty) 
 	return s.Srv.GetDatabaseSettings(ctx, req)
 }
 
-func (s *ServerMock) GetDatabaseSettingsV2(ctx context.Context, req *empty.Empty) (*schema.DatabaseSettingsV2, error) {
+func (s *ServerMock) GetDatabaseSettingsV2(ctx context.Context, req *schema.DatabaseSettingsRequest) (*schema.DatabaseSettingsResponse, error) {
 	return s.Srv.GetDatabaseSettingsV2(ctx, req)
 }
 
