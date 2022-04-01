@@ -300,7 +300,7 @@ func (s *ServerMock) GetDatabaseSettingsV2(ctx context.Context, req *empty.Empty
 	return s.Srv.GetDatabaseSettingsV2(ctx, req)
 }
 
-func (s *ServerMock) FlushIndex(ctx context.Context, req *schema.FlushIndexRequest) (*empty.Empty, error) {
+func (s *ServerMock) FlushIndex(ctx context.Context, req *schema.FlushIndexRequest) (*schema.FlushIndexResponse, error) {
 	return s.Srv.FlushIndex(ctx, req)
 }
 
