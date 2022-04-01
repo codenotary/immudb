@@ -189,46 +189,46 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
 		DatabaseName: opts.Database,
 
 		ReplicationSettings: &schema.ReplicationSettings{
-			Replica:          &schema.ConditionalBool{Value: opts.Replica},
-			MasterDatabase:   &schema.ConditionalString{Value: opts.MasterDatabase},
-			MasterAddress:    &schema.ConditionalString{Value: opts.MasterAddress},
-			MasterPort:       &schema.ConditionalUint32{Value: uint32(opts.MasterPort)},
-			FollowerUsername: &schema.ConditionalString{Value: opts.FollowerUsername},
-			FollowerPassword: &schema.ConditionalString{Value: opts.FollowerPassword},
+			Replica:          &schema.NullableBool{Value: opts.Replica},
+			MasterDatabase:   &schema.NullableString{Value: opts.MasterDatabase},
+			MasterAddress:    &schema.NullableString{Value: opts.MasterAddress},
+			MasterPort:       &schema.NullableUint32{Value: uint32(opts.MasterPort)},
+			FollowerUsername: &schema.NullableString{Value: opts.FollowerUsername},
+			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
 		},
 
-		FileSize:     &schema.ConditionalUint32{Value: uint32(opts.FileSize)},
-		MaxKeyLen:    &schema.ConditionalUint32{Value: uint32(opts.MaxKeyLen)},
-		MaxValueLen:  &schema.ConditionalUint32{Value: uint32(opts.MaxValueLen)},
-		MaxTxEntries: &schema.ConditionalUint32{Value: uint32(opts.MaxTxEntries)},
+		FileSize:     &schema.NullableUint32{Value: uint32(opts.FileSize)},
+		MaxKeyLen:    &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
+		MaxValueLen:  &schema.NullableUint32{Value: uint32(opts.MaxValueLen)},
+		MaxTxEntries: &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
 
-		ExcludeCommitTime: &schema.ConditionalBool{Value: opts.ExcludeCommitTime},
+		ExcludeCommitTime: &schema.NullableBool{Value: opts.ExcludeCommitTime},
 
-		MaxConcurrency:   &schema.ConditionalUint32{Value: uint32(opts.MaxConcurrency)},
-		MaxIOConcurrency: &schema.ConditionalUint32{Value: uint32(opts.MaxIOConcurrency)},
+		MaxConcurrency:   &schema.NullableUint32{Value: uint32(opts.MaxConcurrency)},
+		MaxIOConcurrency: &schema.NullableUint32{Value: uint32(opts.MaxIOConcurrency)},
 
-		TxLogCacheSize:          &schema.ConditionalUint32{Value: uint32(opts.TxLogCacheSize)},
-		VLogMaxOpenedFiles:      &schema.ConditionalUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
-		TxLogMaxOpenedFiles:     &schema.ConditionalUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
-		CommitLogMaxOpenedFiles: &schema.ConditionalUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
+		TxLogCacheSize:          &schema.NullableUint32{Value: uint32(opts.TxLogCacheSize)},
+		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
+		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
+		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
 
 		IndexSettings: &schema.IndexSettings{
-			FlushThreshold:           &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
-			SyncThreshold:            &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
-			FlushBufferSize:          &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.FlushBufferSize)},
-			CleanupPercentage:        &schema.ConditionalFloat{Value: opts.IndexOptions.CleanupPercentage},
-			CacheSize:                &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CacheSize)},
-			MaxNodeSize:              &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxNodeSize)},
-			MaxActiveSnapshots:       &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.MaxActiveSnapshots)},
-			RenewSnapRootAfter:       &schema.ConditionalUint64{Value: uint64(opts.IndexOptions.RenewSnapRootAfter)},
-			CompactionThld:           &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CompactionThld)},
-			DelayDuringCompaction:    &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.DelayDuringCompaction)},
-			NodesLogMaxOpenedFiles:   &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.NodesLogMaxOpenedFiles)},
-			HistoryLogMaxOpenedFiles: &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles)},
-			CommitLogMaxOpenedFiles:  &schema.ConditionalUint32{Value: uint32(opts.IndexOptions.CommitLogMaxOpenedFiles)},
+			FlushThreshold:           &schema.NullableUint32{Value: uint32(opts.IndexOptions.FlushThreshold)},
+			SyncThreshold:            &schema.NullableUint32{Value: uint32(opts.IndexOptions.SyncThreshold)},
+			FlushBufferSize:          &schema.NullableUint32{Value: uint32(opts.IndexOptions.FlushBufferSize)},
+			CleanupPercentage:        &schema.NullableFloat{Value: opts.IndexOptions.CleanupPercentage},
+			CacheSize:                &schema.NullableUint32{Value: uint32(opts.IndexOptions.CacheSize)},
+			MaxNodeSize:              &schema.NullableUint32{Value: uint32(opts.IndexOptions.MaxNodeSize)},
+			MaxActiveSnapshots:       &schema.NullableUint32{Value: uint32(opts.IndexOptions.MaxActiveSnapshots)},
+			RenewSnapRootAfter:       &schema.NullableUint64{Value: uint64(opts.IndexOptions.RenewSnapRootAfter)},
+			CompactionThld:           &schema.NullableUint32{Value: uint32(opts.IndexOptions.CompactionThld)},
+			DelayDuringCompaction:    &schema.NullableUint32{Value: uint32(opts.IndexOptions.DelayDuringCompaction)},
+			NodesLogMaxOpenedFiles:   &schema.NullableUint32{Value: uint32(opts.IndexOptions.NodesLogMaxOpenedFiles)},
+			HistoryLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles)},
+			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: uint32(opts.IndexOptions.CommitLogMaxOpenedFiles)},
 		},
 
-		WriteTxHeaderVersion: &schema.ConditionalUint32{Value: uint32(opts.WriteTxHeaderVersion)},
+		WriteTxHeaderVersion: &schema.NullableUint32{Value: uint32(opts.WriteTxHeaderVersion)},
 	}
 }
 
@@ -238,9 +238,9 @@ func (opts *dbOptions) databaseSettings() *schema.DatabaseSettingsV2 {
 // Changing any other fields requires new API calls.
 func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.DatabaseSettingsV2 {
 
-	conditionalUInt32 := func(v uint32) *schema.ConditionalUint32 {
+	nullableUInt32 := func(v uint32) *schema.NullableUint32 {
 		if v > 0 {
-			return &schema.ConditionalUint32{
+			return &schema.NullableUint32{
 				Value: v,
 			}
 		}
@@ -250,17 +250,17 @@ func dbSettingsToDbSettingsV2(settings *schema.DatabaseSettings) *schema.Databas
 	ret := &schema.DatabaseSettingsV2{
 		DatabaseName: settings.DatabaseName,
 		ReplicationSettings: &schema.ReplicationSettings{
-			Replica:          &schema.ConditionalBool{Value: settings.Replica},
-			MasterDatabase:   &schema.ConditionalString{Value: settings.MasterDatabase},
-			MasterAddress:    &schema.ConditionalString{Value: settings.MasterAddress},
-			MasterPort:       &schema.ConditionalUint32{Value: settings.MasterPort},
-			FollowerUsername: &schema.ConditionalString{Value: settings.FollowerUsername},
-			FollowerPassword: &schema.ConditionalString{Value: settings.FollowerPassword},
+			Replica:          &schema.NullableBool{Value: settings.Replica},
+			MasterDatabase:   &schema.NullableString{Value: settings.MasterDatabase},
+			MasterAddress:    &schema.NullableString{Value: settings.MasterAddress},
+			MasterPort:       &schema.NullableUint32{Value: settings.MasterPort},
+			FollowerUsername: &schema.NullableString{Value: settings.FollowerUsername},
+			FollowerPassword: &schema.NullableString{Value: settings.FollowerPassword},
 		},
-		FileSize:     conditionalUInt32(settings.FileSize),
-		MaxKeyLen:    conditionalUInt32(settings.MaxKeyLen),
-		MaxValueLen:  conditionalUInt32(settings.MaxValueLen),
-		MaxTxEntries: conditionalUInt32(settings.MaxTxEntries),
+		FileSize:     nullableUInt32(settings.FileSize),
+		MaxKeyLen:    nullableUInt32(settings.MaxKeyLen),
+		MaxValueLen:  nullableUInt32(settings.MaxValueLen),
+		MaxTxEntries: nullableUInt32(settings.MaxTxEntries),
 	}
 
 	return ret

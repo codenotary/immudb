@@ -216,35 +216,35 @@ func prepareDatabaseSettings(db string, flags *pflag.FlagSet) (*schema.DatabaseS
 
 	var err error
 
-	condBool := func(name string) (*schema.ConditionalBool, error) {
+	condBool := func(name string) (*schema.NullableBool, error) {
 		if flags.Changed(name) {
 			val, err := flags.GetBool(name)
 			if err != nil {
 				return nil, err
 			}
-			return &schema.ConditionalBool{Value: val}, nil
+			return &schema.NullableBool{Value: val}, nil
 		}
 		return nil, nil
 	}
 
-	condString := func(name string) (*schema.ConditionalString, error) {
+	condString := func(name string) (*schema.NullableString, error) {
 		if flags.Changed(name) {
 			val, err := flags.GetString(name)
 			if err != nil {
 				return nil, err
 			}
-			return &schema.ConditionalString{Value: val}, nil
+			return &schema.NullableString{Value: val}, nil
 		}
 		return nil, nil
 	}
 
-	condUInt32 := func(name string) (*schema.ConditionalUint32, error) {
+	condUInt32 := func(name string) (*schema.NullableUint32, error) {
 		if flags.Changed(name) {
 			val, err := flags.GetUint32(name)
 			if err != nil {
 				return nil, err
 			}
-			return &schema.ConditionalUint32{Value: val}, nil
+			return &schema.NullableUint32{Value: val}, nil
 		}
 		return nil, nil
 	}
