@@ -740,15 +740,13 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, req *schema.Database) (
 
 // CreateDatabaseWith Create a new database instance
 func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.DatabaseSettings) (*empty.Empty, error) {
-	var settings *schema.DatabaseNullableSettings
-
-	if req != nil {
-		settings = dbSettingsToDBNullableSettings(req)
+	if req == nil {
+		return nil, ErrIllegalArguments
 	}
 
 	_, err := s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
 		Name:     req.DatabaseName,
-		Settings: settings,
+		Settings: dbSettingsToDBNullableSettings(req),
 	})
 	if err != nil {
 		return nil, err
