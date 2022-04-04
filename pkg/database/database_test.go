@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1093,6 +1094,33 @@ func TestConstrainedSet(t *testing.T) {
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed,
 		"did not fail even though one of KV entries failed constraint check")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key4-no-constraints"),
+				Value: []byte("value"),
+			},
+		},
+		Constraints: []*schema.KVConstraints{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints,
+		"did not fail when invalid nil constrait was given")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key6"),
+				Value: []byte("value"),
+			},
+		},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("key6-too-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
+			MustNotExist: true,
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints,
+		"did not fail when invalid nil constrait was given")
 }
 
 func TestConstrainedSetParallel(t *testing.T) {

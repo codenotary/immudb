@@ -21,6 +21,7 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1288,6 +1289,35 @@ func TestOps_Constrains(t *testing.T) {
 		}},
 	})
 	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Constraints: []*schema.KVConstraints{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("reference" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
+			MustNotExist: true,
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 
 }
 

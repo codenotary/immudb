@@ -199,6 +199,9 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		constraints := make([]*store.KVConstraints, len(req.Constraints))
 		for i := 0; i < len(req.Constraints); i++ {
 			c := schema.KVConstraintsFromProto(req.Constraints[i])
+			if c == nil {
+				return nil, nil, store.ErrInvalidConstraints
+			}
 			c.Key = EncodeKey(c.Key)
 			constraints[i] = c
 		}

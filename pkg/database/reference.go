@@ -91,10 +91,13 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 
 	for i := range req.Constraints {
 		c := schema.KVConstraintsFromProto(req.Constraints[i])
+		if c == nil {
+			return nil, store.ErrInvalidConstraints
+		}
 		c.Key = EncodeKey(c.Key)
 		err = tx.AddKVConstraint(c)
 		if err != nil {
-			return nil, fmt.Errorf("invalid constraint: %w", err)
+			return nil, fmt.Errorf("%w: %v", store.ErrInvalidConstraints, err)
 		}
 	}
 

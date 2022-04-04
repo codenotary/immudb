@@ -19,6 +19,7 @@ package database
 import (
 	"crypto/sha256"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -410,4 +411,21 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 		Key: []byte("reference"),
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Constraints:   []*schema.KVConstraints{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Constraints: []*schema.KVConstraints{{
+			Key:          []byte("reference-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
+			MustNotExist: true,
+		}},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 }
