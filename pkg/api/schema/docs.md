@@ -41,7 +41,6 @@
     - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
     - [IndexNullableSettings](#immudb.schema.IndexNullableSettings)
-    - [KVConstraints](#immudb.schema.KVConstraints)
     - [KVMetadata](#immudb.schema.KVMetadata)
     - [Key](#immudb.schema.Key)
     - [KeyListRequest](#immudb.schema.KeyListRequest)
@@ -109,6 +108,10 @@
     - [VerifiableTx](#immudb.schema.VerifiableTx)
     - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
     - [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest)
+    - [WriteConstraint](#immudb.schema.WriteConstraint)
+    - [WriteConstraint.KeyMustExistConstraint](#immudb.schema.WriteConstraint.KeyMustExistConstraint)
+    - [WriteConstraint.KeyMustNotExistConstraint](#immudb.schema.WriteConstraint.KeyMustNotExistConstraint)
+    - [WriteConstraint.KeyNotModifiedAfterTXConstraint](#immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint)
     - [ZAddRequest](#immudb.schema.ZAddRequest)
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
@@ -599,7 +602,7 @@
 | ----- | ---- | ----- | ----------- |
 | Operations | [Op](#immudb.schema.Op) | repeated |  |
 | noWait | [bool](#bool) |  |  |
-| Constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
+| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
 
 
 
@@ -758,24 +761,6 @@
 | commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | flushBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | cleanupPercentage | [NullableFloat](#immudb.schema.NullableFloat) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.KVConstraints"></a>
-
-### KVConstraints
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  | key to check against |
-| mustExist | [bool](#bool) |  | If set to true, only store new value if existing one with same key already exists |
-| mustNotExist | [bool](#bool) |  | If set to true, only store new value if value with same key does not exist yet |
-| notModifiedAfterTX | [uint64](#uint64) |  | If set to value &gt; 0, only store new value if the existing value does not exist or was not modified after given transaction |
 
 
 
@@ -1162,7 +1147,7 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
-| constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
+| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
 
 
 
@@ -1402,7 +1387,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
-| constraints | [KVConstraints](#immudb.schema.KVConstraints) | repeated |  |
+| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
 | noWait | [bool](#bool) |  |  |
 
 
@@ -1891,6 +1876,69 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.WriteConstraint"></a>
+
+### WriteConstraint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| keyMustExist | [WriteConstraint.KeyMustExistConstraint](#immudb.schema.WriteConstraint.KeyMustExistConstraint) |  |  |
+| keyMustNotExist | [WriteConstraint.KeyMustNotExistConstraint](#immudb.schema.WriteConstraint.KeyMustNotExistConstraint) |  |  |
+| keyNotModifiedAfterTX | [WriteConstraint.KeyNotModifiedAfterTXConstraint](#immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.WriteConstraint.KeyMustExistConstraint"></a>
+
+### WriteConstraint.KeyMustExistConstraint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.WriteConstraint.KeyMustNotExistConstraint"></a>
+
+### WriteConstraint.KeyMustNotExistConstraint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint"></a>
+
+### WriteConstraint.KeyNotModifiedAfterTXConstraint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+| txID | [uint64](#uint64) |  |  |
 
 
 

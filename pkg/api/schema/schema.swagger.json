@@ -1524,6 +1524,37 @@
     }
   },
   "definitions": {
+    "WriteConstraintKeyMustExistConstraint": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "WriteConstraintKeyMustNotExistConstraint": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "WriteConstraintKeyNotModifiedAfterTXConstraint": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "txID": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -2001,10 +2032,10 @@
         "noWait": {
           "type": "boolean"
         },
-        "Constraints": {
+        "constraints": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaKVConstraints"
+            "$ref": "#/definitions/schemaWriteConstraint"
           }
         }
       }
@@ -2141,29 +2172,6 @@
         },
         "cleanupPercentage": {
           "$ref": "#/definitions/schemaNullableFloat"
-        }
-      }
-    },
-    "schemaKVConstraints": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte",
-          "title": "key to check against"
-        },
-        "mustExist": {
-          "type": "boolean",
-          "title": "If set to true, only store new value if existing one with same key already exists"
-        },
-        "mustNotExist": {
-          "type": "boolean",
-          "title": "If set to true, only store new value if value with same key does not exist yet"
-        },
-        "notModifiedAfterTX": {
-          "type": "string",
-          "format": "uint64",
-          "title": "If set to value \u003e 0, only store new value if the existing value does not exist or was not modified after given transaction"
         }
       }
     },
@@ -2429,7 +2437,7 @@
         "constraints": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaKVConstraints"
+            "$ref": "#/definitions/schemaWriteConstraint"
           }
         }
       }
@@ -2666,7 +2674,7 @@
         "constraints": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaKVConstraints"
+            "$ref": "#/definitions/schemaWriteConstraint"
           }
         },
         "noWait": {
@@ -3039,6 +3047,20 @@
         "proveSinceTx": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "schemaWriteConstraint": {
+      "type": "object",
+      "properties": {
+        "keyMustExist": {
+          "$ref": "#/definitions/WriteConstraintKeyMustExistConstraint"
+        },
+        "keyMustNotExist": {
+          "$ref": "#/definitions/WriteConstraintKeyMustNotExistConstraint"
+        },
+        "keyNotModifiedAfterTX": {
+          "$ref": "#/definitions/WriteConstraintKeyNotModifiedAfterTXConstraint"
         }
       }
     },

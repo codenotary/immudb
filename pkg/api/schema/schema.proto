@@ -94,19 +94,26 @@ message OpenSessionResponse {
 
 ////////////////////////////////////////////////////////
 
-message KVConstraints {
+message WriteConstraint {
 
-	// key to check against
-	bytes key = 1;
+	message KeyMustExistConstraint {
+		bytes key = 1;
+	}
+	
+	message KeyMustNotExistConstraint {
+		bytes key = 1;
+	}
+	
+	message KeyNotModifiedAfterTXConstraint {
+		bytes key = 1;
+		uint64 txID = 2;
+	}
 
-	// If set to true, only store new value if existing one with same key already exists
-	bool mustExist = 2;
-
-	// If set to true, only store new value if value with same key does not exist yet
-	bool mustNotExist = 3;
-
-	// If set to value > 0, only store new value if the existing value does not exist or was not modified after given transaction
-	uint64 notModifiedAfterTX = 4;
+	oneof constraint {
+		KeyMustExistConstraint keyMustExist = 1;
+		KeyMustNotExistConstraint keyMustNotExist = 2;
+		KeyNotModifiedAfterTXConstraint keyNotModifiedAfterTX = 3;
+	}
 }
 
 message KeyValue {
@@ -142,7 +149,7 @@ message Op {
 message ExecAllRequest {
 	repeated Op Operations = 1;
 	bool  noWait = 2;
-	repeated KVConstraints Constraints = 3;
+	repeated WriteConstraint constraints = 3;
 }
 
 message Entries {
@@ -266,7 +273,7 @@ message InclusionProof {
 
 message SetRequest {
 	repeated KeyValue KVs = 1;
-	repeated KVConstraints constraints = 4;
+	repeated WriteConstraint constraints = 4;
 	bool  noWait = 2;
 }
 
@@ -321,7 +328,7 @@ message ReferenceRequest {
 	uint64 atTx = 3;
 	bool boundRef = 4;
 	bool  noWait = 5;
-	repeated KVConstraints constraints = 6;
+	repeated WriteConstraint constraints = 6;
 }
 
 message VerifiableReferenceRequest {
