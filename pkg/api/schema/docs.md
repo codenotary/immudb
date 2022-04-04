@@ -41,6 +41,7 @@
     - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
     - [IndexNullableSettings](#immudb.schema.IndexNullableSettings)
+    - [KVConstraints](#immudb.schema.KVConstraints)
     - [KVMetadata](#immudb.schema.KVMetadata)
     - [Key](#immudb.schema.Key)
     - [KeyListRequest](#immudb.schema.KeyListRequest)
@@ -762,6 +763,23 @@
 
 
 
+<a name="immudb.schema.KVConstraints"></a>
+
+### KVConstraints
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| mustExist | [bool](#bool) |  | If set to true, only store new value if existing one with same key already exists |
+| mustNotExist | [bool](#bool) |  | If set to true, only store new value if value with same key does not exist yet |
+| notModifiedAfterTX | [uint64](#uint64) |  | If set to value &gt; 0, only store new value if the existing value does not exist or was not modified after given transaction |
+
+
+
+
+
+
 <a name="immudb.schema.KVMetadata"></a>
 
 ### KVMetadata
@@ -854,6 +872,7 @@
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
+| constraints | [KVConstraints](#immudb.schema.KVConstraints) |  |  |
 
 
 
@@ -1142,6 +1161,7 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
+| constraints | [KVConstraints](#immudb.schema.KVConstraints) |  |  |
 
 
 

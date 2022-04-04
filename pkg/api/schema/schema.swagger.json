@@ -1529,7 +1529,7 @@
       "properties": {
         "type_url": {
           "type": "string",
-          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
         },
         "value": {
           "type": "string",
@@ -2138,6 +2138,24 @@
         }
       }
     },
+    "schemaKVConstraints": {
+      "type": "object",
+      "properties": {
+        "mustExist": {
+          "type": "boolean",
+          "title": "If set to true, only store new value if existing one with same key already exists"
+        },
+        "mustNotExist": {
+          "type": "boolean",
+          "title": "If set to true, only store new value if value with same key does not exist yet"
+        },
+        "notModifiedAfterTX": {
+          "type": "string",
+          "format": "uint64",
+          "title": "If set to value \u003e 0, only store new value if the existing value does not exist or was not modified after given transaction"
+        }
+      }
+    },
     "schemaKVMetadata": {
       "type": "object",
       "properties": {
@@ -2201,6 +2219,9 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
+        },
+        "constraints": {
+          "$ref": "#/definitions/schemaKVConstraints"
         }
       }
     },
@@ -2396,6 +2417,9 @@
         },
         "noWait": {
           "type": "boolean"
+        },
+        "constraints": {
+          "$ref": "#/definitions/schemaKVConstraints"
         }
       }
     },

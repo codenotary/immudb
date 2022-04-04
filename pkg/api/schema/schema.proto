@@ -94,10 +94,22 @@ message OpenSessionResponse {
 
 ////////////////////////////////////////////////////////
 
+message KVConstraints {
+	// If set to true, only store new value if existing one with same key already exists
+	bool mustExist = 1;
+
+	// If set to true, only store new value if value with same key does not exist yet
+	bool mustNotExist = 2;
+
+	// If set to value > 0, only store new value if the existing value does not exist or was not modified after given transaction
+	uint64 notModifiedAfterTX = 3;
+}
+
 message KeyValue {
 	bytes key = 1;
 	bytes value = 2;
 	KVMetadata metadata = 3;
+	KVConstraints constraints = 4;
 }
 
 message Entry {
@@ -304,6 +316,7 @@ message ReferenceRequest {
 	uint64 atTx = 3;
 	bool boundRef = 4;
 	bool  noWait = 5;
+	KVConstraints constraints = 6;
 }
 
 message VerifiableReferenceRequest {
