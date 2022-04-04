@@ -1319,6 +1319,28 @@ func TestOps_Constrains(t *testing.T) {
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 
+	c := []*schema.KVConstraints{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c, &schema.KVConstraints{
+			Key:          []byte(fmt.Sprintf("key_%d", i)),
+			MustNotExist: true,
+		})
+	}
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Constraints: c,
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints,
+		"did not fail when too many constraints were given")
+
 }
 
 /*

@@ -18,6 +18,7 @@ package database
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -426,6 +427,21 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 			Key:          []byte("reference-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
 			MustNotExist: true,
 		}},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints)
+
+	c := []*schema.KVConstraints{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c, &schema.KVConstraints{
+			Key:          []byte(fmt.Sprintf("key_%d", i)),
+			MustNotExist: true,
+		})
+	}
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Constraints:   c,
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 }

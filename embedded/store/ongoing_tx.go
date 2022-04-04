@@ -189,6 +189,10 @@ func (tx *OngoingTx) AddKVConstraint(c *KVConstraints) error {
 		return ErrAlreadyClosed
 	}
 
+	if c == nil {
+		return ErrIllegalArguments
+	}
+
 	if len(c.Key) == 0 {
 		return ErrNullKey
 	}

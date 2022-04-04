@@ -1121,6 +1121,26 @@ func TestConstrainedSet(t *testing.T) {
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraints,
 		"did not fail when invalid nil constrait was given")
+
+	c := []*schema.KVConstraints{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c, &schema.KVConstraints{
+			Key:          []byte(fmt.Sprintf("key_%d", i)),
+			MustNotExist: true,
+		})
+	}
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key6"),
+				Value: []byte("value"),
+			},
+		},
+		Constraints: c,
+	})
+	require.ErrorIs(t, err, store.ErrInvalidConstraints,
+		"did not fail when too many constraints were given")
 }
 
 func TestConstrainedSetParallel(t *testing.T) {
