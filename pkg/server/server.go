@@ -122,7 +122,7 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to load default database: %v", err)
 	}
 
-	defaultDB := s.dbList.GetByIndex(defaultDbIndex)
+	defaultDB, _ := s.dbList.GetByIndex(defaultDbIndex)
 
 	dbSize, _ := defaultDB.Size()
 	if dbSize <= 1 {
@@ -140,6 +140,11 @@ func (s *ImmuServer) Initialize() error {
 	s.multidbmode = s.mandatoryAuth()
 	if !s.Options.GetAuth() && s.multidbmode {
 		return ErrAuthMustBeEnabled
+	}
+
+	s.SessManager, err = sessions.NewManager(s.Options.SessionsOptions)
+	if err != nil {
+		return err
 	}
 
 	grpcSrvOpts := []grpc.ServerOption{}
@@ -227,11 +232,6 @@ func (s *ImmuServer) Initialize() error {
 	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
-
-	s.SessManager, err = sessions.NewManager(s.Options.SessionsOptions)
-	if err != nil {
-		return err
-	}
 
 	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Address(s.Options.Address), pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDB), pgsqlsrv.TlsConfig(s.Options.TLSConfig), pgsqlsrv.Logger(s.Logger))
 	if s.Options.PgsqlServer {
@@ -456,7 +456,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 			}
 		}
 
-		s.dbList.Append(db)
+		s.dbList.Put(db)
 
 		return nil
 	}
@@ -477,7 +477,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotesto
 		}
 	}
 
-	s.dbList.Append(db)
+	s.dbList.Put(db)
 
 	return nil
 }
@@ -515,7 +515,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 
 		if !dbOpts.Autoload.isEnabled() {
 			s.Logger.Infof("Database '%s' is closed (autoload is disabled)", dbname)
-			s.dbList.Append(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
+			s.dbList.Put(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
 			continue
 		}
 
@@ -533,7 +533,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			}
 		}
 
-		s.dbList.Append(db)
+		s.dbList.Put(db)
 	}
 
 	return nil
@@ -633,8 +633,10 @@ func (s *ImmuServer) Stop() error {
 //CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
 	for i := 0; i < s.dbList.Length(); i++ {
-		val := s.dbList.GetByIndex(i)
-		val.Close()
+		val, err := s.dbList.GetByIndex(i)
+		if err == nil {
+			val.Close()
+		}
 	}
 
 	if s.sysDB != nil {
@@ -803,7 +805,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		return nil, err
 	}
 
-	s.dbList.Append(db)
+	s.dbList.Put(db)
 	s.multidbmode = true
 
 	s.logDBOptions(db.GetName(), dbOpts)
@@ -825,11 +827,11 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 	}
 
 	if !s.Options.GetAuth() {
-		return nil, ErrAuthMustBeEnabled
+		return nil, fmt.Errorf("%w: while opening database '%s'", ErrAuthMustBeEnabled, req.Database)
 	}
 
 	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
-		return nil, ErrReservedDatabase
+		return nil, fmt.Errorf("%w: while opening database '%s'", ErrReservedDatabase, req.Database)
 	}
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -845,16 +847,16 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: while opening database '%s'", err, req.Database)
 	}
 
 	if !db.IsClosed() {
-		return nil, fmt.Errorf("%w: while opening database '%s'", ErrDatabaseAlreadyOpen, req.Database)
+		return nil, fmt.Errorf("%w: while opening database '%s'", ErrDatabaseAlreadyLoaded, req.Database)
 	}
 
 	dbOpts, err := s.loadDBOptions(req.Database, false)
 	if err == store.ErrKeyNotFound {
-		return nil, database.ErrDatabaseNotExists
+		return nil, fmt.Errorf("%w: while opening database '%s'", database.ErrDatabaseNotExists, req.Database)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: while loading database settings", err)
@@ -866,7 +868,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		return nil, fmt.Errorf("could not open database '%s'. Reason: %w", req.Database, err)
 	}
 
-	s.dbList.Update(s.dbList.GetId(req.Database), db)
+	s.dbList.Put(db)
 
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(db, dbOpts)
@@ -886,11 +888,11 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 	}
 
 	if !s.Options.GetAuth() {
-		return nil, ErrAuthMustBeEnabled
+		return nil, fmt.Errorf("%w: while closing database '%s'", ErrAuthMustBeEnabled, req.Database)
 	}
 
 	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
-		return nil, ErrReservedDatabase
+		return nil, fmt.Errorf("%w: while closing database '%s'", ErrReservedDatabase, req.Database)
 	}
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -906,7 +908,7 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 
 	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: while closing database '%s'", err, req.Database)
 	}
 
 	if db.IsClosed() {
@@ -931,6 +933,60 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 	}
 
 	return &schema.UnloadDatabaseResponse{
+		Database: req.Database,
+	}, nil
+}
+
+func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatabaseRequest) (res *schema.DeleteDatabaseResponse, err error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
+	}
+
+	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
+		return nil, ErrReservedDatabase
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
+	}
+
+	s.Logger.Infof("Deleting database '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully deleted", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be deleted. Reason: %v", req.Database, err)
+		}
+	}()
+
+	db, err := s.dbList.Delete(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.deleteDBOptionsFor(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.RemoveAll(db.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.DeleteDatabaseResponse{
 		Database: req.Database,
 	}, nil
 }
@@ -1134,7 +1190,13 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
-			db := s.dbList.GetByIndex(i)
+			db, err := s.dbList.GetByIndex(i)
+			if err == database.ErrDatabaseNotExists {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
 
 			dbOpts, err := s.loadDBOptions(db.GetName(), false)
 			if err != nil {
@@ -1152,6 +1214,9 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 	} else {
 		for _, perm := range loggedInuser.Permissions {
 			db, err := s.dbList.GetByName(perm.Database)
+			if err == database.ErrDatabaseNotExists {
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -1211,7 +1276,10 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 			return nil, errors.New(fmt.Sprintf("'%s' does not exist", req.DatabaseName)).WithCode(errors.CodInvalidDatabaseName)
 		}
 
-		db = s.dbList.GetByIndex(dbid)
+		db, err = s.dbList.GetByIndex(dbid)
+		if err != nil {
+			return nil, err
+		}
 
 		if db.IsClosed() {
 			return nil, store.ErrAlreadyClosed
@@ -1255,7 +1323,8 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, req *schema.Database) (*sc
 func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (database.DB, error) {
 	//if auth is disabled and there is not user created databases returns defaultdb
 	if !s.Options.auth && !s.multidbmode && !s.Options.GetMaintenance() {
-		return s.dbList.GetByIndex(defaultDbIndex), nil
+		db, _ := s.dbList.GetByIndex(defaultDbIndex)
+		return db, nil
 	}
 
 	if s.Options.GetMaintenance() && !auth.IsMaintenanceMethod(methodName) {
@@ -1287,14 +1356,17 @@ func (s *ImmuServer) getDBFromCtx(ctx context.Context, methodName string) (datab
 	if ind == sysDBIndex {
 		db = s.sysDB
 	} else {
-		db = s.dbList.GetByIndex(ind)
+		db, err = s.dbList.GetByIndex(ind)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if usr.IsSysAdmin {
 		return db, nil
 	}
 
-	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetName()), methodName); !ok {
+	if ok := auth.HasPermissionForMethod(usr.WhichPermission(db.GetName()), methodName); !ok {
 		return nil, ErrPermissionDenied
 	}
 
@@ -1334,42 +1406,29 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	}
 
 	//check if there are user created databases, should be zero for auth to be off
-	for i := 0; i < s.dbList.Length(); i++ {
-		val := s.dbList.GetByIndex(i)
-		if (val.GetName() != s.Options.defaultDBName) &&
-			(val.GetName() != s.Options.systemAdminDBName) {
-			return true
-		}
+	if s.dbList.Length() > 1 {
+		return true
 	}
 
-	//check if there is only default database
-	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(defaultDbIndex).GetName() == s.Options.defaultDBName) {
-		return false
+	//check if there is only sysadmin on systemdb and no other user
+	itemList, err := s.sysDB.Scan(&schema.ScanRequest{
+		Prefix: []byte{KeyPrefixUser},
+	})
+
+	if err != nil {
+		s.Logger.Errorf("error getting users: %v", err)
+		return true
 	}
 
-	if s.sysDB != nil {
-		//check if there is only sysadmin on systemdb and no other user
-		itemList, err := s.sysDB.Scan(&schema.ScanRequest{
-			Prefix: []byte{KeyPrefixUser},
-		})
-
-		if err != nil {
-			s.Logger.Errorf("error getting users: %v", err)
-			return true
-		}
-
-		for _, val := range itemList.Entries {
-			if len(val.Key) > 2 {
-				if auth.SysAdminUsername != string(val.Key[1:]) {
-					//another user detected
-					return true
-				}
+	for _, val := range itemList.Entries {
+		if len(val.Key) > 2 {
+			if auth.SysAdminUsername != string(val.Key[1:]) {
+				//another user detected
+				return true
 			}
 		}
-
-		//systemdb exists but there are no other users created
-		return false
 	}
 
-	return true
+	//systemdb exists but there are no other users created
+	return false
 }

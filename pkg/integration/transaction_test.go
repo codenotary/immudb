@@ -278,10 +278,6 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 
 	_, err = client.NewTx(ctx)
 	require.Error(t, err)
-	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodNoSessionAuthDataProvided)
-
-	err = client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
 }
 
 func TestTransaction_HandlingReadConflict(t *testing.T) {

@@ -26,6 +26,8 @@
     - [DatabaseSettingsResponse](#immudb.schema.DatabaseSettingsResponse)
     - [DatabaseWithSettings](#immudb.schema.DatabaseWithSettings)
     - [DebugInfo](#immudb.schema.DebugInfo)
+    - [DeleteDatabaseRequest](#immudb.schema.DeleteDatabaseRequest)
+    - [DeleteDatabaseResponse](#immudb.schema.DeleteDatabaseResponse)
     - [DeleteKeysRequest](#immudb.schema.DeleteKeysRequest)
     - [DualProof](#immudb.schema.DualProof)
     - [Entries](#immudb.schema.Entries)
@@ -500,6 +502,36 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | stack | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DeleteDatabaseRequest"></a>
+
+### DeleteDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.DeleteDatabaseResponse"></a>
+
+### DeleteDatabaseResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
 
 
 
@@ -2230,6 +2262,7 @@ immudb gRPC &amp; REST service
 | CreateDatabaseV2 | [CreateDatabaseRequest](#immudb.schema.CreateDatabaseRequest) | [CreateDatabaseResponse](#immudb.schema.CreateDatabaseResponse) |  |
 | LoadDatabase | [LoadDatabaseRequest](#immudb.schema.LoadDatabaseRequest) | [LoadDatabaseResponse](#immudb.schema.LoadDatabaseResponse) |  |
 | UnloadDatabase | [UnloadDatabaseRequest](#immudb.schema.UnloadDatabaseRequest) | [UnloadDatabaseResponse](#immudb.schema.UnloadDatabaseResponse) |  |
+| DeleteDatabase | [DeleteDatabaseRequest](#immudb.schema.DeleteDatabaseRequest) | [DeleteDatabaseResponse](#immudb.schema.DeleteDatabaseResponse) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) | DEPRECATED: Use DatabaseListV2 |
 | DatabaseListV2 | [DatabaseListRequestV2](#immudb.schema.DatabaseListRequestV2) | [DatabaseListResponseV2](#immudb.schema.DatabaseListResponseV2) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |

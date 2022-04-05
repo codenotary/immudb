@@ -280,6 +280,10 @@ func (s *ServerMock) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 	return s.Srv.UnloadDatabase(ctx, req)
 }
 
+func (s *ServerMock) DeleteDatabase(ctx context.Context, req *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error) {
+	return s.Srv.DeleteDatabase(ctx, req)
+}
+
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	return s.Srv.DatabaseList(ctx, req)
 }

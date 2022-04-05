@@ -149,4 +149,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.IndexSettings.NodesLogMaxOpenedFiles.Value, res.Settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.HistoryLogMaxOpenedFiles.Value, res.Settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, res.Settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
+
+	_, err = client.UpdateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{})
+	require.NoError(t, err)
 }

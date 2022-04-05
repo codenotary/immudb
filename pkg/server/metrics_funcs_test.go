@@ -74,7 +74,7 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	currentStateCounter := 0
 	dbList := database.NewDatabaseList()
-	dbList.Append(dbMock{
+	dbList.Put(dbMock{
 		currentStateF: func() (*schema.ImmutableState, error) {
 			return currentStateSuccessfulOnce(&currentStateCounter)
 		},
@@ -138,7 +138,7 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	//<--
 
 	dbList := database.NewDatabaseList()
-	dbList.Append(dbMock{
+	dbList.Put(dbMock{
 		getNameF: func() string {
 			return "defaultdb"
 		},
