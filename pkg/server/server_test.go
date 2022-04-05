@@ -374,6 +374,91 @@ func TestServerUpdateDatabase(t *testing.T) {
 	require.Equal(t, false, dbOpts.Replica)
 }
 
+func TestServerUpdateDatabaseV2(t *testing.T) {
+	ctx := context.Background()
+
+	serverOptions := DefaultOptions().
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithAuth(false)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+	require.NoError(t, err)
+
+	_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{})
+	require.ErrorIs(t, err, ErrAuthMustBeEnabled)
+
+	s = DefaultServer().WithOptions(serverOptions.WithAuth(true)).(*ImmuServer)
+
+	s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.UpdateDatabaseV2(ctx, nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	dbSettings := &schema.UpdateDatabaseRequest{
+		Database: serverOptions.defaultDBName,
+	}
+	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
+	require.Equal(t, ErrReservedDatabase, err)
+
+	dbSettings = &schema.UpdateDatabaseRequest{
+		Database: fmt.Sprintf("nodb%v", time.Now()),
+	}
+	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
+	require.Equal(t, database.ErrDatabaseNotExists, err)
+
+	newdb := &schema.CreateDatabaseRequest{
+		Name: "lisbon",
+		Settings: &schema.DatabaseNullableSettings{
+			ReplicationSettings: &schema.ReplicationNullableSettings{
+				Replica:        &schema.NullableBool{Value: true},
+				MasterDatabase: &schema.NullableString{Value: "defaultdb"},
+			},
+		},
+	}
+	_, err = s.CreateDatabaseV2(ctx, newdb)
+	require.NoError(t, err)
+
+	dbSettings = &schema.UpdateDatabaseRequest{
+		Database: "lisbon",
+		Settings: &schema.DatabaseNullableSettings{
+			ReplicationSettings: &schema.ReplicationNullableSettings{
+				Replica:        &schema.NullableBool{Value: false},
+				MasterDatabase: &schema.NullableString{Value: ""},
+			},
+		},
+	}
+	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
+	require.NoError(t, err)
+
+	dbOpts, err := s.loadDBOptions("lisbon", false)
+	require.NoError(t, err)
+	require.Equal(t, false, dbOpts.Replica)
+
+	dbSettings = &schema.UpdateDatabaseRequest{
+		Database: "lisbon",
+		Settings: &schema.DatabaseNullableSettings{
+			WriteTxHeaderVersion: &schema.NullableUint32{Value: 99999},
+		},
+	}
+	_, err = s.UpdateDatabaseV2(ctx, dbSettings)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
 func TestServerLoaduserDatabase(t *testing.T) {
 	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)

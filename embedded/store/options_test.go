@@ -25,12 +25,15 @@ import (
 )
 
 func TestInvalidOptions(t *testing.T) {
-	require.False(t, validOptions(nil))
-	require.False(t, validOptions(&Options{}))
+	var opts *Options
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
+
+	opts = &Options{}
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 }
 
 func TestDefaultOptions(t *testing.T) {
-	require.True(t, validOptions(DefaultOptions()))
+	require.NoError(t, DefaultOptions().Validate())
 }
 
 func TestValidOptions(t *testing.T) {
@@ -65,13 +68,13 @@ func TestValidOptions(t *testing.T) {
 
 	require.NotNil(t, opts.WithLog(DefaultOptions().log))
 
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 
 	require.True(t, opts.WithReadOnly(true).ReadOnly)
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 
 	require.Nil(t, opts.WithAppFactory(nil).appFactory)
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 
 	appFactoryCalled := false
 	appFactory := func(rootPath, subPath string, opts *multiapp.Options) (appendable.Appendable, error) {
@@ -80,17 +83,17 @@ func TestValidOptions(t *testing.T) {
 	}
 
 	require.NotNil(t, opts.WithAppFactory(appFactory).appFactory)
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 
 	opts.appFactory("", "", nil)
 	require.True(t, appFactoryCalled)
 
 	require.Nil(t, opts.WithIndexOptions(nil).IndexOpts)
-	require.False(t, validOptions(opts))
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 
 	indexOpts := &IndexOptions{}
 	opts.WithIndexOptions(indexOpts)
-	require.False(t, validOptions(opts))
+	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 
 	require.Equal(t, 100, indexOpts.WithCacheSize(100).CacheSize)
 	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).FlushThld)
@@ -107,5 +110,5 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 4096*2, indexOpts.WithFlushBufferSize(4096*2).FlushBufferSize)
 	require.Equal(t, float32(10), indexOpts.WithCleanupPercentage(10).CleanupPercentage)
 
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 }

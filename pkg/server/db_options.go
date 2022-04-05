@@ -410,7 +410,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	err := opts.Validate()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrIllegalArguments, err)
 	}
 
 	return nil
@@ -426,9 +426,7 @@ func (opts *dbOptions) Validate() error {
 		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
 	}
 
-	// TODO: Check store options if are valid
-
-	return nil
+	return opts.storeOptions().Validate()
 }
 
 func (opts *dbOptions) isReplicatorRequired() bool {
