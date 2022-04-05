@@ -101,7 +101,7 @@ type ImmuClient interface {
 	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
-	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
+	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
 	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
 	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseNullableSettings, error)
 
@@ -1525,7 +1525,7 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 }
 
 // UpdateDatabaseV2 updates database settings
-func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
+func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
@@ -1542,7 +1542,7 @@ func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, sett
 
 	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
 
-	return res.Settings, err
+	return res, err
 }
 
 func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error) {

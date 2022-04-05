@@ -63,7 +63,7 @@ type ImmuClientMock struct {
 	CreateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
 	CreateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
 	UpdateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
-	UpdateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
+	UpdateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
 	CreateUserF           func(context.Context, []byte, []byte, uint32, string) error
@@ -185,7 +185,7 @@ func (icm *ImmuClientMock) UpdateDatabase(ctx context.Context, s *schema.Databas
 }
 
 // UpdateDatabaseV2 ...
-func (icm *ImmuClientMock) UpdateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
+func (icm *ImmuClientMock) UpdateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error) {
 	return icm.UpdateDatabaseV2F(ctx, db, setttings)
 }
 
