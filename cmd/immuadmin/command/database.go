@@ -46,7 +46,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "load", "unload", "update", "use", "flush", "compact"},
+		ValidArgs:         []string{"list", "create", "load", "unload", "delete", "update", "use", "flush", "compact"},
 	}
 
 	listCmd := &cobra.Command{
@@ -149,6 +149,26 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully unloaded\n", args[0])
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+
+	deleteCmd := &cobra.Command{
+		Use:               "delete",
+		Short:             "Delete database",
+		Example:           "delete {database_name}",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := cl.immuClient.DeleteDatabase(cl.context, &schema.DeleteDatabaseRequest{
+				Database: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully deleted\n", args[0])
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -257,6 +277,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	dbCmd.AddCommand(createCmd)
 	dbCmd.AddCommand(loadCmd)
 	dbCmd.AddCommand(unloadCmd)
+	dbCmd.AddCommand(deleteCmd)
 	dbCmd.AddCommand(useCmd)
 	dbCmd.AddCommand(updateCmd)
 	dbCmd.AddCommand(flushCmd)

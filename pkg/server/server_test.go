@@ -1696,10 +1696,6 @@ func TestServerMandatoryAuth(t *testing.T) {
 		Database:   DefaultDBName,
 	})
 	require.NoError(t, err)
-	s.dbList.Append(s.dbList.GetByIndex(0))
-	require.True(t, s.mandatoryAuth())
-
-	s.sysDB = nil
 	require.True(t, s.mandatoryAuth())
 }
 

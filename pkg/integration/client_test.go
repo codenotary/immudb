@@ -639,10 +639,19 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Set(context.TODO(), nil, nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
+	_, err = client.Delete(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.ExecAll(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	_, err = client.TxByID(context.TODO(), 1)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.TxByIDWithSpec(context.TODO(), nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.TxScan(context.TODO(), nil)
@@ -686,10 +695,31 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 	require.True(t, errors.Is(client.SetActiveUser(context.TODO(), nil), ic.ErrNotConnected))
 
+	_, err = client.ListUsers(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	_, err = client.DatabaseList(context.TODO())
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.DatabaseListV2(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.UpdateDatabaseV2(context.TODO(), "defaultdb", nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.CurrentRoot(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeSet(context.TODO(), nil, nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeGet(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeZAdd(context.TODO(), nil, 0, nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeReference(context.TODO(), nil, nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 }
 

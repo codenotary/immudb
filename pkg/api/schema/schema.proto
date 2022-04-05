@@ -564,6 +564,14 @@ message UnloadDatabaseResponse {
 	string database = 1;
 }
 
+message DeleteDatabaseRequest {
+	string database = 1;
+}
+
+message DeleteDatabaseResponse {
+	string database = 1;
+}
+
 message FlushIndexRequest {
 	float  cleanupPercentage = 1;
 	bool   synced = 2;
@@ -1028,6 +1036,13 @@ service ImmuService {
 	rpc UnloadDatabase(UnloadDatabaseRequest) returns (UnloadDatabaseResponse) {
 		option (google.api.http) = {
 			post: "/db/unload"
+			body: "*"
+		};
+	}
+
+	rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse) {
+		option (google.api.http) = {
+			post: "/db/delete"
 			body: "*"
 		};
 	}

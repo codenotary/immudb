@@ -489,6 +489,20 @@ func (s *ImmuServer) saveDBOptions(options *dbOptions) error {
 	return err
 }
 
+func (s *ImmuServer) deleteDBOptionsFor(db string) error {
+	optionsKey := make([]byte, 1+len(db))
+	optionsKey[0] = KeyPrefixDBSettings
+	copy(optionsKey[1:], []byte(db))
+
+	_, err := s.sysDB.Delete(&schema.DeleteKeysRequest{
+		Keys: [][]byte{
+			optionsKey,
+		},
+	})
+
+	return err
+}
+
 func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*dbOptions, error) {
 	if database == s.Options.systemAdminDBName || database == s.Options.defaultDBName {
 		return s.defaultDBOptions(database), nil

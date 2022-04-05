@@ -50,7 +50,7 @@ var (
 	ErrTxNotProperlyClosed         = errors.New("tx not properly closed")
 	ErrReadWriteTxNotOngoing       = errors.New("read write transaction not ongoing")
 	ErrTxReadConflict              = errors.New(store.ErrTxReadConflict.Error()).WithCode(errors.CodInFailedSqlTransaction)
-	ErrDatabaseAlreadyOpen         = errors.New("database already open")
+	ErrDatabaseAlreadyLoaded       = errors.New("database already loaded")
 )
 
 func mapServerError(err error) error {

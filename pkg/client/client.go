@@ -102,6 +102,7 @@ type ImmuClient interface {
 	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
 	LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error)
 	UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error)
+	DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
 	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
@@ -422,6 +423,10 @@ func (c *immuClient) GetOptions() *Options {
 
 // Deprecated: use user list instead
 func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
@@ -941,6 +946,10 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 
 // ExecAll ...
 func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	txhdr, err := c.ServiceClient.ExecAll(ctx, req)
 	if err != nil {
 		return nil, err
@@ -1501,7 +1510,7 @@ func (c *immuClient) LoadDatabase(ctx context.Context, r *schema.LoadDatabaseReq
 	return res, err
 }
 
-// UnloadDatabase close an existent database by making a grpc call
+// UnloadDatabase closes an existent database by making a grpc call
 func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1516,7 +1525,22 @@ func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabas
 	return res, err
 }
 
-// UseDatabase create a new database by making a grpc call
+// DeleteDatabase deletes an existent database by making a grpc call
+func (c *immuClient) DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.DeleteDatabase(ctx, r)
+
+	c.Logger.Debugf("DeleteDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+// UseDatabase set database in use by making a grpc call
 func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	start := time.Now()
 

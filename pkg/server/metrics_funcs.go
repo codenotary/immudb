@@ -54,7 +54,11 @@ func (s *ImmuServer) metricFuncComputeDBSizes() (dbSizes map[string]float64) {
 
 	if s.dbList != nil {
 		for i := 0; i < s.dbList.Length(); i++ {
-			db := s.dbList.GetByIndex(i)
+			db, err := s.dbList.GetByIndex(i)
+			if err != nil {
+				continue
+			}
+
 			dbName := db.GetName()
 			dbSize, err := dirSize(filepath.Join(s.Options.Dir, dbName))
 			if err != nil {
@@ -90,7 +94,11 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 
 	if s.dbList != nil {
 		for i := 0; i < s.dbList.Length(); i++ {
-			db := s.dbList.GetByIndex(i)
+			db, err := s.dbList.GetByIndex(i)
+			if err != nil {
+				continue
+			}
+
 			dbName := db.GetName()
 			state, err := db.CurrentState()
 			if err == store.ErrAlreadyClosed {

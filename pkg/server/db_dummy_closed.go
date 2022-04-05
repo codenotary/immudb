@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -37,6 +38,10 @@ func (db *closedDB) GetName() string {
 
 func (db *closedDB) GetOptions() *database.Options {
 	return db.opts
+}
+
+func (db *closedDB) Path() string {
+	return filepath.Join(db.opts.GetDBRootPath(), db.GetName())
 }
 
 func (db *closedDB) AsReplica(asReplica bool) {

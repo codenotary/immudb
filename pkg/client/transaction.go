@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -48,6 +49,10 @@ func (c *tx) Rollback(ctx context.Context) error {
 }
 
 func (c *immuClient) NewTx(ctx context.Context) (Tx, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	r, err := c.ServiceClient.NewTx(ctx, &schema.NewTxRequest{
 		Mode: schema.TxMode_ReadWrite,
 	})

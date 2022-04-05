@@ -52,6 +52,8 @@ type DB interface {
 	// Setttings
 	GetOptions() *Options
 
+	Path() string
+
 	AsReplica(asReplica bool)
 	IsReplica() bool
 
@@ -153,7 +155,7 @@ func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 		mutex:   &instrumentedRWMutex{},
 	}
 
-	dbDir := dbi.path()
+	dbDir := dbi.Path()
 	_, err := os.Stat(dbDir)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
@@ -196,7 +198,7 @@ func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 	return dbi, nil
 }
 
-func (d *db) path() string {
+func (d *db) Path() string {
 	return filepath.Join(d.options.GetDBRootPath(), d.GetName())
 }
 
@@ -1213,9 +1215,19 @@ func (d *db) IsClosed() bool {
 }
 
 //Close ...
-func (d *db) Close() error {
+func (d *db) Close() (err error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	d.Logger.Infof("Closing database '%s'...", d.name)
+
+	defer func() {
+		if err == nil {
+			d.Logger.Infof("Database '%s' succesfully closed", d.name)
+		} else {
+			d.Logger.Infof("%v: while closing database '%s'", err, d.name)
+		}
+	}()
 
 	if d.sqlInitCancel != nil {
 		close(d.sqlInitCancel)
