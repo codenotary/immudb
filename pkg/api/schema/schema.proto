@@ -172,11 +172,14 @@ message ZEntries {
 
 message ScanRequest {
 	bytes seekKey = 1;
+	bytes endKey = 7;
 	bytes prefix = 2;
 	bool desc = 3;
 	uint64 limit = 4;
 	uint64 sinceTx = 5;
 	bool  noWait = 6;
+	bool inclusiveSeek = 8;		// If set to true, results will include seekKey
+	bool inclusiveEnd = 9;		// If set to true, results will include endKey if needed
 }
 
 message KeyPrefix {

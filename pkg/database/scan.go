@@ -68,12 +68,20 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		seekKey = EncodeKey(req.SeekKey)
 	}
 
+	endKey := req.EndKey
+	if len(endKey) > 0 {
+		endKey = EncodeKey(req.EndKey)
+	}
+
 	r, err := snap.NewKeyReader(
 		&store.KeyReaderSpec{
-			SeekKey:   seekKey,
-			Prefix:    EncodeKey(req.Prefix),
-			DescOrder: req.Desc,
-			Filters:   []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+			SeekKey:       seekKey,
+			EndKey:        endKey,
+			Prefix:        EncodeKey(req.Prefix),
+			DescOrder:     req.Desc,
+			Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+			InclusiveSeek: req.InclusiveSeek,
+			InclusiveEnd:  req.InclusiveEnd,
 		})
 	if err != nil {
 		return nil, err

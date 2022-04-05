@@ -1516,11 +1516,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | seekKey | [bytes](#bytes) |  |  |
+| endKey | [bytes](#bytes) |  |  |
 | prefix | [bytes](#bytes) |  |  |
 | desc | [bool](#bool) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 | noWait | [bool](#bool) |  |  |
+| inclusiveSeek | [bool](#bool) |  | If set to true, results will include seekKey |
+| inclusiveEnd | [bool](#bool) |  | If set to true, results will include endKey if needed |
 
 
 

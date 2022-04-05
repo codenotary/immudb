@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -179,4 +180,73 @@ func TestStoreScanDesc(t *testing.T) {
 	list, err = db.Scan(&scanOptions)
 	require.NoError(t, err)
 	require.Len(t, list.Entries, 3)
+}
+
+func TestStoreScanEndKey(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for i := 1; i < 100; i++ {
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+			Key:   []byte(fmt.Sprintf("key_%02d", i)),
+			Value: []byte(fmt.Sprintf("val_%02d", i)),
+		}}})
+		require.NoError(t, err)
+	}
+
+	t.Run("not inclusive", func(t *testing.T) {
+		res, err := db.Scan(&schema.ScanRequest{
+			SeekKey: []byte("key_11"),
+			EndKey:  []byte("key_44"),
+		})
+		require.NoError(t, err)
+		require.Len(t, res.Entries, 44-12)
+		for i := 12; i < 44; i++ {
+			require.Equal(t, res.Entries[i-12].Key, []byte(fmt.Sprintf("key_%02d", i)))
+			require.Equal(t, res.Entries[i-12].Value, []byte(fmt.Sprintf("val_%02d", i)))
+		}
+	})
+
+	t.Run("inclusive seek", func(t *testing.T) {
+		res, err := db.Scan(&schema.ScanRequest{
+			SeekKey:       []byte("key_11"),
+			EndKey:        []byte("key_44"),
+			InclusiveSeek: true,
+		})
+		require.NoError(t, err)
+		require.Len(t, res.Entries, 44-11)
+		for i := 11; i < 44; i++ {
+			require.Equal(t, res.Entries[i-11].Key, []byte(fmt.Sprintf("key_%02d", i)))
+			require.Equal(t, res.Entries[i-11].Value, []byte(fmt.Sprintf("val_%02d", i)))
+		}
+	})
+
+	t.Run("inclusive end", func(t *testing.T) {
+		res, err := db.Scan(&schema.ScanRequest{
+			SeekKey:      []byte("key_11"),
+			EndKey:       []byte("key_44"),
+			InclusiveEnd: true,
+		})
+		require.NoError(t, err)
+		require.Len(t, res.Entries, 44-11)
+		for i := 12; i <= 44; i++ {
+			require.Equal(t, res.Entries[i-12].Key, []byte(fmt.Sprintf("key_%02d", i)))
+			require.Equal(t, res.Entries[i-12].Value, []byte(fmt.Sprintf("val_%02d", i)))
+		}
+	})
+
+	t.Run("inclusive seek and end", func(t *testing.T) {
+		res, err := db.Scan(&schema.ScanRequest{
+			SeekKey:       []byte("key_11"),
+			EndKey:        []byte("key_44"),
+			InclusiveSeek: true,
+			InclusiveEnd:  true,
+		})
+		require.NoError(t, err)
+		require.Len(t, res.Entries, 44-10)
+		for i := 11; i <= 44; i++ {
+			require.Equal(t, res.Entries[i-11].Key, []byte(fmt.Sprintf("key_%02d", i)))
+			require.Equal(t, res.Entries[i-11].Value, []byte(fmt.Sprintf("val_%02d", i)))
+		}
+	})
 }
