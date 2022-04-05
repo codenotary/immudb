@@ -70,6 +70,7 @@ var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange
 var ErrUnexpectedError = errors.New("unexpected error")
 var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
 var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
+var ErrInvalidOptions = errors.New("invalid options")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -173,8 +174,9 @@ type refVLog struct {
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
-	if !validOptions(opts) {
-		return nil, ErrIllegalArguments
+	err := opts.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrIllegalArguments, err)
 	}
 
 	finfo, err := os.Stat(path)
@@ -248,8 +250,13 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 }
 
 func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
-	if !validOptions(opts) || len(vLogs) == 0 || txLog == nil || cLog == nil {
+	if len(vLogs) == 0 || txLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
+	}
+
+	err := opts.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrIllegalArguments, err)
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
