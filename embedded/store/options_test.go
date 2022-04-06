@@ -25,11 +25,64 @@ import (
 )
 
 func TestInvalidOptions(t *testing.T) {
-	var opts *Options
-	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
+	for _, d := range []struct {
+		n    string
+		opts *Options
+	}{
+		{"nil", nil},
+		{"empty", &Options{}},
+		{"log", DefaultOptions().WithLog(nil)},
+		{"MaxConcurrency", DefaultOptions().WithMaxConcurrency(0)},
+		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
+		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
+		{"MaxLinearProofLen", DefaultOptions().WithMaxLinearProofLen(-1)},
+		{"TxLogCacheSize", DefaultOptions().WithTxLogCacheSize(-1)},
+		{"VLogMaxOpenedFiles", DefaultOptions().WithVLogMaxOpenedFiles(0)},
+		{"TxLogMaxOpenedFiles", DefaultOptions().WithTxLogMaxOpenedFiles(0)},
+		{"CommitLogMaxOpenedFiles", DefaultOptions().WithCommitLogMaxOpenedFiles(0)},
+		{"WriteTxHeaderVersion", DefaultOptions().WithWriteTxHeaderVersion(-1)},
+		{"WriteTxHeaderVersion-max", DefaultOptions().WithWriteTxHeaderVersion(MaxTxHeaderVersion + 1)},
+		{"MaxWaitees", DefaultOptions().WithMaxWaitees(-1)},
+		{"TimeFunc", DefaultOptions().WithTimeFunc(nil)},
+		{"MaxTxEntries", DefaultOptions().WithMaxTxEntries(0)},
+		{"MaxKeyLen", DefaultOptions().WithMaxKeyLen(0)},
+		{"MaxKeyLen-max", DefaultOptions().WithMaxKeyLen(MaxKeyLen + 1)},
+		{"MaxValueLen", DefaultOptions().WithMaxValueLen(0)},
+		{"FileSize", DefaultOptions().WithFileSize(0)},
+		{"FileSize-max", DefaultOptions().WithFileSize(MaxFileSize)},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
+		})
+	}
+}
 
-	opts = &Options{}
-	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
+func TestInvalidIndexOptions(t *testing.T) {
+	for _, d := range []struct {
+		n    string
+		opts *IndexOptions
+	}{
+		{"nil", nil},
+		{"empty", &IndexOptions{}},
+		{"CacheSize", DefaultIndexOptions().WithCacheSize(0)},
+		{"FlushThld", DefaultIndexOptions().WithFlushThld(0)},
+		{"SyncThld", DefaultIndexOptions().WithSyncThld(0)},
+		{"FlushBufferSize", DefaultIndexOptions().WithFlushBufferSize(0)},
+		{"CleanupPercentage", DefaultIndexOptions().WithCleanupPercentage(-1)},
+		{"CleanupPercentage", DefaultIndexOptions().WithCleanupPercentage(101)},
+		{"MaxActiveSnapshots", DefaultIndexOptions().WithMaxActiveSnapshots(0)},
+		{"MaxNodeSize", DefaultIndexOptions().WithMaxNodeSize(0)},
+		{"RenewSnapRootAfter", DefaultIndexOptions().WithRenewSnapRootAfter(-1)},
+		{"CompactionThld", DefaultIndexOptions().WithCompactionThld(0)},
+		{"DelayDuringCompaction", DefaultIndexOptions().WithDelayDuringCompaction(-1)},
+		{"NodesLogMaxOpenedFiles", DefaultIndexOptions().WithNodesLogMaxOpenedFiles(0)},
+		{"HistoryLogMaxOpenedFiles", DefaultIndexOptions().WithHistoryLogMaxOpenedFiles(0)},
+		{"CommitLogMaxOpenedFiles", DefaultIndexOptions().WithCommitLogMaxOpenedFiles(0)},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
+		})
+	}
 }
 
 func TestDefaultOptions(t *testing.T) {
