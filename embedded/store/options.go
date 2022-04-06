@@ -244,6 +244,9 @@ func (opts *IndexOptions) Validate() error {
 	if !(opts.FlushThld > 0) {
 		return fmt.Errorf("%w: invalid index option FlushThld", ErrInvalidOptions)
 	}
+	if !(opts.SyncThld > 0) {
+		return fmt.Errorf("%w: invalid index option SyncThld", ErrInvalidOptions)
+	}
 	if !(opts.FlushBufferSize > 0) {
 		return fmt.Errorf("%w: invalid index option FlushBufferSize", ErrInvalidOptions)
 	}
@@ -255,6 +258,12 @@ func (opts *IndexOptions) Validate() error {
 	}
 	if !(opts.MaxNodeSize > 0) {
 		return fmt.Errorf("%w: invalid index option MaxNodeSize", ErrInvalidOptions)
+	}
+	if !(opts.CompactionThld > 0) {
+		return fmt.Errorf("%w: invalid index option CompactionThld", ErrInvalidOptions)
+	}
+	if !(opts.DelayDuringCompaction >= 0) {
+		return fmt.Errorf("%w: invalid index option DelayDuringCompaction", ErrInvalidOptions)
 	}
 	if !(opts.RenewSnapRootAfter >= 0) {
 		return fmt.Errorf("%w: invalid index option RenewSnapRootAfter", ErrInvalidOptions)
