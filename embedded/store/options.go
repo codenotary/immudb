@@ -165,69 +165,69 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
 	}
 
-	if !(opts.MaxConcurrency > 0) {
+	if opts.MaxConcurrency <= 0 {
 		return fmt.Errorf("%w: invalid MaxConcurrency", ErrInvalidOptions)
 	}
 
-	if !(opts.MaxIOConcurrency > 0) {
+	if opts.MaxIOConcurrency <= 0 {
 		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
 	}
-	if !(opts.MaxIOConcurrency <= MaxParallelIO) {
+	if opts.MaxIOConcurrency > MaxParallelIO {
 		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
 	}
-	if !(opts.MaxLinearProofLen >= 0) {
+	if opts.MaxLinearProofLen < 0 {
 		return fmt.Errorf("%w: invalid MaxLinearProofLen", ErrInvalidOptions)
 	}
 
-	if !(opts.VLogMaxOpenedFiles > 0) {
+	if opts.VLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid VLogMaxOpenedFiles", ErrInvalidOptions)
 	}
-	if !(opts.TxLogMaxOpenedFiles > 0) {
+	if opts.TxLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid TxLogMaxOpenedFiles", ErrInvalidOptions)
 	}
-	if !(opts.CommitLogMaxOpenedFiles > 0) {
+	if opts.CommitLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
-	if !(opts.TxLogCacheSize >= 0) {
+	if opts.TxLogCacheSize < 0 {
 		return fmt.Errorf("%w: invalid TxLogCacheSize", ErrInvalidOptions)
 	}
 
-	if !(opts.MaxWaitees >= 0) {
+	if opts.MaxWaitees < 0 {
 		return fmt.Errorf("%w: invalid MaxWaitees", ErrInvalidOptions)
 	}
 
-	if !(opts.TimeFunc != nil) {
+	if opts.TimeFunc == nil {
 		return fmt.Errorf("%w: invalid TimeFunc", ErrInvalidOptions)
 	}
 
-	if !(opts.WriteTxHeaderVersion >= 0) {
+	if opts.WriteTxHeaderVersion < 0 {
 		return fmt.Errorf("%w: invalid WriteTxHeaderVersion", ErrInvalidOptions)
 	}
-	if !(opts.WriteTxHeaderVersion <= MaxTxHeaderVersion) {
+	if opts.WriteTxHeaderVersion > MaxTxHeaderVersion {
 		return fmt.Errorf("%w: invalid WriteTxHeaderVersion", ErrInvalidOptions)
 	}
 
 	// options below are only set during initialization and stored as metadata
-	if !(opts.MaxTxEntries > 0) {
+	if opts.MaxTxEntries <= 0 {
 		return fmt.Errorf("%w: invalid MaxTxEntries", ErrInvalidOptions)
 	}
-	if !(opts.MaxKeyLen > 0) {
+	if opts.MaxKeyLen <= 0 {
 		return fmt.Errorf("%w: invalid MaxKeyLen", ErrInvalidOptions)
 	}
-	if !(opts.MaxKeyLen <= MaxKeyLen) {
+	if opts.MaxKeyLen > MaxKeyLen {
 		return fmt.Errorf("%w: invalid MaxKeyLen", ErrInvalidOptions)
 	}
-	if !(opts.MaxValueLen > 0) {
+	if opts.MaxValueLen <= 0 {
 		return fmt.Errorf("%w: invalid MaxValueLen", ErrInvalidOptions)
 	}
-	if !(opts.FileSize > 0) {
+	if opts.FileSize <= 0 {
 		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
-	if !(opts.FileSize < MaxFileSize) {
+	if opts.FileSize >= MaxFileSize {
 		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
-	if !(opts.log != nil) {
+	if opts.log == nil {
 		return fmt.Errorf("%w: invalid log", ErrInvalidOptions)
 	}
 
@@ -235,46 +235,46 @@ func (opts *Options) Validate() error {
 }
 
 func (opts *IndexOptions) Validate() error {
-	if !(opts != nil) {
+	if opts == nil {
 		return fmt.Errorf("%w: nil index options ", ErrInvalidOptions)
 	}
-	if !(opts.CacheSize > 0) {
+	if opts.CacheSize <= 0 {
 		return fmt.Errorf("%w: invalid index option CacheSize", ErrInvalidOptions)
 	}
-	if !(opts.FlushThld > 0) {
+	if opts.FlushThld <= 0 {
 		return fmt.Errorf("%w: invalid index option FlushThld", ErrInvalidOptions)
 	}
-	if !(opts.SyncThld > 0) {
+	if opts.SyncThld <= 0 {
 		return fmt.Errorf("%w: invalid index option SyncThld", ErrInvalidOptions)
 	}
-	if !(opts.FlushBufferSize > 0) {
+	if opts.FlushBufferSize <= 0 {
 		return fmt.Errorf("%w: invalid index option FlushBufferSize", ErrInvalidOptions)
 	}
-	if !(opts.CleanupPercentage >= 0 && opts.CleanupPercentage <= 100) {
+	if opts.CleanupPercentage < 0 || opts.CleanupPercentage > 100 {
 		return fmt.Errorf("%w: invalid index option CleanupPercentage", ErrInvalidOptions)
 	}
-	if !(opts.MaxActiveSnapshots > 0) {
+	if opts.MaxActiveSnapshots <= 0 {
 		return fmt.Errorf("%w: invalid index option MaxActiveSnapshots", ErrInvalidOptions)
 	}
-	if !(opts.MaxNodeSize > 0) {
+	if opts.MaxNodeSize <= 0 {
 		return fmt.Errorf("%w: invalid index option MaxNodeSize", ErrInvalidOptions)
 	}
-	if !(opts.CompactionThld > 0) {
+	if opts.CompactionThld <= 0 {
 		return fmt.Errorf("%w: invalid index option CompactionThld", ErrInvalidOptions)
 	}
-	if !(opts.DelayDuringCompaction >= 0) {
+	if opts.DelayDuringCompaction < 0 {
 		return fmt.Errorf("%w: invalid index option DelayDuringCompaction", ErrInvalidOptions)
 	}
-	if !(opts.RenewSnapRootAfter >= 0) {
+	if opts.RenewSnapRootAfter < 0 {
 		return fmt.Errorf("%w: invalid index option RenewSnapRootAfter", ErrInvalidOptions)
 	}
-	if !(opts.NodesLogMaxOpenedFiles > 0) {
+	if opts.NodesLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option NodesLogMaxOpenedFiles", ErrInvalidOptions)
 	}
-	if !(opts.HistoryLogMaxOpenedFiles > 0) {
+	if opts.HistoryLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option HistoryLogMaxOpenedFiles", ErrInvalidOptions)
 	}
-	if !(opts.CommitLogMaxOpenedFiles > 0) {
+	if opts.CommitLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option CommitLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
