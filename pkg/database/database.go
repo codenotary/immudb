@@ -368,11 +368,10 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 
 	for i := range req.Constraints {
 
-		c := schema.KVConstraintsFromProto(req.Constraints[i])
-		if c == nil {
-			return nil, store.ErrInvalidConstraints
+		c, err := WriteConstraintsFromProto(req.Constraints[i])
+		if err != nil {
+			return nil, err
 		}
-		c.Key = EncodeKey(c.Key)
 
 		err = tx.AddKVConstraint(c)
 		if err != nil {

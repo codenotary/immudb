@@ -658,38 +658,65 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		err = immuStore.validateConstraints(nil)
 		require.NoError(t, err)
 
-		err = immuStore.validateConstraints([]*KVConstraints{
+		err = immuStore.validateConstraints([]WriteConstraint{
 			nil,
 		})
 		require.ErrorIs(t, err, ErrInvalidConstraints)
 		require.ErrorIs(t, err, ErrInvalidConstraintsNull)
 
-		err = immuStore.validateConstraints([]*KVConstraints{
-			{
-				MustExist: true,
-			},
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyMustExist{},
 		})
 		require.ErrorIs(t, err, ErrInvalidConstraints)
 		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
 
-		err = immuStore.validateConstraints([]*KVConstraints{
-			{
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyMustExist{
 				Key: make([]byte, immuStore.maxKeyLen+1),
 			},
 		})
 		require.ErrorIs(t, err, ErrInvalidConstraints)
 		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
 
-		err = immuStore.validateConstraints([]*KVConstraints{
-			{
-				Key: []byte("key"),
-			},
-			{
-				Key: []byte("key"),
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyMustNotExist{},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyMustNotExist{
+				Key: make([]byte, immuStore.maxKeyLen+1),
 			},
 		})
 		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsDuplicateKey)
+		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyNotModifiedAfterTx{
+				TxID: 1,
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyNotModifiedAfterTx{
+				Key:  make([]byte, immuStore.maxKeyLen+1),
+				TxID: 1,
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+
+		err = immuStore.validateConstraints([]WriteConstraint{
+			&WriteContraintKeyNotModifiedAfterTx{
+				Key:  []byte("key"),
+				TxID: 0,
+			},
+		})
+		require.ErrorIs(t, err, ErrInvalidConstraints)
+		require.ErrorIs(t, err, ErrInvalidConstraintsInvalidTxID)
 	})
 }
 
@@ -1347,19 +1374,19 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	_, err = immuStore.CommitWith(nil, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
 		return nil, nil, nil
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
 		return nil, nil, errors.New("error")
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Error(t, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: []byte("value")},
 		}, nil, nil
@@ -1541,7 +1568,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error) {
+	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: nil},
 		}, nil, nil

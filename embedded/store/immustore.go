@@ -78,7 +78,7 @@ var ErrInvalidConstraintsTooMany = fmt.Errorf("%w: too many constraints", ErrInv
 var ErrInvalidConstraintsNull = fmt.Errorf("%w: null constraint", ErrInvalidConstraints)
 var ErrInvalidConstraintsNullKey = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrNullKey)
 var ErrInvalidConstraintsMaxKeyLenExceeded = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrorMaxKeyLenExceeded)
-var ErrInvalidConstraintsDuplicateKey = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrDuplicatedKey)
+var ErrInvalidConstraintsInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidConstraints)
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -1252,7 +1252,7 @@ func (s *ImmuStore) commitState() (txID uint64, txAlh [sha256.Size]byte, clogSiz
 	return s.committedTxID, s.committedAlh, s.committedTxLogSize
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error), waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error), waitForIndexing bool) (*TxHeader, error) {
 	hdr, err := s.commitWith(callback)
 	if err != nil {
 		return nil, err
@@ -1285,7 +1285,7 @@ func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, er
 	return index.st.GetWith(key, filters...)
 }
 
-func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []*KVConstraints, error)) (*TxHeader, error) {
+func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error)) (*TxHeader, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1868,32 +1868,21 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 	return nil
 }
 
-func (s *ImmuStore) validateConstraints(constraints []*KVConstraints) error {
+func (s *ImmuStore) validateConstraints(constraints []WriteConstraint) error {
 
 	if len(constraints) > s.maxTxEntries {
 		return ErrInvalidConstraintsTooMany
 	}
-
-	m := make(map[string]struct{}, len(constraints))
 
 	for _, c := range constraints {
 		if c == nil {
 			return ErrInvalidConstraintsNull
 		}
 
-		if c.Key == nil {
-			return ErrInvalidConstraintsNullKey
+		err := c.Validate(s)
+		if err != nil {
+			return err
 		}
-
-		if len(c.Key) > s.maxKeyLen {
-			return ErrInvalidConstraintsMaxKeyLenExceeded
-		}
-
-		b64k := base64.StdEncoding.EncodeToString(c.Key)
-		if _, ok := m[b64k]; ok {
-			return ErrInvalidConstraintsDuplicateKey
-		}
-		m[b64k] = struct{}{}
 	}
 	return nil
 }

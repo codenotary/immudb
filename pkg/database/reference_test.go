@@ -401,10 +401,9 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 	_, err = db.SetReference(&schema.ReferenceRequest{
 		Key:           []byte("reference"),
 		ReferencedKey: []byte("key"),
-		Constraints: []*schema.KVConstraints{{
-			Key:       []byte("reference"),
-			MustExist: true,
-		}},
+		Constraints: []*schema.WriteConstraint{
+			schema.WriteConstraintKeyMustExist([]byte("reference")),
+		},
 	})
 	require.ErrorIs(t, err, store.ErrConstraintFailed)
 
@@ -416,26 +415,24 @@ func TestStoreReferenceWithConstraints(t *testing.T) {
 	_, err = db.SetReference(&schema.ReferenceRequest{
 		Key:           []byte("reference"),
 		ReferencedKey: []byte("key"),
-		Constraints:   []*schema.KVConstraints{nil},
+		Constraints:   []*schema.WriteConstraint{nil},
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 
 	_, err = db.SetReference(&schema.ReferenceRequest{
 		Key:           []byte("reference"),
 		ReferencedKey: []byte("key"),
-		Constraints: []*schema.KVConstraints{{
-			Key:          []byte("reference-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
-			MustNotExist: true,
-		}},
+		Constraints: []*schema.WriteConstraint{
+			schema.WriteConstraintKeyMustNotExist([]byte("reference-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen))),
+		},
 	})
 	require.ErrorIs(t, err, store.ErrInvalidConstraints)
 
-	c := []*schema.KVConstraints{}
+	c := []*schema.WriteConstraint{}
 	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
-		c = append(c, &schema.KVConstraints{
-			Key:          []byte(fmt.Sprintf("key_%d", i)),
-			MustNotExist: true,
-		})
+		c = append(c,
+			schema.WriteConstraintKeyMustNotExist([]byte(fmt.Sprintf("key_%d", i))),
+		)
 	}
 
 	_, err = db.SetReference(&schema.ReferenceRequest{

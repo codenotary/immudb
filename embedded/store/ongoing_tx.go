@@ -17,6 +17,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"fmt"
 )
 
 //OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
@@ -28,7 +29,7 @@ type OngoingTx struct {
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
 
-	constraints []*KVConstraints
+	constraints []WriteConstraint
 
 	metadata *TxMetadata
 
@@ -184,7 +185,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
-func (tx *OngoingTx) AddKVConstraint(c *KVConstraints) error {
+func (tx *OngoingTx) AddKVConstraint(c WriteConstraint) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -193,12 +194,9 @@ func (tx *OngoingTx) AddKVConstraint(c *KVConstraints) error {
 		return ErrIllegalArguments
 	}
 
-	if len(c.Key) == 0 {
-		return ErrNullKey
-	}
-
-	if len(c.Key) > tx.st.maxKeyLen {
-		return ErrorMaxKeyLenExceeded
+	err := c.Validate(tx.st)
+	if err != nil {
+		return err
 	}
 
 	tx.constraints = append(tx.constraints, c)
@@ -307,9 +305,15 @@ func (tx *OngoingTx) hasConstraints() bool {
 
 func (tx *OngoingTx) checkWriteConstraints(idx *indexer) error {
 	for _, c := range tx.constraints {
-		err := c.check(idx)
+		if c == nil {
+			return fmt.Errorf("%w: nil constraint", ErrInvalidConstraintsNull)
+		}
+		ok, err := c.Check(idx)
 		if err != nil {
-			return err
+			return fmt.Errorf("error checking %s constraint: %w", c, err)
+		}
+		if !ok {
+			return fmt.Errorf("%w: %s", ErrConstraintFailed, c)
 		}
 	}
 	return nil

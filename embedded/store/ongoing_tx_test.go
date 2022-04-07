@@ -16,7 +16,6 @@ limitations under the License.
 package store
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,27 +31,44 @@ func TestOngoingTXAddKVConstraint(t *testing.T) {
 	err := otx.AddKVConstraint(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	err = otx.AddKVConstraint(&KVConstraints{})
-	require.ErrorIs(t, err, ErrNullKey)
-
-	err = otx.AddKVConstraint(&KVConstraints{
-		Key: []byte(""),
-	})
-	require.ErrorIs(t, err, ErrNullKey)
-
-	err = otx.AddKVConstraint(&KVConstraints{
-		Key: []byte(strings.Repeat("*", otx.st.maxKeyLen+1)),
-	})
-	require.ErrorIs(t, err, ErrorMaxKeyLenExceeded)
-
-	err = otx.AddKVConstraint(&KVConstraints{
-		Key: []byte("key"),
-	})
-	require.NoError(t, err)
+	err = otx.AddKVConstraint(&WriteContraintKeyMustExist{})
+	require.ErrorIs(t, err, ErrInvalidConstraints)
 
 	otx.closed = true
-	err = otx.AddKVConstraint(&KVConstraints{
+	err = otx.AddKVConstraint(&WriteContraintKeyMustExist{
 		Key: []byte("key"),
 	})
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
+func TestOngoingTxCheckWriteConstraintsCornerCases(t *testing.T) {
+	otx := &OngoingTx{}
+	idx := &indexer{}
+
+	err := otx.checkWriteConstraints(idx)
+	require.NoError(t, err)
+
+	otx.constraints = []WriteConstraint{nil}
+	err = otx.checkWriteConstraints(idx)
+	require.ErrorIs(t, err, ErrInvalidConstraints)
+	require.ErrorIs(t, err, ErrInvalidConstraintsNull)
+
+	idx.closed = true
+	otx.constraints = []WriteConstraint{
+		&WriteContraintKeyMustExist{Key: []byte{1}},
+	}
+	err = otx.checkWriteConstraints(idx)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	otx.constraints = []WriteConstraint{
+		&WriteContraintKeyMustNotExist{Key: []byte{1}},
+	}
+	err = otx.checkWriteConstraints(idx)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	otx.constraints = []WriteConstraint{
+		&WriteContraintKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
+	}
+	err = otx.checkWriteConstraints(idx)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }

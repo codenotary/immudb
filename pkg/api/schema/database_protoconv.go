@@ -107,19 +107,6 @@ func KVMetadataFromProto(md *KVMetadata) *store.KVMetadata {
 	return kvmd
 }
 
-func KVConstraintsFromProto(c *KVConstraints) *store.KVConstraints {
-	if c == nil {
-		return nil
-	}
-
-	return &store.KVConstraints{
-		Key:                c.Key,
-		MustExist:          c.MustExist,
-		MustNotExist:       c.MustNotExist,
-		NotModifiedAfterTX: c.NotModifiedAfterTX,
-	}
-}
-
 func InclusionProofToProto(iproof *htree.InclusionProof) *InclusionProof {
 	return &InclusionProof{
 		Leaf:  int32(iproof.Leaf),

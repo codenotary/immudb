@@ -50,7 +50,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		}
 	}
 
-	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, []*store.KVConstraints, error) {
+	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, []store.WriteConstraint, error) {
 		entries := make([]*store.EntrySpec, len(req.Operations))
 
 		// In order to:
@@ -196,13 +196,13 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 			entries[i] = e
 		}
 
-		constraints := make([]*store.KVConstraints, len(req.Constraints))
+		constraints := make([]store.WriteConstraint, len(req.Constraints))
 		for i := 0; i < len(req.Constraints); i++ {
-			c := schema.KVConstraintsFromProto(req.Constraints[i])
-			if c == nil {
-				return nil, nil, store.ErrInvalidConstraints
+			c, err := WriteConstraintsFromProto(req.Constraints[i])
+			if err != nil {
+				return nil, nil, err
 			}
-			c.Key = EncodeKey(c.Key)
+
 			constraints[i] = c
 		}
 
