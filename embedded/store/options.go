@@ -169,10 +169,7 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid MaxConcurrency", ErrInvalidOptions)
 	}
 
-	if opts.MaxIOConcurrency <= 0 {
-		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
-	}
-	if opts.MaxIOConcurrency > MaxParallelIO {
+	if opts.MaxIOConcurrency <= 0 || opts.MaxIOConcurrency > MaxParallelIO {
 		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
 	}
 	if opts.MaxLinearProofLen < 0 {
@@ -212,19 +209,13 @@ func (opts *Options) Validate() error {
 	if opts.MaxTxEntries <= 0 {
 		return fmt.Errorf("%w: invalid MaxTxEntries", ErrInvalidOptions)
 	}
-	if opts.MaxKeyLen <= 0 {
-		return fmt.Errorf("%w: invalid MaxKeyLen", ErrInvalidOptions)
-	}
-	if opts.MaxKeyLen > MaxKeyLen {
+	if opts.MaxKeyLen <= 0 || opts.MaxKeyLen > MaxKeyLen {
 		return fmt.Errorf("%w: invalid MaxKeyLen", ErrInvalidOptions)
 	}
 	if opts.MaxValueLen <= 0 {
 		return fmt.Errorf("%w: invalid MaxValueLen", ErrInvalidOptions)
 	}
-	if opts.FileSize <= 0 {
-		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
-	}
-	if opts.FileSize >= MaxFileSize {
+	if opts.FileSize <= 0 || opts.FileSize >= MaxFileSize {
 		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
 	if opts.log == nil {
