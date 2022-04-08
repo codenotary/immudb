@@ -89,15 +89,15 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, err
 	}
 
-	for i := range req.Constraints {
-		c, err := WriteConstraintsFromProto(req.Constraints[i])
+	for i := range req.Preconditions {
+		c, err := PreconditionFromProto(req.Preconditions[i])
 		if err != nil {
 			return nil, err
 		}
 
-		err = tx.AddKVConstraint(c)
+		err = tx.AddPrecondition(c)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", store.ErrInvalidConstraints, err)
+			return nil, fmt.Errorf("%w: %v", store.ErrInvalidPrecondition, err)
 		}
 	}
 

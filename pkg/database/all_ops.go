@@ -50,7 +50,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		}
 	}
 
-	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, []store.WriteConstraint, error) {
+	callback := func(txID uint64, index store.KeyIndex) ([]*store.EntrySpec, []store.Precondition, error) {
 		entries := make([]*store.EntrySpec, len(req.Operations))
 
 		// In order to:
@@ -196,17 +196,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 			entries[i] = e
 		}
 
-		constraints := make([]store.WriteConstraint, len(req.Constraints))
-		for i := 0; i < len(req.Constraints); i++ {
-			c, err := WriteConstraintsFromProto(req.Constraints[i])
+		preconditions := make([]store.Precondition, len(req.Preconditions))
+		for i := 0; i < len(req.Preconditions); i++ {
+			c, err := PreconditionFromProto(req.Preconditions[i])
 			if err != nil {
 				return nil, nil, err
 			}
 
-			constraints[i] = c
+			preconditions[i] = c
 		}
 
-		return entries, constraints, nil
+		return entries, preconditions, nil
 	}
 
 	hdr, err := d.st.CommitWith(callback, !req.NoWait)

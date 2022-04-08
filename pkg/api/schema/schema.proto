@@ -94,25 +94,25 @@ message OpenSessionResponse {
 
 ////////////////////////////////////////////////////////
 
-message WriteConstraint {
+message Precondition {
 
-	message KeyMustExistConstraint {
+	message KeyMustExistPrecondition {
 		bytes key = 1;
 	}
 	
-	message KeyMustNotExistConstraint {
+	message KeyMustNotExistPrecondition {
 		bytes key = 1;
 	}
 	
-	message KeyNotModifiedAfterTXConstraint {
+	message KeyNotModifiedAfterTXPrecondition {
 		bytes key = 1;
 		uint64 txID = 2;
 	}
 
-	oneof constraint {
-		KeyMustExistConstraint keyMustExist = 1;
-		KeyMustNotExistConstraint keyMustNotExist = 2;
-		KeyNotModifiedAfterTXConstraint keyNotModifiedAfterTX = 3;
+	oneof precondition {
+		KeyMustExistPrecondition keyMustExist = 1;
+		KeyMustNotExistPrecondition keyMustNotExist = 2;
+		KeyNotModifiedAfterTXPrecondition keyNotModifiedAfterTX = 3;
 	}
 }
 
@@ -149,7 +149,7 @@ message Op {
 message ExecAllRequest {
 	repeated Op Operations = 1;
 	bool  noWait = 2;
-	repeated WriteConstraint constraints = 3;
+	repeated Precondition preconditions = 3;
 }
 
 message Entries {
@@ -273,7 +273,7 @@ message InclusionProof {
 
 message SetRequest {
 	repeated KeyValue KVs = 1;
-	repeated WriteConstraint constraints = 4;
+	repeated Precondition preconditions = 4;
 	bool  noWait = 2;
 }
 
@@ -328,7 +328,7 @@ message ReferenceRequest {
 	uint64 atTx = 3;
 	bool boundRef = 4;
 	bool  noWait = 5;
-	repeated WriteConstraint constraints = 6;
+	repeated Precondition preconditions = 6;
 }
 
 message VerifiableReferenceRequest {

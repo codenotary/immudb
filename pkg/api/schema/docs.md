@@ -63,6 +63,10 @@
     - [OpenSessionRequest](#immudb.schema.OpenSessionRequest)
     - [OpenSessionResponse](#immudb.schema.OpenSessionResponse)
     - [Permission](#immudb.schema.Permission)
+    - [Precondition](#immudb.schema.Precondition)
+    - [Precondition.KeyMustExistPrecondition](#immudb.schema.Precondition.KeyMustExistPrecondition)
+    - [Precondition.KeyMustNotExistPrecondition](#immudb.schema.Precondition.KeyMustNotExistPrecondition)
+    - [Precondition.KeyNotModifiedAfterTXPrecondition](#immudb.schema.Precondition.KeyNotModifiedAfterTXPrecondition)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings)
@@ -108,10 +112,6 @@
     - [VerifiableTx](#immudb.schema.VerifiableTx)
     - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
     - [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest)
-    - [WriteConstraint](#immudb.schema.WriteConstraint)
-    - [WriteConstraint.KeyMustExistConstraint](#immudb.schema.WriteConstraint.KeyMustExistConstraint)
-    - [WriteConstraint.KeyMustNotExistConstraint](#immudb.schema.WriteConstraint.KeyMustNotExistConstraint)
-    - [WriteConstraint.KeyNotModifiedAfterTXConstraint](#immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint)
     - [ZAddRequest](#immudb.schema.ZAddRequest)
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
@@ -602,7 +602,7 @@
 | ----- | ---- | ----- | ----------- |
 | Operations | [Op](#immudb.schema.Op) | repeated |  |
 | noWait | [bool](#bool) |  |  |
-| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
 
 
 
@@ -1116,6 +1116,69 @@
 
 
 
+<a name="immudb.schema.Precondition"></a>
+
+### Precondition
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| keyMustExist | [Precondition.KeyMustExistPrecondition](#immudb.schema.Precondition.KeyMustExistPrecondition) |  |  |
+| keyMustNotExist | [Precondition.KeyMustNotExistPrecondition](#immudb.schema.Precondition.KeyMustNotExistPrecondition) |  |  |
+| keyNotModifiedAfterTX | [Precondition.KeyNotModifiedAfterTXPrecondition](#immudb.schema.Precondition.KeyNotModifiedAfterTXPrecondition) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Precondition.KeyMustExistPrecondition"></a>
+
+### Precondition.KeyMustExistPrecondition
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Precondition.KeyMustNotExistPrecondition"></a>
+
+### Precondition.KeyMustNotExistPrecondition
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Precondition.KeyNotModifiedAfterTXPrecondition"></a>
+
+### Precondition.KeyNotModifiedAfterTXPrecondition
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+| txID | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Reference"></a>
 
 ### Reference
@@ -1147,7 +1210,7 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
-| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
 
 
 
@@ -1387,7 +1450,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
-| constraints | [WriteConstraint](#immudb.schema.WriteConstraint) | repeated |  |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
 | noWait | [bool](#bool) |  |  |
 
 
@@ -1876,69 +1939,6 @@ Reserved to reply with more advanced response later
 | ----- | ---- | ----- | ----------- |
 | zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.WriteConstraint"></a>
-
-### WriteConstraint
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| keyMustExist | [WriteConstraint.KeyMustExistConstraint](#immudb.schema.WriteConstraint.KeyMustExistConstraint) |  |  |
-| keyMustNotExist | [WriteConstraint.KeyMustNotExistConstraint](#immudb.schema.WriteConstraint.KeyMustNotExistConstraint) |  |  |
-| keyNotModifiedAfterTX | [WriteConstraint.KeyNotModifiedAfterTXConstraint](#immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.WriteConstraint.KeyMustExistConstraint"></a>
-
-### WriteConstraint.KeyMustExistConstraint
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.WriteConstraint.KeyMustNotExistConstraint"></a>
-
-### WriteConstraint.KeyMustNotExistConstraint
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.WriteConstraint.KeyNotModifiedAfterTXConstraint"></a>
-
-### WriteConstraint.KeyNotModifiedAfterTXConstraint
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| txID | [uint64](#uint64) |  |  |
 
 
 

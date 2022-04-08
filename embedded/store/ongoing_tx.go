@@ -29,7 +29,7 @@ type OngoingTx struct {
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
 
-	constraints []WriteConstraint
+	preconditions []Precondition
 
 	metadata *TxMetadata
 
@@ -185,7 +185,7 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
-func (tx *OngoingTx) AddKVConstraint(c WriteConstraint) error {
+func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -199,7 +199,7 @@ func (tx *OngoingTx) AddKVConstraint(c WriteConstraint) error {
 		return err
 	}
 
-	tx.constraints = append(tx.constraints, c)
+	tx.preconditions = append(tx.preconditions, c)
 	return nil
 }
 
@@ -299,21 +299,21 @@ func (tx *OngoingTx) Cancel() error {
 	return nil
 }
 
-func (tx *OngoingTx) hasConstraints() bool {
-	return len(tx.constraints) > 0
+func (tx *OngoingTx) hasPreconditions() bool {
+	return len(tx.preconditions) > 0
 }
 
-func (tx *OngoingTx) checkWriteConstraints(idx *indexer) error {
-	for _, c := range tx.constraints {
+func (tx *OngoingTx) checkPreconditions(idx *indexer) error {
+	for _, c := range tx.preconditions {
 		if c == nil {
-			return fmt.Errorf("%w: nil constraint", ErrInvalidConstraintsNull)
+			return ErrInvalidPreconditionNull
 		}
 		ok, err := c.Check(idx)
 		if err != nil {
-			return fmt.Errorf("error checking %s constraint: %w", c, err)
+			return fmt.Errorf("error checking %s precondition: %w", c, err)
 		}
 		if !ok {
-			return fmt.Errorf("%w: %s", ErrConstraintFailed, c)
+			return fmt.Errorf("%w: %s", ErrPreconditionFailed, c)
 		}
 	}
 	return nil

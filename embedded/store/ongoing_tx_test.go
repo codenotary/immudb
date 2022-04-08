@@ -21,54 +21,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOngoingTXAddKVConstraint(t *testing.T) {
+func TestOngoingTXAddPrecondition(t *testing.T) {
 	otx := OngoingTx{
 		st: &ImmuStore{
 			maxKeyLen: 10,
 		},
 	}
 
-	err := otx.AddKVConstraint(nil)
+	err := otx.AddPrecondition(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	err = otx.AddKVConstraint(&WriteContraintKeyMustExist{})
-	require.ErrorIs(t, err, ErrInvalidConstraints)
+	err = otx.AddPrecondition(&PreconditionKeyMustExist{})
+	require.ErrorIs(t, err, ErrInvalidPrecondition)
 
 	otx.closed = true
-	err = otx.AddKVConstraint(&WriteContraintKeyMustExist{
+	err = otx.AddPrecondition(&PreconditionKeyMustExist{
 		Key: []byte("key"),
 	})
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
-func TestOngoingTxCheckWriteConstraintsCornerCases(t *testing.T) {
+func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	otx := &OngoingTx{}
 	idx := &indexer{}
 
-	err := otx.checkWriteConstraints(idx)
+	err := otx.checkPreconditions(idx)
 	require.NoError(t, err)
 
-	otx.constraints = []WriteConstraint{nil}
-	err = otx.checkWriteConstraints(idx)
-	require.ErrorIs(t, err, ErrInvalidConstraints)
-	require.ErrorIs(t, err, ErrInvalidConstraintsNull)
+	otx.preconditions = []Precondition{nil}
+	err = otx.checkPreconditions(idx)
+	require.ErrorIs(t, err, ErrInvalidPrecondition)
+	require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
 	idx.closed = true
-	otx.constraints = []WriteConstraint{
-		&WriteContraintKeyMustExist{Key: []byte{1}},
+	otx.preconditions = []Precondition{
+		&PreconditionKeyMustExist{Key: []byte{1}},
 	}
-	err = otx.checkWriteConstraints(idx)
+	err = otx.checkPreconditions(idx)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	otx.constraints = []WriteConstraint{
-		&WriteContraintKeyMustNotExist{Key: []byte{1}},
+	otx.preconditions = []Precondition{
+		&PreconditionKeyMustNotExist{Key: []byte{1}},
 	}
-	err = otx.checkWriteConstraints(idx)
+	err = otx.checkPreconditions(idx)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	otx.constraints = []WriteConstraint{
-		&WriteContraintKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
+	otx.preconditions = []Precondition{
+		&PreconditionKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
 	}
-	err = otx.checkWriteConstraints(idx)
+	err = otx.checkPreconditions(idx)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 }

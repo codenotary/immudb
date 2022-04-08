@@ -23,62 +23,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeWriteConstraint struct{}
+func TestPreconditionFromProto(t *testing.T) {
 
-func (*fakeWriteConstraint) isWriteConstraint_Constraint() {}
+	t.Run("Nil precondition", func(t *testing.T) {
+		_, err := PreconditionFromProto(nil)
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNull)
 
-func TestWriteConstraintsFromProto(t *testing.T) {
-
-	t.Run("Nil constraints", func(t *testing.T) {
-		_, err := WriteConstraintsFromProto(nil)
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNull)
-
-		_, err = WriteConstraintsFromProto(&schema.WriteConstraint{})
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNull)
+		_, err = PreconditionFromProto(&schema.Precondition{})
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNull)
 	})
 
 	t.Run("KeyMustExist", func(t *testing.T) {
-		_, err := WriteConstraintsFromProto(schema.WriteConstraintKeyMustExist(nil))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err := PreconditionFromProto(schema.PreconditionKeyMustExist(nil))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		_, err = WriteConstraintsFromProto(schema.WriteConstraintKeyMustExist([]byte{}))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err = PreconditionFromProto(schema.PreconditionKeyMustExist([]byte{}))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		c, err := WriteConstraintsFromProto(schema.WriteConstraintKeyMustExist([]byte{1}))
+		c, err := PreconditionFromProto(schema.PreconditionKeyMustExist([]byte{1}))
 		require.NoError(t, err)
-		require.IsType(t, &store.WriteContraintKeyMustExist{}, c)
+		require.IsType(t, &store.PreconditionKeyMustExist{}, c)
 	})
 
 	t.Run("KeyMustNotExist", func(t *testing.T) {
-		_, err := WriteConstraintsFromProto(schema.WriteConstraintKeyMustNotExist(nil))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err := PreconditionFromProto(schema.PreconditionKeyMustNotExist(nil))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		_, err = WriteConstraintsFromProto(schema.WriteConstraintKeyMustNotExist([]byte{}))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err = PreconditionFromProto(schema.PreconditionKeyMustNotExist([]byte{}))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		c, err := WriteConstraintsFromProto(schema.WriteConstraintKeyMustNotExist([]byte{1}))
+		c, err := PreconditionFromProto(schema.PreconditionKeyMustNotExist([]byte{1}))
 		require.NoError(t, err)
-		require.IsType(t, &store.WriteContraintKeyMustNotExist{}, c)
+		require.IsType(t, &store.PreconditionKeyMustNotExist{}, c)
 	})
 
 	t.Run("KeyNotModifiedAfterTX", func(t *testing.T) {
-		_, err := WriteConstraintsFromProto(schema.WriteConstraintKeyNotModifiedAfterTX(nil, 0))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err := PreconditionFromProto(schema.PreconditionKeyNotModifiedAfterTX(nil, 0))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		_, err = WriteConstraintsFromProto(schema.WriteConstraintKeyNotModifiedAfterTX([]byte{}, 0))
-		require.ErrorIs(t, err, store.ErrInvalidConstraints)
-		require.ErrorIs(t, err, store.ErrInvalidConstraintsNullKey)
+		_, err = PreconditionFromProto(schema.PreconditionKeyNotModifiedAfterTX([]byte{}, 0))
+		require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+		require.ErrorIs(t, err, store.ErrInvalidPreconditionNullKey)
 
-		c, err := WriteConstraintsFromProto(schema.WriteConstraintKeyNotModifiedAfterTX([]byte{1}, 1))
+		c, err := PreconditionFromProto(schema.PreconditionKeyNotModifiedAfterTX([]byte{1}, 1))
 		require.NoError(t, err)
-		require.IsType(t, &store.WriteContraintKeyNotModifiedAfterTx{}, c)
+		require.IsType(t, &store.PreconditionKeyNotModifiedAfterTx{}, c)
 	})
 
 }

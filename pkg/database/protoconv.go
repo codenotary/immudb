@@ -20,42 +20,42 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func WriteConstraintsFromProto(c *schema.WriteConstraint) (store.WriteConstraint, error) {
+func PreconditionFromProto(c *schema.Precondition) (store.Precondition, error) {
 	if c == nil {
-		return nil, store.ErrInvalidConstraintsNull
+		return nil, store.ErrInvalidPreconditionNull
 	}
 
-	switch c := c.Constraint.(type) {
-	case *schema.WriteConstraint_KeyMustExist:
+	switch c := c.Precondition.(type) {
+	case *schema.Precondition_KeyMustExist:
 		key := c.KeyMustExist.GetKey()
 		if len(key) == 0 {
-			return nil, store.ErrInvalidConstraintsNullKey
+			return nil, store.ErrInvalidPreconditionNullKey
 		}
 
-		return &store.WriteContraintKeyMustExist{
+		return &store.PreconditionKeyMustExist{
 			Key: EncodeKey(key),
 		}, nil
 
-	case *schema.WriteConstraint_KeyMustNotExist:
+	case *schema.Precondition_KeyMustNotExist:
 		key := c.KeyMustNotExist.GetKey()
 		if len(key) == 0 {
-			return nil, store.ErrInvalidConstraintsNullKey
+			return nil, store.ErrInvalidPreconditionNullKey
 		}
 
-		return &store.WriteContraintKeyMustNotExist{
+		return &store.PreconditionKeyMustNotExist{
 			Key: EncodeKey(key),
 		}, nil
 
-	case *schema.WriteConstraint_KeyNotModifiedAfterTX:
+	case *schema.Precondition_KeyNotModifiedAfterTX:
 		key := c.KeyNotModifiedAfterTX.GetKey()
 		if len(key) == 0 {
-			return nil, store.ErrInvalidConstraintsNullKey
+			return nil, store.ErrInvalidPreconditionNullKey
 		}
-		return &store.WriteContraintKeyNotModifiedAfterTx{
+		return &store.PreconditionKeyNotModifiedAfterTx{
 			Key:  EncodeKey(key),
 			TxID: c.KeyNotModifiedAfterTX.GetTxID(),
 		}, nil
 	}
 
-	return nil, store.ErrInvalidConstraintsNull
+	return nil, store.ErrInvalidPreconditionNull
 }

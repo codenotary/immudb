@@ -15,30 +15,30 @@ limitations under the License.
 */
 package schema
 
-func WriteConstraintKeyMustExist(key []byte) *WriteConstraint {
-	return &WriteConstraint{
-		Constraint: &WriteConstraint_KeyMustExist{
-			KeyMustExist: &WriteConstraint_KeyMustExistConstraint{
+func PreconditionKeyMustExist(key []byte) *Precondition {
+	return &Precondition{
+		Precondition: &Precondition_KeyMustExist{
+			KeyMustExist: &Precondition_KeyMustExistPrecondition{
 				Key: key,
 			},
 		},
 	}
 }
 
-func WriteConstraintKeyMustNotExist(key []byte) *WriteConstraint {
-	return &WriteConstraint{
-		Constraint: &WriteConstraint_KeyMustNotExist{
-			KeyMustNotExist: &WriteConstraint_KeyMustNotExistConstraint{
+func PreconditionKeyMustNotExist(key []byte) *Precondition {
+	return &Precondition{
+		Precondition: &Precondition_KeyMustNotExist{
+			KeyMustNotExist: &Precondition_KeyMustNotExistPrecondition{
 				Key: key,
 			},
 		},
 	}
 }
 
-func WriteConstraintKeyNotModifiedAfterTX(key []byte, txID uint64) *WriteConstraint {
-	return &WriteConstraint{
-		Constraint: &WriteConstraint_KeyNotModifiedAfterTX{
-			KeyNotModifiedAfterTX: &WriteConstraint_KeyNotModifiedAfterTXConstraint{
+func PreconditionKeyNotModifiedAfterTX(key []byte, txID uint64) *Precondition {
+	return &Precondition{
+		Precondition: &Precondition_KeyNotModifiedAfterTX{
+			KeyNotModifiedAfterTX: &Precondition_KeyNotModifiedAfterTXPrecondition{
 				Key:  key,
 				TxID: txID,
 			},

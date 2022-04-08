@@ -21,35 +21,35 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-type WriteConstraint interface {
+type Precondition interface {
 	String() string
 
-	// Validate performs initial validation check to discard invalid constraints before even executing them
+	// Validate performs initial validation check to discard invalid preconditions before even executing them
 	Validate(st *ImmuStore) error
 
 	// Check performs the validation on a current state of the database
 	Check(idx *indexer) (bool, error)
 }
 
-type WriteContraintKeyMustExist struct {
+type PreconditionKeyMustExist struct {
 	Key []byte
 }
 
-func (cs *WriteContraintKeyMustExist) String() string { return "KeyMustExist" }
+func (cs *PreconditionKeyMustExist) String() string { return "KeyMustExist" }
 
-func (cs *WriteContraintKeyMustExist) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyMustExist) Validate(st *ImmuStore) error {
 	if len(cs.Key) == 0 {
-		return ErrInvalidConstraintsNullKey
+		return ErrInvalidPreconditionNullKey
 	}
 
 	if len(cs.Key) > st.maxKeyLen {
-		return ErrInvalidConstraintsMaxKeyLenExceeded
+		return ErrInvalidPreconditionMaxKeyLenExceeded
 	}
 
 	return nil
 }
 
-func (cs *WriteContraintKeyMustExist) Check(idx *indexer) (bool, error) {
+func (cs *PreconditionKeyMustExist) Check(idx *indexer) (bool, error) {
 	_, _, _, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
@@ -58,25 +58,25 @@ func (cs *WriteContraintKeyMustExist) Check(idx *indexer) (bool, error) {
 	return err == nil, nil
 }
 
-type WriteContraintKeyMustNotExist struct {
+type PreconditionKeyMustNotExist struct {
 	Key []byte
 }
 
-func (cs *WriteContraintKeyMustNotExist) String() string { return "KeyMustNotExist" }
+func (cs *PreconditionKeyMustNotExist) String() string { return "KeyMustNotExist" }
 
-func (cs *WriteContraintKeyMustNotExist) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyMustNotExist) Validate(st *ImmuStore) error {
 	if len(cs.Key) == 0 {
-		return ErrInvalidConstraintsNullKey
+		return ErrInvalidPreconditionNullKey
 	}
 
 	if len(cs.Key) > st.maxKeyLen {
-		return ErrInvalidConstraintsMaxKeyLenExceeded
+		return ErrInvalidPreconditionMaxKeyLenExceeded
 	}
 
 	return nil
 }
 
-func (cs *WriteContraintKeyMustNotExist) Check(idx *indexer) (bool, error) {
+func (cs *PreconditionKeyMustNotExist) Check(idx *indexer) (bool, error) {
 	_, _, _, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
@@ -85,30 +85,30 @@ func (cs *WriteContraintKeyMustNotExist) Check(idx *indexer) (bool, error) {
 	return err != nil, nil
 }
 
-type WriteContraintKeyNotModifiedAfterTx struct {
+type PreconditionKeyNotModifiedAfterTx struct {
 	Key  []byte
 	TxID uint64
 }
 
-func (cs *WriteContraintKeyNotModifiedAfterTx) String() string { return "KeyNotModifiedAfterTxID" }
+func (cs *PreconditionKeyNotModifiedAfterTx) String() string { return "KeyNotModifiedAfterTxID" }
 
-func (cs *WriteContraintKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
+func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
 	if len(cs.Key) == 0 {
-		return ErrInvalidConstraintsNullKey
+		return ErrInvalidPreconditionNullKey
 	}
 
 	if len(cs.Key) > st.maxKeyLen {
-		return ErrInvalidConstraintsMaxKeyLenExceeded
+		return ErrInvalidPreconditionMaxKeyLenExceeded
 	}
 
 	if cs.TxID == 0 {
-		return ErrInvalidConstraintsInvalidTxID
+		return ErrInvalidPreconditionInvalidTxID
 	}
 
 	return nil
 }
 
-func (cs *WriteContraintKeyNotModifiedAfterTx) Check(idx *indexer) (bool, error) {
+func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx *indexer) (bool, error) {
 	_, tx, _, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err

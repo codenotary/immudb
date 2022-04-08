@@ -1190,7 +1190,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	require.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
 }
 
-func TestOps_Constrains(t *testing.T) {
+func TestOps_Preconditions(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
@@ -1203,11 +1203,11 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed)
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{{
@@ -1218,8 +1218,8 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
 		},
 	})
 	require.NoError(t, err)
@@ -1233,11 +1233,11 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed)
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{{
@@ -1248,8 +1248,8 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
 		},
 	})
 	require.NoError(t, err)
@@ -1263,11 +1263,11 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("reference")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("reference")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed)
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{{
@@ -1278,8 +1278,8 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist([]byte("reference")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("reference")),
 		},
 	})
 	require.NoError(t, err)
@@ -1293,9 +1293,9 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{nil},
+		Preconditions: []*schema.Precondition{nil},
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints)
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{{
@@ -1306,17 +1306,17 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist(
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist(
 				[]byte("reference" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
 			),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints)
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
 
-	c := []*schema.WriteConstraint{}
+	c := []*schema.Precondition{}
 	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
-		c = append(c, schema.WriteConstraintKeyMustNotExist(
+		c = append(c, schema.PreconditionKeyMustNotExist(
 			[]byte(fmt.Sprintf("key_%d", i)),
 		))
 	}
@@ -1330,10 +1330,10 @@ func TestOps_Constrains(t *testing.T) {
 				},
 			},
 		}},
-		Constraints: c,
+		Preconditions: c,
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints,
-		"did not fail when too many constraints were given")
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when too many preconditions were given")
 
 }
 

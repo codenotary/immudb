@@ -933,169 +933,169 @@ func TestHistory(t *testing.T) {
 	require.Empty(t, inc.Entries)
 }
 
-func TestConstrainedSet(t *testing.T) {
+func TestPreconditionedSet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
 	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
-			Key:   []byte("key-no-constraints"),
+			Key:   []byte("key-no-preconditions"),
 			Value: []byte("value"),
 		}},
 	})
-	require.NoError(t, err, "could not set a value without constraints")
+	require.NoError(t, err, "could not set a value without preconditions")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect missing key when MustExist constraint was present")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect missing key when MustExist precondition was present")
 
 	tx1, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
 		},
 	})
 	require.NoError(t, err,
-		"failed to add a key with MustNotExist constraint even though the key does not exist")
+		"failed to add a key with MustNotExist precondition even though the key does not exist")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect existing key even though MustNotExist constraint was used")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect existing key even though MustNotExist precondition was used")
 
 	tx2, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
 		},
 	})
 	require.NoError(t, err,
-		"did not add a key even though MustExist constraint was successful")
+		"did not add a key even though MustExist precondition was successful")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyNotModifiedAfterTX([]byte("key"), tx1.Id),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx1.Id),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect constraint of the NotModifiedAfterTX constraint")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect NotModifiedAfterTX precondition")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
 		},
 	})
 	require.NoError(t, err,
-		"did not add valid entry with NotModifiedAfterTX constraint")
+		"did not add valid entry with NotModifiedAfterTX precondition")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect failed NotModifiedAfterTX constraint after new entry was added")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed NotModifiedAfterTX precondition after new entry was added")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key2"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyNotModifiedAfterTX([]byte("key2"), tx2.Id),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key2"), tx2.Id),
 		},
 	})
 	require.NoError(t, err,
-		"did not add entry with NotModifiedAfterTX constraint when the key does not exist")
+		"did not add entry with NotModifiedAfterTX precondition when the key does not exist")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key3"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key3")),
-			schema.WriteConstraintKeyNotModifiedAfterTX([]byte("key3"), tx2.Id),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key3")),
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key3"), tx2.Id),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect failed mix of NotModifiedAfterTX and MustExist constraints when the key does not exist")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed mix of NotModifiedAfterTX and MustExist preconditions when the key does not exist")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{{
 			Key:   []byte("key3"),
 			Value: []byte("value"),
 		}},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key3")),
-			schema.WriteConstraintKeyMustNotExist([]byte("key3")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key3")),
+			schema.PreconditionKeyMustNotExist([]byte("key3")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not detect failed mix of MustNotExist and MustExist constraints when the key does not exist")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed mix of MustNotExist and MustExist preconditions when the key does not exist")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{
-				Key:   []byte("key4-no-constraints"),
+				Key:   []byte("key4-no-preconditions"),
 				Value: []byte("value"),
 			},
 			{
-				Key:   []byte("key5-with-constraints"),
+				Key:   []byte("key5-with-preconditions"),
 				Value: []byte("value"),
 			},
 		},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustExist([]byte("key5-with-constraints")),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key5-with-preconditions")),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrConstraintFailed,
-		"did not fail even though one of KV entries failed constraint check")
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not fail even though one of KV entries failed precondition check")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{
-				Key:   []byte("key4-no-constraints"),
+				Key:   []byte("key4-no-preconditions"),
 				Value: []byte("value"),
 			},
 		},
-		Constraints: []*schema.WriteConstraint{nil},
+		Preconditions: []*schema.Precondition{nil},
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints,
-		"did not fail when invalid nil constrait was given")
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when invalid nil precondition was given")
 
 	_, err = db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -1104,18 +1104,18 @@ func TestConstrainedSet(t *testing.T) {
 				Value: []byte("value"),
 			},
 		},
-		Constraints: []*schema.WriteConstraint{
-			schema.WriteConstraintKeyMustNotExist(
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist(
 				[]byte("key6-too-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
 			),
 		},
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints,
-		"did not fail when invalid nil constrait was given")
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when invalid nil precondition was given")
 
-	c := []*schema.WriteConstraint{}
+	c := []*schema.Precondition{}
 	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
-		c = append(c, schema.WriteConstraintKeyMustNotExist([]byte(fmt.Sprintf("key_%d", i))))
+		c = append(c, schema.PreconditionKeyMustNotExist([]byte(fmt.Sprintf("key_%d", i))))
 	}
 
 	_, err = db.Set(&schema.SetRequest{
@@ -1125,13 +1125,13 @@ func TestConstrainedSet(t *testing.T) {
 				Value: []byte("value"),
 			},
 		},
-		Constraints: c,
+		Preconditions: c,
 	})
-	require.ErrorIs(t, err, store.ErrInvalidConstraints,
-		"did not fail when too many constraints were given")
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when too many preconditions were given")
 }
 
-func TestConstrainedSetParallel(t *testing.T) {
+func TestPreconditionedSetParallel(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
@@ -1154,7 +1154,7 @@ func TestConstrainedSetParallel(t *testing.T) {
 
 				if err == nil {
 					atomic.AddInt32(&successCount, 1)
-				} else if errors.Is(err, store.ErrConstraintFailed) {
+				} else if errors.Is(err, store.ErrPreconditionFailed) {
 					atomic.AddInt32(&failCount, 1)
 				} else {
 					log.Println(err)
@@ -1182,8 +1182,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustNotExist([]byte(`key`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`key`)),
 					},
 				})
 				return err
@@ -1202,8 +1202,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustExist([]byte(`key`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`key`)),
 					},
 				})
 				return err
@@ -1228,8 +1228,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 						Key:   []byte(`key`),
 						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyNotModifiedAfterTX([]byte(`key`), tx.Id),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`key`), tx.Id),
 					},
 				})
 				return err
@@ -1253,8 +1253,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustNotExist([]byte(`reference`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`reference`)),
 					},
 				})
 				return err
@@ -1271,8 +1271,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustExist([]byte(`reference`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`reference`)),
 					},
 				})
 				return err
@@ -1295,8 +1295,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 				_, err := db.SetReference(&schema.ReferenceRequest{
 					Key:           []byte(`reference`),
 					ReferencedKey: []byte(`key`),
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyNotModifiedAfterTX([]byte(`reference`), tx.Id),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`reference`), tx.Id),
 					},
 				})
 				return err
@@ -1326,8 +1326,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustNotExist([]byte(`key-ea`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`key-ea`)),
 					},
 				})
 				return err
@@ -1350,8 +1350,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustExist([]byte(`key-ea`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`key-ea`)),
 					},
 				})
 				return err
@@ -1380,8 +1380,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyNotModifiedAfterTX([]byte(`key-ea`), tx.Id),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`key-ea`), tx.Id),
 					},
 				})
 				return err
@@ -1411,8 +1411,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustNotExist([]byte(`reference-ea`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`reference-ea`)),
 					},
 				})
 				return err
@@ -1435,8 +1435,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyMustExist([]byte(`reference-ea`)),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`reference-ea`)),
 					},
 				})
 				return err
@@ -1465,8 +1465,8 @@ func TestConstrainedSetParallel(t *testing.T) {
 							},
 						},
 					}},
-					Constraints: []*schema.WriteConstraint{
-						schema.WriteConstraintKeyNotModifiedAfterTX([]byte(`reference-ea`), tx.Id),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`reference-ea`), tx.Id),
 					},
 				})
 				return err

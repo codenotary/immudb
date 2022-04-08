@@ -51,7 +51,7 @@ var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx ex
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
-var ErrConstraintFailed = errors.New("constraint failed")
+var ErrPreconditionFailed = errors.New("precondition failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
@@ -73,12 +73,12 @@ var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
 var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
 var ErrInvalidOptions = errors.New("invalid options")
 
-var ErrInvalidConstraints = errors.New("invalid constraints")
-var ErrInvalidConstraintsTooMany = fmt.Errorf("%w: too many constraints", ErrInvalidConstraints)
-var ErrInvalidConstraintsNull = fmt.Errorf("%w: null constraint", ErrInvalidConstraints)
-var ErrInvalidConstraintsNullKey = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrNullKey)
-var ErrInvalidConstraintsMaxKeyLenExceeded = fmt.Errorf("%w: %s", ErrInvalidConstraints, ErrorMaxKeyLenExceeded)
-var ErrInvalidConstraintsInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidConstraints)
+var ErrInvalidPrecondition = errors.New("invalid precondition")
+var ErrInvalidPreconditionTooMany = fmt.Errorf("%w: too many preconditions", ErrInvalidPrecondition)
+var ErrInvalidPreconditionNull = fmt.Errorf("%w: null", ErrInvalidPrecondition)
+var ErrInvalidPreconditionNullKey = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrNullKey)
+var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrorMaxKeyLenExceeded)
+var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidPrecondition)
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -901,19 +901,19 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, err
 	}
 
-	err = s.validateConstraints(otx.constraints)
+	err = s.validatePreconditions(otx.preconditions)
 	if err != nil {
 		return nil, err
 	}
 
 	// first check is performed on the snapshot taken when opening the transaction,
 	// this will prevent acquiring the write lock and putting garbage into
-	// appendables if we can already determine that constraints are not met.
+	// appendables if we can already determine that preconditions are not met.
 	//
-	// A corner case is if the DB fails to meet constraints now but would fulfill
+	// A corner case is if the DB fails to meet preconditions now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	err = otx.checkWriteConstraints(s.indexer)
+	err = otx.checkPreconditions(s.indexer)
 	if err != nil {
 		return nil, err
 	}
@@ -1030,15 +1030,15 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, ErrTxReadConflict
 	}
 
-	if otx.hasConstraints() {
-		// Constraints must be executed with up-to-date tree
+	if otx.hasPreconditions() {
+		// Preconditions must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(s.committedTxID, nil)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
 		}
 
-		err = otx.checkWriteConstraints(s.indexer)
+		err = otx.checkPreconditions(s.indexer)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1252,7 +1252,7 @@ func (s *ImmuStore) commitState() (txID uint64, txAlh [sha256.Size]byte, clogSiz
 	return s.committedTxID, s.committedAlh, s.committedTxLogSize
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error), waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error), waitForIndexing bool) (*TxHeader, error) {
 	hdr, err := s.commitWith(callback)
 	if err != nil {
 		return nil, err
@@ -1285,7 +1285,7 @@ func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, er
 	return index.st.GetWith(key, filters...)
 }
 
-func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error)) (*TxHeader, error) {
+func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1309,7 +1309,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	committedTxID, _, _ := s.commitState()
 	txID := committedTxID + 1
 
-	otx.entries, otx.constraints, err = callback(txID, &unsafeIndex{st: s})
+	otx.entries, otx.preconditions, err = callback(txID, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
@@ -1319,19 +1319,19 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	err = s.validateConstraints(otx.constraints)
+	err = s.validatePreconditions(otx.preconditions)
 	if err != nil {
 		return nil, err
 	}
 
 	// first check is performed on the snapshot taken when opening the transaction,
 	// this will prevent acquiring the write lock and putting garbage into
-	// appendables if we can already determine that constraints are not met.
+	// appendables if we can already determine that preconditions are not met.
 	//
-	// A corner case is if the DB fails to meet constraints now but would fulfill
+	// A corner case is if the DB fails to meet preconditions now but would fulfill
 	// those during final commit phase - but in such case, we are allowed to reason
 	// about the DB state in any point in time between both snapshots are checked.
-	err = otx.checkWriteConstraints(s.indexer)
+	err = otx.checkPreconditions(s.indexer)
 	if err != nil {
 		return nil, err
 	}
@@ -1369,16 +1369,16 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	if otx.hasConstraints() {
+	if otx.hasPreconditions() {
 		s.indexer.Resume()
-		// Constraints must be executed with up-to-date tree
+		// Preconditions must be executed with up-to-date tree
 		err = s.WaitForIndexingUpto(committedTxID, nil)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
 		}
 
-		err = otx.checkWriteConstraints(s.indexer)
+		err = otx.checkPreconditions(s.indexer)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1868,15 +1868,15 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 	return nil
 }
 
-func (s *ImmuStore) validateConstraints(constraints []WriteConstraint) error {
+func (s *ImmuStore) validatePreconditions(preconditions []Precondition) error {
 
-	if len(constraints) > s.maxTxEntries {
-		return ErrInvalidConstraintsTooMany
+	if len(preconditions) > s.maxTxEntries {
+		return ErrInvalidPreconditionTooMany
 	}
 
-	for _, c := range constraints {
+	for _, c := range preconditions {
 		if c == nil {
-			return ErrInvalidConstraintsNull
+			return ErrInvalidPreconditionNull
 		}
 
 		err := c.Validate(s)

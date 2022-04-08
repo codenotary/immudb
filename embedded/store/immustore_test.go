@@ -654,69 +654,69 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		require.ErrorIs(t, err, ErrorMaxValueLenExceeded)
 	})
 
-	t.Run("validateConstraints", func(t *testing.T) {
-		err = immuStore.validateConstraints(nil)
+	t.Run("validatePreconditions", func(t *testing.T) {
+		err = immuStore.validatePreconditions(nil)
 		require.NoError(t, err)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
+		err = immuStore.validatePreconditions([]Precondition{
 			nil,
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsNull)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyMustExist{},
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyMustExist{},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionNullKey)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyMustExist{
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyMustExist{
 				Key: make([]byte, immuStore.maxKeyLen+1),
 			},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionMaxKeyLenExceeded)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyMustNotExist{},
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyMustNotExist{},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionNullKey)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyMustNotExist{
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyMustNotExist{
 				Key: make([]byte, immuStore.maxKeyLen+1),
 			},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionMaxKeyLenExceeded)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyNotModifiedAfterTx{
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyNotModifiedAfterTx{
 				TxID: 1,
 			},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsNullKey)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionNullKey)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyNotModifiedAfterTx{
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyNotModifiedAfterTx{
 				Key:  make([]byte, immuStore.maxKeyLen+1),
 				TxID: 1,
 			},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsMaxKeyLenExceeded)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionMaxKeyLenExceeded)
 
-		err = immuStore.validateConstraints([]WriteConstraint{
-			&WriteContraintKeyNotModifiedAfterTx{
+		err = immuStore.validatePreconditions([]Precondition{
+			&PreconditionKeyNotModifiedAfterTx{
 				Key:  []byte("key"),
 				TxID: 0,
 			},
 		})
-		require.ErrorIs(t, err, ErrInvalidConstraints)
-		require.ErrorIs(t, err, ErrInvalidConstraintsInvalidTxID)
+		require.ErrorIs(t, err, ErrInvalidPrecondition)
+		require.ErrorIs(t, err, ErrInvalidPreconditionInvalidTxID)
 	})
 }
 
@@ -1374,19 +1374,19 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	_, err = immuStore.CommitWith(nil, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
+	callback := func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return nil, nil, nil
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return nil, nil, errors.New("error")
 	}
 	_, err = immuStore.CommitWith(callback, false)
 	require.Error(t, err)
 
-	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
+	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: []byte("value")},
 		}, nil, nil
@@ -1568,7 +1568,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []WriteConstraint, error) {
+	_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return []*EntrySpec{
 			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: nil},
 		}, nil, nil

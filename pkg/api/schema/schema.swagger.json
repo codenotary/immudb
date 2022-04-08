@@ -1524,7 +1524,7 @@
     }
   },
   "definitions": {
-    "WriteConstraintKeyMustExistConstraint": {
+    "PreconditionKeyMustExistPrecondition": {
       "type": "object",
       "properties": {
         "key": {
@@ -1533,7 +1533,7 @@
         }
       }
     },
-    "WriteConstraintKeyMustNotExistConstraint": {
+    "PreconditionKeyMustNotExistPrecondition": {
       "type": "object",
       "properties": {
         "key": {
@@ -1542,7 +1542,7 @@
         }
       }
     },
-    "WriteConstraintKeyNotModifiedAfterTXConstraint": {
+    "PreconditionKeyNotModifiedAfterTXPrecondition": {
       "type": "object",
       "properties": {
         "key": {
@@ -2032,10 +2032,10 @@
         "noWait": {
           "type": "boolean"
         },
-        "constraints": {
+        "preconditions": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaWriteConstraint"
+            "$ref": "#/definitions/schemaPrecondition"
           }
         }
       }
@@ -2393,6 +2393,20 @@
       ],
       "default": "GRANT"
     },
+    "schemaPrecondition": {
+      "type": "object",
+      "properties": {
+        "keyMustExist": {
+          "$ref": "#/definitions/PreconditionKeyMustExistPrecondition"
+        },
+        "keyMustNotExist": {
+          "$ref": "#/definitions/PreconditionKeyMustNotExistPrecondition"
+        },
+        "keyNotModifiedAfterTX": {
+          "$ref": "#/definitions/PreconditionKeyNotModifiedAfterTXPrecondition"
+        }
+      }
+    },
     "schemaReference": {
       "type": "object",
       "properties": {
@@ -2434,10 +2448,10 @@
         "noWait": {
           "type": "boolean"
         },
-        "constraints": {
+        "preconditions": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaWriteConstraint"
+            "$ref": "#/definitions/schemaPrecondition"
           }
         }
       }
@@ -2671,10 +2685,10 @@
             "$ref": "#/definitions/schemaKeyValue"
           }
         },
-        "constraints": {
+        "preconditions": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaWriteConstraint"
+            "$ref": "#/definitions/schemaPrecondition"
           }
         },
         "noWait": {
@@ -3047,20 +3061,6 @@
         "proveSinceTx": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "schemaWriteConstraint": {
-      "type": "object",
-      "properties": {
-        "keyMustExist": {
-          "$ref": "#/definitions/WriteConstraintKeyMustExistConstraint"
-        },
-        "keyMustNotExist": {
-          "$ref": "#/definitions/WriteConstraintKeyMustNotExistConstraint"
-        },
-        "keyNotModifiedAfterTX": {
-          "$ref": "#/definitions/WriteConstraintKeyNotModifiedAfterTXConstraint"
         }
       }
     },
