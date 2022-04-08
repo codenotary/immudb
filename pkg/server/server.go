@@ -868,6 +868,13 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	s.dbList.Update(s.dbList.GetId(req.Database), db)
 
+	if dbOpts.isReplicatorRequired() {
+		err = s.startReplicationFor(db, dbOpts)
+		if err != nil && err != ErrReplicatorNotNeeded {
+			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
+		}
+	}
+
 	return &schema.LoadDatabaseResponse{
 		Database: req.Database,
 	}, nil
@@ -904,6 +911,18 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 
 	if db.IsClosed() {
 		return nil, fmt.Errorf("%w: while closing database '%s'", store.ErrAlreadyClosed, req.Database)
+	}
+
+	dbOpts, err := s.loadDBOptions(req.Database, false)
+	if err != nil {
+		return nil, fmt.Errorf("%w: while loading database settings", err)
+	}
+
+	if dbOpts.isReplicatorRequired() {
+		err = s.stopReplicationFor(req.Database)
+		if err != nil && err != ErrReplicationNotInProgress {
+			s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
+		}
 	}
 
 	err = db.Close()
