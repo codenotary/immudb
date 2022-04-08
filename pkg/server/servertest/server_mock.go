@@ -272,12 +272,12 @@ func (s *ServerMock) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	return s.Srv.CreateDatabaseV2(ctx, req)
 }
 
-func (s *ServerMock) OpenDatabase(ctx context.Context, req *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
-	return s.Srv.OpenDatabase(ctx, req)
+func (s *ServerMock) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
+	return s.Srv.LoadDatabase(ctx, req)
 }
 
-func (s *ServerMock) CloseDatabase(ctx context.Context, req *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
-	return s.Srv.CloseDatabase(ctx, req)
+func (s *ServerMock) UnloadDatabase(ctx context.Context, req *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
+	return s.Srv.UnloadDatabase(ctx, req)
 }
 
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {

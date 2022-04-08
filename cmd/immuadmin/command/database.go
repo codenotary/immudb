@@ -37,7 +37,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().String("replication-follower-username", "", "set username used for replication")
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
-	c.Flags().Bool("auto-open", true, "enable database auto-open")
+	c.Flags().Bool("autoload", true, "enable database autoloading")
 }
 
 func (cl *commandline) database(cmd *cobra.Command) {
@@ -75,9 +75,9 @@ func (cl *commandline) database(cmd *cobra.Command) {
 					row[0] += db.Name
 
 					if db.GetOpen() {
-						row[1] += "OPEN"
+						row[1] += "LOADED"
 					} else {
-						row[1] += "CLOSED"
+						row[1] += "UNLOADED"
 					}
 
 					return row
@@ -114,41 +114,41 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	}
 	addDbUpdateFlags(createCmd)
 
-	openCmd := &cobra.Command{
-		Use:               "open",
-		Short:             "Open database",
-		Example:           "open {database_name}",
+	loadCmd := &cobra.Command{
+		Use:               "load",
+		Short:             "Load database",
+		Example:           "load {database_name}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := cl.immuClient.OpenDatabase(cl.context, &schema.OpenDatabaseRequest{
+			_, err := cl.immuClient.LoadDatabase(cl.context, &schema.LoadDatabaseRequest{
 				Database: args[0],
 			})
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully opened\n", args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully loaded\n", args[0])
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
 
-	closeCmd := &cobra.Command{
-		Use:               "close",
-		Short:             "Close database",
-		Example:           "close {database_name}",
+	unloadCmd := &cobra.Command{
+		Use:               "unload",
+		Short:             "Unload database",
+		Example:           "unload {database_name}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := cl.immuClient.CloseDatabase(cl.context, &schema.CloseDatabaseRequest{
+			_, err := cl.immuClient.UnloadDatabase(cl.context, &schema.UnloadDatabaseRequest{
 				Database: args[0],
 			})
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully closed\n", args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully unloaded\n", args[0])
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -255,8 +255,8 @@ func (cl *commandline) database(cmd *cobra.Command) {
 
 	dbCmd.AddCommand(listCmd)
 	dbCmd.AddCommand(createCmd)
-	dbCmd.AddCommand(openCmd)
-	dbCmd.AddCommand(closeCmd)
+	dbCmd.AddCommand(loadCmd)
+	dbCmd.AddCommand(unloadCmd)
 	dbCmd.AddCommand(useCmd)
 	dbCmd.AddCommand(updateCmd)
 	dbCmd.AddCommand(flushCmd)
@@ -345,7 +345,7 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.AutoOpen, err = condBool("auto-open")
+	ret.Autoload, err = condBool("autoload")
 	if err != nil {
 		return nil, err
 	}
@@ -368,8 +368,8 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 		propertiesStr = append(propertiesStr, fmt.Sprintf("write-tx-header-version: %d", settings.WriteTxHeaderVersion.GetValue()))
 	}
 
-	if settings.AutoOpen != nil {
-		propertiesStr = append(propertiesStr, fmt.Sprintf("auto-open: %v", settings.AutoOpen.GetValue()))
+	if settings.Autoload != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("autoload: %v", settings.Autoload.GetValue()))
 	}
 
 	return strings.Join(propertiesStr, ", ")

@@ -513,8 +513,8 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			return err
 		}
 
-		if !dbOpts.AutoOpen.isEnabled() {
-			s.Logger.Infof("Database '%s' is closed (auto-open is disabled)", dbname)
+		if !dbOpts.Autoload.isEnabled() {
+			s.Logger.Infof("Database '%s' is closed (autoload is disabled)", dbname)
 			s.dbList.Append(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
 			continue
 		}
@@ -819,7 +819,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	}, nil
 }
 
-func (s *ImmuServer) OpenDatabase(ctx context.Context, req *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
+func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -868,12 +868,12 @@ func (s *ImmuServer) OpenDatabase(ctx context.Context, req *schema.OpenDatabaseR
 
 	s.dbList.Update(s.dbList.GetId(req.Database), db)
 
-	return &schema.OpenDatabaseResponse{
+	return &schema.LoadDatabaseResponse{
 		Database: req.Database,
 	}, nil
 }
 
-func (s *ImmuServer) CloseDatabase(ctx context.Context, req *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
+func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -911,7 +911,7 @@ func (s *ImmuServer) CloseDatabase(ctx context.Context, req *schema.CloseDatabas
 		return nil, fmt.Errorf("%w: while closing database '%s'", err, req.Database)
 	}
 
-	return &schema.CloseDatabaseResponse{
+	return &schema.UnloadDatabaseResponse{
 		Database: req.Database,
 	}, nil
 }

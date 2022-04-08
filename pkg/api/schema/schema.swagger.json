@@ -12,38 +12,6 @@
     "application/json"
   ],
   "paths": {
-    "/db/close": {
-      "post": {
-        "operationId": "ImmuService_CloseDatabase",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaCloseDatabaseResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaCloseDatabaseRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/db/compactindex": {
       "get": {
         "operationId": "ImmuService_CompactIndex",
@@ -522,14 +490,14 @@
         ]
       }
     },
-    "/db/open": {
+    "/db/load": {
       "post": {
-        "operationId": "ImmuService_OpenDatabase",
+        "operationId": "ImmuService_LoadDatabase",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaOpenDatabaseResponse"
+              "$ref": "#/definitions/schemaLoadDatabaseResponse"
             }
           },
           "default": {
@@ -545,7 +513,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaOpenDatabaseRequest"
+              "$ref": "#/definitions/schemaLoadDatabaseRequest"
             }
           }
         ],
@@ -964,6 +932,38 @@
             "in": "query",
             "required": false,
             "type": "boolean"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/unload": {
+      "post": {
+        "operationId": "ImmuService_UnloadDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaUnloadDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaUnloadDatabaseRequest"
+            }
           }
         ],
         "tags": [
@@ -1764,22 +1764,6 @@
         }
       }
     },
-    "schemaCloseDatabaseRequest": {
-      "type": "object",
-      "properties": {
-        "database": {
-          "type": "string"
-        }
-      }
-    },
-    "schemaCloseDatabaseResponse": {
-      "type": "object",
-      "properties": {
-        "database": {
-          "type": "string"
-        }
-      }
-    },
     "schemaColumn": {
       "type": "object",
       "properties": {
@@ -1948,7 +1932,7 @@
         "writeTxHeaderVersion": {
           "$ref": "#/definitions/schemaNullableUint32"
         },
-        "autoOpen": {
+        "autoload": {
           "$ref": "#/definitions/schemaNullableBool"
         }
       }
@@ -2404,6 +2388,22 @@
         }
       }
     },
+    "schemaLoadDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaLoadDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
     "schemaLoginRequest": {
       "type": "object",
       "properties": {
@@ -2502,22 +2502,6 @@
         },
         "ref": {
           "$ref": "#/definitions/schemaReferenceRequest"
-        }
-      }
-    },
-    "schemaOpenDatabaseRequest": {
-      "type": "object",
-      "properties": {
-        "database": {
-          "type": "string"
-        }
-      }
-    },
-    "schemaOpenDatabaseResponse": {
-      "type": "object",
-      "properties": {
-        "database": {
-          "type": "string"
         }
       }
     },
@@ -3012,6 +2996,22 @@
         },
         "noWait": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaUnloadDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaUnloadDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
         }
       }
     },

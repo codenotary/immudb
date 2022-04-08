@@ -8,8 +8,6 @@
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
-    - [CloseDatabaseRequest](#immudb.schema.CloseDatabaseRequest)
-    - [CloseDatabaseResponse](#immudb.schema.CloseDatabaseResponse)
     - [Column](#immudb.schema.Column)
     - [CommittedSQLTx](#immudb.schema.CommittedSQLTx)
     - [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry)
@@ -53,6 +51,8 @@
     - [KeyRequest](#immudb.schema.KeyRequest)
     - [KeyValue](#immudb.schema.KeyValue)
     - [LinearProof](#immudb.schema.LinearProof)
+    - [LoadDatabaseRequest](#immudb.schema.LoadDatabaseRequest)
+    - [LoadDatabaseResponse](#immudb.schema.LoadDatabaseResponse)
     - [LoginRequest](#immudb.schema.LoginRequest)
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
@@ -65,8 +65,6 @@
     - [NullableUint32](#immudb.schema.NullableUint32)
     - [NullableUint64](#immudb.schema.NullableUint64)
     - [Op](#immudb.schema.Op)
-    - [OpenDatabaseRequest](#immudb.schema.OpenDatabaseRequest)
-    - [OpenDatabaseResponse](#immudb.schema.OpenDatabaseResponse)
     - [OpenSessionRequest](#immudb.schema.OpenSessionRequest)
     - [OpenSessionResponse](#immudb.schema.OpenSessionResponse)
     - [Permission](#immudb.schema.Permission)
@@ -99,6 +97,8 @@
     - [TxMetadata](#immudb.schema.TxMetadata)
     - [TxRequest](#immudb.schema.TxRequest)
     - [TxScanRequest](#immudb.schema.TxScanRequest)
+    - [UnloadDatabaseRequest](#immudb.schema.UnloadDatabaseRequest)
+    - [UnloadDatabaseResponse](#immudb.schema.UnloadDatabaseResponse)
     - [UpdateDatabaseRequest](#immudb.schema.UpdateDatabaseRequest)
     - [UpdateDatabaseResponse](#immudb.schema.UpdateDatabaseResponse)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
@@ -200,36 +200,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | content | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.CloseDatabaseRequest"></a>
-
-### CloseDatabaseRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.CloseDatabaseResponse"></a>
-
-### CloseDatabaseResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
 
 
 
@@ -445,7 +415,7 @@
 | commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | indexSettings | [IndexNullableSettings](#immudb.schema.IndexNullableSettings) |  |  |
 | writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| autoOpen | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
 
 
 
@@ -962,6 +932,36 @@
 
 
 
+<a name="immudb.schema.LoadDatabaseRequest"></a>
+
+### LoadDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | may add createIfNotExist |
+
+
+
+
+
+
+<a name="immudb.schema.LoadDatabaseResponse"></a>
+
+### LoadDatabaseResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | may add setttings |
+
+
+
+
+
+
 <a name="immudb.schema.LoginRequest"></a>
 
 ### LoginRequest
@@ -1141,36 +1141,6 @@
 | kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
 | zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
 | ref | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.OpenDatabaseRequest"></a>
-
-### OpenDatabaseRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | may add createIfNotExist |
-
-
-
-
-
-
-<a name="immudb.schema.OpenDatabaseResponse"></a>
-
-### OpenDatabaseResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | may add setttings |
 
 
 
@@ -1722,6 +1692,36 @@
 
 
 
+<a name="immudb.schema.UnloadDatabaseRequest"></a>
+
+### UnloadDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.UnloadDatabaseResponse"></a>
+
+### UnloadDatabaseResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.UpdateDatabaseRequest"></a>
 
 ### UpdateDatabaseRequest
@@ -2228,8 +2228,8 @@ immudb gRPC &amp; REST service
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: kept for backward compatibility |
 | CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseV2 |
 | CreateDatabaseV2 | [CreateDatabaseRequest](#immudb.schema.CreateDatabaseRequest) | [CreateDatabaseResponse](#immudb.schema.CreateDatabaseResponse) |  |
-| OpenDatabase | [OpenDatabaseRequest](#immudb.schema.OpenDatabaseRequest) | [OpenDatabaseResponse](#immudb.schema.OpenDatabaseResponse) |  |
-| CloseDatabase | [CloseDatabaseRequest](#immudb.schema.CloseDatabaseRequest) | [CloseDatabaseResponse](#immudb.schema.CloseDatabaseResponse) |  |
+| LoadDatabase | [LoadDatabaseRequest](#immudb.schema.LoadDatabaseRequest) | [LoadDatabaseResponse](#immudb.schema.LoadDatabaseResponse) |  |
+| UnloadDatabase | [UnloadDatabaseRequest](#immudb.schema.UnloadDatabaseRequest) | [UnloadDatabaseResponse](#immudb.schema.UnloadDatabaseResponse) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | DatabaseListV2 | [DatabaseListRequestV2](#immudb.schema.DatabaseListRequestV2) | [DatabaseListResponseV2](#immudb.schema.DatabaseListResponseV2) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
