@@ -91,7 +91,7 @@
     },
     "/db/create": {
       "post": {
-        "summary": "DEPRECATED: kept for backward compatibility",
+        "summary": "DEPRECATED: Use CreateDatabaseV2",
         "operationId": "ImmuService_CreateDatabase",
         "responses": {
           "200": {
@@ -428,6 +428,7 @@
     },
     "/db/list": {
       "post": {
+        "summary": "DEPRECATED: Use DatabaseListV2",
         "operationId": "ImmuService_DatabaseList",
         "responses": {
           "200": {
@@ -2006,7 +2007,7 @@
         "settings": {
           "$ref": "#/definitions/schemaDatabaseNullableSettings"
         },
-        "open": {
+        "loaded": {
           "type": "boolean"
         }
       }

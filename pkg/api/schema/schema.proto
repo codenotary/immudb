@@ -645,7 +645,7 @@ message DatabaseListResponseV2 {
 message DatabaseWithSettings {
 	string name = 1;
 	DatabaseNullableSettings settings = 2;
-	bool open = 3;
+	bool loaded = 3;
 }
 
 message Chunk {
@@ -993,8 +993,9 @@ service ImmuService {
 		};
 	};
 
-	// DEPRECATED: kept for backward compatibility
+	// DEPRECATED: Use CreateDatabaseV2
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/db/create"
 			body: "*"
@@ -1003,6 +1004,7 @@ service ImmuService {
 
 	// DEPRECATED: Use CreateDatabaseV2
 	rpc CreateDatabaseWith(DatabaseSettings) returns (google.protobuf.Empty) {
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/db/createwith"
 			body: "*"
@@ -1030,7 +1032,9 @@ service ImmuService {
 		};
 	}
 
+	// DEPRECATED: Use DatabaseListV2
 	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/db/list"
 			body: "*"
@@ -1052,6 +1056,7 @@ service ImmuService {
 
 	// DEPRECATED: Use UpdateDatabaseV2
 	rpc UpdateDatabase(DatabaseSettings) returns (google.protobuf.Empty) {
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/db/update"
 			body: "*"
@@ -1067,6 +1072,7 @@ service ImmuService {
 
 	// DEPRECATED: Use GetDatabaseSettingsV2
 	rpc GetDatabaseSettings(google.protobuf.Empty) returns (DatabaseSettings) {
+		option deprecated = true;
 		option (google.api.http) = {
 			post: "/db/settings"
 			body: "*"
