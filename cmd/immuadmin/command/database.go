@@ -46,7 +46,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "open", "close", "update", "use", "flush", "compact"},
+		ValidArgs:         []string{"list", "create", "load", "unload", "update", "use", "flush", "compact"},
 	}
 
 	listCmd := &cobra.Command{
@@ -74,7 +74,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 					}
 					row[0] += db.Name
 
-					if db.GetOpen() {
+					if db.GetLoaded() {
 						row[1] += "LOADED"
 					} else {
 						row[1] += "UNLOADED"

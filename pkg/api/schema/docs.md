@@ -484,7 +484,7 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
-| open | [bool](#bool) |  |  |
+| loaded | [bool](#bool) |  |  |
 
 
 
@@ -2225,12 +2225,12 @@ immudb gRPC &amp; REST service
 | ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxHeader](#immudb.schema.TxHeader) |  |
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZEntries](#immudb.schema.ZEntries) |  |
-| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: kept for backward compatibility |
+| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseV2 |
 | CreateDatabaseWith | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use CreateDatabaseV2 |
 | CreateDatabaseV2 | [CreateDatabaseRequest](#immudb.schema.CreateDatabaseRequest) | [CreateDatabaseResponse](#immudb.schema.CreateDatabaseResponse) |  |
 | LoadDatabase | [LoadDatabaseRequest](#immudb.schema.LoadDatabaseRequest) | [LoadDatabaseResponse](#immudb.schema.LoadDatabaseResponse) |  |
 | UnloadDatabase | [UnloadDatabaseRequest](#immudb.schema.UnloadDatabaseRequest) | [UnloadDatabaseResponse](#immudb.schema.UnloadDatabaseResponse) |  |
-| DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
+| DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) | DEPRECATED: Use DatabaseListV2 |
 | DatabaseListV2 | [DatabaseListRequestV2](#immudb.schema.DatabaseListRequestV2) | [DatabaseListResponseV2](#immudb.schema.DatabaseListResponseV2) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | UpdateDatabase | [DatabaseSettings](#immudb.schema.DatabaseSettings) | [.google.protobuf.Empty](#google.protobuf.Empty) | DEPRECATED: Use UpdateDatabaseV2 |

@@ -1144,7 +1144,7 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			dbWithSettings := &schema.DatabaseWithSettings{
 				Name:     db.GetName(),
 				Settings: dbOpts.databaseNullableSettings(),
-				Open:     !db.IsClosed(),
+				Loaded:   !db.IsClosed(),
 			}
 
 			resp.Databases = append(resp.Databases, dbWithSettings)
@@ -1164,7 +1164,7 @@ func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseLis
 			dbWithSettings := &schema.DatabaseWithSettings{
 				Name:     perm.Database,
 				Settings: dbOpts.databaseNullableSettings(),
-				Open:     !db.IsClosed(),
+				Loaded:   !db.IsClosed(),
 			}
 
 			resp.Databases = append(resp.Databases, dbWithSettings)
