@@ -100,8 +100,8 @@ type ImmuClient interface {
 	DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
 	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
-	OpenDatabase(ctx context.Context, r *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error)
-	CloseDatabase(ctx context.Context, r *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error)
+	LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error)
+	UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
 	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
@@ -1486,32 +1486,32 @@ func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings
 	return res, nil
 }
 
-// OpenDatabase open an existent database by making a grpc call
-func (c *immuClient) OpenDatabase(ctx context.Context, r *schema.OpenDatabaseRequest) (*schema.OpenDatabaseResponse, error) {
+// LoadDatabase open an existent database by making a grpc call
+func (c *immuClient) LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	res, err := c.ServiceClient.OpenDatabase(ctx, r)
+	res, err := c.ServiceClient.LoadDatabase(ctx, r)
 
-	c.Logger.Debugf("OpenDatabase finished in %s", time.Since(start))
+	c.Logger.Debugf("LoadDatabase finished in %s", time.Since(start))
 
 	return res, err
 }
 
-// CloseDatabase close an existent database by making a grpc call
-func (c *immuClient) CloseDatabase(ctx context.Context, r *schema.CloseDatabaseRequest) (*schema.CloseDatabaseResponse, error) {
+// UnloadDatabase close an existent database by making a grpc call
+func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	res, err := c.ServiceClient.CloseDatabase(ctx, r)
+	res, err := c.ServiceClient.UnloadDatabase(ctx, r)
 
-	c.Logger.Debugf("CloseDatabase finished in %s", time.Since(start))
+	c.Logger.Debugf("UnloadDatabase finished in %s", time.Since(start))
 
 	return res, err
 }

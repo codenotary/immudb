@@ -518,7 +518,7 @@ message DatabaseNullableSettings {
 
 	NullableUint32 writeTxHeaderVersion = 20;
 	
-	NullableBool autoOpen = 21;
+	NullableBool autoload = 21;
 }
 
 message ReplicationNullableSettings {
@@ -546,21 +546,21 @@ message IndexNullableSettings {
 	NullableFloat   cleanupPercentage = 13;
 }
 
-message OpenDatabaseRequest {
+message LoadDatabaseRequest {
 	string database = 1;
 	// may add createIfNotExist
 }
 
-message OpenDatabaseResponse {
+message LoadDatabaseResponse {
 	string database = 1;
 	// may add setttings
 }
 
-message CloseDatabaseRequest {
+message UnloadDatabaseRequest {
 	string database = 1;
 }
 
-message CloseDatabaseResponse {
+message UnloadDatabaseResponse {
 	string database = 1;
 }
 
@@ -1016,16 +1016,16 @@ service ImmuService {
 		};
 	}
 
-	rpc OpenDatabase(OpenDatabaseRequest) returns (OpenDatabaseResponse) {
+	rpc LoadDatabase(LoadDatabaseRequest) returns (LoadDatabaseResponse) {
 		option (google.api.http) = {
-			post: "/db/open"
+			post: "/db/load"
 			body: "*"
 		};
 	}
 
-	rpc CloseDatabase(CloseDatabaseRequest) returns (CloseDatabaseResponse) {
+	rpc UnloadDatabase(UnloadDatabaseRequest) returns (UnloadDatabaseResponse) {
 		option (google.api.http) = {
-			post: "/db/close"
+			post: "/db/unload"
 			body: "*"
 		};
 	}

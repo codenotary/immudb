@@ -52,7 +52,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 		_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
 			Database: SystemDBName,
 			Settings: &schema.DatabaseNullableSettings{
-				AutoOpen: &schema.NullableBool{Value: false},
+				Autoload: &schema.NullableBool{Value: false},
 			},
 		})
 		require.Error(t, err)
@@ -61,7 +61,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 		_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
 			Database: DefaultDBName,
 			Settings: &schema.DatabaseNullableSettings{
-				AutoOpen: &schema.NullableBool{Value: false},
+				Autoload: &schema.NullableBool{Value: false},
 			},
 		})
 		require.Error(t, err)
@@ -81,12 +81,12 @@ func TestServerDatabaseRuntime(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, res)
 		require.Equal(t, "db1", res.Database)
-		require.True(t, res.Settings.AutoOpen.GetValue())
+		require.True(t, res.Settings.Autoload.GetValue())
 
 		_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
 			Database: "db1",
 			Settings: &schema.DatabaseNullableSettings{
-				AutoOpen: &schema.NullableBool{Value: false},
+				Autoload: &schema.NullableBool{Value: false},
 			},
 		})
 		require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, res)
 		require.Equal(t, "db1", res.Database)
-		require.False(t, res.Settings.AutoOpen.GetValue())
+		require.False(t, res.Settings.Autoload.GetValue())
 
 	})
 
