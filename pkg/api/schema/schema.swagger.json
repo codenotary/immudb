@@ -2685,14 +2685,14 @@
             "$ref": "#/definitions/schemaKeyValue"
           }
         },
+        "noWait": {
+          "type": "boolean"
+        },
         "preconditions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaPrecondition"
           }
-        },
-        "noWait": {
-          "type": "boolean"
         }
       }
     },

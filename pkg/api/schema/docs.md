@@ -1450,8 +1450,8 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
-| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
 | noWait | [bool](#bool) |  |  |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
 
 
 

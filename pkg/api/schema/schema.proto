@@ -273,8 +273,8 @@ message InclusionProof {
 
 message SetRequest {
 	repeated KeyValue KVs = 1;
-	repeated Precondition preconditions = 4;
 	bool  noWait = 2;
+	repeated Precondition preconditions = 3;
 }
 
 message KeyRequest {
