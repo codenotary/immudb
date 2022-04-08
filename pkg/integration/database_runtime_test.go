@@ -77,7 +77,7 @@ func TestDatabasdeOpeningClosing(t *testing.T) {
 
 	t.Run("attempt to load an already open database should fail", func(t *testing.T) {
 		_, err := client.LoadDatabase(context.Background(), &schema.LoadDatabaseRequest{Database: "db1"})
-		require.Contains(t, err.Error(), "database already open")
+		require.Contains(t, err.Error(), "database already loaded")
 	})
 
 	t.Run("attempt to unload unexistent database should fail", func(t *testing.T) {
