@@ -280,7 +280,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.PgsqlServer {
 		go func() {
-			s.Logger.Infof("pgsl server is running at port %d", s.Options.PgsqlServerPort)
+			s.Logger.Infof("pgsql server is running at port %d", s.Options.PgsqlServerPort)
 			if err := s.PgsqlSrv.Serve(); err != nil {
 				s.pgsqlMux.Unlock()
 				log.Fatal(err)
