@@ -54,7 +54,8 @@ const sysDBIndex = math.MaxInt32
 type ImmuServer struct {
 	OS immuos.OS
 
-	dbList database.DatabaseList
+	dbList      database.DatabaseList
+	dbListMutex sync.Mutex // TODO: convert dbList into a dbManager capable of opening/closing/deleting dbs
 
 	replicators      map[string]*replication.TxReplicator
 	replicationMutex sync.Mutex

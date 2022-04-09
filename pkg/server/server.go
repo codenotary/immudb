@@ -747,17 +747,27 @@ func (s *ImmuServer) CreateDatabaseWith(ctx context.Context, req *schema.Databas
 }
 
 // CreateDatabaseV2 Create a new database instance
-func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDatabaseRequest) (*schema.CreateDatabaseResponse, error) {
+func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDatabaseRequest) (res *schema.CreateDatabaseResponse, err error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	s.Logger.Infof("Creating database '%s'...", req.Name)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully created", req.Name)
+		} else {
+			s.Logger.Infof("Database '%s' could not be created. Reason: %v", req.Name, err)
+		}
+	}()
 
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
 	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
+		return nil, ErrAuthMustBeEnabled
 	}
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -766,15 +776,11 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	}
 
 	if !user.IsSysAdmin {
-		return nil, fmt.Errorf("logged In user does not have permissions for this operation")
+		return nil, fmt.Errorf("loggedin user does not have permissions for this operation")
 	}
 
-	if req.Name == SystemDBName {
-		return nil, fmt.Errorf("this database name is reserved")
-	}
-
-	if strings.ToLower(req.Name) != req.Name {
-		return nil, fmt.Errorf("provide a lowercase database name")
+	if req.Name == s.Options.defaultDBName || req.Name == s.Options.systemAdminDBName {
+		return nil, ErrReservedDatabase
 	}
 
 	req.Name = strings.ToLower(req.Name)
@@ -782,9 +788,12 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		return nil, err
 	}
 
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
 	//check if database exists
 	if s.dbList.GetId(req.Name) >= 0 {
-		return nil, fmt.Errorf("database '%s' already exists", req.Name)
+		return nil, database.ErrDatabaseAlreadyExists
 	}
 
 	dbOpts := s.defaultDBOptions(req.Name)
@@ -813,7 +822,7 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 
 	err = s.startReplicationFor(db, dbOpts)
 	if err != nil && err != ErrReplicatorNotNeeded {
-		s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", db.GetName(), err)
+		return nil, fmt.Errorf("%w: while starting replication", err)
 	}
 
 	return &schema.CreateDatabaseResponse{
@@ -822,17 +831,27 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	}, nil
 }
 
-func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
+func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseRequest) (res *schema.LoadDatabaseResponse, err error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("%w: while opening database '%s'", ErrAuthMustBeEnabled, req.Database)
+	s.Logger.Infof("Loadinig database '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully loaded", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be loaded. Reason: %v", req.Database, err)
+		}
+	}()
+
+	if req.Database == s.Options.defaultDBName || req.Database == s.Options.systemAdminDBName {
+		return nil, ErrReservedDatabase
 	}
 
-	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
-		return nil, fmt.Errorf("%w: while opening database '%s'", ErrReservedDatabase, req.Database)
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
 	}
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -846,13 +865,16 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
 	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
-		return nil, fmt.Errorf("%w: while opening database '%s'", err, req.Database)
+		return nil, err
 	}
 
 	if !db.IsClosed() {
-		return nil, fmt.Errorf("%w: while opening database '%s'", ErrDatabaseAlreadyLoaded, req.Database)
+		return nil, ErrDatabaseAlreadyLoaded
 	}
 
 	dbOpts, err := s.loadDBOptions(req.Database, false)
@@ -865,8 +887,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	db, err = database.OpenDB(req.Database, s.databaseOptionsFrom(dbOpts), s.Logger)
 	if err != nil {
-		s.Logger.Errorf("could not open database '%s'. Reason: %v", req.Database, err)
-		return nil, fmt.Errorf("could not open database '%s'. Reason: %w", req.Database, err)
+		return nil, fmt.Errorf("%w: while opening database", err)
 	}
 
 	s.dbList.Put(db)
@@ -874,7 +895,7 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(db, dbOpts)
 		if err != nil && err != ErrReplicatorNotNeeded {
-			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
+			return nil, fmt.Errorf("%w: while starting replication", err)
 		}
 	}
 
@@ -883,17 +904,27 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 	}, nil
 }
 
-func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
+func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatabaseRequest) (res *schema.UnloadDatabaseResponse, err error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("%w: while closing database '%s'", ErrAuthMustBeEnabled, req.Database)
+	s.Logger.Infof("Unloading database '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully unloaded", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be unloaded. Reason: %v", req.Database, err)
+		}
+	}()
+
+	if req.Database == s.Options.defaultDBName || req.Database == s.Options.systemAdminDBName {
+		return nil, ErrReservedDatabase
 	}
 
-	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
-		return nil, fmt.Errorf("%w: while closing database '%s'", ErrReservedDatabase, req.Database)
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
 	}
 
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -907,30 +938,33 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
 	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
-		return nil, fmt.Errorf("%w: while closing database '%s'", err, req.Database)
+		return nil, err
 	}
 
 	if db.IsClosed() {
-		return nil, fmt.Errorf("%w: while closing database '%s'", store.ErrAlreadyClosed, req.Database)
+		return nil, store.ErrAlreadyClosed
 	}
 
 	dbOpts, err := s.loadDBOptions(req.Database, false)
 	if err != nil {
-		return nil, fmt.Errorf("%w: while loading database settings", err)
+		return nil, fmt.Errorf("%w: while reading database settings", err)
 	}
 
 	if dbOpts.isReplicatorRequired() {
 		err = s.stopReplicationFor(req.Database)
 		if err != nil && err != ErrReplicationNotInProgress {
-			s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
+			return nil, fmt.Errorf("%w: while stopping replication", err)
 		}
 	}
 
 	err = db.Close()
 	if err != nil {
-		return nil, fmt.Errorf("%w: while closing database '%s'", err, req.Database)
+		return nil, err
 	}
 
 	return &schema.UnloadDatabaseResponse{
@@ -943,11 +977,21 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 		return nil, ErrIllegalArguments
 	}
 
+	s.Logger.Infof("Deleting database '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully deleted", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be deleted. Reason: %v", req.Database, err)
+		}
+	}()
+
 	if !s.Options.GetAuth() {
 		return nil, ErrAuthMustBeEnabled
 	}
 
-	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
+	if req.Database == s.Options.defaultDBName || req.Database == s.Options.systemAdminDBName {
 		return nil, ErrReservedDatabase
 	}
 
@@ -962,15 +1006,8 @@ func (s *ImmuServer) DeleteDatabase(ctx context.Context, req *schema.DeleteDatab
 		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
-	s.Logger.Infof("Deleting database '%s'...", req.Database)
-
-	defer func() {
-		if err == nil {
-			s.Logger.Infof("Database '%s' succesfully deleted", req.Database)
-		} else {
-			s.Logger.Infof("Database '%s' could not be deleted. Reason: %v", req.Database, err)
-		}
-	}()
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
 
 	db, err := s.dbList.Delete(req.Database)
 	if err != nil {
@@ -1010,10 +1047,20 @@ func (s *ImmuServer) UpdateDatabase(ctx context.Context, req *schema.DatabaseSet
 }
 
 // UpdateDatabaseV2 Updates database settings
-func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDatabaseRequest) (*schema.UpdateDatabaseResponse, error) {
+func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDatabaseRequest) (res *schema.UpdateDatabaseResponse, err error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
+
+	s.Logger.Infof("Updating database settings for '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully updated", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be updated. Reason: %v", req.Database, err)
+		}
+	}()
 
 	if s.Options.GetMaintenance() {
 		return nil, ErrNotAllowedInMaintenanceMode
@@ -1023,7 +1070,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		return nil, ErrAuthMustBeEnabled
 	}
 
-	if req.Database == s.Options.defaultDBName || req.Database == SystemDBName {
+	if req.Database == s.Options.defaultDBName || req.Database == s.Options.systemAdminDBName {
 		return nil, ErrReservedDatabase
 	}
 
@@ -1038,6 +1085,9 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
 	dbOpts, err := s.loadDBOptions(req.Database, false)
 	if err == store.ErrKeyNotFound {
 		return nil, database.ErrDatabaseNotExists
@@ -1045,8 +1095,6 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	if err != nil {
 		return nil, fmt.Errorf("%w: while loading database settings", err)
 	}
-
-	s.Logger.Infof("Updating database settings for '%s'...", req.Database)
 
 	db, err := s.dbList.GetByName(req.Database)
 	if err != nil {
@@ -1056,7 +1104,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {
 		err = s.stopReplicationFor(req.Database)
 		if err != nil && err != ErrReplicationNotInProgress {
-			s.Logger.Errorf("Error stopping replication for database '%s'. Reason: %v", req.Database, err)
+			return nil, fmt.Errorf("%w: while stopping replication", err)
 		}
 	}
 
@@ -1069,7 +1117,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 
 	err = s.saveDBOptions(dbOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: while saving updated settings", err)
 	}
 
 	s.logDBOptions(db.GetName(), dbOpts)
@@ -1081,11 +1129,9 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {
 		err = s.startReplicationFor(db, dbOpts)
 		if err != nil && err != ErrReplicatorNotNeeded {
-			s.Logger.Errorf("Error starting replication for database '%s'. Reason: %v", req.Database, err)
+			return nil, fmt.Errorf("%w: while staring replication", err)
 		}
 	}
-
-	s.Logger.Infof("Database settings for '%s' successfully updated", req.Database)
 
 	return &schema.UpdateDatabaseResponse{
 		Database: req.Database,
