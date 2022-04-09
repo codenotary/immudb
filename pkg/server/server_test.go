@@ -231,7 +231,12 @@ func TestServerCreateDatabaseCaseError(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	_, err = s.CreateDatabaseWith(ctx, newdb)
-	assert.Equal(t, err.Error(), "provide a lowercase database name")
+	assert.NoError(t, err)
+
+	newdb.DatabaseName = strings.ToLower(newdb.DatabaseName)
+
+	_, err = s.CreateDatabaseWith(ctx, newdb)
+	assert.ErrorIs(t, err, database.ErrDatabaseAlreadyExists)
 }
 
 func TestServerCreateMultipleDatabases(t *testing.T) {
@@ -1464,7 +1469,7 @@ func TestServerErrors(t *testing.T) {
 	createDbReq := &schema.DatabaseSettings{DatabaseName: someDb2}
 	s.Options.auth = false
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
-	require.Equal(t, errors.New("this command is available only with authentication on"), err)
+	require.ErrorIs(t, err, ErrAuthMustBeEnabled)
 	s.Options.auth = true
 
 	_, err = s.CreateDatabaseWith(context.Background(), nil)
@@ -1474,11 +1479,11 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, errors.New("could not get loggedin user data"), err)
 
 	_, err = s.CreateDatabaseWith(userCtx, createDbReq)
-	require.Equal(t, errors.New("logged In user does not have permissions for this operation"), err)
+	require.Equal(t, errors.New("loggedin user does not have permissions for this operation"), err)
 
 	createDbReq.DatabaseName = SystemDBName
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
-	require.Equal(t, errors.New("this database name is reserved"), err)
+	require.ErrorIs(t, err, ErrReservedDatabase)
 	createDbReq.DatabaseName = someDb2
 
 	createDbReq.DatabaseName = ""
@@ -1487,7 +1492,7 @@ func TestServerErrors(t *testing.T) {
 
 	createDbReq.DatabaseName = someDb1
 	_, err = s.CreateDatabaseWith(adminCtx, createDbReq)
-	require.Equal(t, fmt.Errorf("database '%s' already exists", someDb1), err)
+	require.ErrorIs(t, err, database.ErrDatabaseAlreadyExists)
 
 	// ChangePassword errors
 	s.Options.auth = false
