@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestDatabasdeOpeningClosing(t *testing.T) {
+func TestDatabaseLoadingUnloading(t *testing.T) {
 	options := server.DefaultOptions()
 	bs := servertest.NewBufconnServer(options)
 

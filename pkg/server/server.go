@@ -103,22 +103,21 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to create data dir: %v", err)
 	}
 
-	remoteStorage, err := s.createRemoteStorageInstance()
+	s.remoteStorage, err = s.createRemoteStorageInstance()
 	if err != nil {
 		return logErr(s.Logger, "Unable to open remote storage: %v", err)
 	}
-	s.remoteStorage = remoteStorage
 
-	err = s.initializeRemoteStorage(remoteStorage)
+	err = s.initializeRemoteStorage(s.remoteStorage)
 	if err != nil {
 		return logErr(s.Logger, "Unable to initialize remote storage: %v", err)
 	}
 
-	if err = s.loadSystemDatabase(dataDir, remoteStorage, adminPassword); err != nil {
+	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword); err != nil {
 		return logErr(s.Logger, "Unable to load system database: %v", err)
 	}
 
-	if err = s.loadDefaultDatabase(dataDir, remoteStorage); err != nil {
+	if err = s.loadDefaultDatabase(dataDir, s.remoteStorage); err != nil {
 		return logErr(s.Logger, "Unable to load default database: %v", err)
 	}
 
@@ -132,7 +131,7 @@ func (s *ImmuServer) Initialize() error {
 	if s.sysDB.IsReplica() {
 		s.Logger.Infof("Recovery mode. Only '%s' and '%s' databases are loaded", SystemDBName, DefaultDBName)
 	} else {
-		if err = s.loadUserDatabases(dataDir, remoteStorage); err != nil {
+		if err = s.loadUserDatabases(dataDir, s.remoteStorage); err != nil {
 			return logErr(s.Logger, "Unable load databases: %v", err)
 		}
 	}
@@ -171,11 +170,13 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
+
 	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
-	if remoteStorage != nil {
-		err := s.updateRemoteUUID(remoteStorage)
+
+	if s.remoteStorage != nil {
+		err := s.updateRemoteUUID(s.remoteStorage)
 		if err != nil {
 			return logErr(s.Logger, "Unable to persist uuid on the remote storage: %v", err)
 		}

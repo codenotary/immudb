@@ -38,7 +38,6 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 }
 
 func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) error {
-
 	if storage == nil {
 		// No remote storage
 		return nil
