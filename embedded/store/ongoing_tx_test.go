@@ -43,7 +43,7 @@ func TestOngoingTXAddPrecondition(t *testing.T) {
 
 func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	otx := &OngoingTx{}
-	idx := &indexer{}
+	idx := &dummyKeyIndex{}
 
 	err := otx.checkPreconditions(idx)
 	require.NoError(t, err)
@@ -71,4 +71,20 @@ func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
 	}
 	err = otx.checkPreconditions(idx)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
+type dummyKeyIndex struct {
+	closed bool
+}
+
+func (i *dummyKeyIndex) Get(key []byte) (valRef ValueRef, err error) {
+	return i.GetWith(key, IgnoreDeleted)
+}
+
+func (i *dummyKeyIndex) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+	if i.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	return nil, ErrKeyNotFound
 }

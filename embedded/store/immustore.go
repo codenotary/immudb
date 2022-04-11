@@ -924,7 +924,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 			return nil, err
 		}
 
-		err = otx.checkPreconditions(s.indexer)
+		err = otx.checkPreconditions(s)
 		if err != nil {
 			return nil, err
 		}
@@ -1050,7 +1050,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 			return nil, err
 		}
 
-		err = otx.checkPreconditions(s.indexer)
+		err = otx.checkPreconditions(s)
 		if err != nil {
 			s.mutex.Unlock()
 			return nil, err
@@ -1345,7 +1345,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 			return nil, err
 		}
 
-		err = otx.checkPreconditions(s.indexer)
+		err = otx.checkPreconditions(s)
 		if err != nil {
 			return nil, err
 		}

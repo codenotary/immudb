@@ -28,7 +28,7 @@ type Precondition interface {
 	Validate(st *ImmuStore) error
 
 	// Check performs the validation on a current state of the database
-	Check(idx *indexer) (bool, error)
+	Check(idx KeyIndex) (bool, error)
 }
 
 type PreconditionKeyMustExist struct {
@@ -49,8 +49,8 @@ func (cs *PreconditionKeyMustExist) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyMustExist) Check(idx *indexer) (bool, error) {
-	_, _, _, err := idx.Get(cs.Key)
+func (cs *PreconditionKeyMustExist) Check(idx KeyIndex) (bool, error) {
+	_, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
@@ -76,8 +76,8 @@ func (cs *PreconditionKeyMustNotExist) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyMustNotExist) Check(idx *indexer) (bool, error) {
-	_, _, _, err := idx.Get(cs.Key)
+func (cs *PreconditionKeyMustNotExist) Check(idx KeyIndex) (bool, error) {
+	_, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
@@ -108,8 +108,8 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
 	return nil
 }
 
-func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx *indexer) (bool, error) {
-	_, tx, _, err := idx.Get(cs.Key)
+func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx KeyIndex) (bool, error) {
+	valRef, err := idx.Get(cs.Key)
 	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
 		return false, err
 	}
@@ -119,5 +119,5 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx *indexer) (bool, error) {
 		return true, nil
 	}
 
-	return tx <= cs.TxID, nil
+	return valRef.Tx() <= cs.TxID, nil
 }
