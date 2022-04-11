@@ -72,16 +72,24 @@ var metricsBtreeDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "Btree depth",
 }, []string{"id"})
 
+var metricsBtreeNodeEntriesHistogramBuckets = []float64{
+	1, 2, 3, 4, 5, 6, 7, 8, 9,
+	10, 15, 20, 25, 30, 40, 50, 75,
+	100, 200, 300, 400, 500, 600, 700, 800, 900,
+	1000, 1200, 1400, 1600, 1800,
+	2000, 2500, 3000, 3500, 4000,
+}
+
 var metricsBtreeInnerNodeEntries = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "immudb_btree_inner_node_entries",
 	Help:    "Histogram of number of entries in as single inner btree node, calculated when visiting btree nodes",
-	Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50, 75, 100, 200, 300, 500},
+	Buckets: metricsBtreeNodeEntriesHistogramBuckets,
 }, []string{"id"})
 
 var metricsBtreeLeafNodeEntries = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "immudb_btree_leaf_node_entries",
 	Help:    "Histogram of number of entries in as single leaf btree node, calculated when visiting btree nodes",
-	Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50, 75, 100, 200, 300, 500},
+	Buckets: metricsBtreeNodeEntriesHistogramBuckets,
 }, []string{"id"})
 
 var metricsBtreeNodesDataBeginOffset = promauto.NewGaugeVec(prometheus.GaugeOpts{
