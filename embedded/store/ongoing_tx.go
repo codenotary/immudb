@@ -303,7 +303,7 @@ func (tx *OngoingTx) hasPreconditions() bool {
 	return len(tx.preconditions) > 0
 }
 
-func (tx *OngoingTx) checkPreconditions(idx *indexer) error {
+func (tx *OngoingTx) checkPreconditions(idx KeyIndex) error {
 	for _, c := range tx.preconditions {
 		if c == nil {
 			return ErrInvalidPreconditionNull

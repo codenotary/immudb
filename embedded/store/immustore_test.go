@@ -2239,6 +2239,42 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return la.Appendable.Append(bs)
 }
 
+func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
+	immuStore, err := Open("preconditions_store", DefaultOptions().WithMaxConcurrency(1))
+	require.NoError(t, err)
+
+	defer immuStore.Close()
+	defer os.RemoveAll("preconditions_store")
+
+	otx, err := immuStore.NewTx()
+	require.NoError(t, err)
+
+	md := NewKVMetadata()
+
+	err = md.AsDeleted(true)
+	require.NoError(t, err)
+
+	err = otx.Set([]byte("key1"), md, []byte("value1"))
+	require.NoError(t, err)
+
+	_, err = otx.Commit()
+	require.NoError(t, err)
+
+	t.Run("must not exist constraint should pass when evaluated over a deleted key", func(t *testing.T) {
+		otx, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyMustNotExist{[]byte("key1")})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.NoError(t, err)
+	})
+}
+
 func BenchmarkSyncedAppend(b *testing.B) {
 	opts := DefaultOptions().WithMaxConcurrency(1)
 	immuStore, _ := Open("data_synced_bench", opts)
