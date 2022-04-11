@@ -34,11 +34,13 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
 	}
 
-	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
-		return err
-	}
+	if c.ServiceClient == nil {
+		if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
+			return err
+		}
 
-	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+		c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+	}
 
 	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
 		Username:     user,
@@ -84,8 +86,10 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 		return errors.FromError(err)
 	}
 
-	if err := c.clientConn.Close(); err != nil {
-		return err
+	if c.clientConn != nil {
+		if err := c.clientConn.Close(); err != nil {
+			return err
+		}
 	}
 
 	return nil
