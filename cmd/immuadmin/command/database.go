@@ -156,12 +156,22 @@ func (cl *commandline) database(cmd *cobra.Command) {
 
 	deleteCmd := &cobra.Command{
 		Use:               "delete",
-		Short:             "Delete database",
-		Example:           "delete {database_name}",
+		Short:             "Delete database (unrecoverable operation)",
+		Example:           "delete --yes-i-know-what-i-am-doing {database_name}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := cl.immuClient.DeleteDatabase(cl.context, &schema.DeleteDatabaseRequest{
+			safetyFlag, err := cmd.Flags().GetBool("yes-i-know-what-i-am-doing")
+			if err != nil {
+				return err
+			}
+
+			if !safetyFlag {
+				fmt.Fprintf(cmd.OutOrStdout(), "database '%s' was not deleted. Safety flag not set\n", args[0])
+				return nil
+			}
+
+			_, err = cl.immuClient.DeleteDatabase(cl.context, &schema.DeleteDatabaseRequest{
 				Database: args[0],
 			})
 			if err != nil {
@@ -173,6 +183,8 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		},
 		Args: cobra.ExactArgs(1),
 	}
+	deleteCmd.Flags().Bool("yes-i-know-what-i-am-doing", false, "safety flag to confirm database deletion")
+	deleteCmd.MarkFlagRequired("yes-i-know-what-i-am-doing")
 
 	updateCmd := &cobra.Command{
 		Use:               "update",
