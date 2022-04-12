@@ -2469,3 +2469,93 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 }
+
+func TestImmudbPrecodnitionIndexing(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_precondition_indexing")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	immuStore, err := Open(dir, DefaultOptions())
+	require.NoError(t, err)
+
+	t.Run("commit", func(t *testing.T) {
+
+		// First add some entries that are not indexed
+		immuStore.indexer.Pause()
+
+		for i := 1; i < 100; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte(fmt.Sprintf("key_%d", i)), nil, []byte(fmt.Sprintf("value_%d", i)))
+			require.NoError(t, err)
+
+			_, err = tx.AsyncCommit()
+			require.NoError(t, err)
+		}
+
+		// Next prepare transaction with preconditions - this must wait for the indexer
+		tx, err := immuStore.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("key"), nil, []byte("value"))
+		require.NoError(t, err)
+
+		err = tx.AddPrecondition(&PreconditionKeyMustExist{
+			Key: []byte("key_99"),
+		})
+		require.NoError(t, err)
+
+		err = tx.AddPrecondition(&PreconditionKeyMustNotExist{
+			Key: []byte("key_100"),
+		})
+		require.NoError(t, err)
+
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			immuStore.indexer.Resume()
+		}()
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("commitWith", func(t *testing.T) {
+
+		// First add some entries that are not indexed
+		immuStore.indexer.Pause()
+
+		for i := 1; i < 100; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte(fmt.Sprintf("key2_%d", i)), nil, []byte(fmt.Sprintf("value2_%d", i)))
+			require.NoError(t, err)
+
+			_, err = tx.AsyncCommit()
+			require.NoError(t, err)
+		}
+
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			immuStore.indexer.Resume()
+		}()
+
+		// Next prepare transaction with preconditions - this must wait for the indexer
+		_, err = immuStore.CommitWith(func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
+			return []*EntrySpec{{
+					Key:   []byte("key2"),
+					Value: []byte("value2"),
+				}}, []Precondition{
+					&PreconditionKeyMustExist{
+						Key: []byte("key2_99"),
+					},
+					&PreconditionKeyMustNotExist{
+						Key: []byte("key2_100"),
+					},
+				},
+				nil
+		}, false)
+		require.NoError(t, err)
+	})
+}
