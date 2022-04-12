@@ -906,16 +906,28 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, err
 	}
 
-	// first check is performed on the snapshot taken when opening the transaction,
-	// this will prevent acquiring the write lock and putting garbage into
-	// appendables if we can already determine that preconditions are not met.
-	//
-	// A corner case is if the DB fails to meet preconditions now but would fulfill
-	// those during final commit phase - but in such case, we are allowed to reason
-	// about the DB state in any point in time between both snapshots are checked.
-	err = otx.checkPreconditions(s.indexer)
-	if err != nil {
-		return nil, err
+	if otx.hasPreconditions() {
+		// First check is performed on the currently committed transaction.
+		// It may happen that between now and the commit of this change there are
+		// more transactions happening. This check though will prevent acquiring
+		// the write lock and putting garbage into appendables if we can already
+		// determine that preconditions are not met.
+
+		// A corner case is if the DB fails to meet preconditions now but would fulfill
+		// those during final commit phase - but in such case, we are allowed to reason
+		// about the DB state in any point in time between both checks thus it is still
+		// valid to fail precondition check.
+
+		committedTxID, _, _ := s.commitState()
+		err = s.WaitForIndexingUpto(committedTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = otx.checkPreconditions(s.indexer)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// early check to reduce amount of garbage when tx is not finally committed
@@ -1324,16 +1336,21 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, err
 	}
 
-	// first check is performed on the snapshot taken when opening the transaction,
-	// this will prevent acquiring the write lock and putting garbage into
-	// appendables if we can already determine that preconditions are not met.
-	//
-	// A corner case is if the DB fails to meet preconditions now but would fulfill
-	// those during final commit phase - but in such case, we are allowed to reason
-	// about the DB state in any point in time between both snapshots are checked.
-	err = otx.checkPreconditions(s.indexer)
-	if err != nil {
-		return nil, err
+	if otx.hasPreconditions() {
+		s.indexer.Resume()
+
+		// Preconditions must be executed with up-to-date tree
+		err = s.WaitForIndexingUpto(committedTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = otx.checkPreconditions(s.indexer)
+		if err != nil {
+			return nil, err
+		}
+
+		s.indexer.Pause()
 	}
 
 	appendableCh := make(chan appendableResult)
@@ -1367,22 +1384,6 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 	err = r.err
 	if err != nil {
 		return nil, err
-	}
-
-	if otx.hasPreconditions() {
-		s.indexer.Resume()
-		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(committedTxID, nil)
-		if err != nil {
-			s.mutex.Unlock()
-			return nil, err
-		}
-
-		err = otx.checkPreconditions(s.indexer)
-		if err != nil {
-			s.mutex.Unlock()
-			return nil, err
-		}
 	}
 
 	for i := 0; i < tx.header.NEntries; i++ {
