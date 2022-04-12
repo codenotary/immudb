@@ -85,9 +85,6 @@ jobs:
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
       steps:
-        - uses: actions/setup-go@v1
-          with:
-            go-version: 1.13
         - uses: actions/checkout@v1
         - name: Download vcn
           uses: actions/download-artifact@v2
