@@ -1,7 +1,7 @@
 # software
 
 immudb copyright info:
- Copyright 2021 CodeNotary, Inc. All rights reserved.
+ Copyright 2022 CodeNotary, Inc. All rights reserved.
  Released under [Apache 2.0 License](https://raw.githubusercontent.com/codenotary/immudb/master/LICENSE).
 
 Readme has been inspired by the amazing Netdata community project.
