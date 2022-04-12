@@ -2,27 +2,13 @@ name: pushCI
 
 on:
   push:
-    branches: master
-    tags: 'v*'
+    branches:
+      - master
+    tags:
+      - 'v*'
 
 jobs:
-  install_vcn:
-    name: Install VCN
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          sudo apt update && sudo apt install curl -y
-          curl -L -o /tmp/vcn -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.VCN_ENTERPRISE_TOKEN }}" https://api.github.com/repos/codenotary/vcn-enterprise/releases/assets/55117082
-          CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
-          echo $CHECKSUM
-          curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
-      - name: Upload vcn
-        uses: actions/upload-artifact@v2
-        with:
-          name: vcn
-          path: /tmp/vcn
   gosec:
-    needs: install_vcn
     runs-on: ubuntu-latest
     env:
       JOB_NAME: ${{ github.job }}
@@ -32,17 +18,9 @@ jobs:
         with:
           go-version: 1.13
       - uses: actions/checkout@v1
-      - name: Download vcn
-        uses: actions/download-artifact@v2
-        with:
-          name: vcn
       - run: |
           curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
           gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
-          chmod +x ./vcn
-          VCN_USER=${{ secrets.VCN_GOSEC_USER }} VCN_PASSWORD=${{ secrets.VCN_GOSEC_PASS }} ./vcn login
-          VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_GOSEC_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --attr  --silent results-$JOB_ID.json
-          ./vcn logout
 
   binaries:
       name: Build and notarize binaries
@@ -56,20 +34,32 @@ jobs:
           with:
             go-version: 1.13
         - uses: actions/checkout@v1
-        - name: Download vcn
-          uses: actions/download-artifact@v2
-          with:
-            name: vcn
         - run: |
             GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
-            chmod +x ./vcn
-            VCN_USER=${{ secrets.VCN_BUILD_USER }} VCN_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn login
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immudb
-            sleep $[ ( $RANDOM % 10 ) + 1 ]s
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuadmin
-            sleep $[ ( $RANDOM % 10 ) + 1 ]s
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
-            ./vcn logout
+        - name: Notarize git repository
+          uses: docker://codenotary/cas
+          with:
+            args: n git://. --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+        - name: Notarize immudb
+          uses: docker://codenotary/cas
+          with:
+            args: n immudb --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+        - name: Notarize immuadmin
+          uses: docker://codenotary/cas
+          with:
+            args: n immuadmin --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+        - name: Notarize immuclient
+          uses: docker://codenotary/cas
+          with:
+            args: n immuclient --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+        - name: Upload binary artifacts
+          uses: actions/upload-artifact@v3
+          with:
+            name: immudb-binaries
+            path: |
+              immudb
+              immuclient
+              immuadmin
 
   images:
       name: Build and notarize Docker Images
@@ -86,11 +76,7 @@ jobs:
         ALMA_VERSION: almalinux-8-minimal
       steps:
         - uses: actions/checkout@v1
-        - name: Download vcn
-          uses: actions/download-artifact@v2
-          with:
-            name: vcn
-        - name: Build and notarize docker images
+        - name: Build docker images
           shell: bash
           run: |
             if [[ "${GITHUB_REF}" =~ refs/tags/v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
@@ -132,17 +118,31 @@ jobs:
             fi
 
             docker logout
-            
-            chmod +x ./vcn
-            VCN_USER=${{ secrets.VCN_IMAGE_USER }} VCN_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn login
-            
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB:dev
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB:dev-${DEBIAN_VERSION}
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB:dev-${ALMA_VERSION}
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUADMIN:dev
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUCLIENT:dev
-            
-            ./vcn logout
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }}
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.DEBIAN_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }}
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB }}:dev-${{ env.ALMA_VERSION }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
             
   coveralls:
     name: Publish coverage
