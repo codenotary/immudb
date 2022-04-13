@@ -57,6 +57,11 @@ func FromError(err error) ImmuError {
 		return nil
 	}
 
+	if immuErr, ok := err.(ImmuError); ok {
+		// Already an ImmuError instance
+		return immuErr
+	}
+
 	st, ok := status.FromError(err)
 	if ok {
 		ie := New(st.Message())
