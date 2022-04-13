@@ -520,12 +520,14 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			continue
 		}
 
+		s.logDBOptions(dbname, dbOpts)
+
 		db, err := database.OpenDB(dbname, s.databaseOptionsFrom(dbOpts), s.Logger)
 		if err != nil {
-			return fmt.Errorf("could not open database '%s'. Reason: %w", dbname, err)
+			s.Logger.Errorf("Database '%s' could not be loaded. Reason: %v", dbname, err)
+			s.dbList.Put(&closedDB{name: dbname, opts: s.databaseOptionsFrom(dbOpts)})
+			continue
 		}
-
-		s.logDBOptions(dbname, dbOpts)
 
 		if dbOpts.isReplicatorRequired() {
 			err = s.startReplicationFor(db, dbOpts)
