@@ -2349,7 +2349,9 @@ func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for entry to be expired
-	for {
+	for i := 0; ; i++ {
+		require.Less(t, i, 20, "entry expiration failed")
+
 		time.Sleep(100 * time.Millisecond)
 
 		_, err = immuStore.Get([]byte("expirableKey"))
