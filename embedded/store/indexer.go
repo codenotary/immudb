@@ -383,10 +383,8 @@ func (idx *indexer) indexTX(txID uint64) error {
 
 	indexableEntries := 0
 
-	now := time.Now()
-
 	for _, e := range txEntries {
-		if e.md != nil && (e.md.NonIndexable() || e.md.ExpiredAt(now)) {
+		if e.md != nil && e.md.NonIndexable() {
 			continue
 		}
 
