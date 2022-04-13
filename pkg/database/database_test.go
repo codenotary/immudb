@@ -362,7 +362,7 @@ func TestDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db.Delete(&schema.DeleteKeysRequest{
+	tx, err := db.Delete(&schema.DeleteKeysRequest{
 		Keys: [][]byte{
 			[]byte("key1"),
 		},
@@ -371,6 +371,14 @@ func TestDelete(t *testing.T) {
 
 	_, err = db.Get(&schema.KeyRequest{
 		Key: []byte("key1"),
+	})
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	_, err = db.VerifiableGet(&schema.VerifiableGetRequest{
+		KeyRequest: &schema.KeyRequest{
+			Key:  []byte("key1"),
+			AtTx: tx.Id,
+		},
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
 }
