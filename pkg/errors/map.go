@@ -36,6 +36,8 @@ func mapGRPcErrorCode(code Code) codes.Code {
 		return codes.Unimplemented
 	case CodInvalidDatabaseName:
 		return codes.NotFound
+	case CodIntegrityConstraintViolation:
+		return codes.FailedPrecondition
 	default:
 		return codes.Unknown
 	}

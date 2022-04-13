@@ -24,6 +24,8 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	goerrors "errors"
 )
 
 var (
@@ -61,6 +63,9 @@ func mapServerError(err error) error {
 		return ErrIllegalArguments
 	case store.ErrTxReadConflict:
 		return ErrTxReadConflict
+	}
+	if goerrors.Is(err, store.ErrPreconditionFailed) {
+		return errors.New(err.Error()).WithCode(errors.CodIntegrityConstraintViolation)
 	}
 	return err
 }

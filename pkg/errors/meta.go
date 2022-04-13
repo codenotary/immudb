@@ -32,6 +32,7 @@ const (
 	CodSqlserverRejectedEstablishmentOfSqlSession    Code = "08001"
 	CodInvalidTransactionInitiation                  Code = "0B000"
 	CodInFailedSqlTransaction                        Code = "25P02"
+	CodIntegrityConstraintViolation                  Code = "23000"
 )
 
 var (

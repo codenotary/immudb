@@ -30,4 +30,5 @@ const (
 	CodInvalidDatabaseName                           Code = "3F000"
 	CodNoSessionAuthDataProvided                     Code = "28000"
 	CodInFailedSqlTransaction                        Code = "25P02"
+	CodIntegrityConstraintViolation                  Code = "23000"
 )
