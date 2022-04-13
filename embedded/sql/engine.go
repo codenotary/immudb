@@ -295,8 +295,8 @@ func (sqlTx *SQLTx) Closed() bool {
 
 func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filter: store.IgnoreDeleted,
+		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	dbReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -340,8 +340,8 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
-		Filter: store.IgnoreDeleted,
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -453,8 +453,8 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: initialKey,
-		Filter: store.IgnoreDeleted,
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -513,8 +513,8 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
 
 	idxReaderSpec := &store.KeyReaderSpec{
-		Prefix: initialKey,
-		Filter: store.IgnoreDeleted,
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)

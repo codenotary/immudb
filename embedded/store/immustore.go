@@ -545,7 +545,7 @@ func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeleted)
+	return s.GetWith(key, IgnoreExpired, IgnoreDeleted)
 }
 
 func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -561,16 +561,14 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 
 	now := time.Now()
 
-	if IgnoreExpired(valRef, now) {
-		return nil, ErrExpiredEntry
-	}
-
 	for _, filter := range filters {
 		if filter == nil {
-			return nil, ErrIllegalArguments
+			return nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
 		}
-		if filter(valRef, now) {
-			return nil, ErrKeyNotFound
+
+		err = filter(valRef, now)
+		if err != nil {
+			return nil, err
 		}
 	}
 

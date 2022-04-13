@@ -109,14 +109,14 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
 }
 
 func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx KeyIndex) (bool, error) {
-	valRef, err := idx.Get(cs.Key)
-	if err != nil && !errors.Is(err, tbtree.ErrKeyNotFound) {
-		return false, err
-	}
-
-	if err != nil {
-		// Key does not exist thus not modified at all
+	// get the latest entry (it could be deleted or even expired)
+	valRef, err := idx.GetWith(cs.Key)
+	if err != nil && errors.Is(err, ErrKeyNotFound) {
+		// key does not exist thus not modified at all
 		return true, nil
+	}
+	if err != nil {
+		return false, err
 	}
 
 	return valRef.Tx() <= cs.TxID, nil
