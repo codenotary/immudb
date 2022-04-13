@@ -1194,10 +1194,19 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		// already expired
 		_, err = immuStore.Get([]byte("expirableKey"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, ErrExpiredEntry)
 
-		// expired entries are never returned
-		_, err = immuStore.GetWith([]byte("expirableKey"))
+		// expired entries can not be resolved
+		valRef, err = immuStore.GetWith([]byte("expirableKey"))
+		require.NoError(t, err)
+		_, err = valRef.Resolve()
 		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, ErrExpiredEntry)
+
+		// expired entries are not returned
+		_, err = immuStore.GetWith([]byte("expirableKey"), IgnoreExpired)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, ErrExpiredEntry)
 	})
 
 	t.Run("expired keys should not be reachable", func(t *testing.T) {
@@ -1220,9 +1229,12 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = immuStore.Get([]byte("expirableKey"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		// expired entries are never returned
-		_, err = immuStore.GetWith([]byte("expirableKey"))
+		// expired entries can not be resolved
+		valRef, err := immuStore.GetWith([]byte("expirableKey"))
+		require.NoError(t, err)
+		_, err = valRef.Resolve()
 		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, ErrExpiredEntry)
 	})
 }
 
@@ -2246,15 +2258,21 @@ func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
 	defer immuStore.Close()
 	defer os.RemoveAll("preconditions_store")
 
+	// set initial value
 	otx, err := immuStore.NewTx()
 	require.NoError(t, err)
 
-	md := NewKVMetadata()
-
-	err = md.AsDeleted(true)
+	err = otx.Set([]byte("key1"), nil, []byte("value1"))
 	require.NoError(t, err)
 
-	err = otx.Set([]byte("key1"), md, []byte("value1"))
+	hdr1, err := otx.Commit()
+	require.NoError(t, err)
+
+	// delete entry
+	otx, err = immuStore.NewTx()
+	require.NoError(t, err)
+
+	err = otx.Delete([]byte("key1"))
 	require.NoError(t, err)
 
 	_, err = otx.Commit()
@@ -2272,6 +2290,116 @@ func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
 
 		_, err = otx.Commit()
 		require.NoError(t, err)
+	})
+
+	t.Run("must exist constraint should pass when evaluated over an existent key", func(t *testing.T) {
+		otx, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key3"), nil, []byte("value3"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyMustExist{[]byte("key2")})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("must not be modified after constraint should not pass when key is deleted after specified tx", func(t *testing.T) {
+		otx, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key4"), nil, []byte("value4"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyNotModifiedAfterTx{Key: []byte("key1"), TxID: hdr1.ID})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.ErrorIs(t, err, ErrPreconditionFailed)
+	})
+
+	t.Run("must not be modified after constraint should pass when if key does not exist", func(t *testing.T) {
+		otx, err = immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key4"), nil, []byte("value4"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyNotModifiedAfterTx{Key: []byte("nonExistentKey"), TxID: 1})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.NoError(t, err)
+	})
+
+	// insert an expirable entry
+	otx, err = immuStore.NewTx()
+	require.NoError(t, err)
+
+	md := NewKVMetadata()
+	err = md.ExpiresAt(time.Now().Add(1 * time.Second))
+	require.NoError(t, err)
+
+	err = otx.Set([]byte("expirableKey"), md, []byte("expirableValue"))
+	require.NoError(t, err)
+
+	hdr, err := otx.Commit()
+	require.NoError(t, err)
+
+	// wait for entry to be expired
+	for {
+		time.Sleep(100 * time.Millisecond)
+
+		_, err = immuStore.Get([]byte("expirableKey"))
+		if err != nil && errors.Is(err, ErrKeyNotFound) {
+			break
+		}
+
+		require.NoError(t, err)
+	}
+
+	t.Run("must not be modified after constraint should not pass when if expired and expiration was set after specified tx", func(t *testing.T) {
+		otx, err = immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key5"), nil, []byte("value5"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyNotModifiedAfterTx{Key: []byte("expirableKey"), TxID: hdr.ID - 1})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.ErrorIs(t, err, ErrPreconditionFailed)
+	})
+
+	t.Run("must not exist constraint should pass when if expired", func(t *testing.T) {
+		otx, err = immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key5"), nil, []byte("value5"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyMustNotExist{Key: []byte("expirableKey")})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("must exist constraint should not pass when if expired", func(t *testing.T) {
+		otx, err = immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = otx.Set([]byte("key5"), nil, []byte("value5"))
+		require.NoError(t, err)
+
+		err = otx.AddPrecondition(&PreconditionKeyMustExist{Key: []byte("expirableKey")})
+		require.NoError(t, err)
+
+		_, err = otx.Commit()
+		require.ErrorIs(t, err, ErrPreconditionFailed)
 	})
 }
 

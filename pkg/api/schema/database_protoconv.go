@@ -66,23 +66,27 @@ func KVMetadataToProto(md *store.KVMetadata) *KVMetadata {
 }
 
 func TxFromProto(stx *Tx) *store.Tx {
+	header := &store.TxHeader{}
+	header.ID = stx.Header.Id
+	header.Ts = stx.Header.Ts
+	header.BlTxID = stx.Header.BlTxId
+	header.BlRoot = DigestFromProto(stx.Header.BlRoot)
+	header.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
+
+	header.Version = int(stx.Header.Version)
+
+	header.Metadata = TxMetadataFromProto(stx.Header.Metadata)
+
 	entries := make([]*store.TxEntry, len(stx.Entries))
+
+	header.NEntries = int(stx.Header.Nentries)
+	header.Eh = DigestFromProto(stx.Header.EH)
 
 	for i, e := range stx.Entries {
 		entries[i] = store.NewTxEntry(e.Key, KVMetadataFromProto(e.Metadata), int(e.VLen), DigestFromProto(e.HValue), 0)
 	}
 
-	tx := store.NewTxWithEntries(entries)
-
-	hdr := tx.Header()
-
-	hdr.ID = stx.Header.Id
-	hdr.Ts = stx.Header.Ts
-	hdr.PrevAlh = DigestFromProto(stx.Header.PrevAlh)
-	hdr.BlTxID = stx.Header.BlTxId
-	hdr.BlRoot = DigestFromProto(stx.Header.BlRoot)
-	hdr.Version = int(stx.Header.Version)
-	hdr.Metadata = TxMetadataFromProto(stx.Header.Metadata)
+	tx := store.NewTxWithEntries(header, entries)
 
 	tx.BuildHashTree()
 

@@ -169,7 +169,7 @@ func TestTxHeaderBytes(t *testing.T) {
 }
 
 func TestEntryMetadataWithVersions(t *testing.T) {
-	tx := NewTxWithEntries([]*TxEntry{
+	entries := []*TxEntry{
 		NewTxEntry(
 			[]byte("key"),
 			nil,
@@ -177,7 +177,9 @@ func TestEntryMetadataWithVersions(t *testing.T) {
 			[sha256.Size]byte{},
 			0,
 		),
-	})
+	}
+
+	tx := NewTxWithEntries(&TxHeader{NEntries: len(entries)}, entries)
 
 	t.Run("calculating TX hash tree for entries without metadata must succeed", func(t *testing.T) {
 		tx.header.Version = 0
