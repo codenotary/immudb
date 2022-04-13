@@ -4,6 +4,173 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.2.3-RC1"></a>
+## [v1.2.3-RC1] - 2022-04-13
+### Bug Fixes
+- **CI/CD:** Golang compiler is not needed for building docker images
+- **CI/CD:** Use CAS for notarization
+- **embedded/store:** Ensure up-to-date index on constrained writes
+- **embedded/store:** Fix early precondition checks
+- **embedded/tbtree:** copy-on-write when increasing root ts
+- **immudb:** Fix the name of signing key env var
+- **pkg:** Fix tests after recent changes in API
+- **pkg/api:** Remove unused Sync field from IndexOptions
+- **pkg/api:** typo in kv metadata message
+- **pkg/api/schema:** Use correct id for preconditions in SetRequest
+- **pkg/auth:** Avoid unguarded read from user tokens map
+- **pkg/client:** Adopt to EncodeReference changes
+- **pkg/client:** Prevent updates with incorrect database settings
+- **pkg/client:** Use correct response for UpdateDatabaseV2
+- **pkg/client/errors:** Ensure FromErrors works with ImmuError instance
+- **pkg/client/errors:** Update the list of error codes
+- **pkg/database:** Better handling of invalid constraints
+- **pkg/database:** Improve test coverage for KV constraints
+- **pkg/database:** automatically set max score if not specified in desc order
+- **pkg/errors:** Correct GRPC error mapping for precondition failure
+- **pkg/server:** Use buffered channel for catching OS signals
+- **pkg/server:** adjust time to millis convertion
+- **pkg/server:** ensure sessions locks get released
+- **pkg/server:** override default settings with existent values
+- **pkg/server:** typo in log message
+- **tools/monitoring:** Update grafana dashboards
+
+### Changes
+- Fix typo in a comment
+- Rename Constraints to Preconditions
+- cleanup percentage as float value
+- Update copyright to 2022
+- **Dockerfile:** Improve dockerfile builds
+- **build:** improve release instructions ([#1100](https://github.com/vchain-us/immudb/issues/1100))
+- **cmd/immuadmin:** add safety flag in delete database command
+- **cmd/immuclient:** health command description
+- **embedded/ahtree:** fix error message
+- **embedded/appendable:** appendable checksum calculation
+- **embedded/appendable:** return io.EOF if there are not enough data for checksum calculation
+- **embedded/appendable:** discard capability
+- **embedded/appendable:** fix typo in error message
+- **embedded/store:** syncThld at store options
+- **embedded/store:** Add missing Copyright header
+- **embedded/store:** declare constants for all the options
+- **embedded/store:** parametrized index write buffer size
+- **embedded/store:** add synced setting in index options
+- **embedded/store:** sync aht when syncing the store
+- **embedded/store:** verbose data corruption error
+- **embedded/store:** index one tx per iteration
+- **embedded/store:** use store layer for constraint validations
+- **embedded/store:** constraint validations with deletion and expiration support
+- **embedded/store:** do not skip expired entries when indexing
+- **embedded/store:** verbose logging during compaction
+- **embedded/store:** skip expired entries during indexing
+- **embedded/store:** improve compaction logging
+- **embedded/store/options:** Simplify validation tests
+- **embedded/tbree:** only insert nodes in cache when they were mutated
+- **embedded/tbree:** use shared writeOpts
+- **embedded/tbree:** remove obsolete property
+- **embedded/tbree:** bump index version
+- **embedded/tbtree:** minOffset only for non-mutated nodes
+- **embedded/tbtree:** Add metrics for index data size
+- **embedded/tbtree:** reduce allocations when flushing
+- **embedded/tbtree:** use double for min offset calculation
+- **embedded/tbtree:** data discarding with opened and older snapshots
+- **embedded/tbtree:** improve snapshot loading and discarding
+- **embedded/tbtree:** synced flush if cleanup percentage is greater than zero
+- **embedded/tbtree:** Add more internal metrics
+- **embedded/tbtree:** reduce allocs during flush
+- **embedded/tbtree:** ensure current snapshot is synced for compaction
+- **embedded/tbtree:** validate input kv pairs before sorting
+- **embedded/tbtree:** Use KV entries count for sync threshold
+- **embedded/tbtree:** no cache update during compaction reads
+- **embedded/tbtree:** discard unreferenced data when flushing index
+- **embedded/tbtree:** discard unreferenced data
+- **embedded/tbtree:** middle node split
+- **embedded/tbtree:** min offset handling
+- **embedded/tbtree:** validate compaction target path
+- **embedded/tbtree:** positive compaction threshold
+- **embedded/tbtree:** discard unreferenced data after sync
+- **embedded/tbtree:** ensure sync on gracefully closing
+- **embedded/tbtree:** checksum-based snapshot consistency validation
+- **embedded/tbtree:** self-healing index
+- **embedded/tbtree:** set initial offsets during initialization
+- **embedded/tbtree:** validate data-format version
+- **embedded/tbtree:** Extend buckets for child node count histogram
+- **embedded/tbtree:** reduce fixed records length
+- **embedded/tbtree:** open-ranged nodes
+- **embedded/tbtree:** wip reduce node size
+- **embedded/tbtree:** use binary search during key lookups
+- **embedded/tbtree:** fully replace sync with syncThld
+- **embedded/tbtree:** rebase non-indexed on kv syncthreshold
+- **embedded/tbtree:** explicit error validation before loading
+- **embedded/tbtree:** sort kv pairs in bulkInsert
+- **makefile:** fix cas sign instructions
+- **metrics:** Add better flush / compaction metrics for btree
+- **pkg/api:** prepare flushindex endpoint for future extensions
+- **pkg/api:** use entries spec in verified and scan tx endpoints
+- **pkg/api:** parametrized index cleanup percentage
+- **pkg/api:** non-indexable entries
+- **pkg/api:** use nullable prefix in db settings message
+- **pkg/api:** add synced param to flushindex endpoint
+- **pkg/api:** change proto schema toward db loading/unloading
+- **pkg/api:** uniform v2 endpoints
+- **pkg/api:** db loading and unloading
+- **pkg/client:** optional client connection
+- **pkg/client:** synced flushing to enable physical data deletion
+- **pkg/client:** use txRequest in TxByIDWithSpec method
+- **pkg/database:** tx entries excluded by default if non-null spec is provided
+- **pkg/database:** optional tx value resolution
+- **pkg/database:** remove db name from options
+- **pkg/database:** use shared tx holder when resolving tx entries
+- **pkg/database:** parameters to resolve references at tx
+- **pkg/integration:** integrate non-indexed into grpc apis
+- **pkg/server:** Dump used db options when loading databases
+- **pkg/server:** replication options for systemdb and defaultdb
+- **pkg/server:** use syncThreshold
+- **pkg/server:** use previous store default values
+- **pkg/server:** endpoint to retrieve settings of selected database
+- **pkg/server:** log web-console error on boot
+- **pkg/server:** start/stop replicator when loading/unloading db
+- **pkg/server:** expose max opened files for btree indexing
+- **pkg/server:** minor changes
+- **pkg/server:** synced db runtime operations
+- **pkg/server:** expose flush index endpoint
+- **pkg/server:** increase default max number of active snapshots
+- **pkg/server:** tolerate failed user-created db loading
+- **pkg/server:** convert time to milliseconds
+- **pkg/serverr:** validate request in deprecated database creation endpoint
+- **stats:** Add btree cache prometheus stats
+
+### Features
+- Entries-independent constraints in GRPC api
+- Improved API for database creation and update
+- Move KV write constraints to OngoingTX member
+- Improved validation of kv constraints
+- **KV:** Add constrained KV writes for ExecAll operation
+- **KV:** Do not create unnecessary snapshots when checking KV constraints
+- **KV:** Move constraints validation to OngoingTx
+- **KV:** Add constrained KV writes for Set operation
+- **KV:** Add constrained KV writes for Reference operation
+- **embedded/cache:** dynamic cache resizing
+- **embedded/store:** Fail to write metadata if proof version does not support it
+- **embedded/store:** Add max header version used during writes
+- **embedded/store:** non-indexable entries
+- **embedded/store:** Add tests for generation of entries with metadata
+- **embedded/store:** Allow changing tx header value using GRPC api.
+- **embedded/tbtree:** decouple flush and sync by introducing syncThreshold attribute
+- **immuadmin:** Allow changing proof compatibility from immuadmin
+- **kv:** Update grpc protocol with KV set constraints
+- **pkg/api:** delete database endpoint
+- **pkg/api:** tx api with entry filtering capabilities
+- **pkg/client:** new method to fetch tx entries in a single call
+- **pkg/database:** Updated GRPC protocol for constrained writes
+- **pkg/database:** Update code for new constrained write protocol
+- **pkg/database:** add noWait attribute in get request
+- **pkg/server:** database health endpoint
+- **pkg/server:** support database loading/unloading
+- **pkg/server:** new endpoint databaseSettings
+- **pkg/server:** expose all database settings
+- **tools/monitoring:** Add immudb Grafana dashboard
+- **tools/monitoring:** added datasource selection, added instance selection, labels include instance, fixed calculations
+
+
 <a name="v1.2.2"></a>
 ## [v1.2.2] - 2022-01-17
 ### Bug Fixes
@@ -2421,7 +2588,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.2.3-RC1...HEAD
+[v1.2.3-RC1]: https://github.com/vchain-us/immudb/compare/v1.2.2...v1.2.3-RC1
 [v1.2.2]: https://github.com/vchain-us/immudb/compare/v1.2.1...v1.2.2
 [v1.2.1]: https://github.com/vchain-us/immudb/compare/v1.2.0-RC1...v1.2.1
 [v1.2.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.1.0...v1.2.0-RC1
