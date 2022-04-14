@@ -259,7 +259,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database index '%s' successfully flushed\n", args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "database index successfully flushed\n")
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
@@ -279,7 +279,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "database index '%s' successfully compacted\n", args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "database index successfully compacted\n")
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
