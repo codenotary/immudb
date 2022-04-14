@@ -449,10 +449,6 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 		if err != nil {
 			return nil, err
 		}
-
-		if md != nil && md.Deleted() {
-			return nil, store.ErrKeyNotFound
-		}
 	}
 
 	return d.resolveValue(key, val, resolved, txID, md, index, txHolder)
@@ -460,6 +456,10 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 
 func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata,
 	index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
+	if md != nil && md.Deleted() {
+		return nil, store.ErrKeyNotFound
+	}
+
 	if len(val) < 1 {
 		return nil, fmt.Errorf(
 			"%w: internal value consistency error - missing value prefix",

@@ -362,7 +362,7 @@ func TestDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	tx, err := db.Delete(&schema.DeleteKeysRequest{
+	hdr, err = db.Delete(&schema.DeleteKeysRequest{
 		Keys: [][]byte{
 			[]byte("key1"),
 		},
@@ -377,10 +377,22 @@ func TestDelete(t *testing.T) {
 	_, err = db.VerifiableGet(&schema.VerifiableGetRequest{
 		KeyRequest: &schema.KeyRequest{
 			Key:  []byte("key1"),
-			AtTx: tx.Id,
+			AtTx: hdr.Id,
 		},
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	tx, err := db.TxByID(&schema.TxRequest{
+		Tx: hdr.Id,
+		EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{
+				Action: schema.EntryTypeAction_RESOLVE,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	require.Empty(t, tx.KvEntries)
 }
 
 func TestCurrentState(t *testing.T) {
