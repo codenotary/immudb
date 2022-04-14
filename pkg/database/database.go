@@ -449,6 +449,10 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 		if err != nil {
 			return nil, err
 		}
+
+		if md != nil && md.Deleted() {
+			return nil, store.ErrKeyNotFound
+		}
 	}
 
 	return d.resolveValue(key, val, resolved, txID, md, index, txHolder)
