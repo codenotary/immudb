@@ -339,7 +339,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 	if c.serverSigningPubKey != nil {
 		uic = append(uic, c.SignatureVerifierInterceptor)
 	}
-	uic = append(uic, c.IllegalStateHandlerInterceptor)
+	uic = append(uic, c.IllegalStateHandlerInterceptor, c.TokenInterceptor)
 
 	if options.Auth && c.Tkns != nil {
 		token, err := c.Tkns.GetToken()
@@ -349,7 +349,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
 		}
 	}
-	uic = append(uic, c.TokenInterceptor, c.SessionIDInjectorInterceptor)
+	uic = append(uic, c.SessionIDInjectorInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
