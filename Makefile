@@ -27,6 +27,7 @@ GOPATH ?= $(shell go env GOPATH)
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+GIT_CHGLOG_VER ?= 0.15.1
 
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
@@ -162,11 +163,12 @@ prerequisites:
 ########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
 CHANGELOG.md:
-	git-chglog -o CHANGELOG.md
+	$(DOCKER) run -v "$(CURDIR)":/workdir quay.io/git-chglog/git-chglog:$(GIT_CHGLOG_VER) -o CHANGELOG.md
 
 .PHONY: CHANGELOG.md.next-tag
 CHANGELOG.md.next-tag:
-	git-chglog -o CHANGELOG.md --next-tag v${VERSION}
+	$(DOCKER) pull quay.io/git-chglog/git-chglog:latest
+	$(DOCKER) run -v "$(CURDIR)":/workdir quay.io/git-chglog/git-chglog:$(GIT_CHGLOG_VER) -o CHANGELOG.md --next-tag v${VERSION}
 
 .PHONY: clean/dist
 clean/dist:
