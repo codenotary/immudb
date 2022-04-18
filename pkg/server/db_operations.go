@@ -348,7 +348,9 @@ func (s *ImmuServer) FlushIndex(ctx context.Context, req *schema.FlushIndexReque
 
 	err = db.FlushIndex(req)
 
-	return &schema.FlushIndexResponse{}, err
+	return &schema.FlushIndexResponse{
+		Database: db.GetName(),
+	}, err
 }
 
 func (s *ImmuServer) CompactIndex(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
