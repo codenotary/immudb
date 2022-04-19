@@ -356,32 +356,32 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 		// looking for a float
 		if isDot(l.r.nextChar) {
-			integerPart, _ := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64)
-			_, err := l.readDot() // consume dot
-			if err != nil {
-				lval.err = err
-				return ERROR
-			}
+			l.r.ReadByte() // consume dot
+
 			decimalPart, err := l.readNumber()
 			if err != nil {
 				lval.err = err
 				return ERROR
 			}
-			if val, err := strconv.ParseFloat(fmt.Sprintf("%d.%s", integerPart, decimalPart), 64); err == nil {
-				lval.float = val
-				return FLOAT
+
+			val, err := strconv.ParseFloat(fmt.Sprintf("%c%s.%s", ch, tail, decimalPart), 64)
+			if err != nil {
+				lval.err = err
+				return ERROR
 			}
+
+			lval.float = val
+			return FLOAT
 		}
 
-		if val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64); err == nil {
-			lval.integer = val
-			return INTEGER
-		}
-
+		val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64)
 		if err != nil {
 			lval.err = err
 			return ERROR
 		}
+
+		lval.integer = val
+		return INTEGER
 	}
 
 	if isComparison(ch) {
@@ -504,10 +504,13 @@ func (l *lexer) Lex(lval *yySymType) int {
 				lval.err = err
 				return ERROR
 			}
-			if val, err := strconv.ParseFloat(fmt.Sprintf("%d.%s", 0, decimalPart), 64); err == nil {
-				lval.float = val
-				return FLOAT
+			val, err := strconv.ParseFloat(fmt.Sprintf("%d.%s", 0, decimalPart), 64)
+			if err != nil {
+				lval.err = err
+				return ERROR
 			}
+			lval.float = val
+			return FLOAT
 		}
 		return DOT
 	}
