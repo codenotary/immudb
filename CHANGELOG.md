@@ -8,11 +8,6 @@ All notable changes to this project will be documented in this file. This projec
 ## [v1.2.3] - 2022-04-14
 ### Bug Fixes
 - **cmd/immuadmin:** simplify logging when flushing and compacting current db
-
-
-<a name="liist"></a>
-## [liist] - 2022-04-14
-### Bug Fixes
 - **pkg/database:** return key not found when resolving a deleted entry
 - **pkg/database:** Return correct error for verifiedGet on deleted entries
 
