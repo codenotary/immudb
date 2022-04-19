@@ -411,9 +411,15 @@ func TestFloatType(t *testing.T) {
 		require.NoError(t, err)
 		defer r.Close()
 
-		row, err := r.Read()
-		require.NoError(t, err)
-		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+		fv := []float64{}
+		for i := 0; i < 5; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+
+			fv = append(fv, row.ValuesByPosition[0].Value().(float64))
+		}
+		require.Equal(t, []float64{100.100, .7, .543210, 105.7, 105.98988897}, fv)
 	})
 
 	t.Run("must accept float as parameter", func(t *testing.T) {
@@ -492,10 +498,15 @@ func TestFloatIndex(t *testing.T) {
 	require.NoError(t, err)
 	defer r.Close()
 
+	prevf := float64(-1.0)
 	for i := 100; i > 0; i-- {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "id")].Value())
+
+		currf := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value().(float64)
+		require.Less(t, prevf, currf)
+		prevf = currf
 	}
 
 	_, err = r.Read()
@@ -512,7 +523,24 @@ func TestFloatIndexOnNegatives(t *testing.T) {
 	require.NoError(t, err)
 
 	var z float64
-	floatSerie := []float64{z /*0*/, -z /*-0*/, 1 / z /*+Inf*/, -1 / z /*-Inf*/, +z / z /*NaN*/, -z / z /*NaN*/, -1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0, math.MaxFloat64, -math.MaxFloat64, math.SmallestNonzeroFloat64}
+	floatSerie := []float64{
+		z,      /*0*/
+		-z,     /*-0*/
+		1 / z,  /*+Inf*/
+		-1 / z, /*-Inf*/
+		+z / z, /*NaN*/
+		-z / z, /*NaN*/
+		-1.0,
+		3.345,
+		-0.5,
+		0.0,
+		-100.8,
+		0.5,
+		1.0,
+		math.MaxFloat64,
+		-math.MaxFloat64,
+		math.SmallestNonzeroFloat64,
+	}
 
 	for _, ft := range floatSerie {
 		_, _, err = engine.Exec("INSERT INTO float_index(ft) VALUES(@ft)", map[string]interface{}{"ft": ft}, nil)

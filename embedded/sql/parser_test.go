@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -1621,4 +1622,44 @@ func TestMultiLineStmts(t *testing.T) {
 			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
 		}
 	}
+}
+
+func TestFloatCornerCases(t *testing.T) {
+
+	for _, d := range []struct {
+		s       string
+		invalid bool
+		v       ValueExp
+	}{
+		{"1", false, &Number{val: 1}},
+		{"1.", false, &Float64{val: 1}},
+		{"1.1", false, &Float64{val: 1.1}},
+		{"123.123ab1", true, nil},
+		{"1aa23.1234", true, nil},
+		{"123..1234", true, nil},
+		{"123" + strings.Repeat("1", 10000) + ".123", true, nil},
+	} {
+		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+			stmt, err := ParseString("INSERT INTO t1(v) VALUES(" + d.s + ")")
+			if d.invalid {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "syntax error")
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, []SQLStmt{
+					&UpsertIntoStmt{
+						isInsert: true,
+						tableRef: &tableRef{
+							table: "t1",
+						},
+						cols: []string{"v"},
+						rows: []*RowSpec{{
+							Values: []ValueExp{d.v},
+						}},
+					},
+				}, stmt)
+			}
+		})
+	}
+
 }
