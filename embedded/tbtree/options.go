@@ -35,6 +35,7 @@ const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxKeyLen = 1024
+const DefaultMaxValueLen = 512
 const DefaultCompactionThld = 2
 const DefaultDelayDuringCompaction = time.Duration(10) * time.Millisecond
 
@@ -42,7 +43,6 @@ const DefaultNodesLogMaxOpenedFiles = 10
 const DefaultHistoryLogMaxOpenedFiles = 1
 const DefaultCommitLogMaxOpenedFiles = 1
 
-const MinNodeSize = 128
 const MinCacheSize = 1
 
 type AppFactoryFunc func(
@@ -68,7 +68,8 @@ type Options struct {
 	historyLogMaxOpenedFiles int
 	commitLogMaxOpenedFiles  int
 
-	maxKeyLen int
+	maxKeyLen   int
+	maxValueLen int
 
 	compactionThld        int
 	delayDuringCompaction time.Duration
@@ -93,6 +94,7 @@ func DefaultOptions() *Options {
 		readOnly:              false,
 		fileMode:              DefaultFileMode,
 		maxKeyLen:             DefaultMaxKeyLen,
+		maxValueLen:           DefaultMaxValueLen,
 		compactionThld:        DefaultCompactionThld,
 		delayDuringCompaction: DefaultDelayDuringCompaction,
 
@@ -108,7 +110,7 @@ func DefaultOptions() *Options {
 
 func validOptions(opts *Options) bool {
 	return opts != nil &&
-		opts.maxNodeSize >= MinNodeSize &&
+		opts.maxNodeSize >= minNodeSize(opts.maxKeyLen, opts.maxValueLen) &&
 		opts.flushThld > 0 &&
 		opts.flushThld <= opts.syncThld &&
 		opts.flushBufferSize > 0 &&
@@ -121,6 +123,7 @@ func validOptions(opts *Options) bool {
 		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize &&
 		opts.maxKeyLen > 0 &&
+		opts.maxValueLen > 0 &&
 		opts.compactionThld > 0 &&
 		opts.log != nil
 }
@@ -197,6 +200,11 @@ func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *O
 
 func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
 	opts.maxKeyLen = maxKeyLen
+	return opts
+}
+
+func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
+	opts.maxValueLen = maxValueLen
 	return opts
 }
 

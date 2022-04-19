@@ -185,6 +185,7 @@ type TBtree struct {
 	fileSize                 int
 	fileMode                 os.FileMode
 	maxKeyLen                int
+	maxValueLen              int
 	compactionThld           int
 	delayDuringCompaction    time.Duration
 	nodesLogMaxOpenedFiles   int
@@ -535,6 +536,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		cacheSize:                opts.cacheSize,
 		fileMode:                 opts.fileMode,
 		maxKeyLen:                opts.maxKeyLen,
+		maxValueLen:              opts.maxValueLen,
 		compactionThld:           opts.compactionThld,
 		delayDuringCompaction:    opts.delayDuringCompaction,
 		nodesLogMaxOpenedFiles:   opts.nodesLogMaxOpenedFiles,
@@ -646,12 +648,19 @@ func greatestKeyOfSize(size int) []byte {
 	return k
 }
 
+func minNodeSize(maxKeyLen, maxValueLen int) int {
+	// space for at least two children is required for inner nodes
+	// 31 bytes are fixed in leafNode serialization while 29 bytes are fixed in innerNodes
+	return 2 * (31 + maxKeyLen + maxValueLen)
+}
+
 func (t *TBtree) GetOptions() *Options {
 	return DefaultOptions().
 		WithReadOnly(t.readOnly).
 		WithFileMode(t.fileMode).
 		WithFileSize(t.fileSize).
 		WithMaxKeyLen(t.maxKeyLen).
+		WithMaxValueLen(t.maxValueLen).
 		WithLog(t.log).
 		WithCacheSize(t.cacheSize).
 		WithFlushThld(t.flushThld).
@@ -1513,7 +1522,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 			return ErrIllegalArguments
 		}
 
-		if len(kv.K)+len(kv.V)+45 > t.maxNodeSize {
+		if len(kv.K) > t.maxKeyLen || len(kv.V) > t.maxValueLen {
 			return ErrorMaxKVLenExceeded
 		}
 	}
@@ -1557,9 +1566,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 			return err
 		}
 
-		if len(nodes) == 1 {
-			t.root = nodes[0]
-		} else {
+		for len(nodes) > 1 {
 			newRoot := &innerNode{
 				t:     t,
 				nodes: nodes,
@@ -1567,9 +1574,15 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 				mut:   true,
 			}
 
-			t.root = newRoot
 			depth++
+
+			nodes, err = newRoot.split()
+			if err != nil {
+				return err
+			}
 		}
+
+		t.root = nodes[0]
 
 		metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
 

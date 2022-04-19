@@ -47,7 +47,10 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultMaxActiveSnapshots, opts.WithMaxActiveSnapshots(DefaultMaxActiveSnapshots).maxActiveSnapshots)
 	require.Equal(t, DefaultMaxNodeSize, opts.WithMaxNodeSize(DefaultMaxNodeSize).maxNodeSize)
 	require.Equal(t, DefaultRenewSnapRootAfter, opts.WithRenewSnapRootAfter(DefaultRenewSnapRootAfter).renewSnapRootAfter)
+
 	require.Equal(t, 256, opts.WithMaxKeyLen(256).maxKeyLen)
+	require.Equal(t, 256, opts.WithMaxValueLen(256).maxValueLen)
+
 	require.Equal(t, 1, opts.WithCompactionThld(1).compactionThld)
 	require.Equal(t, time.Duration(1)*time.Millisecond, opts.WithDelayDuringCompaction(time.Duration(1)*time.Millisecond).delayDuringCompaction)
 	require.False(t, opts.WithReadOnly(false).readOnly)
