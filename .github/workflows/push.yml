@@ -1,5 +1,9 @@
 name: pushCI
 
+env:
+  GO_VERSION: 1.17
+  MIN_SUPPORTED_GO_VERSION: 1.13
+
 on:
   push:
     branches:
@@ -8,6 +12,17 @@ on:
       - 'v*'
 
 jobs:
+
+  old-go:
+    name: Ensure immudb compiles with the oldest supported go version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
+      - uses: actions/checkout@v1
+      - run: make all
+
   gosec:
     runs-on: ubuntu-latest
     env:
@@ -16,54 +31,64 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v1
       - run: |
           curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
           gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
 
   binaries:
-      name: Build and notarize binaries
-      needs: gosec
+      name: Build binaries and notarize sources
+      needs: [ gosec, old-go ]
       runs-on: ubuntu-latest
       env:
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
+      outputs:
+        matrix: ${{ steps.list-binaries.outputs.matrix }}
       steps:
         - uses: actions/setup-go@v1
           with:
-            go-version: 1.13
+            go-version: ${{ env.GO_VERSION }}
         - uses: actions/checkout@v1
-        - run: |
-            GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
+        - name: Build binaries
+          run: make dist
         - name: Notarize git repository
           uses: docker://codenotary/cas
           with:
             args: n git://. --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-        - name: Notarize immudb
-          uses: docker://codenotary/cas
-          with:
-            args: n immudb --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-        - name: Notarize immuadmin
-          uses: docker://codenotary/cas
-          with:
-            args: n immuadmin --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-        - name: Notarize immuclient
-          uses: docker://codenotary/cas
-          with:
-            args: n immuclient --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+        - id: list-binaries
+          run: |
+            echo "::set-output name=matrix::$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')"
         - name: Upload binary artifacts
           uses: actions/upload-artifact@v3
           with:
             name: immudb-binaries
-            path: |
-              immudb
-              immuclient
-              immuadmin
+            path: dist
+
+  notarize-binaries:
+      name: Notarize binaries
+      needs: binaries
+      runs-on: ubuntu-latest
+      strategy:
+        matrix: ${{fromJson(needs.binaries.outputs.matrix)}}
+      env:
+        JOB_NAME: ${{ github.job }}
+        JOB_ID: ${{ github.run_id }}
+      steps:
+        - name: Download binary artifacts
+          uses: actions/download-artifact@v3
+          with:
+            name: immudb-binaries
+            path: dist
+        - name: Notarize binaries
+          uses: docker://codenotary/cas
+          with:
+            args: n dist/${{ matrix.binary }} --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   images:
       name: Build and notarize Docker Images
-      needs: gosec
+      needs: [ gosec, old-go ]
       runs-on: ubuntu-latest
       env:
         JOB_NAME: ${{ github.job }}
@@ -146,12 +171,12 @@ jobs:
             
   coveralls:
     name: Publish coverage
-    needs: gosec
+    needs: [ gosec, old-go ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v1
       - run: |
           export PATH=$PATH:$(go env GOPATH)/bin
