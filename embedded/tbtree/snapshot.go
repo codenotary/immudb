@@ -61,9 +61,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 		return err
 	}
 
-	if len(nodes) == 1 {
-		s.root = nodes[0]
-	} else {
+	for len(nodes) > 1 {
 		newRoot := &innerNode{
 			t:     s.t,
 			nodes: nodes,
@@ -71,9 +69,15 @@ func (s *Snapshot) Set(key, value []byte) error {
 			mut:   true,
 		}
 
-		s.root = newRoot
 		depth++
+
+		nodes, err = newRoot.split()
+		if err != nil {
+			return err
+		}
 	}
+
+	s.root = nodes[0]
 
 	metricsBtreeDepth.WithLabelValues(s.t.path).Set(float64(depth))
 

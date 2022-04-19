@@ -58,7 +58,13 @@ func TestHistoryReaderEdgeCases(t *testing.T) {
 }
 
 func TestHistoryReaderAscendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_history_asc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_history_asc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_history_asc")
 
@@ -106,7 +112,13 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 }
 
 func TestHistoryReaderDescendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_history_desc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(4).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_history_desc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_history_desc")
 

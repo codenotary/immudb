@@ -457,6 +457,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithCleanupPercentage(opts.IndexOpts.CleanupPercentage).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
+		WithMaxKeyLen(opts.MaxKeyLen).
+		WithMaxValueLen(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
 		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).
 		WithHistoryLogMaxOpenedFiles(opts.IndexOpts.HistoryLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).

@@ -59,7 +59,13 @@ func TestReaderWithInvalidSpec(t *testing.T) {
 }
 
 func TestReaderAscendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_rasc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rasc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rasc")
 
@@ -105,7 +111,13 @@ func TestReaderAscendingScan(t *testing.T) {
 }
 
 func TestReaderAscendingScanWithEndingKey(t *testing.T) {
-	tbtree, err := Open("test_tree_rasc_ending", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rasc_ending", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rasc_ending")
 
@@ -158,7 +170,13 @@ func TestReaderAscendingScanWithEndingKey(t *testing.T) {
 }
 
 func TestReaderAscendingScanAsBefore(t *testing.T) {
-	tbtree, err := Open("test_tree_rasc_as_before", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rasc_as_before", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rasc_as_before")
 
@@ -205,7 +223,13 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 }
 
 func TestReaderAsBefore(t *testing.T) {
-	tbtree, err := Open("test_tree_as_before", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_as_before", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_as_before")
 
@@ -244,7 +268,13 @@ func TestReaderAsBefore(t *testing.T) {
 }
 
 func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
-	tbtree, err := Open("test_tree_rsasc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rsasc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rsasc")
 
@@ -290,7 +320,13 @@ func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
 }
 
 func TestReaderDescendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_rdesc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rdesc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rdesc")
 
@@ -334,7 +370,13 @@ func TestReaderDescendingScan(t *testing.T) {
 }
 
 func TestReaderDescendingScanAsBefore(t *testing.T) {
-	tbtree, err := Open("test_tree_rdesc_as_before", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rdesc_as_before", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rdesc_as_before")
 
@@ -383,7 +425,13 @@ func TestReaderDescendingScanAsBefore(t *testing.T) {
 }
 
 func TestReaderDescendingWithoutSeekKeyScan(t *testing.T) {
-	tbtree, err := Open("test_tree_rsdesc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeyLen(8).
+		WithMaxValueLen(8)
+
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+
+	tbtree, err := Open("test_tree_rsdesc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rsdesc")
 
