@@ -39,9 +39,15 @@ func ClientUnaryInterceptor(token string) func(context.Context, string, interfac
 	}
 }
 
+// updateAuthHeader ensures the grpc metadata in the context contains the correct
+// authorization header value. The token may be either taken from the client
+// object where it is managed by a token service through the `token` argument,
+// or it can be given in the metadata inside the context.
 func updateAuthHeader(ctx context.Context, token string) context.Context {
 	if md, ok := metadata.FromOutgoingContext(ctx); ok && len(md.Get("authorization")) > 0 {
-		// Token from existing metadata overwrites the one stored in
+		// The token provided through the metadata has a higher priority than the
+		// one set for the whole client - this allows customization of the token
+		// per each API call.
 		token = md.Get("authorization")[0]
 	}
 
@@ -49,6 +55,7 @@ func updateAuthHeader(ctx context.Context, token string) context.Context {
 	if !ok {
 		md = metadata.New(nil)
 	}
+	// The final token value must be provided with the `Bearer ` prefix.
 	md.Set("authorization", "Bearer "+token)
 	return metadata.NewOutgoingContext(ctx, md)
 }
