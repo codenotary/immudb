@@ -56,17 +56,17 @@ func (s *Snapshot) Set(key, value []byte) error {
 	v := make([]byte, len(value))
 	copy(v, value)
 
-	n1, n2, depth, err := s.root.insertAt(k, v, s.ts)
+	nodes, depth, err := s.root.insertAt(k, v, s.ts)
 	if err != nil {
 		return err
 	}
 
-	if n2 == nil {
-		s.root = n1
+	if len(nodes) == 1 {
+		s.root = nodes[0]
 	} else {
 		newRoot := &innerNode{
 			t:     s.t,
-			nodes: []node{n1, n2},
+			nodes: nodes,
 			_ts:   s.ts,
 			mut:   true,
 		}

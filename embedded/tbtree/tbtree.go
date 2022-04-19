@@ -215,7 +215,7 @@ type pathNode struct {
 }
 
 type node interface {
-	insertAt(key []byte, value []byte, ts uint64) (node, node, int, error)
+	insertAt(key []byte, value []byte, ts uint64) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
 	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
@@ -1552,17 +1552,17 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		v := make([]byte, len(kv.V))
 		copy(v, kv.V)
 
-		n1, n2, depth, err := t.root.insertAt(k, v, ts)
+		nodes, depth, err := t.root.insertAt(k, v, ts)
 		if err != nil {
 			return err
 		}
 
-		if n2 == nil {
-			t.root = n1
+		if len(nodes) == 1 {
+			t.root = nodes[0]
 		} else {
 			newRoot := &innerNode{
 				t:     t,
-				nodes: []node{n1, n2},
+				nodes: nodes,
 				_ts:   ts,
 				mut:   true,
 			}
@@ -1651,60 +1651,61 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
-func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	if !n.mutated() {
 		return n.copyOnInsertAt(key, value, ts)
 	}
 	return n.updateOnInsertAt(key, value, ts)
 }
 
-func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
 
-	c1, c2, depth, err := c.insertAt(key, value, ts)
+	cs, depth, err := c.insertAt(key, value, ts)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, 0, err
 	}
 
 	n._ts = ts
 
-	if c2 == nil {
-		n.nodes[insertAt] = c1
+	if len(cs) == 1 {
+		n.nodes[insertAt] = cs[0]
 
-		return n, nil, depth + 1, nil
+		return []node{n}, depth + 1, nil
 	}
 
-	nodes := make([]node, len(n.nodes)+1)
+	ns := make([]node, len(n.nodes)+len(cs)-1)
 
-	copy(nodes[:insertAt], n.nodes[:insertAt])
+	copy(ns[:insertAt], n.nodes[:insertAt])
 
-	nodes[insertAt] = c1
-	nodes[insertAt+1] = c2
-
-	if insertAt+2 < len(nodes) {
-		copy(nodes[insertAt+2:], n.nodes[insertAt+1:])
+	for i, c := range cs {
+		ns[insertAt+i] = c
 	}
 
-	n.nodes = nodes
+	if insertAt+len(cs) < len(ns) {
+		copy(ns[insertAt+len(cs):], n.nodes[insertAt+1:])
+	}
 
-	n2, err = n.split()
+	n.nodes = ns
 
-	return n, n2, depth + 1, err
+	nodes, err = n.split()
+
+	return nodes, depth + 1, err
 }
 
-func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
 
-	c1, c2, depth, err := c.insertAt(key, value, ts)
+	cs, depth, err := c.insertAt(key, value, ts)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, 0, err
 	}
 
-	if c2 == nil {
+	if len(cs) == 1 {
 		newNode := &innerNode{
 			t:       n.t,
 			nodes:   make([]node, len(n.nodes)),
@@ -1715,13 +1716,13 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 
 		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
 
-		newNode.nodes[insertAt] = c1
+		newNode.nodes[insertAt] = cs[0]
 
 		if insertAt+1 < len(newNode.nodes) {
 			copy(newNode.nodes[insertAt+1:], n.nodes[insertAt+1:])
 		}
 
-		return newNode, nil, depth + 1, nil
+		return []node{newNode}, depth + 1, nil
 	}
 
 	newNode := &innerNode{
@@ -1734,16 +1735,17 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node
 
 	copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
 
-	newNode.nodes[insertAt] = c1
-	newNode.nodes[insertAt+1] = c2
-
-	if insertAt+2 < len(newNode.nodes) {
-		copy(newNode.nodes[insertAt+2:], n.nodes[insertAt+1:])
+	for i, c := range cs {
+		newNode.nodes[insertAt+i] = c
 	}
 
-	n2, err = newNode.split()
+	if insertAt+len(cs) < len(newNode.nodes) {
+		copy(newNode.nodes[insertAt+len(cs):], n.nodes[insertAt+1:])
+	}
 
-	return newNode, n2, depth + 1, err
+	nodes, err = newNode.split()
+
+	return nodes, depth + 1, err
 }
 
 func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -1889,7 +1891,7 @@ func (n *innerNode) indexOf(key []byte) int {
 	return left
 }
 
-func (n *innerNode) split() (node, error) {
+func (n *innerNode) split() ([]node, error) {
 	size, err := n.size()
 	if err != nil {
 		return nil, err
@@ -1897,7 +1899,7 @@ func (n *innerNode) split() (node, error) {
 
 	if size <= n.t.maxNodeSize {
 		metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
-		return nil, nil
+		return []node{n}, nil
 	}
 
 	splitIndex := splitIndex(len(n.nodes))
@@ -1907,17 +1909,22 @@ func (n *innerNode) split() (node, error) {
 		nodes: n.nodes[splitIndex:],
 		mut:   true,
 	}
-
 	newNode.updateTs()
 
 	n.nodes = n.nodes[:splitIndex]
-
 	n.updateTs()
 
-	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
-	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(newNode.nodes)))
+	ns1, err := n.split()
+	if err != nil {
+		return nil, err
+	}
 
-	return newNode, nil
+	ns2, err := newNode.split()
+	if err != nil {
+		return nil, err
+	}
+
+	return append(ns1, ns2...), nil
 }
 
 func (n *innerNode) updateTs() {
@@ -1932,10 +1939,10 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 
-func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, 0, err
 	}
 	return n.insertAt(key, value, ts)
 }
@@ -2004,14 +2011,14 @@ func (r *nodeRef) offset() int64 {
 
 ////////////////////////////////////////////////////////////
 
-func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	if !l.mutated() {
 		return l.copyOnInsertAt(key, value, ts)
 	}
 	return l.updateOnInsertAt(key, value, ts)
 }
 
-func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	i, found := l.indexOf(key)
 
 	l._ts = ts
@@ -2021,7 +2028,7 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 		l.values[i].ts = ts
 		l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
 
-		return l, nil, 0, nil
+		return []node{l}, 0, nil
 	}
 
 	values := make([]*leafValue, len(l.values)+1)
@@ -2043,12 +2050,12 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 
 	l.values = values
 
-	n2, err = l.split()
+	nodes, err = l.split()
 
-	return l, n2, 1, err
+	return nodes, 1, err
 }
 
-func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, depth int, err error) {
+func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	i, found := l.indexOf(key)
 
 	if found {
@@ -2090,7 +2097,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			}
 		}
 
-		return newLeaf, nil, 1, nil
+		return []node{newLeaf}, 1, nil
 	}
 
 	newLeaf := &leafNode{
@@ -2131,9 +2138,9 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 		}
 	}
 
-	n2, err = newLeaf.split()
+	nodes, err = newLeaf.split()
 
-	return newLeaf, n2, 1, err
+	return nodes, 1, err
 }
 
 func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -2364,7 +2371,7 @@ func (l *leafNode) offset() int64 {
 	return l.off
 }
 
-func (l *leafNode) split() (node, error) {
+func (l *leafNode) split() ([]node, error) {
 	size, err := l.size()
 	if err != nil {
 		return nil, err
@@ -2372,7 +2379,7 @@ func (l *leafNode) split() (node, error) {
 
 	if size <= l.t.maxNodeSize {
 		metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
-		return nil, nil
+		return []node{l}, nil
 	}
 
 	splitIndex := splitIndex(len(l.values))
@@ -2385,13 +2392,19 @@ func (l *leafNode) split() (node, error) {
 	newLeaf.updateTs()
 
 	l.values = l.values[:splitIndex]
-
 	l.updateTs()
 
-	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(l.values)))
-	metricsBtreeLeafNodeEntries.WithLabelValues(l.t.path).Observe(float64(len(newLeaf.values)))
+	ns1, err := l.split()
+	if err != nil {
+		return nil, err
+	}
 
-	return newLeaf, nil
+	ns2, err := newLeaf.split()
+	if err != nil {
+		return nil, err
+	}
+
+	return append(ns1, ns2...), nil
 }
 
 func splitIndex(sz int) int {
