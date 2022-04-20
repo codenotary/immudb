@@ -178,11 +178,11 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if spec == nil || len(spec.SeekKey) > s.t.maxKeyLen || len(spec.Prefix) > s.t.maxKeyLen {
+	if spec == nil || len(spec.SeekKey) > s.t.maxKeySize || len(spec.Prefix) > s.t.maxKeySize {
 		return nil, ErrIllegalArguments
 	}
 
-	greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeyLen)
+	greatestPrefixedKey := greatestKeyOfSize(s.t.maxKeySize)
 	copy(greatestPrefixedKey, spec.Prefix)
 
 	// Adjust seekKey based on key prefix

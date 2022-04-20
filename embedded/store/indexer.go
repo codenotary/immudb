@@ -214,15 +214,15 @@ func (idx *indexer) CompactIndex() (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
 
-	idx.store.log.Infof("Compacting index '%s'...", idx.store.path)
+	idx.store.logger.Infof("Compacting index '%s'...", idx.store.path)
 
 	defer func() {
 		if err == nil {
-			idx.store.log.Infof("Index '%s' sucessfully compacted", idx.store.path)
+			idx.store.logger.Infof("Index '%s' sucessfully compacted", idx.store.path)
 		} else if err == tbtree.ErrCompactionThresholdNotReached {
-			idx.store.log.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
+			idx.store.logger.Infof("Compaction of index '%s' not needed: %v", idx.store.path, err)
 		} else {
-			idx.store.log.Warningf("%v: while compacting index '%s'", err, idx.store.path)
+			idx.store.logger.Warningf("%v: while compacting index '%s'", err, idx.store.path)
 		}
 	}()
 
@@ -331,7 +331,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			return
 		}
 		if err != nil {
-			idx.store.log.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 
@@ -359,7 +359,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			return
 		}
 		if err != nil {
-			idx.store.log.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
+			idx.store.logger.Errorf("Indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
 	}

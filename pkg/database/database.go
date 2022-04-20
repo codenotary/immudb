@@ -141,15 +141,15 @@ type db struct {
 }
 
 // OpenDB Opens an existing Database from disk
-func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
+func OpenDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
+	logger.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
 
 	dbi := &db{
-		Logger:  log,
+		Logger:  logger,
 		options: op,
 		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
@@ -161,7 +161,7 @@ func OpenDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(logger))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -242,15 +242,15 @@ func (d *db) initSQLEngine() error {
 }
 
 // NewDB Creates a new Database along with it's directories and files
-func NewDB(dbName string, op *Options, log logger.Logger) (DB, error) {
+func NewDB(dbName string, op *Options, logger logger.Logger) (DB, error) {
 	if dbName == "" {
 		return nil, fmt.Errorf("%w: invalid database name provided '%s'", ErrIllegalArguments, dbName)
 	}
 
-	log.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
+	logger.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
 
 	dbi := &db{
-		Logger:  log,
+		Logger:  logger,
 		options: op,
 		name:    dbName,
 		mutex:   &instrumentedRWMutex{},
@@ -267,7 +267,7 @@ func NewDB(dbName string, op *Options, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(logger))
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}

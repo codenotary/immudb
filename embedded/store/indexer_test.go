@@ -31,7 +31,7 @@ import (
 func TestNewIndexerFailure(t *testing.T) {
 	indexer, err := newIndexer("data", nil, nil, 0)
 	require.Nil(t, indexer)
-	require.Equal(t, tbtree.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 }
 
 func TestClosedIndexerFailures(t *testing.T) {

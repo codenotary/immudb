@@ -60,10 +60,10 @@ func TestReaderWithInvalidSpec(t *testing.T) {
 
 func TestReaderAscendingScan(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rasc", opts)
 	require.NoError(t, err)
@@ -112,10 +112,10 @@ func TestReaderAscendingScan(t *testing.T) {
 
 func TestReaderAscendingScanWithEndingKey(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rasc_ending", opts)
 	require.NoError(t, err)
@@ -171,10 +171,10 @@ func TestReaderAscendingScanWithEndingKey(t *testing.T) {
 
 func TestReaderAscendingScanAsBefore(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rasc_as_before", opts)
 	require.NoError(t, err)
@@ -224,10 +224,10 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 
 func TestReaderAsBefore(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_as_before", opts)
 	require.NoError(t, err)
@@ -269,10 +269,10 @@ func TestReaderAsBefore(t *testing.T) {
 
 func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rsasc", opts)
 	require.NoError(t, err)
@@ -321,10 +321,10 @@ func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
 
 func TestReaderDescendingScan(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rdesc", opts)
 	require.NoError(t, err)
@@ -371,10 +371,10 @@ func TestReaderDescendingScan(t *testing.T) {
 
 func TestReaderDescendingScanAsBefore(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rdesc_as_before", opts)
 	require.NoError(t, err)
@@ -426,10 +426,10 @@ func TestReaderDescendingScanAsBefore(t *testing.T) {
 
 func TestReaderDescendingWithoutSeekKeyScan(t *testing.T) {
 	opts := DefaultOptions().
-		WithMaxKeyLen(8).
-		WithMaxValueLen(8)
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeyLen, opts.maxValueLen))
+	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_rsdesc", opts)
 	require.NoError(t, err)
