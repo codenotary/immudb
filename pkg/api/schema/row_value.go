@@ -103,6 +103,19 @@ func (v *SQLValue_Ts) Equal(sqlv SqlValue) (bool, error) {
 	return v.Ts == ts.Ts, nil
 }
 
+func (v *SQLValue_F) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
+	f, isFloat := sqlv.(*SQLValue_F)
+	if !isFloat {
+		return false, sql.ErrNotComparableValues
+	}
+	return v.F == f.F, nil
+}
+
 func RenderValue(op isSQLValue_Value) string {
 	switch v := op.(type) {
 	case *SQLValue_Null:

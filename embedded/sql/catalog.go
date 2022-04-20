@@ -508,6 +508,8 @@ func validMaxLenForType(maxLen int, sqlType SQLValueType) bool {
 		return maxLen <= 1
 	case IntegerType:
 		return maxLen == 0 || maxLen == 8
+	case Float64Type:
+		return maxLen == 0 || maxLen == 8
 	case TimestampType:
 		return maxLen == 0 || maxLen == 8
 	}
