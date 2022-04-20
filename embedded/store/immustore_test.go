@@ -287,10 +287,19 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		require.ErrorIs(t, err, injectedError)
 	}
 
-	vLog := &mocked.MockedAppendable{}
+	vLog := &mocked.MockedAppendable{
+		CloseFn: func() error { return nil },
+	}
+
 	vLogs := []appendable.Appendable{vLog}
-	txLog := &mocked.MockedAppendable{}
-	cLog := &mocked.MockedAppendable{}
+
+	txLog := &mocked.MockedAppendable{
+		CloseFn: func() error { return nil },
+	}
+
+	cLog := &mocked.MockedAppendable{
+		CloseFn: func() error { return nil },
+	}
 
 	// Should fail reading fileSize from metadata
 	cLog.MetadataFn = func() []byte {
@@ -455,7 +464,8 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 				return nil, injectedError
 			}
 			return &mocked.MockedAppendable{
-				SizeFn: func() (int64, error) { return 0, nil },
+				SizeFn:  func() (int64, error) { return 0, nil },
+				CloseFn: func() error { return nil },
 			}, nil
 		}),
 	)
@@ -532,6 +542,8 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 						md := appendable.NewMetadata(nil)
 						md.PutInt(tbtree.MetaVersion, tbtree.Version)
 						md.PutInt(tbtree.MetaMaxNodeSize, tbtree.DefaultMaxNodeSize)
+						md.PutInt(tbtree.MetaMaxKeySize, tbtree.DefaultMaxKeySize)
+						md.PutInt(tbtree.MetaMaxValueSize, tbtree.DefaultMaxValueSize)
 						return md.Bytes()
 					},
 					SetOffsetFn: func(off int64) error { return nil },

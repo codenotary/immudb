@@ -57,7 +57,7 @@ type Options struct {
 	ReadOnly bool
 	Synced   bool
 	FileMode os.FileMode
-	log      logger.Logger
+	logger   logger.Logger
 
 	appFactory         AppFactoryFunc
 	CompactionDisabled bool
@@ -110,7 +110,7 @@ func DefaultOptions() *Options {
 		ReadOnly: false,
 		Synced:   true,
 		FileMode: DefaultFileMode,
-		log:      logger.NewSimpleLogger("immudb ", os.Stderr),
+		logger:   logger.NewSimpleLogger("immudb ", os.Stderr),
 
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
@@ -218,7 +218,7 @@ func (opts *Options) Validate() error {
 	if opts.FileSize <= 0 || opts.FileSize >= MaxFileSize {
 		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
-	if opts.log == nil {
+	if opts.logger == nil {
 		return fmt.Errorf("%w: invalid log", ErrInvalidOptions)
 	}
 
@@ -287,8 +287,8 @@ func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	return opts
 }
 
-func (opts *Options) WithLog(log logger.Logger) *Options {
-	opts.log = log
+func (opts *Options) WithLogger(logger logger.Logger) *Options {
+	opts.logger = logger
 	return opts
 }
 

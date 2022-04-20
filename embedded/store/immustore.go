@@ -120,7 +120,7 @@ const ahtDirname = "aht"
 type ImmuStore struct {
 	path string
 
-	log              logger.Logger
+	logger           logger.Logger
 	lastNotification time.Time
 	notifyMutex      sync.Mutex
 
@@ -402,7 +402,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store := &ImmuStore{
 		path:               path,
-		log:                opts.log,
+		logger:             opts.logger,
 		txLog:              txLog,
 		txLogCache:         txLogCache,
 		vLogs:              vLogsMap,
@@ -448,7 +448,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
-		WithLog(opts.log).
+		WithLogger(opts.logger).
 		WithFileSize(fileSize).
 		WithCacheSize(opts.IndexOpts.CacheSize).
 		WithFlushThld(opts.IndexOpts.FlushThld).
@@ -457,14 +457,20 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithCleanupPercentage(opts.IndexOpts.CleanupPercentage).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
-		WithMaxKeyLen(opts.MaxKeyLen).
-		WithMaxValueLen(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
+		WithMaxKeySize(opts.MaxKeyLen).
+		WithMaxValueSize(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
 		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).
 		WithHistoryLogMaxOpenedFiles(opts.IndexOpts.HistoryLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+
+	err = indexOpts.Validate()
+	if err != nil {
+		store.Close()
+		return nil, fmt.Errorf("%w: invalid index options", err)
+	}
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
@@ -476,6 +482,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
 	if err != nil {
+		store.Close()
 		return nil, fmt.Errorf("could not open indexer: %w", err)
 	}
 
@@ -523,15 +530,15 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 		switch nType {
 		case Info:
 			{
-				s.log.Infof(formattedMessage, args...)
+				s.logger.Infof(formattedMessage, args...)
 			}
 		case Warn:
 			{
-				s.log.Warningf(formattedMessage, args...)
+				s.logger.Warningf(formattedMessage, args...)
 			}
 		case Error:
 			{
-				s.log.Errorf(formattedMessage, args...)
+				s.logger.Errorf(formattedMessage, args...)
 			}
 		}
 		s.lastNotification = time.Now()
@@ -632,7 +639,7 @@ func (s *ImmuStore) binaryLinking() {
 				_, _, err := s.aht.Append(alh[:])
 				if err != nil {
 					s.SetBlErr(err)
-					s.log.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
+					s.logger.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
 					return
 				}
 			}
@@ -665,11 +672,11 @@ func (s *ImmuStore) BlInfo() (uint64, error) {
 
 func (s *ImmuStore) syncBinaryLinking() error {
 	if s.aht.Size() == s.committedTxID {
-		s.log.Infof("Binary Linking up to date at '%s'", s.path)
+		s.logger.Infof("Binary Linking up to date at '%s'", s.path)
 		return nil
 	}
 
-	s.log.Infof("Syncing Binary Linking at '%s'...", s.path)
+	s.logger.Infof("Syncing Binary Linking at '%s'...", s.path)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -695,11 +702,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		s.aht.Append(alh[:])
 
 		if tx.header.ID%1000 == 0 {
-			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
+			s.logger.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
 		}
 	}
 
-	s.log.Infof("Binary Linking up to date at '%s'", s.path)
+	s.logger.Infof("Binary Linking up to date at '%s'", s.path)
 
 	return nil
 }
@@ -1953,17 +1960,19 @@ func (s *ImmuStore) Close() error {
 	}
 
 	if s.blBuffer != nil && s.blErr == nil && s.blDone != nil {
-		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
+		s.logger.Infof("Stopping Binary Linking at '%s'...", s.path)
 		s.blDone <- struct{}{}
-		s.log.Infof("Binary linking gracefully stopped at '%s'", s.path)
+		s.logger.Infof("Binary linking gracefully stopped at '%s'", s.path)
 		close(s.blBuffer)
 	}
 
 	err := s.wHub.Close()
 	merr.Append(err)
 
-	err = s.indexer.Close()
-	merr.Append(err)
+	if s.indexer != nil {
+		err = s.indexer.Close()
+		merr.Append(err)
+	}
 
 	err = s.txLog.Close()
 	merr.Append(err)
@@ -1979,7 +1988,7 @@ func (s *ImmuStore) Close() error {
 
 func (s *ImmuStore) wrapAppendableErr(err error, action string) error {
 	if err == singleapp.ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed {
-		s.log.Warningf("Got '%v' while '%s'", err, action)
+		s.logger.Warningf("Got '%v' while '%s'", err, action)
 		return ErrAlreadyClosed
 	}
 

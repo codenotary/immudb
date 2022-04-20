@@ -77,7 +77,9 @@ func TestEdgeCases(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
-			md.PutInt(MetaMaxNodeSize, 1)
+			md.PutInt(MetaMaxNodeSize, minNodeSize(1, 1))
+			md.PutInt(MetaMaxKeySize, 1)
+			md.PutInt(MetaMaxValueSize, 1)
 			return md.Bytes()
 		}
 
@@ -103,7 +105,9 @@ func TestEdgeCases(t *testing.T) {
 		cLog.MetadataFn = func() []byte {
 			md := appendable.NewMetadata(nil)
 			md.PutInt(MetaVersion, Version)
-			md.PutInt(MetaMaxNodeSize, 1)
+			md.PutInt(MetaMaxNodeSize, minNodeSize(1, 1))
+			md.PutInt(MetaMaxKeySize, 1)
+			md.PutInt(MetaMaxValueSize, 1)
 			return md.Bytes()
 		}
 		cLog.SizeFn = func() (int64, error) {
@@ -220,8 +224,10 @@ func TestEdgeCases(t *testing.T) {
 
 			cLog.MetadataFn = func() []byte {
 				md := appendable.NewMetadata(nil)
-				md.PutInt(MetaVersion, 3)
-				md.PutInt(MetaMaxNodeSize, 1)
+				md.PutInt(MetaVersion, Version)
+				md.PutInt(MetaMaxNodeSize, minNodeSize(1, 1))
+				md.PutInt(MetaMaxKeySize, 1)
+				md.PutInt(MetaMaxValueSize, 1)
 				return md.Bytes()
 			}
 
@@ -501,13 +507,13 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 func TestInvalidOpening(t *testing.T) {
 	_, err := Open("", nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("tbtree_test.go", DefaultOptions())
-	require.Equal(t, ErrorPathIsNotADirectory, err)
+	require.ErrorIs(t, err, ErrorPathIsNotADirectory)
 
 	_, err = OpenWith("tbtree_test", nil, nil, nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("invalid\x00_dir_name", DefaultOptions())
 	require.EqualError(t, err, "stat invalid\x00_dir_name: invalid argument")

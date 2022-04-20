@@ -16,6 +16,7 @@ limitations under the License.
 package tbtree
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -34,8 +35,8 @@ const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
-const DefaultMaxKeyLen = 1024
-const DefaultMaxValueLen = 512
+const DefaultMaxKeySize = 1024
+const DefaultMaxValueSize = 512
 const DefaultCompactionThld = 2
 const DefaultDelayDuringCompaction = time.Duration(10) * time.Millisecond
 
@@ -52,7 +53,7 @@ type AppFactoryFunc func(
 ) (appendable.Appendable, error)
 
 type Options struct {
-	log logger.Logger
+	logger logger.Logger
 
 	flushThld          int
 	syncThld           int
@@ -68,22 +69,21 @@ type Options struct {
 	historyLogMaxOpenedFiles int
 	commitLogMaxOpenedFiles  int
 
-	maxKeyLen   int
-	maxValueLen int
-
 	compactionThld        int
 	delayDuringCompaction time.Duration
 
 	// options below are only set during initialization and stored as metadata
-	maxNodeSize int
-	fileSize    int
+	maxNodeSize  int
+	maxKeySize   int
+	maxValueSize int
+	fileSize     int
 
 	appFactory AppFactoryFunc
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		log:                   logger.NewSimpleLogger("immudb ", os.Stderr),
+		logger:                logger.NewSimpleLogger("immudb ", os.Stderr),
 		flushThld:             DefaultFlushThld,
 		syncThld:              DefaultSyncThld,
 		flushBufferSize:       DefaultFlushBufferSize,
@@ -93,8 +93,6 @@ func DefaultOptions() *Options {
 		cacheSize:             DefaultCacheSize,
 		readOnly:              false,
 		fileMode:              DefaultFileMode,
-		maxKeyLen:             DefaultMaxKeyLen,
-		maxValueLen:           DefaultMaxValueLen,
 		compactionThld:        DefaultCompactionThld,
 		delayDuringCompaction: DefaultDelayDuringCompaction,
 
@@ -103,33 +101,91 @@ func DefaultOptions() *Options {
 		commitLogMaxOpenedFiles:  DefaultCommitLogMaxOpenedFiles,
 
 		// options below are only set during initialization and stored as metadata
-		maxNodeSize: DefaultMaxNodeSize,
-		fileSize:    DefaultFileSize,
+		maxNodeSize:  DefaultMaxNodeSize,
+		maxKeySize:   DefaultMaxKeySize,
+		maxValueSize: DefaultMaxValueSize,
+		fileSize:     DefaultFileSize,
 	}
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.maxNodeSize >= minNodeSize(opts.maxKeyLen, opts.maxValueLen) &&
-		opts.flushThld > 0 &&
-		opts.flushThld <= opts.syncThld &&
-		opts.flushBufferSize > 0 &&
-		opts.cleanupPercentage >= 0 && opts.cleanupPercentage <= 100 &&
-		opts.nodesLogMaxOpenedFiles > 0 &&
-		opts.historyLogMaxOpenedFiles > 0 &&
-		opts.commitLogMaxOpenedFiles > 0 &&
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrIllegalArguments)
+	}
 
-		opts.maxActiveSnapshots > 0 &&
-		opts.renewSnapRootAfter >= 0 &&
-		opts.cacheSize >= MinCacheSize &&
-		opts.maxKeyLen > 0 &&
-		opts.maxValueLen > 0 &&
-		opts.compactionThld > 0 &&
-		opts.log != nil
+	if opts.fileSize <= 0 {
+		return fmt.Errorf("%w: invalid FileSize", ErrIllegalArguments)
+	}
+
+	if opts.maxKeySize <= 0 {
+		return fmt.Errorf("%w: invalid MaxKeySize", ErrIllegalArguments)
+	}
+
+	if opts.maxValueSize <= 0 {
+		return fmt.Errorf("%w: invalid MaxValueSize", ErrIllegalArguments)
+	}
+
+	if opts.maxNodeSize < minNodeSize(opts.maxKeySize, opts.maxValueSize) {
+		return fmt.Errorf("%w: invalid MaxNodeSize", ErrIllegalArguments)
+	}
+
+	if opts.flushThld <= 0 {
+		return fmt.Errorf("%w: invalid FlushThld", ErrIllegalArguments)
+	}
+
+	if opts.syncThld <= 0 {
+		return fmt.Errorf("%w: invalid SyncThld", ErrIllegalArguments)
+	}
+
+	if opts.flushThld > opts.syncThld {
+		return fmt.Errorf("%w: FlushThld must be lower or equal to SyncThld", ErrIllegalArguments)
+	}
+
+	if opts.flushBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid FlushBufferSize", ErrIllegalArguments)
+	}
+
+	if opts.cleanupPercentage < 0 || opts.cleanupPercentage > 100 {
+		return fmt.Errorf("%w: invalid CleanupPercentage", ErrIllegalArguments)
+	}
+
+	if opts.nodesLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid NodesLogMaxOpenedFiles", ErrIllegalArguments)
+	}
+
+	if opts.historyLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid HistoryLogMaxOpenedFiles", ErrIllegalArguments)
+	}
+
+	if opts.commitLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrIllegalArguments)
+	}
+
+	if opts.maxActiveSnapshots <= 0 {
+		return fmt.Errorf("%w: invalid MaxActiveSnapshots", ErrIllegalArguments)
+	}
+
+	if opts.renewSnapRootAfter < 0 {
+		return fmt.Errorf("%w: invalid RenewSnapRootAfter", ErrIllegalArguments)
+	}
+
+	if opts.cacheSize < MinCacheSize {
+		return fmt.Errorf("%w: invalid CacheSize", ErrIllegalArguments)
+	}
+
+	if opts.compactionThld <= 0 {
+		return fmt.Errorf("%w: invalid CompactionThld", ErrIllegalArguments)
+	}
+
+	if opts.logger == nil {
+		return fmt.Errorf("%w: invalid Logger", ErrIllegalArguments)
+	}
+
+	return nil
 }
 
-func (opts *Options) WithLog(log logger.Logger) *Options {
-	opts.log = log
+func (opts *Options) WithLogger(logger logger.Logger) *Options {
+	opts.logger = logger
 	return opts
 }
 
@@ -198,13 +254,13 @@ func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *O
 	return opts
 }
 
-func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
-	opts.maxKeyLen = maxKeyLen
+func (opts *Options) WithMaxKeySize(maxKeySize int) *Options {
+	opts.maxKeySize = maxKeySize
 	return opts
 }
 
-func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
-	opts.maxValueLen = maxValueLen
+func (opts *Options) WithMaxValueSize(maxValueSize int) *Options {
+	opts.maxValueSize = maxValueSize
 	return opts
 }
 

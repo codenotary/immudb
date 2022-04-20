@@ -31,7 +31,7 @@ func TestInvalidOptions(t *testing.T) {
 	}{
 		{"nil", nil},
 		{"empty", &Options{}},
-		{"log", DefaultOptions().WithLog(nil)},
+		{"logger", DefaultOptions().WithLogger(nil)},
 		{"MaxConcurrency", DefaultOptions().WithMaxConcurrency(0)},
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
@@ -119,7 +119,7 @@ func TestValidOptions(t *testing.T) {
 
 	require.False(t, opts.WithReadOnly(false).ReadOnly)
 
-	require.NotNil(t, opts.WithLog(DefaultOptions().log))
+	require.NotNil(t, opts.WithLogger(DefaultOptions().logger))
 
 	require.NoError(t, opts.Validate())
 
