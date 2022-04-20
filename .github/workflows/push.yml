@@ -65,6 +65,7 @@ jobs:
           with:
             name: immudb-binaries
             path: dist
+            retention-days: 5
 
   notarize-binaries:
       name: Notarize binaries
