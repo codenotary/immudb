@@ -17,10 +17,10 @@ jobs:
     name: Ensure immudb compiles with the oldest supported go version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.MIN_SUPPORTED_GO_VERSION }}
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - run: make all
 
   gosec:
@@ -29,10 +29,10 @@ jobs:
       JOB_NAME: ${{ github.job }}
       JOB_ID: ${{ github.run_id }}
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - run: |
           curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
           gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
@@ -47,10 +47,10 @@ jobs:
       outputs:
         matrix: ${{ steps.list-binaries.outputs.matrix }}
       steps:
-        - uses: actions/setup-go@v1
+        - uses: actions/setup-go@v3
           with:
             go-version: ${{ env.GO_VERSION }}
-        - uses: actions/checkout@v1
+        - uses: actions/checkout@v3
         - name: Build binaries
           run: make dist
         - name: Notarize git repository
@@ -100,7 +100,7 @@ jobs:
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
       steps:
-        - uses: actions/checkout@v1
+        - uses: actions/checkout@v3
         - name: Build docker images
           shell: bash
           run: |
@@ -174,10 +174,10 @@ jobs:
     needs: [ gosec, old-go ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           go get golang.org/x/tools/cmd/cover
