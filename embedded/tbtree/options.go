@@ -125,7 +125,7 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid MaxValueSize", ErrIllegalArguments)
 	}
 
-	if opts.maxNodeSize < minNodeSize(opts.maxKeySize, opts.maxValueSize) {
+	if opts.maxNodeSize < requiredNodeSize(opts.maxKeySize, opts.maxValueSize) {
 		return fmt.Errorf("%w: invalid MaxNodeSize", ErrIllegalArguments)
 	}
 

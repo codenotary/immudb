@@ -45,7 +45,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"CompactionThld", DefaultOptions().WithCompactionThld(-1)},
 		{"MaxKeySize", DefaultOptions().WithMaxKeySize(0)},
 		{"MaxValueSize", DefaultOptions().WithMaxValueSize(0)},
-		{"MaxNodeSize", DefaultOptions().WithMaxNodeSize(minNodeSize(DefaultMaxKeySize, DefaultMaxValueSize) - 1)},
+		{"MaxNodeSize", DefaultOptions().WithMaxNodeSize(requiredNodeSize(DefaultMaxKeySize, DefaultMaxValueSize) - 1)},
 		{"NodesLogMaxOpenedFiles", DefaultOptions().WithNodesLogMaxOpenedFiles(0)},
 		{"HistoryLogMaxOpenedFiles", DefaultOptions().WithHistoryLogMaxOpenedFiles(0)},
 		{"CommitLogMaxOpenedFiles", DefaultOptions().WithCommitLogMaxOpenedFiles(0)},
