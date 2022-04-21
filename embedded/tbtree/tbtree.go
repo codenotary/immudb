@@ -1708,12 +1708,6 @@ func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes
 
 	n._ts = ts
 
-	if len(cs) == 1 {
-		n.nodes[insertAt] = cs[0]
-
-		return []node{n}, depth + 1, nil
-	}
-
 	ns := make([]node, len(n.nodes)+len(cs)-1)
 
 	copy(ns, n.nodes[:insertAt])
@@ -1735,24 +1729,6 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes [
 	cs, depth, err := c.insertAt(key, value, ts)
 	if err != nil {
 		return nil, 0, err
-	}
-
-	if len(cs) == 1 {
-		newNode := &innerNode{
-			t:       n.t,
-			nodes:   make([]node, len(n.nodes)),
-			_ts:     ts,
-			mut:     true,
-			_minOff: n._minOff,
-		}
-
-		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
-
-		newNode.nodes[insertAt] = cs[0]
-
-		copy(newNode.nodes[insertAt+1:], n.nodes[insertAt+1:])
-
-		return []node{newNode}, depth + 1, nil
 	}
 
 	newNode := &innerNode{
@@ -2053,26 +2029,24 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes 
 		l.values[i].value = value
 		l.values[i].ts = ts
 		l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
+	} else {
+		values := make([]*leafValue, len(l.values)+1)
 
-		return []node{l}, 0, nil
+		copy(values, l.values[:i])
+
+		values[i] = &leafValue{
+			key:    key,
+			value:  value,
+			ts:     ts,
+			tss:    []uint64{ts},
+			hOff:   -1,
+			hCount: 0,
+		}
+
+		copy(values[i+1:], l.values[i:])
+
+		l.values = values
 	}
-
-	values := make([]*leafValue, len(l.values)+1)
-
-	copy(values, l.values[:i])
-
-	values[i] = &leafValue{
-		key:    key,
-		value:  value,
-		ts:     ts,
-		tss:    []uint64{ts},
-		hOff:   -1,
-		hCount: 0,
-	}
-
-	copy(values[i+1:], l.values[i:])
-
-	l.values = values
 
 	nodes, err = l.split()
 
@@ -2082,8 +2056,10 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes 
 func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
 	i, found := l.indexOf(key)
 
+	var newLeaf *leafNode
+
 	if found {
-		newLeaf := &leafNode{
+		newLeaf = &leafNode{
 			t:      l.t,
 			values: make([]*leafValue, len(l.values)),
 			_ts:    ts,
@@ -2120,45 +2096,43 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []
 				hCount: l.values[pi].hCount,
 			}
 		}
-
-		return []node{newLeaf}, 1, nil
-	}
-
-	newLeaf := &leafNode{
-		t:      l.t,
-		values: make([]*leafValue, len(l.values)+1),
-		_ts:    ts,
-		mut:    true,
-	}
-
-	for pi := 0; pi < i; pi++ {
-		newLeaf.values[pi] = &leafValue{
-			key:    l.values[pi].key,
-			value:  l.values[pi].value,
-			ts:     l.values[pi].ts,
-			tss:    l.values[pi].tss,
-			hOff:   l.values[pi].hOff,
-			hCount: l.values[pi].hCount,
+	} else {
+		newLeaf = &leafNode{
+			t:      l.t,
+			values: make([]*leafValue, len(l.values)+1),
+			_ts:    ts,
+			mut:    true,
 		}
-	}
 
-	newLeaf.values[i] = &leafValue{
-		key:    key,
-		value:  value,
-		ts:     ts,
-		tss:    []uint64{ts},
-		hOff:   -1,
-		hCount: 0,
-	}
+		for pi := 0; pi < i; pi++ {
+			newLeaf.values[pi] = &leafValue{
+				key:    l.values[pi].key,
+				value:  l.values[pi].value,
+				ts:     l.values[pi].ts,
+				tss:    l.values[pi].tss,
+				hOff:   l.values[pi].hOff,
+				hCount: l.values[pi].hCount,
+			}
+		}
 
-	for pi := i + 1; pi < len(newLeaf.values); pi++ {
-		newLeaf.values[pi] = &leafValue{
-			key:    l.values[pi-1].key,
-			value:  l.values[pi-1].value,
-			ts:     l.values[pi-1].ts,
-			tss:    l.values[pi-1].tss,
-			hOff:   l.values[pi-1].hOff,
-			hCount: l.values[pi-1].hCount,
+		newLeaf.values[i] = &leafValue{
+			key:    key,
+			value:  value,
+			ts:     ts,
+			tss:    []uint64{ts},
+			hOff:   -1,
+			hCount: 0,
+		}
+
+		for pi := i + 1; pi < len(newLeaf.values); pi++ {
+			newLeaf.values[pi] = &leafValue{
+				key:    l.values[pi-1].key,
+				value:  l.values[pi-1].value,
+				ts:     l.values[pi-1].ts,
+				tss:    l.values[pi-1].tss,
+				hOff:   l.values[pi-1].hOff,
+				hCount: l.values[pi-1].hCount,
+			}
 		}
 	}
 
