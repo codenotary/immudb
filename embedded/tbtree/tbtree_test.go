@@ -667,6 +667,44 @@ func TestSnapshotRecovery(t *testing.T) {
 	})
 }
 
+func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
+	d, err := ioutil.TempDir("", "test_tree_split_key_updates")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	opts := DefaultOptions()
+
+	tree, err := Open(d, opts)
+	require.NoError(t, err)
+
+	for i := byte(0); i < 14; i++ {
+		key := make([]byte, opts.maxKeySize/4)
+		key[0] = i
+
+		err = tree.BulkInsert([]*KV{
+			{K: key, V: make([]byte, 1)},
+		})
+		require.NoError(t, err)
+	}
+
+	// updating entries with bigger values should be handled
+	for i := byte(0); i < 14; i++ {
+		key := make([]byte, opts.maxKeySize/4)
+		key[0] = i
+
+		err = tree.BulkInsert([]*KV{
+			{K: key, V: key},
+		})
+		require.NoError(t, err)
+	}
+
+	_, _, err = tree.Flush()
+	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+}
+
 func TestTBTreeCompactionEdgeCases(t *testing.T) {
 	d, err := ioutil.TempDir("", "test_tree_compaction_edge_cases")
 	require.NoError(t, err)
