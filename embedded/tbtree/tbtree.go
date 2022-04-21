@@ -519,7 +519,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		maxValueSize = opts.maxValueSize
 	}
 
-	if maxNodeSize < minNodeSize(maxKeySize, maxValueSize) {
+	if maxNodeSize < requiredNodeSize(maxKeySize, maxValueSize) {
 		return nil, fmt.Errorf("%w: max node size is too small for specified max key and max value sizes", ErrIllegalArguments)
 	}
 
@@ -672,7 +672,8 @@ func greatestKeyOfSize(size int) []byte {
 	return k
 }
 
-func minNodeSize(maxKeySize, maxValueSize int) int {
+// requiredNodeSize calculates the lower bound for node size
+func requiredNodeSize(maxKeySize, maxValueSize int) int {
 	// space for at least two children is required for inner nodes
 	// 31 bytes are fixed in leafNode serialization while 29 bytes are fixed in innerNodes
 	return 2 * (31 + maxKeySize + maxValueSize)
@@ -1851,6 +1852,8 @@ func (n *innerNode) setTs(ts uint64) (node, error) {
 	return newNode, nil
 }
 
+// size calculates the amount of bytes required to serialize an inner node
+// note: requiredNodeSize must be revised if this function is modified
 func (n *innerNode) size() (int, error) {
 	size := 1 // Node type
 
@@ -2366,6 +2369,8 @@ func (l *leafNode) setTs(ts uint64) (node, error) {
 	return newLeaf, nil
 }
 
+// size calculates the amount of bytes required to serialize a leaf node
+// note: requiredNodeSize must be revised if this function is modified
 func (l *leafNode) size() (int, error) {
 	size := 1 // Node type
 

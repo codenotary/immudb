@@ -62,7 +62,7 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 		WithMaxKeySize(8).
 		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_history_asc", opts)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestHistoryReaderDescendingScan(t *testing.T) {
 		WithMaxKeySize(4).
 		WithMaxValueSize(8)
 
-	opts.WithMaxNodeSize(minNodeSize(opts.maxKeySize, opts.maxValueSize))
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
 	tbtree, err := Open("test_tree_history_desc", opts)
 	require.NoError(t, err)
