@@ -1757,7 +1757,7 @@ func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes [
 
 	newNode := &innerNode{
 		t:       n.t,
-		nodes:   make([]node, len(n.nodes)+1),
+		nodes:   make([]node, len(n.nodes)+len(cs)-1),
 		_ts:     ts,
 		mut:     true,
 		_minOff: n._minOff,
