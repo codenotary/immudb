@@ -667,6 +667,22 @@ func TestSnapshotRecovery(t *testing.T) {
 	})
 }
 
+func TestTBTreeSplitTooBigKeys(t *testing.T) {
+	d, err := ioutil.TempDir("", "test_tree_split_too_big_keys")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	opts := DefaultOptions()
+
+	opts.WithMaxKeySize(opts.maxNodeSize / 2)
+	_, err = Open(d, opts)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	opts.WithMaxKeySize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize) - 1)
+	_, err = Open(d, opts)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
 func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
 	d, err := ioutil.TempDir("", "test_tree_split_key_updates")
 	require.NoError(t, err)
