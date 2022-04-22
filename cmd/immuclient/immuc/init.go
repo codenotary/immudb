@@ -113,7 +113,7 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	}
 
 	needsLogin := strings.Contains(err.Error(), "token has expired") ||
-		strings.Contains(err.Error(), "please login first") ||
+		strings.Contains(err.Error(), "not logged in") ||
 		strings.Contains(err.Error(), "please select a database first")
 	if !needsLogin ||
 		len(i.ImmuClient.GetOptions().Username) == 0 ||
