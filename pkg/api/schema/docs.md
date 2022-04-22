@@ -1698,6 +1698,7 @@
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 | noWait | [bool](#bool) |  |  |
+| keepReferencesUnresolved | [bool](#bool) |  |  |
 
 
 
@@ -2065,6 +2066,7 @@ Reserved to reply with more advanced response later
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 | noWait | [bool](#bool) |  |  |
+| keepReferencesUnresolved | [bool](#bool) |  |  |
 
 
 

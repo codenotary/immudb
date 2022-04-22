@@ -377,10 +377,11 @@ message VerifiableZAddRequest {
 }
 
 message TxRequest {
-	uint64      tx = 1;
-	EntriesSpec entriesSpec = 2;
-	uint64 sinceTx  = 3;
-	bool   noWait   = 4;
+	uint64      tx                = 1;
+	EntriesSpec entriesSpec       = 2;
+	uint64      sinceTx           = 3;
+	bool        noWait            = 4;
+	bool        keepReferencesUnresolved = 5;
 }
 
 message EntriesSpec {
@@ -406,6 +407,7 @@ message VerifiableTxRequest {
 	EntriesSpec entriesSpec = 3;
 	uint64 sinceTx  = 4;
 	bool   noWait   = 5;
+	bool   keepReferencesUnresolved = 6;
 }
 
 message TxScanRequest {

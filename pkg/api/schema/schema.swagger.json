@@ -933,6 +933,12 @@
             "in": "query",
             "required": false,
             "type": "boolean"
+          },
+          {
+            "name": "keepReferencesUnresolved",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -1275,6 +1281,12 @@
           },
           {
             "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "keepReferencesUnresolved",
             "in": "query",
             "required": false,
             "type": "boolean"
