@@ -772,6 +772,31 @@ func TestTxByID(t *testing.T) {
 		}
 	})
 
+	t.Run("only kv entries should be resolved (but not references)", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{
+			Tx: txhdr2.Id,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+			},
+			KeepReferencesUnresolved: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Len(t, tx.KvEntries, 2)
+		require.Empty(t, tx.ZEntries)
+
+		for i, e := range tx.KvEntries {
+			require.Equal(t, []byte(fmt.Sprintf("key%d", i)), e.Key)
+
+			if e.ReferencedBy == nil {
+				require.Equal(t, []byte(fmt.Sprintf("value%d", i)), e.Value)
+			} else {
+				require.Empty(t, e.Value)
+			}
+		}
+	})
+
 	t.Run("only zentries should be resolved", func(t *testing.T) {
 		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
 			ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
@@ -785,6 +810,27 @@ func TestTxByID(t *testing.T) {
 		require.Equal(t, []byte("set1"), tx.ZEntries[0].Set)
 		require.Equal(t, []byte("key1"), tx.ZEntries[0].Key)
 		require.Equal(t, float64(10), tx.ZEntries[0].Score)
+		require.NotNil(t, tx.ZEntries[0].Entry)
+	})
+
+	t.Run("only zentries should be resolved (but not including entries)", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{
+			Tx: txhdr2.Id,
+			EntriesSpec: &schema.EntriesSpec{
+				ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+			},
+			KeepReferencesUnresolved: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Len(t, tx.ZEntries, 1)
+
+		require.Equal(t, []byte("set1"), tx.ZEntries[0].Set)
+		require.Equal(t, []byte("key1"), tx.ZEntries[0].Key)
+		require.Equal(t, float64(10), tx.ZEntries[0].Score)
+		require.Nil(t, tx.ZEntries[0].Entry)
 	})
 
 	t.Run("sql entries can not be resolved", func(t *testing.T) {
