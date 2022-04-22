@@ -44,7 +44,8 @@ var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrReadingFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
-var ErrorMaxKVLenExceeded = errors.New("max kv length exceeded")
+var ErrorMaxKeySizeExceeded = errors.New("max key size exceeded")
+var ErrorMaxValueSizeExceeded = errors.New("max value size exceeded")
 var ErrOffsetOutOfRange = errors.New("offset out of range")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("index already closed")
@@ -1547,8 +1548,12 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 			return ErrIllegalArguments
 		}
 
-		if len(kv.K) > t.maxKeySize || len(kv.V) > t.maxValueSize {
-			return ErrorMaxKVLenExceeded
+		if len(kv.K) > t.maxKeySize {
+			return ErrorMaxKeySizeExceeded
+		}
+
+		if len(kv.V) > t.maxValueSize {
+			return ErrorMaxValueSizeExceeded
 		}
 	}
 

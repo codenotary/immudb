@@ -252,10 +252,14 @@ func TestEdgeCases(t *testing.T) {
 	require.Equal(t, uint64(0), tree.Ts())
 
 	require.Error(t, tree.wrapNwarn("message"))
-	require.ErrorIs(t, tree.wrapNwarn("%w", ErrorMaxKVLenExceeded), ErrorMaxKVLenExceeded)
+	require.ErrorIs(t, tree.wrapNwarn("%w", ErrorMaxKeySizeExceeded), ErrorMaxKeySizeExceeded)
+	require.ErrorIs(t, tree.wrapNwarn("%w", ErrorMaxValueSizeExceeded), ErrorMaxValueSizeExceeded)
 
-	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
-	require.Equal(t, ErrorMaxKVLenExceeded, err)
+	err = tree.Insert(make([]byte, tree.maxKeySize+1), make([]byte, tree.maxValueSize))
+	require.Equal(t, ErrorMaxKeySizeExceeded, err)
+
+	err = tree.Insert(make([]byte, tree.maxKeySize), make([]byte, tree.maxValueSize+1))
+	require.Equal(t, ErrorMaxValueSizeExceeded, err)
 
 	_, _, _, err = tree.Get(nil)
 	require.Equal(t, ErrIllegalArguments, err)
@@ -713,6 +717,51 @@ func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
+
+	_, _, err = tree.Flush()
+	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+}
+
+func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
+	d, err := ioutil.TempDir("", "test_tree_multi_leaf_split")
+	require.NoError(t, err)
+	defer os.RemoveAll(d)
+
+	opts := DefaultOptions()
+	opts.WithMaxKeySize(opts.maxNodeSize / 4)
+
+	tree, err := Open(d, opts)
+	require.NoError(t, err)
+
+	for i := byte(1); i < 4; i++ {
+		key := make([]byte, opts.maxKeySize)
+		key[0] = i
+
+		err = tree.BulkInsert([]*KV{
+			{K: key, V: make([]byte, 1)},
+		})
+		require.NoError(t, err)
+	}
+
+	for i := byte(1); i < 5; i++ {
+		key := make([]byte, opts.maxKeySize/8)
+		key[0] = i + 3
+
+		err = tree.BulkInsert([]*KV{
+			{K: key, V: make([]byte, 1)},
+		})
+		require.NoError(t, err)
+	}
+
+	key := make([]byte, opts.maxKeySize)
+
+	err = tree.BulkInsert([]*KV{
+		{K: key, V: make([]byte, opts.maxValueSize)},
+	})
+	require.NoError(t, err)
 
 	_, _, err = tree.Flush()
 	require.NoError(t, err)
