@@ -348,6 +348,10 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_Ts{Ts: sql.TimeToInt64(tv.Value().(time.Time))}}
 		}
+	case sql.Float64Type:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_F{F: tv.Value().(float64)}}
+		}
 	}
 	return nil
 }
