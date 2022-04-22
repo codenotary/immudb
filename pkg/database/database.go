@@ -455,7 +455,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, 
 }
 
 func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata,
-	index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
+	index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
 	if md != nil && md.Deleted() {
 		return nil, store.ErrKeyNotFound
 	}
@@ -483,9 +483,16 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
-		entry, err := d.getAt(refKey, atTx, resolved+1, index, txHolder)
-		if err != nil {
-			return nil, err
+		if index != nil {
+			entry, err = d.getAt(refKey, atTx, resolved+1, index, txHolder)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			entry = &schema.Entry{
+				Key: TrimPrefix(refKey),
+				Tx:  atTx,
+			}
 		}
 
 		entry.ReferencedBy = &schema.Reference{
@@ -803,11 +810,16 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
-	if err != nil {
-		return nil, err
+	var snap *store.Snapshot
+	var err error
+
+	if !req.KeepReferencesUnresolved {
+		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
+		if err != nil {
+			return nil, err
+		}
+		defer snap.Close()
 	}
-	defer snap.Close()
 
 	tx := d.st.NewTxHolder()
 
@@ -887,7 +899,12 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				}
 
 				// resolve entry
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), snap, txHolder)
+				var index store.KeyIndex
+				if snap != nil {
+					index = snap
+				}
+
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, txHolder)
 				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
@@ -945,19 +962,24 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 					txHolder = d.st.NewTxHolder()
 				}
 
-				e, err := d.getAt(key, atTx, 1, snap, txHolder)
-				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
-					// ignore deleted ones (referenced key may have been deleted)
-					break
-				}
-				if err != nil {
-					return nil, err
+				var entry *schema.Entry
+				var err error
+
+				if snap != nil {
+					entry, err = d.getAt(key, atTx, 1, snap, txHolder)
+					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
+						// ignore deleted ones (referenced key may have been deleted)
+						break
+					}
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				zentry := &schema.ZEntry{
 					Set:   set,
 					Key:   key[1:],
-					Entry: e,
+					Entry: entry,
 					Score: score,
 					AtTx:  atTx,
 				}
@@ -1033,11 +1055,16 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, fmt.Errorf("%w: latest txID=%d is lower than specified as initial tx=%d", ErrIllegalState, lastTxID, req.ProveSinceTx)
 	}
 
-	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
-	if err != nil {
-		return nil, err
+	var snap *store.Snapshot
+	var err error
+
+	if !req.KeepReferencesUnresolved {
+		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
+		if err != nil {
+			return nil, err
+		}
+		defer snap.Close()
 	}
-	defer snap.Close()
 
 	// key-value inclusion proof
 	reqTx := d.st.NewTxHolder()
