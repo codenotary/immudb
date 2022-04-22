@@ -174,26 +174,27 @@ type TBtree struct {
 
 	root node
 
-	maxNodeSize              int
-	insertionCountSinceFlush int
-	insertionCountSinceSync  int
-	flushThld                int
-	syncThld                 int
-	flushBufferSize          int
-	cleanupPercentage        float32
-	maxActiveSnapshots       int
-	renewSnapRootAfter       time.Duration
-	readOnly                 bool
-	cacheSize                int
-	fileSize                 int
-	fileMode                 os.FileMode
-	maxKeySize               int
-	maxValueSize             int
-	compactionThld           int
-	delayDuringCompaction    time.Duration
-	nodesLogMaxOpenedFiles   int
-	historyLogMaxOpenedFiles int
-	commitLogMaxOpenedFiles  int
+	maxNodeSize                int
+	insertionCountSinceFlush   int
+	insertionCountSinceSync    int
+	insertionCountSinceCleanup int
+	flushThld                  int
+	syncThld                   int
+	flushBufferSize            int
+	cleanupPercentage          float32
+	maxActiveSnapshots         int
+	renewSnapRootAfter         time.Duration
+	readOnly                   bool
+	cacheSize                  int
+	fileSize                   int
+	fileMode                   os.FileMode
+	maxKeySize                 int
+	maxValueSize               int
+	compactionThld             int
+	delayDuringCompaction      time.Duration
+	nodesLogMaxOpenedFiles     int
+	historyLogMaxOpenedFiles   int
+	commitLogMaxOpenedFiles    int
 
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
@@ -986,7 +987,7 @@ func (t *TBtree) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	_, _, err := t.flushTree(0, true)
+	_, _, err := t.flushTree(0, true, false)
 	return err
 }
 
@@ -1002,7 +1003,7 @@ func (t *TBtree) FlushWith(cleanupPercentage float32, synced bool) (wN, wH int64
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	return t.flushTree(cleanupPercentage, synced)
+	return t.flushTree(cleanupPercentage, synced, true)
 }
 
 type appendableWriter struct {
@@ -1019,12 +1020,16 @@ func (t *TBtree) wrapNwarn(formattedMessage string, args ...interface{}) error {
 	return fmt.Errorf(formattedMessage, args...)
 }
 
-func (t *TBtree) flushTree(cleanupPercentage float32, synced bool) (wN int64, wH int64, err error) {
+func (t *TBtree) flushTree(cleanupPercentage float32, forceSync bool, forceCleanup bool) (wN int64, wH int64, err error) {
 	if cleanupPercentage < 0 || cleanupPercentage > 100 {
 		return 0, 0, fmt.Errorf("%w: invalid cleanupPercentage", ErrIllegalArguments)
 	}
 
-	t.logger.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f}...", t.path, t.root.ts(), cleanupPercentage)
+	if !forceCleanup && t.insertionCountSinceCleanup < t.flushThld {
+		cleanupPercentage = 0
+	}
+
+	t.logger.Infof("Flushing index '%s' {ts=%d, cleanup_percentage=%.2f, since_cleanup=%d}...", t.path, t.root.ts(), cleanupPercentage, t.insertionCountSinceCleanup)
 
 	if !t.root.mutated() && cleanupPercentage == 0 {
 		t.logger.Infof("Flushing not needed at '%s' {ts=%d, cleanup_percentage=%.2f}", t.path, t.root.ts(), cleanupPercentage)
@@ -1085,7 +1090,7 @@ func (t *TBtree) flushTree(cleanupPercentage float32, synced bool) (wN int64, wH
 			t.path, t.root.ts(), cleanupPercentage, err)
 	}
 
-	sync := synced || t.insertionCountSinceSync >= t.syncThld
+	sync := forceSync || t.insertionCountSinceSync >= t.syncThld
 
 	if sync {
 		err = t.hLog.Sync()
@@ -1148,6 +1153,9 @@ func (t *TBtree) flushTree(cleanupPercentage float32, synced bool) (wN int64, wH
 	}
 
 	t.insertionCountSinceFlush = 0
+	if cleanupPercentage != 0 {
+		t.insertionCountSinceCleanup = 0
+	}
 	t.logger.Infof("Index '%s' {ts=%d, cleanup_percentage=%.2f} successfully flushed",
 		t.path, t.root.ts(), cleanupPercentage)
 
@@ -1302,7 +1310,7 @@ func (t *TBtree) Compact() (uint64, error) {
 		return 0, ErrCompactionThresholdNotReached
 	}
 
-	_, _, err := t.flushTree(0, false)
+	_, _, err := t.flushTree(0, false, false)
 	if err != nil {
 		return 0, err
 	}
@@ -1482,7 +1490,7 @@ func (t *TBtree) Close() error {
 
 	merrors := multierr.NewMultiErr()
 
-	_, _, err := t.flushTree(0, true)
+	_, _, err := t.flushTree(0, true, false)
 	merrors.Append(err)
 
 	err = t.nLog.Close()
@@ -1520,9 +1528,10 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 
 	t.insertionCountSinceFlush++
 	t.insertionCountSinceSync++
+	t.insertionCountSinceCleanup++
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false)
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false)
 		return err
 	}
 
@@ -1618,10 +1627,11 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 		t.insertionCountSinceFlush++
 		t.insertionCountSinceSync++
+		t.insertionCountSinceCleanup++
 	}
 
 	if t.insertionCountSinceFlush >= t.flushThld {
-		_, _, err := t.flushTree(t.cleanupPercentage, false)
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false)
 		return err
 	}
 
@@ -1654,7 +1664,7 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 
-		_, _, err := t.flushTree(0, false)
+		_, _, err := t.flushTree(t.cleanupPercentage, false, false)
 		if err != nil {
 			return nil, err
 		}
