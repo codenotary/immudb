@@ -67,9 +67,16 @@ func PrintHealth(res *schema.DatabaseHealthResponse) string {
 // PrintState ...
 func PrintState(root *schema.ImmutableState) string {
 	if root.TxId == 0 {
-		return fmt.Sprintf("database %s is empty\n", root.Db)
+		return fmt.Sprintf("database '%s' is empty\n", root.Db)
 	}
-	return fmt.Sprintf("txID:		%d\nhash:		%x\n", root.TxId, root.TxHash)
+
+	str := strings.Builder{}
+
+	str.WriteString(fmt.Sprintf("database:	%s\n", root.Db))
+	str.WriteString(fmt.Sprintf("txID:		%d\n", root.TxId))
+	str.WriteString(fmt.Sprintf("hash:		%x\n", root.TxHash))
+
+	return str.String()
 }
 
 // PrintTx ...
