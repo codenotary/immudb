@@ -70,9 +70,62 @@ jobs:
         - name: Calculate checksums
           run: make dist/binary.md
 
+  binaries-quick-test:
+    name: Quick test of compiled binaries
+    needs: [ binaries ]
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            selector: '*-windows-amd64.exe'
+          - os: ubuntu-latest
+            selector: '*-linux-amd64'
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: immudb-binaries
+        path: dist
+    - name: Make binaries executable
+      run: chmod +x dist/${{ matrix.selector }}
+      shell: bash
+      if: runner.os == 'Linux'
+
+    - name: List matching binaries
+      shell: bash
+      run: ls -all dist/${{ matrix.selector }}
+
+    - name: Run immudb in the background
+      shell: bash
+      run: dist/immudb-${{ matrix.selector }} -d
+
+    - name: immuadmin test
+      shell: bash
+      run: |
+        IMMUADMIN=dist/immuadmin-${{ matrix.selector }}
+
+        echo -n "immudb" | $IMMUADMIN login immudb || true
+        $IMMUADMIN database create test
+        $IMMUADMIN database list
+        $IMMUADMIN database unload test
+        $IMMUADMIN database load test
+
+    - name: immuclient test
+      shell: bash
+      run: |
+        IMMUCLIENT=dist/immuclient-${{ matrix.selector }}
+
+        $IMMUCLIENT login --username immudb --password immudb
+        $IMMUCLIENT use test
+        $IMMUCLIENT safeset test3 githubaction
+        sg=$($IMMUCLIENT safeget test3)
+        grep -q "githubaction" <<< $sg
+        grep -q  "verified" <<< $sg
+        grep -q "true" <<< $sg
+
   notarize-binaries:
       name: Notarize binaries
-      needs: binaries
+      needs: binaries-quick-test
       runs-on: ubuntu-latest
       strategy:
         matrix: ${{fromJson(needs.binaries.outputs.matrix)}}
