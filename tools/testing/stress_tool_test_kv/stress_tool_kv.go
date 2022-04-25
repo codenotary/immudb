@@ -29,6 +29,7 @@ var (
 	seed          = flag.Int("seed", 0, "test seed")
 	totalEntries  = flag.Int("total-entries-written", 5_000_000, "total number of entries written during the test")
 	totalReads    = flag.Int("total-entries-read", 10_000, "total number of entries read during the test")
+	randKeyLen    = flag.Bool("randomize-key-length", false, "use randomized key lengths")
 
 	help = flag.Bool("help", false, "show help")
 )
@@ -101,7 +102,18 @@ func testRun(
 		copy(b[:], seedKey[:])
 		binary.BigEndian.PutUint64(b[:], uint64(i))
 		k := sha256.Sum256(b[:])
-		return k[:]
+		kLen := len(k)
+		if *randKeyLen {
+			if k[kLen-1] > 200 {
+				return bytes.Repeat(k[:], 1000/len(k))
+			}
+
+			kLen = 8
+
+			minLen := 3
+			kLen = int(k[len(k)-1])%(len(k)-minLen) + minLen
+		}
+		return k[:kLen]
 	}
 
 	val := func(i int) []byte {
@@ -118,8 +130,16 @@ func testRun(
 		batchSize := 1_000
 		for i := 0; i < entriesCount; i += batchSize {
 
+			alreadyAdded := map[string]struct{}{}
 			kvs := []*schema.KeyValue{}
 			for j := 0; j < batchSize && i+j < entriesCount; j++ {
+				k := key(i + j)
+
+				ks := string(k)
+				if _, found := alreadyAdded[ks]; found {
+					continue
+				}
+				alreadyAdded[ks] = struct{}{}
 
 				kvs = append(kvs, &schema.KeyValue{
 					Key:   key(i + j),
