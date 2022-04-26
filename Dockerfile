@@ -53,8 +53,9 @@ LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
+ARG IMMUDB_HOME="/usr/share/immudb"
 
-ENV IMMUDB_HOME="/usr/share/immudb" \
+ENV IMMUDB_HOME="${IMMUDB_HOME}" \
     IMMUDB_DIR="/var/lib/immudb" \
     IMMUDB_ADDRESS="0.0.0.0" \
     IMMUDB_PORT="3322" \
