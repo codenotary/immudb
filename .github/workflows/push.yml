@@ -67,6 +67,8 @@ jobs:
             name: immudb-binaries
             path: dist
             retention-days: 5
+        - name: Calculate checksums
+          run: make dist/binary.md
 
   notarize-binaries:
       name: Notarize binaries
