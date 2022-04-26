@@ -84,6 +84,9 @@ jobs:
             selector: '*-linux-amd64-static'
           - os: macos-latest
             selector: '*-darwin-amd64'
+          - os: ubuntu-latest
+            selector: '*-linux-arm64'
+            qemu-launcher: qemu-aarch64
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/download-artifact@v3
@@ -100,14 +103,18 @@ jobs:
       shell: bash
       if: runner.os != 'Windows'
 
+    - name: Install qemu-user
+      run: sudo apt update && sudo apt install -qq qemu-user
+      if: matrix.qemu-launcher
+
     - name: Run immudb in the background
       shell: bash
-      run: dist/immudb-${{ matrix.selector }} -d
+      run: ${{ matrix.qemu-launcher }} dist/immudb-${{ matrix.selector }} -d
 
     - name: immuadmin test
       shell: bash
       run: |
-        IMMUADMIN=dist/immuadmin-${{ matrix.selector }}
+        IMMUADMIN="${{ matrix.qemu-launcher }} "dist/immuadmin-${{ matrix.selector }}
 
         echo -n "immudb" | $IMMUADMIN login immudb || true
         $IMMUADMIN database create test
@@ -118,7 +125,7 @@ jobs:
     - name: immuclient test
       shell: bash
       run: |
-        IMMUCLIENT=dist/immuclient-${{ matrix.selector }}
+        IMMUCLIENT="${{ matrix.qemu-launcher }} "dist/immuclient-${{ matrix.selector }}
 
         $IMMUCLIENT login --username immudb --password immudb
         $IMMUCLIENT use test
