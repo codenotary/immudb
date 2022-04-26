@@ -145,9 +145,35 @@ jobs:
         grep -q  "verified" <<< $sg
         grep -q "true" <<< $sg
 
+  stress-tests:
+    name: Run KV stress tests
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download binary artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: immudb-binaries
+        path: dist
+    - name: Make binaries executable
+      run: chmod +x dist/*linux-amd64
+    - name: Run immudb in the background
+      run: dist/immudb-*-linux-amd64 -d
+    - uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - uses: actions/checkout@v3
+    - name: Run KV stress test
+      run: |
+        go run ./tools/testing/stress_tool_test_kv/ \
+          -mix-read-writes \
+          -randomize-key-length \
+          -total-entries-written 300000 \
+          -total-entries-read 10000
+
   notarize-binaries:
       name: Notarize binaries
-      needs: binaries-quick-test
+      needs: [ binaries-quick-test, stress-tests ]
       runs-on: ubuntu-latest
       strategy:
         matrix: ${{fromJson(needs.binaries.outputs.matrix)}}
