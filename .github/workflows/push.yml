@@ -80,20 +80,25 @@ jobs:
             selector: '*-windows-amd64.exe'
           - os: ubuntu-latest
             selector: '*-linux-amd64'
+          - os: ubuntu-latest
+            selector: '*-linux-amd64-static'
+          - os: macos-latest
+            selector: '*-darwin-amd64'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/download-artifact@v3
       with:
         name: immudb-binaries
         path: dist
-    - name: Make binaries executable
-      run: chmod +x dist/${{ matrix.selector }}
-      shell: bash
-      if: runner.os == 'Linux'
 
     - name: List matching binaries
       shell: bash
       run: ls -all dist/${{ matrix.selector }}
+
+    - name: Make binaries executable
+      run: chmod +x dist/${{ matrix.selector }}
+      shell: bash
+      if: runner.os != 'Windows'
 
     - name: Run immudb in the background
       shell: bash
