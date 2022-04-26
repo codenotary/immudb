@@ -87,6 +87,11 @@ jobs:
           - os: ubuntu-latest
             selector: '*-linux-arm64'
             qemu-launcher: qemu-aarch64
+          - os: ubuntu-latest
+            selector: '*-linux-s390x'
+            qemu-launcher: qemu-s390x
+            extra-immudb-args: "--web-server=false"
+            continue-on-error: true
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/download-artifact@v3
@@ -109,10 +114,14 @@ jobs:
 
     - name: Run immudb in the background
       shell: bash
-      run: ${{ matrix.qemu-launcher }} dist/immudb-${{ matrix.selector }} -d
+      continue-on-error: ${{ matrix.continue-on-error || false }}
+      run: |
+        IMMUADMIN="${{ matrix.qemu-launcher }} "dist/immudb-${{ matrix.selector }}
+        $IMMUADMIN -d ${{ matrix.extra-immudb-args }}
 
     - name: immuadmin test
       shell: bash
+      continue-on-error: ${{ matrix.continue-on-error || false }}
       run: |
         IMMUADMIN="${{ matrix.qemu-launcher }} "dist/immuadmin-${{ matrix.selector }}
 
@@ -124,6 +133,7 @@ jobs:
 
     - name: immuclient test
       shell: bash
+      continue-on-error: ${{ matrix.continue-on-error || false }}
       run: |
         IMMUCLIENT="${{ matrix.qemu-launcher }} "dist/immuclient-${{ matrix.selector }}
 
