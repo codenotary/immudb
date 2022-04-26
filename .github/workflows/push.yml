@@ -193,7 +193,7 @@ jobs:
 
   images:
       name: Build and notarize Docker Images
-      needs: [ gosec, old-go ]
+      needs: [ binaries-quick-test, stress-tests ]
       runs-on: ubuntu-latest
       env:
         JOB_NAME: ${{ github.job }}
