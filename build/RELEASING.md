@@ -18,6 +18,9 @@ Although `immudb` aims to have a "[OneFlow][oneflow]" git branching model,
 Thus, the instructions on the current document assume that just the `master` branch is used for the release process
 (with all modifications previously merged in). However the whole process can be easily adapter to a release branch if needed.
 
+During the release process, an additional `release/vX.Y.Z` is created to trigger github actions needed to prepare binaries.
+That branch is removed after the release is finished.
+
 [oneflow]: https://www.endoflineblog.com/oneflow-a-git-branching-model-and-workflow
 [relbranches]: https://www.endoflineblog.com/oneflow-a-git-branching-model-and-workflow#release-branches
 
@@ -35,7 +38,10 @@ make clean
 
 [webconsole]: https://github.com/codenotary/immudb-webconsole/releases/latest
 
-## 2. Bump version (vX.Y.Z)
+## 2. Create release branch and bump version (vX.Y.Z)
+
+Switch to a new branch from `master` called `release/vX.Y.Z`.
+Do not push yet as it triggers build process.
 
 Edit `Makefile` and modify the `VERSION` and `DEFAULT_WEBCONSOLE_VERSION` variables:
 
@@ -63,39 +69,42 @@ appVersion: "X.Y.Z"
 The first line (`version`) is the version of the helm chart, the second the version of immudb.
 We may want to keep them aligned.
 
-## 3. Commit and tag (locally)
+## 3. Commit and push the release branch
 
 Add the files modified above to the git index:
 
 ```sh
 git add Makefile
 git add CHANGELOG.md
+git commit -m "release: vX.Y.Z"
 ```
 
-Then:
+Then push the `release/vX.Y.Z` branch to github.
+
+## 4. Tag the release locally
 
 ```sh
-git commit -m "release: vX.Y.Z"
 git tag vX.Y.Z
 ```
 
-> Do not push now.
+> Do not push this tag now.
 
-## 4. Make dist files
+## 5. Wait for github to build release files and docker images
 
-Build all dist files:
+Binaries and docker images are built automatically with github actions.
 
-```sh
-WEBCONSOLE=default make dist
-```
+## 6. Create a draft pre-release in GitHub
 
-> Distribution files will be created into the `dist` directory.
+On GitHub, [draft a new release](https://github.com/vchain-us/immudb/releases),
+attach all binaries built on github.
+Binaries will be available as a single compressed artifact from the `pushCI` action.
+Download it, decompress locally and upload as separate binary files.
 
-## 5. Create a pre-release in GitHub
-
-On GitHub, [draft a new release](https://github.com/vchain-us/immudb/releases) and upload the `dist` files using the following template
+Do not assign any specific tag to this release yet. Save it as a draft.
 
 > Assets will not be available until the release is published so postpone links generation.
+
+Use the following template for release notes:
 
 ```md
 # Changelog
@@ -111,65 +120,86 @@ https://hub.docker.com/r/codenotary/immudb
 
 File | SHA256
 ------------- | -------------
-<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+<!--
+    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
+    Ensure to paste as a plain text
+-->
 
 
 **Immuclient Binaries**
 
 File | SHA256
 ------------- | -------------
-<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+<!--
+    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
+    Ensure to paste as a plain text
+-->
 
 **Immuadmin Binaries**
 
 File | SHA256
 ------------- | -------------
-<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+<!--
+    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
+    Ensure to paste as a plain text
+-->
 ```
 
-## 6. Validate dist files
+## 7. Validate dist files
 
-Each file generated in the `dist` directory should be quickly checked in all architectures.
-For every platform do the following:
+Following binaries are validated automatically in github actions:
+
+* linux-amd64
+* linux-amd64-static
+* linux-arm64
+* windows-amd64
+* darwin-amd64
+
+The linux-s390x build is tested on github but it can occasionally fail due to unknown
+issue with zip checksum mismatch. For that build, repeat the github action job.
+
+The following builds have to be manually tested:
+
+* darwin-arm64
+* freebsd-amd64
+
+Those are not currently tested due to lack of github runners for them.
+
+The following manual tests should be performed:
 
 * Run immudb server, make sure it works as expected
 * Check the webconsole - make sure it shows correct versions on the footer after login
 * connect to the immudb server with immuclient and perform few get/set operations
 * connect to the immudb server with immuadmin and perform few operations such as creating and listing databases
 
-## 7. Notarize git repository and binaries
-
-After completing tests notarize git repository and dist files using the immudb@codenotary.com account:
-
-```sh
-export CAS_API_KEY
-read -s CAS_API_KEY
-
-make dist/sign
-```
-
 ## 8. Push and edit the release on github
 
-Now it's possible to generate link to the binaries in github pre-release page.
-
-Push your commits and tag:
+Create the master branch from the release branch and push the new master:
 
 ```sh
-git push
-git push --tags
+# Push new master
+git checkout -B master release/vX.Y.Z
+git push origin master
+
+# Push the version tag
+git push origin vX.Y.Z
 ```
 
-Then it's needed to choose the appropriate tag on the newly created release.
+Then it's needed to choose the appropriate git tag on the newly created github release page.
+Mark this tag as a `pre-release` for now and publish the draft.
 
 > From now on, your release will be publicly visible, and github actions should start building docker images for `immudb`.
-
-Mark this tag as a `pre-release` for now.
-
-Do the final check of uploaded binaries by doing manual smoke tests.
 
 Once tags are pushed, corresponding docker images will be automatically built and notarized in CI pipelines.
 
 Non-RC versions: Once everything works correctly, uncheck the `pre-release` mark.
+
+Finally remove the temporary release branch:
+
+```sh
+git branch -d release/vX.Y.Z
+git push origin :release/vX.Y.Z
+```
 
 ## 9. Non-RC versions: Create documentation for the version
 
