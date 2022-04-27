@@ -40,7 +40,9 @@ jobs:
 
   binaries:
       name: Build binaries and notarize sources
-      needs: [ gosec, old-go ]
+      needs:
+        - gosec
+        - old-go
       runs-on: ubuntu-latest
       env:
         JOB_NAME: ${{ github.job }}
@@ -72,7 +74,7 @@ jobs:
 
   binaries-quick-test:
     name: Quick test of compiled binaries
-    needs: [ binaries ]
+    needs: binaries
     strategy:
       matrix:
         include:
@@ -173,7 +175,10 @@ jobs:
 
   notarize-binaries:
       name: Notarize binaries
-      needs: [ binaries-quick-test, stress-tests ]
+      needs:
+        - binaries
+        - binaries-quick-test
+        - stress-tests
       runs-on: ubuntu-latest
       strategy:
         matrix: ${{fromJson(needs.binaries.outputs.matrix)}}
@@ -193,7 +198,10 @@ jobs:
 
   images:
       name: Build and notarize Docker Images
-      needs: [ binaries-quick-test, stress-tests ]
+      needs:
+        - binaries
+        - binaries-quick-test
+        - stress-tests
       runs-on: ubuntu-latest
       env:
         JOB_NAME: ${{ github.job }}
@@ -221,7 +229,7 @@ jobs:
             docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f Dockerfile.immuclient .
 
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
-            
+
             docker push "${DOCKER_IMAGE_IMMUDB}:dev"
             docker push "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}"
             docker push "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}"
@@ -273,10 +281,12 @@ jobs:
           uses: docker://codenotary/cas:bom-docker
           with:
             args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
-            
+
   coveralls:
     name: Publish coverage
-    needs: [ gosec, old-go ]
+    needs:
+      - gosec
+      - old-go
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v3
