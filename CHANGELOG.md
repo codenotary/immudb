@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.2.4-RC1"></a>
+## [v1.2.4-RC1] - 2022-04-27
+### Bug Fixes
+- **Dockerfile:** Fix HOME variable for podman
+- **cmd/immuclient:** upgrade not logged in error handling
+- **embedded/tbtree:** create nodes with the right number of children
+- **embedded/tbtree:** Better logging in btree flush
+- **embedded/tbtree:** Fix cleanupPercentage in SnapshotSince call
+- **embedded/tbtree:** ensure node split is evaluated
+- **embedded/tbtree:** split into multiple nodes
+- **github/push:** Fix notarization of binaries
+- **pkg/auth:** Clarify comments about token injection
+- **pkg/auth:** Do not send duplicated authorization header
+- **pkg/server:** include db name in flush index result
+
+### Changes
+- **CHANGELOG.md:** remove bogus `liist` tag entry
+- **build/RELEASING.md:** Update releasing docs
+- **cmd/immuclient:** include db name when printing current state
+- **embedded/store:** index settings validations
+- **embedded/tbtree:** ensure node size is consistent with key and value sizes
+- **embedded/tbtree:** rename function that calculates node size lower bound
+- **github:** Use smaller 5-days retention for master builds
+- **github:** Update github workflow on master / version push
+- **github:** Update github action versions
+- **github/push:** Build docker images after tests
+- **github/push:** Build, test and notarize for release/v* branches
+- **github/push:** Calcualte sha256 checksums for binaries in github
+- **github/push:** Add quick test linux-amd64 binaries
+- **github/push:** Add quick test for Mac x64 binaries
+- **github/push:** Add quick test for linux-arm64 binaries through qemu
+- **github/push:** Add quick test for linux-s390x binaries through qemu
+- **github/push:** Run stress test before notarizing binaries
+- **pkg/api:** txbyid with keepReferencesUnresolved option
+- **tools/testing:** Add stress tool
+- **tools/testing:** Add randomized key length mode for stress test tool
+
+
 <a name="v1.2.3"></a>
 ## [v1.2.3] - 2022-04-14
 ### Bug Fixes
