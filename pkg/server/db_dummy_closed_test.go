@@ -109,7 +109,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.SQLQueryPrepared(nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.SQLQueryRowReader(nil, nil)
+	_, err = cdb.SQLQueryRowReader(nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.VerifiableSQLGet(nil)

@@ -155,7 +155,7 @@ func (db *closedDB) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error) {
+func (db *closedDB) SQLQueryRowReader(stmt *sql.SelectStmt, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
