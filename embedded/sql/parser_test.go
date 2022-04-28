@@ -811,15 +811,15 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE id <> 1",
+			input: "SELECT table1.id, title FROM table1 AS t1 WHERE id <> 1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{table: "table1", col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
 						op: NE,
 						left: &ColSelector{
@@ -831,15 +831,15 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM db1.table1 AS t1 WHERE id != 1",
+			input: "SELECT table1.id, title FROM table1 AS t1 WHERE id != 1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{table: "table1", col: "id"},
 						&ColSelector{col: "title"},
 					},
-					ds: &tableRef{db: "db1", table: "table1", as: "t1"},
+					ds: &tableRef{table: "table1", as: "t1"},
 					where: &CmpBoolExp{
 						op: NE,
 						left: &ColSelector{
