@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.2.4"></a>
+## [v1.2.4] - 2022-04-28
+
 <a name="v1.2.4-RC1"></a>
 ## [v1.2.4-RC1] - 2022-04-27
 ### Bug Fixes
