@@ -4524,12 +4524,14 @@ func TestTemporalQueries(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("querying data with invalid since expresion should return error", func(t *testing.T) {
+	t.Run("querying data since an older date should return all rows", func(t *testing.T) {
 		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE '2021-12-03'", nil, nil)
 		require.NoError(t, err)
 
-		_, err = r.Read()
-		require.ErrorIs(t, err, ErrIllegalArguments)
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Equal(t, int64(rowCount), row.Values["(db1.table1.c)"].Value())
 	})
 
 	t.Run("querying data since an older date should return all rows", func(t *testing.T) {
