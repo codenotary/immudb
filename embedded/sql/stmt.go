@@ -1783,7 +1783,7 @@ func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLVal
 		return AnyType, err
 	}
 
-	// val type may be restrtiicted by compatible conversions, but multiple types may be compatible...
+	// val type may be restricted by compatible conversions, but multiple types may be compatible...
 
 	return c.t, nil
 }
@@ -2227,6 +2227,10 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
 		}
 
+		if txID <= 0 {
+			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
+		}
+
 		if inclusive {
 			return uint64(txID), nil
 		}
@@ -2235,7 +2239,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 			return uint64(txID + 1), nil
 		}
 
-		if txID == 0 {
+		if txID <= 1 {
 			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
 		}
 
