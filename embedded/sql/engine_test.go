@@ -4511,17 +4511,6 @@ func TestTemporalQueries(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	t.Run("querying data with future date should not return any row", func(t *testing.T) {
-		r, err := engine.Query("SELECT ts FROM table1 AFTER now() ORDER BY id DESC LIMIT 1", nil, nil)
-		require.NoError(t, err)
-
-		_, err = r.Read()
-		require.ErrorIs(t, err, ErrNoMoreRows)
-
-		err = r.Close()
-		require.NoError(t, err)
-	})
-
 	t.Run("querying data with until current time should return all rows", func(t *testing.T) {
 		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE TX 1 UNTIL now()", nil, nil)
 		require.NoError(t, err)
@@ -4535,8 +4524,16 @@ func TestTemporalQueries(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("querying data since an older date should return all rows", func(t *testing.T) {
+	t.Run("querying data with invalid since expresion should return error", func(t *testing.T) {
 		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE '2021-12-03'", nil, nil)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
+
+	t.Run("querying data since an older date should return all rows", func(t *testing.T) {
+		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 SINCE CAST('2021-12-03' AS TIMESTAMP)", nil, nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -4547,4 +4544,116 @@ func TestTemporalQueries(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+}
+
+func TestTemporalQueriesEdgeCases(t *testing.T) {
+	st, err := store.Open("temporal_queries_edge_cases", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("temporal_queries_edge_cases")
+	defer st.Close()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	edgeCases := []struct {
+		title  string
+		query  string
+		params map[string]interface{}
+		err    error
+	}{
+		{
+			title:  "querying data with future date should not return any row",
+			query:  "SELECT ts FROM table1 AFTER now() ORDER BY id DESC LIMIT 1",
+			params: nil,
+			err:    ErrNoMoreRows,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 SINCE TX @tx",
+			params: map[string]interface{}{"tx": 0},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 SINCE TX @tx",
+			params: map[string]interface{}{"tx": -1},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 AFTER TX @tx",
+			params: map[string]interface{}{"tx": 0},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 AFTER TX @tx",
+			params: map[string]interface{}{"tx": -1},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 BEFORE TX @tx",
+			params: map[string]interface{}{"tx": 0},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 BEFORE TX @tx",
+			params: map[string]interface{}{"tx": -1},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 BEFORE TX @tx",
+			params: map[string]interface{}{"tx": 1},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with invalid tx id should return error",
+			query:  "SELECT id, title FROM table1 SINCE TX @tx",
+			params: map[string]interface{}{"tx": uint64(math.MaxUint64)},
+			err:    ErrIllegalArguments,
+		},
+		{
+			title:  "querying data with valid tx id but greater than existent id should return no more rows error",
+			query:  "SELECT id, title FROM table1 SINCE TX @tx",
+			params: map[string]interface{}{"tx": math.MaxInt64},
+			err:    ErrNoMoreRows,
+		},
+		{
+			title:  "querying data with valid tx id but greater than existent id should return no more rows error",
+			query:  "SELECT id, title FROM table1 AFTER TX @tx",
+			params: map[string]interface{}{"tx": math.MaxInt64},
+			err:    ErrNoMoreRows,
+		},
+		{
+			title:  "querying data with valid tx id but greater than existent id should return no more rows error",
+			query:  "SELECT id, title FROM table1 BEFORE TX @tx",
+			params: map[string]interface{}{"tx": math.MaxInt64},
+			err:    ErrNoMoreRows,
+		},
+	}
+
+	for _, c := range edgeCases {
+		t.Run(c.title, func(t *testing.T) {
+			r, err := engine.Query(c.query, c.params, nil)
+			require.NoError(t, err)
+
+			_, err = r.Read()
+			require.ErrorIs(t, err, c.err)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+	}
 }
