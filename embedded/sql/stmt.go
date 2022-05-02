@@ -135,6 +135,8 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 		return tx, nil
 	}
 
+	// explicit tx initialization with implicit tx in progress
+
 	err := tx.commit()
 	if err != nil {
 		return nil, err

@@ -1005,6 +1005,75 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestTransactionsEdgeCases(t *testing.T) {
+	st, err := store.Open("sqldata_tx_edge_cases", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_tx_edge_cases")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithAutocommit(true))
+	require.NoError(t, err)
+
+	t.Run("nested tx are not supported", func(t *testing.T) {
+		_, _, err = engine.Exec(`
+		BEGIN TRANSACTION;
+			BEGIN TRANSACTION;
+				CREATE TABLE table1 (
+					id INTEGER,
+					title VARCHAR,
+					PRIMARY KEY id
+				);
+			COMMIT;
+		COMMIT;
+		`, nil, nil)
+		require.ErrorIs(t, err, ErrNestedTxNotSupported)
+	})
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetDefaultDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`CREATE TABLE table1 (
+										id INTEGER,
+										title VARCHAR,
+										PRIMARY KEY id
+									)`, nil, nil)
+	require.NoError(t, err)
+
+	t.Run("rollback without explicit transaction should return error", func(t *testing.T) {
+		_, _, err = engine.Exec(`
+			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
+			ROLLBACK;
+		`, nil, nil)
+		require.ErrorIs(t, err, ErrNoOngoingTx)
+	})
+
+	t.Run("auto-commit should automatically commit ongoing tx", func(t *testing.T) {
+		ntx, ctxs, err := engine.Exec(`
+			UPSERT INTO table1 (id, title) VALUES (1, 'title1');
+			UPSERT INTO table1 (id, title) VALUES (2, 'title2');
+		`, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, ctxs, 2)
+		require.Nil(t, ntx)
+	})
+
+	t.Run("explicit tx initialization should automatically commit ongoing tx", func(t *testing.T) {
+		engine.autocommit = false
+
+		ntx, ctxs, err := engine.Exec(`
+			UPSERT INTO table1 (id, title) VALUES (3, 'title3');
+			BEGIN TRANSACTION;
+				UPSERT INTO table1 (id, title) VALUES (4, 'title4');
+			COMMIT;
+		`, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, ctxs, 2)
+		require.Nil(t, ntx)
+	})
+}
+
 func TestUseSnapshot(t *testing.T) {
 	st, err := store.Open("sqldata_snap", store.DefaultOptions())
 	require.NoError(t, err)
