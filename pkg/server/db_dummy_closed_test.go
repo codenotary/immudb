@@ -91,6 +91,9 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.ZScan(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
+	_, err = cdb.NewSQLTx(nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
 	_, _, err = cdb.SQLExec(nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 

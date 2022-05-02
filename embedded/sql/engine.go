@@ -1179,7 +1179,9 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		committedTxs = append(committedTxs, currTx)
+	}
 
+	if currTx == nil || currTx.closed {
 		return nil, committedTxs, nil
 	}
 
