@@ -921,9 +921,10 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
-| atTx | [uint64](#uint64) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
+| atTx | [uint64](#uint64) |  | if &gt; 0, query for the value exactly at given transaction |
+| sinceTx | [uint64](#uint64) |  | if 0 (and nowait=false), wait for the index to be up=to-date |
+| noWait | [bool](#bool) |  | if set to true - do not wait for any indexing update considering only the currently indexed state |
+| atRevision | [int64](#int64) |  | if &gt; 0, get the nth version of the value, 1 being the first version, 2 being the second and so on if &lt; 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on |
 
 
 

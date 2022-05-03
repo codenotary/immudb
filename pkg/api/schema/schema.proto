@@ -99,11 +99,11 @@ message Precondition {
 	message KeyMustExistPrecondition {
 		bytes key = 1;
 	}
-	
+
 	message KeyMustNotExistPrecondition {
 		bytes key = 1;
 	}
-	
+
 	message KeyNotModifiedAfterTXPrecondition {
 		bytes key = 1;
 		uint64 txID = 2;
@@ -279,9 +279,19 @@ message SetRequest {
 
 message KeyRequest {
 	bytes key = 1;
-    uint64 atTx = 2;
+	uint64 atTx = 2; // if > 0, query for the value exactly at given transaction
+
+
+	// if 0 (and nowait=false), wait for the index to be up=to-date
 	uint64 sinceTx = 3;
+
+	// if set to true - do not wait for any indexing update considering only the currently indexed state
 	bool  noWait = 4;
+
+	// if > 0, get the nth version of the value, 1 being the first version, 2 being the second and so on
+	// if < 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on
+	int64 atRevision = 5;
+
 }
 
 message KeyListRequest {
@@ -519,7 +529,7 @@ message DatabaseNullableSettings {
 	IndexNullableSettings indexSettings = 19;
 
 	NullableUint32 writeTxHeaderVersion = 20;
-	
+
 	NullableBool autoload = 21;
 }
 
