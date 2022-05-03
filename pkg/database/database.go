@@ -392,19 +392,56 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxHeader, error) {
 	return schema.TxHeaderToProto(hdr), nil
 }
 
-//Get ...
+func checkKeyRequest(req *schema.KeyRequest) error {
+	if req == nil {
+		return fmt.Errorf(
+			"%w: empty request",
+			ErrIllegalArguments,
+		)
+	}
+
+	if len(req.Key) == 0 {
+		return fmt.Errorf(
+			"%w: empty key",
+			ErrIllegalArguments,
+		)
+	}
+
+	if req.AtTx > 0 {
+		if req.SinceTx > 0 {
+			return fmt.Errorf(
+				"%w: SinceTx should not be specified when AtTx is used",
+				ErrIllegalArguments,
+			)
+		}
+
+		if req.AtRevision != 0 {
+			return fmt.Errorf(
+				"%w: AtRevision should not be specified when AtTx is used",
+				ErrIllegalArguments,
+			)
+		}
+	}
+
+	return nil
+}
+
+// Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
-	if req == nil || len(req.Key) == 0 {
-		return nil, ErrIllegalArguments
+	err := checkKeyRequest(req)
+	if err != nil {
+		return nil, err
 	}
 
 	currTxID, _ := d.st.Alh()
-
-	if (req.AtTx > 0 && req.SinceTx > 0) || req.SinceTx > currTxID {
-		return nil, ErrIllegalArguments
+	if req.SinceTx > currTxID {
+		return nil, fmt.Errorf(
+			"%w: SinceTx must not be greater than the current transaction ID",
+			ErrIllegalArguments,
+		)
 	}
 
-	if !req.NoWait {
+	if !req.NoWait && req.AtTx == 0 {
 		waitUntilTx := req.SinceTx
 		if waitUntilTx == 0 {
 			waitUntilTx = currTxID

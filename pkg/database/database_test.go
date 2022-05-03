@@ -262,7 +262,7 @@ func TestDbSetGet(t *testing.T) {
 		require.Equal(t, kv.Value, item.Value)
 
 		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id, AtTx: txhdr.Id})
-		require.Equal(t, ErrIllegalArguments, err)
+		require.ErrorIs(t, err, ErrIllegalArguments)
 
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest:   keyReq,
@@ -1544,6 +1544,42 @@ func TestPreconditionedSetParallel(t *testing.T) {
 		})
 	})
 
+}
+
+func TestCheckInvalidKeyRequest(t *testing.T) {
+	for _, d := range []struct {
+		req         *schema.KeyRequest
+		errTextPart string
+	}{
+		{
+			nil, "empty request",
+		},
+		{
+			&schema.KeyRequest{}, "empty key",
+		},
+		{
+			&schema.KeyRequest{
+				Key:     []byte("test"),
+				AtTx:    1,
+				SinceTx: 2,
+			},
+			"SinceTx should not be specified when AtTx is used",
+		},
+		{
+			&schema.KeyRequest{
+				Key:        []byte("test"),
+				AtTx:       1,
+				AtRevision: 2,
+			},
+			"AtRevision should not be specified when AtTx is used",
+		},
+	} {
+		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+			err := checkKeyRequest(d.req)
+			require.ErrorIs(t, err, ErrIllegalArguments)
+			require.Contains(t, err.Error(), d.errTextPart)
+		})
+	}
 }
 
 /*
