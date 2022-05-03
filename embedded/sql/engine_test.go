@@ -1505,7 +1505,8 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err = engine.Query("INVALID QUERY", nil, nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
+	require.ErrorIs(t, err, ErrParsingError)
+	require.EqualError(t, err, "parsing error: syntax error: unexpected IDENTIFIER at position 7")
 	require.Nil(t, r)
 
 	r, err = engine.Query("UPSERT INTO table1 (id) VALUES(1)", nil, nil)
@@ -2279,7 +2280,8 @@ func TestExecCornerCases(t *testing.T) {
 	require.NoError(t, err)
 
 	tx, _, err := engine.Exec("INVALID STATEMENT", nil, nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
+	require.ErrorIs(t, err, ErrParsingError)
+	require.EqualError(t, err, "parsing error: syntax error: unexpected IDENTIFIER at position 7")
 	require.Nil(t, tx)
 }
 
@@ -3584,7 +3586,8 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("invalid sql stmt", nil)
-	require.EqualError(t, err, "syntax error: unexpected IDENTIFIER at position 7")
+	require.ErrorIs(t, err, ErrParsingError)
+	require.EqualError(t, err, "parsing error: syntax error: unexpected IDENTIFIER at position 7")
 
 	_, err = engine.InferParametersPreparedStmts(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -4626,6 +4629,9 @@ func TestUnionOperator(t *testing.T) {
 
 	_, err = engine.InferParameters("SELECT title FROM table1 UNION SELECT name FROM table2", nil)
 	require.NoError(t, err)
+
+	_, err = engine.InferParameters("SELECT title FROM table1 UNION invalid stmt", nil)
+	require.ErrorIs(t, err, ErrParsingError)
 
 	rowCount := 10
 	for i := 0; i < rowCount; i++ {
