@@ -24,6 +24,8 @@ var errDummy = errors.New("dummy error")
 type dummyRowReader struct {
 	failReturningColumns bool
 	failInferringParams  bool
+	database             *Database
+	params               map[string]interface{}
 }
 
 func (r *dummyRowReader) onClose(callback func()) {
@@ -34,7 +36,7 @@ func (r *dummyRowReader) Tx() *SQLTx {
 }
 
 func (r *dummyRowReader) Database() *Database {
-	return nil
+	return r.database
 }
 
 func (r *dummyRowReader) TableAlias() string {
@@ -66,10 +68,11 @@ func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
 }
 
 func (r *dummyRowReader) Parameters() map[string]interface{} {
-	return nil
+	return r.params
 }
 
 func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
+	r.params = params
 	return nil
 }
 
