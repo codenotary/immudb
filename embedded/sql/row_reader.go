@@ -114,8 +114,14 @@ type rawRowReader struct {
 	colsBySel  map[string]ColDescriptor
 	scanSpecs  *ScanSpecs
 
+	// defines a sub-range a transactions based on a combination of tx IDs and timestamps
+	// the query is resolved only taking into consideration that range of transactioins
+	period period
+
+	// underlying store supports reading entries within a range of txs
+	// the range is calculated based on the period stmt, which is included here to support
+	// lazy evaluation when parameters are available
 	txRange *txRange
-	period  period
 
 	params map[string]interface{}
 

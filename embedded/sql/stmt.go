@@ -2224,11 +2224,11 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 	if i.instantType == txInstant {
 		txID, ok := instantVal.Value().(int64)
 		if !ok {
-			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be a positive integer, %s given", ErrIllegalArguments, instantVal.Type())
 		}
 
 		if txID <= 0 {
-			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be a positive integer, %d given", ErrIllegalArguments, txID)
 		}
 
 		if inclusive {
@@ -2240,7 +2240,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 		}
 
 		if txID <= 1 {
-			return 0, fmt.Errorf("%w: invalid tx range", ErrIllegalArguments)
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be greater than 1, %d given", ErrIllegalArguments, txID)
 		}
 
 		return uint64(txID - 1), nil
