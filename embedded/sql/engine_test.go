@@ -3710,6 +3710,10 @@ func TestInferParameters(t *testing.T) {
 	require.Equal(t, IntegerType, params["id"])
 	require.Equal(t, VarcharType, params["title"])
 
+	params, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@id, @title); ROLLBACK;", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 2)
+
 	params, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (1, 'title1')", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
@@ -3762,6 +3766,21 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, BooleanType, params["active"])
+
+	params, err = engine.InferParameters("SELECT * FROM TABLES WHERE name = @tablename", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, VarcharType, params["tablename"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable.INDEXES idxs WHERE idxs.\"unique\" = @unique", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, BooleanType, params["unique"])
+
+	params, err = engine.InferParameters("SELECT * FROM mytable.COLUMNS WHERE name = @column", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 1)
+	require.Equal(t, VarcharType, params["column"])
 }
 
 func TestInferParametersPrepared(t *testing.T) {
