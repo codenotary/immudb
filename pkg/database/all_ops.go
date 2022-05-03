@@ -110,7 +110,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 				if !req.NoWait {
 					// check key does not exists or it's already a reference
-					entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, index, tx)
+					entry, err := d.getAtTx(EncodeKey(x.Ref.Key), 0, 0, index, tx)
 					if err != nil && err != store.ErrKeyNotFound {
 						return nil, nil, err
 					}
@@ -120,7 +120,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 					if !exists || x.Ref.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, tx)
+						refEntry, err := d.getAtTx(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, tx)
 						if err != nil {
 							return nil, nil, err
 						}
@@ -173,7 +173,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 				if !req.NoWait {
 					if !exists || x.ZAdd.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx)
+						refEntry, err := d.getAtTx(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx)
 						if err != nil {
 							return nil, nil, err
 						}

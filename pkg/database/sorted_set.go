@@ -57,7 +57,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	// check referenced key exists and it's not a reference
 	key := EncodeKey(req.Key)
 
-	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.st.NewTxHolder())
+	refEntry, err := d.getAtTx(key, req.AtTx, 0, d.st, d.st.NewTxHolder())
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAt(key, atTx, 1, snap, tx)
+		e, err := d.getAtTx(key, atTx, 1, snap, tx)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

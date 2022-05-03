@@ -416,14 +416,14 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		}
 	}
 
-	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
+	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
 }
 
 func (d *db) get(key []byte, index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
-	return d.getAt(key, 0, 0, index, txHolder)
+	return d.getAtTx(key, 0, 0, index, txHolder)
 }
 
-func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
+func (d *db) getAtTx(key []byte, atTx uint64, resolved int, index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
 	var txID uint64
 	var val []byte
 	var md *store.KVMetadata
@@ -467,7 +467,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		)
 	}
 
-	//Reference lookup
+	// Reference lookup
 	if val[0] == ReferenceValuePrefix {
 		if len(val) < 1+8 {
 			return nil, fmt.Errorf(
@@ -484,7 +484,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		copy(refKey, val[1+8:])
 
 		if index != nil {
-			entry, err = d.getAt(refKey, atTx, resolved+1, index, txHolder)
+			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, txHolder)
 			if err != nil {
 				return nil, err
 			}
@@ -966,7 +966,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				var err error
 
 				if snap != nil {
-					entry, err = d.getAt(key, atTx, 1, snap, txHolder)
+					entry, err = d.getAtTx(key, atTx, 1, snap, txHolder)
 					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
