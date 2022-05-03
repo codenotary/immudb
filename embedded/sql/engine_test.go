@@ -4637,7 +4637,13 @@ func TestUnionOperator(t *testing.T) {
 	}
 
 	t.Run("default union should filter out duplicated rows", func(t *testing.T) {
-		r, err := engine.Query("SELECT COUNT(*) as c FROM table1 UNION SELECT COUNT(*) FROM table1", nil, nil)
+		r, err := engine.Query(`
+			SELECT COUNT(*) as c FROM table1
+			UNION 
+			SELECT COUNT(*) FROM table1
+			UNION 
+			SELECT COUNT(*) c FROM table1 t1
+		`, nil, nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
