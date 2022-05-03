@@ -24,6 +24,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	yyErrorVerbose = true
+}
+
 func TestEmptyInput(t *testing.T) {
 	_, err := ParseString("")
 	require.Error(t, err)

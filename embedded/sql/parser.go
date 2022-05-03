@@ -330,6 +330,24 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return IDENTIFIER
 	}
 
+	if isDoubleQuote(ch) {
+		tail, err := l.readWord()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		if !isDoubleQuote(l.r.nextChar) {
+			lval.err = fmt.Errorf("double quote expected")
+			return ERROR
+		}
+
+		l.r.ReadByte() // consume ending quote
+
+		lval.id = strings.ToLower(tail)
+		return IDENTIFIER
+	}
+
 	if isNumber(ch) {
 		tail, err := l.readNumber()
 		if err != nil {
@@ -561,4 +579,8 @@ func isComparison(ch byte) bool {
 
 func isQuote(ch byte) bool {
 	return ch == 0x27
+}
+
+func isDoubleQuote(ch byte) bool {
+	return ch == 0x22
 }
