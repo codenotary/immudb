@@ -264,6 +264,9 @@ func TestDbSetGet(t *testing.T) {
 		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id, AtTx: txhdr.Id})
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
+		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txhdr.Id + 1})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest:   keyReq,
 			ProveSinceTx: trustedIndex,
@@ -1580,6 +1583,77 @@ func TestCheckInvalidKeyRequest(t *testing.T) {
 			require.Contains(t, err.Error(), d.errTextPart)
 		})
 	}
+}
+
+func TestGetAtRevision(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	const histCount = 10
+
+	for i := 0; i < histCount; i++ {
+		_, err := db.Set(&schema.SetRequest{
+			KVs: []*schema.KeyValue{{
+				Key:   []byte("key"),
+				Value: []byte(fmt.Sprintf("value%d", i)),
+			}},
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("get the most recent value if no revision is specified", func(t *testing.T) {
+		k, err := db.Get(&schema.KeyRequest{
+			Key: []byte("key"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte("value9"), k.Value)
+	})
+
+	t.Run("get correct values for positive revision numbers", func(t *testing.T) {
+		for i := 0; i < histCount; i++ {
+			k, err := db.Get(&schema.KeyRequest{
+				Key:        []byte("key"),
+				AtRevision: int64(i) + 1,
+			})
+			require.NoError(t, err)
+			require.Equal(t, []byte(fmt.Sprintf("value%d", i)), k.Value)
+		}
+	})
+
+	t.Run("get correct error if positive revision number is to high", func(t *testing.T) {
+		_, err := db.Get(&schema.KeyRequest{
+			Key:        []byte("key"),
+			AtRevision: 11,
+		})
+		require.ErrorIs(t, err, ErrInvalidRevision)
+	})
+
+	t.Run("get correct values for negative revision numbers", func(t *testing.T) {
+		for i := 0; i < histCount; i++ {
+			k, err := db.Get(&schema.KeyRequest{
+				Key:        []byte("key"),
+				AtRevision: -int64(i) - 1,
+			})
+			require.NoError(t, err)
+			require.Equal(t, []byte(fmt.Sprintf("value%d", 9-i)), k.Value)
+		}
+	})
+
+	t.Run("get correct error if negative revision number is to low", func(t *testing.T) {
+		_, err := db.Get(&schema.KeyRequest{
+			Key:        []byte("key"),
+			AtRevision: -11,
+		})
+		require.ErrorIs(t, err, ErrInvalidRevision)
+	})
+
+	t.Run("get correct error if non-existing key is specified", func(t *testing.T) {
+		_, err := db.Get(&schema.KeyRequest{
+			Key:        []byte("non-existing-key"),
+			AtRevision: 1,
+		})
+		require.ErrorIs(t, err, store.ErrKeyNotFound)
+	})
 }
 
 /*

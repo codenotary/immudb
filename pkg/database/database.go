@@ -45,6 +45,7 @@ var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
 var ErrIsReplica = errors.New("database is read-only because it's a replica")
 var ErrNotReplica = errors.New("database is NOT a replica")
+var ErrInvalidRevision = errors.New("invalid key revision number")
 
 type DB interface {
 	GetName() string
@@ -453,6 +454,10 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		}
 	}
 
+	if req.AtRevision != 0 {
+		return d.getAtRevision(EncodeKey(req.Key), req.AtRevision)
+	}
+
 	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
 }
 
@@ -489,6 +494,29 @@ func (d *db) getAtTx(key []byte, atTx uint64, resolved int, index store.KeyIndex
 	}
 
 	return d.resolveValue(key, val, resolved, txID, md, index, txHolder)
+}
+
+func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, err error) {
+	var offset uint64
+	var desc bool
+
+	if atRevision > 0 {
+		offset = uint64(atRevision) - 1
+		desc = false
+	} else {
+		offset = -uint64(atRevision) - 1
+		desc = true
+	}
+
+	txs, err := d.st.History(key, offset, desc, 1)
+	if err == store.ErrNoMoreEntries {
+		return nil, ErrInvalidRevision
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return d.getAtTx(key, txs[0], 0, d.st, d.st.NewTxHolder())
 }
 
 func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata,
