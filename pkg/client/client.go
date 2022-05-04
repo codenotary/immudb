@@ -1736,7 +1736,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	return c.VerifiedZAdd(ctx, set, score, key)
 }
 
-// DEPRECATED: Please use VerifiedSetRefrence
+// DEPRECATED: Please use VerifiedSetReference
 func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
 	return c.VerifiedSetReference(ctx, key, referencedKey)
 }

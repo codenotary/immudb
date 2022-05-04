@@ -35,6 +35,8 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
+
+	revisionSeparator string
 }
 
 // Client ...
@@ -78,6 +80,7 @@ type Client interface {
 	DescribeTable(args []string) (string, error)
 
 	WithFileTokenService(tkns tokenservice.TokenService) Client
+	WithRevisionSeparator(sep string) Client
 }
 
 // Init ...
@@ -86,6 +89,11 @@ func Init(opts *client.Options) (*immuc, error) {
 	ic.passwordReader = opts.PasswordReader
 	ic.options = opts
 	return ic, nil
+}
+
+func (i *immuc) WithRevisionSeparator(sep string) Client {
+	i.revisionSeparator = sep
+	return i
 }
 
 func (i *immuc) Connect(args []string) (err error) {

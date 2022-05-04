@@ -18,12 +18,13 @@ package immuclienttest
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
@@ -97,6 +98,7 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	}
 
 	ic.WithFileTokenService(c.Ts)
+	ic.WithRevisionSeparator("@")
 
 	c.Imc = ic
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetTxByID(t *testing.T) {
@@ -113,4 +114,64 @@ func TestVerifiedGet(t *testing.T) {
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("VerifiedGet failed: %s", msg)
 	}
+}
+
+func TestGetByRevision(t *testing.T) {
+
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	tkf := cmdtest.RandString()
+	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, ts)
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	_, err := ic.Imc.Set([]string{"key", "value1"})
+	require.NoError(t, err)
+
+	_, err = ic.Imc.Set([]string{"key", "value2"})
+	require.NoError(t, err)
+
+	_, err = ic.Imc.Set([]string{"key", "value3"})
+	require.NoError(t, err)
+
+	msg, err := ic.Imc.Get([]string{"key@1"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value1")
+
+	msg, err = ic.Imc.Get([]string{"key@2"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value2")
+
+	msg, err = ic.Imc.Get([]string{"key@3"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value3")
+
+	msg, err = ic.Imc.Get([]string{"key@0"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value3")
+
+	msg, err = ic.Imc.Get([]string{"key@-0"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value3")
+
+	msg, err = ic.Imc.Get([]string{"key@-1"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value2")
+
+	msg, err = ic.Imc.Get([]string{"key@-2"})
+	require.NoError(t, err)
+	require.Contains(t, msg, "value1")
+
+	msg, err = ic.Imc.Get([]string{"key@notarevision"})
+	require.Error(t, err)
 }
