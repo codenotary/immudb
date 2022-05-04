@@ -504,7 +504,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		offset = uint64(atRevision) - 1
 		desc = false
 	} else {
-		offset = -uint64(atRevision) - 1
+		offset = -uint64(atRevision)
 		desc = true
 	}
 

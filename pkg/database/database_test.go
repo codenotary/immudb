@@ -1629,10 +1629,10 @@ func TestGetAtRevision(t *testing.T) {
 	})
 
 	t.Run("get correct values for negative revision numbers", func(t *testing.T) {
-		for i := 0; i < histCount; i++ {
+		for i := 1; i < histCount; i++ {
 			k, err := db.Get(&schema.KeyRequest{
 				Key:        []byte("key"),
-				AtRevision: -int64(i) - 1,
+				AtRevision: -int64(i),
 			})
 			require.NoError(t, err)
 			require.Equal(t, []byte(fmt.Sprintf("value%d", 9-i)), k.Value)
@@ -1642,7 +1642,7 @@ func TestGetAtRevision(t *testing.T) {
 	t.Run("get correct error if negative revision number is to low", func(t *testing.T) {
 		_, err := db.Get(&schema.KeyRequest{
 			Key:        []byte("key"),
-			AtRevision: -11,
+			AtRevision: -10,
 		})
 		require.ErrorIs(t, err, ErrInvalidRevision)
 	})
