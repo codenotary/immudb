@@ -122,13 +122,15 @@ type ImmuClient interface {
 
 	ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error)
 
-	Get(ctx context.Context, key []byte) (*schema.Entry, error)
+	Get(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error)
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 	GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+	GetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
-	VerifiedGet(ctx context.Context, key []byte) (*schema.Entry, error)
+	VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error)
 	VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 	VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+	VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
@@ -203,6 +205,9 @@ type immuClient struct {
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
 }
+
+// Ensure immuClient implements the ImmuClient interface
+var _ ImmuClient = &immuClient{}
 
 // NewClient ...
 func NewClient() *immuClient {
@@ -574,7 +579,7 @@ func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, 
 }
 
 // Get ...
-func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Entry, error) {
+func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
 	}
@@ -582,36 +587,61 @@ func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Entry, error)
 	start := time.Now()
 	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
-	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key})
+	req := &schema.KeyRequest{Key: key}
+	for _, opt := range opts {
+		err := opt(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.ServiceClient.Get(ctx, req)
+}
+
+// GetSince ...
+func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
+	return c.Get(ctx, key, SinceTx(tx))
+}
+
+// GetAt ...
+func (c *immuClient) GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
+	return c.Get(ctx, key, AtTx(tx))
+}
+
+// GetAtRevision ...
+func (c *immuClient) GetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error) {
+	return c.Get(ctx, key, AtRevision(rev))
 }
 
 // VerifiedGet ...
-func (c *immuClient) VerifiedGet(ctx context.Context, key []byte) (vi *schema.Entry, err error) {
+func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (vi *schema.Entry, err error) {
 	start := time.Now()
 	defer c.Logger.Debugf("VerifiedGet finished in %s", time.Since(start))
-	return c.verifiedGet(ctx, &schema.KeyRequest{
-		Key: key,
-	})
+
+	req := &schema.KeyRequest{Key: key}
+	for _, opt := range opts {
+		err := opt(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.verifiedGet(ctx, req)
 }
 
 // VerifiedGetSince ...
 func (c *immuClient) VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
-	start := time.Now()
-	defer c.Logger.Debugf("VerifiedGetSince finished in %s", time.Since(start))
-	return c.verifiedGet(ctx, &schema.KeyRequest{
-		Key:     key,
-		SinceTx: tx,
-	})
+	return c.VerifiedGet(ctx, key, SinceTx(tx))
 }
 
 // VerifiedGetAt ...
 func (c *immuClient) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
-	start := time.Now()
-	defer c.Logger.Debugf("verifiedGetAt finished in %s", time.Since(start))
-	return c.verifiedGet(ctx, &schema.KeyRequest{
-		Key:  key,
-		AtTx: tx,
-	})
+	return c.VerifiedGet(ctx, key, AtTx(tx))
+}
+
+// VerifiedGetAtRevision ...
+func (c *immuClient) VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (vi *schema.Entry, err error) {
+	return c.VerifiedGet(ctx, key, AtRevision(rev))
 }
 
 func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (vi *schema.Entry, err error) {
@@ -725,30 +755,6 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	}
 
 	return vEntry.Entry, nil
-}
-
-// GetSince ...
-func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
-	if !c.IsConnected() {
-		return nil, errors.FromError(ErrNotConnected)
-	}
-
-	start := time.Now()
-	defer c.Logger.Debugf("get finished in %s", time.Since(start))
-
-	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, SinceTx: tx})
-}
-
-// GetAt ...
-func (c *immuClient) GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
-	if !c.IsConnected() {
-		return nil, errors.FromError(ErrNotConnected)
-	}
-
-	start := time.Now()
-	defer c.Logger.Debugf("get finished in %s", time.Since(start))
-
-	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, AtTx: tx})
 }
 
 // Scan ...
