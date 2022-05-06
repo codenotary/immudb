@@ -127,12 +127,12 @@ func (idx *indexer) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 	return idx.index.Get(key)
 }
 
-func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
+func (idx *indexer) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
 
 	if idx.closed {
-		return nil, ErrAlreadyClosed
+		return nil, 0, ErrAlreadyClosed
 	}
 
 	return idx.index.History(key, offset, descOrder, limit)

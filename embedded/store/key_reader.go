@@ -114,7 +114,7 @@ func (s *Snapshot) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 	return s.snap.ExistKeyWith(prefix, neq)
 }
 
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
 	return s.snap.History(key, offset, descOrder, limit)
 }
 

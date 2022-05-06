@@ -508,7 +508,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		desc = true
 	}
 
-	txs, err := d.st.History(key, offset, desc, 1)
+	txs, _, err := d.st.History(key, offset, desc, 1)
 	if err == store.ErrNoMoreEntries {
 		return nil, ErrInvalidRevision
 	}
@@ -1261,7 +1261,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 	key := EncodeKey(req.Key)
 
-	txs, err := d.st.History(key, req.Offset, req.Desc, limit)
+	txs, hCount, err := d.st.History(key, req.Offset, req.Desc, limit)
 	if err != nil && err != store.ErrOffsetOutOfRange {
 		return nil, err
 	}
@@ -1271,6 +1271,11 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	}
 
 	tx := d.st.NewTxHolder()
+
+	revision := req.Offset + 1
+	if req.Desc {
+		revision = hCount - req.Offset
+	}
 
 	for i, txID := range txs {
 		err = d.st.ReadTx(txID, tx)
@@ -1297,6 +1302,13 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			Metadata: schema.KVMetadataToProto(entry.Metadata()),
 			Value:    val,
 			Expired:  err == store.ErrExpiredEntry,
+			Revision: revision,
+		}
+
+		if req.Desc {
+			revision--
+		} else {
+			revision++
 		}
 	}
 

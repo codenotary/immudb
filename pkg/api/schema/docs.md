@@ -622,6 +622,7 @@
 | referencedBy | [Reference](#immudb.schema.Reference) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
 | expired | [bool](#bool) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 

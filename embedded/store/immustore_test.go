@@ -860,13 +860,17 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						panic(fmt.Errorf("expected %d actual %d", valRef1.Tx(), valRef2.Tx()))
 					}
 
-					txs, err := immuStore.History(k, 0, false, txCount)
+					txs, hCount, err := immuStore.History(k, 0, false, txCount)
 					if err != nil {
 						panic(err)
 					}
 
 					if len(txs) != txCount {
 						panic(fmt.Errorf("expected %d actual %d", txCount, len(txs)))
+					}
+
+					if int(hCount) != txCount {
+						panic(fmt.Errorf("expected %d actual %d", txCount, hCount))
 					}
 
 					snap.Close()
@@ -1494,12 +1498,15 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						k := make([]byte, 8)
 						binary.BigEndian.PutUint64(k, uint64(j))
 
-						txIDs, err := snap.History(k, 0, false, txCount)
+						txIDs, hCount, err := snap.History(k, 0, false, txCount)
 						if err != nil {
 							panic(err)
 						}
 						if int(snap.Ts()) != len(txIDs) {
 							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), len(txIDs)))
+						}
+						if int(snap.Ts()) != int(hCount) {
+							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), hCount))
 						}
 
 						for _, txID := range txIDs {

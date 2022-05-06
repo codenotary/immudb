@@ -129,6 +129,7 @@ message Entry {
 	Reference referencedBy = 4;
 	KVMetadata metadata = 5;
 	bool expired = 6;
+	uint64 revision = 7;
 }
 
 message Reference {

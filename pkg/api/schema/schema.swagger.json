@@ -2156,6 +2156,10 @@
         },
         "expired": {
           "type": "boolean"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

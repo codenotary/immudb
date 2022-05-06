@@ -584,7 +584,7 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 	return valRef, nil
 }
 
-func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
+func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, hCount uint64, err error) {
 	return s.indexer.History(key, offset, descOrder, limit)
 }
 

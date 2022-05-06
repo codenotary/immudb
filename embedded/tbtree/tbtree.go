@@ -222,7 +222,7 @@ type pathNode struct {
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
-	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
+	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
 	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
 	ts() uint64
@@ -933,20 +933,20 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	return cp(v), ts, hc, err
 }
 
-func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
+func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 
 	if t.closed {
-		return nil, ErrAlreadyClosed
+		return nil, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, ErrIllegalArguments
+		return nil, 0, ErrIllegalArguments
 	}
 
 	if limit < 1 {
-		return nil, ErrIllegalArguments
+		return nil, 0, ErrIllegalArguments
 	}
 
 	return t.root.history(key, offset, descOrder, limit)
@@ -1771,7 +1771,7 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err err
 	return n.nodes[n.indexOf(key)].get(key)
 }
 
-func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
+func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
 	return n.nodes[n.indexOf(key)].history(key, offset, descOrder, limit)
 }
 
@@ -1976,10 +1976,10 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error
 	return n.get(key)
 }
 
-func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
+func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	return n.history(key, offset, descOrder, limit)
 }
@@ -2171,11 +2171,11 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	return leafValue.value, leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
 }
 
-func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]uint64, error) {
+func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]uint64, uint64, error) {
 	i, found := l.indexOf(key)
 
 	if !found {
-		return nil, ErrKeyNotFound
+		return nil, 0, ErrKeyNotFound
 	}
 
 	leafValue := l.values[i]
@@ -2183,11 +2183,11 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 	hCount := leafValue.hCount + uint64(len(leafValue.tss))
 
 	if offset == hCount {
-		return nil, ErrNoMoreEntries
+		return nil, 0, ErrNoMoreEntries
 	}
 
 	if offset > hCount {
-		return nil, ErrOffsetOutOfRange
+		return nil, 0, ErrOffsetOutOfRange
 	}
 
 	tssLen := limit
@@ -2225,13 +2225,13 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 
 		hc, err := r.ReadUint32()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		for i := 0; i < int(hc) && tssOff < tssLen; i++ {
 			ts, err := r.ReadUint64()
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 
 			if ti < initAt {
@@ -2250,13 +2250,13 @@ func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]u
 
 		prevOff, err := r.ReadUint64()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		hOff = int64(prevOff)
 	}
 
-	return tss, nil
+	return tss, hCount, nil
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path path, _ int, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {

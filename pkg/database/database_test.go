@@ -962,7 +962,15 @@ func TestHistory(t *testing.T) {
 	err = db.FlushIndex(&schema.FlushIndexRequest{CleanupPercentage: 100, Synced: true})
 	require.NoError(t, err)
 
-	meta, err := db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
+	_, err = db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
+	require.NoError(t, err)
+
+	meta, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   kvs[0].Key,
+			Value: kvs[0].Value,
+		}},
+	})
 	require.NoError(t, err)
 	lastTx = meta.Id
 
@@ -984,13 +992,31 @@ func TestHistory(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for _, val := range inc.Entries {
+	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
 		if val.GetMetadata().GetDeleted() {
 			require.Empty(t, val.Value)
 		} else {
 			require.Equal(t, kvs[0].Value, val.Value)
 		}
+		require.EqualValues(t, i+1, val.Revision)
+	}
+
+	dec, err := db.History(&schema.HistoryRequest{
+		Key:     kvs[0].Key,
+		SinceTx: lastTx,
+		Desc:    true,
+	})
+	require.NoError(t, err)
+
+	for i, val := range dec.Entries {
+		require.Equal(t, kvs[0].Key, val.Key)
+		if val.GetMetadata().GetDeleted() {
+			require.Empty(t, val.Value)
+		} else {
+			require.Equal(t, kvs[0].Value, val.Value)
+		}
+		require.EqualValues(t, 3-i, val.Revision)
 	}
 
 	inc, err = db.History(&schema.HistoryRequest{

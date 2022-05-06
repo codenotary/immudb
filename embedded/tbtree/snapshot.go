@@ -100,20 +100,20 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	return cp(v), ts, hc, err
 }
 
-func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	if s.closed {
-		return nil, ErrAlreadyClosed
+		return nil, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, ErrIllegalArguments
+		return nil, 0, ErrIllegalArguments
 	}
 
 	if limit < 1 {
-		return nil, ErrIllegalArguments
+		return nil, 0, ErrIllegalArguments
 	}
 
 	return s.root.history(key, offset, descOrder, limit)
