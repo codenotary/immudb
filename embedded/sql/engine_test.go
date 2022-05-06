@@ -5132,7 +5132,11 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional column query should return all the columns of mytable1", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM COLUMNS('mytable1')", nil, tx)
+		params := map[string]interface{}{
+			"tableName": "mytable1",
+		}
+
+		r, err := engine.Query("SELECT * FROM COLUMNS(@tableName)", params, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
