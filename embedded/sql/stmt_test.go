@@ -431,7 +431,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &SysFn{fn: "NOW"},
+			exp:           &FnCall{fn: "NOW"},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -440,7 +440,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &SysFn{fn: "NOW"},
+			exp:           &FnCall{fn: "NOW"},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -449,7 +449,7 @@ func TestRequiresTypeSysFnValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &SysFn{fn: "LOWER"},
+			exp:           &FnCall{fn: "LOWER"},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -719,7 +719,7 @@ func TestIsConstant(t *testing.T) {
 		right: &ColSelector{},
 	}).isConstant())
 
-	require.False(t, (&SysFn{}).isConstant())
+	require.False(t, (&FnCall{}).isConstant())
 
 	require.False(t, (&ExistsBoolExp{}).isConstant())
 }

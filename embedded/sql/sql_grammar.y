@@ -74,7 +74,6 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST
-%token <ds> DATABASES TABLES COLUMNS INDEXES
 %token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
@@ -110,7 +109,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <rows> rows
 %type <row> row
 %type <values> values opt_values
-%type <value> val
+%type <value> val fnCall
 %type <sel> selector
 %type <sels> opt_selectors selectors
 %type <col> col
@@ -383,9 +382,9 @@ val:
         $$ = &Cast{val: $3, t: $5}
     }
 |
-    IDENTIFIER '(' ')'
+    fnCall
     {
-        $$ = &SysFn{fn: $1}
+        $$ = $1
     }
 |
     NPARAM
@@ -401,6 +400,12 @@ val:
     NULL
     {
         $$ = &NullValue{t: AnyType}
+    }
+
+fnCall:
+    IDENTIFIER '(' opt_values ')'
+    {
+        $$ = &FnCall{fn: $1, params: $3}
     }
 
 colsSpec:
@@ -571,24 +576,9 @@ ds:
         $$ = $2.(DataSource)
     }
 |
-    DATABASES opt_as
+    fnCall opt_as
     {
-        $$ = &ListDatabasesStmt{as: $2}
-    }
-|
-    TABLES opt_as
-    {
-        $$ = &ListTablesStmt{as: $2}
-    }
-|
-    tableRef '.' COLUMNS opt_as
-    {
-        $$ = &ListColumnsStmt{tableRef: $1, as: $4}
-    }
-|
-    tableRef '.' INDEXES opt_as
-    {
-        $$ = &ListIndexesStmt{tableRef: $1, as: $4}
+        $$ = &FnDataSourceStmt{fnCall: $1.(*FnCall), as: $2}
     }
 
 tableRef:
