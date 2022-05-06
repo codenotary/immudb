@@ -1355,8 +1355,8 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 }
 
 func (d *db) IsClosed() bool {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	return d.st.IsClosed()
 }

@@ -1034,11 +1034,12 @@ func TestTransactionsEdgeCases(t *testing.T) {
 	err = engine.SetDefaultDatabase("db1")
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(`CREATE TABLE table1 (
-										id INTEGER,
-										title VARCHAR,
-										PRIMARY KEY id
-									)`, nil, nil)
+	_, _, err = engine.Exec(`
+		CREATE TABLE table1 (
+			id INTEGER,
+			title VARCHAR,
+			PRIMARY KEY id
+		)`, nil, nil)
 	require.NoError(t, err)
 
 	t.Run("rollback without explicit transaction should return error", func(t *testing.T) {
@@ -3767,17 +3768,17 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 1)
 	require.Equal(t, BooleanType, params["active"])
 
-	params, err = engine.InferParameters("SELECT * FROM TABLES WHERE name = @tablename", nil)
+	params, err = engine.InferParameters("SELECT * FROM TABLES() WHERE name = @tablename", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, VarcharType, params["tablename"])
 
-	params, err = engine.InferParameters("SELECT * FROM mytable.INDEXES idxs WHERE idxs.\"unique\" = @unique", nil)
+	params, err = engine.InferParameters("SELECT * FROM INDEXES('mytable') idxs WHERE idxs.\"unique\" = @unique", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, BooleanType, params["unique"])
 
-	params, err = engine.InferParameters("SELECT * FROM mytable.COLUMNS WHERE name = @column", nil)
+	params, err = engine.InferParameters("SELECT * FROM COLUMNS('mytable') WHERE name = @column", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 1)
 	require.Equal(t, VarcharType, params["column"])
@@ -4947,7 +4948,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		err = engine.SetDefaultDatabase("db1")
 		require.NoError(t, err)
 
-		r, err := engine.Query("SELECT * FROM DATABASES", nil, nil)
+		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
 		require.NoError(t, err)
 
 		row, err := r.Read()
@@ -4962,7 +4963,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	t.Run("with a handler, multi database stmts are delegated to the handler", func(t *testing.T) {
 		dbs := []string{"db1", "db2"}
 
-		handler := &multidbHandler{
+		handler := &multidbHandlerMock{
 			dbs: dbs,
 		}
 		engine.SetMultiDBHandler(handler)
@@ -4976,7 +4977,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec("USE DATABASE db1; USE DATABASE db1", nil, nil)
 		require.ErrorIs(t, err, ErrNoSupported)
 
-		r, err := engine.Query("SELECT * FROM DATABASES", nil, nil)
+		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
 		require.NoError(t, err)
 
 		for _, db := range dbs {
@@ -4995,19 +4996,19 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 	})
 }
 
-type multidbHandler struct {
+type multidbHandlerMock struct {
 	dbs []string
 }
 
-func (h *multidbHandler) ListDatabases(ctx context.Context) ([]string, error) {
+func (h *multidbHandlerMock) ListDatabases(ctx context.Context) ([]string, error) {
 	return h.dbs, nil
 }
 
-func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
+func (h *multidbHandlerMock) CreateDatabase(ctx context.Context, db string) error {
 	return ErrNoSupported
 }
 
-func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
+func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
@@ -5041,7 +5042,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	defer tx.Cancel()
 
 	t.Run("querying tables without any condition should return all tables", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM TABLES", nil, tx)
+		r, err := engine.Query("SELECT * FROM TABLES()", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
@@ -5059,7 +5060,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("querying tables with name equality comparison should return only one table", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM TABLES WHERE name = 'mytable2'", nil, tx)
+		r, err := engine.Query("SELECT * FROM TABLES() WHERE name = 'mytable2'", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
@@ -5073,7 +5074,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional index query should return all the indexes of mytable1", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM mytable1.INDEXES", nil, tx)
+		r, err := engine.Query("SELECT * FROM INDEXES('mytable1')", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
@@ -5097,7 +5098,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional index query should return all the indexes of mytable2", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM mytable2.INDEXES", nil, tx)
+		r, err := engine.Query("SELECT * FROM INDEXES('mytable2')", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
@@ -5128,7 +5129,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional column query should return all the columns of mytable1", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM mytable1.COLUMNS", nil, tx)
+		r, err := engine.Query("SELECT * FROM COLUMNS('mytable1')", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
@@ -5162,7 +5163,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional column query should return all the columns of mytable2", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM mytable2.COLUMNS", nil, tx)
+		r, err := engine.Query("SELECT * FROM COLUMNS('mytable2')", nil, tx)
 		require.NoError(t, err)
 
 		defer r.Close()

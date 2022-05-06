@@ -113,6 +113,14 @@ const (
 	RightJoin
 )
 
+const (
+	NowFnCall       string = "NOW"
+	DatabasesFnCall string = "DATABASES"
+	TablesFnCall    string = "TABLES"
+	ColumnsFnCall   string = "COLUMNS"
+	IndexesFnCall   string = "INDEXES"
+)
+
 type SQLStmt interface {
 	execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
 	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
@@ -1691,20 +1699,21 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	return bytes.Compare(v.val, rval), nil
 }
 
-type SysFn struct {
-	fn string
+type FnCall struct {
+	fn     string
+	params []ValueExp
 }
 
-func (v *SysFn) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	if strings.ToUpper(v.fn) == "NOW" {
+func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+	if strings.ToUpper(v.fn) == NowFnCall {
 		return TimestampType, nil
 	}
 
 	return AnyType, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
-func (v *SysFn) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if strings.ToUpper(v.fn) == "NOW" {
+func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+	if strings.ToUpper(v.fn) == NowFnCall {
 		if t != TimestampType {
 			return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, TimestampType, t)
 		}
@@ -1715,27 +1724,42 @@ func (v *SysFn) requiresType(t SQLValueType, cols map[string]ColDescriptor, para
 	return fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
-func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
-	return v, nil
+func (v *FnCall) substitute(params map[string]interface{}) (val ValueExp, err error) {
+	ps := make([]ValueExp, len(v.params))
+
+	for i, p := range v.params {
+		ps[i], err = p.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &FnCall{
+		fn:     v.fn,
+		params: ps,
+	}, nil
 }
 
-func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	if strings.ToUpper(v.fn) == "NOW" {
+func (v *FnCall) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	if strings.ToUpper(v.fn) == NowFnCall {
+		if len(v.params) > 0 {
+			return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, NowFnCall, len(v.params))
+		}
 		return &Timestamp{val: time.Now().UTC()}, nil
 	}
 
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
 }
 
-func (v *SysFn) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+func (v *FnCall) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
 }
 
-func (v *SysFn) isConstant() bool {
+func (v *FnCall) isConstant() bool {
 	return false
 }
 
-func (v *SysFn) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+func (v *FnCall) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
@@ -2366,26 +2390,19 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 }
 
 func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
-	var db *Database
-
-	if stmt.db != "" {
-		rdb, err := tx.catalog.GetDatabaseByName(stmt.db)
-		if err != nil {
-			return nil, err
-		}
-
-		db = rdb
+	if stmt.db != "" && stmt.db != tx.currentDB.name {
+		return nil,
+			fmt.Errorf(
+				"%w: statements must only involve current selected database '%s' but '%s' was referenced",
+				ErrNoSupported, tx.currentDB.name, stmt.db,
+			)
 	}
 
-	if db == nil {
-		if tx.currentDB == nil {
-			return nil, ErrNoDatabaseSelected
-		}
-
-		db = tx.currentDB
+	if tx.currentDB == nil {
+		return nil, ErrNoDatabaseSelected
 	}
 
-	table, err := db.GetTableByName(stmt.table)
+	table, err := tx.currentDB.GetTableByName(stmt.table)
 	if err != nil {
 		return nil, err
 	}
@@ -3456,26 +3473,79 @@ func (bexp *InListExp) selectorRanges(table *Table, asTable string, params map[s
 	return nil
 }
 
-type ListDatabasesStmt struct {
-	as string
+type FnDataSourceStmt struct {
+	fnCall *FnCall
+	as     string
 }
 
-func (stmt *ListDatabasesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *FnDataSourceStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return tx, nil
 }
 
-func (stmt *ListDatabasesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *FnDataSourceStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *ListDatabasesStmt) Alias() string {
-	if stmt.as == "" {
-		return "databases"
+func (stmt *FnDataSourceStmt) Alias() string {
+	if stmt.as != "" {
+		return stmt.as
 	}
-	return stmt.as
+
+	switch strings.ToUpper(stmt.fnCall.fn) {
+	case DatabasesFnCall:
+		{
+			return "databases"
+		}
+	case TablesFnCall:
+		{
+			return "tables"
+		}
+	case ColumnsFnCall:
+		{
+			return "columns"
+		}
+	case IndexesFnCall:
+		{
+			return "indexes"
+		}
+	}
+
+	// not reachable
+	return ""
 }
 
-func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+	if stmt.fnCall == nil {
+		return nil, fmt.Errorf("%w: function is unspecified", ErrIllegalArguments)
+	}
+
+	switch strings.ToUpper(stmt.fnCall.fn) {
+	case DatabasesFnCall:
+		{
+			return stmt.resolveListDatabases(tx, params, scanSpecs)
+		}
+	case TablesFnCall:
+		{
+			return stmt.resolveListTables(tx, params, scanSpecs)
+		}
+	case ColumnsFnCall:
+		{
+			return stmt.resolveListColumns(tx, params, scanSpecs)
+		}
+	case IndexesFnCall:
+		{
+			return stmt.resolveListIndexes(tx, params, scanSpecs)
+		}
+	}
+
+	return nil, fmt.Errorf("%w (%s)", ErrFunctionDoesNotExist, stmt.fnCall.fn)
+}
+
+func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+	if len(stmt.fnCall.params) > 0 {
+		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, DatabasesFnCall, len(stmt.fnCall.params))
+	}
+
 	cols := make([]ColDescriptor, 1)
 	cols[0] = ColDescriptor{
 		Column: "name",
@@ -3506,43 +3576,18 @@ func (stmt *ListDatabasesStmt) Resolve(tx *SQLTx, params map[string]interface{},
 	return newValuesRowReader(tx, cols, "*", stmt.Alias(), values)
 }
 
-type ListTablesStmt struct {
-	db string
-	as string
-}
-
-func (stmt *ListTablesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	return tx, nil
-}
-
-func (stmt *ListTablesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	return nil
-}
-
-func (stmt *ListTablesStmt) Alias() string {
-	if stmt.as == "" {
-		return "tables"
+func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+	if len(stmt.fnCall.params) > 0 {
+		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, TablesFnCall, len(stmt.fnCall.params))
 	}
-	return stmt.as
-}
 
-func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
 	cols := make([]ColDescriptor, 1)
 	cols[0] = ColDescriptor{
 		Column: "name",
 		Type:   VarcharType,
 	}
 
-	var db *Database
-
-	if stmt.db != "" {
-		db, err = tx.catalog.GetDatabaseByName(stmt.db)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		db = tx.Database()
-	}
+	db := tx.Database()
 
 	tables := db.GetTables()
 
@@ -3555,27 +3600,11 @@ func (stmt *ListTablesStmt) Resolve(tx *SQLTx, params map[string]interface{}, Sc
 	return newValuesRowReader(tx, cols, db.name, stmt.Alias(), values)
 }
 
-type ListColumnsStmt struct {
-	tableRef *tableRef
-	as       string
-}
-
-func (stmt *ListColumnsStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	return tx, nil
-}
-
-func (stmt *ListColumnsStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	return nil
-}
-
-func (stmt *ListColumnsStmt) Alias() string {
-	if stmt.as == "" {
-		return "columns"
+func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	if len(stmt.fnCall.params) != 1 {
+		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, ColumnsFnCall)
 	}
-	return stmt.as
-}
 
-func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 	cols := []ColDescriptor{
 		{
 			Column: "table",
@@ -3615,7 +3644,16 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		},
 	}
 
-	table, err := stmt.tableRef.referencedTable(tx)
+	tableName, err := stmt.fnCall.params[0].reduce(tx.catalog, nil, tx.currentDB.name, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if tableName.Type() != VarcharType {
+		return nil, fmt.Errorf("%w: expected '%s' for table name but type '%s' given instead", ErrIllegalArguments, VarcharType, tableName.Type())
+	}
+
+	table, err := tx.currentDB.GetTableByName(tableName.Value().(string))
 	if err != nil {
 		return nil, err
 	}
@@ -3652,27 +3690,11 @@ func (stmt *ListColumnsStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
 }
 
-type ListIndexesStmt struct {
-	tableRef *tableRef
-	as       string
-}
-
-func (stmt *ListIndexesStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	return tx, nil
-}
-
-func (stmt *ListIndexesStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	return nil
-}
-
-func (stmt *ListIndexesStmt) Alias() string {
-	if stmt.as == "" {
-		return "indexes"
+func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+	if len(stmt.fnCall.params) != 1 {
+		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, IndexesFnCall)
 	}
-	return stmt.as
-}
 
-func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 	cols := []ColDescriptor{
 		{
 			Column: "table",
@@ -3692,7 +3714,16 @@ func (stmt *ListIndexesStmt) Resolve(tx *SQLTx, params map[string]interface{}, S
 		},
 	}
 
-	table, err := stmt.tableRef.referencedTable(tx)
+	tableName, err := stmt.fnCall.params[0].reduce(tx.catalog, nil, tx.currentDB.name, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if tableName.Type() != VarcharType {
+		return nil, fmt.Errorf("%w: expected '%s' for table name but type '%s' given instead", ErrIllegalArguments, VarcharType, tableName.Type())
+	}
+
+	table, err := tx.currentDB.GetTableByName(tableName.Value().(string))
 	if err != nil {
 		return nil, err
 	}

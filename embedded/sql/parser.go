@@ -85,10 +85,6 @@ var reservedWords = map[string]int{
 	"IF":             IF,
 	"IS":             IS,
 	"CAST":           CAST,
-	"DATABASES":      DATABASES,
-	"TABLES":         TABLES,
-	"COLUMNS":        COLUMNS,
-	"INDEXES":        INDEXES,
 }
 
 var joinTypes = map[string]JoinType{

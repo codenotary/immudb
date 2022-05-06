@@ -27,6 +27,7 @@ import (
 func TestServerRecovertMode(t *testing.T) {
 	serverOptions := server.DefaultOptions().
 		WithMetricsServer(false).
+		WithPgsqlServer(false).
 		WithMaintenance(true).
 		WithAuth(true).
 		WithPort(0)
@@ -37,8 +38,8 @@ func TestServerRecovertMode(t *testing.T) {
 	require.Equal(t, server.ErrAuthMustBeDisabled, err)
 
 	serverOptions = server.DefaultOptions().
-		WithMetricsServer(true).
-		WithPgsqlServer(true).
+		WithMetricsServer(false).
+		WithPgsqlServer(false).
 		WithMaintenance(true).
 		WithAuth(false).
 		WithPort(0)

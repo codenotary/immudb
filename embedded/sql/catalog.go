@@ -16,8 +16,8 @@ limitations under the License.
 package sql
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
 )
 
 type Catalog struct {
@@ -274,7 +274,7 @@ func (i *Index) Name() string {
 }
 
 func indexName(tableName string, cols []*Column) string {
-	var buf bytes.Buffer
+	var buf strings.Builder
 
 	buf.WriteString(tableName)
 

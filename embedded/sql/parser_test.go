@@ -111,7 +111,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&UseSnapshotStmt{
 					period: period{
-						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &SysFn{fn: "now"}}},
+						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &FnCall{fn: "now"}}},
 					},
 				},
 			},
@@ -122,7 +122,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&UseSnapshotStmt{
 					period: period{
-						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &SysFn{fn: "now"}}, inclusive: true},
+						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &FnCall{fn: "now"}}, inclusive: true},
 					},
 				},
 			},
@@ -163,7 +163,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 								exp:         &NumExp{op: SUBSOP, left: &Param{id: "fromtx"}, right: &Number{val: 1}},
 							},
 						},
-						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &SysFn{fn: "now"}}},
+						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &FnCall{fn: "now"}}},
 					},
 				},
 			},
@@ -377,7 +377,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					rows: []*RowSpec{
 						{Values: []ValueExp{
 							&Number{val: 2},
-							&SysFn{fn: "now"},
+							&FnCall{fn: "now"},
 							&Varchar{val: "un'titled row"},
 							&Bool{val: true},
 							&Bool{val: false},
@@ -399,7 +399,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					rows: []*RowSpec{
 						{Values: []ValueExp{
 							&Number{val: 2},
-							&SysFn{fn: "now"},
+							&FnCall{fn: "now"},
 							&Varchar{val: ""},
 							&Bool{val: true},
 							&Bool{val: false},
@@ -421,7 +421,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					rows: []*RowSpec{
 						{Values: []ValueExp{
 							&Number{val: 2},
-							&SysFn{fn: "now"},
+							&FnCall{fn: "now"},
 							&Varchar{val: "'"},
 							&Bool{val: true},
 							&Bool{val: false},
@@ -443,7 +443,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					rows: []*RowSpec{
 						{Values: []ValueExp{
 							&Number{val: 2},
-							&SysFn{fn: "now"},
+							&FnCall{fn: "now"},
 							&Varchar{val: "untitled row"},
 							&Bool{val: true},
 							&Param{id: "param1", pos: 1},
@@ -465,7 +465,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					rows: []*RowSpec{
 						{Values: []ValueExp{
 							&Number{val: 2},
-							&SysFn{fn: "now"},
+							&FnCall{fn: "now"},
 							&Param{id: "param1", pos: 1},
 							&Bool{val: true},
 							&Param{id: "param2", pos: 2},
@@ -881,7 +881,7 @@ func TestSelectStmt(t *testing.T) {
 								left: &ColSelector{
 									col: "time",
 								},
-								right: &SysFn{fn: "now"},
+								right: &FnCall{fn: "now"},
 							},
 						},
 						right: &CmpBoolExp{
