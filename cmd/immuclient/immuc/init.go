@@ -60,6 +60,7 @@ type Client interface {
 	Scan(args []string) (string, error)
 	Count(args []string) (string, error)
 	Set(args []string) (string, error)
+	Restore(args []string) (string, error)
 	VerifiedSet(args []string) (string, error)
 	DeleteKey(args []string) (string, error)
 	ZAdd(args []string) (string, error)

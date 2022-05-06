@@ -62,7 +62,7 @@ func (cl *commandline) safegetTxByID(cmd *cobra.Command) {
 
 func (cl *commandline) getKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "get",
+		Use:               "get key[@revision]",
 		Short:             "Get item having the specified key",
 		Aliases:           []string{"g"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),

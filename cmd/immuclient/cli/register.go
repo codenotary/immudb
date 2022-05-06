@@ -38,6 +38,7 @@ func (cli *cli) initCommands() {
 	// Set commands
 	cli.Register(&command{"set", "Add new item having the specified key and value", cli.set, []string{"key", "value"}, false})
 	cli.Register(&command{"safeset", "Add and verify new item having the specified key and value", cli.safeset, []string{"key", "value"}, false})
+	cli.Register(&command{"restore", "Restore older value of the key", cli.restore, []string{"key"}, false})
 	cli.Register(&command{"safezadd", "Add and verify new key with score to a new or existing sorted set", cli.safeZAdd, []string{"setname", "score", "key"}, false})
 	cli.Register(&command{"zadd", "Add new key with score to a new or existing sorted set", cli.zAdd, []string{"setname", "score", "key"}, false})
 
