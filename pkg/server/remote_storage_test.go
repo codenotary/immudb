@@ -347,6 +347,7 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 
 	s := DefaultServer()
 	s.WithOptions(DefaultOptions().
+		WithPort(0).
 		WithListener(bufconn.Listen(1024 * 1024)),
 	)
 	err := s.Initialize()
