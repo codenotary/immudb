@@ -15,6 +15,8 @@ limitations under the License.
 */
 package sql
 
+import "fmt"
+
 type conditionalRowReader struct {
 	rowReader RowReader
 
@@ -93,12 +95,12 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 
 		cond, err := cr.condition.substitute(cr.Parameters())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}
 
 		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database(), cr.rowReader.TableAlias())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}
 
 		nval, isNull := r.(*NullValue)
@@ -108,11 +110,11 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 
 		satisfies, boolExp := r.(*Bool)
 		if !boolExp {
-			return nil, ErrInvalidCondition
+			return nil, fmt.Errorf("%w: expected '%s' in WHERE clause, but '%s' was provided", ErrInvalidCondition, BooleanType, r.Type())
 		}
 
 		if satisfies.val {
-			return row, err
+			return row, nil
 		}
 	}
 }

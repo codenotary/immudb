@@ -1916,7 +1916,7 @@ func (v *Param) requiresType(t SQLValueType, cols map[string]ColDescriptor, para
 func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	val, ok := params[p.id]
 	if !ok {
-		return nil, ErrMissingParameter
+		return nil, fmt.Errorf("%w(%s)", ErrMissingParameter, p.id)
 	}
 
 	if val == nil {
@@ -3058,7 +3058,7 @@ func (bexp *CmpBoolExp) selectorRanges(table *Table, asTable string, params map[
 	}
 
 	val, err := c.substitute(params)
-	if err == ErrMissingParameter {
+	if errors.Is(err, ErrMissingParameter) {
 		// TODO: not supported when parameters are not provided during query resolution
 		return nil
 	}
@@ -3644,7 +3644,12 @@ func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]in
 		},
 	}
 
-	tableName, err := stmt.fnCall.params[0].reduce(tx.catalog, nil, tx.currentDB.name, "")
+	val, err := stmt.fnCall.params[0].substitute(params)
+	if err != nil {
+		return nil, err
+	}
+
+	tableName, err := val.reduce(tx.catalog, nil, tx.currentDB.name, "")
 	if err != nil {
 		return nil, err
 	}
@@ -3714,7 +3719,12 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]in
 		},
 	}
 
-	tableName, err := stmt.fnCall.params[0].reduce(tx.catalog, nil, tx.currentDB.name, "")
+	val, err := stmt.fnCall.params[0].substitute(params)
+	if err != nil {
+		return nil, err
+	}
+
+	tableName, err := val.reduce(tx.catalog, nil, tx.currentDB.name, "")
 	if err != nil {
 		return nil, err
 	}

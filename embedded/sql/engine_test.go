@@ -467,7 +467,7 @@ func TestUpsertInto(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", nil, nil)
-	require.Equal(t, ErrMissingParameter, err)
+	require.ErrorIs(t, err, ErrMissingParameter)
 
 	params := make(map[string]interface{}, 1)
 	params["id"] = [4]byte{1, 2, 3, 4}
@@ -481,7 +481,7 @@ func TestUpsertInto(t *testing.T) {
 	require.Contains(t, err.Error(), "is not an integer")
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active) VALUES (1, @title, false)", nil, nil)
-	require.Equal(t, ErrMissingParameter, err)
+	require.ErrorIs(t, err, ErrMissingParameter)
 
 	params = make(map[string]interface{}, 1)
 	params["title"] = uint64(1)
@@ -1487,7 +1487,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrInvalidCondition, err)
+	require.ErrorIs(t, err, ErrInvalidCondition)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -1499,7 +1499,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrMissingParameter, err)
+	require.ErrorIs(t, err, ErrMissingParameter)
 
 	r.SetParameters(params)
 
@@ -1553,7 +1553,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrDivisionByZero, err)
+	require.ErrorIs(t, err, ErrDivisionByZero)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2650,7 +2650,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2699,7 +2699,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3530,7 +3530,7 @@ func TestSubQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrInvalidCondition, err)
+	require.ErrorIs(t, err, ErrInvalidCondition)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -5074,7 +5074,10 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	})
 
 	t.Run("unconditional index query should return all the indexes of mytable1", func(t *testing.T) {
-		r, err := engine.Query("SELECT * FROM INDEXES('mytable1')", nil, tx)
+		params := map[string]interface{}{
+			"tableName": "mytable1",
+		}
+		r, err := engine.Query("SELECT * FROM INDEXES(@tableName)", params, tx)
 		require.NoError(t, err)
 
 		defer r.Close()
