@@ -2617,6 +2617,10 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

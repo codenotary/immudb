@@ -54,7 +54,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	txHolder := d.st.NewTxHolder()
 
 	// check key does not exists or it's already a reference
-	entry, err := d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, txHolder)
+	entry, err := d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, txHolder, 0)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	}
 
 	// check referenced key exists and it's not a reference
-	refEntry, err := d.getAtTx(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, txHolder)
+	refEntry, err := d.getAtTx(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, txHolder, 0)
 	if err != nil {
 		return nil, err
 	}

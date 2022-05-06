@@ -137,6 +137,7 @@ message Reference {
 	bytes key = 2;
 	uint64 atTx = 3;
 	KVMetadata metadata = 4;
+	uint64 revision = 5;
 }
 
 message Op {

@@ -1305,6 +1305,7 @@
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 

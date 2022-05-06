@@ -458,14 +458,21 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return d.getAtRevision(EncodeKey(req.Key), req.AtRevision)
 	}
 
-	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder())
+	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder(), 0)
 }
 
 func (d *db) get(key []byte, index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
-	return d.getAtTx(key, 0, 0, index, txHolder)
+	return d.getAtTx(key, 0, 0, index, txHolder, 0)
 }
 
-func (d *db) getAtTx(key []byte, atTx uint64, resolved int, index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
+func (d *db) getAtTx(
+	key []byte,
+	atTx uint64,
+	resolved int,
+	index store.KeyIndex,
+	txHolder *store.Tx,
+	revision uint64,
+) (entry *schema.Entry, err error) {
 	var txID uint64
 	var val []byte
 	var md *store.KVMetadata
@@ -484,6 +491,10 @@ func (d *db) getAtTx(key []byte, atTx uint64, resolved int, index store.KeyIndex
 		if err != nil {
 			return nil, err
 		}
+
+		// Revision can be calculated from the history count
+		revision = valRef.HC()
+
 	} else {
 		txID = atTx
 
@@ -493,7 +504,7 @@ func (d *db) getAtTx(key []byte, atTx uint64, resolved int, index store.KeyIndex
 		}
 	}
 
-	return d.resolveValue(key, val, resolved, txID, md, index, txHolder)
+	return d.resolveValue(key, val, resolved, txID, md, index, txHolder, revision)
 }
 
 func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, err error) {
@@ -508,7 +519,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		desc = true
 	}
 
-	txs, _, err := d.st.History(key, offset, desc, 1)
+	txs, hCount, err := d.st.History(key, offset, desc, 1)
 	if err == store.ErrNoMoreEntries {
 		return nil, ErrInvalidRevision
 	}
@@ -516,11 +527,28 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		return nil, err
 	}
 
-	return d.getAtTx(key, txs[0], 0, d.st, d.st.NewTxHolder())
+	if atRevision < 0 {
+		atRevision = int64(hCount) + atRevision
+	}
+
+	entry, err = d.getAtTx(key, txs[0], 0, d.st, d.st.NewTxHolder(), uint64(atRevision))
+	if err != nil {
+		return nil, err
+	}
+
+	return entry, err
 }
 
-func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md *store.KVMetadata,
-	index store.KeyIndex, txHolder *store.Tx) (entry *schema.Entry, err error) {
+func (d *db) resolveValue(
+	key []byte,
+	val []byte,
+	resolved int,
+	txID uint64,
+	md *store.KVMetadata,
+	index store.KeyIndex,
+	txHolder *store.Tx,
+	revision uint64,
+) (entry *schema.Entry, err error) {
 	if md != nil && md.Deleted() {
 		return nil, store.ErrKeyNotFound
 	}
@@ -549,7 +577,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		copy(refKey, val[1+8:])
 
 		if index != nil {
-			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, txHolder)
+			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, txHolder, 0)
 			if err != nil {
 				return nil, err
 			}
@@ -565,6 +593,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 			Key:      TrimPrefix(key),
 			Metadata: schema.KVMetadataToProto(md),
 			AtTx:     atTx,
+			Revision: revision,
 		}
 
 		return entry, nil
@@ -575,6 +604,7 @@ func (d *db) resolveValue(key []byte, val []byte, resolved int, txID uint64, md 
 		Key:      TrimPrefix(key),
 		Metadata: schema.KVMetadataToProto(md),
 		Value:    TrimPrefix(val),
+		Revision: revision,
 	}, nil
 }
 
@@ -969,7 +999,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 					index = snap
 				}
 
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, txHolder)
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, txHolder, 0)
 				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
@@ -1031,7 +1061,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				var err error
 
 				if snap != nil {
-					entry, err = d.getAtTx(key, atTx, 1, snap, txHolder)
+					entry, err = d.getAtTx(key, atTx, 1, snap, txHolder, 0)
 					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
