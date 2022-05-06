@@ -19,23 +19,41 @@ import (
 	"context"
 	"strings"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) HealthCheck(args []string) (string, error) {
+func (i *immuc) History(args []string) (string, error) {
+	key := []byte(args[0])
 	ctx := context.Background()
 
-	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return nil, immuClient.HealthCheck(ctx)
-	}); err != nil {
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.History(ctx, &schema.HistoryRequest{
+			Key: key,
+		})
+	})
+	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
-
 		if len(rpcerrors) > 1 {
 			return rpcerrors[len(rpcerrors)-1], nil
 		}
-
 		return "", err
 	}
 
-	return "Health check OK", nil
+	str := strings.Builder{}
+
+	entries := response.(*schema.Entries)
+	if len(entries.Entries) == 0 {
+		str.WriteString("No item found \n")
+		return str.String(), nil
+	}
+
+	for j, entry := range entries.Entries {
+		if j > 0 {
+			str.WriteString("\n")
+		}
+		str.WriteString(PrintKV(entry.Key, entry.Metadata, entry.Value, entry.Tx, false, false))
+	}
+
+	return str.String(), nil
 }
