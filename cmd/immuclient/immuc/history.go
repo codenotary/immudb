@@ -52,7 +52,7 @@ func (i *immuc) History(args []string) (string, error) {
 		if j > 0 {
 			str.WriteString("\n")
 		}
-		str.WriteString(PrintKV(entry.Key, entry.Metadata, entry.Value, entry.Tx, false, false))
+		str.WriteString(PrintKV(entry, false, false))
 	}
 
 	return str.String(), nil

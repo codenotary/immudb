@@ -41,15 +41,12 @@ func (i *immuc) Set(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-
 	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 	if err != nil {
 		return "", err
 	}
 
-	value, err := ioutil.ReadAll(tee)
+	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
@@ -64,11 +61,6 @@ func (i *immuc) Set(args []string) (string, error) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	value2, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
-	}
-
 	txhdr := response.(*schema.TxHeader)
 	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.GetSince(ctx, key, txhdr.Id)
@@ -77,7 +69,7 @@ func (i *immuc) Set(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), nil, value2, scstr.(*schema.Entry).Tx, false, false), nil
+	return PrintKV(scstr.(*schema.Entry), false, false), nil
 }
 
 func (i *immuc) VerifiedSet(args []string) (string, error) {
@@ -94,10 +86,7 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		return "", err
 	}
 
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-
-	value, err := ioutil.ReadAll(tee)
+	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
@@ -111,11 +100,6 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	value2, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
-	}
-
 	vi, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key)
 	})
@@ -123,7 +107,7 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), nil, value2, vi.(*schema.Entry).Tx, true, false), nil
+	return PrintKV(vi.(*schema.Entry), true, false), nil
 }
 
 func (i *immuc) DeleteKey(args []string) (string, error) {

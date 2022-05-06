@@ -68,7 +68,15 @@ func (i *immuc) SetReference(args []string) (string, error) {
 	}
 
 	txhdr := response.(*schema.TxHeader)
-	return PrintKV([]byte(args[0]), nil, value, uint64(txhdr.Id), false, false), nil
+	return PrintKV(
+		&schema.Entry{
+			Key:   []byte(args[0]),
+			Value: value,
+			Tx:    txhdr.Id,
+		},
+		false,
+		false,
+	), nil
 }
 
 func (i *immuc) VerifiedSetReference(args []string) (string, error) {
@@ -110,5 +118,13 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 	}
 
 	txhdr := response.(*schema.TxHeader)
-	return PrintKV([]byte(args[0]), nil, value, uint64(txhdr.Id), true, false), nil
+	return PrintKV(
+		&schema.Entry{
+			Key:   []byte(args[0]),
+			Value: value,
+			Tx:    txhdr.Id,
+		},
+		true,
+		false,
+	), nil
 }

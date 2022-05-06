@@ -272,12 +272,12 @@ func TestEdgeCases(t *testing.T) {
 	tss, hCount, err := tree.History(make([]byte, 1), 0, true, 10)
 	require.NoError(t, err)
 	require.Len(t, tss, 10)
-	require.Equal(t, 100, hCount)
+	require.EqualValues(t, 100, hCount)
 
 	tss, hCount, err = tree.History(make([]byte, 1), 0, false, 10)
 	require.NoError(t, err)
 	require.Len(t, tss, 10)
-	require.Equal(t, 100, hCount)
+	require.EqualValues(t, 100, hCount)
 
 	err = tree.Sync()
 	require.NoError(t, err)
@@ -918,7 +918,7 @@ func TestTBTreeHistory(t *testing.T) {
 	tss, hCount, err := tbtree.History([]byte("k0"), 0, false, 10)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tss))
-	require.Equal(t, 2, hCount)
+	require.EqualValues(t, 2, hCount)
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
