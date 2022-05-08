@@ -29,7 +29,8 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
-    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
+    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" \
+	IMMUDB_PGSQL_SERVER="false"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
@@ -42,6 +43,7 @@ RUN addgroup --system --gid $IMMU_GID immu && \
 EXPOSE 3322
 EXPOSE 9497
 EXPOSE 8080
+EXPOSE 5432
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
 USER immu
