@@ -1120,8 +1120,6 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 	currTx := tx
 
-	changedDB := false
-
 	for _, stmt := range stmts {
 		if stmt == nil {
 			return nil, nil, ErrIllegalArguments
@@ -1129,8 +1127,15 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 		_, isDBSelectionStmt := stmt.(*UseDatabaseStmt)
 
-		if changedDB && e.multidbHandler != nil && isDBSelectionStmt {
-			return nil, nil, fmt.Errorf("%w: database selection may be executed as a single operation or be the last one", ErrNoSupported)
+		// handle the case when working in non-autocommit mode outside a transaction block
+		if isDBSelectionStmt && (currTx != nil && !currTx.closed) && !currTx.explicitClose {
+			err = currTx.commit()
+			if err == nil {
+				committedTxs = append(committedTxs, currTx)
+			}
+			if err != nil && err != store.ErrorNoEntriesProvided {
+				return nil, committedTxs, err
+			}
 		}
 
 		if currTx == nil || currTx.closed {
@@ -1156,8 +1161,6 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			currTx.Cancel()
 			return nil, committedTxs, err
 		}
-
-		changedDB = isDBSelectionStmt
 
 		if !currTx.closed && !currTx.explicitClose && e.autocommit {
 			err = currTx.commit()
