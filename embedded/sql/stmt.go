@@ -230,11 +230,11 @@ func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 }
 
 func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if tx.engine.multidbHandler != nil {
-		if tx.explicitClose {
-			return nil, fmt.Errorf("%w: database selection can not be done within a transaction", ErrNonTransactionalStmt)
-		}
+	if tx.explicitClose {
+		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
+	}
 
+	if tx.engine.multidbHandler != nil {
 		return nil, tx.engine.multidbHandler.UseDatabase(tx.ctx, stmt.DB)
 	}
 
