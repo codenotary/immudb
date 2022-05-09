@@ -2390,16 +2390,16 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 }
 
 func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
+	if tx.currentDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
 	if stmt.db != "" && stmt.db != tx.currentDB.name {
 		return nil,
 			fmt.Errorf(
 				"%w: statements must only involve current selected database '%s' but '%s' was referenced",
 				ErrNoSupported, tx.currentDB.name, stmt.db,
 			)
-	}
-
-	if tx.currentDB == nil {
-		return nil, ErrNoDatabaseSelected
 	}
 
 	table, err := tx.currentDB.GetTableByName(stmt.table)
