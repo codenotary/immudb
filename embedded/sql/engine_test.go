@@ -66,6 +66,17 @@ func TestUseDatabase(t *testing.T) {
 
 	_, _, err = engine.Exec("USE DATABASE db2", nil, nil)
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db2", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		USE db1;
+		CREATE TABLE table1(id INTEGER, PRIMARY KEY id);
+		USE db2;
+		CREATE TABLE table1(id INTEGER, PRIMARY KEY id);
+		`, nil, nil)
+	require.NoError(t, err)
 }
 
 func TestCreateTable(t *testing.T) {
@@ -4974,8 +4985,13 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec("USE DATABASE db1; USE DATABASE db1", nil, nil)
-		require.ErrorIs(t, err, ErrNoSupported)
+		ntx, ctxs, err := engine.Exec("USE DATABASE db1; USE DATABASE db2", nil, nil)
+		require.NoError(t, err)
+		require.Nil(t, ntx)
+		require.Empty(t, ctxs)
+
+		_, _, err = engine.Exec("BEGIN TRANSACTION; USE DATABASE db1; COMMIT;", nil, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
 
 		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
 		require.NoError(t, err)
@@ -5021,7 +5037,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
 	require.NoError(t, err)
 
 	tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
@@ -5029,7 +5045,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 	_, _, err = engine.Exec(`
 		USE DATABASE db1;
-
+		
 		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
 		CREATE INDEX ON mytable1(title);
 	
