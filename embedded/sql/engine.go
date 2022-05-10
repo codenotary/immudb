@@ -1133,7 +1133,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			if err == nil {
 				committedTxs = append(committedTxs, currTx)
 			}
-			if err != nil && err != store.ErrorNoEntriesProvided {
+			if err != nil {
 				return nil, committedTxs, err
 			}
 		}
