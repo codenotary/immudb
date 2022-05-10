@@ -16,6 +16,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type remoteStorageMockingWrapper struct {
@@ -345,6 +346,9 @@ func TestRemoteStorageUsedForNewDB(t *testing.T) {
 	defer os.RemoveAll("data")
 
 	s := DefaultServer()
+	s.WithOptions(DefaultOptions().
+		WithListener(bufconn.Listen(1024 * 1024)),
+	)
 	err := s.Initialize()
 	require.NoError(t, err)
 
