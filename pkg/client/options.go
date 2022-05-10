@@ -23,7 +23,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/stream"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"google.golang.org/grpc"
 )
 
@@ -45,10 +44,9 @@ type Options struct {
 	TokenFileName      string
 	CurrentDatabase    string
 	//--> used by immuclient CLI and sql stdlib package
-	PasswordReader c.PasswordReader
-	Username       string
-	Password       string
-	Database       string
+	Username string
+	Password string
+	Database string
 	//<--
 	Metrics             bool
 	PidPath             string
@@ -70,7 +68,6 @@ func DefaultOptions() *Options {
 		MaxRecvMsgSize:      4 * 1024 * 1024, //4Mb
 		Config:              "configs/immuclient.toml",
 		DialOptions:         []grpc.DialOption{grpc.WithInsecure()},
-		PasswordReader:      c.DefaultPasswordReader,
 		Metrics:             true,
 		PidPath:             "",
 		LogFileName:         "",
@@ -169,12 +166,6 @@ func (o *Options) WithDialOptions(dialOptions []grpc.DialOption) *Options {
 // Bind concatenates address and port
 func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
-}
-
-// WithPasswordReader sets the password reader for the client
-func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
-	o.PasswordReader = pr
-	return o
 }
 
 // WithUsername sets the username for the client

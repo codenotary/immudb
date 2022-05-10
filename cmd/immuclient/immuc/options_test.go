@@ -19,6 +19,7 @@ package immuc
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
 )
@@ -35,4 +36,7 @@ func TestOptions(t *testing.T) {
 
 	o.WithRevisionSeparator("revsep")
 	require.Equal(t, "revsep", o.GetRevisionSeparator())
+
+	o.WithPasswordReader(helper.DefaultPasswordReader)
+	require.Equal(t, helper.DefaultPasswordReader, o.passwordReader)
 }

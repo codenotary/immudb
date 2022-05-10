@@ -20,9 +20,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/homedir"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,6 +27,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/homedir"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -107,19 +108,13 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	defer bs.Stop()
 
 	ctx := context.Background()
-	pr := &PasswordReader{
-		Pass: []string{"immudb"},
-	}
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = dialOptions
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions)
 
 	cli, _ := client.NewImmuClient(cliopt)
 	cli.WithTokenService(ts)
@@ -173,19 +168,13 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	defer bs.Stop()
 
 	ctx := context.Background()
-	pr := &PasswordReader{
-		Pass: []string{"immudb"},
-	}
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = dialOptions
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions)
 
 	cli, _ := client.NewImmuClient(cliopt)
 	cli.WithTokenService(ts)
@@ -273,19 +262,13 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	defer bs.Stop()
 
 	ctx := context.Background()
-	pr := &PasswordReader{
-		Pass: []string{"immudb"},
-	}
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
-
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = dialOptions
+	cliopt := client.DefaultOptions().WithDialOptions(dialOptions)
 
 	cli, _ := client.NewImmuClient(cliopt)
 	cli.WithTokenService(ts)

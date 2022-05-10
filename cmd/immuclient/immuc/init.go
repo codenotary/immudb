@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/pkg/auth"
@@ -176,7 +177,8 @@ func OptionsFromEnv() *Options {
 	opts := (&Options{}).
 		WithImmudbClientOptions(immudbOptions).
 		WithValueOnly(viper.GetBool("value-only")).
-		WithRevisionSeparator(viper.GetString("revision-separator"))
+		WithRevisionSeparator(viper.GetString("revision-separator")).
+		WithPasswordReader(helper.DefaultPasswordReader)
 
 	return opts
 }
