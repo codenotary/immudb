@@ -215,6 +215,17 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "CREATE TABLE \"table\" (\"primary\" INTEGER AUTO_INCREMENT, PRIMARY KEY \"primary\")",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:       "table",
+					ifNotExists: false,
+					colsSpec:    []*ColSpec{{colName: "primary", colType: IntegerType, autoIncrement: true}},
+					pkColNames:  []string{"primary"},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "CREATE TABLE xtable1 (xid INTEGER, PRIMARY KEY xid)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
@@ -290,6 +301,16 @@ func TestCreateIndexStmt(t *testing.T) {
 			input:          "CREATE INDEX ON table1(id)",
 			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table1", cols: []string{"id"}}},
 			expectedError:  nil,
+		},
+		{
+			input:          "CREATE INDEX ON \"table\"(\"primary\")",
+			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table", cols: []string{"primary"}}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE INDEX ON \"table(\"primary\")",
+			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table", cols: []string{"primary"}}},
+			expectedError:  errors.New("syntax error: unexpected ERROR, expecting IDENTIFIER at position 22"),
 		},
 		{
 			input:          "CREATE INDEX IF NOT EXISTS ON table1(id)",

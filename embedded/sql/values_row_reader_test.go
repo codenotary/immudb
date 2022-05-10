@@ -29,6 +29,30 @@ func TestValuesRowReader(t *testing.T) {
 		{Column: "col1"},
 	}
 
+	_, err = newValuesRowReader(nil, cols, "", "", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = newValuesRowReader(nil, cols, "db1", "", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = newValuesRowReader(nil, cols, "db1", "table1", nil)
+	require.NoError(t, err)
+
+	_, err = newValuesRowReader(nil, cols, "db1", "table1",
+		[][]ValueExp{
+			{
+				&Bool{val: true},
+				&Bool{val: false},
+			},
+		})
+	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
+
+	_, err = newValuesRowReader(nil,
+		[]ColDescriptor{
+			{Table: "table1", Column: "col1"},
+		}, "", "", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	values := [][]ValueExp{
 		{
 			&Bool{val: true},
@@ -37,6 +61,18 @@ func TestValuesRowReader(t *testing.T) {
 
 	rowReader, err := newValuesRowReader(nil, cols, "db1", "table1", values)
 	require.NoError(t, err)
+
+	require.Equal(t, "db1", rowReader.DBAlias())
+	require.Nil(t, rowReader.OrderBy())
+	require.Nil(t, rowReader.ScanSpecs())
+
+	duplicatedParams := map[string]interface{}{
+		"param1": 1,
+		"Param1": true,
+	}
+
+	err = rowReader.SetParameters(duplicatedParams)
+	require.ErrorIs(t, err, ErrDuplicatedParameters)
 
 	params := map[string]interface{}{
 		"param1": 1,
@@ -50,4 +86,7 @@ func TestValuesRowReader(t *testing.T) {
 	paramTypes := make(map[string]string)
 	err = rowReader.InferParameters(paramTypes)
 	require.NoError(t, err)
+
+	require.NoError(t, rowReader.Close())
+	require.ErrorIs(t, rowReader.Close(), ErrAlreadyClosed)
 }
