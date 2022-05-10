@@ -30,7 +30,7 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" \
-	IMMUDB_PGSQL_SERVER="false"
+	IMMUDB_PGSQL_SERVER="true"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
