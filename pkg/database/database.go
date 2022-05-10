@@ -520,7 +520,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 	}
 
 	txs, hCount, err := d.st.History(key, offset, desc, 1)
-	if err == store.ErrNoMoreEntries {
+	if errors.Is(err, store.ErrNoMoreEntries) || errors.Is(err, store.ErrOffsetOutOfRange) {
 		return nil, ErrInvalidRevision
 	}
 	if err != nil {

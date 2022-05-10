@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -1654,6 +1655,14 @@ func TestGetAtRevision(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidRevision)
 	})
 
+	t.Run("get correct error if maximum integer value is used for the revision number", func(t *testing.T) {
+		_, err := db.Get(&schema.KeyRequest{
+			Key:        []byte("key"),
+			AtRevision: math.MaxInt64,
+		})
+		require.ErrorIs(t, err, ErrInvalidRevision)
+	})
+
 	t.Run("get correct values for negative revision numbers", func(t *testing.T) {
 		for i := 1; i < histCount; i++ {
 			k, err := db.Get(&schema.KeyRequest{
@@ -1669,6 +1678,14 @@ func TestGetAtRevision(t *testing.T) {
 		_, err := db.Get(&schema.KeyRequest{
 			Key:        []byte("key"),
 			AtRevision: -10,
+		})
+		require.ErrorIs(t, err, ErrInvalidRevision)
+	})
+
+	t.Run("get correct error if minimum negative revision number is used", func(t *testing.T) {
+		_, err := db.Get(&schema.KeyRequest{
+			Key:        []byte("key"),
+			AtRevision: math.MinInt64,
 		})
 		require.ErrorIs(t, err, ErrInvalidRevision)
 	})
