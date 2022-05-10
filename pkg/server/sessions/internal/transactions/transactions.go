@@ -69,27 +69,32 @@ func NewTransaction(ctx context.Context, mode schema.TxMode, db database.DB, ses
 }
 
 func (tx *transaction) GetID() string {
-	tx.mutex.Lock()
-	defer tx.mutex.Unlock()
+	tx.mutex.RLock()
+	defer tx.mutex.RUnlock()
+
 	return tx.transactionID
 }
 
 func (tx *transaction) GetMode() schema.TxMode {
-	tx.mutex.Lock()
-	defer tx.mutex.Unlock()
+	tx.mutex.RLock()
+	defer tx.mutex.RUnlock()
+
 	return tx.txMode
 }
 
 func (tx *transaction) IsClosed() bool {
-	return tx.sqlTx == nil
+	tx.mutex.RLock()
+	defer tx.mutex.RUnlock()
+
+	return tx.sqlTx == nil || tx.sqlTx.Closed()
 }
 
 func (tx *transaction) Rollback() error {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
-	if tx.sqlTx == nil {
-		return sql.ErrAlreadyClosed
+	if tx.sqlTx == nil || tx.sqlTx.Closed() {
+		return sql.ErrNoOngoingTx
 	}
 
 	return tx.sqlTx.Cancel()
@@ -99,8 +104,8 @@ func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
-	if tx.sqlTx == nil {
-		return nil, sql.ErrAlreadyClosed
+	if tx.sqlTx == nil || tx.sqlTx.Closed() {
+		return nil, sql.ErrNoOngoingTx
 	}
 
 	_, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
@@ -114,6 +119,7 @@ func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 func (tx *transaction) GetSessionID() string {
 	tx.mutex.RLock()
 	defer tx.mutex.RUnlock()
+
 	return tx.sessionID
 }
 
@@ -121,8 +127,8 @@ func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (err error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
-	if tx.sqlTx == nil {
-		return sql.ErrAlreadyClosed
+	if tx.sqlTx == nil || tx.sqlTx.Closed() {
+		return sql.ErrNoOngoingTx
 	}
 
 	tx.sqlTx, _, err = tx.db.SQLExec(request, tx.sqlTx)
@@ -134,8 +140,8 @@ func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (res *schema.SQ
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
-	if tx.sqlTx == nil {
-		return nil, sql.ErrAlreadyClosed
+	if tx.sqlTx == nil || tx.sqlTx.Closed() {
+		return nil, sql.ErrNoOngoingTx
 	}
 
 	return tx.db.SQLQuery(request, tx.sqlTx)
