@@ -985,6 +985,11 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
+		COMMIT;
+		`, nil, nil)
+	require.ErrorIs(t, err, ErrNoOngoingTx)
+
+	_, _, err = engine.Exec(`
 		BEGIN TRANSACTION;
 			CREATE INDEX ON table2(title);
 		COMMIT;
@@ -4979,6 +4984,13 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		}
 		engine.SetMultiDBHandler(handler)
 
+		_, _, err = engine.Exec(`
+			BEGIN TRANSACTION;
+				CREATE DATABASE db1;
+			COMMIT;
+		`, nil, nil)
+		require.ErrorIs(t, err, ErrNonTransactionalStmt)
+
 		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 		require.ErrorIs(t, err, ErrNoSupported)
 
@@ -5009,6 +5021,35 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 
 		err = r.Close()
 		require.NoError(t, err)
+	})
+
+	t.Run("with a handler, statements must only involve current selected database", func(t *testing.T) {
+		dbs := []string{"db1", "db2"}
+
+		handler := &multidbHandlerMock{
+			dbs: dbs,
+		}
+		engine.SetMultiDBHandler(handler)
+
+		_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
+		require.NoError(t, err)
+
+		tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+
+		// doing stmt initialization because cross database references are disabled by grammar
+		tableRef := &tableRef{
+			db:    "db2",
+			table: "table1",
+		}
+
+		_, err = tableRef.referencedTable(tx)
+		require.ErrorIs(t, err, ErrNoSupported)
+
+		tx.currentDB = nil
+		_, err = tableRef.referencedTable(tx)
+		require.ErrorIs(t, err, ErrNoDatabaseSelected)
 	})
 }
 
