@@ -53,7 +53,7 @@ func (i *immuc) ZScan(args []string) (string, error) {
 		if j > 0 {
 			str.WriteString("\n")
 		}
-		str.WriteString(PrintKV(entry.Entry, false, i.valueOnly))
+		str.WriteString(PrintKV(entry.Entry, false, i.options.valueOnly))
 	}
 
 	return str.String(), nil
@@ -87,7 +87,7 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 		if j > 0 {
 			str.WriteString("\n")
 		}
-		str.WriteString(PrintKV(entry, false, i.valueOnly))
+		str.WriteString(PrintKV(entry, false, i.options.valueOnly))
 	}
 
 	return str.String(), nil

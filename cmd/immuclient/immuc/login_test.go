@@ -17,13 +17,13 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"os"
 	"strings"
 	"testing"
 
-	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
+
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
@@ -45,13 +45,16 @@ func TestLogin(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	c.DefaultPasswordReader = &immuclienttest.PasswordReader{
-		Pass: []string{"immudb"},
-	}
-	imc, err := Init(Options().WithDialOptions(dialOptions))
+	opts := OptionsFromEnv().
+		WithPasswordReader(&immuclienttest.PasswordReader{
+			Pass: []string{"immudb"},
+		})
+	opts.GetImmudbClientOptions().
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		})
+
+	imc, err := Init(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,14 +82,16 @@ func TestLogout(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	pr := new(immuclienttest.PasswordReader)
-	pr.Pass = []string{"immudb"}
-	c.DefaultPasswordReader = pr
+	opts := OptionsFromEnv().
+		WithPasswordReader(&immuclienttest.PasswordReader{
+			Pass: []string{"immudb"},
+		})
+	opts.GetImmudbClientOptions().
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		})
 
-	imc, err := Init(Options().WithDialOptions(dialOptions))
+	imc, err := Init(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +159,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts).WithOptions(client.DefaultOptions())
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -174,7 +179,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts).WithOptions(client.DefaultOptions())
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -194,7 +199,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts).WithOptions(client.DefaultOptions())
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -214,7 +219,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts).WithOptions(client.DefaultOptions())
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -234,7 +239,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts).WithOptions(client.DefaultOptions())
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)

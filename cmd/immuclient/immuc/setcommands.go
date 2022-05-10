@@ -294,7 +294,7 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 	var dbList string
 
 	for _, val := range resp.(*schema.DatabaseListResponse).Databases {
-		if i.options.CurrentDatabase == val.DatabaseName {
+		if i.options.immudbClientOptions.CurrentDatabase == val.DatabaseName {
 			dbList += "*"
 		}
 		dbList += fmt.Sprintf("%s", val.DatabaseName)
@@ -307,8 +307,8 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	var dbname string
 	if len(args) > 0 {
 		dbname = args[0]
-	} else if len(i.options.Database) > 0 {
-		dbname = i.options.Database
+	} else if len(i.options.immudbClientOptions.Database) > 0 {
+		dbname = i.options.immudbClientOptions.Database
 	} else {
 		return "", fmt.Errorf("database name not specified")
 	}

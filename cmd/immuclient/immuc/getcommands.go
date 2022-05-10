@@ -84,19 +84,19 @@ func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
 }
 
 func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, hasRevision bool, err error) {
-	if i.revisionSeparator == "" {
+	if i.options.revisionSeparator == "" {
 		// No revision separator - argument is the key
 		return []byte(arg), 0, false, nil
 	}
 
-	idx := strings.LastIndex(arg, i.revisionSeparator)
+	idx := strings.LastIndex(arg, i.options.revisionSeparator)
 	if idx < 0 {
 		// No revision separator in the argument - that's a key without revision
 		return []byte(arg), 0, false, nil
 	}
 
 	key = []byte(arg[:idx])
-	revisionStr := arg[idx+len(i.revisionSeparator):]
+	revisionStr := arg[idx+len(i.options.revisionSeparator):]
 
 	revision, err = strconv.ParseInt(revisionStr, 10, 64)
 	if err != nil {
@@ -128,7 +128,7 @@ func (i *immuc) Get(args []string) (string, error) {
 	}
 
 	entry := response.(*schema.Entry)
-	return PrintKV(entry, false, i.valueOnly), nil
+	return PrintKV(entry, false, i.options.valueOnly), nil
 }
 
 func (i *immuc) VerifiedGet(args []string) (string, error) {
@@ -153,5 +153,5 @@ func (i *immuc) VerifiedGet(args []string) (string, error) {
 	}
 
 	entry := response.(*schema.Entry)
-	return PrintKV(entry, true, i.valueOnly), nil
+	return PrintKV(entry, true, i.options.valueOnly), nil
 }

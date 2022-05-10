@@ -257,7 +257,9 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+	}, ts)
+
+	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -285,7 +287,9 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+	}, ts)
+
+	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -313,7 +317,9 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+	}, ts)
+
+	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")

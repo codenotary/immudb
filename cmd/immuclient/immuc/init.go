@@ -22,7 +22,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/viper"
@@ -30,13 +29,9 @@ import (
 )
 
 type immuc struct {
-	ImmuClient     client.ImmuClient
-	passwordReader c.PasswordReader
-	valueOnly      bool
-	options        *client.Options
-	isLoggedin     bool
-
-	revisionSeparator string
+	ImmuClient client.ImmuClient
+	options    *Options
+	isLoggedin bool
 }
 
 // Client ...
@@ -81,29 +76,21 @@ type Client interface {
 	DescribeTable(args []string) (string, error)
 
 	WithFileTokenService(tkns tokenservice.TokenService) Client
-	WithRevisionSeparator(sep string) Client
 }
 
 // Init ...
-func Init(opts *client.Options) (*immuc, error) {
+func Init(opts *Options) (*immuc, error) {
 	ic := new(immuc)
-	ic.passwordReader = opts.PasswordReader
 	ic.options = opts
 	return ic, nil
 }
 
-func (i *immuc) WithRevisionSeparator(sep string) Client {
-	i.revisionSeparator = sep
-	return i
-}
-
 func (i *immuc) Connect(args []string) (err error) {
-	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil {
+	if i.ImmuClient, err = client.NewImmuClient(i.options.immudbClientOptions); err != nil {
 		return err
 	}
 	i.WithFileTokenService(tokenservice.NewFileTokenService())
-	i.options.Auth = true
-	i.valueOnly = viper.GetBool("value-only")
+	i.options.immudbClientOptions.Auth = true
 
 	return nil
 }
@@ -134,32 +121,26 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	if err != nil {
 		return nil, fmt.Errorf("error during automatic (re)login: %v", err)
 	}
-	if len(i.options.Database) > 0 {
+	if len(i.options.immudbClientOptions.Database) > 0 {
 		if _, err := i.UseDatabase(nil); err != nil {
 			gRPCStatus, ok := status.FromError(err)
 			if ok {
 				err = errors.New(gRPCStatus.Message())
 			}
 			return nil, fmt.Errorf(
-				"error using database %s after automatic (re)login: %v", i.options.Database, err)
+				"error using database %s after automatic (re)login: %v", i.options.immudbClientOptions.Database, err)
 		}
 	}
 
 	return f(i.ImmuClient)
 }
 
-func (i *immuc) SetPasswordReader(p c.PasswordReader) error {
-	i.passwordReader = p
-	return nil
-}
-
 func (i *immuc) ValueOnly() bool {
-	return i.isLoggedin
+	return i.options.valueOnly
 }
 
 func (i *immuc) SetValueOnly(v bool) {
-	i.isLoggedin = v
-	return
+	i.options.WithValueOnly(v)
 }
 
 func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
@@ -169,9 +150,9 @@ func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
 	return i
 }
 
-func Options() *client.Options {
+func OptionsFromEnv() *Options {
 	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
-	options := client.DefaultOptions().
+	immudbOptions := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).
 		WithAddress(viper.GetString("immudb-address")).
 		WithUsername(viper.GetString("username")).
@@ -183,12 +164,19 @@ func Options() *client.Options {
 
 	if viper.GetBool("mtls") {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
-		options.MTLsOptions = client.DefaultMTLsOptions().
-			WithServername(viper.GetString("servername")).
-			WithCertificate(viper.GetString("certificate")).
-			WithPkey(viper.GetString("pkey")).
-			WithClientCAs(viper.GetString("clientcas"))
+		immudbOptions.WithMTLsOptions(
+			client.DefaultMTLsOptions().
+				WithServername(viper.GetString("servername")).
+				WithCertificate(viper.GetString("certificate")).
+				WithPkey(viper.GetString("pkey")).
+				WithClientCAs(viper.GetString("clientcas")),
+		)
 	}
 
-	return options
+	opts := (&Options{}).
+		WithImmudbClientOptions(immudbOptions).
+		WithValueOnly(viper.GetBool("value-only")).
+		WithRevisionSeparator(viper.GetString("revision-separator"))
+
+	return opts
 }

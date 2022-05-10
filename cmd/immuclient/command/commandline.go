@@ -5,20 +5,20 @@ import (
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 type commandline struct {
 	immucl  immuc.Client
 	config  c.Config
 	onError func(msg interface{})
-	options *client.Options
+	options *immuc.Options
 }
 
 func NewCommandLine() commandline {
 	cl := commandline{}
 	cl.config.Name = "immuclient"
-	cl.options = client.DefaultOptions()
+	cl.options = &immuc.Options{}
+	cl.options.WithImmudbClientOptions(client.DefaultOptions())
 	return cl
 }
 
@@ -27,12 +27,12 @@ func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) 
 		if err = cl.config.LoadConfig(cmd); err != nil {
 			return err
 		}
-		cl.options = immuc.Options().WithTokenFileName("token")
+		cl.options = immuc.OptionsFromEnv()
+		cl.options.GetImmudbClientOptions().WithTokenFileName("token")
 		cl.immucl, err = immuc.Init(cl.options)
 		if err != nil {
 			return err
 		}
-		cl.immucl.WithRevisionSeparator(viper.GetString("revision-separator"))
 		if post != nil {
 			return post(cmd, args)
 		}

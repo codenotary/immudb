@@ -36,7 +36,7 @@ import (
 type clientTest struct {
 	Imc     immuc.Client
 	Ts      tokenservice.TokenService
-	Options client.Options
+	Options immuc.Options
 	Pr      helper.PasswordReader
 }
 
@@ -69,7 +69,7 @@ func NewClientTest(pr helper.PasswordReader, tkns tokenservice.TokenService) *cl
 	return &clientTest{
 		Ts:      tkns,
 		Pr:      pr,
-		Options: *client.DefaultOptions(),
+		Options: *(&immuc.Options{}).WithImmudbClientOptions(client.DefaultOptions()),
 	}
 }
 
@@ -78,17 +78,23 @@ func (ct *clientTest) WithTokenFileService(tkns tokenservice.TokenService) *clie
 	return ct
 }
 
-func (ct *clientTest) WithOptions(opts *client.Options) *clientTest {
+func (ct *clientTest) WithOptions(opts *immuc.Options) *clientTest {
 	ct.Options = *opts
 	return ct
 }
 
 func (c *clientTest) Connect(dialer servertest.BuffDialer) {
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
-	}
 
-	ic, err := immuc.Init(c.Options.WithDialOptions(dialOptions).WithPasswordReader(c.Pr))
+	c.Options.
+		WithRevisionSeparator("@").
+		WithPasswordReader(c.Pr)
+
+	c.Options.GetImmudbClientOptions().
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+		})
+
+	ic, err := immuc.Init(&c.Options)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +104,6 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	}
 
 	ic.WithFileTokenService(c.Ts)
-	ic.WithRevisionSeparator("@")
 
 	c.Imc = ic
 }

@@ -19,19 +19,20 @@ package immuc
 import (
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitErrors(t *testing.T) {
-	ic := immuc{
-		options: &Options{},
-	}
+func TestOptions(t *testing.T) {
+	o := &Options{}
 
-	viper.Set("mtls", true)
-	OptionsFromEnv()
-	viper.Set("mtls", false)
+	clOpts := &client.Options{}
+	o.WithImmudbClientOptions(clOpts)
+	require.Equal(t, clOpts, o.GetImmudbClientOptions())
 
-	ic.SetValueOnly(true)
-	require.True(t, ic.ValueOnly())
+	o.WithValueOnly(true)
+	require.Equal(t, true, o.GetValueOnly())
+
+	o.WithRevisionSeparator("revsep")
+	require.Equal(t, "revsep", o.GetRevisionSeparator())
 }
