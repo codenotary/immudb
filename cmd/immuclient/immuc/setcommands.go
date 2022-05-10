@@ -26,7 +26,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -58,8 +57,6 @@ func (i *immuc) Set(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	time.Sleep(1 * time.Millisecond)
 
 	txhdr := response.(*schema.TxHeader)
 	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
@@ -97,8 +94,6 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 	}); err != nil {
 		return "", err
 	}
-
-	time.Sleep(1 * time.Millisecond)
 
 	vi, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key)
@@ -152,8 +147,6 @@ func (i *immuc) Restore(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	time.Sleep(1 * time.Millisecond)
 
 	txhdr := newValue.(*schema.TxHeader)
 	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
