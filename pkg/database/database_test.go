@@ -1697,6 +1697,42 @@ func TestGetAtRevision(t *testing.T) {
 		})
 		require.ErrorIs(t, err, store.ErrKeyNotFound)
 	})
+
+	t.Run("get correct error if expired entry is fetched through revision", func(t *testing.T) {
+		_, err := db.Set(&schema.SetRequest{
+			KVs: []*schema.KeyValue{{
+				Key:   []byte("exp-key"),
+				Value: []byte("expired-value"),
+				Metadata: &schema.KVMetadata{
+					Expiration: &schema.Expiration{
+						ExpiresAt: time.Now().Unix() - 1,
+					},
+				},
+			}},
+		})
+		require.NoError(t, err)
+
+		_, err = db.Set(&schema.SetRequest{
+			KVs: []*schema.KeyValue{{
+				Key:   []byte("exp-key"),
+				Value: []byte("not-expired-value"),
+			}},
+		})
+		require.NoError(t, err)
+
+		entry, err := db.Get(&schema.KeyRequest{
+			Key: []byte("exp-key"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte("not-expired-value"), entry.Value)
+		require.EqualValues(t, 2, entry.Revision)
+
+		_, err = db.Get(&schema.KeyRequest{
+			Key:        []byte("exp-key"),
+			AtRevision: 1,
+		})
+		require.ErrorIs(t, err, store.ErrExpiredEntry)
+	})
 }
 
 /*
