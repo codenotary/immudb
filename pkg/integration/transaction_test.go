@@ -117,6 +117,10 @@ func TestTransaction_Rollback(t *testing.T) {
 	err = tx.Rollback(context.TODO())
 	require.NoError(t, err)
 
+	err = tx.Rollback(context.TODO())
+	require.Error(t, err)
+	require.Equal(t, "no transaction found", err.Error())
+
 	tx1, err := client.NewTx(context.TODO())
 	require.NoError(t, err)
 
