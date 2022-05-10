@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/server"
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
@@ -44,11 +45,11 @@ func TestParseConfig(t *testing.T) {
 	ris, err := ParseConfig(connString)
 	require.NoError(t, err)
 	require.NotNil(t, ris)
-	require.Equal(t, "immudb", ris.Username)
-	require.Equal(t, "immudb", ris.Password)
-	require.Equal(t, "defaultdb", ris.Database)
-	require.Equal(t, "127.0.0.1", ris.Address)
-	require.Equal(t, 3324, ris.Port)
+	require.Equal(t, "immudb", ris.username)
+	require.Equal(t, "immudb", ris.password)
+	require.Equal(t, "defaultdb", ris.database)
+	require.Equal(t, "127.0.0.1", ris.clientOptions.Address)
+	require.Equal(t, 3324, ris.clientOptions.Port)
 }
 
 func TestParseConfig_InsecureVerify(t *testing.T) {
@@ -56,11 +57,11 @@ func TestParseConfig_InsecureVerify(t *testing.T) {
 	ris, err := ParseConfig(connString)
 	require.NoError(t, err)
 	require.NotNil(t, ris)
-	require.Equal(t, "immudb", ris.Username)
-	require.Equal(t, "immudb", ris.Password)
-	require.Equal(t, "defaultdb", ris.Database)
-	require.Equal(t, "127.0.0.1", ris.Address)
-	require.Equal(t, 3324, ris.Port)
+	require.Equal(t, "immudb", ris.username)
+	require.Equal(t, "immudb", ris.password)
+	require.Equal(t, "defaultdb", ris.database)
+	require.Equal(t, "127.0.0.1", ris.clientOptions.Address)
+	require.Equal(t, 3324, ris.clientOptions.Port)
 }
 
 func TestParseConfig_Require(t *testing.T) {
@@ -68,11 +69,11 @@ func TestParseConfig_Require(t *testing.T) {
 	ris, err := ParseConfig(connString)
 	require.NoError(t, err)
 	require.NotNil(t, ris)
-	require.Equal(t, "immudb", ris.Username)
-	require.Equal(t, "immudb", ris.Password)
-	require.Equal(t, "defaultdb", ris.Database)
-	require.Equal(t, "127.0.0.1", ris.Address)
-	require.Equal(t, 3324, ris.Port)
+	require.Equal(t, "immudb", ris.username)
+	require.Equal(t, "immudb", ris.password)
+	require.Equal(t, "defaultdb", ris.database)
+	require.Equal(t, "127.0.0.1", ris.clientOptions.Address)
+	require.Equal(t, 3324, ris.clientOptions.Port)
 }
 
 func TestParseConfigErrs(t *testing.T) {

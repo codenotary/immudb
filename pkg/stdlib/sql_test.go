@@ -40,21 +40,23 @@ func getRandomTableName() string {
 }
 
 func TestOpenDB(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -108,21 +110,23 @@ func TestOpenDB(t *testing.T) {
 }
 
 func TestQueryCapabilities(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -162,21 +166,23 @@ func TestQueryCapabilities(t *testing.T) {
 }
 
 func TestQueryCapabilitiesWithPointers(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -200,21 +206,23 @@ func TestQueryCapabilitiesWithPointers(t *testing.T) {
 }
 
 func TestNilValues(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -256,21 +264,22 @@ func (v *valuer) Value() (driver.Value, error) {
 }
 
 func TestDriverValuer(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -309,16 +318,18 @@ func TestDriverValuer(t *testing.T) {
 }
 
 func TestImmuConnector_ConnectErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+	}
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -331,19 +342,21 @@ func TestImmuConnector_ConnectErr(t *testing.T) {
 }
 
 func TestImmuConnector_ConnectLoginErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "wrongUsername"
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "wrongUsername",
+	}
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -353,20 +366,22 @@ func TestImmuConnector_ConnectLoginErr(t *testing.T) {
 }
 
 func TestImmuConnector_ConnectUseDatabaseErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "wrong db"
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "wrong db",
+	}
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()
@@ -386,7 +401,7 @@ func TestImmuConnector_Driver(t *testing.T) {
 func TestConn(t *testing.T) {
 	c := Conn{
 		immuClient: client.NewClient(),
-		options:    client.DefaultOptions(),
+		options:    &options{clientOptions: client.DefaultOptions()},
 	}
 	cli := c.GetImmuClient()
 	require.IsType(t, new(client.ImmuClient), &cli)
@@ -395,7 +410,7 @@ func TestConn(t *testing.T) {
 func TestConnErr(t *testing.T) {
 	c := Conn{
 		immuClient: client.NewClient(),
-		options:    client.DefaultOptions(),
+		options:    &options{clientOptions: client.DefaultOptions()},
 	}
 
 	_, err := c.Prepare("")
@@ -424,21 +439,22 @@ func TestConnErr(t *testing.T) {
 }
 
 func TestConn_QueryContextErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	o := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(o)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
+	defer os.RemoveAll(o.Dir)
 	defer os.Remove(".state-")
 
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts := &options{
+		clientOptions: client.DefaultOptions(),
+		username:      "immudb",
+		password:      "immudb",
+		database:      "defaultdb",
+	}
+	opts.clientOptions.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	db := OpenDB(opts)
 	defer db.Close()

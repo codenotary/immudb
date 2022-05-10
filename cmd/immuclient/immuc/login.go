@@ -34,21 +34,21 @@ func (i *immuc) Login(args []string) (string, error) {
 	var user []byte
 	if len(args) >= 1 {
 		user = []byte(args[0])
-	} else if len(i.options.immudbClientOptions.Username) > 0 {
-		user = []byte(i.options.immudbClientOptions.Username)
+	} else if len(i.options.username) > 0 {
+		user = []byte(i.options.username)
 	} else {
 		return "", errors.New("please specify a username")
 	}
 
 	var pass []byte
 	var err error
-	if len(i.options.immudbClientOptions.Password) == 0 {
-		pass, err = i.options.immudbClientOptions.PasswordReader.Read("Password:")
+	if len(i.options.password) == 0 {
+		pass, err = i.options.passwordReader.Read("Password:")
 		if err != nil {
 			return "", err
 		}
 	} else {
-		pass = []byte(i.options.immudbClientOptions.Password)
+		pass = []byte(i.options.password)
 	}
 
 	ctx := context.Background()
@@ -90,14 +90,14 @@ func (i *immuc) UserCreate(args []string) (string, error) {
 	permission := args[1]
 	databasename := args[2]
 
-	pass, err := i.options.immudbClientOptions.PasswordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
+	pass, err := i.options.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
 		return "password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol", nil
 	}
-	pass2, err := i.options.immudbClientOptions.PasswordReader.Read("Confirm password:")
+	pass2, err := i.options.passwordReader.Read("Confirm password:")
 	if err != nil {
 		return "Error Reading Password", nil
 	}
@@ -165,19 +165,19 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 	var oldpass []byte
 	var err error
 	if username == auth.SysAdminUsername {
-		oldpass, err = i.options.immudbClientOptions.PasswordReader.Read("Old password:")
+		oldpass, err = i.options.passwordReader.Read("Old password:")
 		if err != nil {
 			return "Error Reading Password", nil
 		}
 	}
-	newpass, err := i.options.immudbClientOptions.PasswordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
+	newpass, err := i.options.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
 		return "password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol", nil
 	}
-	pass2, err := i.options.immudbClientOptions.PasswordReader.Read("Confirm password:")
+	pass2, err := i.options.passwordReader.Read("Confirm password:")
 	if err != nil {
 		return "Error Reading Password", nil
 	}

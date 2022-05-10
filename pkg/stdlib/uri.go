@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func ParseConfig(uri string) (*client.Options, error) {
+func ParseConfig(uri string) (*options, error) {
 	if strings.HasPrefix(uri, "immudb://") {
 		url, err := url.Parse(uri)
 		if err != nil {
@@ -44,28 +44,30 @@ func ParseConfig(uri string) (*client.Options, error) {
 		}
 
 		cliOpts := client.DefaultOptions().
-			WithUsername(url.User.Username()).
-			WithPassword(pw).
 			WithPort(port).
 			WithAddress(url.Hostname()).
-			WithDatabase(url.Path[1:]).
 			WithDialOptions(dialOptions)
 
-		return cliOpts, nil
+		return &options{
+			clientOptions: cliOpts,
+			username:      url.User.Username(),
+			password:      pw,
+			database:      url.Path[1:],
+		}, nil
 	}
 
 	return nil, ErrBadQueryString
 }
 
-func GetUri(o *client.Options) string {
+func GetUri(o *options) string {
 	u := url.URL{
 		Scheme: "immudb",
 		User: url.UserPassword(
-			o.Username,
-			o.Password,
+			o.username,
+			o.password,
 		),
-		Host: strings.Join([]string{o.Address, ":", strconv.Itoa(o.Port)}, ""),
-		Path: o.Database,
+		Host: strings.Join([]string{o.clientOptions.Address, ":", strconv.Itoa(o.clientOptions.Port)}, ""),
+		Path: o.database,
 	}
 
 	return u.String()

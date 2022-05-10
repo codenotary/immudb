@@ -19,11 +19,10 @@ package stdlib
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/codenotary/immudb/pkg/client"
 )
 
 type immuConnector struct {
-	cliOptions *client.Options
+	cliOptions *options
 	driver     *Driver
 }
 

@@ -31,23 +31,18 @@ const AdminTokenFileSuffix = "_admin"
 
 // Options client options
 type Options struct {
-	Dir                string
-	Address            string
-	Port               int
-	HealthCheckRetries int
-	MTLs               bool
-	MTLsOptions        MTLsOptions
-	Auth               bool
-	MaxRecvMsgSize     int
-	DialOptions        []grpc.DialOption
-	Config             string
-	TokenFileName      string
-	CurrentDatabase    string
-	//--> used by immuclient CLI and sql stdlib package
-	Username string
-	Password string
-	Database string
-	//<--
+	Dir                 string
+	Address             string
+	Port                int
+	HealthCheckRetries  int
+	MTLs                bool
+	MTLsOptions         MTLsOptions
+	Auth                bool
+	MaxRecvMsgSize      int
+	DialOptions         []grpc.DialOption
+	Config              string
+	TokenFileName       string
+	CurrentDatabase     string
 	Metrics             bool
 	PidPath             string
 	LogFileName         string
@@ -166,24 +161,6 @@ func (o *Options) WithDialOptions(dialOptions []grpc.DialOption) *Options {
 // Bind concatenates address and port
 func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
-}
-
-// WithUsername sets the username for the client
-func (o *Options) WithUsername(username string) *Options {
-	o.Username = username
-	return o
-}
-
-// WithPassword sets the password for the client
-func (o *Options) WithPassword(password string) *Options {
-	o.Password = password
-	return o
-}
-
-// WithDatabase sets the database for the client
-func (o *Options) WithDatabase(database string) *Options {
-	o.Database = database
-	return o
 }
 
 // WithServerSigningPubKey sets the public key. If presents server state signature verification is enabled

@@ -40,9 +40,6 @@ func TestOptions(t *testing.T) {
 		WithMaxRecvMsgSize(1 << 20).
 		WithConfig("configfile").
 		WithTokenFileName("tokenfile").
-		WithUsername("some-username").
-		WithPassword("some-password").
-		WithDatabase("some-db").
 		WithStreamChunkSize(4096)
 
 	if op.LogFileName != "logfilename" ||
@@ -61,9 +58,6 @@ func TestOptions(t *testing.T) {
 		op.MaxRecvMsgSize != 1<<20 ||
 		op.Config != "configfile" ||
 		op.TokenFileName != "tokenfile" ||
-		op.Username != "some-username" ||
-		op.Password != "some-password" ||
-		op.Database != "some-db" ||
 		op.StreamChunkSize != 4096 ||
 		op.Bind() != "127.0.0.1:4321" ||
 		len(op.String()) == 0 {

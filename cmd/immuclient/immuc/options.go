@@ -17,11 +17,16 @@ limitations under the License.
 package immuc
 
 import (
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Options struct {
 	immudbClientOptions *client.Options
+	passwordReader      helper.PasswordReader
+	username            string
+	password            string
+	database            string
 	valueOnly           bool
 	revisionSeparator   string
 }
@@ -32,6 +37,26 @@ func (o *Options) GetImmudbClientOptions() *client.Options {
 
 func (o *Options) WithImmudbClientOptions(opts *client.Options) *Options {
 	o.immudbClientOptions = opts
+	return o
+}
+
+func (o *Options) WithPasswordReader(paswordRaader helper.PasswordReader) *Options {
+	o.passwordReader = paswordRaader
+	return o
+}
+
+func (o *Options) WithUsername(username string) *Options {
+	o.username = username
+	return o
+}
+
+func (o *Options) WithPassword(password string) *Options {
+	o.password = password
+	return o
+}
+
+func (o *Options) WithDatabase(database string) *Options {
+	o.database = database
 	return o
 }
 

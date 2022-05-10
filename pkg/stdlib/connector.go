@@ -29,16 +29,16 @@ type driverConnector struct {
 // Connect implement driver.Connector interface
 func (c *driverConnector) Connect(ctx context.Context) (conn driver.Conn, err error) {
 	c.driver.configMutex.Lock()
-	immuClientOption := c.driver.clientOptions[c.name]
+	opts := c.driver.options[c.name]
 	c.driver.configMutex.Unlock()
 
-	if immuClientOption == nil {
-		immuClientOption, err = ParseConfig(c.name)
+	if opts == nil {
+		opts, err = ParseConfig(c.name)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return c.driver.getNewConnByOptions(ctx, immuClientOption)
+	return c.driver.getNewConnByOptions(ctx, opts)
 }
 
 func (dc *driverConnector) Driver() driver.Driver {

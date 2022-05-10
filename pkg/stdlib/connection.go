@@ -27,7 +27,7 @@ import (
 type Conn struct {
 	name       string
 	immuClient client.ImmuClient
-	options    *client.Options
+	options    *options
 	driver     *Driver
 	tx         client.Tx
 }

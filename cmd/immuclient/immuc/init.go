@@ -113,8 +113,8 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 		strings.Contains(err.Error(), "not logged in") ||
 		strings.Contains(err.Error(), "please select a database first")
 	if !needsLogin ||
-		len(i.ImmuClient.GetOptions().Username) == 0 ||
-		len(i.ImmuClient.GetOptions().Password) == 0 {
+		len(i.options.username) == 0 ||
+		len(i.options.password) == 0 {
 		return nil, err
 	}
 
@@ -122,14 +122,14 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	if err != nil {
 		return nil, fmt.Errorf("error during automatic (re)login: %v", err)
 	}
-	if len(i.options.immudbClientOptions.Database) > 0 {
+	if len(i.options.database) > 0 {
 		if _, err := i.UseDatabase(nil); err != nil {
 			gRPCStatus, ok := status.FromError(err)
 			if ok {
 				err = errors.New(gRPCStatus.Message())
 			}
 			return nil, fmt.Errorf(
-				"error using database %s after automatic (re)login: %v", i.options.immudbClientOptions.Database, err)
+				"error using database %s after automatic (re)login: %v", i.options.database, err)
 		}
 	}
 
@@ -152,13 +152,9 @@ func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
 }
 
 func OptionsFromEnv() *Options {
-	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
 	immudbOptions := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).
 		WithAddress(viper.GetString("immudb-address")).
-		WithUsername(viper.GetString("username")).
-		WithPassword(password).
-		WithDatabase(viper.GetString("database")).
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
 		WithServerSigningPubKey(viper.GetString("server-signing-pub-key"))
@@ -174,11 +170,16 @@ func OptionsFromEnv() *Options {
 		)
 	}
 
+	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
+
 	opts := (&Options{}).
 		WithImmudbClientOptions(immudbOptions).
 		WithValueOnly(viper.GetBool("value-only")).
 		WithRevisionSeparator(viper.GetString("revision-separator")).
-		WithPasswordReader(helper.DefaultPasswordReader)
+		WithPasswordReader(helper.DefaultPasswordReader).
+		WithUsername(viper.GetString("username")).
+		WithPassword(password).
+		WithDatabase(viper.GetString("database"))
 
 	return opts
 }

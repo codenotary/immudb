@@ -32,14 +32,14 @@ var immuDriver *Driver
 func init() {
 
 	immuDriver = &Driver{
-		clientOptions: make(map[string]*client.Options),
+		options: make(map[string]*options),
 	}
 	sql.Register("immudb", immuDriver)
 }
 
-func OpenDB(cliOpts *client.Options) *sql.DB {
+func OpenDB(opts *options) *sql.DB {
 	c := &immuConnector{
-		cliOptions: cliOpts,
+		cliOptions: opts,
 		driver:     immuDriver,
 	}
 	return sql.OpenDB(c)
@@ -53,10 +53,17 @@ func Open(dns string) *sql.DB {
 	return sql.OpenDB(c)
 }
 
+type options struct {
+	clientOptions *client.Options
+	username      string
+	password      string
+	database      string
+}
+
 type Driver struct {
-	configMutex   sync.Mutex
-	clientOptions map[string]*client.Options
-	sequence      int
+	configMutex sync.Mutex
+	options     map[string]*options
+	sequence    int
 }
 
 func (d *Driver) Open(name string) (driver.Conn, error) {
@@ -74,36 +81,37 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &driverConnector{driver: d, name: name}, nil
 }
 
-func (d *Driver) registerConnConfig(opt *client.Options) string {
+func (d *Driver) registerConnConfig(opt *options) string {
 	d.configMutex.Lock()
 	connStr := fmt.Sprintf("registeredConnConfig%d", d.sequence)
 	d.sequence++
-	d.clientOptions[connStr] = opt
+	d.options[connStr] = opt
 	d.configMutex.Unlock()
 	return connStr
 }
 
 func (d *Driver) unregisterConnConfig(connStr string) {
 	d.configMutex.Lock()
-	delete(d.clientOptions, connStr)
+	delete(d.options, connStr)
 	d.configMutex.Unlock()
 }
 
 // RegisterConnConfig registers a ConnConfig and returns the connection string to use with Open.
-func RegisterConnConfig(clientOptions *client.Options) string {
-	return immuDriver.registerConnConfig(clientOptions)
+func RegisterConnConfig(opts *options) string {
+	return immuDriver.registerConnConfig(opts)
 }
 
 // UnregisterConnConfig removes the ConnConfig registration for connStr.
 func UnregisterConnConfig(connStr string) {
 	immuDriver.unregisterConnConfig(connStr)
 }
-func (d *Driver) getNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
-	immuClient := client.NewClient().WithOptions(cliOptions)
 
-	name := GetUri(cliOptions)
+func (d *Driver) getNewConnByOptions(ctx context.Context, opts *options) (*Conn, error) {
+	immuClient := client.NewClient().WithOptions(opts.clientOptions)
 
-	err := immuClient.OpenSession(ctx, []byte(cliOptions.Username), []byte(cliOptions.Password), cliOptions.Database)
+	name := GetUri(opts)
+
+	err := immuClient.OpenSession(ctx, []byte(opts.username), []byte(opts.password), opts.database)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +119,7 @@ func (d *Driver) getNewConnByOptions(ctx context.Context, cliOptions *client.Opt
 	cn := &Conn{
 		name:       name,
 		immuClient: immuClient,
-		options:    cliOptions,
+		options:    opts,
 		driver:     d,
 	}
 
