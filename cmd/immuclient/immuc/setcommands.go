@@ -111,13 +111,17 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 }
 
 func (i *immuc) Restore(args []string) (string, error) {
-	key, atRevision, err := i.parseKeyArg(args[0])
+	key, atRevision, hasRevision, err := i.parseKeyArg(args[0])
 	if err != nil {
 		return "", err
 	}
 
-	if atRevision == 0 {
+	if !hasRevision {
 		return "please specify the key with revision to restore", nil
+	}
+
+	if atRevision == 0 {
+		return "can not restore current revision", nil
 	}
 
 	ctx := context.Background()

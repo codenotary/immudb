@@ -83,16 +83,16 @@ func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
 	return PrintTx(tx.(*schema.Tx), true), nil
 }
 
-func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, err error) {
+func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, hasRevision bool, err error) {
 	if i.revisionSeparator == "" {
 		// No revision separator - argument is the key
-		return []byte(arg), 0, nil
+		return []byte(arg), 0, false, nil
 	}
 
 	idx := strings.LastIndex(arg, i.revisionSeparator)
 	if idx < 0 {
 		// No revision separator in the argument - that's a key without revision
-		return []byte(arg), 0, nil
+		return []byte(arg), 0, false, nil
 	}
 
 	key = []byte(arg[:idx])
@@ -100,14 +100,14 @@ func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, err error) 
 
 	revision, err = strconv.ParseInt(revisionStr, 10, 64)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Invalid key revision number - not an integer: %w", err)
+		return nil, 0, false, fmt.Errorf("Invalid key revision number - not an integer: %w", err)
 	}
 
-	return key, revision, nil
+	return key, revision, true, nil
 }
 
 func (i *immuc) Get(args []string) (string, error) {
-	key, atRevision, err := i.parseKeyArg(args[0])
+	key, atRevision, _, err := i.parseKeyArg(args[0])
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +132,7 @@ func (i *immuc) Get(args []string) (string, error) {
 }
 
 func (i *immuc) VerifiedGet(args []string) (string, error) {
-	key, atRevision, err := i.parseKeyArg(args[0])
+	key, atRevision, _, err := i.parseKeyArg(args[0])
 	if err != nil {
 		return "", err
 	}
