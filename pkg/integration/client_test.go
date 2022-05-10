@@ -199,6 +199,70 @@ func testGet(ctx context.Context, t *testing.T, client ic.ImmuClient) {
 	require.Equal(t, []byte("key-n11"), item.Key)
 }
 
+func testGetAtRevision(ctx context.Context, t *testing.T, client ic.ImmuClient) {
+	key := []byte("key-atrev")
+
+	_, err := client.Set(ctx, key, []byte("value1"))
+	require.NoError(t, err)
+
+	_, err = client.Set(ctx, key, []byte("value2"))
+	require.NoError(t, err)
+
+	_, err = client.Set(ctx, key, []byte("value3"))
+	require.NoError(t, err)
+
+	_, err = client.Set(ctx, key, []byte("value4"))
+	require.NoError(t, err)
+
+	item, err := client.GetAtRevision(ctx, key, 0)
+	require.NoError(t, err)
+	require.Equal(t, key, item.Key)
+	require.Equal(t, []byte("value4"), item.Value)
+	require.EqualValues(t, 4, item.Revision)
+
+	vitem, err := client.VerifiedGetAtRevision(ctx, key, 0)
+	require.NoError(t, err)
+	require.Equal(t, key, vitem.Key)
+	require.Equal(t, []byte("value4"), vitem.Value)
+	require.EqualValues(t, 4, vitem.Revision)
+
+	item, err = client.GetAtRevision(ctx, key, 1)
+	require.NoError(t, err)
+	require.Equal(t, key, item.Key)
+	require.Equal(t, []byte("value1"), item.Value)
+	require.EqualValues(t, 1, item.Revision)
+
+	vitem, err = client.VerifiedGetAtRevision(ctx, key, 1)
+	require.NoError(t, err)
+	require.Equal(t, key, vitem.Key)
+	require.Equal(t, []byte("value1"), vitem.Value)
+	require.EqualValues(t, 1, vitem.Revision)
+
+	item, err = client.GetAtRevision(ctx, key, -1)
+	require.NoError(t, err)
+	require.Equal(t, key, item.Key)
+	require.Equal(t, []byte("value3"), item.Value)
+	require.EqualValues(t, 3, item.Revision)
+
+	vitem, err = client.VerifiedGetAtRevision(ctx, key, -1)
+	require.NoError(t, err)
+	require.Equal(t, key, vitem.Key)
+	require.Equal(t, []byte("value3"), vitem.Value)
+	require.EqualValues(t, 3, vitem.Revision)
+
+	item, err = client.Get(ctx, key, ic.AtRevision(-1))
+	require.NoError(t, err)
+	require.Equal(t, key, vitem.Key)
+	require.Equal(t, []byte("value3"), vitem.Value)
+	require.EqualValues(t, 3, vitem.Revision)
+
+	vitem, err = client.VerifiedGet(ctx, key, ic.AtRevision(-1))
+	require.NoError(t, err)
+	require.Equal(t, key, vitem.Key)
+	require.Equal(t, []byte("value3"), vitem.Value)
+	require.EqualValues(t, 3, vitem.Revision)
+}
+
 func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
@@ -262,6 +326,7 @@ func TestImmuClient(t *testing.T) {
 	testImmuClient_VerifiedTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 
 	testGet(ctx, t, client)
+	testGetAtRevision(ctx, t, client)
 }
 
 func TestImmuClientTampering(t *testing.T) {
