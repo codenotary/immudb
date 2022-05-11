@@ -17,13 +17,11 @@ limitations under the License.
 package immuc
 
 import (
-	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Options struct {
 	immudbClientOptions *client.Options
-	passwordReader      helper.PasswordReader
 	valueOnly           bool
 	revisionSeparator   string
 }
@@ -34,11 +32,6 @@ func (o *Options) GetImmudbClientOptions() *client.Options {
 
 func (o *Options) WithImmudbClientOptions(opts *client.Options) *Options {
 	o.immudbClientOptions = opts
-	return o
-}
-
-func (o *Options) WithPasswordReader(paswordRaader helper.PasswordReader) *Options {
-	o.passwordReader = paswordRaader
 	return o
 }
 

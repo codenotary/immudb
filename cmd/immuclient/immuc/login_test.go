@@ -45,13 +45,13 @@ func TestLogin(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	opts := OptionsFromEnv().
-		WithPasswordReader(&immuclienttest.PasswordReader{
-			Pass: []string{"immudb"},
-		})
+	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		}).
+		WithPasswordReader(&immuclienttest.PasswordReader{
+			Pass: []string{"immudb"},
 		})
 
 	imc, err := Init(opts)
@@ -82,13 +82,13 @@ func TestLogout(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	opts := OptionsFromEnv().
-		WithPasswordReader(&immuclienttest.PasswordReader{
-			Pass: []string{"immudb"},
-		})
+	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		}).
+		WithPasswordReader(&immuclienttest.PasswordReader{
+			Pass: []string{"immudb"},
 		})
 
 	imc, err := Init(opts)

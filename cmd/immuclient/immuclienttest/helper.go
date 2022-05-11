@@ -85,14 +85,12 @@ func (ct *clientTest) WithOptions(opts *immuc.Options) *clientTest {
 
 func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 
-	c.Options.
-		WithRevisionSeparator("@").
-		WithPasswordReader(c.Pr)
-
+	c.Options.WithRevisionSeparator("@")
 	c.Options.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(dialer), grpc.WithInsecure(),
-		})
+		}).
+		WithPasswordReader(c.Pr)
 
 	ic, err := immuc.Init(&c.Options)
 	if err != nil {
