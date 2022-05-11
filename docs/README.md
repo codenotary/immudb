@@ -16,7 +16,7 @@ The immudb documentation is structured as follows:
 
 ### Learn About immudb <a href="#about" id="about"></a>
 
-In the [Learn About immudb](<./learn-about-immudb) section, you can lean more about what makes immudb unique, how it works, and what you can use it for.
+In the [Learn About immudb](./learn-about-immudb) section, you can lean more about what makes immudb unique, how it works, and what you can use it for.
 
 ### Getting started <a href="#getting-started" id="getting-started"></a>
 
