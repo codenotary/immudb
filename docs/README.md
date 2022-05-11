@@ -2,19 +2,21 @@
 
 
 
-> Welcome to the immudb documentation. Great to see you here!
->
-> immudb is a database written in Go, but unlike other databases, it is immutable: history is preserved and can't be changed without clients noticing.
->
-> immudb can be used both as a key-value store, or as a relational database (SQL).
->
-> The immudb documentation is structured as follows:
+Welcome to the immudb documentation. Great to see you here!
+
+immudb is a new type of database, an immutable one.  Immutability means that the history of data in immudb is preserved and can't be changed without clients noticing those changes. It can be used to ensure that data is always available, accurate and auditable.
+
+immudb can be used both as a key-value store, or as a relational database (SQL).
+
+immudb is written in and is a part of the [Go](https://go.dev/) programming language ecosystem.
+
+The immudb documentation is structured as follows:
 
 ![](.gitbook/assets/immudb-mascot.svg)
 
-### About <a href="#about" id="about"></a>
+### Learn About immudb <a href="#about" id="about"></a>
 
-In the [About](<.gitbook/assets/about (2)>) section, you can lean more about what makes immudb unique, how it works, and what you can use it for.
+In the [Learn About immudb](<./learn-about-immudb) section, you can lean more about what makes immudb unique, how it works, and what you can use it for.
 
 ### Getting started <a href="#getting-started" id="getting-started"></a>
 
