@@ -7,7 +7,7 @@
 ## LEARN ABOUT IMMUDB
 
 * [immudb Explained](learn-about-immudb/immudb-explained.md)
-* [Concepts](learn-about-immudb/concepts.md)
+* [Core Concepts](learn-about-immudb/core-concepts.md)
 
 ## GET STARTED
 

@@ -16,9 +16,9 @@ The immudb documentation is structured as follows:
 
 ### Learn About immudb <a href="#about" id="about"></a>
 
-In the [Learn About immudb](./learn-about-immudb) section, you can lean more about what makes immudb unique, how it works, and what you can use it for.
+In the [Learn About immudb](./learn-about-immudb/immudb-explained.md) section, you can lean more about what makes immudb unique, how it works, what you can use it for and all about the [Core Concepts](./learn-about-immudb/core-concepts.md) behind immudb.
 
-### Getting started <a href="#getting-started" id="getting-started"></a>
+### Get Started <a href="#getting-started" id="getting-started"></a>
 
 * Want to dive right in and play around? Get started with the [user quickstart](.gitbook/assets/quickstart)
 * Want to use immudb from your favourite programming language? head to the [developer jumpstart](<.gitbook/assets/jumpstart (1)>)
