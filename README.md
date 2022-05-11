@@ -25,7 +25,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 7M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 9M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
@@ -80,7 +80,7 @@ Click here to try out the immudb web console access in an [online demo environme
 ## Quickstart
 
 
-### Getting immudb running: binary
+### Getting immudb running: executable
 
 You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
@@ -115,7 +115,7 @@ helm repo update
 helm install immudb --generate-name
 ```
 
-### Enabling S3 storage
+### Enabling Amazon S3 storage
 
 immudb can store its data in the Amazon S3 service (or a compatible alternative).
 The following example shows how to run immudb with the S3 storage enabled:
