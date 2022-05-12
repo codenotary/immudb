@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -48,6 +49,10 @@ func (c *tx) Rollback(ctx context.Context) error {
 }
 
 func (c *immuClient) NewTx(ctx context.Context) (Tx, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	r, err := c.ServiceClient.NewTx(ctx, &schema.NewTxRequest{
 		Mode: schema.TxMode_ReadWrite,
 	})

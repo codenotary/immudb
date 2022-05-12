@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ limitations under the License.
 package store
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -37,6 +38,10 @@ const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultTxLogCacheSize = 1000
 const DefaultMaxWaitees = 1000
+const DefaultVLogMaxOpenedFiles = 10
+const DefaultTxLogMaxOpenedFiles = 10
+const DefaultCommitLogMaxOpenedFiles = 10
+const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -52,7 +57,7 @@ type Options struct {
 	ReadOnly bool
 	Synced   bool
 	FileMode os.FileMode
-	log      logger.Logger
+	logger   logger.Logger
 
 	appFactory         AppFactoryFunc
 	CompactionDisabled bool
@@ -66,6 +71,7 @@ type Options struct {
 	VLogMaxOpenedFiles      int
 	TxLogMaxOpenedFiles     int
 	CommitLogMaxOpenedFiles int
+	WriteTxHeaderVersion    int
 
 	MaxWaitees int
 
@@ -84,13 +90,19 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	CacheSize             int
-	FlushThld             int
-	MaxActiveSnapshots    int
-	MaxNodeSize           int
-	RenewSnapRootAfter    time.Duration
-	CompactionThld        int
-	DelayDuringCompaction time.Duration
+	CacheSize                int
+	FlushThld                int
+	SyncThld                 int
+	FlushBufferSize          int
+	CleanupPercentage        float32
+	MaxActiveSnapshots       int
+	MaxNodeSize              int
+	RenewSnapRootAfter       time.Duration
+	CompactionThld           int
+	DelayDuringCompaction    time.Duration
+	NodesLogMaxOpenedFiles   int
+	HistoryLogMaxOpenedFiles int
+	CommitLogMaxOpenedFiles  int
 }
 
 func DefaultOptions() *Options {
@@ -98,7 +110,7 @@ func DefaultOptions() *Options {
 		ReadOnly: false,
 		Synced:   true,
 		FileMode: DefaultFileMode,
-		log:      logger.NewSimpleLogger("immudb ", os.Stderr),
+		logger:   logger.NewSimpleLogger("immudb ", os.Stderr),
 
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
@@ -106,15 +118,17 @@ func DefaultOptions() *Options {
 
 		TxLogCacheSize: DefaultTxLogCacheSize,
 
-		VLogMaxOpenedFiles:      10,
-		TxLogMaxOpenedFiles:     10,
-		CommitLogMaxOpenedFiles: 1,
+		VLogMaxOpenedFiles:      DefaultVLogMaxOpenedFiles,
+		TxLogMaxOpenedFiles:     DefaultTxLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles: DefaultCommitLogMaxOpenedFiles,
 
 		MaxWaitees: DefaultMaxWaitees,
 
 		TimeFunc: func() time.Time {
 			return time.Now()
 		},
+
+		WriteTxHeaderVersion: DefaultWriteTxHeaderVersion,
 
 		// options below are only set during initialization and stored as metadata
 		MaxTxEntries:      DefaultMaxTxEntries,
@@ -130,51 +144,132 @@ func DefaultOptions() *Options {
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		CacheSize:             tbtree.DefaultCacheSize,
-		FlushThld:             tbtree.DefaultFlushThld,
-		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
-		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter:    time.Duration(1000) * time.Millisecond,
-		CompactionThld:        tbtree.DefaultCompactionThld,
-		DelayDuringCompaction: 0,
+		CacheSize:                tbtree.DefaultCacheSize,
+		FlushThld:                tbtree.DefaultFlushThld,
+		SyncThld:                 tbtree.DefaultSyncThld,
+		FlushBufferSize:          tbtree.DefaultFlushBufferSize,
+		CleanupPercentage:        tbtree.DefaultCleanUpPercentage,
+		MaxActiveSnapshots:       tbtree.DefaultMaxActiveSnapshots,
+		MaxNodeSize:              tbtree.DefaultMaxNodeSize,
+		RenewSnapRootAfter:       tbtree.DefaultRenewSnapRootAfter,
+		CompactionThld:           tbtree.DefaultCompactionThld,
+		DelayDuringCompaction:    0,
+		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
+		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
+		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
 	}
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.MaxConcurrency > 0 &&
-		opts.MaxIOConcurrency > 0 &&
-		opts.MaxIOConcurrency <= MaxParallelIO &&
-		opts.MaxLinearProofLen >= 0 &&
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
 
-		opts.VLogMaxOpenedFiles > 0 &&
-		opts.TxLogMaxOpenedFiles > 0 &&
-		opts.CommitLogMaxOpenedFiles > 0 &&
+	if opts.MaxConcurrency <= 0 {
+		return fmt.Errorf("%w: invalid MaxConcurrency", ErrInvalidOptions)
+	}
 
-		opts.TxLogCacheSize >= 0 &&
+	if opts.MaxIOConcurrency <= 0 || opts.MaxIOConcurrency > MaxParallelIO {
+		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
+	}
+	if opts.MaxLinearProofLen < 0 {
+		return fmt.Errorf("%w: invalid MaxLinearProofLen", ErrInvalidOptions)
+	}
 
-		opts.MaxWaitees >= 0 &&
+	if opts.VLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid VLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+	if opts.TxLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid TxLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+	if opts.CommitLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrInvalidOptions)
+	}
 
-		opts.TimeFunc != nil &&
+	if opts.TxLogCacheSize < 0 {
+		return fmt.Errorf("%w: invalid TxLogCacheSize", ErrInvalidOptions)
+	}
 
-		// options below are only set during initialization and stored as metadata
-		opts.MaxTxEntries > 0 &&
-		opts.MaxKeyLen > 0 &&
-		opts.MaxKeyLen <= MaxKeyLen &&
-		opts.MaxValueLen > 0 &&
-		opts.FileSize > 0 &&
-		opts.FileSize < MaxFileSize &&
-		opts.log != nil &&
-		validIndexOptions(opts.IndexOpts)
+	if opts.MaxWaitees < 0 {
+		return fmt.Errorf("%w: invalid MaxWaitees", ErrInvalidOptions)
+	}
+
+	if opts.TimeFunc == nil {
+		return fmt.Errorf("%w: invalid TimeFunc", ErrInvalidOptions)
+	}
+
+	if opts.WriteTxHeaderVersion < 0 {
+		return fmt.Errorf("%w: invalid WriteTxHeaderVersion", ErrInvalidOptions)
+	}
+	if opts.WriteTxHeaderVersion > MaxTxHeaderVersion {
+		return fmt.Errorf("%w: invalid WriteTxHeaderVersion", ErrInvalidOptions)
+	}
+
+	// options below are only set during initialization and stored as metadata
+	if opts.MaxTxEntries <= 0 {
+		return fmt.Errorf("%w: invalid MaxTxEntries", ErrInvalidOptions)
+	}
+	if opts.MaxKeyLen <= 0 || opts.MaxKeyLen > MaxKeyLen {
+		return fmt.Errorf("%w: invalid MaxKeyLen", ErrInvalidOptions)
+	}
+	if opts.MaxValueLen <= 0 {
+		return fmt.Errorf("%w: invalid MaxValueLen", ErrInvalidOptions)
+	}
+	if opts.FileSize <= 0 || opts.FileSize >= MaxFileSize {
+		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
+	}
+	if opts.logger == nil {
+		return fmt.Errorf("%w: invalid log", ErrInvalidOptions)
+	}
+
+	return opts.IndexOpts.Validate()
 }
 
-func validIndexOptions(opts *IndexOptions) bool {
-	return opts != nil &&
-		opts.CacheSize > 0 &&
-		opts.FlushThld > 0 &&
-		opts.MaxActiveSnapshots > 0 &&
-		opts.MaxNodeSize > 0 &&
-		opts.RenewSnapRootAfter >= 0
+func (opts *IndexOptions) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil index options ", ErrInvalidOptions)
+	}
+	if opts.CacheSize <= 0 {
+		return fmt.Errorf("%w: invalid index option CacheSize", ErrInvalidOptions)
+	}
+	if opts.FlushThld <= 0 {
+		return fmt.Errorf("%w: invalid index option FlushThld", ErrInvalidOptions)
+	}
+	if opts.SyncThld <= 0 {
+		return fmt.Errorf("%w: invalid index option SyncThld", ErrInvalidOptions)
+	}
+	if opts.FlushBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid index option FlushBufferSize", ErrInvalidOptions)
+	}
+	if opts.CleanupPercentage < 0 || opts.CleanupPercentage > 100 {
+		return fmt.Errorf("%w: invalid index option CleanupPercentage", ErrInvalidOptions)
+	}
+	if opts.MaxActiveSnapshots <= 0 {
+		return fmt.Errorf("%w: invalid index option MaxActiveSnapshots", ErrInvalidOptions)
+	}
+	if opts.MaxNodeSize <= 0 {
+		return fmt.Errorf("%w: invalid index option MaxNodeSize", ErrInvalidOptions)
+	}
+	if opts.CompactionThld <= 0 {
+		return fmt.Errorf("%w: invalid index option CompactionThld", ErrInvalidOptions)
+	}
+	if opts.DelayDuringCompaction < 0 {
+		return fmt.Errorf("%w: invalid index option DelayDuringCompaction", ErrInvalidOptions)
+	}
+	if opts.RenewSnapRootAfter < 0 {
+		return fmt.Errorf("%w: invalid index option RenewSnapRootAfter", ErrInvalidOptions)
+	}
+	if opts.NodesLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid index option NodesLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+	if opts.HistoryLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid index option HistoryLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+	if opts.CommitLogMaxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid index option CommitLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -192,8 +287,8 @@ func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	return opts
 }
 
-func (opts *Options) WithLog(log logger.Logger) *Options {
-	opts.log = log
+func (opts *Options) WithLogger(logger logger.Logger) *Options {
+	opts.logger = logger
 	return opts
 }
 
@@ -272,6 +367,11 @@ func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 	return opts
 }
 
+func (opts *Options) WithWriteTxHeaderVersion(version int) *Options {
+	opts.WriteTxHeaderVersion = version
+	return opts
+}
+
 func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 	opts.CompressionFormat = compressionFormat
 	return opts
@@ -299,6 +399,21 @@ func (opts *IndexOptions) WithFlushThld(flushThld int) *IndexOptions {
 	return opts
 }
 
+func (opts *IndexOptions) WithSyncThld(syncThld int) *IndexOptions {
+	opts.SyncThld = syncThld
+	return opts
+}
+
+func (opts *IndexOptions) WithFlushBufferSize(flushBufferSize int) *IndexOptions {
+	opts.FlushBufferSize = flushBufferSize
+	return opts
+}
+
+func (opts *IndexOptions) WithCleanupPercentage(cleanupPercentage float32) *IndexOptions {
+	opts.CleanupPercentage = cleanupPercentage
+	return opts
+}
+
 func (opts *IndexOptions) WithMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
 	opts.MaxActiveSnapshots = maxActiveSnapshots
 	return opts
@@ -321,5 +436,20 @@ func (opts *IndexOptions) WithCompactionThld(compactionThld int) *IndexOptions {
 
 func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.Duration) *IndexOptions {
 	opts.DelayDuringCompaction = delayDuringCompaction
+	return opts
+}
+
+func (opts *IndexOptions) WithNodesLogMaxOpenedFiles(nodesLogMaxOpenedFiles int) *IndexOptions {
+	opts.NodesLogMaxOpenedFiles = nodesLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *IndexOptions) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles int) *IndexOptions {
+	opts.HistoryLogMaxOpenedFiles = historyLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *IndexOptions {
+	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opts
 }

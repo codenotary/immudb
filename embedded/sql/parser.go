@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,8 +34,9 @@ var reservedWords = map[string]int{
 	"DATABASE":       DATABASE,
 	"SNAPSHOT":       SNAPSHOT,
 	"SINCE":          SINCE,
-	"UP":             UP,
-	"TO":             TO,
+	"AFTER":          AFTER,
+	"BEFORE":         BEFORE,
+	"UNTIL":          UNTIL,
 	"TABLE":          TABLE,
 	"PRIMARY":        PRIMARY,
 	"KEY":            KEY,
@@ -62,7 +63,8 @@ var reservedWords = map[string]int{
 	"SELECT":         SELECT,
 	"DISTINCT":       DISTINCT,
 	"FROM":           FROM,
-	"BEFORE":         BEFORE,
+	"UNION":          UNION,
+	"ALL":            ALL,
 	"TX":             TX,
 	"JOIN":           JOIN,
 	"HAVING":         HAVING,
@@ -115,6 +117,7 @@ var boolValues = map[string]bool{
 var cmpOps = map[string]CmpOperator{
 	"=":  EQ,
 	"!=": NE,
+	"<>": NE,
 	"<":  LT,
 	"<=": LE,
 	">":  GT,
@@ -382,6 +385,24 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		l.namedParamsType = NamedNonPositionalParamType
+
+		ch, err := l.r.NextByte()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		if !isLetter(ch) {
+			return ERROR
+		}
+
+		id, err := l.readWord()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		lval.id = strings.ToLower(id)
 
 		return NPARAM
 	}

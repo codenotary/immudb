@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Setup runner for Go
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v3
       with:
         go-version: 1.13
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Build stress tool
       run: |
         go build embedded/tools/stress_tool/stress_tool.go

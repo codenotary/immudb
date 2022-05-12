@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,14 +27,16 @@ var ErrNonExpirable = errors.New("non expirable")
 var ErrReadOnly = errors.New("read-only")
 
 const (
-	deletedAttrCode   attributeCode = 0
-	expiresAtAttrCode attributeCode = 1
+	deletedAttrCode      attributeCode = 0
+	expiresAtAttrCode    attributeCode = 1
+	nonIndexableAttrCode attributeCode = 2
 )
 
 const deletedAttrSize = 0
 const expiresAtAttrSize = tsSize
+const nonIndexableAttrSize = 0
 
-const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize)
+const maxKVMetadataLen = (attrCodeSize + deletedAttrSize) + (attrCodeSize + expiresAtAttrSize) + (attrCodeSize + nonIndexableAttrSize)
 
 type KVMetadata struct {
 	attributes map[attributeCode]attribute
@@ -78,6 +80,21 @@ func (a *expiresAtAttribute) deserialize(b []byte) (int, error) {
 	a.expiresAt = time.Unix(int64(binary.BigEndian.Uint64(b)), 0)
 
 	return tsSize, nil
+}
+
+type nonIndexableAttribute struct {
+}
+
+func (a *nonIndexableAttribute) code() attributeCode {
+	return nonIndexableAttrCode
+}
+
+func (a *nonIndexableAttribute) serialize() []byte {
+	return nil
+}
+
+func (a *nonIndexableAttribute) deserialize(b []byte) (int, error) {
+	return 0, nil
 }
 
 func NewKVMetadata() *KVMetadata {
@@ -160,10 +177,33 @@ func (md *KVMetadata) ExpiredAt(mtime time.Time) bool {
 	return !expAtAttr.(*expiresAtAttribute).expiresAt.After(mtime)
 }
 
+func (md *KVMetadata) AsNonIndexable(nonIndexable bool) error {
+	if md.readonly {
+		return ErrReadOnly
+	}
+
+	if !nonIndexable {
+		delete(md.attributes, nonIndexableAttrCode)
+		return nil
+	}
+
+	_, ok := md.attributes[nonIndexableAttrCode]
+	if !ok {
+		md.attributes[nonIndexableAttrCode] = &nonIndexableAttribute{}
+	}
+
+	return nil
+}
+
+func (md *KVMetadata) NonIndexable() bool {
+	_, ok := md.attributes[nonIndexableAttrCode]
+	return ok
+}
+
 func (md *KVMetadata) Bytes() []byte {
 	var b bytes.Buffer
 
-	for _, attrCode := range []attributeCode{deletedAttrCode, expiresAtAttrCode} {
+	for _, attrCode := range []attributeCode{deletedAttrCode, expiresAtAttrCode, nonIndexableAttrCode} {
 		attr, ok := md.attributes[attrCode]
 		if ok {
 			b.WriteByte(byte(attr.code()))
@@ -220,6 +260,10 @@ func newAttribute(attrCode attributeCode) (attribute, error) {
 	case expiresAtAttrCode:
 		{
 			return &expiresAtAttribute{}, nil
+		}
+	case nonIndexableAttrCode:
+		{
+			return &nonIndexableAttribute{}, nil
 		}
 	default:
 		{

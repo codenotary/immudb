@@ -12,10 +12,10 @@ jobs:
           - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - name: Test
         run: make test
         if: runner.os == 'Linux'
@@ -31,7 +31,7 @@ jobs:
           WEBCONSOLE=default make all
         if: runner.os == 'Linux'
       - name: Upload webconsole artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: immu-ubuntu-latest-webconsole
           path: |
@@ -39,7 +39,7 @@ jobs:
             ${{github.workspace}}/${{matrix.immuclient}}
         if: runner.os == 'Linux'
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: immu-${{matrix.os}}
           path: |
@@ -56,7 +56,7 @@ jobs:
           - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with: 
           name: immu-${{matrix.os}}
           path: ${{github.workspace}}/bin
@@ -85,7 +85,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with: 
           name: immu-ubuntu-latest-webconsole
           path: ${{github.workspace}}/bin
@@ -117,10 +117,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
           go-version: 1.13
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           go get golang.org/x/tools/cmd/cover

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,6 +47,13 @@ func newCommand() *cobra.Command {
 		c.QuitToStdErr(err)
 	}
 	cmd = clb.Register(cmd)
+
+	// register hot backup related commands
+	clhb, err := newCommandlineHotBck(os)
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	cmd = clhb.Register(cmd)
 
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ const DefaultMaxOpenedFiles = 10
 const DefaultFileMode = os.FileMode(0755)
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
+const DefaultReadBufferSize = 4096
+const DefaultWriteBufferSize = 4096
 
 type Options struct {
 	readOnly          bool
@@ -37,6 +39,8 @@ type Options struct {
 	maxOpenedFiles    int
 	compressionFormat int
 	compressionLevel  int
+	readBufferSize    int
+	writeBufferSize   int
 }
 
 func DefaultOptions() *Options {
@@ -49,6 +53,8 @@ func DefaultOptions() *Options {
 		maxOpenedFiles:    DefaultMaxOpenedFiles,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
+		readBufferSize:    DefaultReadBufferSize,
+		writeBufferSize:   DefaultWriteBufferSize,
 	}
 }
 
@@ -56,7 +62,9 @@ func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.fileSize > 0 &&
 		opts.maxOpenedFiles > 0 &&
-		opts.fileExt != ""
+		opts.fileExt != "" &&
+		opts.readBufferSize > 0 &&
+		opts.writeBufferSize > 0
 }
 
 func (opt *Options) WithReadOnly(readOnly bool) *Options {
@@ -104,10 +112,28 @@ func (opt *Options) WithCompresionLevel(compressionLevel int) *Options {
 	return opt
 }
 
+func (opts *Options) WithReadBufferSize(size int) *Options {
+	opts.readBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithWriteBufferSize(size int) *Options {
+	opts.writeBufferSize = size
+	return opts
+}
+
 func (opt *Options) GetFileExt() string {
 	return opt.fileExt
 }
 
 func (opt *Options) GetFileMode() os.FileMode {
 	return opt.fileMode
+}
+
+func (opts *Options) GetReadBufferSize() int {
+	return opts.readBufferSize
+}
+
+func (opts *Options) GetWriteBufferSize() int {
+	return opts.writeBufferSize
 }

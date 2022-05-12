@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +50,11 @@ func EncodeKey(key []byte) []byte {
 	return WrapWithPrefix(key, SetKeyPrefix)
 }
 
-func EncodeEntrySpec(key []byte, md *store.KVMetadata, value []byte) *store.EntrySpec {
+func EncodeEntrySpec(
+	key []byte,
+	md *store.KVMetadata,
+	value []byte,
+) *store.EntrySpec {
 	return &store.EntrySpec{
 		Key:      WrapWithPrefix(key, SetKeyPrefix),
 		Metadata: md,
@@ -58,7 +62,12 @@ func EncodeEntrySpec(key []byte, md *store.KVMetadata, value []byte) *store.Entr
 	}
 }
 
-func EncodeReference(key []byte, md *store.KVMetadata, referencedKey []byte, atTx uint64) *store.EntrySpec {
+func EncodeReference(
+	key []byte,
+	md *store.KVMetadata,
+	referencedKey []byte,
+	atTx uint64,
+) *store.EntrySpec {
 	// Note: metadata record may be used as reference holder, reference resolution would be faster
 	// It may be introduced in a backward-compatible way i.e. if not present in metadata then resolve by reading value
 	return &store.EntrySpec{

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,14 +39,18 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NotNil(t, snapshot)
 	require.NoError(t, err)
 
+	_, _, _, _, err = snapshot.WriteTo(nil, nil, nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	dumpNBuf := new(bytes.Buffer)
 	dumpHBuf := new(bytes.Buffer)
 	wopts := &WriteOpts{
 		OnlyMutated:    true,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
+		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
 	}
-	_, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
+	_, _, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
 	require.NoError(t, err)
 	require.True(t, dumpNBuf.Len() == 0)
 
@@ -74,8 +78,9 @@ func TestSnapshotSerialization(t *testing.T) {
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
+		reportProgress: func(innerWritten, leafNodesWritten, keysWritten int) {},
 	}
-	_, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
+	_, _, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
 	require.NoError(t, err)
 	require.True(t, fulldumpNBuf.Len() > 0)
 

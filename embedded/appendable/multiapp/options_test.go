@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,8 +46,13 @@ func TestValidOptions(t *testing.T) {
 	require.True(t, opts.WithSynced(true).synced)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
+
+	require.Equal(t, DefaultReadBufferSize+1, opts.WithReadBufferSize(DefaultReadBufferSize+1).GetReadBufferSize())
+	require.Equal(t, DefaultWriteBufferSize+2, opts.WithWriteBufferSize(DefaultWriteBufferSize+2).GetWriteBufferSize())
+
 	require.True(t, opts.Valid())
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
+
 	require.True(t, opts.Valid())
 }

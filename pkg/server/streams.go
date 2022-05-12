@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDBName(),
+			Db:     db.GetName(),
 			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}
@@ -270,7 +270,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		alh := hdr.Alh()
 
 		newState := &schema.ImmutableState{
-			Db:     db.GetOptions().GetDBName(),
+			Db:     db.GetName(),
 			TxId:   hdr.ID,
 			TxHash: alh[:],
 		}

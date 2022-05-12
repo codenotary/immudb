@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,22 +19,19 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"net"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
 const SystemDBName = "systemdb"
 const DefaultDBName = "defaultdb"
-const DefaultMaxValueLen = 1 << 25   //32Mb
-const DefaultStoreFileSize = 1 << 29 //512Mb
 
 // Options server options list
 type Options struct {
@@ -78,13 +75,13 @@ type RemoteStorageOptions struct {
 	S3AccessKeyID string
 	S3SecretKey   string `json:"-"`
 	S3BucketName  string
+	S3Location    string
 	S3PathPrefix  string
 }
 
 type ReplicationOptions struct {
 	MasterAddress    string
 	MasterPort       int
-	MasterDatabase   string
 	FollowerUsername string
 	FollowerPassword string
 }
@@ -122,24 +119,6 @@ func DefaultOptions() *Options {
 		PgsqlServerPort:      5432,
 		SessionsOptions:      sessions.DefaultOptions(),
 	}
-}
-
-func (opts *Options) DefaultStoreOptions() *store.Options {
-	indexOptions := store.DefaultIndexOptions().
-		WithRenewSnapRootAfter(0).
-		WithCompactionThld(0).
-		WithDelayDuringCompaction(10 * time.Millisecond)
-
-	return store.DefaultOptions().
-		WithIndexOptions(indexOptions).
-		WithMaxLinearProofLen(0).
-		WithMaxConcurrency(30).
-		WithMaxIOConcurrency(1).
-		WithFileSize(DefaultStoreFileSize).
-		WithMaxKeyLen(store.DefaultMaxKeyLen).
-		WithMaxValueLen(DefaultMaxValueLen).
-		WithMaxTxEntries(store.DefaultMaxTxEntries).
-		WithSynced(opts.synced)
 }
 
 func DefaultRemoteStorageOptions() *RemoteStorageOptions {
@@ -275,10 +254,16 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Default database", o.defaultDBName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
 	opts = append(opts, rightPad("Synced mode", o.synced))
+	if o.SigningKey != "" {
+		opts = append(opts, rightPad("Signing key", o.SigningKey))
+	}
 	if o.RemoteStorageOptions.S3Storage {
 		opts = append(opts, "S3 storage")
 		opts = append(opts, rightPad("   endpoint", o.RemoteStorageOptions.S3Endpoint))
 		opts = append(opts, rightPad("   bucket name", o.RemoteStorageOptions.S3BucketName))
+		if o.RemoteStorageOptions.S3Location != "" {
+			opts = append(opts, rightPad("   location", o.RemoteStorageOptions.S3Location))
+		}
 		opts = append(opts, rightPad("   prefix", o.RemoteStorageOptions.S3PathPrefix))
 	}
 	if o.AdminPassword == auth.SysAdminPassword {
@@ -432,6 +417,11 @@ func (opts *RemoteStorageOptions) WithS3BucketName(s3BucketName string) *RemoteS
 	return opts
 }
 
+func (opts *RemoteStorageOptions) WithS3Location(s3Location string) *RemoteStorageOptions {
+	opts.S3Location = s3Location
+	return opts
+}
+
 func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteStorageOptions {
 	opts.S3PathPrefix = s3PathPrefix
 	return opts
@@ -446,11 +436,6 @@ func (opts *ReplicationOptions) WithMasterAddress(masterAddress string) *Replica
 
 func (opts *ReplicationOptions) WithMasterPort(masterPort int) *ReplicationOptions {
 	opts.MasterPort = masterPort
-	return opts
-}
-
-func (opts *ReplicationOptions) WithMasterDatabase(masterDatabase string) *ReplicationOptions {
-	opts.MasterDatabase = masterDatabase
 	return opts
 }
 

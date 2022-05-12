@@ -1,0 +1,2113 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": "-- Grafana --",
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "target": {
+                    "limit": 100,
+                    "matchAny": false,
+                    "tags": [],
+                    "type": "dashboard"
+                },
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 267,
+    "iteration": 1649851192212,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "collapsed": false,
+            "datasource": "${datasource}",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 10,
+            "panels": [],
+            "title": "Database size",
+            "type": "row"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "bytes"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 0,
+                "y": 1
+            },
+            "id": 6,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": "${datasource}",
+                    "exemplar": true,
+                    "expr": "immudb_db_size_bytes{instance=~\"$instance\",db=~\"$db\"}",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Database size",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "bytes"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 6,
+                "y": 1
+            },
+            "id": 13,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "rate(immudb_db_size_bytes{instance=~\"$instance\",db=~\"$db\"}[$__rate_interval])",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Database growth",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 12,
+                "y": 1
+            },
+            "id": 8,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "immudb_number_of_stored_entries{instance=~\"$instance\",db=~\"$db\"}",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Stored Entries",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 18,
+                "y": 1
+            },
+            "id": 14,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "rate(immudb_number_of_stored_entries{instance=~\"$instance\",db=~\"$db\"}[$__rate_interval])",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Stored Entries Rate",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "datasource": "${datasource}",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 9
+            },
+            "id": 16,
+            "panels": [],
+            "title": "Indexer statistics",
+            "type": "row"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 10
+            },
+            "id": 24,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "immudb_last_indexed_trx_id{instance=~\"$instance\",db=~\"$db\"}/immudb_last_committed_trx_id{instance=~\"$instance\",db=~\"$db\"}",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Indexed %",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 8,
+                "y": 10
+            },
+            "id": 26,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "rate(immudb_last_indexed_trx_id{instance=~\"$instance\",db=~\"$db\"}[$__rate_interval])",
+                    "interval": "",
+                    "legendFormat": "Idx {{db}} ({{instance}})",
+                    "refId": "A"
+                },
+                {
+                    "exemplar": true,
+                    "expr": "rate(immudb_last_committed_trx_id{instance=~\"$instance\",db=~\"$db\"}[$__rate_interval])",
+                    "hide": false,
+                    "interval": "",
+                    "legendFormat": "Cmt {{db}} ({{instance}})",
+                    "refId": "B"
+                },
+                {
+                    "exemplar": true,
+                    "expr": "avg_over_time(rate(immudb_last_indexed_trx_id{instance=~\"$instance\",db=~\"$db\"}[$__rate_interval])[1h:$__rate_interval])",
+                    "hide": true,
+                    "interval": "",
+                    "legendFormat": "Idx avg {{db}} ({{instance}})",
+                    "refId": "C"
+                }
+            ],
+            "title": "Indexing / commit rate",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 10
+            },
+            "id": 28,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "immudb_last_committed_trx_id{instance=~\"$instance\",db=~\"$db\"}-immudb_last_indexed_trx_id{instance=~\"$instance\",db=~\"$db\"}",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "TRXs left to index",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 18
+            },
+            "id": 30,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "immudb_last_committed_trx_id{instance=~\"$instance\",db=~\"$db\"}",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "TRX count",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 8,
+                "y": 18
+            },
+            "id": 32,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "label_replace(immudb_btree_cache_size{instance=~\"$instance\",id=~\".*/$db/index\"}, \"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "Btree cache size",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "${datasource}",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "graph": false,
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 18
+            },
+            "id": 34,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            },
+            "targets": [
+                {
+                    "exemplar": true,
+                    "expr": "label_replace(\n    rate(immudb_btree_cache_hit{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval]) /\n    (\n        rate(immudb_btree_cache_miss{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval])+\n        rate(immudb_btree_cache_hit{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval])\n    ),\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                    "interval": "",
+                    "legendFormat": "{{db}} ({{instance}})",
+                    "refId": "A"
+                }
+            ],
+            "title": "BTree cache hit%",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": true,
+            "datasource": "${datasource}",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 26
+            },
+            "id": 41,
+            "panels": [
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 8,
+                        "x": 0,
+                        "y": 27
+                    },
+                    "id": 36,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "exemplar": true,
+                            "expr": "label_replace(immudb_btree_depth{instance=~\"$instance\",id=~\".*/$db/index\"},\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "BTree depth",
+                    "type": "timeseries"
+                },
+                {
+                    "cards": {},
+                    "color": {
+                        "cardColor": "#b4ff00",
+                        "colorScale": "sqrt",
+                        "colorScheme": "interpolateOranges",
+                        "exponent": 0.5,
+                        "mode": "spectrum"
+                    },
+                    "dataFormat": "tsbuckets",
+                    "datasource": "${datasource}",
+                    "gridPos": {
+                        "h": 8,
+                        "w": 8,
+                        "x": 8,
+                        "y": 27
+                    },
+                    "heatmap": {},
+                    "hideZeroBuckets": false,
+                    "highlightCards": true,
+                    "id": 38,
+                    "legend": {
+                        "show": false
+                    },
+                    "maxDataPoints": 50,
+                    "reverseYBuckets": false,
+                    "targets": [
+                        {
+                            "exemplar": true,
+                            "expr": "sum(rate(immudb_btree_inner_node_entries_bucket{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval])) by (le)",
+                            "format": "heatmap",
+                            "interval": "",
+                            "legendFormat": "{{le}}",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "BTree inner nodes children distribution",
+                    "tooltip": {
+                        "show": true,
+                        "showHistogram": true
+                    },
+                    "type": "heatmap",
+                    "xAxis": {
+                        "show": true
+                    },
+                    "yAxis": {
+                        "format": "short",
+                        "logBase": 1,
+                        "show": true
+                    },
+                    "yBucketBound": "auto"
+                },
+                {
+                    "cards": {},
+                    "color": {
+                        "cardColor": "#b4ff00",
+                        "colorScale": "sqrt",
+                        "colorScheme": "interpolateOranges",
+                        "exponent": 0.5,
+                        "mode": "spectrum"
+                    },
+                    "dataFormat": "tsbuckets",
+                    "datasource": "${datasource}",
+                    "gridPos": {
+                        "h": 8,
+                        "w": 8,
+                        "x": 16,
+                        "y": 27
+                    },
+                    "heatmap": {},
+                    "hideZeroBuckets": false,
+                    "highlightCards": true,
+                    "id": 39,
+                    "legend": {
+                        "show": false
+                    },
+                    "maxDataPoints": 50,
+                    "reverseYBuckets": false,
+                    "targets": [
+                        {
+                            "exemplar": true,
+                            "expr": "sum(rate(immudb_btree_leaf_node_entries_bucket{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval])) by (le)",
+                            "format": "heatmap",
+                            "instant": false,
+                            "interval": "",
+                            "legendFormat": "{{le}}",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "BTree leaf nodes children distribution",
+                    "tooltip": {
+                        "show": true,
+                        "showHistogram": true
+                    },
+                    "type": "heatmap",
+                    "xAxis": {
+                        "show": true
+                    },
+                    "yAxis": {
+                        "format": "short",
+                        "logBase": 1,
+                        "show": true
+                    },
+                    "yBucketBound": "auto"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 0,
+                        "y": 35
+                    },
+                    "id": 61,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "exemplar": true,
+                            "expr": "label_replace(\n  rate(immudb_btree_flushed_entries_total{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval]),\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Flush rate - entries",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 6,
+                        "y": 35
+                    },
+                    "id": 63,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  immudb_btree_flushed_entries_last_cycle{instance=~\"$instance\", id=~\".*/$db/index\"},\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Flush progress - entries",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 12,
+                        "y": 35
+                    },
+                    "id": 65,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  rate(immudb_btree_flushed_nodes_total{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval]),\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} {{kind}} nodes ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Flush rate - nodes",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 18,
+                        "y": 35
+                    },
+                    "id": 67,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  immudb_btree_flushed_nodes_last_cycle{instance=~\"$instance\",id=~\".*/$db/index\"},\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} {{kind}} nodes ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Flush rate - nodes",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 0,
+                        "y": 43
+                    },
+                    "id": 53,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  rate(immudb_btree_compacted_entries_total{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval]),\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Compaction rate - entries",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 6,
+                        "y": 43
+                    },
+                    "id": 55,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "exemplar": true,
+                            "expr": "label_replace(\n  immudb_btree_compacted_entries_last_cycle{instance=~\"$instance\",id=~\".*/$db/index\"},\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Compaction progress - entries",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 12,
+                        "y": 43
+                    },
+                    "id": 57,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  rate(immudb_btree_compacted_nodes_total{instance=~\"$instance\",id=~\".*/$db/index\"}[$__rate_interval]),\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} {{kind}} nodes ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Compaction rate - nodes",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 6,
+                        "x": 18,
+                        "y": 43
+                    },
+                    "id": 59,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  immudb_btree_compacted_nodes_last_cycle{instance=~\"$instance\",id=~\".*/$db/index\"},\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} {{kind}} nodes ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Compaction progress - nodes",
+                    "type": "timeseries"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            },
+                            "unit": "bytes"
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 12,
+                        "x": 0,
+                        "y": 51
+                    },
+                    "id": 69,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "label_replace(\n  immudb_btree_nodes_data_end{instance=~\"$instance\",id=~\".*/$db/index\"}-\n  immudb_btree_nodes_data_begin{instance=~\"$instance\",id=~\".*/$db/index\"},\n\"db\", \"$1\", \"id\", \".*/([^/]*)/index\")",
+                            "interval": "",
+                            "legendFormat": "{{db}} ({{instance}})",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "Nodes data size",
+                    "type": "timeseries"
+                }
+            ],
+            "title": "BTree insights",
+            "type": "row"
+        },
+        {
+            "collapsed": true,
+            "datasource": "${datasource}",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 27
+            },
+            "id": 12,
+            "panels": [
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "thresholds"
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 12,
+                        "x": 0,
+                        "y": 60
+                    },
+                    "id": 2,
+                    "options": {
+                        "displayMode": "gradient",
+                        "orientation": "auto",
+                        "reduceOptions": {
+                            "calcs": [
+                                "lastNotNull"
+                            ],
+                            "fields": "",
+                            "values": false
+                        },
+                        "showUnfilled": true,
+                        "text": {}
+                    },
+                    "pluginVersion": "8.3.3",
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": false,
+                            "expr": "sum(immudb_remoteapp_open_time_bucket{instance=~\"$instance\"}) by (le)",
+                            "format": "heatmap",
+                            "instant": false,
+                            "interval": "",
+                            "legendFormat": "{{le}}",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "immudb_remoteapp_open_time (sec)",
+                    "type": "bargauge"
+                },
+                {
+                    "datasource": "${datasource}",
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "drawStyle": "line",
+                                "fillOpacity": 0,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "graph": false,
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": false
+                                },
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "auto",
+                                "spanNulls": false,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "none"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green",
+                                        "value": null
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            },
+                            "unit": "binBps"
+                        },
+                        "overrides": []
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 12,
+                        "x": 12,
+                        "y": 60
+                    },
+                    "id": 4,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom"
+                        },
+                        "tooltip": {
+                            "mode": "single"
+                        }
+                    },
+                    "pluginVersion": "8.2.1",
+                    "targets": [
+                        {
+                            "datasource": "${datasource}",
+                            "exemplar": true,
+                            "expr": "rate(immudb_remoteapp_read_bytes{instance=~\"$instance\"}[$__rate_interval])",
+                            "instant": false,
+                            "interval": "",
+                            "legendFormat": "{{instance}}",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "S3 I/O",
+                    "type": "timeseries"
+                }
+            ],
+            "title": "S3 statistics",
+            "type": "row"
+        }
+    ],
+    "refresh": "",
+    "schemaVersion": 34,
+    "style": "dark",
+    "tags": [],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "selected": false,
+                    "text": "Prometheus",
+                    "value": "Prometheus"
+                },
+                "hide": 0,
+                "includeAll": false,
+                "multi": false,
+                "name": "datasource",
+                "options": [],
+                "query": "prometheus",
+                "queryValue": "",
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false,
+                "type": "datasource"
+            },
+            {
+                "allValue": "",
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                },
+                "datasource": "${datasource}",
+                "definition": "label_values(immudb_db_size_bytes, instance)",
+                "hide": 0,
+                "includeAll": true,
+                "label": "Instance",
+                "multi": true,
+                "name": "instance",
+                "options": [],
+                "query": {
+                    "query": "label_values(immudb_db_size_bytes, instance)",
+                    "refId": "StandardVariableQuery"
+                },
+                "refresh": 2,
+                "regex": "",
+                "skipUrlSync": false,
+                "sort": 1,
+                "tagValuesQuery": "",
+                "tagsQuery": "",
+                "type": "query",
+                "useTags": false
+            },
+            {
+                "allValue": "",
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                },
+                "datasource": "${datasource}",
+                "definition": "label_values(immudb_db_size_bytes{instance=~\"$instance\"}, db)",
+                "hide": 0,
+                "includeAll": true,
+                "label": "Database",
+                "multi": true,
+                "name": "db",
+                "options": [],
+                "query": {
+                    "query": "label_values(immudb_db_size_bytes{instance=~\"$instance\"}, db)",
+                    "refId": "StandardVariableQuery"
+                },
+                "refresh": 2,
+                "regex": "",
+                "skipUrlSync": false,
+                "sort": 1,
+                "tagValuesQuery": "",
+                "tagsQuery": "",
+                "type": "query",
+                "useTags": false
+            }
+        ]
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Immudb",
+    "uid": "Z4nwbT87z",
+    "version": 1,
+    "weekStart": ""
+}

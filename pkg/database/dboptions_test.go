@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,9 +26,6 @@ import (
 func TestDefaultOptions(t *testing.T) {
 	op := DefaultOption().AsReplica(true)
 
-	if op.GetDBName() != "db_name" {
-		t.Errorf("default sysdb name not what expected")
-	}
 	if op.GetDBRootPath() != DefaultOption().dbRootPath {
 		t.Errorf("default db rootpath not what expected")
 	}
@@ -36,19 +33,14 @@ func TestDefaultOptions(t *testing.T) {
 		t.Errorf("default corruption checker not what expected")
 	}
 
-	DbName := "Charles_Aznavour"
 	rootpath := "rootpath"
 	storeOpts := store.DefaultOptions()
 
 	op = DefaultOption().
-		WithDBName(DbName).
 		WithDBRootPath(rootpath).
 		WithCorruptionChecker(true).
 		WithStoreOptions(storeOpts)
 
-	if op.GetDBName() != DbName {
-		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDBName())
-	}
 	if op.GetDBRootPath() != rootpath {
 		t.Errorf("rootpath not set correctly , expected %s got %s", rootpath, op.GetDBRootPath())
 	}

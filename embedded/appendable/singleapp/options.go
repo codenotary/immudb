@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 const DefaultFileMode = os.FileMode(0644)
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
+const DefaultReadBufferSize = 4096
+const DefaultWriteBufferSize = 4096
 
 type Options struct {
 	readOnly bool
@@ -32,6 +34,9 @@ type Options struct {
 
 	compressionFormat int
 	compressionLevel  int
+
+	readBufferSize  int
+	writeBufferSize int
 
 	metadata []byte
 }
@@ -43,11 +48,15 @@ func DefaultOptions() *Options {
 		fileMode:          DefaultFileMode,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
+		readBufferSize:    DefaultReadBufferSize,
+		writeBufferSize:   DefaultWriteBufferSize,
 	}
 }
 
 func (opts *Options) Valid() bool {
-	return opts != nil
+	return opts != nil &&
+		opts.readBufferSize > 0 &&
+		opts.writeBufferSize > 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -78,6 +87,14 @@ func (opts *Options) GetCompressionLevel() int {
 	return opts.compressionLevel
 }
 
+func (opts *Options) GetReadBufferSize() int {
+	return opts.readBufferSize
+}
+
+func (opts *Options) GetWriteBufferSize() int {
+	return opts.writeBufferSize
+}
+
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
 	return opts
@@ -85,5 +102,15 @@ func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 
 func (opts *Options) WithMetadata(metadata []byte) *Options {
 	opts.metadata = metadata
+	return opts
+}
+
+func (opts *Options) WithReadBufferSize(size int) *Options {
+	opts.readBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithWriteBufferSize(size int) *Options {
+	opts.writeBufferSize = size
 	return opts
 }

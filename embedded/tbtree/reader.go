@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ type ReaderSpec struct {
 }
 
 func (r *Reader) Reset() error {
-	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 	if err != nil {
 		return err
 	}
@@ -56,13 +56,13 @@ func (r *Reader) Reset() error {
 	return nil
 }
 
-func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err error) {
+func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint64, err error) {
 	if r.closed {
 		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	if r.leafNode == nil {
-		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 		if err == ErrKeyNotFound {
 			return nil, 0, 0, ErrNoMoreEntries
 		}
@@ -84,17 +84,12 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 
 				parent := r.path[len(r.path)-1]
 
-				var parentPath []*innerNode
+				var parentPath []*pathNode
 				if len(r.path) > 1 {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				neqKey := r.leafNode.maxKey()
-				if r.descOrder {
-					neqKey = r.leafNode.minKey()
-				}
-
-				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
+				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
@@ -137,7 +132,7 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 		}
 
 		if len(r.prefix) == 0 {
-			ts, hc, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+			ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
 			if err == nil {
 				return cp(leafValue.key), ts, hc, nil
 			}
@@ -148,7 +143,10 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts, hc uint64, err e
 
 			// prefix match
 			if bytes.Equal(r.prefix, leafPrefix) {
-				ts, hc, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+				ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
+				if err != nil && err != ErrKeyNotFound {
+					return nil, 0, 0, err
+				}
 				if err == nil {
 					return cp(leafValue.key), ts, hc, nil
 				}
@@ -163,7 +161,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 	}
 
 	if r.leafNode == nil {
-		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
 		if err == ErrKeyNotFound {
 			return nil, nil, 0, 0, ErrNoMoreEntries
 		}
@@ -185,17 +183,12 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 				parent := r.path[len(r.path)-1]
 
-				var parentPath []*innerNode
+				var parentPath []*pathNode
 				if len(r.path) > 1 {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				neqKey := r.leafNode.maxKey()
-				if r.descOrder {
-					neqKey = r.leafNode.minKey()
-				}
-
-				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
+				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]

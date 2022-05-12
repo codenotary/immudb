@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,12 +21,14 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +95,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 			case <-ticker.C:
 				{
 					err := compactIndex(db, cleanUpTimeout)
-					if err != nil && err != sql.ErrAlreadyClosed {
+					if err != nil && err != sql.ErrAlreadyClosed && err != tbtree.ErrCompactionThresholdNotReached {
 						panic(err)
 					}
 				}
@@ -550,7 +552,7 @@ func TestExecAllOpsDuplicatedKey(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
+	require.ErrorIs(t, err, schema.ErrDuplicatedKeysNotSupported)
 }
 
 func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
@@ -650,13 +652,123 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 
 		zList, err := db.ZScan(&schema.ZScanRequest{
 			Set:     []byte(set),
-			SinceTx: 10,
+			SinceTx: 11,
 		})
 		require.NoError(t, err)
 		require.Len(t, zList.Entries, 10)
 		require.Equal(t, zList.Entries[i-1].Entry.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 
 	}
+}
+
+func TestExecAllNoWait(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	t.Run("ExecAll with NoWait should be self-contained", func(t *testing.T) {
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_Ref{
+						Ref: &schema.ReferenceRequest{
+							Key:           []byte(`ref`),
+							ReferencedKey: []byte(`key`),
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		_, err := db.ExecAll(aOps)
+		require.ErrorIs(t, err, store.ErrIllegalArguments)
+		require.ErrorIs(t, err, ErrNoWaitOperationMustBeSelfContained)
+	})
+
+	t.Run("ExecAll with NoWait should be self-contained", func(t *testing.T) {
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_ZAdd{
+						ZAdd: &schema.ZAddRequest{
+							Set:      []byte("set"),
+							Key:      []byte(`key`),
+							Score:    5.6,
+							AtTx:     4,
+							BoundRef: true,
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		_, err := db.ExecAll(aOps)
+		require.ErrorIs(t, err, store.ErrIllegalArguments)
+		require.ErrorIs(t, err, ErrNoWaitOperationMustBeSelfContained)
+	})
+
+	t.Run("ExecAll with NoWait consistent key switching from key into reference", func(t *testing.T) {
+		_, err := db.Set(&schema.SetRequest{
+			KVs: []*schema.KeyValue{
+				{Key: []byte("key"), Value: []byte("value")},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = db.SetReference(&schema.ReferenceRequest{
+			Key: []byte("ref"), ReferencedKey: []byte("key"),
+		})
+		require.NoError(t, err)
+
+		_, err = db.ZAdd(&schema.ZAddRequest{
+			Set: []byte("set"),
+			Key: []byte("key"),
+		})
+		require.NoError(t, err)
+
+		aOps := &schema.ExecAllRequest{
+			Operations: []*schema.Op{
+				{
+					Operation: &schema.Op_Kv{
+						Kv: &schema.KeyValue{
+							Key:   []byte(`key1`),
+							Value: []byte(`value1`),
+						},
+					},
+				},
+				{
+					Operation: &schema.Op_Ref{
+						Ref: &schema.ReferenceRequest{
+							Key:           []byte(`key`),
+							ReferencedKey: []byte(`key1`),
+							BoundRef:      true,
+						},
+					},
+				},
+			},
+			NoWait: true,
+		}
+		hdr, err := db.ExecAll(aOps)
+		require.NoError(t, err)
+
+		entry, err := db.Get(&schema.KeyRequest{Key: []byte("key"), SinceTx: hdr.Id})
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		require.Equal(t, []byte(`key1`), entry.Key)
+		require.Equal(t, []byte(`value1`), entry.Value)
+		require.NotNil(t, entry.ReferencedBy)
+		require.Equal(t, []byte(`key`), entry.ReferencedBy.Key)
+		require.Equal(t, hdr.Id, entry.ReferencedBy.Tx)
+
+		// ref became a reference of a reference
+		_, err = db.Get(&schema.KeyRequest{Key: []byte("ref")})
+		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+
+		// "key" became a reference
+		_, err = db.ZScan(&schema.ZScanRequest{
+			Set: []byte("set"),
+		})
+		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+	})
 }
 
 /*
@@ -1076,6 +1188,153 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	require.NotEmptyf(t, ref, "Should not be empty")
 	require.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
 	require.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
+}
+
+func TestOps_Preconditions(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("reference")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("reference")),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist(
+				[]byte("reference" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
+			),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+
+	c := []*schema.Precondition{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c, schema.PreconditionKeyMustNotExist(
+			[]byte(fmt.Sprintf("key_%d", i)),
+		))
+	}
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{{
+			Operation: &schema.Op_Ref{
+				Ref: &schema.ReferenceRequest{
+					Key:           []byte("reference"),
+					ReferencedKey: []byte("key"),
+				},
+			},
+		}},
+		Preconditions: c,
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when too many preconditions were given")
+
 }
 
 /*

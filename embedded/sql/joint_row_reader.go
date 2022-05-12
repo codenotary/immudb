@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,13 +27,12 @@ type jointRowReader struct {
 
 	joins []*JoinSpec
 
-	rowReaders       []RowReader
-	rowReadersValues []map[string]TypedValue
-
-	params map[string]interface{}
+	rowReaders                 []RowReader
+	rowReadersValuesByPosition [][]TypedValue
+	rowReadersValuesBySelector []map[string]TypedValue
 }
 
-func newJointRowReader(rowReader RowReader, joins []*JoinSpec, params map[string]interface{}) (*jointRowReader, error) {
+func newJointRowReader(rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
 	if rowReader == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -45,11 +44,11 @@ func newJointRowReader(rowReader RowReader, joins []*JoinSpec, params map[string
 	}
 
 	return &jointRowReader{
-		params:           params,
-		rowReader:        rowReader,
-		joins:            joins,
-		rowReaders:       []RowReader{rowReader},
-		rowReadersValues: make([]map[string]TypedValue, 1+len(joins)),
+		rowReader:                  rowReader,
+		joins:                      joins,
+		rowReaders:                 []RowReader{rowReader},
+		rowReadersValuesByPosition: make([][]TypedValue, 1+len(joins)),
+		rowReadersValuesBySelector: make([]map[string]TypedValue, 1+len(joins)),
 	}, nil
 }
 
@@ -93,7 +92,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +132,7 @@ func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{index: &Index{}})
+		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
@@ -176,20 +175,20 @@ func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) er
 	return err
 }
 
+func (jointr *jointRowReader) Parameters() map[string]interface{} {
+	return jointr.rowReader.Parameters()
+}
+
 func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error {
-	err := jointr.rowReader.SetParameters(params)
-	if err != nil {
-		return err
-	}
-
-	jointr.params, err = normalizeParams(params)
-
-	return err
+	return jointr.rowReader.SetParameters(params)
 }
 
 func (jointr *jointRowReader) Read() (row *Row, err error) {
 	for {
-		row := &Row{Values: make(map[string]TypedValue)}
+		row := &Row{
+			ValuesByPosition: make([]TypedValue, 0),
+			ValuesBySelector: make(map[string]TypedValue),
+		}
 
 		for len(jointr.rowReaders) > 0 {
 			lastReader := jointr.rowReaders[len(jointr.rowReaders)-1]
@@ -211,7 +210,8 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 			}
 
 			// override row data
-			jointr.rowReadersValues[len(jointr.rowReaders)-1] = r.Values
+			jointr.rowReadersValuesByPosition[len(jointr.rowReaders)-1] = r.ValuesByPosition
+			jointr.rowReadersValuesBySelector[len(jointr.rowReaders)-1] = r.ValuesBySelector
 
 			break
 		}
@@ -222,8 +222,10 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 
 		// append values from readers
 		for i := 0; i < len(jointr.rowReaders); i++ {
-			for c, v := range jointr.rowReadersValues[i] {
-				row.Values[c] = v
+			row.ValuesByPosition = append(row.ValuesByPosition, jointr.rowReadersValuesByPosition[i]...)
+
+			for c, v := range jointr.rowReadersValuesBySelector[i] {
+				row.ValuesBySelector[c] = v
 			}
 		}
 
@@ -238,7 +240,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				indexOn: jspec.indexOn,
 			}
 
-			reader, err := jointq.Resolve(jointr.Tx(), jointr.params, nil)
+			reader, err := jointq.Resolve(jointr.Tx(), jointr.Parameters(), nil)
 			if err != nil {
 				return nil, err
 			}
@@ -262,10 +264,13 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 			// progress with the joint readers
 			// append the reader and kept the values for following rows
 			jointr.rowReaders = append(jointr.rowReaders, reader)
-			jointr.rowReadersValues[i+1] = r.Values
+			jointr.rowReadersValuesByPosition[i+1] = r.ValuesByPosition
+			jointr.rowReadersValuesBySelector[i+1] = r.ValuesBySelector
 
-			for c, v := range r.Values {
-				row.Values[c] = v
+			row.ValuesByPosition = append(row.ValuesByPosition, r.ValuesByPosition...)
+
+			for c, v := range r.ValuesBySelector {
+				row.ValuesBySelector[c] = v
 			}
 		}
 

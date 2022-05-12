@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ limitations under the License.
 package database
 
 import (
+	"errors"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -27,5 +29,8 @@ var (
 	ErrReferenceKeyMissing   = status.New(codes.InvalidArgument, "reference key not provided").Err()
 	ErrZAddIndexMissing      = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
 	ErrReferenceIndexMissing = status.New(codes.InvalidArgument, "reference index not provided").Err()
-	ErrDatabaseNotExists     = status.New(codes.NotFound, "database does not exist").Err()
+
+	ErrDatabaseAlreadyExists      = errors.New("database already exists")
+	ErrDatabaseNotExists          = errors.New("database does not exist")
+	ErrCannotDeleteAnOpenDatabase = errors.New("cannot delete an open database")
 )

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %union{
     stmts []SQLStmt
     stmt SQLStmt
+    datasource DataSource
     colsSpec []*ColSpec
     colSpec *ColSpec
     cols []*ColSelector
@@ -48,6 +49,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     distinct bool
     ds DataSource
     tableRef *tableRef
+    period period
+    openPeriod *openPeriod
+    periodInstant periodInstant
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
@@ -64,12 +68,13 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     onConflict *OnConflictDo
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
+%token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
-%token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
-%token AUTO_INCREMENT NULL NPARAM CAST
+%token AUTO_INCREMENT NULL CAST
+%token <id> NPARAM
 %token <pparam> PPARAM
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -96,7 +101,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left IS
 
 %type <stmts> sql sqlstmts
-%type <stmt> sqlstmt ddlstmt dqlstmt dmlstmt
+%type <stmt> sqlstmt ddlstmt dmlstmt dqlstmt select_stmt
 %type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids one_or_more_ids opt_ids
@@ -108,10 +113,13 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <sel> selector
 %type <sels> opt_selectors selectors
 %type <col> col
-%type <distinct> opt_distinct
+%type <distinct> opt_distinct opt_all
 %type <ds> ds
 %type <tableRef> tableRef
-%type <number> opt_since opt_as_before
+%type <period> opt_period
+%type <openPeriod> opt_period_start
+%type <openPeriod> opt_period_end
+%type <periodInstant> period_instant
 %type <joins> opt_joins joins
 %type <join> join
 %type <joinType> opt_join_type
@@ -179,9 +187,9 @@ ddlstmt:
         $$ = &UseDatabaseStmt{DB: $3}
     }
 |
-    USE SNAPSHOT opt_since opt_as_before 
+    USE SNAPSHOT opt_period
     {
-        $$ = &UseSnapshotStmt{sinceTx: $3, asBefore: $4}
+        $$ = &UseSnapshotStmt{period: $3}
     }
 |
     CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY one_or_more_ids ')'
@@ -202,16 +210,6 @@ ddlstmt:
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
-    }
-
-opt_since:
-    {
-        $$ = 0
-    }
-|
-    SINCE TX NUMBER
-    {
-        $$ = $3
     }
 
 opt_if_not_exists:
@@ -384,9 +382,9 @@ val:
         $$ = &SysFn{fn: $1}
     }
 |
-    NPARAM IDENTIFIER
+    NPARAM
     {
-        $$ = &Param{id: $2}
+        $$ = &Param{id: $1}
     }
 |
     PPARAM
@@ -452,7 +450,21 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
+    select_stmt
+    {
+        $$ = $1
+    }
+|
+    select_stmt UNION opt_all dqlstmt
+    {
+        $$ = &UnionStmt{
+            distinct: $3,
+            left: $1.(DataSource),
+            right: $4.(DataSource),
+        }
+    }
+
+select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -466,6 +478,16 @@ dqlstmt:
                 orderBy: $11,
                 limit: int($12),
             }
+    }
+
+opt_all:
+    {
+        $$ = true
+    }
+|
+    ALL
+    {
+        $$ = false
     }
 
 opt_distinct:
@@ -535,9 +557,9 @@ col:
     }
 
 ds:
-    tableRef opt_as_before opt_as
+    tableRef opt_period opt_as
     {
-        $1.asBefore = $2
+        $1.period = $2
         $1.as = $3
         $$ = $1
     }
@@ -559,14 +581,51 @@ tableRef:
         $$ = &tableRef{db: $1, table: $3}
     }
 
-opt_as_before:
+opt_period:
+    opt_period_start opt_period_end
     {
-        $$ = 0
+        $$ = period{start: $1, end: $2}
+    }
+
+opt_period_start:
+    {
+        $$ = nil
     }
 |
-    BEFORE TX NUMBER
+    SINCE period_instant
     {
-        $$ = $3
+        $$ = &openPeriod{inclusive: true, instant: $2}
+    }
+|
+    AFTER period_instant
+    {
+        $$ = &openPeriod{instant: $2}
+    }
+
+opt_period_end:
+    {
+        $$ = nil
+    }
+|
+    UNTIL period_instant
+    {
+        $$ = &openPeriod{inclusive: true, instant: $2}
+    }
+|
+    BEFORE period_instant
+    {
+        $$ = &openPeriod{instant: $2}
+    }
+
+period_instant:
+    TX exp
+    {
+        $$ = periodInstant{instantType: txInstant, exp: $2}
+    }
+|
+    exp
+    {
+        $$ = periodInstant{instantType: timeInstant, exp: $1}
     }
 
 opt_joins:

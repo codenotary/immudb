@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -327,7 +327,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(sel, nil)
+		rr, err := s.database.SQLQueryRowReader(sel, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}

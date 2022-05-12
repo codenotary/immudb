@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 
 var ErrNoSupported = errors.New("not yet supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
+var ErrParsingError = errors.New("parsing error")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
 var ErrDatabaseDoesNotExist = errors.New("database does not exist")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
@@ -80,6 +81,7 @@ var ErrTooManyRows = errors.New("too many rows")
 var ErrAlreadyClosed = store.ErrAlreadyClosed
 var ErrAmbiguousSelector = errors.New("ambiguous selector")
 var ErrUnsupportedCast = errors.New("unsupported cast")
+var ErrColumnMismatchInUnionStmt = errors.New("column mismatch in union statement")
 
 var maxKeyLen = 256
 
@@ -295,8 +297,8 @@ func (sqlTx *SQLTx) Closed() bool {
 
 func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: mapKey(sqlPrefix, catalogDatabasePrefix),
-		Filter: store.IgnoreDeleted,
+		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	dbReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -340,8 +342,8 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 
 func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
-		Filter: store.IgnoreDeleted,
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	tableReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -453,8 +455,8 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix: initialKey,
-		Filter: store.IgnoreDeleted,
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -513,8 +515,8 @@ func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
 
 	idxReaderSpec := &store.KeyReaderSpec{
-		Prefix: initialKey,
-		Filter: store.IgnoreDeleted,
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
 
 	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
@@ -1090,7 +1092,7 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 func (e *Engine) Exec(sql string, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
 
 	return e.ExecPreparedStmts(stmts, params, tx)
@@ -1159,13 +1161,13 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 func (e *Engine) Query(sql string, params map[string]interface{}, tx *SQLTx) (RowReader, error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
 	if len(stmts) != 1 {
 		return nil, ErrExpectingDQLStmt
 	}
 
-	stmt, ok := stmts[0].(*SelectStmt)
+	stmt, ok := stmts[0].(DataSource)
 	if !ok {
 		return nil, ErrExpectingDQLStmt
 	}
@@ -1173,7 +1175,7 @@ func (e *Engine) Query(sql string, params map[string]interface{}, tx *SQLTx) (Ro
 	return e.QueryPreparedStmt(stmt, params, tx)
 }
 
-func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}, tx *SQLTx) (rowReader RowReader, err error) {
+func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{}, tx *SQLTx) (rowReader RowReader, err error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1229,7 +1231,7 @@ func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
 func (e *Engine) InferParameters(sql string, tx *SQLTx) (params map[string]SQLValueType, err error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
 
 	return e.InferParametersPreparedStmts(stmts, tx)

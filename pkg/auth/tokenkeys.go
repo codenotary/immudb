@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,6 +53,13 @@ func generateKeys(Username string) error {
 	tokenKeyPairs.keysPerUser[Username] =
 		&tokenKeyPair{publicKey, privateKey, time.Now()}
 	return nil
+}
+
+func getTokenForUser(Username string) (*tokenKeyPair, bool) {
+	tokenKeyPairs.RLock()
+	defer tokenKeyPairs.RUnlock()
+	kp, ok := tokenKeyPairs.keysPerUser[Username]
+	return kp, ok
 }
 
 func updateLastTokenGeneratedAt(Username string) {

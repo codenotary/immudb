@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ var ErrorCorruptedData = errors.New("data log is corrupted")
 var ErrorCorruptedDigests = errors.New("hash log is corrupted")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrEmptyTree = errors.New("empty tree")
-var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
 var ErrUnexistentData = errors.New("attempt to read unexistent data")
 var ErrCannotResetToLargerSize = errors.New("can not reset the tree to a larger size")
 

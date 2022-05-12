@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -25,6 +26,7 @@ import (
 
 var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a reference")
 var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be converted into a reference")
+var ErrNoWaitOperationMustBeSelfContained = fmt.Errorf("no wait operation must be self-contained: %w", store.ErrIllegalArguments)
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {
@@ -75,11 +77,28 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	}
 	defer tx.Cancel()
 
-	e := EncodeReference(req.Key, nil, req.ReferencedKey, req.AtTx)
+	e := EncodeReference(
+		req.Key,
+		nil,
+		req.ReferencedKey,
+		req.AtTx,
+	)
 
 	err = tx.Set(e.Key, e.Metadata, e.Value)
 	if err != nil {
 		return nil, err
+	}
+
+	for i := range req.Preconditions {
+		c, err := PreconditionFromProto(req.Preconditions[i])
+		if err != nil {
+			return nil, err
+		}
+
+		err = tx.AddPrecondition(c)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", store.ErrInvalidPrecondition, err)
+		}
 	}
 
 	var hdr *store.TxHeader

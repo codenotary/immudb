@@ -1,4 +1,4 @@
-# Copyright 2021 CodeNotary, Inc. All rights reserved. 											\
+# Copyright 2022 CodeNotary, Inc. All rights reserved. 											\
 																			\
 Licensed under the Apache License, Version 2.0 (the "License"); 			\
 you may not use this file except in compliance with the License. 			\
@@ -16,8 +16,8 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.2.1
-DEFAULT_WEBCONSOLE_VERSION=1.0.14
+VERSION=1.2.4
+DEFAULT_WEBCONSOLE_VERSION=1.0.15
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
 
@@ -211,7 +211,7 @@ dist/winsign:
 
 .PHONY: dist/sign
 dist/sign:
-	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
+	for f in ./dist/*; do cas n $$f; printf "\n\n"; done
 
 
 .PHONY: dist/binary.md

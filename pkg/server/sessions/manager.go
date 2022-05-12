@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,16 +18,17 @@ package sessions
 
 import (
 	"context"
+	"math"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
-	"math"
-	"os"
-	"sync"
-	"time"
 )
 
 const MaxSessions = 100
@@ -37,7 +38,6 @@ const infinity = time.Duration(math.MaxInt64)
 type manager struct {
 	running    bool
 	sessionMux sync.RWMutex
-	guardMux   sync.Mutex
 	sessions   map[string]*Session
 	ticker     *time.Ticker
 	done       chan bool
@@ -87,53 +87,66 @@ func NewManager(options *Options) (*manager, error) {
 func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
+
+	if len(sm.sessions) == MaxSessions {
+		sm.logger.Warningf("max sessions reached")
+		return nil, ErrMaxSessionsReached
+	}
+
 	sessionID := xid.New().String()
 	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
-	if len(sm.sessions) > MaxSessions {
-		sm.logger.Warningf("max sessions reached, deleting oldest session")
-		return nil, ErrMaxSessionsReached
-	}
+
 	return sm.sessions[sessionID], nil
 }
 
 func (sm *manager) SessionPresent(sessionID string) bool {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
-	if _, ok := sm.sessions[sessionID]; ok {
-		return true
-	}
-	return false
+
+	_, isPresent := sm.sessions[sessionID]
+	return isPresent
 }
 
 func (sm *manager) GetSession(sessionID string) (*Session, error) {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
+
 	if _, ok := sm.sessions[sessionID]; !ok {
 		return nil, ErrSessionNotFound
 	}
+
 	return sm.sessions[sessionID], nil
 }
 
 func (sm *manager) DeleteSession(sessionID string) error {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
+
+	return sm.deleteSession(sessionID)
+}
+
+func (sm *manager) deleteSession(sessionID string) error {
 	sess, ok := sm.sessions[sessionID]
 	if !ok {
 		return ErrSessionNotFound
 	}
+
 	err := sess.RollbackTransactions()
 	delete(sm.sessions, sessionID)
 	if err != nil {
 		return err
 	}
+
 	sess.SetReadWriteTxOngoing(false)
+
 	return nil
 }
 
 func (sm *manager) UpdateSessionActivityTime(sessionID string) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
+
 	if sess, ok := sm.sessions[sessionID]; ok {
 		now := time.Now()
 		sess.SetLastActivityTime(now)
@@ -144,16 +157,19 @@ func (sm *manager) UpdateSessionActivityTime(sessionID string) {
 func (sm *manager) SessionCount() int {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
+
 	return len(sm.sessions)
 }
 
 func (sm *manager) StartSessionsGuard() error {
-	sm.guardMux.Lock()
-	if sm.IsRunning() {
+	sm.sessionMux.Lock()
+	if sm.running {
+		sm.sessionMux.Unlock()
 		return ErrGuardAlreadyRunning
 	}
 	sm.running = true
-	sm.guardMux.Unlock()
+	sm.sessionMux.Unlock()
+
 	for {
 		select {
 		case <-sm.done:
@@ -167,33 +183,38 @@ func (sm *manager) StartSessionsGuard() error {
 func (sm *manager) IsRunning() bool {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
+
 	return sm.running
 }
 
 func (sm *manager) StopSessionsGuard() error {
-	sm.guardMux.Lock()
-	defer sm.guardMux.Unlock()
 	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+
 	if !sm.running {
 		return ErrGuardNotRunning
 	}
+
 	sm.running = false
-	sm.sessionMux.Unlock()
+
 	for ID, _ := range sm.sessions {
-		sm.DeleteSession(ID)
+		sm.deleteSession(ID)
 	}
+
 	sm.ticker.Stop()
 	sm.done <- true
 	sm.logger.Debugf("shutdown")
+
 	return nil
 }
 
 func (sm *manager) expireSessions() {
 	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+
 	if !sm.running {
 		return
 	}
-	sm.sessionMux.Unlock()
 
 	now := time.Now()
 
@@ -217,7 +238,7 @@ func (sm *manager) expireSessions() {
 			}
 		}
 		if sess.GetStatus() == dead {
-			sm.DeleteSession(ID)
+			sm.deleteSession(ID)
 			sm.logger.Debugf("removed dead session %s", ID)
 		}
 		sm.logger.Debugf("Open sessions count: %d\nInactive sessions count: %d\n", len(sm.sessions), inactiveSessCount)

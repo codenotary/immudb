@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ package sessions
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -26,8 +29,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 	"github.com/rs/xid"
 	"google.golang.org/grpc/metadata"
-	"sync"
-	"time"
 )
 
 type Status int64
@@ -68,6 +69,7 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	if mode == schema.TxMode_WriteOnly {
 		// only in key-value mode, in sql we read catalog and write to it
 		return nil, ErrWriteOnlyTXNotAllowed
@@ -75,19 +77,23 @@ func (s *Session) NewTransaction(mode schema.TxMode) (transactions.Transaction, 
 	if mode == schema.TxMode_ReadOnly {
 		return nil, ErrReadOnlyTXNotAllowed
 	}
+
 	sqlTx, _, err := s.database.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	if mode == schema.TxMode_ReadWrite {
 		if s.readWriteTxOngoing {
 			return nil, ErrOngoingReadWriteTx
 		}
 		s.readWriteTxOngoing = true
 	}
+
 	transactionID := xid.New().String()
 	tx := transactions.NewTransaction(sqlTx, transactionID, mode, s.database, s.id)
 	s.transactions[transactionID] = tx
+
 	return tx, nil
 }
 
@@ -112,24 +118,26 @@ func (s *Session) removeTransaction(transactionID string) error {
 func (s *Session) RollbackTransactions() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	merr := multierr.NewMultiErr()
+
 	for _, tx := range s.transactions {
 		s.log.Debugf("Deleting transaction %s", tx.GetID())
+
 		if err := tx.Rollback(); err != nil {
 			s.log.Errorf("Error while rolling back transaction %s: %v", tx.GetID(), err)
 			merr.Append(err)
 			continue
 		}
+
 		if err := s.removeTransaction(tx.GetID()); err != nil {
 			s.log.Errorf("Error while removing transaction %s: %v", tx.GetID(), err)
 			merr.Append(err)
 			continue
 		}
 	}
-	if merr.HasErrors() {
-		return merr
-	}
-	return nil
+
+	return merr.Reduce()
 }
 
 func (s *Session) GetID() string {
@@ -141,10 +149,12 @@ func (s *Session) GetID() string {
 func (s *Session) GetTransaction(transactionID string) (transactions.Transaction, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
+
 	tx, ok := s.transactions[transactionID]
 	if !ok {
 		return nil, transactions.ErrTransactionNotFound
 	}
+
 	return tx, nil
 }
 
@@ -233,6 +243,7 @@ func (s *Session) GetReadWriteTxOngoing() bool {
 	defer s.mux.RUnlock()
 	return s.readWriteTxOngoing
 }
+
 func (s *Session) SetReadWriteTxOngoing(b bool) {
 	s.mux.Lock()
 	defer s.mux.Unlock()

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
+	immuerrors "github.com/codenotary/immudb/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,4 +36,7 @@ func TestMapServerError(t *testing.T) {
 	someError := errors.New("some error")
 	err = mapServerError(someError)
 	assert.Equal(t, someError, err)
+
+	err = mapServerError(fmt.Errorf("%w: test", store.ErrPreconditionFailed))
+	assert.Equal(t, immuerrors.CodIntegrityConstraintViolation, err.(immuerrors.Error).Code())
 }

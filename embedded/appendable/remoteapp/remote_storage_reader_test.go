@@ -41,6 +41,7 @@ func TestRemoteStorageReaderUnsupportedMethods(t *testing.T) {
 	require.Panics(t, func() { r.Offset() })
 	require.Panics(t, func() { r.SetOffset(0) })
 	require.Panics(t, func() { r.Append([]byte{0}) })
+	require.Panics(t, func() { r.DiscardUpto(0) })
 	require.Panics(t, func() { r.CompressionFormat() })
 	require.Panics(t, func() { r.CompressionLevel() })
 	require.Panics(t, func() { r.Copy("/tmp") })

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@ limitations under the License.
 */
 
 package cli
+
+func (cli *cli) health(args []string) (string, error) {
+	return cli.immucl.DatabaseHealth(args)
+}
 
 func (cli *cli) currentState(args []string) (string, error) {
 	return cli.immucl.CurrentState(args)

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ Environment variables:
   IMMUDB_DEVMODE=true
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb
-  IMMUDB_SIGNING_KEY=
+  IMMUDB_SIGNINGKEY=
   IMMUDB_SYNCED=true
   IMMUDB_TOKEN_EXPIRY_TIME=1440
   IMMUDB_PGSQL_SERVER=true

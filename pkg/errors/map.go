@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ func mapGRPcErrorCode(code Code) codes.Code {
 		return codes.Unimplemented
 	case CodInvalidDatabaseName:
 		return codes.NotFound
+	case CodIntegrityConstraintViolation:
+		return codes.FailedPrecondition
 	default:
 		return codes.Unknown
 	}

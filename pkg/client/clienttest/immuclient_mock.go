@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -61,6 +61,9 @@ type ImmuClientMock struct {
 	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.Entries, error)
 	CountF                func(context.Context, []byte) (*schema.EntryCount, error)
 	CreateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
+	CreateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
+	UpdateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
+	UpdateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
 	CreateUserF           func(context.Context, []byte, []byte, uint32, string) error
@@ -178,7 +181,12 @@ func (icm *ImmuClientMock) UseDatabase(ctx context.Context, d *schema.Database) 
 
 // UpdateDatabase ...
 func (icm *ImmuClientMock) UpdateDatabase(ctx context.Context, s *schema.DatabaseSettings) error {
-	return icm.UpdateDatabase(ctx, s)
+	return icm.UpdateDatabaseF(ctx, s)
+}
+
+// UpdateDatabaseV2 ...
+func (icm *ImmuClientMock) UpdateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error) {
+	return icm.UpdateDatabaseV2F(ctx, db, setttings)
 }
 
 // Dump ...
@@ -239,6 +247,11 @@ func (icm *ImmuClientMock) Count(ctx context.Context, prefix []byte) (*schema.En
 // CreateDatabase ...
 func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.DatabaseSettings) error {
 	return icm.CreateDatabaseF(ctx, db)
+}
+
+// CreateDatabaseV2 ...
+func (icm *ImmuClientMock) CreateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
+	return icm.CreateDatabaseV2F(ctx, db, setttings)
 }
 
 // DatabaseList ...

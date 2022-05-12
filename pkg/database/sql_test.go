@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, res.Rows, 1)
 
 	_, err = db.DescribeTable("table2", nil)
-	require.Equal(t, sql.ErrTableDoesNotExist, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
 	res, err = db.DescribeTable("table1", nil)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 		},
 		ProveSinceTx: 0,
 	})
-	require.Equal(t, sql.ErrTableDoesNotExist, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{

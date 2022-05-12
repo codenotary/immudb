@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.Equal(t, ErrTableDoesNotExist, err)
 
 	_, err = db.GetTableByName("table1")
-	require.Equal(t, ErrTableDoesNotExist, err)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
 
 	_, err = db.newTable("", nil)
 	require.Equal(t, ErrIllegalArguments, err)
@@ -104,14 +104,14 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.Equal(t, ErrTableDoesNotExist, err)
 
 	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}})
-	require.Equal(t, ErrTableAlreadyExists, err)
+	require.ErrorIs(t, err, ErrTableAlreadyExists)
 
 	indexed, err := table.IsIndexed("id")
 	require.NoError(t, err)
 	require.True(t, indexed)
 
 	_, err = table.IsIndexed("id1")
-	require.Equal(t, ErrColumnDoesNotExist, err)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	pk := table.PrimaryIndex()
 	require.NotNil(t, pk)

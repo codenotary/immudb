@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -34,7 +35,7 @@ import (
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("single-file appendable already closed")
-var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
 const (
@@ -50,6 +51,9 @@ type AppendableFile struct {
 	compressionLevel  int
 
 	metadata []byte
+
+	readBufferSize  int
+	writeBufferSize int
 
 	readOnly bool
 	synced   bool
@@ -170,13 +174,15 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 
 	var w *bufio.Writer
 	if !opts.readOnly {
-		w = bufio.NewWriter(f)
+		w = bufio.NewWriterSize(f, opts.writeBufferSize)
 	}
 
 	return &AppendableFile{
 		f:                 f,
 		compressionFormat: compressionFormat,
 		compressionLevel:  compressionLevel,
+		readBufferSize:    opts.readBufferSize,
+		writeBufferSize:   opts.writeBufferSize,
 		metadata:          metadata,
 		readOnly:          opts.readOnly,
 		synced:            opts.synced,
@@ -267,6 +273,21 @@ func (aof *AppendableFile) SetOffset(off int64) error {
 	}
 
 	aof.offset = off
+	return nil
+}
+
+func (aof *AppendableFile) DiscardUpto(off int64) error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
+	if aof.offset < off {
+		return fmt.Errorf("%w: discard beyond existent data boundaries", ErrIllegalArguments)
+	}
+
 	return nil
 }
 
@@ -384,7 +405,7 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
-	br := bufio.NewReader(aof.f)
+	br := bufio.NewReaderSize(aof.f, aof.readBufferSize)
 
 	clenBs := make([]byte, 4)
 	_, err = br.Read(clenBs)

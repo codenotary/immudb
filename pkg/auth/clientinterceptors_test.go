@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,33 +21,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
-
-func TestTokenAuth(t *testing.T) {
-	token := TokenAuthStruct{
-		Token: "123456",
-	}
-	m, err := token.GetRequestMetadata(context.Background(), "")
-	if err != nil {
-		t.Errorf("Error GetRequestMetadata %s", err)
-	}
-	header, ok := m["authorization"]
-	if !ok {
-		t.Errorf("Error GetRequestMetadata expected authorization header is missing")
-	}
-	if header != "Bearer "+token.Token {
-		t.Errorf("Error GetRequestMetadata wrong authorization header")
-	}
-	if token.RequireTransportSecurity() {
-		t.Errorf("Error RequireTransportSecurity expected to return false")
-	}
-}
 
 func TestClientUnaryInterceptor(t *testing.T) {
 	f := ClientUnaryInterceptor("token")
 
 	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
+		require.Equal(t, []string{"Bearer token"}, md.Get("authorization"))
 		return nil
 	}
 	err := f(context.Background(), "", "", "", nil, invoker)
@@ -57,6 +42,9 @@ func TestClientUnaryInterceptor(t *testing.T) {
 func TestClientStreamInterceptor(t *testing.T) {
 	f := ClientStreamInterceptor("token")
 	streamer := func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
+		require.Equal(t, []string{"Bearer token"}, md.Get("authorization"))
 		return nil, nil
 	}
 	_, err := f(context.Background(), nil, nil, "", streamer)

@@ -10,19 +10,16 @@ import (
 )
 
 func consistencyCheck(t *testing.T, tbtree *TBtree, n node) {
-	require.False(t, bytes.Compare(n.minKey(), n.maxKey()) > 0)
-
 	switch n := n.(type) {
 	case *innerNode:
 		// All nodes must be within the range of this node
 		for _, sub := range n.nodes {
 			require.True(t, bytes.Compare(n.minKey(), sub.minKey()) <= 0)
-			require.True(t, bytes.Compare(n.maxKey(), sub.maxKey()) >= 0)
 		}
 
 		// All nodes must have sorted non-verlapping ranges
 		for i := 1; i < len(n.nodes); i++ {
-			require.True(t, bytes.Compare(n.nodes[i-1].maxKey(), n.nodes[i].minKey()) < 0)
+			require.True(t, bytes.Compare(n.nodes[i-1].minKey(), n.nodes[i].minKey()) < 0)
 		}
 
 		// Consistency for child nodes
@@ -34,7 +31,6 @@ func consistencyCheck(t *testing.T, tbtree *TBtree, n node) {
 		// All values must be within the range of this node
 		for _, v := range n.values {
 			require.True(t, bytes.Compare(n.minKey(), v.key) <= 0)
-			require.True(t, bytes.Compare(n.maxKey(), v.key) >= 0)
 		}
 
 		// All values must be sorted by keys
@@ -44,10 +40,9 @@ func consistencyCheck(t *testing.T, tbtree *TBtree, n node) {
 
 	case *nodeRef:
 		// check if reference is consistent with the node
-		sub, err := tbtree.nodeAt(n.off)
+		sub, err := tbtree.nodeAt(n.off, true)
 		require.NoError(t, err)
 		require.True(t, bytes.Equal(n._minKey, sub.minKey()))
-		require.True(t, bytes.Equal(n._maxKey, sub.maxKey()))
 
 		consistencyCheck(t, tbtree, sub)
 

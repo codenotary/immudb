@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -33,25 +34,31 @@ type Snapshot struct {
 
 type valueRefInterceptor func(key []byte, valRef ValueRef) ValueRef
 
-// filter out entries when filter evaluates to true
-type FilterFn func(valRef ValueRef, t time.Time) bool
+// filter out entries when filter evaluates to a non-nil error
+type FilterFn func(valRef ValueRef, t time.Time) error
 
 var (
-	IgnoreDeleted FilterFn = func(valRef ValueRef, t time.Time) bool {
+	IgnoreDeleted FilterFn = func(valRef ValueRef, t time.Time) error {
 		md := valRef.KVMetadata()
-		return md != nil && md.Deleted()
+		if md != nil && md.Deleted() {
+			return ErrKeyNotFound
+		}
+		return nil
 	}
 
-	IgnoreExpired FilterFn = func(valRef ValueRef, t time.Time) bool {
+	IgnoreExpired FilterFn = func(valRef ValueRef, t time.Time) error {
 		md := valRef.KVMetadata()
-		return md != nil && md.ExpiredAt(t)
+		if md != nil && md.ExpiredAt(t) {
+			return ErrExpiredEntry
+		}
+		return nil
 	}
 )
 
 type KeyReader struct {
 	snap           *Snapshot
 	reader         *tbtree.Reader
-	filter         FilterFn
+	filters        []FilterFn
 	refInterceptor valueRefInterceptor
 	_tx            *Tx
 }
@@ -63,7 +70,7 @@ type KeyReaderSpec struct {
 	InclusiveSeek bool
 	InclusiveEnd  bool
 	DescOrder     bool
-	Filter        FilterFn
+	Filters       []FilterFn
 }
 
 func (s *Snapshot) set(key, value []byte) error {
@@ -71,7 +78,7 @@ func (s *Snapshot) set(key, value []byte) error {
 }
 
 func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeleted)
+	return s.GetWith(key, IgnoreExpired, IgnoreDeleted)
 }
 
 func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -85,13 +92,14 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 		return nil, err
 	}
 
-	if IgnoreExpired(valRef, s.ts) {
-		return nil, ErrExpiredEntry
-	}
-
 	for _, filter := range filters {
-		if filter(valRef, s.ts) {
-			return nil, ErrKeyNotFound
+		if filter == nil {
+			return nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
+		}
+
+		err = filter(valRef, s.ts)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -145,10 +153,16 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		refInterceptor = s.refInterceptor
 	}
 
+	for _, filter := range spec.Filters {
+		if filter == nil {
+			return nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
+		}
+	}
+
 	return &KeyReader{
 		snap:           s,
 		reader:         r,
-		filter:         spec.Filter,
+		filters:        spec.Filters,
 		refInterceptor: refInterceptor,
 		_tx:            s.st.NewTxHolder(),
 	}, nil
@@ -260,9 +274,16 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 func (v *valueRef) Resolve() (val []byte, err error) {
 	refVal := make([]byte, v.valLen)
 
-	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal)
+	if v.kvmd != nil && v.kvmd.ExpiredAt(time.Now()) {
+		return nil, ErrExpiredEntry
+	}
 
-	return refVal, err
+	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal)
+	if err != nil {
+		return nil, err
+	}
+
+	return refVal, nil
 }
 
 func (v *valueRef) Tx() uint64 {
@@ -289,8 +310,8 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint64, err error) {
-	key, ktxID, hc, err := r.reader.ReadAsBefore(txID)
+func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
+	key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -313,12 +334,11 @@ func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val ValueRef, tx uint
 				st:     r.snap.st,
 			}
 
-			if IgnoreExpired(val, r.snap.ts) {
-				return nil, nil, 0, ErrExpiredEntry
-			}
-
-			if r.filter != nil && r.filter(val, r.snap.ts) {
-				return nil, nil, 0, ErrKeyNotFound
+			for _, filter := range r.filters {
+				err = filter(val, r.snap.ts)
+				if err != nil {
+					return nil, nil, 0, err
+				}
 			}
 
 			return key, r.refInterceptor(key, val), ktxID, nil
@@ -340,11 +360,17 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 			return nil, nil, err
 		}
 
-		if IgnoreExpired(val, r.snap.ts) {
-			continue
+		skipEntry := false
+
+		for _, filter := range r.filters {
+			err = filter(val, r.snap.ts)
+			if err != nil {
+				skipEntry = true
+				break
+			}
 		}
 
-		if r.filter != nil && r.filter(val, r.snap.ts) {
+		if skipEntry {
 			continue
 		}
 

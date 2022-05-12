@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuService_ExportTxServer) error {
+func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer) error {
 	if req == nil || req.Tx == 0 || txsServer == nil {
 		return ErrIllegalArguments
 	}
@@ -37,7 +37,7 @@ func (s *ImmuServer) ExportTx(req *schema.TxRequest, txsServer schema.ImmuServic
 		return err
 	}
 
-	bs, err := db.ExportTxByID(&schema.TxRequest{Tx: req.Tx})
+	bs, err := db.ExportTxByID(req)
 	if err != nil {
 		return err
 	}

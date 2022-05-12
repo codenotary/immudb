@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	require.Equal(t, err, ErrDuplicatedKeysNotSupported)
+	require.ErrorIs(t, err, ErrDuplicatedKeysNotSupported)
 
 }
 

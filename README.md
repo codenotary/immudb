@@ -11,7 +11,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 # immudb [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) <img align="right" src="img/Black%20logo%20-%20no%20background.png" height="47px" />
 
 [![Documentation](https://img.shields.io/website?label=Docs&url=https%3A%2F%2Fdocs.immudb.io%2F)](https://docs.immudb.io/)
-[![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb)
+[![Build Status](https://github.com/codenotary/immudb/actions/workflows/push.yml/badge.svg)](https://github.com/codenotary/immudb/actions/workflows/push.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
 [![Coverage](https://coveralls.io/repos/github/codenotary/immudb/badge.svg?branch=master)](https://coveralls.io/github/codenotary/immudb?branch=master)
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
@@ -23,9 +23,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/codenotary)](https://artifacthub.io/packages/search?repo=codenotary)
 
-```
 Don't forget to ⭐ this repo if you like immudb!
-```
 
 [:tada: 7M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
@@ -63,7 +61,7 @@ Click here to try out the immudb web console access in an [online demo environme
 | ----------------------- | -------------------------------------------------- |
 | DB Model                | Key-Value store with 3D access (tx-key-value), SQL |
 | Data scheme             | schema-free                                        |
-| Implementation design   | Cryptographic commit log with parallel Merkle Tree,| 
+| Implementation design   | Cryptographic commit log with parallel Merkle Tree,|
 |                         | (sync/async) indexing with extended B-tree         |
 | Implementation language | Go                                                 |
 | Server OS(s)            | BSD, Linux, OS X, Solaris, Windows, IBM z/OS       |
@@ -127,8 +125,9 @@ export IMMUDB_S3_STORAGE=true
 export IMMUDB_S3_ACCESS_KEY_ID=<S3 ACCESS KEY ID>
 export IMMUDB_S3_SECRET_KEY=<SECRET KEY>
 export IMMUDB_S3_BUCKET_NAME=<BUCKET NAME>
+export IMMUDB_S3_LOCATION=<AWS S3 REGION>
 export IMMUDB_S3_PATH_PREFIX=testing-001
-export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.amazonaws.com"
+export IMMUDB_S3_ENDPOINT="https://${IMMUDB_S3_BUCKET_NAME}.s3.${IMMUDB_S3_LOCATION}.amazonaws.com"
 
 ./immudb
 ```
@@ -201,7 +200,7 @@ We already learned about the following use cases from users:
 We have SDKs available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang (`client` package in the immudb repo)
+2. Golang ([connection guide](https://docs.immudb.io/master/develop/connection.html), [Gorm adapter](https://github.com/codenotary/immugorm))
 3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
@@ -236,8 +235,6 @@ You can generate your own benchmarks using the `stress_tool` under `embedded/too
 ## Roadmap
 
 The following topics are important to us and are planned or already being worked on:
-
-
 
 * Data pruning
 * Compression

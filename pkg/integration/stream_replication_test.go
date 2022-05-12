@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	rctx := metadata.NewOutgoingContext(context.Background(), rmd)
 
 	for i := uint64(1); i <= 2; i++ {
-		exportTxStream, err := client.ExportTx(ctx, &schema.TxRequest{Tx: i})
+		exportTxStream, err := client.ExportTx(ctx, &schema.ExportTxRequest{Tx: i})
 		require.NoError(t, err)
 
 		replicateTxStream, err := client.ReplicateTx(rctx)
@@ -109,7 +109,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	err = client.Disconnect()
 	require.NoError(t, err)
 
-	_, err = client.ExportTx(ctx, &schema.TxRequest{Tx: 1})
+	_, err = client.ExportTx(ctx, &schema.ExportTxRequest{Tx: 1})
 	require.Equal(t, ic.ErrNotConnected, err)
 
 	_, err = client.ReplicateTx(rctx)

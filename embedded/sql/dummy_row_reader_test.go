@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ var errDummy = errors.New("dummy error")
 type dummyRowReader struct {
 	failReturningColumns bool
 	failInferringParams  bool
+	database             *Database
+	params               map[string]interface{}
 }
 
 func (r *dummyRowReader) onClose(callback func()) {
@@ -34,7 +36,7 @@ func (r *dummyRowReader) Tx() *SQLTx {
 }
 
 func (r *dummyRowReader) Database() *Database {
-	return nil
+	return r.database
 }
 
 func (r *dummyRowReader) TableAlias() string {
@@ -65,7 +67,12 @@ func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
 	return nil, nil
 }
 
+func (r *dummyRowReader) Parameters() map[string]interface{} {
+	return r.params
+}
+
 func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
+	r.params = params
 	return nil
 }
 

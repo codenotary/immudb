@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -167,4 +167,48 @@ func TestReplace(t *testing.T) {
 	val, err = cache.Replace(nil, 9997)
 	require.Equal(t, ErrIllegalArguments, err)
 	require.Nil(t, val)
+}
+
+func TestCacheResizing(t *testing.T) {
+	initialCacheSize := 10
+	cache, err := NewLRUCache(initialCacheSize)
+	require.NoError(t, err)
+	require.NotNil(t, cache)
+	require.Equal(t, initialCacheSize, cache.Size())
+
+	for i := 0; i < initialCacheSize; i++ {
+		rkey, _, err := cache.Put(i, i)
+		require.NoError(t, err)
+		require.Nil(t, rkey)
+	}
+
+	// cache growing
+	largerCacheSize := 20
+	cache.Resize(largerCacheSize)
+	require.Equal(t, largerCacheSize, cache.Size())
+
+	for i := 0; i < initialCacheSize; i++ {
+		_, err = cache.Get(i)
+		require.NoError(t, err)
+	}
+
+	for i := initialCacheSize; i < largerCacheSize; i++ {
+		rkey, _, err := cache.Put(i, i)
+		require.NoError(t, err)
+		require.Nil(t, rkey)
+	}
+
+	// cache shrinking
+	cache.Resize(initialCacheSize)
+	require.Equal(t, initialCacheSize, cache.Size())
+
+	for i := 0; i < initialCacheSize; i++ {
+		_, err = cache.Get(i)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+	}
+
+	for i := initialCacheSize; i < largerCacheSize; i++ {
+		_, err = cache.Get(i)
+		require.NoError(t, err)
+	}
 }
