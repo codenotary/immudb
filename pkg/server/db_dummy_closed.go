@@ -140,7 +140,7 @@ func (db *closedDB) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql
 	return nil, nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (db *closedDB) SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	return nil, nil, store.ErrAlreadyClosed
 }
 
