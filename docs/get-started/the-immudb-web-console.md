@@ -4,13 +4,16 @@
 
 immudb includes an embedded web console which can be accessed via the default port 8080 (`web-server-port` option).
 
+![](../.gitbook/assets/webconsole.jpeg)
+
 The console allows you to:
 
-* Metrics for the default database
+* Display metrics for the default database
 * Execute SQL queries
 * Configure users
 * Create databases
 * Manage permissions for users
+* Other management functions
 
 ### Accessing the Web Console <a href="#accessing-the-web-console" id="accessing-the-web-console"></a>
 
@@ -22,3 +25,5 @@ immudb  2021/05/17 21:38:30 INFO: Web API server enabled on 0.0.0.0:8080/api (ht
 ```
 
 Just navigating to that address in your web browser will bring you to the login screen:
+
+![](../.gitbook/assets/immudb-browser.png)
