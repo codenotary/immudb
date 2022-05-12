@@ -73,6 +73,4 @@ immugw can be found in its [own repository](https://github.com/codenotary/immugw
 
 immugw serves as a proxy to relay REST client communication from your application to immudb's gRPC server interface. For security reasons, immugw should not run on the same server as immudb. The following diagram shows how the communication works:
 
-[//]: # "Image not rendering for some reason"
-
-![](.gitbook/assets/diagram-immugw.svg)
+![](../.gitbook/assets/diagram-immugw.svg)

@@ -8,9 +8,7 @@ immudb can operate both as a key-value or relational (SQL) database. You can add
 
 ### What makes immudb special? <a href="#what-makes-immudb-special" id="what-makes-immudb-special"></a>
 
-[//]: # "Fix this image"
-
-![](.gitbook/assets/immudb-special.png)
+![](../.gitbook/assets/immudb-special.png)
 
 * <mark style="color:blue;">**Keep track of changes and audit them.**</mark> Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being changed silently.
 * <mark style="color:blue;">**Verify your data without sacrificing performance.**</mark> Data stored in immudb is cryptographically coherent and verifiable, just like blockchains, but without all the complexity. Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library.
