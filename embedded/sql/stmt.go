@@ -537,7 +537,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				}
 
 				// inject auto-incremental pk value
-				if stmt.isInsert && table.autoIncrementPK {
+				if stmt.isInsert && col.autoIncrement {
 					// current implementation assumes only PK can be set as autoincremental
 					table.maxPK++
 
