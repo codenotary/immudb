@@ -394,4 +394,4 @@ for _, r := range res.Rows {
 
 #### Additional resources <a href="#additional-resources" id="additional-resources"></a>
 
-* Get the [immudb-client-example code (opens new window)](https://github.com/codenotary/immudb-client-examples)
+* Get the [immudb-client-example code (opens in a new window)](https://github.com/codenotary/immudb-client-examples)

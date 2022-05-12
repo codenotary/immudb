@@ -1,14 +1,14 @@
 # Planning
 
-Before running a database in production, it is important to plan:
+Before running an immudb database in production, it is important to properly plan the following:
 
-* Computing resources
+* Compute resources (CPU)
 * Disk space
 * Configuration
 * Backups
 * Health Monitoring
 
-### Computing Resources <a href="#computing-resources" id="computing-resources"></a>
+### Compute Resources (CPU) <a href="#compute-resources" id="compute-resources"></a>
 
 immudb was designed to have a stable memory/CPU footprint.
 
@@ -20,4 +20,4 @@ With the default settings, it's possible to stress immudb and memory usage shoul
 
 immudb is an immutable database, this means all history is preserved and therefore disk usage is higher than a normal database.
 
-Data is stored in the directory specified by the `dir` option.
+Data is stored in the directory specified by the `dir` option. See the [Configuration Reference](../reference/configuration.md) for more details.
