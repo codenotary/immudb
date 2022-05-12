@@ -20,7 +20,7 @@ In the [Learn About immudb](./learn-about-immudb/immudb-explained.md) section, y
 
 * Dive right in, explore and learn with the [User Quickstart](./get-started/user-quickstart-with-immudb-and-immuclient.md)
 * Want to use immudb with favourite programming language? Head to the [Developer Jumpstart](./get-started/getting-started-with-immudb-development.md)
-* .. or try the [**immudb Playground**, an interactive environment for learning about immudb (opens new window)](https://play.codenotary.com):
+* Try the [**immudb Playground**, an interactive environment for learning about immudb (opens new window)](https://play.codenotary.com):
 
 ![](.gitbook/assets/playground.jpg)
 
@@ -47,4 +47,4 @@ Here are some external links you may find valuable:
 * [**immudb** binaries to download and Go SDK (opens new window)](https://github.com/codenotary/immudb)
 * SDKs for [Python (opens new window)](https://github.com/codenotary/immudb-py), [Java (opens new window)](https://github.com/codenotary/immudb4j), [.NET (opens new window)](https://github.com/codenotary/immudb4dotnet), and [Node.js (opens new window)](https://github.com/codenotary/immudb-node)
 
-  <CnSocialButton social="twitter" target="_blank" rel="external" href="https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb"></CnSocialButton>
+[//]: # "Add social section"

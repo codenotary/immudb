@@ -8,6 +8,8 @@ immudb can operate both as a key-value or relational (SQL) database. You can add
 
 ### What makes immudb special? <a href="#what-makes-immudb-special" id="what-makes-immudb-special"></a>
 
+![](.gitbook/assets/immudb-special.png)
+
 #### Immutable
 
 Data is never overwritten. See the history of data updates.
