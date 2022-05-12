@@ -69,12 +69,8 @@ A signature (PKI) provided by the client can become part of the insertion proces
 Integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel.
 
 ## immugw communication
-immugw can be found in its [own repository](https://github.com/codenotary/immugw)
+immugw can be found in its [own repository](https://github.com/codenotary/immugw).
 
-immugw proxies REST client communication and gRPC server interface. For security reasons, immugw should not run on the same server as immudb. The following diagram shows how the communication works:
+immugw serves as a proxy to relay REST client communication from your application to immudb's gRPC server interface. For security reasons, immugw should not run on the same server as immudb. The following diagram shows how the communication works:
 
-[//]: # "fix this image, not rendering properly"
-
-![immugw communication explained](/.gitbook/assets/diagram-immugw.svg)
-
-</WrappedSection>
+![](.gitbook/assets/diagram-immugw.svg)
