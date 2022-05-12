@@ -107,6 +107,6 @@ immugw can be found in its [own repository](https://github.com/codenotary/immugw
 
 immugw proxies REST client communication and gRPC server interface. For security reasons, immugw should not run on the same server as immudb. The following diagram shows how the communication works:
 
-![immugw communication explained](/diagram-immugw.svg)
+![immugw communication explained](/.gitbook/assets/diagram-immugw.svg)
 
 </WrappedSection>
