@@ -19,6 +19,12 @@ package integration
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/embedded/store"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
@@ -26,11 +32,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestSession_OpenCloseSession(t *testing.T) {
@@ -167,4 +168,37 @@ func TestSession_ExpireSessions(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestSession_CreateDBFromSQLStmts(t *testing.T) {
+	options := server.DefaultOptions().
+		WithWebServer(false).
+		WithPgsqlServer(false)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	_, err = client.SQLExec(context.TODO(), `
+		CREATE DATABASE db1;
+		USE db1;
+		
+		BEGIN TRANSACTION;
+			CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, PRIMARY KEY id);
+
+			INSERT INTO table1(title) VALUES ('title1'), ('title2');
+		COMMIT;
+	`, nil)
+	require.NoError(t, err)
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
 }
