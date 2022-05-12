@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ type Client interface {
 	Disconnect(args []string) error
 	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
 	HealthCheck(args []string) (string, error)
+	DatabaseHealth(args []string) (string, error)
 	CurrentState(args []string) (string, error)
 	GetTxByID(args []string) (string, error)
 	VerifiedGetTxByID(args []string) (string, error)
@@ -112,7 +113,7 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	}
 
 	needsLogin := strings.Contains(err.Error(), "token has expired") ||
-		strings.Contains(err.Error(), "please login first") ||
+		strings.Contains(err.Error(), "not logged in") ||
 		strings.Contains(err.Error(), "please select a database first")
 	if !needsLogin ||
 		len(i.ImmuClient.GetOptions().Username) == 0 ||

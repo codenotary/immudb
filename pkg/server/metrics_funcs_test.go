@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package server
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/cmd/cmdtest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
@@ -44,6 +45,7 @@ func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
 	}
 	return &schema.ImmutableState{TxId: 99}, nil
 }
+
 func (dbm dbMock) GetOptions() *database.Options {
 	if dbm.getOptionsF != nil {
 		return dbm.getOptionsF()
@@ -72,7 +74,7 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	currentStateCounter := 0
 	dbList := database.NewDatabaseList()
-	dbList.Append(dbMock{
+	dbList.Put(dbMock{
 		currentStateF: func() (*schema.ImmutableState, error) {
 			return currentStateSuccessfulOnce(&currentStateCounter)
 		},
@@ -80,8 +82,11 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	currentStateCountersysDB := 0
 	sysDB := dbMock{
+		getNameF: func() string {
+			return "systemdb"
+		},
 		getOptionsF: func() *database.Options {
-			return database.DefaultOption().WithDBName(SystemDBName)
+			return database.DefaultOption()
 		},
 		currentStateF: func() (*schema.ImmutableState, error) {
 			return currentStateSuccessfulOnce(&currentStateCountersysDB)
@@ -133,9 +138,12 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	//<--
 
 	dbList := database.NewDatabaseList()
-	dbList.Append(dbMock{
+	dbList.Put(dbMock{
+		getNameF: func() string {
+			return "defaultdb"
+		},
 		getOptionsF: func() *database.Options {
-			return database.DefaultOption().WithDBName(defaultDBName)
+			return database.DefaultOption()
 		},
 	})
 
@@ -147,7 +155,7 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 		dbList: dbList,
 		sysDB: dbMock{
 			getOptionsF: func() *database.Options {
-				return database.DefaultOption().WithDBName(SystemDBName)
+				return database.DefaultOption()
 			},
 		},
 	}

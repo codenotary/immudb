@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 func TestConditionalRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: true}
 
-	rowReader, err := newConditionalRowReader(dummyr, &Bool{val: true}, nil)
+	rowReader, err := newConditionalRowReader(dummyr, &Bool{val: true})
 	require.NoError(t, err)
 
 	_, err = rowReader.Columns()

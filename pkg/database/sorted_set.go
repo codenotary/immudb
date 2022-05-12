@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -150,8 +150,16 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MinScore.Score))
 		}
 		// here we compose the offset if Max score filter is provided only if is reversed order
-		if req.MaxScore != nil && req.Desc {
-			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MaxScore.Score))
+		if req.Desc {
+			var maxScore float64
+
+			if req.MaxScore == nil {
+				maxScore = math.MaxFloat64
+			} else {
+				maxScore = req.MaxScore.Score
+			}
+
+			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(maxScore))
 		}
 	} else {
 		seekKey = make([]byte, len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey)+txIDLen)
@@ -168,7 +176,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			Prefix:        prefix,
 			InclusiveSeek: req.InclusiveSeek,
 			DescOrder:     req.Desc,
-			Filter:        store.IgnoreDeleted,
+			Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 		})
 	if err != nil {
 		return nil, err
@@ -208,7 +216,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAt(key, atTx, 0, snap, tx)
+		e, err := d.getAt(key, atTx, 1, snap, tx)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

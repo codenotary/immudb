@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -58,7 +58,13 @@ func TestHistoryReaderEdgeCases(t *testing.T) {
 }
 
 func TestHistoryReaderAscendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_history_asc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeySize(8).
+		WithMaxValueSize(8)
+
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
+
+	tbtree, err := Open("test_tree_history_asc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_history_asc")
 
@@ -106,7 +112,13 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 }
 
 func TestHistoryReaderDescendingScan(t *testing.T) {
-	tbtree, err := Open("test_tree_history_desc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	opts := DefaultOptions().
+		WithMaxKeySize(4).
+		WithMaxValueSize(8)
+
+	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
+
+	tbtree, err := Open("test_tree_history_desc", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_history_desc")
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ func TestConn_BeginTx(t *testing.T) {
 	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
 	require.Error(t, err)
 	st, _ := status.FromError(err)
-	require.Equal(t, "table does not exist", st.Message())
+	require.Equal(t, fmt.Sprintf("table does not exist (%s)", table), st.Message())
 
 	err = tx.Commit()
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestTx_Rollback(t *testing.T) {
 
 	_, err = db.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
 	st, _ := status.FromError(err)
-	require.Equal(t, "table does not exist", st.Message())
+	require.Equal(t, fmt.Sprintf("table does not exist (%s)", table), st.Message())
 }
 
 func TestTx_Errors(t *testing.T) {

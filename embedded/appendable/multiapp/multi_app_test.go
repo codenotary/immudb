@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -322,4 +322,49 @@ func TestMultiappOpenFolderWithBogusFiles(t *testing.T) {
 	a, err := Open("test_bogus_dir", DefaultOptions())
 	require.Error(t, err)
 	require.Nil(t, a)
+}
+
+func TestMultiAppDiscard(t *testing.T) {
+	a, err := Open("testdata_discard", DefaultOptions().WithFileSize(1))
+	defer os.RemoveAll("testdata_discard")
+	require.NoError(t, err)
+
+	err = a.DiscardUpto(0)
+	require.NoError(t, err)
+
+	err = a.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	off0, n0, err := a.Append([]byte{1, 2})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), off0)
+	require.Equal(t, 2, n0)
+
+	off1, n1, err := a.Append([]byte{3, 4})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), off1)
+	require.Equal(t, 2, n1)
+
+	err = a.DiscardUpto(off0 + int64(n0))
+	require.NoError(t, err)
+
+	err = a.DiscardUpto(off1 + int64(n1))
+	require.NoError(t, err)
+
+	err = a.Close()
+	require.NoError(t, err)
+
+	err = a.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	a, err = Open("testdata_discard", DefaultOptions().WithFileSize(1))
+	require.NoError(t, err)
+
+	off2, n2, err := a.Append([]byte{5})
+	require.NoError(t, err)
+	require.Equal(t, int64(4), off2)
+	require.Equal(t, 1, n2)
+
+	err = a.Close()
+	require.NoError(t, err)
 }

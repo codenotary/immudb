@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import (
 func TestNewIndexerFailure(t *testing.T) {
 	indexer, err := newIndexer("data", nil, nil, 0)
 	require.Nil(t, indexer)
-	require.Equal(t, tbtree.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 }
 
 func TestClosedIndexerFailures(t *testing.T) {
@@ -40,11 +40,11 @@ func TestClosedIndexerFailures(t *testing.T) {
 	defer os.RemoveAll(d)
 
 	store, err := Open(d, DefaultOptions().WithIndexOptions(
-		DefaultIndexOptions().WithCompactionThld(0),
+		DefaultIndexOptions().WithCompactionThld(1),
 	))
 	require.NoError(t, err)
 
-	store.indexer.closed = true
+	err = store.indexer.Close()
 	require.NoError(t, err)
 
 	indexer := store.indexer

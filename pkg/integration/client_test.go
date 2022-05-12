@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -596,6 +596,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.True(t, errors.Is(client.UpdateMTLSConfig(ctx, false), ic.ErrNotConnected))
 	require.True(t, errors.Is(client.CompactIndex(ctx, &emptypb.Empty{}), ic.ErrNotConnected))
 
+	_, err = client.FlushIndex(ctx, 100, true)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.True(t, errors.Is(err.(immuErrors.ImmuError), ic.ErrNotConnected))
 
@@ -636,10 +639,19 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Set(context.TODO(), nil, nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
+	_, err = client.Delete(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.ExecAll(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	_, err = client.TxByID(context.TODO(), 1)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.TxByIDWithSpec(context.TODO(), nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
 	_, err = client.TxScan(context.TODO(), nil)
@@ -683,7 +695,31 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 	require.True(t, errors.Is(client.SetActiveUser(context.TODO(), nil), ic.ErrNotConnected))
 
+	_, err = client.ListUsers(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	_, err = client.DatabaseList(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.DatabaseListV2(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.UpdateDatabaseV2(context.TODO(), "defaultdb", nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.CurrentRoot(context.TODO())
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeSet(context.TODO(), nil, nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeGet(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeZAdd(context.TODO(), nil, 0, nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
+	_, err = client.SafeReference(context.TODO(), nil, nil)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 }
 
@@ -870,10 +906,15 @@ func TestDatabaseManagement(t *testing.T) {
 	require.Nil(t, err1)
 
 	resp2, err2 := client.DatabaseList(ctx)
-
 	require.Nil(t, err2)
 	require.IsType(t, &schema.DatabaseListResponse{}, resp2)
 	require.Len(t, resp2.Databases, 2)
+
+	resp3, err3 := client.DatabaseListV2(ctx)
+	require.Nil(t, err3)
+	require.IsType(t, &schema.DatabaseListResponseV2{}, resp3)
+	require.Len(t, resp3.Databases, 2)
+
 	client.Disconnect()
 }
 
@@ -937,21 +978,24 @@ func TestImmuClient_SetAll(t *testing.T) {
 
 	setRequest = &schema.SetRequest{KVs: []*schema.KeyValue{
 		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
-		{Key: []byte("4,5,6"), Value: []byte("6,5,4")},
+		{Key: []byte("4,5,6"), Value: []byte("6,5,4"), Metadata: &schema.KVMetadata{NonIndexable: true}},
 	}}
 
 	_, err = client.SetAll(ctx, setRequest)
 	require.NoError(t, err)
-
-	time.Sleep(1 * time.Millisecond)
 
 	err = client.CompactIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
-		require.NoError(t, err)
-		require.Equal(t, kv.Value, i.GetValue())
+
+		if kv.Metadata != nil && kv.Metadata.NonIndexable {
+			require.Contains(t, err.Error(), "key not found")
+		} else {
+			require.NoError(t, err)
+			require.Equal(t, kv.Value, i.GetValue())
+		}
 	}
 
 	err = client.Disconnect()
@@ -987,7 +1031,13 @@ func TestImmuClient_GetAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 1)
 
+	_, err = client.FlushIndex(ctx, 10, true)
+	require.NoError(t, err)
+
 	_, err = client.VerifiedSet(ctx, []byte(`bbb`), []byte(`val`))
+	require.NoError(t, err)
+
+	_, err = client.FlushIndex(ctx, 10, true)
 	require.NoError(t, err)
 
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
@@ -1282,12 +1332,18 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
 
 	r, err := client.CurrentState(ctx)
-
+	require.NoError(t, err)
 	require.IsType(t, &schema.ImmutableState{}, r)
-	require.Nil(t, err)
+
+	healthRes, err := client.Health(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, healthRes)
+	require.Equal(t, uint32(0x0), healthRes.PendingRequests)
+
 	client.Disconnect()
 }
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,21 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
+
+func (i *immuc) DatabaseHealth(args []string) (string, error) {
+	ctx := context.Background()
+	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Health(ctx)
+	})
+	if err != nil {
+		rpcerrors := strings.SplitAfter(err.Error(), "=")
+		if len(rpcerrors) > 1 {
+			return rpcerrors[len(rpcerrors)-1], nil
+		}
+		return "", err
+	}
+	return PrintHealth(state.(*schema.DatabaseHealthResponse)), nil
+}
 
 func (i *immuc) CurrentState(args []string) (string, error) {
 	ctx := context.Background()

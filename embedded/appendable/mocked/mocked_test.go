@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,6 +48,10 @@ func TestMocked(t *testing.T) {
 		return 0, 0, nil
 	}
 
+	mocked.DiscardUptoFn = func(off int64) error {
+		return nil
+	}
+
 	mocked.FlushFn = func() error {
 		return nil
 	}
@@ -90,6 +94,9 @@ func TestMocked(t *testing.T) {
 	off, n, err := mocked.Append(nil)
 	require.Equal(t, int64(0), off)
 	require.Equal(t, 0, n)
+	require.NoError(t, err)
+
+	err = mocked.DiscardUpto(1)
 	require.NoError(t, err)
 
 	err = mocked.Flush()

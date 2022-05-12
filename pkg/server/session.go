@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"fmt"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/errors"
@@ -32,11 +32,11 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, errors.New(ErrUserNotActive)
 	}
 
-	databaseID := sysDBIndex
+	db := s.sysDB
 	if r.DatabaseName != SystemDBName {
-		databaseID = s.dbList.GetId(r.DatabaseName)
-		if databaseID < 0 {
-			return nil, errors.New(fmt.Sprintf("'%s' does not exist", r.DatabaseName)).WithCode(errors.CodInvalidDatabaseName)
+		db, err = s.dbList.GetByName(r.DatabaseName)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -48,7 +48,7 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 	}
 
-	session, err := s.SessManager.NewSession(u, s.dbList.GetByIndex(databaseID))
+	session, err := s.SessManager.NewSession(u, db)
 	if err != nil {
 		return nil, err
 	}

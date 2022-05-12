@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,11 +17,16 @@ package database
 
 import (
 	"crypto/sha256"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,14 +55,14 @@ var kvs = []*schema.KeyValue{
 func makeDb() (DB, func()) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	options := DefaultOption().WithDBRootPath(rootPath).WithDBName("db").WithCorruptionChecker(false)
-	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2))
 
-	return makeDbWith(options)
+	return makeDbWith("db", options)
 }
 
-func makeDbWith(opts *Options) (DB, func()) {
-	db, err := NewDB(opts, logger.NewSimpleLogger("immudb ", os.Stderr))
+func makeDbWith(dbName string, opts *Options) (DB, func()) {
+	db, err := NewDB(dbName, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -75,7 +80,7 @@ func makeDbWith(opts *Options) (DB, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	db, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDB("mydb", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -98,7 +103,7 @@ func TestDefaultDbCreation(t *testing.T) {
 	_, err = db.CountAll()
 	require.Error(t, err)
 
-	dbPath := path.Join(options.GetDBRootPath(), options.GetDBName())
+	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Fatalf("Db dir not created")
 	}
@@ -110,30 +115,30 @@ func TestDefaultDbCreation(t *testing.T) {
 }
 
 func TestDbCreationInAlreadyExistentDirectories(t *testing.T) {
-	options := DefaultOption().WithDBRootPath("Paris").WithDBName("EdithPiaf")
+	options := DefaultOption().WithDBRootPath("Paris")
 	defer os.RemoveAll(options.GetDBRootPath())
 
 	err := os.MkdirAll(options.GetDBRootPath(), os.ModePerm)
 	require.NoError(t, err)
 
-	err = os.MkdirAll(filepath.Join(options.GetDBRootPath(), options.GetDBName()), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(options.GetDBRootPath(), "EdithPiaf"), os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err = NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreationInInvalidDirectory(t *testing.T) {
-	options := DefaultOption().WithDBRootPath("/?").WithDBName("EdithPiaf")
+	options := DefaultOption().WithDBRootPath("/?")
 	defer os.RemoveAll(options.GetDBRootPath())
 
-	_, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
 func TestDbCreation(t *testing.T) {
-	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
-	db, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := DefaultOption().WithDBRootPath("Paris")
+	db, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -144,7 +149,7 @@ func TestDbCreation(t *testing.T) {
 		os.RemoveAll(options.GetDBRootPath())
 	}()
 
-	dbPath := path.Join(options.GetDBRootPath(), options.GetDBName())
+	dbPath := path.Join(options.GetDBRootPath(), db.GetName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Fatalf("Db dir not created")
 	}
@@ -157,13 +162,19 @@ func TestDbCreation(t *testing.T) {
 
 func TestOpenWithMissingDBDirectories(t *testing.T) {
 	options := DefaultOption().WithDBRootPath("Paris")
-	_, err := OpenDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	_, err := OpenDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.Error(t, err)
 }
 
+func TestOpenWithIllegalDBName(t *testing.T) {
+	options := DefaultOption().WithDBRootPath("Paris")
+	_, err := OpenDB("", options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
 func TestOpenDB(t *testing.T) {
-	options := DefaultOption().WithDBName("EdithPiaf").WithDBRootPath("Paris")
-	db, err := NewDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := DefaultOption().WithDBRootPath("Paris")
+	db, err := NewDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
@@ -173,7 +184,7 @@ func TestOpenDB(t *testing.T) {
 		t.Fatalf("Error closing store %s", err)
 	}
 
-	db, err = OpenDB(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err = OpenDB("EdithPiaf", options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error opening database %s", err)
 	}
@@ -189,12 +200,12 @@ func TestOpenV1_0_1_DB(t *testing.T) {
 
 	defer os.RemoveAll("data_v1.1.0")
 
-	sysOpts := DefaultOption().WithDBName("systemdb").WithDBRootPath("./data_v1.1.0")
-	sysDB, err := OpenDB(sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	sysOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
+	sysDB, err := OpenDB("systemdb", sysOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	dbOpts := DefaultOption().WithDBName("defaultdb").WithDBRootPath("./data_v1.1.0")
-	db, err := OpenDB(dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
+	dbOpts := DefaultOption().WithDBRootPath("./data_v1.1.0")
+	db, err := OpenDB("defaultdb", dbOpts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
 	err = db.Close()
@@ -351,7 +362,7 @@ func TestDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db.Delete(&schema.DeleteKeysRequest{
+	hdr, err = db.Delete(&schema.DeleteKeysRequest{
 		Keys: [][]byte{
 			[]byte("key1"),
 		},
@@ -362,6 +373,26 @@ func TestDelete(t *testing.T) {
 		Key: []byte("key1"),
 	})
 	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	_, err = db.VerifiableGet(&schema.VerifiableGetRequest{
+		KeyRequest: &schema.KeyRequest{
+			Key:  []byte("key1"),
+			AtTx: hdr.Id,
+		},
+	})
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	tx, err := db.TxByID(&schema.TxRequest{
+		Tx: hdr.Id,
+		EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{
+				Action: schema.EntryTypeAction_RESOLVE,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	require.Empty(t, tx.KvEntries)
 }
 
 func TestCurrentState(t *testing.T) {
@@ -504,14 +535,310 @@ func TestTxByID(t *testing.T) {
 	_, err := db.TxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
-	for ind, val := range kvs {
-		txhdr, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
-		require.NoError(t, err)
-		require.Equal(t, uint64(ind+2), txhdr.Id)
-	}
-
-	_, err = db.TxByID(&schema.TxRequest{Tx: uint64(1)})
+	txhdr1, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{Key: []byte("key0"), Value: []byte("value0")},
+		},
+	})
 	require.NoError(t, err)
+
+	txhdr2, err := db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte("ref1"),
+						ReferencedKey: []byte("key0"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte("key1"),
+						Value: []byte("value1"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte("set1"),
+						Score: 10,
+						Key:   []byte("key1"),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER AUTO_INCREMENT, PRIMARY KEY id)"}, nil)
+	require.NoError(t, err)
+
+	_, ctx1, err := db.SQLExec(&schema.SQLExecRequest{Sql: "INSERT INTO mytable() VALUES ()"}, nil)
+	require.NoError(t, err)
+	require.Len(t, ctx1, 1)
+
+	txhdr3 := ctx1[0].TxHeader()
+
+	t.Run("values should not be resolved but digests returned in entries field", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 3)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+	})
+
+	t.Run("values should not be resolved but digests returned in entries field", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+			ZEntriesSpec:  &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 3)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_ONLY_DIGEST},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			require.Len(t, e.Value, 0)
+		}
+	})
+
+	t.Run("no entries should be returned if not explicitly included", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+	})
+
+	t.Run("no entries should be returned if explicitly excluded", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+			ZEntriesSpec:  &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_EXCLUDE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+	})
+
+	t.Run("raw entries should be returned", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr1.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+
+		tx, err = db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RAW_VALUE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Len(t, tx.Entries, 1)
+		require.Empty(t, tx.KvEntries)
+		require.Empty(t, tx.ZEntries)
+
+		for _, e := range tx.Entries {
+			hval := sha256.Sum256(e.Value)
+			require.Equal(t, e.HValue, hval[:])
+		}
+	})
+
+	t.Run("only kv entries should be resolved", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Len(t, tx.KvEntries, 2)
+		require.Empty(t, tx.ZEntries)
+
+		for i, e := range tx.KvEntries {
+			require.Equal(t, []byte(fmt.Sprintf("key%d", i)), e.Key)
+			require.Equal(t, []byte(fmt.Sprintf("value%d", i)), e.Value)
+		}
+	})
+
+	t.Run("only kv entries should be resolved (but not references)", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{
+			Tx: txhdr2.Id,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+			},
+			KeepReferencesUnresolved: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Len(t, tx.KvEntries, 2)
+		require.Empty(t, tx.ZEntries)
+
+		for i, e := range tx.KvEntries {
+			require.Equal(t, []byte(fmt.Sprintf("key%d", i)), e.Key)
+
+			if e.ReferencedBy == nil {
+				require.Equal(t, []byte(fmt.Sprintf("value%d", i)), e.Value)
+			} else {
+				require.Empty(t, e.Value)
+			}
+		}
+	})
+
+	t.Run("only zentries should be resolved", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{Tx: txhdr2.Id, EntriesSpec: &schema.EntriesSpec{
+			ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Len(t, tx.ZEntries, 1)
+
+		require.Equal(t, []byte("set1"), tx.ZEntries[0].Set)
+		require.Equal(t, []byte("key1"), tx.ZEntries[0].Key)
+		require.Equal(t, float64(10), tx.ZEntries[0].Score)
+		require.NotNil(t, tx.ZEntries[0].Entry)
+	})
+
+	t.Run("only zentries should be resolved (but not including entries)", func(t *testing.T) {
+		tx, err := db.TxByID(&schema.TxRequest{
+			Tx: txhdr2.Id,
+			EntriesSpec: &schema.EntriesSpec{
+				ZEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+			},
+			KeepReferencesUnresolved: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Empty(t, tx.Entries)
+		require.Empty(t, tx.KvEntries)
+		require.Len(t, tx.ZEntries, 1)
+
+		require.Equal(t, []byte("set1"), tx.ZEntries[0].Set)
+		require.Equal(t, []byte("key1"), tx.ZEntries[0].Key)
+		require.Equal(t, float64(10), tx.ZEntries[0].Score)
+		require.Nil(t, tx.ZEntries[0].Entry)
+	})
+
+	t.Run("sql entries can not be resolved", func(t *testing.T) {
+		_, err := db.TxByID(&schema.TxRequest{Tx: txhdr3.ID, EntriesSpec: &schema.EntriesSpec{
+			SqlEntriesSpec: &schema.EntryTypeSpec{Action: schema.EntryTypeAction_RESOLVE},
+		}})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+	})
 }
 
 func TestVerifiableTxByID(t *testing.T) {
@@ -521,16 +848,41 @@ func TestVerifiableTxByID(t *testing.T) {
 	_, err := db.VerifiableTxByID(nil)
 	require.Error(t, ErrIllegalArguments, err)
 
+	var txhdr *schema.TxHeader
+
 	for _, val := range kvs {
-		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		txhdr, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 	}
 
-	_, err = db.VerifiableTxByID(&schema.VerifiableTxRequest{
-		Tx:           uint64(1),
-		ProveSinceTx: 0,
+	t.Run("values should be returned", func(t *testing.T) {
+		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
+			Tx:           txhdr.Id,
+			ProveSinceTx: 0,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{
+					Action: schema.EntryTypeAction_RAW_VALUE,
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, vtx)
+		require.Len(t, vtx.Tx.Entries, 1)
+
+		hval := sha256.Sum256(vtx.Tx.Entries[0].Value)
+		require.Equal(t, vtx.Tx.Entries[0].HValue, hval[:])
 	})
-	require.NoError(t, err)
+
+	t.Run("values should not be returned", func(t *testing.T) {
+		vtx, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
+			Tx:           txhdr.Id,
+			ProveSinceTx: 0,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, vtx)
+		require.Len(t, vtx.Tx.Entries, 1)
+		require.Len(t, vtx.Tx.Entries[0].Value, 0)
+	})
 }
 
 func TestTxScan(t *testing.T) {
@@ -556,15 +908,38 @@ func TestTxScan(t *testing.T) {
 	})
 	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
 
-	txList, err := db.TxScan(&schema.TxScanRequest{
-		InitialTx: 1,
-	})
-	require.NoError(t, err)
-	require.Len(t, txList.Txs, len(kvs)+1)
+	t.Run("values should be returned", func(t *testing.T) {
+		txList, err := db.TxScan(&schema.TxScanRequest{
+			InitialTx: 1,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{
+					Action: schema.EntryTypeAction_RAW_VALUE,
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.Len(t, txList.Txs, len(kvs)+1)
 
-	for i := 0; i < len(kvs); i++ {
-		require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
-	}
+		for i := 0; i < len(kvs); i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
+
+			hval := sha256.Sum256(txList.Txs[i+1].Entries[0].Value)
+			require.Equal(t, txList.Txs[i+1].Entries[0].HValue, hval[:])
+		}
+	})
+
+	t.Run("values should not be returned", func(t *testing.T) {
+		txList, err := db.TxScan(&schema.TxScanRequest{
+			InitialTx: 1,
+		})
+		require.NoError(t, err)
+		require.Len(t, txList.Txs, len(kvs)+1)
+
+		for i := 0; i < len(kvs); i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
+			require.Len(t, txList.Txs[i+1].Entries[0].Value, 0)
+		}
+	})
 }
 
 func TestHistory(t *testing.T) {
@@ -577,6 +952,12 @@ func TestHistory(t *testing.T) {
 		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 	}
+
+	err := db.FlushIndex(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	err = db.FlushIndex(&schema.FlushIndexRequest{CleanupPercentage: 100, Synced: true})
+	require.NoError(t, err)
 
 	meta, err := db.Delete(&schema.DeleteKeysRequest{Keys: [][]byte{kvs[0].Key}})
 	require.NoError(t, err)
@@ -616,6 +997,553 @@ func TestHistory(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, inc.Entries)
+}
+
+func TestPreconditionedSet(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key-no-preconditions"),
+			Value: []byte("value"),
+		}},
+	})
+	require.NoError(t, err, "could not set a value without preconditions")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect missing key when MustExist precondition was present")
+
+	tx1, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
+		},
+	})
+	require.NoError(t, err,
+		"failed to add a key with MustNotExist precondition even though the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("key")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect existing key even though MustNotExist precondition was used")
+
+	tx2, err := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key")),
+		},
+	})
+	require.NoError(t, err,
+		"did not add a key even though MustExist precondition was successful")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx1.Id),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect NotModifiedAfterTX precondition")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
+		},
+	})
+	require.NoError(t, err,
+		"did not add valid entry with NotModifiedAfterTX precondition")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key"), tx2.Id),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed NotModifiedAfterTX precondition after new entry was added")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key2"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key2"), tx2.Id),
+		},
+	})
+	require.NoError(t, err,
+		"did not add entry with NotModifiedAfterTX precondition when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key3"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key3")),
+			schema.PreconditionKeyNotModifiedAfterTX([]byte("key3"), tx2.Id),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed mix of NotModifiedAfterTX and MustExist preconditions when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{{
+			Key:   []byte("key3"),
+			Value: []byte("value"),
+		}},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key3")),
+			schema.PreconditionKeyMustNotExist([]byte("key3")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not detect failed mix of MustNotExist and MustExist preconditions when the key does not exist")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key4-no-preconditions"),
+				Value: []byte("value"),
+			},
+			{
+				Key:   []byte("key5-with-preconditions"),
+				Value: []byte("value"),
+			},
+		},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("key5-with-preconditions")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed,
+		"did not fail even though one of KV entries failed precondition check")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key4-no-preconditions"),
+				Value: []byte("value"),
+			},
+		},
+		Preconditions: []*schema.Precondition{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when invalid nil precondition was given")
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key6"),
+				Value: []byte("value"),
+			},
+		},
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist(
+				[]byte("key6-too-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen)),
+			),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when invalid nil precondition was given")
+
+	c := []*schema.Precondition{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c, schema.PreconditionKeyMustNotExist([]byte(fmt.Sprintf("key_%d", i))))
+	}
+
+	_, err = db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("key6"),
+				Value: []byte("value"),
+			},
+		},
+		Preconditions: c,
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition,
+		"did not fail when too many preconditions were given")
+}
+
+func TestPreconditionedSetParallel(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	const parallelism = 10
+
+	runInParallel := func(f func(i int) error) (failCount int32, successCount int32, badErrorCount int32) {
+		var wg, wg2 sync.WaitGroup
+		wg.Add(parallelism)
+		wg2.Add(parallelism)
+
+		for i := 0; i < parallelism; i++ {
+			go func(i int) {
+				defer wg2.Done()
+
+				// Sync all goroutines to a single point
+				wg.Done()
+				wg.Wait()
+
+				err := f(i)
+
+				if err == nil {
+					atomic.AddInt32(&successCount, 1)
+				} else if errors.Is(err, store.ErrPreconditionFailed) {
+					atomic.AddInt32(&failCount, 1)
+				} else {
+					log.Println(err)
+					atomic.AddInt32(&badErrorCount, 1)
+				}
+			}(i)
+		}
+
+		wg2.Wait()
+
+		return failCount, successCount, badErrorCount
+	}
+
+	t.Run("Set", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`key`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`key`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+				Key:   []byte(`key`),
+				Value: []byte(`base value`),
+			}}})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.Set(&schema.SetRequest{
+					KVs: []*schema.KeyValue{{
+						Key:   []byte(`key`),
+						Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`key`), tx.Id),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("Reference", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`reference`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`reference`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.SetReference(&schema.ReferenceRequest{
+				Key:           []byte(`reference`),
+				ReferencedKey: []byte(`key`),
+			})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.SetReference(&schema.ReferenceRequest{
+					Key:           []byte(`reference`),
+					ReferencedKey: []byte(`key`),
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`reference`), tx.Id),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("ExecAll-KV", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`key-ea`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`key-ea`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+				Key:   []byte(`key-ea`),
+				Value: []byte(`base value`),
+			}}})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Kv{
+							Kv: &schema.KeyValue{
+								Key:   []byte(`key-ea`),
+								Value: []byte(fmt.Sprintf("goroutine: %d", i)),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`key-ea`), tx.Id),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
+	t.Run("ExecAll-Ref", func(t *testing.T) {
+
+		t.Run("MustNotExist", func(t *testing.T) {
+
+			var wg, wg2 sync.WaitGroup
+			wg.Add(parallelism)
+			wg2.Add(parallelism)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustNotExist([]byte(`reference-ea`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("MustExist", func(t *testing.T) {
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyMustExist([]byte(`reference-ea`)),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, parallelism, successCount)
+			require.Zero(t, failCount)
+			require.Zero(t, badError)
+		})
+
+		t.Run("NotModifiedAfterTX", func(t *testing.T) {
+
+			tx, err := db.SetReference(&schema.ReferenceRequest{
+				Key:           []byte(`reference-ea`),
+				ReferencedKey: []byte(`key-ea`),
+			})
+			require.NoError(t, err)
+
+			failCount, successCount, badError := runInParallel(func(i int) error {
+				_, err := db.ExecAll(&schema.ExecAllRequest{
+					Operations: []*schema.Op{{
+						Operation: &schema.Op_Ref{
+							Ref: &schema.ReferenceRequest{
+								Key:           []byte(`reference-ea`),
+								ReferencedKey: []byte(`key-ea`),
+							},
+						},
+					}},
+					Preconditions: []*schema.Precondition{
+						schema.PreconditionKeyNotModifiedAfterTX([]byte(`reference-ea`), tx.Id),
+					},
+				})
+				return err
+			})
+
+			require.EqualValues(t, 1, successCount)
+			require.EqualValues(t, parallelism-1, failCount)
+			require.Zero(t, badError)
+		})
+	})
+
 }
 
 /*

@@ -41,6 +41,7 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	cl.login(rootCmd)
 	cl.logout(rootCmd)
 	// current status
+	cl.health(rootCmd)
 	cl.currentState(rootCmd)
 	// get operations
 	cl.getTxByID(rootCmd)

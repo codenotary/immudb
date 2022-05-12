@@ -1,10 +1,27 @@
+/*
+Copyright 2022 CodeNotary, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package s3
 
 import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -27,6 +44,7 @@ type Storage struct {
 	secretKey   string
 	bucket      string
 	prefix      string
+	location    string
 	httpClient  *http.Client
 }
 
@@ -43,6 +61,7 @@ func Open(
 	accessKeyID string,
 	secretKey string,
 	bucket string,
+	location string,
 	prefix string,
 ) (remotestorage.Storage, error) {
 
@@ -66,6 +85,7 @@ func Open(
 		accessKeyID: accessKeyID,
 		secretKey:   secretKey,
 		bucket:      bucket,
+		location:    location,
 		prefix:      prefix,
 		httpClient: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -106,6 +126,126 @@ func (s *Storage) s3SignedRequest(
 	method string,
 	body io.Reader,
 	contentType string,
+	setupRequest func(req *http.Request) error,
+	date time.Time,
+) (
+	*http.Request,
+	error,
+) {
+	if s.location == "" {
+		// Missing location configuration, try V2 signatures that don't require it
+		return s.s3SignedRequestV2(ctx, url, method, body, contentType, setupRequest, date)
+	}
+
+	return s.s3SignedRequestV4(ctx, url, method, body, contentType, "", setupRequest, date)
+}
+
+func (s *Storage) s3SignedRequestV4(
+	ctx context.Context,
+	reqUrl string,
+	method string,
+	body io.Reader,
+	contentType string,
+	contentSha256 string,
+	setupRequest func(req *http.Request) error,
+	t time.Time,
+) (
+	*http.Request,
+	error,
+) {
+	const authorization = "AWS4-HMAC-SHA256"
+	const unsignedPayload = "UNSIGNED-PAYLOAD"
+	const serviceName = "s3"
+
+	req, err := http.NewRequestWithContext(ctx, method, reqUrl, body)
+	if err != nil {
+		return nil, err
+	}
+	err = setupRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	timeISO8601 := t.Format("20060102T150405Z")
+	timeYYYYMMDD := t.Format("20060102")
+	scope := timeYYYYMMDD + "/" + s.location + "/" + serviceName + "/aws4_request"
+	credential := s.accessKeyID + "/" + scope
+
+	if contentSha256 == "" {
+		contentSha256 = unsignedPayload
+	}
+
+	req.Header.Set("X-Amz-Date", timeISO8601)
+	req.Header.Set("X-Amz-Content-Sha256", contentSha256)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	canonicalURI := req.URL.Path // TODO: This may require some encoding
+	canonicalQueryString := req.URL.Query().Encode()
+
+	signerHeadersList := []string{"host"}
+	for h := range req.Header {
+		signerHeadersList = append(signerHeadersList, strings.ToLower(h))
+	}
+	sort.Strings(signerHeadersList)
+	signedHeaders := strings.Join(signerHeadersList, ";")
+	canonicalHeaders := ""
+	for _, h := range signerHeadersList {
+		if h == "host" {
+			canonicalHeaders = canonicalHeaders + h + ":" + req.Host + "\n"
+		} else {
+			canonicalHeaders = canonicalHeaders + h + ":" + req.Header.Get(h) + "\n"
+		}
+	}
+
+	canonicalRequest := strings.Join([]string{
+		req.Method,
+		canonicalURI,
+		canonicalQueryString,
+		canonicalHeaders,
+		signedHeaders,
+		contentSha256,
+	}, "\n")
+	canonicalRequestHash := sha256.Sum256([]byte(canonicalRequest))
+
+	stringToSign := authorization + "\n" +
+		timeISO8601 + "\n" +
+		scope + "\n" +
+		hex.EncodeToString(canonicalRequestHash[:])
+
+	hmacSha256 := func(key []byte, data []byte) []byte {
+		h := hmac.New(sha256.New, key)
+		h.Write(data)
+		return h.Sum(nil)
+	}
+
+	dateKey := hmacSha256([]byte("AWS4"+s.secretKey), []byte(timeYYYYMMDD))
+	dateRegionKey := hmacSha256(dateKey, []byte(s.location))
+	dateRegionServiceKey := hmacSha256(dateRegionKey, []byte(serviceName))
+	signingKey := hmacSha256(dateRegionServiceKey, []byte("aws4_request"))
+
+	signature := hex.EncodeToString(hmacSha256(signingKey, []byte(stringToSign)))
+
+	req.Header.Set("Authorization", fmt.Sprintf(
+		"%s Credential=%s,SignedHeaders=%s,Signature=%s",
+		authorization,
+		credential,
+		signedHeaders,
+		signature,
+	))
+
+	return req, nil
+}
+
+func (s *Storage) s3SignedRequestV2(
+	ctx context.Context,
+	url string,
+	method string,
+	body io.Reader,
+	contentType string,
+	setupRequest func(req *http.Request) error,
+	t time.Time,
 ) (
 	*http.Request,
 	error,
@@ -114,8 +254,12 @@ func (s *Storage) s3SignedRequest(
 	if err != nil {
 		return nil, err
 	}
+	err = setupRequest(req)
+	if err != nil {
+		return nil, err
+	}
 
-	date := time.Now().UTC().Format(http.TimeFormat)
+	date := t.Format(http.TimeFormat)
 	req.Header.Set("Date", date)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -178,7 +322,10 @@ func (s *Storage) Get(ctx context.Context, name string, offs, size int64) (io.Re
 		return nil, err
 	}
 
-	return resp.Body, nil
+	return &metricsCountingReadCloser{
+		r: resp.Body,
+		c: metricsDownloadBytes,
+	}, nil
 }
 
 func (s *Storage) requestWithRedirects(
@@ -198,12 +345,15 @@ func (s *Storage) requestWithRedirects(
 			return nil, err
 		}
 
-		req, err := s.s3SignedRequest(ctx, reqURL, method, data, contentType)
-		if err != nil {
-			return nil, err
-		}
-
-		err = setupRequest(req)
+		req, err := s.s3SignedRequest(
+			ctx,
+			reqURL,
+			method,
+			data,
+			contentType,
+			setupRequest,
+			time.Now().UTC(),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +458,12 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 			if err != nil {
 				return nil, "", err
 			}
-			return ioutil.NopCloser(fl), "application/octet-stream", nil
+			return &metricsCountingReadCloser{
+					r: ioutil.NopCloser(fl),
+					c: metricsUploadBytes,
+				},
+				"application/octet-stream",
+				nil
 		},
 		func(req *http.Request) error {
 			req.ContentLength = flStat.Size()
@@ -323,7 +478,7 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 }
 
 // Exists checks if a remove resource exists and can be read.
-// Note that due to an asynchronous nature of cluod storage,
+// Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {

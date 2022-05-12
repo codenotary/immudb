@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ var maintenanceMethods = map[string]struct{}{
 	// admin methods
 	"ListUsers":    {},
 	"Dump":         {},
+	"FlushIndex":   {},
 	"CompactIndex": {},
 }
 
@@ -95,6 +96,8 @@ var methodsPermissions = map[string][]uint32{
 	"CountAll":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DatabaseList":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CurrentState":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DatabaseHealth":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DatabaseSettings":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"SQLExec":                {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"UseSnapshot":            {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"SQLQuery":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
@@ -112,7 +115,11 @@ var methodsPermissions = map[string][]uint32{
 	"UpdateAuthConfig": {PermissionSysAdmin},
 	"UpdateMTLSConfig": {PermissionSysAdmin},
 	"CreateDatabase":   {PermissionSysAdmin},
+	"CreateDatabaseV2": {PermissionSysAdmin},
+	"UpdateDatabase":   {PermissionSysAdmin},
+	"UpdateDatabaseV2": {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"FlushIndex":       {PermissionSysAdmin, PermissionAdmin},
 	"CompactIndex":     {PermissionSysAdmin, PermissionAdmin},
 	"ExportTx":         {PermissionSysAdmin, PermissionAdmin},
 	"ReplicateTx":      {PermissionSysAdmin, PermissionAdmin},

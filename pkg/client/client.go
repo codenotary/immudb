@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -97,14 +97,24 @@ type ImmuClient interface {
 	SetupDialOptions(options *Options) []grpc.DialOption
 
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+	DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error)
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
+	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
+	LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error)
+	UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error)
+	DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
+	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
+	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
+	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error)
 
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
+	FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error)
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
+	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
@@ -133,6 +143,9 @@ type ImmuClient interface {
 
 	TxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
 	VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
+
+	TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error)
+
 	TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error)
 
 	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
@@ -162,7 +175,7 @@ type ImmuClient interface {
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error)
 
-	ExportTx(ctx context.Context, req *schema.TxRequest) (schema.ImmuService_ExportTxClient, error)
+	ExportTx(ctx context.Context, req *schema.ExportTxRequest) (schema.ImmuService_ExportTxClient, error)
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
@@ -326,7 +339,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 	if c.serverSigningPubKey != nil {
 		uic = append(uic, c.SignatureVerifierInterceptor)
 	}
-	uic = append(uic, c.IllegalStateHandlerInterceptor)
+	uic = append(uic, c.IllegalStateHandlerInterceptor, c.TokenInterceptor)
 
 	if options.Auth && c.Tkns != nil {
 		token, err := c.Tkns.GetToken()
@@ -336,7 +349,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
 		}
 	}
-	uic = append(uic, c.TokenInterceptor, c.SessionIDInjectorInterceptor)
+	uic = append(uic, c.SessionIDInjectorInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
@@ -410,6 +423,10 @@ func (c *immuClient) GetOptions() *Options {
 
 // Deprecated: use user list instead
 func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
@@ -534,6 +551,14 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 
 	return nil
+}
+
+func (c *immuClient) Health(ctx context.Context) (*schema.DatabaseHealthResponse, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.DatabaseHealth(ctx, &empty.Empty{})
 }
 
 // CurrentState returns current database state
@@ -921,6 +946,10 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 
 // ExecAll ...
 func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
 	txhdr, err := c.ServiceClient.ExecAll(ctx, req)
 	if err != nil {
 		return nil, err
@@ -977,6 +1006,14 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	decodeTxEntries(t.Entries)
 
 	return t, err
+}
+
+func (c *immuClient) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.TxById(ctx, req)
 }
 
 // VerifiedTxByID returns a verified tx
@@ -1437,7 +1474,73 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
-// UseDatabase create a new database by making a grpc call
+// CreateDatabaseV2 create a new database by making a grpc call
+func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name:     name,
+		Settings: settings,
+	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
+
+	return res, nil
+}
+
+// LoadDatabase open an existent database by making a grpc call
+func (c *immuClient) LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.LoadDatabase(ctx, r)
+
+	c.Logger.Debugf("LoadDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+// UnloadDatabase closes an existent database by making a grpc call
+func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.UnloadDatabase(ctx, r)
+
+	c.Logger.Debugf("UnloadDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+// DeleteDatabase deletes an existent database by making a grpc call
+func (c *immuClient) DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.DeleteDatabase(ctx, r)
+
+	c.Logger.Debugf("DeleteDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+// UseDatabase set database in use by making a grpc call
 func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	start := time.Now()
 
@@ -1476,6 +1579,64 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
 
 	return err
+}
+
+// UpdateDatabaseV2 updates database settings
+func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
+		Database: database,
+		Settings: settings,
+	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	c.Logger.Debugf("UpdateDatabase finished in %s", time.Since(start))
+
+	return res, err
+}
+
+func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
+}
+
+func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.GetDatabaseSettingsV2(ctx, &schema.DatabaseSettingsRequest{})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	return res, nil
+}
+
+func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	res, err := c.ServiceClient.FlushIndex(ctx, &schema.FlushIndexRequest{
+		CleanupPercentage: cleanupPercentage,
+		Synced:            synced,
+	})
+	if err != nil {
+		return nil, errors.FromError(err)
+	}
+
+	return res, nil
 }
 
 func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
@@ -1539,6 +1700,14 @@ func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResp
 	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
 
 	return result, err
+}
+
+func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
 }
 
 // DEPRECATED: Please use CurrentState

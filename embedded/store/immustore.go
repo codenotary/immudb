@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx ex
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrPreconditionFailed = errors.New("precondition failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
@@ -70,11 +71,26 @@ var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange
 var ErrUnexpectedError = errors.New("unexpected error")
 var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
 var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
+var ErrInvalidOptions = errors.New("invalid options")
+
+var ErrInvalidPrecondition = errors.New("invalid precondition")
+var ErrInvalidPreconditionTooMany = fmt.Errorf("%w: too many preconditions", ErrInvalidPrecondition)
+var ErrInvalidPreconditionNull = fmt.Errorf("%w: null", ErrInvalidPrecondition)
+var ErrInvalidPreconditionNullKey = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrNullKey)
+var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrorMaxKeyLenExceeded)
+var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidPrecondition)
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
 var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
+
+var ErrMetadataUnsupported = errors.New(
+	"metadata is unsupported when in 1.1 compatibility mode, " +
+		"do not use metadata-related features such as expiration and logical deletion",
+)
+
+var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization method")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
@@ -88,7 +104,7 @@ const sszSize = 2
 const offsetSize = 8
 
 const Version = 1
-const TxHeaderVersion = 1
+const MaxTxHeaderVersion = 1
 
 const (
 	metaVersion      = "VERSION"
@@ -104,7 +120,7 @@ const ahtDirname = "aht"
 type ImmuStore struct {
 	path string
 
-	log              logger.Logger
+	logger           logger.Logger
 	lastNotification time.Time
 	notifyMutex      sync.Mutex
 
@@ -132,6 +148,8 @@ type ImmuStore struct {
 	maxLinearProofLen int
 
 	maxTxSize int
+
+	writeTxHeaderVersion int
 
 	timeFunc TimeFunc
 
@@ -164,8 +182,9 @@ type refVLog struct {
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
-	if !validOptions(opts) {
-		return nil, ErrIllegalArguments
+	err := opts.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrIllegalArguments, err)
 	}
 
 	finfo, err := os.Stat(path)
@@ -239,8 +258,13 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 }
 
 func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
-	if !validOptions(opts) || len(vLogs) == 0 || txLog == nil || cLog == nil {
+	if len(vLogs) == 0 || txLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
+	}
+
+	err := opts.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrIllegalArguments, err)
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
@@ -378,7 +402,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store := &ImmuStore{
 		path:               path,
-		log:                opts.log,
+		logger:             opts.logger,
 		txLog:              txLog,
 		txLogCache:         txLogCache,
 		vLogs:              vLogsMap,
@@ -399,6 +423,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		maxLinearProofLen: opts.MaxLinearProofLen,
 
 		maxTxSize: maxTxSize,
+
+		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
 		timeFunc: opts.TimeFunc,
 
@@ -422,16 +448,29 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
-		WithLog(opts.log).
+		WithLogger(opts.logger).
 		WithFileSize(fileSize).
-		WithSynced(opts.Synced). // built from derived data, but temporarily modified to reduce chances of data inconsistencies until a better solution is implemented
 		WithCacheSize(opts.IndexOpts.CacheSize).
 		WithFlushThld(opts.IndexOpts.FlushThld).
+		WithSyncThld(opts.IndexOpts.SyncThld).
+		WithFlushBufferSize(opts.IndexOpts.FlushBufferSize).
+		WithCleanupPercentage(opts.IndexOpts.CleanupPercentage).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
+		WithMaxKeySize(opts.MaxKeyLen).
+		WithMaxValueSize(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
+		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).
+		WithHistoryLogMaxOpenedFiles(opts.IndexOpts.HistoryLogMaxOpenedFiles).
+		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
 		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+
+	err = indexOpts.Validate()
+	if err != nil {
+		store.Close()
+		return nil, fmt.Errorf("%w: invalid index options", err)
+	}
 
 	if opts.appFactory != nil {
 		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
@@ -443,6 +482,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
 	if err != nil {
+		store.Close()
 		return nil, fmt.Errorf("could not open indexer: %w", err)
 	}
 
@@ -490,15 +530,15 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 		switch nType {
 		case Info:
 			{
-				s.log.Infof(formattedMessage, args...)
+				s.logger.Infof(formattedMessage, args...)
 			}
 		case Warn:
 			{
-				s.log.Warningf(formattedMessage, args...)
+				s.logger.Warningf(formattedMessage, args...)
 			}
 		case Error:
 			{
-				s.log.Errorf(formattedMessage, args...)
+				s.logger.Errorf(formattedMessage, args...)
 			}
 		}
 		s.lastNotification = time.Now()
@@ -514,7 +554,7 @@ func (s *ImmuStore) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
 }
 
 func (s *ImmuStore) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreDeleted)
+	return s.GetWith(key, IgnoreExpired, IgnoreDeleted)
 }
 
 func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
@@ -530,16 +570,14 @@ func (s *ImmuStore) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, e
 
 	now := time.Now()
 
-	if IgnoreExpired(valRef, now) {
-		return nil, ErrExpiredEntry
-	}
-
 	for _, filter := range filters {
 		if filter == nil {
-			return nil, ErrIllegalArguments
+			return nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
 		}
-		if filter(valRef, now) {
-			return nil, ErrKeyNotFound
+
+		err = filter(valRef, now)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -601,7 +639,7 @@ func (s *ImmuStore) binaryLinking() {
 				_, _, err := s.aht.Append(alh[:])
 				if err != nil {
 					s.SetBlErr(err)
-					s.log.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
+					s.logger.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
 					return
 				}
 			}
@@ -634,11 +672,11 @@ func (s *ImmuStore) BlInfo() (uint64, error) {
 
 func (s *ImmuStore) syncBinaryLinking() error {
 	if s.aht.Size() == s.committedTxID {
-		s.log.Infof("Binary Linking up to date at '%s'", s.path)
+		s.logger.Infof("Binary Linking up to date at '%s'", s.path)
 		return nil
 	}
 
-	s.log.Infof("Syncing Binary Linking at '%s'...", s.path)
+	s.logger.Infof("Syncing Binary Linking at '%s'...", s.path)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -664,11 +702,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		s.aht.Append(alh[:])
 
 		if tx.header.ID%1000 == 0 {
-			s.log.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
+			s.logger.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
 		}
 	}
 
-	s.log.Infof("Binary Linking up to date at '%s'", s.path)
+	s.logger.Infof("Binary Linking up to date at '%s'", s.path)
 
 	return nil
 }
@@ -686,6 +724,10 @@ func (s *ImmuStore) CompactIndex() error {
 		return ErrCompactionUnsupported
 	}
 	return s.indexer.CompactIndex()
+}
+
+func (s *ImmuStore) FlushIndex(cleanupPercentage float32, synced bool) error {
+	return s.indexer.FlushIndex(cleanupPercentage, synced)
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen int) int {
@@ -786,30 +828,18 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
 	return vLogID, s.vLogs[vLogID-1].vLog
 }
 
-func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
+func (s *ImmuStore) fetchVLog(vLogID byte) appendable.Appendable {
 	s.vLogsCond.L.Lock()
 	defer s.vLogsCond.L.Unlock()
 
 	for s.vLogs[vLogID-1].unlockedRef == nil {
-		if checkClosed {
-			s.mutex.Lock()
-			if s.closed {
-				err = ErrAlreadyClosed
-			}
-			s.mutex.Unlock()
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
 		s.vLogsCond.Wait()
 	}
 
 	s.vLogUnlockedList.Remove(s.vLogs[vLogID-1].unlockedRef)
 	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
-	return s.vLogs[vLogID-1].vLog, nil
+	return s.vLogs[vLogID-1].vLog
 }
 
 func (s *ImmuStore) releaseVLog(vLogID byte) {
@@ -878,6 +908,35 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		return nil, err
 	}
 
+	err = s.validatePreconditions(otx.preconditions)
+	if err != nil {
+		return nil, err
+	}
+
+	if otx.hasPreconditions() {
+		// First check is performed on the currently committed transaction.
+		// It may happen that between now and the commit of this change there are
+		// more transactions happening. This check though will prevent acquiring
+		// the write lock and putting garbage into appendables if we can already
+		// determine that preconditions are not met.
+
+		// A corner case is if the DB fails to meet preconditions now but would fulfill
+		// those during final commit phase - but in such case, we are allowed to reason
+		// about the DB state in any point in time between both checks thus it is still
+		// valid to fail precondition check.
+
+		committedTxID, _, _ := s.commitState()
+		err = s.WaitForIndexingUpto(committedTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = otx.checkPreconditions(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// early check to reduce amount of garbage when tx is not finally committed
 	s.mutex.Lock()
 	if s.closed {
@@ -889,6 +948,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
 	}
+
 	s.mutex.Unlock()
 
 	var ts int64
@@ -898,7 +958,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
-		version = TxHeaderVersion
+		version = s.writeTxHeaderVersion
 	} else {
 		ts = expectedHeader.Ts
 		blTxID = expectedHeader.BlTxID
@@ -987,6 +1047,21 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.committedTxID {
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
+	}
+
+	if otx.hasPreconditions() {
+		// Preconditions must be executed with up-to-date tree
+		err = s.WaitForIndexingUpto(s.committedTxID, nil)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
+
+		err = otx.checkPreconditions(s)
+		if err != nil {
+			s.mutex.Unlock()
+			return nil, err
+		}
 	}
 
 	for i := 0; i < tx.header.NEntries; i++ {
@@ -1196,7 +1271,7 @@ func (s *ImmuStore) commitState() (txID uint64, txAlh [sha256.Size]byte, clogSiz
 	return s.committedTxID, s.committedAlh, s.committedTxLogSize
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error), waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error), waitForIndexing bool) (*TxHeader, error) {
 	hdr, err := s.commitWith(callback)
 	if err != nil {
 		return nil, err
@@ -1229,7 +1304,7 @@ func (index *unsafeIndex) GetWith(key []byte, filters ...FilterFn) (ValueRef, er
 	return index.st.GetWith(key, filters...)
 }
 
-func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, error)) (*TxHeader, error) {
+func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1241,36 +1316,64 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 		return nil, ErrAlreadyClosed
 	}
 
+	otx, err := s.NewWriteOnlyTx()
+	if err != nil {
+		return nil, err
+	}
+	defer otx.Cancel()
+
 	s.indexer.Pause()
 	defer s.indexer.Resume()
 
 	committedTxID, _, _ := s.commitState()
 	txID := committedTxID + 1
 
-	entries, err := callback(txID, &unsafeIndex{st: s})
+	otx.entries, otx.preconditions, err = callback(txID, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.validateEntries(entries)
+	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
+	}
+
+	err = s.validatePreconditions(otx.preconditions)
+	if err != nil {
+		return nil, err
+	}
+
+	if otx.hasPreconditions() {
+		s.indexer.Resume()
+
+		// Preconditions must be executed with up-to-date tree
+		err = s.WaitForIndexingUpto(committedTxID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = otx.checkPreconditions(s)
+		if err != nil {
+			return nil, err
+		}
+
+		s.indexer.Pause()
 	}
 
 	appendableCh := make(chan appendableResult)
-	go s.appendData(entries, appendableCh)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		<-appendableCh // wait for data to be writen
+		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.header.Version = TxHeaderVersion
-	tx.header.NEntries = len(entries)
+	tx.header.Version = s.writeTxHeaderVersion
+	tx.header.NEntries = len(otx.entries)
 
-	for i, e := range entries {
+	for i, e := range otx.entries {
 		txe := tx.entries[i]
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
@@ -1280,11 +1383,11 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*En
 
 	err = tx.BuildHashTree()
 	if err != nil {
-		<-appendableCh // wait for data to be writen
+		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 
-	r := <-appendableCh // wait for data to be writen
+	r := <-appendableCh // wait for data to be written
 	err = r.err
 	if err != nil {
 		return nil, err
@@ -1340,7 +1443,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	if sourceTx.header.BlTxID > targetTx.header.BlTxID {
-		return nil, ErrorCorruptedTxData
+		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrorCorruptedTxData, sourceTx.header.ID)
 	}
 
 	if sourceTx.header.BlTxID > 0 {
@@ -1499,7 +1602,10 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 
 	var buf bytes.Buffer
 
-	hdrBs := tx.Header().Bytes()
+	hdrBs, err := tx.Header().Bytes()
+	if err != nil {
+		return nil, err
+	}
 
 	var b [lszSize]byte
 	binary.BigEndian.PutUint32(b[:], uint32(len(hdrBs)))
@@ -1657,6 +1763,76 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
+func (s *ImmuStore) FirstTxSince(ts time.Time) (*Tx, error) {
+	left := uint64(1)
+	right, _, _ := s.commitState()
+
+	for left < right {
+		middle := left + (right-left)/2
+
+		tx := s.NewTxHolder()
+
+		err := s.ReadTx(middle, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if tx.header.Ts < ts.Unix() {
+			left = middle + 1
+		} else {
+			right = middle
+		}
+	}
+
+	tx := s.NewTxHolder()
+
+	err := s.ReadTx(left, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if tx.header.Ts >= ts.Unix() {
+		return tx, nil
+	}
+
+	return nil, ErrTxNotFound
+}
+
+func (s *ImmuStore) LastTxUntil(ts time.Time) (*Tx, error) {
+	left := uint64(1)
+	right, _, _ := s.commitState()
+
+	for left < right {
+		middle := left + ((right-left)+1)/2
+
+		tx := s.NewTxHolder()
+
+		err := s.ReadTx(middle, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if tx.header.Ts > ts.Unix() {
+			right = middle - 1
+		} else {
+			left = middle
+		}
+	}
+
+	tx := s.NewTxHolder()
+
+	err := s.ReadTx(left, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if tx.header.Ts <= ts.Unix() {
+		return tx, nil
+	}
+
+	return nil, ErrTxNotFound
+}
+
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	cacheMiss := false
 
@@ -1685,7 +1861,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 	err = tx.readFrom(r)
 	if err == io.EOF {
-		return ErrorCorruptedTxData
+		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
 	}
 
 	return err
@@ -1720,10 +1896,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	vLogID, offset := decodeOffset(off)
 
 	if vLogID > 0 {
-		vLog, err := s.fetchVLog(vLogID, true)
-		if err != nil {
-			return 0, err
-		}
+		vLog := s.fetchVLog(vLogID)
 		defer s.releaseVLog(vLogID)
 
 		n, err := vLog.ReadAt(b, offset)
@@ -1773,6 +1946,25 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 	return nil
 }
 
+func (s *ImmuStore) validatePreconditions(preconditions []Precondition) error {
+
+	if len(preconditions) > s.maxTxEntries {
+		return ErrInvalidPreconditionTooMany
+	}
+
+	for _, c := range preconditions {
+		if c == nil {
+			return ErrInvalidPreconditionNull
+		}
+
+		err := c.Validate(s)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *ImmuStore) Sync() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1782,7 +1974,7 @@ func (s *ImmuStore) Sync() error {
 	}
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog := s.fetchVLog(i + 1)
 		defer s.releaseVLog(i + 1)
 
 		err := vLog.Sync()
@@ -1801,7 +1993,19 @@ func (s *ImmuStore) Sync() error {
 		return err
 	}
 
+	err = s.aht.Sync()
+	if err != nil {
+		return err
+	}
+
 	return s.indexer.Sync()
+}
+
+func (s *ImmuStore) IsClosed() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.closed
 }
 
 func (s *ImmuStore) Close() error {
@@ -1817,25 +2021,28 @@ func (s *ImmuStore) Close() error {
 	merr := multierr.NewMultiErr()
 
 	for i := range s.vLogs {
-		vLog, _ := s.fetchVLog(i+1, false)
+		vLog := s.fetchVLog(i + 1)
 
 		err := vLog.Close()
 		merr.Append(err)
+
+		s.releaseVLog(i + 1)
 	}
-	s.vLogsCond.Broadcast()
 
 	if s.blBuffer != nil && s.blErr == nil && s.blDone != nil {
-		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
+		s.logger.Infof("Stopping Binary Linking at '%s'...", s.path)
 		s.blDone <- struct{}{}
-		s.log.Infof("Binary linking gracefully stopped at '%s'", s.path)
+		s.logger.Infof("Binary linking gracefully stopped at '%s'", s.path)
 		close(s.blBuffer)
 	}
 
 	err := s.wHub.Close()
 	merr.Append(err)
 
-	err = s.indexer.Close()
-	merr.Append(err)
+	if s.indexer != nil {
+		err = s.indexer.Close()
+		merr.Append(err)
+	}
 
 	err = s.txLog.Close()
 	merr.Append(err)
@@ -1851,7 +2058,7 @@ func (s *ImmuStore) Close() error {
 
 func (s *ImmuStore) wrapAppendableErr(err error, action string) error {
 	if err == singleapp.ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed {
-		s.log.Warningf("Got '%v' while '%s'", err, action)
+		s.logger.Warningf("Got '%v' while '%s'", err, action)
 		return ErrAlreadyClosed
 	}
 

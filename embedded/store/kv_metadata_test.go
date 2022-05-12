@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ func TestKVMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, md.Deleted())
 	require.False(t, md.IsExpirable())
+	require.False(t, md.NonIndexable())
 
 	_, err = md.ExpirationTime()
 	require.ErrorIs(t, err, ErrNonExpirable)
@@ -49,11 +50,15 @@ func TestKVMetadata(t *testing.T) {
 		require.False(t, desmd.Deleted())
 		require.False(t, md.IsExpirable())
 		require.False(t, md.ExpiredAt(now))
+		require.False(t, md.NonIndexable())
 
 		err = desmd.AsDeleted(true)
 		require.ErrorIs(t, err, ErrReadOnly)
 
 		err = desmd.ExpiresAt(now)
+		require.ErrorIs(t, err, ErrReadOnly)
+
+		err = desmd.AsNonIndexable(true)
 		require.ErrorIs(t, err, ErrReadOnly)
 	})
 
@@ -83,6 +88,12 @@ func TestKVMetadata(t *testing.T) {
 	require.Equal(t, now, expTime)
 	require.True(t, desmd.ExpiredAt(now))
 
+	desmd.AsNonIndexable(false)
+	require.False(t, desmd.NonIndexable())
+
+	desmd.AsNonIndexable(true)
+	require.True(t, desmd.NonIndexable())
+
 	bs = desmd.Bytes()
 	require.NotNil(t, bs)
 	require.Len(t, bs, maxKVMetadataLen)
@@ -92,4 +103,5 @@ func TestKVMetadata(t *testing.T) {
 	require.True(t, desmd.Deleted())
 	require.True(t, desmd.IsExpirable())
 	require.True(t, desmd.ExpiredAt(now))
+	require.True(t, desmd.NonIndexable())
 }

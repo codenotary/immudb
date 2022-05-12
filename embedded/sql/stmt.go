@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -210,8 +210,7 @@ func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 }
 
 type UseSnapshotStmt struct {
-	sinceTx  uint64
-	asBefore uint64
+	period period
 }
 
 func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -575,7 +574,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		}
 
 		if err == store.ErrKeyNotFound && pkMustExist {
-			return nil, err
+			return nil, fmt.Errorf("%w: specified value must be greater than current one", ErrInvalidValue)
 		}
 
 		if stmt.isInsert {
@@ -608,11 +607,11 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 		}
 
 		if err == nil {
-			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.Values))
+			currValuesByColID := make(map[uint32]TypedValue, len(currPKRow.ValuesBySelector))
 
 			for _, col := range table.cols {
 				encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-				currValuesByColID[col.id] = currPKRow.Values[encSel]
+				currValuesByColID[col.id] = currPKRow.ValuesBySelector[encSel]
 			}
 
 			reusableIndexEntries, err = tx.deprecateIndexEntries(pkEncVals, currValuesByColID, valuesByColID, table)
@@ -778,11 +777,11 @@ func (tx *SQLTx) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 	}
 
 	scanSpecs := &ScanSpecs{
-		index:         table.primaryIndex,
+		Index:         table.primaryIndex,
 		rangesByColID: pkRanges,
 	}
 
-	r, err := newRawRowReader(tx, table, 0, table.name, scanSpecs)
+	r, err := newRawRowReader(tx, nil, table, period{}, table.name, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +961,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 	}
 	defer rowReader.Close()
 
-	table := rowReader.ScanSpecs().index.table
+	table := rowReader.ScanSpecs().Index.table
 
 	err = stmt.validate(table)
 	if err != nil {
@@ -980,11 +979,11 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 			break
 		}
 
-		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+		valuesByColID := make(map[uint32]TypedValue, len(row.ValuesBySelector))
 
 		for _, col := range table.cols {
 			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-			valuesByColID[col.id] = row.Values[encSel]
+			valuesByColID[col.id] = row.ValuesBySelector[encSel]
 		}
 
 		for _, update := range stmt.updates {
@@ -1067,7 +1066,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	}
 	defer rowReader.Close()
 
-	table := rowReader.ScanSpecs().index.table
+	table := rowReader.ScanSpecs().Index.table
 
 	for {
 		row, err := rowReader.Read()
@@ -1078,11 +1077,11 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			return nil, err
 		}
 
-		valuesByColID := make(map[uint32]TypedValue, len(row.Values))
+		valuesByColID := make(map[uint32]TypedValue, len(row.ValuesBySelector))
 
 		for _, col := range table.cols {
 			encSel := EncodeSelector("", table.db.name, table.name, col.colName)
-			valuesByColID[col.id] = row.Values[encSel]
+			valuesByColID[col.id] = row.ValuesBySelector[encSel]
 		}
 
 		pkEncVals, err := encodedPK(table, valuesByColID)
@@ -1723,7 +1722,7 @@ type Cast struct {
 
 type converterFunc func(TypedValue) (TypedValue, error)
 
-func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
+func getConverter(src, dst SQLValueType) (converterFunc, error) {
 	if dst == TimestampType {
 
 		if src == IntegerType {
@@ -1779,15 +1778,12 @@ func (c *Cast) getConverter(src, dst SQLValueType) (converterFunc, error) {
 }
 
 func (c *Cast) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	valType, err := c.val.inferType(cols, params, implicitDB, implicitTable)
+	_, err := c.val.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
 
-	_, err = c.getConverter(valType, c.t)
-	if err != nil {
-		return AnyType, err
-	}
+	// val type may be restricted by compatible conversions, but multiple types may be compatible...
 
 	return c.t, nil
 }
@@ -1820,7 +1816,7 @@ func (c *Cast) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable stri
 		return nil, err
 	}
 
-	conv, err := c.getConverter(val.Type(), c.t)
+	conv, err := getConverter(val.Type(), c.t)
 	if conv == nil {
 		return nil, err
 	}
@@ -1944,7 +1940,7 @@ const (
 )
 
 type DataSource interface {
-	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
+	SQLStmt
 	Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
@@ -1961,12 +1957,6 @@ type SelectStmt struct {
 	limit     int
 	orderBy   []*OrdCol
 	as        string
-}
-
-type ScanSpecs struct {
-	index         *Index
-	rangesByColID map[uint32]*typedValueRange
-	descOrder     bool
 }
 
 func (stmt *SelectStmt) Limit() int {
@@ -2043,14 +2033,14 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = newJointRowReader(rowReader, stmt.joins, params)
+		rowReader, err = newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if stmt.where != nil {
-		rowReader, err = newConditionalRowReader(rowReader, stmt.where, params)
+		rowReader, err = newConditionalRowReader(rowReader, stmt.where)
 		if err != nil {
 			return nil, err
 		}
@@ -2076,7 +2066,7 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 		}
 
 		if stmt.having != nil {
-			rowReader, err = newConditionalRowReader(rowReader, stmt.having, params)
+			rowReader, err = newConditionalRowReader(rowReader, stmt.having)
 			if err != nil {
 				return nil, err
 			}
@@ -2185,17 +2175,170 @@ func (stmt *SelectStmt) genScanSpecs(tx *SQLTx, params map[string]interface{}) (
 	}
 
 	return &ScanSpecs{
-		index:         sortingIndex,
+		Index:         sortingIndex,
 		rangesByColID: rangesByColID,
-		descOrder:     descOrder,
+		DescOrder:     descOrder,
 	}, nil
 }
 
+type UnionStmt struct {
+	distinct    bool
+	left, right DataSource
+}
+
+func (stmt *UnionStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	err := stmt.left.inferParameters(tx, params)
+	if err != nil {
+		return err
+	}
+
+	return stmt.right.inferParameters(tx, params)
+}
+
+func (stmt *UnionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	_, err := stmt.left.execAt(tx, params)
+	if err != nil {
+		return tx, err
+	}
+
+	return stmt.right.execAt(tx, params)
+}
+
+func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+	leftRowReader, err := stmt.left.Resolve(tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rowReader, err = newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	if err != nil {
+		return nil, err
+	}
+
+	if stmt.distinct {
+		return newDistinctRowReader(rowReader)
+	}
+
+	return rowReader, nil
+}
+
+func (stmt *UnionStmt) Alias() string {
+	return ""
+}
+
 type tableRef struct {
-	db       string
-	table    string
-	asBefore uint64
-	as       string
+	db     string
+	table  string
+	period period
+	as     string
+}
+
+type period struct {
+	start *openPeriod
+	end   *openPeriod
+}
+
+type openPeriod struct {
+	inclusive bool
+	instant   periodInstant
+}
+
+type periodInstant struct {
+	exp         ValueExp
+	instantType instantType
+}
+
+type instantType = int
+
+const (
+	txInstant instantType = iota
+	timeInstant
+)
+
+func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, inclusive bool) (uint64, error) {
+	exp, err := i.exp.substitute(params)
+	if err != nil {
+		return 0, err
+	}
+
+	instantVal, err := exp.reduce(tx.catalog, nil, tx.currentDB.name, "")
+	if err != nil {
+		return 0, err
+	}
+
+	if i.instantType == txInstant {
+		txID, ok := instantVal.Value().(int64)
+		if !ok {
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be a positive integer, %s given", ErrIllegalArguments, instantVal.Type())
+		}
+
+		if txID <= 0 {
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be a positive integer, %d given", ErrIllegalArguments, txID)
+		}
+
+		if inclusive {
+			return uint64(txID), nil
+		}
+
+		if asc {
+			return uint64(txID + 1), nil
+		}
+
+		if txID <= 1 {
+			return 0, fmt.Errorf("%w: invalid tx range, tx ID must be greater than 1, %d given", ErrIllegalArguments, txID)
+		}
+
+		return uint64(txID - 1), nil
+	} else {
+		var ts time.Time
+
+		if instantVal.Type() == TimestampType {
+			ts = instantVal.Value().(time.Time)
+		} else {
+			conv, err := getConverter(instantVal.Type(), TimestampType)
+			if err != nil {
+				return 0, err
+			}
+
+			tval, err := conv(instantVal)
+			if err != nil {
+				return 0, err
+			}
+
+			ts = tval.Value().(time.Time)
+		}
+
+		sts := ts
+
+		if asc {
+			if !inclusive {
+				sts = sts.Add(1 * time.Second)
+			}
+
+			tx, err := tx.engine.store.FirstTxSince(sts)
+			if err != nil {
+				return 0, err
+			}
+
+			return tx.Header().ID, nil
+		}
+
+		if !inclusive {
+			sts = sts.Add(-1 * time.Second)
+		}
+
+		tx, err := tx.engine.store.LastTxUntil(sts)
+		if err != nil {
+			return 0, err
+		}
+
+		return tx.Header().ID, nil
+	}
 }
 
 func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
@@ -2230,6 +2373,10 @@ func (stmt *tableRef) inferParameters(tx *SQLTx, params map[string]SQLValueType)
 	return nil
 }
 
+func (stmt *tableRef) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	return tx, nil
+}
+
 func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
 	if tx == nil {
 		return nil, ErrIllegalArguments
@@ -2240,7 +2387,7 @@ func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpec
 		return nil, err
 	}
 
-	return newRawRowReader(tx, table, stmt.asBefore, stmt.as, scanSpecs)
+	return newRawRowReader(tx, params, table, stmt.period, stmt.as, scanSpecs)
 }
 
 func (stmt *tableRef) Alias() string {
@@ -2341,7 +2488,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
 
-	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
+	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, col)
 	}
@@ -2352,7 +2499,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 func (sel *ColSelector) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
 
-	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
+	v, ok := row.ValuesBySelector[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
 		return sel
 	}
@@ -2443,7 +2590,7 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, ok := row.Values[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
+	v, ok := row.ValuesBySelector[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
 	if !ok {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, sel.col)
 	}

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/sessions"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -85,14 +87,11 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
-	loggedInuser := &auth.User{}
-	var err error
-
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 
-	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +148,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	s.Logger.Debugf("ListUsers")
 
 	loggedInuser := &auth.User{}
-	var dbInd = int64(0)
+	var db database.DB
 	var err error
 	userlist := &schema.UserList{}
 
@@ -158,9 +157,18 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 
+		var dbInd int
+
 		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, err
+		}
+
+		if dbInd >= 0 {
+			db, err = s.dbList.GetByIndex(dbInd)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -207,9 +215,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 
 		return userlist, nil
 
-	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()) == auth.PermissionAdmin {
+	} else if db != nil && loggedInuser.WhichPermission(db.GetName()) == auth.PermissionAdmin {
 		// for admin users return only users for the database that is has selected
-		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDBName()
+		selectedDbname := db.GetName()
 		userlist := &schema.UserList{}
 
 		for i := 0; i < len(itemList.Entries); i++ {
@@ -441,10 +449,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		return nil, fmt.Errorf("username can not be empty")
 	}
 
-	user := &auth.User{}
-	var err error
-
-	_, user, err = s.getLoggedInUserdataFromCtx(ctx)
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -599,7 +604,7 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 	s.userdata.Userdata[u.Username] = u
 }
 
-func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
+func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth.User, error) {
 	if sessionID, err := sessions.GetSessionIDFromContext(ctx); err == nil {
 		sess, e := s.SessManager.GetSession(sessionID)
 		if e != nil {
@@ -613,7 +618,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 	}
 
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
-	return jsUser.DatabaseIndex, u, err
+	return int(jsUser.DatabaseIndex), u, err
 }
 
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {

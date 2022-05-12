@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import (
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("multi-appendable already closed")
-var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
 
 const (
 	metaFileSize    = "FILE_SIZE"
@@ -96,12 +96,14 @@ type MultiFileAppendable struct {
 	currAppID int64
 	currApp   appendable.Appendable
 
-	path     string
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
-	fileSize int
-	fileExt  string
+	path            string
+	readOnly        bool
+	synced          bool
+	fileMode        os.FileMode
+	fileSize        int
+	fileExt         string
+	readBufferSize  int
+	writeBufferSize int
 
 	closed bool
 
@@ -145,6 +147,8 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		WithFileMode(opts.fileMode).
 		WithCompressionFormat(opts.compressionFormat).
 		WithCompresionLevel(opts.compressionLevel).
+		WithReadBufferSize(opts.readBufferSize).
+		WithWriteBufferSize(opts.writeBufferSize).
 		WithMetadata(m.Bytes())
 
 	currApp, currAppID, err := hooks.OpenInitialAppendable(opts, appendableOpts)
@@ -160,17 +164,19 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
 
 	return &MultiFileAppendable{
-		appendables: appendableLRUCache{cache: cache},
-		currAppID:   currAppID,
-		currApp:     currApp,
-		path:        path,
-		readOnly:    opts.readOnly,
-		synced:      opts.synced,
-		fileMode:    opts.fileMode,
-		fileSize:    fileSize,
-		fileExt:     opts.fileExt,
-		closed:      false,
-		hooks:       hooks,
+		appendables:     appendableLRUCache{cache: cache},
+		currAppID:       currAppID,
+		currApp:         currApp,
+		path:            path,
+		readOnly:        opts.readOnly,
+		synced:          opts.synced,
+		fileMode:        opts.fileMode,
+		fileSize:        fileSize,
+		fileExt:         opts.fileExt,
+		readBufferSize:  opts.readBufferSize,
+		writeBufferSize: opts.writeBufferSize,
+		closed:          false,
+		hooks:           hooks,
 	}, nil
 }
 
@@ -347,6 +353,8 @@ func (mf *MultiFileAppendable) openAppendable(appname string, activeChunk bool) 
 		WithReadOnly(mf.readOnly).
 		WithSynced(mf.synced).
 		WithFileMode(mf.fileMode).
+		WithReadBufferSize(mf.readBufferSize).
+		WithWriteBufferSize(mf.writeBufferSize).
 		WithCompressionFormat(mf.currApp.CompressionFormat()).
 		WithCompresionLevel(mf.currApp.CompressionLevel()).
 		WithMetadata(mf.currApp.Metadata())
@@ -358,6 +366,10 @@ func (mf *MultiFileAppendable) Offset() int64 {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
+	return mf.offset()
+}
+
+func (mf *MultiFileAppendable) offset() int64 {
 	return mf.currAppID*int64(mf.fileSize) + mf.currApp.Offset()
 }
 
@@ -400,6 +412,43 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 	}
 
 	return mf.currApp.SetOffset(off % int64(mf.fileSize))
+}
+
+func (mf *MultiFileAppendable) DiscardUpto(off int64) error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
+	if mf.closed {
+		return ErrAlreadyClosed
+	}
+
+	if mf.offset() < off {
+		return fmt.Errorf("%w: discard beyond existent data boundaries", ErrIllegalArguments)
+	}
+
+	appID := appendableID(off, mf.fileSize)
+
+	for i := int64(0); i < appID; i++ {
+		if i == mf.currAppID {
+			break
+		}
+
+		app, err := mf.appendables.Pop(i)
+		if err == nil {
+			err = app.Close()
+			if err != nil {
+				return err
+			}
+		}
+
+		appFile := filepath.Join(mf.path, appendableName(i, mf.fileExt))
+		err = os.Remove(appFile)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (mf *MultiFileAppendable) appendableFor(off int64) (appendable.Appendable, error) {

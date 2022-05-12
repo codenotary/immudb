@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ package database
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -384,4 +386,59 @@ func TestStoreVerifiableReference(t *testing.T) {
 	firstItemRet, err := db.Get(keyReq)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
+}
+
+func TestStoreReferenceWithPreconditions(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+		Key:   []byte("key"),
+		Value: []byte("value"),
+	}}})
+	require.NoError(t, err)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustExist([]byte("reference")),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrPreconditionFailed)
+
+	_, err = db.Get(&schema.KeyRequest{
+		Key: []byte("reference"),
+	})
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Preconditions: []*schema.Precondition{nil},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Preconditions: []*schema.Precondition{
+			schema.PreconditionKeyMustNotExist([]byte("reference-long-key" + strings.Repeat("*", db.GetOptions().storeOpts.MaxKeyLen))),
+		},
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
+
+	c := []*schema.Precondition{}
+	for i := 0; i <= db.GetOptions().storeOpts.MaxTxEntries; i++ {
+		c = append(c,
+			schema.PreconditionKeyMustNotExist([]byte(fmt.Sprintf("key_%d", i))),
+		)
+	}
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		Preconditions: c,
+	})
+	require.ErrorIs(t, err, store.ErrInvalidPrecondition)
 }

@@ -1,5 +1,7 @@
 FROM golang:1.17 as build
 WORKDIR /src
+COPY go.mod go.sum /src/
+RUN go mod download -x
 COPY . .
 RUN rm -rf /src/webconsole/dist
 RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-static
@@ -10,6 +12,7 @@ LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
 
 COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
+COPY --from=build "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
@@ -50,8 +53,9 @@ LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
+ARG IMMUDB_HOME="/usr/share/immudb"
 
-ENV IMMUDB_HOME="/usr/share/immudb" \
+ENV IMMUDB_HOME="${IMMUDB_HOME}" \
     IMMUDB_DIR="/var/lib/immudb" \
     IMMUDB_ADDRESS="0.0.0.0" \
     IMMUDB_PORT="3322" \
@@ -71,6 +75,7 @@ COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
 COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_HOME"
 COPY --from=build --chown="$IMMU_UID:$IMMU_GID" /empty "$IMMUDB_DIR"
+COPY --from=build "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
 
 EXPOSE 3322
 EXPOSE 9497

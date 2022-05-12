@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"fmt"
 )
 
 //OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
@@ -27,6 +28,8 @@ type OngoingTx struct {
 
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
+
+	preconditions []Precondition
 
 	metadata *TxMetadata
 
@@ -182,6 +185,24 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	return nil
 }
 
+func (tx *OngoingTx) AddPrecondition(c Precondition) error {
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
+	if c == nil {
+		return ErrIllegalArguments
+	}
+
+	err := c.Validate(tx.st)
+	if err != nil {
+		return err
+	}
+
+	tx.preconditions = append(tx.preconditions, c)
+	return nil
+}
+
 func (tx *OngoingTx) ExistKeyWith(prefix, neq []byte) (bool, error) {
 	if tx.closed {
 		return false, ErrAlreadyClosed
@@ -212,7 +233,7 @@ func (tx *OngoingTx) Delete(key []byte) error {
 }
 
 func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
-	return tx.GetWith(key, IgnoreDeleted)
+	return tx.GetWith(key, IgnoreExpired, IgnoreDeleted)
 }
 
 func (tx *OngoingTx) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
@@ -275,5 +296,25 @@ func (tx *OngoingTx) Cancel() error {
 
 	tx.closed = true
 
+	return nil
+}
+
+func (tx *OngoingTx) hasPreconditions() bool {
+	return len(tx.preconditions) > 0
+}
+
+func (tx *OngoingTx) checkPreconditions(idx KeyIndex) error {
+	for _, c := range tx.preconditions {
+		if c == nil {
+			return ErrInvalidPreconditionNull
+		}
+		ok, err := c.Check(idx)
+		if err != nil {
+			return fmt.Errorf("error checking %s precondition: %w", c, err)
+		}
+		if !ok {
+			return fmt.Errorf("%w: %s", ErrPreconditionFailed, c)
+		}
+	}
 	return nil
 }

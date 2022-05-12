@@ -91,7 +91,7 @@
     },
     "/db/create": {
       "post": {
-        "summary": "DEPRECATED: kept for backward compatibility",
+        "summary": "DEPRECATED: Use CreateDatabaseV2",
         "operationId": "ImmuService_CreateDatabase",
         "responses": {
           "200": {
@@ -122,8 +122,41 @@
         ]
       }
     },
+    "/db/create/v2": {
+      "post": {
+        "operationId": "ImmuService_CreateDatabaseV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaCreateDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaCreateDatabaseRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/createwith": {
       "post": {
+        "summary": "DEPRECATED: Use CreateDatabaseV2",
         "operationId": "ImmuService_CreateDatabaseWith",
         "responses": {
           "200": {
@@ -156,12 +189,12 @@
     },
     "/db/delete": {
       "post": {
-        "operationId": "ImmuService_Delete",
+        "operationId": "ImmuService_DeleteDatabase",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxHeader"
+              "$ref": "#/definitions/schemaDeleteDatabaseResponse"
             }
           },
           "default": {
@@ -177,7 +210,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaDeleteKeysRequest"
+              "$ref": "#/definitions/schemaDeleteDatabaseRequest"
             }
           }
         ],
@@ -211,6 +244,43 @@
             "schema": {
               "$ref": "#/definitions/schemaExecAllRequest"
             }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/flushindex": {
+      "get": {
+        "operationId": "ImmuService_FlushIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaFlushIndexResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cleanupPercentage",
+            "in": "query",
+            "required": false,
+            "type": "number",
+            "format": "float"
+          },
+          {
+            "name": "synced",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -256,6 +326,12 @@
             "required": false,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -295,6 +371,29 @@
         ]
       }
     },
+    "/db/health": {
+      "get": {
+        "operationId": "ImmuService_DatabaseHealth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseHealthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ],
+        "security": []
+      }
+    },
     "/db/history": {
       "post": {
         "operationId": "ImmuService_History",
@@ -329,6 +428,7 @@
     },
     "/db/list": {
       "post": {
+        "summary": "DEPRECATED: Use DatabaseListV2",
         "operationId": "ImmuService_DatabaseList",
         "responses": {
           "200": {
@@ -351,6 +451,70 @@
             "required": true,
             "schema": {
               "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/list/v2": {
+      "post": {
+        "operationId": "ImmuService_DatabaseListV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseListResponseV2"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseListRequestV2"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/load": {
+      "post": {
+        "operationId": "ImmuService_LoadDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaLoadDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaLoadDatabaseRequest"
             }
           }
         ],
@@ -447,6 +611,71 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaReferenceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/settings": {
+      "post": {
+        "summary": "DEPRECATED: Use GetDatabaseSettingsV2",
+        "operationId": "ImmuService_GetDatabaseSettings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettings"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/settings/v2": {
+      "post": {
+        "operationId": "ImmuService_GetDatabaseSettingsV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseSettingsRequest"
             }
           }
         ],
@@ -652,6 +881,96 @@
             "required": true,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "entriesSpec.kvEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "entriesSpec.zEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "entriesSpec.sqlEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "keepReferencesUnresolved",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/unload": {
+      "post": {
+        "operationId": "ImmuService_UnloadDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaUnloadDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaUnloadDatabaseRequest"
+            }
           }
         ],
         "tags": [
@@ -661,6 +980,7 @@
     },
     "/db/update": {
       "post": {
+        "summary": "DEPRECATED: Use UpdateDatabaseV2",
         "operationId": "ImmuService_UpdateDatabase",
         "responses": {
           "200": {
@@ -683,6 +1003,38 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaDatabaseSettings"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/update/v2": {
+      "post": {
+        "operationId": "ImmuService_UpdateDatabaseV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaUpdateDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaUpdateDatabaseRequest"
             }
           }
         ],
@@ -880,6 +1232,64 @@
             "required": false,
             "type": "string",
             "format": "uint64"
+          },
+          {
+            "name": "entriesSpec.kvEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "entriesSpec.zEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "entriesSpec.sqlEntriesSpec.action",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "EXCLUDE",
+              "ONLY_DIGEST",
+              "RAW_VALUE",
+              "RESOLVE"
+            ],
+            "default": "EXCLUDE"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "noWait",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "keepReferencesUnresolved",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -1223,6 +1633,37 @@
     }
   },
   "definitions": {
+    "PreconditionKeyMustExistPrecondition": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "PreconditionKeyMustNotExistPrecondition": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "PreconditionKeyNotModifiedAfterTXPrecondition": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "txID": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -1371,6 +1812,28 @@
         }
       }
     },
+    "schemaCreateDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
+    "schemaCreateDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1399,6 +1862,22 @@
         }
       }
     },
+    "schemaDatabaseHealthResponse": {
+      "type": "object",
+      "properties": {
+        "pendingRequests": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastRequestCompletedAt": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "schemaDatabaseListRequestV2": {
+      "type": "object"
+    },
     "schemaDatabaseListResponse": {
       "type": "object",
       "properties": {
@@ -1407,6 +1886,67 @@
           "items": {
             "$ref": "#/definitions/schemaDatabase"
           }
+        }
+      }
+    },
+    "schemaDatabaseListResponseV2": {
+      "type": "object",
+      "properties": {
+        "databases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaDatabaseWithSettings"
+          }
+        }
+      }
+    },
+    "schemaDatabaseNullableSettings": {
+      "type": "object",
+      "properties": {
+        "replicationSettings": {
+          "$ref": "#/definitions/schemaReplicationNullableSettings"
+        },
+        "fileSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxKeyLen": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxValueLen": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxTxEntries": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "excludeCommitTime": {
+          "$ref": "#/definitions/schemaNullableBool"
+        },
+        "maxConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxIOConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "txLogCacheSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "vLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "txLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "commitLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "indexSettings": {
+          "$ref": "#/definitions/schemaIndexNullableSettings"
+        },
+        "writeTxHeaderVersion": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "autoload": {
+          "$ref": "#/definitions/schemaNullableBool"
         }
       }
     },
@@ -1453,6 +1993,50 @@
         },
         "excludeCommitTime": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaDatabaseSettingsRequest": {
+      "type": "object"
+    },
+    "schemaDatabaseSettingsResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
+    "schemaDatabaseWithSettings": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        },
+        "loaded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemaDeleteDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaDeleteDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
         }
       }
     },
@@ -1525,6 +2109,20 @@
         }
       }
     },
+    "schemaEntriesSpec": {
+      "type": "object",
+      "properties": {
+        "kvEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        },
+        "zEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        },
+        "sqlEntriesSpec": {
+          "$ref": "#/definitions/schemaEntryTypeSpec"
+        }
+      }
+    },
     "schemaEntry": {
       "type": "object",
       "properties": {
@@ -1560,6 +2158,24 @@
         }
       }
     },
+    "schemaEntryTypeAction": {
+      "type": "string",
+      "enum": [
+        "EXCLUDE",
+        "ONLY_DIGEST",
+        "RAW_VALUE",
+        "RESOLVE"
+      ],
+      "default": "EXCLUDE"
+    },
+    "schemaEntryTypeSpec": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/schemaEntryTypeAction"
+        }
+      }
+    },
     "schemaExecAllRequest": {
       "type": "object",
       "properties": {
@@ -1571,6 +2187,12 @@
         },
         "noWait": {
           "type": "boolean"
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaPrecondition"
+          }
         }
       }
     },
@@ -1580,6 +2202,14 @@
         "expiresAt": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "schemaFlushIndexResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
         }
       }
     },
@@ -1657,6 +2287,50 @@
         }
       }
     },
+    "schemaIndexNullableSettings": {
+      "type": "object",
+      "properties": {
+        "flushThreshold": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "syncThreshold": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "cacheSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxNodeSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "maxActiveSnapshots": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "renewSnapRootAfter": {
+          "$ref": "#/definitions/schemaNullableUint64"
+        },
+        "compactionThld": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "delayDuringCompaction": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "nodesLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "historyLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "commitLogMaxOpenedFiles": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "flushBufferSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "cleanupPercentage": {
+          "$ref": "#/definitions/schemaNullableFloat"
+        }
+      }
+    },
     "schemaKVMetadata": {
       "type": "object",
       "properties": {
@@ -1665,6 +2339,9 @@
         },
         "expiration": {
           "$ref": "#/definitions/schemaExpiration"
+        },
+        "nonIndexable": {
+          "type": "boolean"
         }
       }
     },
@@ -1698,6 +2375,9 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },
@@ -1734,6 +2414,22 @@
             "type": "string",
             "format": "byte"
           }
+        }
+      }
+    },
+    "schemaLoadDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaLoadDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
         }
       }
     },
@@ -1778,6 +2474,49 @@
       "properties": {
         "transactionID": {
           "type": "string"
+        }
+      }
+    },
+    "schemaNullableBool": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemaNullableFloat": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
+    "schemaNullableString": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaNullableUint32": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "schemaNullableUint64": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1826,6 +2565,20 @@
       ],
       "default": "GRANT"
     },
+    "schemaPrecondition": {
+      "type": "object",
+      "properties": {
+        "keyMustExist": {
+          "$ref": "#/definitions/PreconditionKeyMustExistPrecondition"
+        },
+        "keyMustNotExist": {
+          "$ref": "#/definitions/PreconditionKeyMustNotExistPrecondition"
+        },
+        "keyNotModifiedAfterTX": {
+          "$ref": "#/definitions/PreconditionKeyNotModifiedAfterTXPrecondition"
+        }
+      }
+    },
     "schemaReference": {
       "type": "object",
       "properties": {
@@ -1866,6 +2619,35 @@
         },
         "noWait": {
           "type": "boolean"
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaPrecondition"
+          }
+        }
+      }
+    },
+    "schemaReplicationNullableSettings": {
+      "type": "object",
+      "properties": {
+        "replica": {
+          "$ref": "#/definitions/schemaNullableBool"
+        },
+        "masterDatabase": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "masterAddress": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "masterPort": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "followerUsername": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "followerPassword": {
+          "$ref": "#/definitions/schemaNullableString"
         }
       }
     },
@@ -2077,6 +2859,12 @@
         },
         "noWait": {
           "type": "boolean"
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaPrecondition"
+          }
         }
       }
     },
@@ -2112,6 +2900,18 @@
           "items": {
             "$ref": "#/definitions/schemaTxEntry"
           }
+        },
+        "kvEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaEntry"
+          }
+        },
+        "zEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZEntry"
+          }
         }
       }
     },
@@ -2132,6 +2932,10 @@
         },
         "metadata": {
           "$ref": "#/definitions/schemaKVMetadata"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -2211,6 +3015,54 @@
         },
         "desc": {
           "type": "boolean"
+        },
+        "entriesSpec": {
+          "$ref": "#/definitions/schemaEntriesSpec"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemaUnloadDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaUnloadDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        }
+      }
+    },
+    "schemaUpdateDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        }
+      }
+    },
+    "schemaUpdateDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/definitions/schemaDatabaseNullableSettings"
         }
       }
     },

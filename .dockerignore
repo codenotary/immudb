@@ -16,3 +16,4 @@ vendor
 build
 resources
 /immudata
+/Dockerfile*

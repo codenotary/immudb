@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -245,7 +245,7 @@ func (txr *TxReplicator) disconnect() {
 }
 
 func (txr *TxReplicator) fetchTX() ([]byte, error) {
-	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.TxRequest{Tx: txr.nextTx})
+	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{Tx: txr.nextTx})
 	if err != nil {
 		return nil, err
 	}

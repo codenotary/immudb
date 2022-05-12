@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package heartbeater
 
 import (
 	"context"
+	stdos "os"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
-	stdos "os"
-	"time"
 )
 
 type heartBeater struct {
@@ -56,9 +57,10 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 				return
 			case t := <-hb.t.C:
 				hb.logger.Debugf("keep alive for %s at %s\n", hb.sessionID, t.String())
+
 				err := hb.keepAliveRequest(ctx)
 				if err != nil {
-					hb.logger.Errorf("an error is occurred on keep alive  %s at %s: %v\n", hb.sessionID, t.String(), err)
+					hb.logger.Errorf("an error occurred on keep alive %s at %s: %v\n", hb.sessionID, t.String(), err)
 				}
 			}
 		}
@@ -72,9 +74,11 @@ func (hb *heartBeater) Stop() {
 func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {
 	c, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
+
 	_, err := hb.serviceClient.KeepAlive(c, new(empty.Empty))
 	if err != nil {
 		return err
 	}
+
 	return err
 }

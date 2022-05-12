@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,24 +56,45 @@ func newTx(nentries int, maxKeyLen int) *Tx {
 		}
 	}
 
-	return NewTxWithEntries(entries)
+	header := &TxHeader{NEntries: len(entries)}
+
+	return NewTxWithEntries(header, entries)
 }
 
-func NewTxWithEntries(entries []*TxEntry) *Tx {
+func NewTxWithEntries(header *TxHeader, entries []*TxEntry) *Tx {
 	htree, _ := htree.New(len(entries))
 
 	return &Tx{
-		header:  &TxHeader{NEntries: len(entries)},
+		header:  header,
 		entries: entries,
 		htree:   htree,
 	}
 }
 
 func (tx *Tx) Header() *TxHeader {
-	return tx.header
+	var txmd *TxMetadata
+
+	if tx.header.Metadata != nil {
+		txmd = &TxMetadata{}
+	}
+
+	return &TxHeader{
+		ID:      tx.header.ID,
+		Ts:      tx.header.Ts,
+		BlTxID:  tx.header.BlTxID,
+		BlRoot:  tx.header.BlRoot,
+		PrevAlh: tx.header.PrevAlh,
+
+		Version: tx.header.Version,
+
+		Metadata: txmd,
+
+		NEntries: tx.header.NEntries,
+		Eh:       tx.header.Eh,
+	}
 }
 
-func (hdr *TxHeader) Bytes() []byte {
+func (hdr *TxHeader) Bytes() ([]byte, error) {
 	// ID + PrevAlh + Ts + Version + MDLen + MD + NEntries + Eh + BlTxID + BlRoot
 	var b [txIDSize + sha256.Size + tsSize + sszSize + (sszSize + maxTxMetadataLen) + lszSize + sha256.Size + txIDSize + sha256.Size]byte
 	i := 0
@@ -93,6 +114,10 @@ func (hdr *TxHeader) Bytes() []byte {
 	switch hdr.Version {
 	case 0:
 		{
+			if hdr.Metadata != nil && len(hdr.Metadata.Bytes()) > 0 {
+				return nil, ErrMetadataUnsupported
+			}
+
 			binary.BigEndian.PutUint16(b[i:], uint16(hdr.NEntries))
 			i += sszSize
 		}
@@ -115,7 +140,7 @@ func (hdr *TxHeader) Bytes() []byte {
 		}
 	default:
 		{
-			panic(fmt.Errorf("missing tx header serialization method for version %d", hdr.Version))
+			return nil, fmt.Errorf("%w for version %d", ErrUnsupportedTxHeaderVersion, hdr.Version)
 		}
 	}
 
@@ -129,7 +154,7 @@ func (hdr *TxHeader) Bytes() []byte {
 	copy(b[i:], hdr.BlRoot[:])
 	i += sha256.Size
 
-	return b[:i]
+	return b[:i], nil
 }
 
 func (hdr *TxHeader) ReadFrom(b []byte) error {
@@ -295,7 +320,10 @@ func (tx *Tx) BuildHashTree() error {
 	}
 
 	for i, e := range tx.Entries() {
-		digests[i] = txEntryDigest(e)
+		digests[i], err = txEntryDigest(e)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = tx.htree.BuildWith(digests)
@@ -503,7 +531,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	}
 
 	if tx.header.Alh() != alh {
-		return ErrorCorruptedTxData
+		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, tx.header.ID)
 	}
 
 	return nil
@@ -565,18 +593,22 @@ func (e *TxEntry) VLen() int {
 	return e.vLen
 }
 
-type TxEntryDigest func(e *TxEntry) [sha256.Size]byte
+type TxEntryDigest func(e *TxEntry) ([sha256.Size]byte, error)
 
-func TxEntryDigest_v1_1(e *TxEntry) [sha256.Size]byte {
+func TxEntryDigest_v1_1(e *TxEntry) ([sha256.Size]byte, error) {
+	if e.md != nil && len(e.md.Bytes()) > 0 {
+		return [sha256.Size]byte{}, ErrMetadataUnsupported
+	}
+
 	b := make([]byte, e.kLen+sha256.Size)
 
 	copy(b[:], e.k[:e.kLen])
 	copy(b[e.kLen:], e.hVal[:])
 
-	return sha256.Sum256(b)
+	return sha256.Sum256(b), nil
 }
 
-func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
+func TxEntryDigest_v1_2(e *TxEntry) ([sha256.Size]byte, error) {
 	var mdbs []byte
 
 	if e.md != nil {
@@ -603,5 +635,5 @@ func TxEntryDigest_v1_2(e *TxEntry) [sha256.Size]byte {
 	copy(b[i:], e.hVal[:])
 	i += sha256.Size
 
-	return sha256.Sum256(b[:i])
+	return sha256.Sum256(b[:i]), nil
 }

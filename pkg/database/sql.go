@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	for _, col := range table.Cols() {
 		colNamesByID[col.ID()] = col.Name()
-		colIdsByName[sql.EncodeSelector("", d.options.dbName, table.Name(), col.Name())] = col.ID()
+		colIdsByName[sql.EncodeSelector("", d.GetName(), table.Name(), col.Name())] = col.ID()
 		colTypesByID[col.ID()] = col.Type()
 		colLenByID[col.ID()] = int32(col.MaxLen())
 	}
@@ -371,7 +371,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQu
 		return nil, err
 	}
 
-	stmt, ok := stmts[0].(*sql.SelectStmt)
+	stmt, ok := stmts[0].(sql.DataSource)
 	if !ok {
 		return nil, sql.ErrExpectingDQLStmt
 	}
@@ -379,20 +379,18 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQu
 	return d.SQLQueryPrepared(stmt, req.Params, tx)
 }
 
-func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
-	r, err := d.SQLQueryRowReader(stmt, tx)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
+func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	r.SetParameters(params)
+	r, err := d.SQLQueryRowReader(stmt, params, tx)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
 
 	colDescriptors, err := r.Columns()
 	if err != nil {
@@ -404,7 +402,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	for i, c := range colDescriptors {
 		des := &sql.ColDescriptor{
 			AggFn:    c.AggFn,
-			Database: d.options.dbName,
+			Database: d.GetName(),
 			Table:    c.Table,
 			Column:   c.Column,
 			Type:     c.Type,
@@ -432,10 +430,10 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 			Values:  make([]*schema.SQLValue, len(res.Columns)),
 		}
 
-		for i, c := range colDescriptors {
+		for i := range colDescriptors {
 			rrow.Columns[i] = cols[i].Name
 
-			v := row.Values[c.Selector()]
+			v := row.ValuesByPosition[i]
 
 			_, isNull := v.(*sql.NullValue)
 			if isNull {
@@ -451,13 +449,9 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	return res, nil
 }
 
-func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowReader, error) {
+func (d *db) SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
-	}
-
-	if stmt.Limit() > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
 	d.mutex.RLock()
@@ -470,7 +464,7 @@ func (d *db) SQLQueryRowReader(stmt *sql.SelectStmt, tx *sql.SQLTx) (sql.RowRead
 		}
 	}
 
-	return d.sqlEngine.QueryPreparedStmt(stmt, nil, tx)
+	return d.sqlEngine.QueryPreparedStmt(stmt, params, tx)
 }
 
 func (d *db) InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {

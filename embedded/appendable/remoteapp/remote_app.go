@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -210,6 +210,7 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 
 		// Upload the chunk
 		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+			defer prometheus.NewTimer(metricsUploadTime).ObserveDuration()
 			err := r.rStorage.Put(ctx, r.remotePath+appName, fileName)
 			if err == nil {
 				return false, nil

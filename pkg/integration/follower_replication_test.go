@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -68,12 +68,12 @@ func TestReplication(t *testing.T) {
 		followerServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer func() {
 		masterServer.Stop()
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 
 		followerServer.Stop()
 	}()
@@ -120,7 +120,7 @@ func TestReplication(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
 		DatabaseName:     "replicateddb",
@@ -149,7 +149,7 @@ func TestReplication(t *testing.T) {
 	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))
@@ -188,7 +188,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		masterServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer masterServer.Stop()
 
@@ -206,7 +206,6 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	//init follower server
 	replicationOpts := &server.ReplicationOptions{
-		MasterDatabase:   "defaultdb",
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       masterPort,
 		FollowerUsername: "immudb",
@@ -230,7 +229,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		followerServer.Start()
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	defer followerServer.Stop()
 
@@ -255,7 +254,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))

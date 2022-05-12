@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ func TestLimitRowReader(t *testing.T) {
 	dummyr.failReturningColumns = true
 	_, err = rowReader.Columns()
 	require.Equal(t, errDummy, err)
+
+	require.Nil(t, rowReader.Parameters())
 
 	err = rowReader.InferParameters(nil)
 	require.NoError(t, err)

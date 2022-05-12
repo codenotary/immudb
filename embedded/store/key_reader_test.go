@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadAsBefore(uint64(i + 2))
+			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 

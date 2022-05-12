@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB(database.DefaultOption().AsReplica(true), logger)
+	db, err := database.NewDB("replicated_defaultdb", database.DefaultOption().AsReplica(true), logger)
 	require.NoError(t, err)
 
 	defer os.RemoveAll(db.GetOptions().GetDBRootPath())

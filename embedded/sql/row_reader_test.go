@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 
 	t.Run("fail on invalid hrange", func(t *testing.T) {
 		scanSpecs := &ScanSpecs{
-			index: index,
+			Index: index,
 			rangesByColID: map[uint32]*typedValueRange{
 				4: {
 					hRange: &typedValueSemiRange{
@@ -60,7 +60,7 @@ func TestKeyReaderSpecFromCornerCases(t *testing.T) {
 
 	t.Run("fail on invalid lrange", func(t *testing.T) {
 		scanSpecs := &ScanSpecs{
-			index: index,
+			Index: index,
 			rangesByColID: map[uint32]*typedValueRange{
 				4: {
 					lRange: &typedValueSemiRange{

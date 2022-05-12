@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@ func (lr *limitRowReader) Database() *Database {
 
 func (lr *limitRowReader) TableAlias() string {
 	return lr.rowReader.TableAlias()
+}
+
+func (lr *limitRowReader) Parameters() map[string]interface{} {
+	return lr.rowReader.Parameters()
 }
 
 func (lr *limitRowReader) SetParameters(params map[string]interface{}) error {

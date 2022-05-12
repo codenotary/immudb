@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ func TestGroupedRowReader(t *testing.T) {
 	require.NotNil(t, index)
 	require.Equal(t, table.primaryIndex, index)
 
-	r, err := newRawRowReader(tx, table, 0, "", &ScanSpecs{index: table.primaryIndex})
+	r, err := newRawRowReader(tx, nil, table, period{}, "", &ScanSpecs{Index: table.primaryIndex})
 	require.NoError(t, err)
 
 	gr, err := newGroupedRowReader(r, []Selector{&ColSelector{col: "id"}}, []*ColSelector{{col: "id"}})
@@ -66,6 +66,6 @@ func TestGroupedRowReader(t *testing.T) {
 
 	scanSpecs := gr.ScanSpecs()
 	require.NotNil(t, scanSpecs)
-	require.NotNil(t, scanSpecs.index)
-	require.True(t, scanSpecs.index.IsPrimary())
+	require.NotNil(t, scanSpecs.Index)
+	require.True(t, scanSpecs.Index.IsPrimary())
 }

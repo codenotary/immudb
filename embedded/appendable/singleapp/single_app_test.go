@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +30,11 @@ import (
 )
 
 func TestSingleApp(t *testing.T) {
-	a, err := Open("testdata.aof", DefaultOptions())
+	opts := DefaultOptions().
+		WithReadBufferSize(DefaultReadBufferSize * 2).
+		WithWriteBufferSize(DefaultWriteBufferSize * 5)
+
+	a, err := Open("testdata.aof", opts)
 	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
@@ -83,7 +87,7 @@ func TestSingleApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
-	n , err = a.ReadAt(bs, 1000)
+	n, err = a.ReadAt(bs, 1000)
 	require.Equal(t, n, 0)
 	require.Equal(t, err, io.EOF)
 
@@ -247,7 +251,7 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 func TestSingleAppEdgeCases(t *testing.T) {
 	_, err := Open("testdata.aof", nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
@@ -260,34 +264,37 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = a.Close()
 	require.NoError(t, err)
 
 	_, err = a.Size()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Copy("copy.aof")
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.SetOffset(0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = a.ReadAt([]byte{}, 0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Flush()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Sync()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
+
+	err = a.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
 func TestSingleAppZLibCompression(t *testing.T) {
@@ -380,6 +387,8 @@ func TestSingleAppLZWCompression(t *testing.T) {
 
 func TestSingleAppCantCreateFile(t *testing.T) {
 	dir, err := ioutil.TempDir(os.TempDir(), "singleapp")
+	require.NoError(t, err)
+
 	defer os.RemoveAll(dir)
 	os.Mkdir(filepath.Join(dir, "exists"), 0644)
 
@@ -392,4 +401,26 @@ func TestSingleAppCantCreateFile(t *testing.T) {
 	err = app.Copy(filepath.Join(dir, "exists"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exists")
+}
+
+func TestSingleAppDiscard(t *testing.T) {
+	app, err := Open("testdata_discard.aof", DefaultOptions())
+	require.NoError(t, err)
+
+	defer os.RemoveAll("testdata_discard.aof")
+
+	err = app.DiscardUpto(0)
+	require.NoError(t, err)
+
+	err = app.DiscardUpto(1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	off, n, err := app.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+
+	err = app.DiscardUpto(off + int64(n))
+	require.NoError(t, err)
+
+	err = app.Close()
+	require.NoError(t, err)
 }

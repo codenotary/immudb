@@ -29,6 +29,7 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 			s.Options.RemoteStorageOptions.S3AccessKeyID,
 			s.Options.RemoteStorageOptions.S3SecretKey,
 			s.Options.RemoteStorageOptions.S3BucketName,
+			s.Options.RemoteStorageOptions.S3Location,
 			s.Options.RemoteStorageOptions.S3PathPrefix,
 		)
 	}
@@ -37,7 +38,6 @@ func (s *ImmuServer) createRemoteStorageInstance() (remotestorage.Storage, error
 }
 
 func (s *ImmuServer) initializeRemoteStorage(storage remotestorage.Storage) error {
-
 	if storage == nil {
 		// No remote storage
 		return nil

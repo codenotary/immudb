@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package cache
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"sync"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrKeyNotFound = errors.New("key not found")
+var ErrIllegalState = errors.New("illegal state")
 
 type LRUCache struct {
 	data    map[interface{}]*entry
@@ -49,6 +51,17 @@ func NewLRUCache(size int) (*LRUCache, error) {
 	}, nil
 }
 
+func (c *LRUCache) Resize(size int) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for size < c.lruList.Len() {
+		c.evict()
+	}
+
+	c.size = size
+}
+
 func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rvalue interface{}, err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -72,15 +85,27 @@ func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rv
 	c.data[key] = e
 
 	if c.lruList.Len() > c.size {
-		lruEntry := c.lruList.Front()
-		rkey = lruEntry.Value
-		re := c.data[rkey]
-		rvalue = re.value
-		delete(c.data, rkey)
-		c.lruList.Remove(lruEntry)
+		return c.evict()
 	}
 
-	return
+	return nil, nil, nil
+}
+
+func (c *LRUCache) evict() (rkey interface{}, rvalue interface{}, err error) {
+	if c.lruList.Len() == 0 {
+		return nil, nil, fmt.Errorf("%w: evict requested in an empty cache", ErrIllegalState)
+	}
+
+	lruEntry := c.lruList.Front()
+	rkey = lruEntry.Value
+
+	re := c.data[rkey]
+	rvalue = re.value
+
+	delete(c.data, rkey)
+	c.lruList.Remove(lruEntry)
+
+	return rkey, rvalue, nil
 }
 
 func (c *LRUCache) Get(key interface{}) (interface{}, error) {
@@ -141,6 +166,13 @@ func (c *LRUCache) Size() int {
 	defer c.mutex.Unlock()
 
 	return c.size
+}
+
+func (c *LRUCache) EntriesCount() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.lruList.Len()
 }
 
 func (c *LRUCache) Apply(fun func(k interface{}, v interface{}) error) error {

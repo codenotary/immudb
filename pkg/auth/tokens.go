@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	immuerror "github.com/codenotary/immudb/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
+
+	immuerror "github.com/codenotary/immudb/pkg/errors"
 
 	"github.com/o1egl/paseto"
 	"github.com/rs/xid"
@@ -42,12 +43,12 @@ const footer = "immudb"
 // GenerateToken ...
 func GenerateToken(user User, database int64, expTime int) (string, error) {
 	now := time.Now()
-	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
+	keys, ok := getTokenForUser(user.Username)
 	if !ok {
 		if err := generateKeys(user.Username); err != nil {
 			return "", err
 		}
-		keys, ok = tokenKeyPairs.keysPerUser[user.Username]
+		keys, ok = getTokenForUser(user.Username)
 		if !ok {
 			return "", errors.New("internal error: missing auth keys")
 		}
@@ -117,7 +118,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
+	keys, ok := getTokenForUser(tokenPayload.Username)
 	if !ok {
 		return nil, status.Error(
 			codes.Unauthenticated, "Token data not found")

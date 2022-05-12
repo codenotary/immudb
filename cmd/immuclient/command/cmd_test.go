@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import (
 
 func TestNew(t *testing.T) {
 	cmd := NewCommand()
-	if len(cmd.Commands()) != 29 {
-		t.Fatalf("error initialising command expected %d, got %d", 29, len(cmd.Commands()))
+	if len(cmd.Commands()) != 30 {
+		t.Fatalf("error initialising command expected %d, got %d", 30, len(cmd.Commands()))
 	}
 	cmd.SetArgs([]string{"--help"})
 

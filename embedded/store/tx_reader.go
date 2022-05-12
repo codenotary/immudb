@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"fmt"
 )
 
 type TxReader struct {
@@ -74,11 +75,11 @@ func (txr *TxReader) Read() (*Tx, error) {
 
 	if txr.InitialTxID != txr.CurrTxID {
 		if txr.Desc && txr.CurrAlh != txr._tx.header.Alh() {
-			return nil, ErrorCorruptedTxData
+			return nil, fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, txr._tx.header.ID)
 		}
 
 		if !txr.Desc && txr.CurrAlh != txr._tx.header.PrevAlh {
-			return nil, ErrorCorruptedTxData
+			return nil, fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, txr._tx.header.ID)
 		}
 	}
 

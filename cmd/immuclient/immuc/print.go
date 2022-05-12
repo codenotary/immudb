@@ -1,5 +1,5 @@
 /*
-Copyright 2021 CodeNotary, Inc. All rights reserved.
+Copyright 2022 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,12 +60,23 @@ func PrintSetItem(set []byte, referencedkey []byte, score float64, txhdr *schema
 		verified)
 }
 
+func PrintHealth(res *schema.DatabaseHealthResponse) string {
+	return fmt.Sprintf("pendingRequests:		%d\nlastRequestCompletedAt:		%s\n", res.PendingRequests, time.Unix(0, res.LastRequestCompletedAt*int64(time.Millisecond)))
+}
+
 // PrintState ...
 func PrintState(root *schema.ImmutableState) string {
 	if root.TxId == 0 {
-		return fmt.Sprintf("database %s is empty\n", root.Db)
+		return fmt.Sprintf("database '%s' is empty\n", root.Db)
 	}
-	return fmt.Sprintf("txID:		%d\nhash:		%x\n", root.TxId, root.TxHash)
+
+	str := strings.Builder{}
+
+	str.WriteString(fmt.Sprintf("database:	%s\n", root.Db))
+	str.WriteString(fmt.Sprintf("txID:		%d\n", root.TxId))
+	str.WriteString(fmt.Sprintf("hash:		%x\n", root.TxHash))
+
+	return str.String()
 }
 
 // PrintTx ...
