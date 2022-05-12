@@ -4993,7 +4993,8 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		dbs := []string{"db1", "db2"}
 
 		handler := &multidbHandlerMock{
-			dbs: dbs,
+			dbs:    dbs,
+			engine: engine,
 		}
 		engine.SetMultiDBHandler(handler)
 
@@ -5013,7 +5014,9 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		ntx, ctxs, err := engine.Exec("USE DATABASE db1; USE DATABASE db2", nil, nil)
 		require.NoError(t, err)
 		require.Nil(t, ntx)
-		require.Empty(t, ctxs)
+		require.Len(t, ctxs, 2)
+		require.Zero(t, ctxs[0].UpdatedRows())
+		require.Zero(t, ctxs[1].UpdatedRows())
 
 		_, _, err = engine.Exec("BEGIN TRANSACTION; USE DATABASE db1; COMMIT;", nil, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
@@ -5067,7 +5070,8 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 }
 
 type multidbHandlerMock struct {
-	dbs []string
+	dbs    []string
+	engine *Engine
 }
 
 func (h *multidbHandlerMock) ListDatabases(ctx context.Context) ([]string, error) {
@@ -5080,6 +5084,10 @@ func (h *multidbHandlerMock) CreateDatabase(ctx context.Context, db string, ifNo
 
 func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
+}
+
+func (h *multidbHandlerMock) ExecPreparedStmts(ctx context.Context, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
+	return h.engine.ExecPreparedStmts(stmts, params, nil)
 }
 
 func TestSingleDBCatalogQueries(t *testing.T) {

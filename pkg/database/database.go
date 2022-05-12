@@ -96,7 +96,7 @@ type DB interface {
 	NewSQLTx(ctx context.Context) (*sql.SQLTx, error)
 
 	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
-	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
 
 	InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
 	InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)

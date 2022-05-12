@@ -63,3 +63,17 @@ func (h *multidbHandler) ListDatabases(ctx context.Context) ([]string, error) {
 
 	return dbs, nil
 }
+
+func (h *multidbHandler) ExecPreparedStmts(ctx context.Context, stmts []sql.SQLStmt, params map[string]interface{}) (ntx *sql.SQLTx, committedTxs []*sql.SQLTx, err error) {
+	db, err := h.s.getDBFromCtx(ctx, "SQLExec")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tx, err := db.NewSQLTx(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return db.SQLExecPrepared(stmts, params, tx)
+}

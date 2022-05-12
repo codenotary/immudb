@@ -280,10 +280,17 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 	return nil
 }
 
-func (s *session) exec(st sql.SQLStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	if _, _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, parameters, nil); err != nil {
+func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	params := make(map[string]interface{}, len(namedParams))
+
+	for _, p := range namedParams {
+		params[p.Name] = schema.RawValue(p.Value)
+	}
+
+	if _, _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, params, nil); err != nil {
 		return err
 	}
+
 	return nil
 }
 

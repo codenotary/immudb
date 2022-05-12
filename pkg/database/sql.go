@@ -329,10 +329,16 @@ func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx,
 		return nil, nil, err
 	}
 
-	return d.SQLExecPrepared(stmts, req.Params, tx)
+	params := make(map[string]interface{})
+
+	for _, p := range req.Params {
+		params[p.Name] = schema.RawValue(p.Value)
+	}
+
+	return d.SQLExecPrepared(stmts, params, tx)
 }
 
-func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	if len(stmts) == 0 {
 		return nil, nil, ErrIllegalArguments
 	}
@@ -342,12 +348,6 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 
 	if d.isReplica() {
 		return nil, nil, ErrIsReplica
-	}
-
-	params := make(map[string]interface{})
-
-	for _, p := range namedParams {
-		params[p.Name] = schema.RawValue(p.Value)
 	}
 
 	return d.sqlEngine.ExecPreparedStmts(stmts, params, tx)
