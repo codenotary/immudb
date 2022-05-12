@@ -1,14 +1,16 @@
 # Concepts
 
-Download [immudb short research paper (opens new window)](https://codenotary.com/technologies/immudb/) to have a conceptual understanding of the technical foundations of immudb.
+Download the [immudb short research paper (opens in new window)](https://codenotary.com/technologies/immudb/) to learn about the technical foundations of immudb.
+
+[//]: # "update this to include missing content"
 
 ### Adding data <a href="#adding-data" id="adding-data"></a>
 
-This section is not yet ready for immudb 0.9. We are working on it in order to improve it and we are close to deliver. Stay tuned!
+This section is not yet ready.
 
 ### Checking data consistency <a href="#checking-data-consistency" id="checking-data-consistency"></a>
 
-This section is not yet ready for immudb 0.9. We are working on it in order to improve it and we are close to deliver. Stay tuned!
+This section is not yet ready.
 
 ### State signature <a href="#state-signature" id="state-signature"></a>
 
@@ -18,14 +20,14 @@ Here are the gRPC message definitions:
 
 ```go
 message ImmutableState {
-    uint64 txId = 3;
-    bytes txHash = 4;
-    Signature signature = 5;
+	uint64 txId = 3;
+	bytes txHash = 4;
+	Signature signature = 5;
 }
 
 message Signature {
-    bytes signature = 1;
-    bytes publicKey = 2;
+	bytes signature = 1;
+	bytes publicKey = 2;
 }
 ```
 
