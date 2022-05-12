@@ -2,22 +2,14 @@
 
 Download the [immudb short research paper](https://codenotary.com/technologies/immudb/) to learn about the technical foundations of immudb.
 
-<WrappedSection>
-
 ## Adding data
 
-This section is not yet ready for immudb 0.9. We are working on it in order to improve it and we are close to deliver. Stay tuned!
+[//]: # "update these sections to reflect accurate information"
 
-</WrappedSection>
-
-<WrappedSection>
+This section is not yet ready.
 
 ## Checking data consistency
-This section is not yet ready for immudb 0.9. We are working on it in order to improve it and we are close to deliver. Stay tuned!
-
-</WrappedSection>
-
-<WrappedSection>
+This section is not yet.
 
 ## State signature
 
@@ -25,7 +17,7 @@ Providing `immudb` with a signing key enables the cryptographic state signature.
 That means that an auditor or a third party client, for instance, could verify the authenticity of the returned current state after calling the `currentState` gRPC method.
 
 Here are the gRPC message definitions:
-```
+```go
 message ImmutableState {
 	uint64 txId = 3;
 	bytes txHash = 4;
@@ -51,61 +43,35 @@ immuclient audit-mode --audit-username {immudb-username} --audit-password {immud
 ./immugw --audit --audit-username {immudb-username} --audit-password {immudb-pw} --audit-signature validate
 ```
 
-</WrappedSection>
-
-<WrappedSection>
-
 ## Item References
 
 Enables the insertion of a special entry that references another item.
-
-</WrappedSection>
-
-<WrappedSection>
 
 ## Primary Index
 
 The primary index enables queries and search based on the **data key**.
 
-</WrappedSection>
-
-<WrappedSection>
-
 ## Secondary Index
 
 The secondary index enables queries and search based on the **data value**.
 
-</WrappedSection>
-
-<WrappedSection>
-
 ## Streams
 Allows client server communication with streams of “delimited” []byte messages.
-
-</WrappedSection>
-
-<WrappedSection>
 
 ## Cryptographic signatures
 
 A signature (PKI) provided by the client can become part of the insertion process.
 
-</WrappedSection>
-
-<WrappedSection>
-
 ## Authentication (transport)
 
 Integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel.
-
-</WrappedSection>
-
-<WrappedSection>
 
 ## immugw communication
 immugw can be found in its [own repository](https://github.com/codenotary/immugw)
 
 immugw proxies REST client communication and gRPC server interface. For security reasons, immugw should not run on the same server as immudb. The following diagram shows how the communication works:
+
+[//]: # "fix this image, not rendering properly"
 
 ![immugw communication explained](/.gitbook/assets/diagram-immugw.svg)
 
