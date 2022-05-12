@@ -8,6 +8,8 @@ immudb can operate both as a key-value or relational (SQL) database. You can add
 
 ### What makes immudb special? <a href="#what-makes-immudb-special" id="what-makes-immudb-special"></a>
 
+[//]: # "Fix this image"
+
 ![](.gitbook/assets/immudb-special.png)
 
 * <mark style="color:blue;">**Keep track of changes and audit them.**</mark> Traditional database transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised. immudb is immutable. You can add new versions of existing records, but never change or delete records. This lets you store critical data without fear of it being changed silently.
