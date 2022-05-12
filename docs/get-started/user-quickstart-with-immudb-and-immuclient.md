@@ -1,12 +1,12 @@
 # User quickstart with immudb and immuclient
 
 {% hint style="info" %}
-To learn interactively and to get started with immudb from the command line and with programming languages, visit the immudb Playground at [https://play.codenotary.com](https://play.codenotary.com)
+To learn interactively and to get started with immudb from the command line and with various programming languages, visit the immudb Playground at [https://play.codenotary.com](https://play.codenotary.com)
 {% endhint %}
 
 ### Getting immudb running <a href="#getting-immudb-running" id="getting-immudb-running"></a>
 
-You may download the immudb binary from [the latest releases on Github (opens new window)](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to **`immudb`**, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0 for linux amd64:
+You may download the immudb binary from [the latest releases on Github (opens in new window)](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to **`immudb`**, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0 for linux amd64:
 
 ```bash
 wget https://github.com/vchain-us/immudb/releases/download/v1.0.0/immudb-v1.0.0-linux-amd64
@@ -28,7 +28,7 @@ docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
 
 ### Connecting with immuclient
 
-You may download the immuclient binary from [the latest releases on Github (opens new window)](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to **`immuclient`**, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
+You may download the immuclient binary from [the latest releases on Github (opens in new window)](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to **`immuclient`**, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
 ```
 wget https://github.com/vchain-us/immudb/releases/download/v1.0.0/immuclient-v1.0.0-linux-amd64
@@ -57,6 +57,11 @@ When immudb is first run, it is ready to use immediately with the default databa
 * Password: immudb
 * Port: 3322
 
+```bash
+./immudb --help
+```
+displays and describes all the options available.
+
 Running **`login immudb`** from within immuclient will use the default database name and port. All you need to supply is the user and password:
 
 ```bash
@@ -64,7 +69,7 @@ immuclient> login immudb
 Password: immudb
 ```
 
-While immudb supports **`set`** and **`get`** for key-value storing and retrieving, its immutability means that we can verify the integrity of the underlying Merkle tree. To do this, we use the **`safeset`** and **`safeget`** commands. Let's try setting a value of **`100`** for the key **`balance`**:
+While immudb supports **`set`** and **`get`** for key-value storage and retrieval, its immutability means that we can verify the integrity of the underlying Merkle tree. To do this, we use the **`safeset`** and **`safeget`** commands. Let's try setting a value of **`100`** for the key **`balance`**:
 
 ```bash
 immuclient> safeset balance 100
@@ -90,25 +95,43 @@ We can show the history of transactions for key **`balance`** using the **`histo
 immuclient> history balance
 ```
 
+## Basic operations with immuadmin
+Immuadmin is the admin client for immudb. This is used for a variety of tasks such as creating and updating databases and users. Creating backups, restoring from backups etc.
+
+To get started we need to login to `immuadmin` first. The `admin` user is the similar to the `root` user in MySQL etc.
+```
+immuadmin login immudb
+```
+Once logged in we can create a new database using
+```
+immuadmin database create mydatabase
+```
+Switching to our newly created database. Using immuclient once you are logged in you can select the database you would like to using
+```
+immuclient> use mydatabse
+```
+
 ### SQL operations with immuclient <a href="#sql-operations-with-immuclient" id="sql-operations-with-immuclient"></a>
 
-In addition to a key-value store, immudb supports the relational model (SQL). For example, to a table:
+In addition to a key-value store, immudb also supports the relational model (SQL). For example, to a table:
 
-```bash
+```
 $ immuclient exec "CREATE TABLE people(id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY id);"
 sql ok, Ctxs: 1 Dtxs: 0
 ```
 
-To insert data, use **`UPSERT`** (insert or update), which will add an entry, or overwrite it if already exists (based on the primary key):
+To insert data, use `UPSERT` (insert or update), which will add an entry, or overwrite it if already exists (based on the primary key):
 
-```bash
-$ immuclient exec "UPSERT INTO people(id, name, salary) VALUES (1, 'Joe', 10000);"sql ok, Ctxs: 0 Dtxs: 1immuclient exec "UPSERT INTO people(id, name, salary) VALUES (2, 'Bob', 30000);"
+```
+$ immuclient exec "UPSERT INTO people(id, name, salary) VALUES (1, 'Joe', 10000);"
+sql ok, Ctxs: 0 Dtxs: 1
+immuclient exec "UPSERT INTO people(id, name, salary) VALUES (2, 'Bob', 30000);"
 sql ok, Ctxs: 0 Dtxs: 1
 ```
 
-To query the data you can use the traditional **`SELECT`**:
+To query the data you can use the traditional `SELECT`:
 
-```bash
+```
 $ immuclient query "SELECT id, name, salary FROM people;"
 +-----------------------+-------------------------+---------------------------+
 | (DEFAULTDB PEOPLE ID) | (DEFAULTDB PEOPLE NAME) | (DEFAULTDB PEOPLE SALARY) |
@@ -120,7 +143,7 @@ $ immuclient query "SELECT id, name, salary FROM people;"
 
 If we upsert again on the primary key "1", the value for "Joe" will be overwriten:
 
-```bash
+```
 immuclient exec "UPSERT INTO people(id, name, salary) VALUES (1, 'Joe', 20000);"
 sql ok, Ctxs: 0 Dtxs: 1
 
@@ -135,9 +158,9 @@ immuclient query "SELECT id, name, salary FROM people;"
 
 ### Time travel <a href="#time-travel" id="time-travel"></a>
 
-immudb is a immutable database. History is always preserved. With immudb you can travel in time!
+immudb is an immutable database. History is always preserved. This allows you to travel back in time and take a look at your data at any point in the past!
 
-```bash
+```
 immuclient query "SELECT id, name, salary FROM people WHERE name='Joe';"
 +-----------------------+-------------------------+---------------------------+
 | (DEFAULTDB PEOPLE ID) | (DEFAULTDB PEOPLE NAME) | (DEFAULTDB PEOPLE SALARY) |
@@ -145,11 +168,19 @@ immuclient query "SELECT id, name, salary FROM people WHERE name='Joe';"
 |                     1 | Joe                     |                     20000 |
 +-----------------------+-------------------------+---------------------------+
 ```
-
+We can see the current transaction id using
+```
+  immuclient> current
+  txID:             6
+  hash: e91c254ad58860a02c788dfb5c1a65d6a8846ab1dc649631c7db16fef4af2dec
+  
+```
+This is the transaction id we will be using for the subsequent queries.
+  
 Eg. before the update:
 
-```bash
-immuclient query "SELECT id, name, salary FROM (people BEFORE TX 3) WHERE name='Joe';"
+```
+immuclient query "SELECT id, name, salary FROM people BEFORE TX 3 WHERE name='Joe';"
 +-----------------------+-------------------------+---------------------------+
 | (DEFAULTDB PEOPLE ID) | (DEFAULTDB PEOPLE NAME) | (DEFAULTDB PEOPLE SALARY) |
 +-----------------------+-------------------------+---------------------------+
@@ -159,18 +190,18 @@ immuclient query "SELECT id, name, salary FROM (people BEFORE TX 3) WHERE name='
 
 or even before the first time insert (guess what, it is empty!):
 
-```bash
-immuclient query "SELECT id, name, salary FROM (people BEFORE TX 1) WHERE name='Joe';"
+```
+immuclient query "SELECT id, name, salary FROM people BEFORE TX 1 WHERE name='Joe';"
 +-----------------------+-------------------------+---------------------------+
 | (DEFAULTDB PEOPLE ID) | (DEFAULTDB PEOPLE NAME) | (DEFAULTDB PEOPLE SALARY) |
 +-----------------------+-------------------------+---------------------------+
-You can even TABLE a table with itself in the past. Imagine you want to see how people salary changed between two points in time:
++-----------------------+-------------------------+---------------------------+
 ```
 
-You can even **`TABLE`** a table with itself in the past. Imagine you want to see how people salary changed between two points in time:
+You can even `TABLE` a table with itself in the past. Imagine you want to see how people salary changed between two points in time:
 
-```bash
-immuclient query "SELECT peoplenow.id, peoplenow.name, peoplethen.salary, peoplenow.salary FROM (people BEFORE TX 3 AS peoplethen) INNER JOIN (people AS peoplenow) ON peoplenow.id=peoplethen.id;"
+```
+immuclient query "SELECT peoplenow.id, peoplenow.name, peoplethen.salary, peoplenow.salary FROM people BEFORE TX 3 AS peoplethen INNER JOIN people AS peoplenow ON peoplenow.id=peoplethen.id;"
 +--------------------------+----------------------------+-------------------------------+------------------------------+
 | (DEFAULTDB PEOPLENOW ID) | (DEFAULTDB PEOPLENOW NAME) | (DEFAULTDB PEOPLETHEN SALARY) | (DEFAULTDB PEOPLENOW SALARY) |
 +--------------------------+----------------------------+-------------------------------+------------------------------+
