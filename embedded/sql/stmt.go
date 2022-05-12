@@ -190,7 +190,8 @@ func (stmt *RollbackStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQL
 }
 
 type CreateDatabaseStmt struct {
-	DB string
+	DB          string
+	ifNotExists bool
 }
 
 func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -203,12 +204,15 @@ func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{})
 			return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
 		}
 
-		return nil, tx.engine.multidbHandler.CreateDatabase(tx.ctx, stmt.DB)
+		return nil, tx.engine.multidbHandler.CreateDatabase(tx.ctx, stmt.DB, stmt.ifNotExists)
 	}
 
 	id := uint32(len(tx.catalog.dbsByID) + 1)
 
 	db, err := tx.catalog.newDatabase(id, stmt.DB)
+	if err == ErrDatabaseAlreadyExists && stmt.ifNotExists {
+		return tx, nil
+	}
 	if err != nil {
 		return nil, err
 	}

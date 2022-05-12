@@ -108,7 +108,7 @@ type Engine struct {
 
 type MultiDBHandler interface {
 	ListDatabases(ctx context.Context) ([]string, error)
-	CreateDatabase(ctx context.Context, db string) error
+	CreateDatabase(ctx context.Context, db string, ifNotExists bool) error
 	UseDatabase(ctx context.Context, db string) error
 }
 

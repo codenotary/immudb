@@ -284,6 +284,7 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+| ifNotExists | [bool](#bool) |  |  |
 
 
 

@@ -41,8 +41,11 @@ func (h *multidbHandler) UseDatabase(ctx context.Context, db string) error {
 	return err
 }
 
-func (h *multidbHandler) CreateDatabase(ctx context.Context, db string) error {
-	_, err := h.s.CreateDatabase(ctx, &schema.Database{DatabaseName: db})
+func (h *multidbHandler) CreateDatabase(ctx context.Context, db string, ifNotExists bool) error {
+	_, err := h.s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name:        db,
+		IfNotExists: ifNotExists,
+	})
 	return err
 }
 

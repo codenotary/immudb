@@ -20,6 +20,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/stretchr/testify/require"
@@ -137,4 +138,44 @@ func TestSQLExecResult(t *testing.T) {
 	require.Len(t, xres.Txs, 1)
 	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 1}}}, xres.FirstInsertedPks())
 	require.Equal(t, map[string]*schema.SQLValue{"table2": {Value: &schema.SQLValue_N{N: 3}}}, xres.LastInsertedPk())
+}
+
+func TestSQLExecCreateDatabase(t *testing.T) {
+	serverOptions := DefaultOptions().
+		WithMetricsServer(false)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	s.Initialize()
+
+	ctx := context.Background()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db1;"})
+	require.NoError(t, err)
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db1;"})
+	require.Error(t, err)
+	require.Equal(t, sql.ErrDatabaseAlreadyExists.Error(), err.Error())
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE IF NOT EXISTS db1;"})
+	require.NoError(t, err)
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE IF NOT EXISTS db2;"})
+	require.NoError(t, err)
+
+	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db2;"})
+	require.Error(t, err)
+	require.Equal(t, sql.ErrDatabaseAlreadyExists.Error(), err.Error())
 }
