@@ -13,8 +13,8 @@ This section is not yet.
 
 ## State signature
 
-Providing `immudb` with a signing key enables the cryptographic state signature.
-That means that an auditor or a third party client, for instance, could verify the authenticity of the returned current state after calling the `currentState` gRPC method.
+Providing `immudb` with a signing key enables cryptographic state signatures.
+This means that an auditor or a third party client, for instance, could verify the authenticity of the returned current state after calling the `currentState` gRPC method.
 
 Here are the gRPC message definitions:
 ```go
@@ -29,6 +29,8 @@ message Signature {
 	bytes publicKey = 2;
 }
 ```
+
+[//]: # "these link are broken and lead to pages in the /old hierarchy"
 
 Check [state signature](old/immudb/#state-signature) and [verify state signature](sdks-api.html#verify-state-signature) paragraphs for additional details.
 
