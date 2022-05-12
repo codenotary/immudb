@@ -75,4 +75,4 @@ immugw serves as a proxy to relay REST client communication from your applicatio
 
 [//]: # "Image not rendering for some reason"
 
-<img src=".gitbook/assets/diagram-immugw.svg" />
+![](.gitbook/assets/diagram-immugw.svg)
