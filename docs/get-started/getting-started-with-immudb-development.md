@@ -38,7 +38,7 @@ The immudb server manages the requests from the outside world to the store. In o
 
 <div class="wrapped-picture">
 
-![SDK Architecture](/immudb/immudb-server.svg)
+![SDK Architecture](../.gitbook/assets/immudb-server.svg)
 
 </div>
 
