@@ -464,6 +464,7 @@ message DatabaseSettings {
 message CreateDatabaseRequest {
 	string name = 1;
 	DatabaseNullableSettings settings = 2;
+	bool ifNotExists = 3;
 }
 
 message CreateDatabaseResponse {

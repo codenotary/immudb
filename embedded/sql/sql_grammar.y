@@ -177,9 +177,9 @@ ddlstmt:
         $$ = &RollbackStmt{}
     }
 |
-    CREATE DATABASE IDENTIFIER
+    CREATE DATABASE opt_if_not_exists IDENTIFIER
     {
-        $$ = &CreateDatabaseStmt{DB: $3}
+        $$ = &CreateDatabaseStmt{ifNotExists: $3, DB: $4}
     }
 |
     USE IDENTIFIER

@@ -795,7 +795,19 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 
 	//check if database exists
 	if s.dbList.GetId(req.Name) >= 0 {
-		return nil, database.ErrDatabaseAlreadyExists
+		if !req.IfNotExists {
+			return nil, database.ErrDatabaseAlreadyExists
+		}
+
+		dbOpts, err := s.loadDBOptions(req.Name, false)
+		if err != nil {
+			return nil, fmt.Errorf("%w: while loading database settings", err)
+		}
+
+		return &schema.CreateDatabaseResponse{
+			Name:     req.Name,
+			Settings: dbOpts.databaseNullableSettings(),
+		}, nil
 	}
 
 	dbOpts := s.defaultDBOptions(req.Name)

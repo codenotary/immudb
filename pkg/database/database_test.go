@@ -88,7 +88,7 @@ func (h *dummyMultidbHandler) ListDatabases(ctx context.Context) ([]string, erro
 	return nil, sql.ErrNoSupported
 }
 
-func (h *dummyMultidbHandler) CreateDatabase(ctx context.Context, db string) error {
+func (h *dummyMultidbHandler) CreateDatabase(ctx context.Context, db string, ifNotExists bool) error {
 	return sql.ErrNoSupported
 }
 
