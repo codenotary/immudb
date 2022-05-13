@@ -452,7 +452,43 @@ func (stmt *AddColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValue
 }
 
 func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	return nil, ErrNoSupported
+	if tx.currentDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	table, err := tx.currentDB.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.newColumn(stmt.colSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	//{auto_incremental | nullable}{maxLen}{colNAME})
+	v := make([]byte, 1+4+len(col.colName))
+
+	v[0] = v[0] | nullableFlag
+	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+
+	copy(v[5:], []byte(col.Name()))
+
+	mappedKey := mapKey(
+		tx.sqlPrefix(),
+		catalogColumnPrefix,
+		EncodeID(tx.currentDB.id),
+		EncodeID(table.id),
+		EncodeID(col.id),
+		[]byte(col.colType),
+	)
+
+	err = tx.set(mappedKey, nil, v)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }
 
 type UpsertIntoStmt struct {

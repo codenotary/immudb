@@ -407,6 +407,43 @@ func (t *Table) newIndex(unique bool, colIDs []uint32) (index *Index, err error)
 	return index, nil
 }
 
+func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
+	if spec.autoIncrement {
+		return nil, fmt.Errorf("%w (%s)", ErrLimitedAutoIncrement, spec.colName)
+	}
+
+	if spec.notNull {
+		return nil, fmt.Errorf("%w (%s)", ErrNewColumnMustBeNullable, spec.colName)
+	}
+
+	if !validMaxLenForType(spec.maxLen, spec.colType) {
+		return nil, fmt.Errorf("%w (%s)", ErrLimitedMaxLen, spec.colName)
+	}
+
+	_, exists := t.colsByName[spec.colName]
+	if exists {
+		return nil, fmt.Errorf("%w (%s)", ErrColumnAlreadyExists, spec.colName)
+	}
+
+	id := len(t.cols) + 1
+
+	col := &Column{
+		id:            uint32(id),
+		table:         t,
+		colName:       spec.colName,
+		colType:       spec.colType,
+		maxLen:        spec.maxLen,
+		autoIncrement: spec.autoIncrement,
+		notNull:       spec.notNull,
+	}
+
+	t.cols = append(t.cols, col)
+	t.colsByID[col.id] = col
+	t.colsByName[col.colName] = col
+
+	return col, nil
+}
+
 func (c *Column) ID() uint32 {
 	return c.id
 }
