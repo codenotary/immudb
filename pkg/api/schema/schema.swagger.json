@@ -1844,6 +1844,9 @@
         },
         "settings": {
           "$ref": "#/definitions/schemaDatabaseNullableSettings"
+        },
+        "alreadyExisted": {
+          "type": "boolean"
         }
       }
     },

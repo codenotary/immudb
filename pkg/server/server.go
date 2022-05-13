@@ -805,8 +805,9 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		}
 
 		return &schema.CreateDatabaseResponse{
-			Name:     req.Name,
-			Settings: dbOpts.databaseNullableSettings(),
+			Name:           req.Name,
+			Settings:       dbOpts.databaseNullableSettings(),
+			AlreadyExisted: true,
 		}, nil
 	}
 

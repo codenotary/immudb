@@ -301,6 +301,7 @@
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+| alreadyExisted | [bool](#bool) |  |  |
 
 
 

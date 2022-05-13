@@ -470,6 +470,7 @@ message CreateDatabaseRequest {
 message CreateDatabaseResponse {
 	string name = 1;
 	DatabaseNullableSettings settings = 2;
+	bool alreadyExisted = 3;
 }
 
 message UpdateDatabaseRequest {
