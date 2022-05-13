@@ -153,7 +153,7 @@ func main() {
 		panic(err)
 	}
 
-	err = engine.SetDefaultDatabase("defaultdb")
+	_, _, err = engine.Exec("USE DATABASE defaultdb;", map[string]interface{}{}, nil)
 	if err != nil {
 		panic(err)
 	}

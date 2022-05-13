@@ -199,11 +199,11 @@ func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQL
 }
 
 func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	if tx.engine.multidbHandler != nil {
-		if tx.explicitClose {
-			return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
-		}
+	if tx.explicitClose {
+		return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
+	}
 
+	if tx.engine.multidbHandler != nil {
 		return nil, tx.engine.multidbHandler.CreateDatabase(tx.ctx, stmt.DB, stmt.ifNotExists)
 	}
 
@@ -235,16 +235,25 @@ func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLVal
 
 func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if stmt.DB == "" {
-		return tx, fmt.Errorf("%w: no database name was provided", ErrIllegalArguments)
+		return nil, fmt.Errorf("%w: no database name was provided", ErrIllegalArguments)
+	}
+
+	if tx.explicitClose {
+		return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
 	}
 
 	if tx.engine.multidbHandler != nil {
-		if tx.explicitClose {
-			return nil, fmt.Errorf("%w: database selection can NOT be executed within a transaction block", ErrNonTransactionalStmt)
-		}
-
 		return tx, tx.engine.multidbHandler.UseDatabase(tx.ctx, stmt.DB)
 	}
+
+	_, exists := tx.catalog.dbsByName[stmt.DB]
+	if !exists {
+		return nil, fmt.Errorf("%w (%s)", ErrDatabaseDoesNotExist, stmt.DB)
+	}
+
+	tx.engine.mutex.Lock()
+	tx.engine.currentDatabase = stmt.DB
+	tx.engine.mutex.Unlock()
 
 	return tx, tx.useDatabase(stmt.DB)
 }

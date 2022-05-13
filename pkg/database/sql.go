@@ -31,7 +31,7 @@ import (
 var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
 
 func (d *db) reloadSQLCatalog() error {
-	err := d.sqlEngine.SetDefaultDatabase(dbInstanceName)
+	err := d.sqlEngine.SetCurrentDatabase(dbInstanceName)
 	if err == sql.ErrDatabaseDoesNotExist {
 		return ErrSQLNotReady
 	}
