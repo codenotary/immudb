@@ -420,7 +420,6 @@ func TestAddColumn(t *testing.T) {
 
 	res, err := engine.Query("SELECT id, name, surname FROM table1", nil, nil)
 	require.NoError(t, err)
-	defer res.Close()
 
 	row, err := res.Read()
 	require.NoError(t, err)
@@ -431,6 +430,35 @@ func TestAddColumn(t *testing.T) {
 
 	_, err = res.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	res.Close()
+	st.Close()
+
+	// Reopen store
+	st, err = store.Open("sqldata_add_column", store.DefaultOptions())
+	require.NoError(t, err)
+
+	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	res, err = engine.Query("SELECT id, name, surname FROM table1", nil, nil)
+	require.NoError(t, err)
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+	require.EqualValues(t, "Smith", row.ValuesByPosition[2].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	res.Close()
+	st.Close()
 }
 
 func TestCreateIndex(t *testing.T) {
