@@ -172,7 +172,7 @@ func (e *Engine) SetCurrentDatabase(dbName string) error {
 
 	db, exists := tx.catalog.dbsByName[dbName]
 	if !exists {
-		return fmt.Errorf("%w (%s)", ErrDatabaseDoesNotExist, dbName)
+		return ErrDatabaseDoesNotExist
 	}
 
 	e.mutex.Lock()
