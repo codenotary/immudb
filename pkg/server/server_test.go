@@ -423,9 +423,17 @@ func TestServerUpdateDatabaseV2(t *testing.T) {
 					MasterDatabase: &schema.NullableString{Value: "defaultdb"},
 				},
 			},
+			IfNotExists: true,
 		}
-		_, err = s.CreateDatabaseV2(ctx, newdb)
+		res, err := s.CreateDatabaseV2(ctx, newdb)
 		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.False(t, res.AlreadyExisted)
+
+		res, err = s.CreateDatabaseV2(ctx, newdb)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.True(t, res.AlreadyExisted)
 
 		dbSettings = &schema.UpdateDatabaseRequest{
 			Database: "lisbon",
