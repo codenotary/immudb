@@ -461,6 +461,111 @@ func TestAddColumn(t *testing.T) {
 	st.Close()
 }
 
+func TestRenameColumn(t *testing.T) {
+	st, err := store.Open("sqldata_rename_column", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata_rename_column")
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 RENAME COLUMN name TO surname", nil, nil)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("INSERT INTO table1(name) VALUES('John'), ('Sylvia'), ('Robocop') ", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 RENAME COLUMN name TO name", nil, nil)
+	require.ErrorIs(t, err, ErrSameOldAndNewColumnName)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 RENAME COLUMN name TO id", nil, nil)
+	require.ErrorIs(t, err, ErrColumnAlreadyExists)
+
+	_, _, err = engine.Exec("ALTER TABLE table2 RENAME COLUMN name TO surname", nil, nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 RENAME COLUMN surname TO name", nil, nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 RENAME COLUMN name TO surname", nil, nil)
+	require.NoError(t, err)
+
+	res, err := engine.Query("SELECT id, surname FROM table1 ORDER BY surname", nil, nil)
+	require.NoError(t, err)
+	defer res.Close()
+
+	row, err := res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 3, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "Robocop", row.ValuesByPosition[1].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	res.Close()
+	st.Close()
+
+	// Reopen store
+	st, err = store.Open("sqldata_rename_column", store.DefaultOptions())
+	require.NoError(t, err)
+
+	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	res, err = engine.Query("SELECT id, surname FROM table1 ORDER BY surname", nil, nil)
+	require.NoError(t, err)
+	defer res.Close()
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 3, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "Robocop", row.ValuesByPosition[1].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "Sylvia", row.ValuesByPosition[1].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
 func TestCreateIndex(t *testing.T) {
 	st, err := store.Open("sqldata_create_index", store.DefaultOptions())
 	require.NoError(t, err)
@@ -3794,6 +3899,10 @@ func TestInferParameters(t *testing.T) {
 	require.NoError(t, err)
 
 	params, err = engine.InferParameters("ALTER TABLE mytableSE ADD COLUMN note VARCHAR", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	params, err = engine.InferParameters("ALTER TABLE mytableSE RENAME COLUMN note TO newNote", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
