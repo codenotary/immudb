@@ -270,6 +270,34 @@ func (stmt *UseSnapshotStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	return nil, ErrNoSupported
 }
 
+func persistColumn(col *Column, tx *SQLTx) error {
+	//{auto_incremental | nullable}{maxLen}{colNAME})
+	v := make([]byte, 1+4+len(col.colName))
+
+	if col.autoIncrement {
+		v[0] = v[0] | autoIncrementFlag
+	}
+
+	if col.notNull {
+		v[0] = v[0] | nullableFlag
+	}
+
+	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
+
+	copy(v[5:], []byte(col.Name()))
+
+	mappedKey := mapKey(
+		tx.sqlPrefix(),
+		catalogColumnPrefix,
+		EncodeID(col.table.db.id),
+		EncodeID(col.table.id),
+		EncodeID(col.id),
+		[]byte(col.colType),
+	)
+
+	return tx.set(mappedKey, nil, v)
+}
+
 type CreateTableStmt struct {
 	table       string
 	ifNotExists bool
@@ -302,35 +330,13 @@ func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	}
 
 	for _, col := range table.Cols() {
-		//{auto_incremental | nullable}{maxLen}{colNAME})
-		v := make([]byte, 1+4+len(col.colName))
-
 		if col.autoIncrement {
 			if len(table.primaryIndex.cols) > 1 || col.id != table.primaryIndex.cols[0].id {
 				return nil, ErrLimitedAutoIncrement
 			}
-
-			v[0] = v[0] | autoIncrementFlag
 		}
 
-		if col.notNull {
-			v[0] = v[0] | nullableFlag
-		}
-
-		binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
-
-		copy(v[5:], []byte(col.Name()))
-
-		mappedKey := mapKey(
-			tx.sqlPrefix(),
-			catalogColumnPrefix,
-			EncodeID(tx.currentDB.id),
-			EncodeID(table.id),
-			EncodeID(col.id),
-			[]byte(col.colType),
-		)
-
-		err = tx.set(mappedKey, nil, v)
+		err := persistColumn(col, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -466,24 +472,7 @@ func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQ
 		return nil, err
 	}
 
-	//{auto_incremental | nullable}{maxLen}{colNAME})
-	v := make([]byte, 1+4+len(col.colName))
-
-	v[0] = v[0] | nullableFlag
-	binary.BigEndian.PutUint32(v[1:], uint32(col.MaxLen()))
-
-	copy(v[5:], []byte(col.Name()))
-
-	mappedKey := mapKey(
-		tx.sqlPrefix(),
-		catalogColumnPrefix,
-		EncodeID(tx.currentDB.id),
-		EncodeID(table.id),
-		EncodeID(col.id),
-		[]byte(col.colType),
-	)
-
-	err = tx.set(mappedKey, nil, v)
+	err = persistColumn(col, tx)
 	if err != nil {
 		return nil, err
 	}
