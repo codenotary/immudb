@@ -377,7 +377,10 @@ func TestAddColumn(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, nil)
-	require.Equal(t, ErrNoDatabaseSelected, err)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil, nil)
+	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
@@ -388,8 +391,46 @@ func TestAddColumn(t *testing.T) {
 	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
+	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("INSERT INTO table1(name, surname) VALUES('John', 'Smith')", nil, nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN int INTEGER AUTO_INCREMENT", nil, nil)
+	require.ErrorIs(t, err, ErrLimitedAutoIncrement)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN surname VARCHAR NOT NULL", nil, nil)
+	require.ErrorIs(t, err, ErrNewColumnMustBeNullable)
+
+	_, _, err = engine.Exec("ALTER TABLE table2 ADD COLUMN surname VARCHAR", nil, nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN value INTEGER[100]", nil, nil)
+	require.ErrorIs(t, err, ErrLimitedMaxLen)
+
 	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil, nil)
-	require.Equal(t, ErrNoSupported, err)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN surname VARCHAR", nil, nil)
+	require.ErrorIs(t, err, ErrColumnAlreadyExists)
+
+	_, _, err = engine.Exec("INSERT INTO table1(name, surname) VALUES('John', 'Smith')", nil, nil)
+	require.NoError(t, err)
+
+	res, err := engine.Query("SELECT id, name, surname FROM table1", nil, nil)
+	require.NoError(t, err)
+	defer res.Close()
+
+	row, err := res.Read()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, row.ValuesByPosition[0].Value())
+	require.EqualValues(t, "John", row.ValuesByPosition[1].Value())
+	require.EqualValues(t, "Smith", row.ValuesByPosition[2].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
 func TestCreateIndex(t *testing.T) {
