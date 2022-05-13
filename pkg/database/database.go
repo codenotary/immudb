@@ -229,7 +229,7 @@ func (d *db) initSQLEngine() error {
 		}
 	}
 
-	err := d.sqlEngine.SetDefaultDatabase(dbInstanceName)
+	err := d.sqlEngine.SetCurrentDatabase(dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
 	}
@@ -240,7 +240,7 @@ func (d *db) initSQLEngine() error {
 			return logErr(d.Logger, "Unable to open store: %s", err)
 		}
 
-		err = d.sqlEngine.SetDefaultDatabase(dbInstanceName)
+		err = d.sqlEngine.SetCurrentDatabase(dbInstanceName)
 		if err != nil {
 			return err
 		}
@@ -291,7 +291,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		err = dbi.sqlEngine.SetDefaultDatabase(dbInstanceName)
+		err = dbi.sqlEngine.SetCurrentDatabase(dbInstanceName)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}

@@ -99,7 +99,7 @@ type Engine struct {
 	distinctLimit int
 	autocommit    bool
 
-	defaultDatabase string
+	currentDatabase string
 
 	multidbHandler MultiDBHandler
 
@@ -163,7 +163,7 @@ func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
 	e.multidbHandler = handler
 }
 
-func (e *Engine) SetDefaultDatabase(dbName string) error {
+func (e *Engine) SetCurrentDatabase(dbName string) error {
 	tx, err := e.NewTx(context.Background())
 	if err != nil {
 		return err
@@ -172,22 +172,22 @@ func (e *Engine) SetDefaultDatabase(dbName string) error {
 
 	db, exists := tx.catalog.dbsByName[dbName]
 	if !exists {
-		return ErrDatabaseDoesNotExist
+		return fmt.Errorf("%w (%s)", ErrDatabaseDoesNotExist, dbName)
 	}
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	e.defaultDatabase = db.name
+	e.currentDatabase = db.name
 
 	return nil
 }
 
-func (e *Engine) DefaultDatabase() string {
+func (e *Engine) CurrentDatabase() string {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	return e.defaultDatabase
+	return e.currentDatabase
 }
 
 func (e *Engine) NewTx(ctx context.Context) (*SQLTx, error) {
@@ -208,13 +208,13 @@ func (e *Engine) NewTx(ctx context.Context) (*SQLTx, error) {
 
 	var currentDB *Database
 
-	if e.defaultDatabase != "" {
-		defaultDatabase, exists := catalog.dbsByName[e.defaultDatabase]
+	if e.currentDatabase != "" {
+		db, exists := catalog.dbsByName[e.currentDatabase]
 		if !exists {
 			return nil, ErrDatabaseDoesNotExist
 		}
 
-		currentDB = defaultDatabase
+		currentDB = db
 	}
 
 	return &SQLTx{

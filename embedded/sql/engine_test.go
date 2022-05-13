@@ -69,9 +69,11 @@ func TestUseDatabase(t *testing.T) {
 
 	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
+	require.Equal(t, "db1", engine.CurrentDatabase())
 
 	_, _, err = engine.Exec("USE DATABASE db2", nil, nil)
-	require.Equal(t, ErrDatabaseDoesNotExist, err)
+	require.ErrorIs(t, err, ErrDatabaseDoesNotExist)
+	require.Equal(t, "db1", engine.CurrentDatabase())
 
 	_, _, err = engine.Exec("CREATE DATABASE db2", nil, nil)
 	require.NoError(t, err)
@@ -83,6 +85,7 @@ func TestUseDatabase(t *testing.T) {
 		CREATE TABLE table1(id INTEGER, PRIMARY KEY id);
 		`, nil, nil)
 	require.NoError(t, err)
+	require.Equal(t, "db2", engine.CurrentDatabase())
 }
 
 func TestCreateTable(t *testing.T) {
@@ -99,19 +102,19 @@ func TestCreateTable(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE IF NOT EXISTS db1", nil, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
-	require.ErrorIs(t, err, ErrColumnDoesNotExist)
-
-	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, nil)
-	require.ErrorIs(t, err, ErrLimitedKeyType)
-
-	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil, nil)
-	require.ErrorIs(t, err, ErrLimitedKeyType)
-
-	_, _, err = engine.Exec("USE DATABASE db1; CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil, nil)
+	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, nil)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR[512], PRIMARY KEY name)", nil, nil)
+	require.ErrorIs(t, err, ErrLimitedKeyType)
+
+	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR[32], PRIMARY KEY name)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil, nil)
@@ -139,7 +142,7 @@ func TestTimestampType(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
@@ -241,7 +244,7 @@ func TestTimestampIndex(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_index (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
@@ -281,7 +284,7 @@ func TestTimestampCasts(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
@@ -379,7 +382,7 @@ func TestAddColumn(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
@@ -400,7 +403,7 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -457,7 +460,7 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, nil)
@@ -606,7 +609,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil, nil)
@@ -677,7 +680,7 @@ func TestAutoIncrementPK(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	t.Run("invalid use of auto-increment", func(t *testing.T) {
@@ -773,7 +776,7 @@ func TestDelete(t *testing.T) {
 	_, _, err = engine.Exec("DELETE FROM table1", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
@@ -867,7 +870,7 @@ func TestErrorDuringDelete(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
@@ -897,7 +900,7 @@ func TestUpdate(t *testing.T) {
 	_, _, err = engine.Exec("UPDATE table1 SET title = 'title11' WHERE title = 'title'", nil, nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
@@ -987,7 +990,7 @@ func TestTransactions(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
@@ -1060,7 +1063,7 @@ func TestTransactionsEdgeCases(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
@@ -1115,7 +1118,7 @@ func TestUseSnapshot(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, nil)
@@ -1308,7 +1311,7 @@ func TestQuery(t *testing.T) {
 	_, _, err = engine.Exec("SELECT id FROM table1", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, err = engine.Query("SELECT id FROM table1", nil, nil)
@@ -1647,7 +1650,7 @@ func TestQueryDistinct(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
@@ -1850,7 +1853,7 @@ func TestIndexing(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`CREATE TABLE table1 (
@@ -2397,7 +2400,7 @@ func TestQueryWithNullables(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -2451,7 +2454,7 @@ func TestOrderBy(t *testing.T) {
 	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[100], age INTEGER, PRIMARY KEY id)", nil, nil)
@@ -2619,7 +2622,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
@@ -2745,7 +2748,7 @@ func TestQueryWithInClause(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -2891,7 +2894,7 @@ func TestAggregations(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
@@ -2988,7 +2991,7 @@ func TestCount(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3044,7 +3047,7 @@ func TestGroupByHaving(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -3172,7 +3175,7 @@ func TestJoins(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3289,7 +3292,7 @@ func TestJoinsWithNullIndexes(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
@@ -3342,7 +3345,7 @@ func TestJoinsWithJointTable(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
@@ -3407,7 +3410,7 @@ func TestNestedJoins(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3471,7 +3474,7 @@ func TestReOpening(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
@@ -3483,7 +3486,7 @@ func TestReOpening(t *testing.T) {
 	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
@@ -3504,7 +3507,7 @@ func TestSubQuery(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
@@ -3576,7 +3579,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
@@ -3683,7 +3686,7 @@ func TestInferParameters(t *testing.T) {
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@id, @title);", nil)
 	require.ErrorIs(t, err, ErrNoDatabaseSelected)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("invalid sql stmt", nil)
@@ -3824,7 +3827,7 @@ func TestInferParametersPrepared(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
@@ -3850,7 +3853,7 @@ func TestInferParametersUnbounded(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -3900,7 +3903,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
@@ -4359,7 +4362,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	exec := func(t *testing.T, stmt string) *SQLTx {
@@ -4588,7 +4591,7 @@ func TestTemporalQueries(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
@@ -4729,7 +4732,7 @@ func TestUnionOperator(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
@@ -4861,7 +4864,7 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetDefaultDatabase("db1")
+	err = engine.SetCurrentDatabase("db1")
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
@@ -4974,7 +4977,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 		require.NoError(t, err)
 
-		err = engine.SetDefaultDatabase("db1")
+		err = engine.SetCurrentDatabase("db1")
 		require.NoError(t, err)
 
 		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
@@ -5102,12 +5105,13 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
 	require.NoError(t, err)
 
+	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
+	require.NoError(t, err)
+
 	tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
-		USE DATABASE db1;
-		
 		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
 		CREATE INDEX ON mytable1(title);
 	
