@@ -248,7 +248,7 @@ func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 
 	_, exists := tx.catalog.dbsByName[stmt.DB]
 	if !exists {
-		return nil, fmt.Errorf("%w (%s)", ErrDatabaseDoesNotExist, stmt.DB)
+		return nil, ErrDatabaseDoesNotExist
 	}
 
 	tx.engine.mutex.Lock()
