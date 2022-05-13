@@ -480,6 +480,39 @@ func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQ
 	return tx, nil
 }
 
+type RenameColumnStmt struct {
+	table   string
+	oldName string
+	newName string
+}
+
+func (stmt *RenameColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func (stmt *RenameColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.currentDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	table, err := tx.currentDB.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.renameColumn(stmt.oldName, stmt.newName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = persistColumn(col, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
 type UpsertIntoStmt struct {
 	isInsert   bool
 	tableRef   *tableRef

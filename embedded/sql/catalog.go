@@ -444,6 +444,29 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
+	if oldName == newName {
+		return nil, fmt.Errorf("%w (%s)", ErrSameOldAndNewColumnName, oldName)
+	}
+
+	col, exists := t.colsByName[oldName]
+	if !exists {
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, oldName)
+	}
+
+	_, exists = t.colsByName[newName]
+	if exists {
+		return nil, fmt.Errorf("%w (%s)", ErrColumnAlreadyExists, newName)
+	}
+
+	col.colName = newName
+
+	delete(t.colsByName, oldName)
+	t.colsByName[newName] = col
+
+	return col, nil
+}
+
 func (c *Column) ID() uint32 {
 	return c.id
 }

@@ -339,7 +339,7 @@ func TestCreateIndexStmt(t *testing.T) {
 	}
 }
 
-func TestAlterTableStmt(t *testing.T) {
+func TestAlterTable(t *testing.T) {
 	testCases := []struct {
 		input          string
 		expectedOutput []SQLStmt
@@ -366,7 +366,22 @@ func TestAlterTableStmt(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD at position 25"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD or RENAME at position 25"),
+		},
+		{
+			input: "ALTER TABLE table1 RENAME COLUMN title TO newtitle",
+			expectedOutput: []SQLStmt{
+				&RenameColumnStmt{
+					table:   "table1",
+					oldName: "title",
+					newName: "newtitle",
+				}},
+			expectedError: nil,
+		},
+		{
+			input:          "ALTER TABLE table1 RENAME COLUMN TO newtitle",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected TO, expecting IDENTIFIER at position 35"),
 		},
 	}
 
