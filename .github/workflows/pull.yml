@@ -73,11 +73,12 @@ jobs:
           ${{matrix.immuclient}} || echo "Test #1 OK - immuclient failed to connect (no server started)"
           ${{matrix.immudb}} -d
           ${{matrix.immuclient}} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          ${{matrix.immuclient}} safeset test3 githubaction || { echo "Test #3 Failed to safeset simple values"; exit 1; }
+          echo -n "immudb" | ${{matrix.immuclient}} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
+          ${{matrix.immuclient}} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
           sg=$(${{matrix.immuclient}} safeget test3)
-          grep -q "githubaction" <<< $sg || { echo "Test #4 Failed safeget responded with $sg"; exit 1; }
-          grep -q  "verified" <<< $sg || { echo "Test #5 Failed safeset didn't get verified"; exit 1; }
-          grep -q "true" <<< $sg || { echo "Test #5 Failed safeset didn't get verified"; exit 1; }
+          grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
+          grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
+          grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
         shell: bash
 
   test-webconsole:
@@ -103,14 +104,15 @@ jobs:
           immuclient || echo "Test #1 OK - immuclient failed to connect (no server started)"
           immudb -d
           immuclient login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          immuclient safeset test3 githubaction || { echo "Test #3 Failed to safeset simple values"; exit 1; }
+          echo -n "immudb" | immuclient login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
+          immuclient safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
           sg=$(immuclient safeget test3)
-          grep -q "githubaction" <<< $sg || { echo "Test #4 Failed safeget responded with $sg"; exit 1; }
-          grep -q  "verified" <<< $sg || { echo "Test #5 Failed safeset didn't get verified"; exit 1; }
-          grep -q "true" <<< $sg || { echo "Test #5 Failed safeset didn't get verified"; exit 1; }
+          grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
+          grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
+          grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
           # Find <title>immudb webconsole</title>
-          webconsole_page=$(curl -s localhost:8080) || { echo "Test #6 web console unreachable"; exit 1; }
-          grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #7 Failed, web console reachable but title not found"; exit 1; }
+          webconsole_page=$(curl -s localhost:8080) || { echo "Test #8 web console unreachable"; exit 1; }
+          grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #9 Failed, web console reachable but title not found"; exit 1; }
 
   coveralls:
     name: Coverage

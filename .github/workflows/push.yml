@@ -140,6 +140,7 @@ jobs:
         IMMUCLIENT="${{ matrix.qemu-launcher }} "dist/immuclient-${{ matrix.selector }}
 
         $IMMUCLIENT login --username immudb --password immudb
+        echo -n "immudb" | $IMMUCLIENT login --username immudb
         $IMMUCLIENT use test
         $IMMUCLIENT safeset test3 githubaction
         sg=$($IMMUCLIENT safeget test3)
