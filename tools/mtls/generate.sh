@@ -21,6 +21,7 @@ if [[ $2 == "" ]]; then
   exit 1
 fi
 
+export SAN=DNS:$1
 
 echo
 echo Generate the root key
