@@ -385,7 +385,7 @@ func TestAddColumn(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetCurrentDatabase("db1")
+	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, nil)
@@ -431,8 +431,11 @@ func TestAddColumn(t *testing.T) {
 	_, err = res.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
 
-	res.Close()
-	st.Close()
+	err = res.Close()
+	require.NoError(t, err)
+
+	err = st.Close()
+	require.NoError(t, err)
 
 	// Reopen store
 	st, err = store.Open("sqldata_add_column", store.DefaultOptions())
@@ -441,7 +444,7 @@ func TestAddColumn(t *testing.T) {
 	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	err = engine.SetCurrentDatabase("db1")
+	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	res, err = engine.Query("SELECT id, name, surname FROM table1", nil, nil)
@@ -457,8 +460,11 @@ func TestAddColumn(t *testing.T) {
 	_, err = res.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
 
-	res.Close()
-	st.Close()
+	err = res.Close()
+	require.NoError(t, err)
+
+	err = st.Close()
+	require.NoError(t, err)
 }
 
 func TestRenameColumn(t *testing.T) {
@@ -475,7 +481,7 @@ func TestRenameColumn(t *testing.T) {
 	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetCurrentDatabase("db1")
+	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], PRIMARY KEY id)", nil, nil)
@@ -504,7 +510,6 @@ func TestRenameColumn(t *testing.T) {
 
 	res, err := engine.Query("SELECT id, surname FROM table1 ORDER BY surname", nil, nil)
 	require.NoError(t, err)
-	defer res.Close()
 
 	row, err := res.Read()
 	require.NoError(t, err)
@@ -527,8 +532,11 @@ func TestRenameColumn(t *testing.T) {
 	_, err = res.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
 
-	res.Close()
-	st.Close()
+	err = res.Close()
+	require.NoError(t, err)
+
+	err = st.Close()
+	require.NoError(t, err)
 
 	// Reopen store
 	st, err = store.Open("sqldata_rename_column", store.DefaultOptions())
@@ -537,12 +545,11 @@ func TestRenameColumn(t *testing.T) {
 	engine, err = NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	err = engine.SetCurrentDatabase("db1")
+	_, _, err = engine.Exec("USE DATABASE db1", nil, nil)
 	require.NoError(t, err)
 
 	res, err = engine.Query("SELECT id, surname FROM table1 ORDER BY surname", nil, nil)
 	require.NoError(t, err)
-	defer res.Close()
 
 	row, err = res.Read()
 	require.NoError(t, err)
@@ -564,6 +571,12 @@ func TestRenameColumn(t *testing.T) {
 
 	_, err = res.Read()
 	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = res.Close()
+	require.NoError(t, err)
+
+	err = st.Close()
+	require.NoError(t, err)
 }
 
 func TestCreateIndex(t *testing.T) {
