@@ -931,7 +931,7 @@ func TestTxScan(t *testing.T) {
 		InitialTx: 1,
 		Limit:     MaxKeyScanLimit + 1,
 	})
-	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
 
 	t.Run("values should be returned", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
@@ -1006,7 +1006,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Limit:   MaxKeyScanLimit + 1,
 	})
-	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
 
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,

@@ -83,7 +83,7 @@ func TestStoreIndexExists(t *testing.T) {
 	}
 
 	_, err = db.ZScan(zscanOpts)
-	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
 
 	//try to retrieve directly the value or full scan to debug
 

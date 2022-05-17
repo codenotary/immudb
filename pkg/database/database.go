@@ -1225,7 +1225,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	limit := int(req.Limit)
@@ -1264,7 +1264,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		txList.Txs = append(txList.Txs, sTx)
 
 		if l == MaxKeyScanLimit {
-			return txList, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+			return txList, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 
@@ -1278,7 +1278,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	currTxID, _ := d.st.Alh()
@@ -1357,7 +1357,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	}
 
 	if limit == MaxKeyScanLimit && hCount >= MaxKeyScanLimit {
-		return list, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+		return list, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 	}
 
 	return list, nil

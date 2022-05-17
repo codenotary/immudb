@@ -100,7 +100,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	limit := int(req.Limit)
@@ -236,7 +236,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		entries.Entries = append(entries.Entries, zentry)
 
 		if l == MaxKeyScanLimit {
-			return entries, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+			return entries, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 

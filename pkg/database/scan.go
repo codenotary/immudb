@@ -34,7 +34,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	waitUntilTx := req.SinceTx
@@ -112,7 +112,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		entries.Entries = append(entries.Entries, e)
 
 		if l == MaxKeyScanLimit {
-			return entries, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+			return entries, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 

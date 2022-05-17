@@ -56,7 +56,7 @@ func TestStoreScan(t *testing.T) {
 	}
 
 	_, err = db.Scan(&scanOptions)
-	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
 
 	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
