@@ -17,6 +17,7 @@ package database
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -99,10 +100,10 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
+		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
-	limit := req.Limit
+	limit := int(req.Limit)
 
 	if req.Limit == 0 {
 		limit = MaxKeyScanLimit
@@ -183,12 +184,11 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 	defer r.Close()
 
-	var entries []*schema.ZEntry
-	i := uint64(0)
-
 	tx := d.st.NewTxHolder()
 
-	for {
+	entries := &schema.ZEntries{}
+
+	for l := 1; l <= limit; l++ {
 		zKey, _, err := r.Read()
 		if err == store.ErrNoMoreEntries {
 			break
@@ -233,17 +233,14 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			AtTx:  atTx,
 		}
 
-		entries = append(entries, zentry)
-		if i++; i == limit {
-			break
+		entries.Entries = append(entries.Entries, zentry)
+
+		if l == MaxKeyScanLimit {
+			return entries, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 
-	list := &schema.ZEntries{
-		Entries: entries,
-	}
-
-	return list, nil
+	return entries, nil
 }
 
 //VerifiableZAdd ...

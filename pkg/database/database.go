@@ -42,6 +42,7 @@ const dbInstanceName = "dbinstance"
 
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
+var ErrMaxKeyScanLimitReached = errors.New("max key scan limit reached")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
 var ErrIsReplica = errors.New("database is read-only because it's a replica")
@@ -1224,7 +1225,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
+		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	limit := int(req.Limit)
@@ -1246,7 +1247,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 
 	txList := &schema.TxList{}
 
-	for i := 0; i < limit; i++ {
+	for l := 1; l <= limit; l++ {
 		tx, err := txReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
@@ -1261,6 +1262,10 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		}
 
 		txList.Txs = append(txList.Txs, sTx)
+
+		if l == MaxKeyScanLimit {
+			return txList, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+		}
 	}
 
 	return txList, nil
@@ -1273,7 +1278,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
+		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	currTxID, _ := d.st.Alh()
@@ -1349,6 +1354,10 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		} else {
 			revision++
 		}
+	}
+
+	if limit == MaxKeyScanLimit && hCount >= MaxKeyScanLimit {
+		return list, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 	}
 
 	return list, nil

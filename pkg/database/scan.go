@@ -16,6 +16,8 @@ limitations under the License.
 package database
 
 import (
+	"fmt"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
@@ -32,7 +34,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 
 	if req.Limit > MaxKeyScanLimit {
-		return nil, ErrMaxKeyScanLimitExceeded
+		return nil, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
 	}
 
 	waitUntilTx := req.SinceTx
@@ -47,14 +49,11 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		}
 	}
 
-	limit := req.Limit
+	limit := int(req.Limit)
 
 	if req.Limit == 0 {
 		limit = MaxKeyScanLimit
 	}
-
-	var entries []*schema.Entry
-	i := uint64(0)
 
 	snap, err := d.st.SnapshotSince(waitUntilTx)
 	if err != nil {
@@ -90,7 +89,9 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 
 	tx := d.st.NewTxHolder()
 
-	for {
+	entries := &schema.Entries{}
+
+	for l := 1; l <= limit; l++ {
 		key, valRef, err := r.Read()
 		if err == store.ErrNoMoreEntries {
 			break
@@ -108,13 +109,12 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		entries = append(entries, e)
-		if i++; i == limit {
-			break
+		entries.Entries = append(entries.Entries, e)
+
+		if l == MaxKeyScanLimit {
+			return entries, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 
-	return &schema.Entries{
-		Entries: entries,
-	}, nil
+	return entries, nil
 }
