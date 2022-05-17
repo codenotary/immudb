@@ -284,7 +284,7 @@ func TestExecAllOps(t *testing.T) {
 		Set: []byte(`mySet`),
 	}
 	zList, err := db.ZScan(zScanOpt)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrMaxKeyScanLimitReached)
 	println(len(zList.Entries))
 	require.Len(t, zList.Entries, batchCount*batchSize)
 }
