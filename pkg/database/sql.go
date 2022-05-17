@@ -439,7 +439,7 @@ func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedPa
 		res.Rows = append(res.Rows, rrow)
 
 		if l == MaxKeyScanLimit {
-			return res, fmt.Errorf("%w: limit is %d", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+			return res, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
 		}
 	}
 
