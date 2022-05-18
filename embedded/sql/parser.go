@@ -46,6 +46,7 @@ var reservedWords = map[string]int{
 	"ALTER":          ALTER,
 	"ADD":            ADD,
 	"RENAME":         RENAME,
+	"DROP":           DROP,
 	"TO":             TO,
 	"COLUMN":         COLUMN,
 	"INSERT":         INSERT,
