@@ -54,12 +54,13 @@ func TestImmuClient_SQL(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, err = client.SQLExec(ctx, `CREATE TABLE table1(
-		id INTEGER,
-		title VARCHAR,
-		active BOOLEAN,
-		payload BLOB,
-		PRIMARY KEY id
+	_, err = client.SQLExec(ctx, `
+		CREATE TABLE table1(
+			id INTEGER,
+			title VARCHAR,
+			active BOOLEAN,
+			payload BLOB,
+			PRIMARY KEY id
 		);`, nil)
 	require.NoError(t, err)
 
@@ -69,101 +70,126 @@ func TestImmuClient_SQL(t *testing.T) {
 	params["active"] = true
 	params["payload"] = []byte{1, 2, 3}
 
-	_, err = client.SQLExec(ctx, "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
-	require.NoError(t, err)
-
-	res, err := client.SQLQuery(ctx, "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params, true)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	_, err = client.SQLQuery(ctx, "SELECT id as uuid FROM table1", nil, true)
-	require.NoError(t, err)
-
-	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-		require.Equal(t, sql.ErrColumnDoesNotExist, err)
-	}
-
-	for i := len(res.Rows); i > 0; i-- {
-		row := res.Rows[i-1]
-		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-		require.Equal(t, sql.ErrColumnDoesNotExist, err)
-	}
-
-	res, err = client.SQLQuery(ctx, "SELECT id, title, active, payload FROM table1 WHERE id <= 3 AND active = @active", params, true)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+	t.Run("insert with params", func(t *testing.T) {
+		_, err := client.SQLExec(ctx, `
+			INSERT INTO table1(id, title, active, payload)
+			VALUES
+				(@id, @title, @active, @payload),
+				(2, 'title2', false, NULL),
+				(3, NULL, NULL, x'AED0393F')
+			`, params)
 		require.NoError(t, err)
+	})
 
-		row.Values[1].Value = &schema.SQLValue_S{S: "tampered title"}
-
-		err = client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
-		require.Equal(t, sql.ErrCorruptedData, err)
-	}
-
-	res, err = client.SQLQuery(ctx, "SELECT id, active FROM table1", nil, true)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+	t.Run("verify row", func(t *testing.T) {
+		res, err := client.SQLQuery(ctx, `
+			SELECT t.id as id, title
+			FROM table1 t
+			WHERE id <= 3 AND active = @active
+			`, params, true)
 		require.NoError(t, err)
-	}
+		require.NotNil(t, res)
 
-	res, err = client.SQLQuery(ctx, "SELECT active FROM table1 WHERE id = 1", nil, true)
-	require.NoError(t, err)
-	require.NotNil(t, res)
+		for _, row := range res.Rows {
+			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+			require.Equal(t, sql.ErrColumnDoesNotExist, err)
+		}
 
-	for _, row := range res.Rows {
-		err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
+		for i := len(res.Rows); i > 0; i-- {
+			row := res.Rows[i-1]
+			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+			require.Equal(t, sql.ErrColumnDoesNotExist, err)
+		}
+
+		res, err = client.SQLQuery(ctx, `
+			SELECT id, title, active, payload
+			FROM table1
+			WHERE id <= 3 AND active = @active
+			`, params, true)
 		require.NoError(t, err)
-	}
+		require.NotNil(t, res)
 
-	res, err = client.ListTables(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, res)
+		for _, row := range res.Rows {
+			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+			require.NoError(t, err)
 
-	require.Len(t, res.Rows, 1)
-	require.Len(t, res.Columns, 1)
-	require.Equal(t, "VARCHAR", res.Columns[0].Type)
-	require.Equal(t, "TABLE", res.Columns[0].Name)
-	require.Equal(t, "table1", res.Rows[0].Values[0].GetS())
+			row.Values[1].Value = &schema.SQLValue_S{S: "tampered title"}
 
-	res, err = client.DescribeTable(ctx, "table1")
-	require.NoError(t, err)
-	require.NotNil(t, res)
+			err = client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+			require.Equal(t, sql.ErrCorruptedData, err)
+		}
 
-	require.Equal(t, "COLUMN", res.Columns[0].Name)
-	require.Equal(t, "VARCHAR", res.Columns[0].Type)
+		res, err = client.SQLQuery(ctx, "SELECT id, active FROM table1", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
-	colsCheck := map[string]bool{
-		"id": false, "title": false, "active": false, "payload": false,
-	}
-	require.Len(t, res.Rows, len(colsCheck))
-	for _, row := range res.Rows {
-		colsCheck[row.Values[0].GetS()] = true
-	}
-	for c, found := range colsCheck {
-		require.True(t, found, c)
-	}
+		for _, row := range res.Rows {
+			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+			require.NoError(t, err)
+		}
 
-	tx2, err := client.SQLExec(ctx, `
-		UPSERT INTO table1(id, title, active, payload)
-		VALUES (2, 'title2-updated', false, NULL)
-	`, nil)
-	require.NoError(t, err)
-	require.NotNil(t, tx2)
+		res, err = client.SQLQuery(ctx, "SELECT active FROM table1 WHERE id = 1", nil, true)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
-	res, err = client.SQLQuery(ctx, "SELECT title FROM table1 WHERE id=2", nil, true)
-	require.NoError(t, err)
-	require.Equal(t, "title2-updated", res.Rows[0].Values[0].GetS())
+		for _, row := range res.Rows {
+			err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
+			require.NoError(t, err)
+		}
 
-	res, err = client.SQLQuery(ctx, fmt.Sprintf("SELECT title FROM table1 BEFORE TX %d WHERE id=2", tx2.Txs[0].Header.Id), nil, true)
-	require.NoError(t, err)
-	require.Equal(t, "title2", res.Rows[0].Values[0].GetS())
+	})
+
+	t.Run("list tables", func(t *testing.T) {
+		res, err := client.ListTables(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+
+		require.Len(t, res.Rows, 1)
+		require.Len(t, res.Columns, 1)
+		require.Equal(t, "VARCHAR", res.Columns[0].Type)
+		require.Equal(t, "TABLE", res.Columns[0].Name)
+		require.Equal(t, "table1", res.Rows[0].Values[0].GetS())
+
+		res, err = client.DescribeTable(ctx, "table1")
+		require.NoError(t, err)
+		require.NotNil(t, res)
+
+		require.Equal(t, "COLUMN", res.Columns[0].Name)
+		require.Equal(t, "VARCHAR", res.Columns[0].Type)
+
+		colsCheck := map[string]bool{
+			"id": false, "title": false, "active": false, "payload": false,
+		}
+		require.Len(t, res.Rows, len(colsCheck))
+		for _, row := range res.Rows {
+			colsCheck[row.Values[0].GetS()] = true
+		}
+		for c, found := range colsCheck {
+			require.True(t, found, c)
+		}
+	})
+
+	t.Run("upsert", func(t *testing.T) {
+		tx2, err := client.SQLExec(ctx, `
+			UPSERT INTO table1(id, title, active, payload)
+			VALUES (2, 'title2-updated', false, NULL)
+		`, nil)
+		require.NoError(t, err)
+		require.NotNil(t, tx2)
+
+		res, err := client.SQLQuery(ctx, "SELECT title FROM table1 WHERE id=2", nil, true)
+		require.NoError(t, err)
+		require.Equal(t, "title2-updated", res.Rows[0].Values[0].GetS())
+
+		res, err = client.SQLQuery(ctx, fmt.Sprintf(`
+			SELECT title
+			FROM table1 BEFORE TX %d
+			WHERE id=2
+			`, tx2.Txs[0].Header.Id), nil, true)
+		require.NoError(t, err)
+		require.Equal(t, "title2", res.Rows[0].Values[0].GetS())
+	})
+
 }
 
 func TestImmuClient_SQL_Errors(t *testing.T) {
