@@ -36,6 +36,7 @@ import (
 )
 
 const MaxKeyResolutionLimit = 1
+const MaxKeyScanLimit = 1000
 
 const dbInstanceName = "dbinstance"
 
@@ -129,8 +130,6 @@ type DB interface {
 	Close() error
 }
 
-const defaultMaxResultSize = 1000
-
 //IDB database instance
 type db struct {
 	st *store.ImmuStore
@@ -161,7 +160,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		Logger:        log,
 		options:       op,
 		name:          dbName,
-		maxResultSize: defaultMaxResultSize,
+		maxResultSize: MaxKeyScanLimit,
 		mutex:         &instrumentedRWMutex{},
 	}
 
@@ -267,7 +266,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		Logger:        log,
 		options:       op,
 		name:          dbName,
-		maxResultSize: defaultMaxResultSize,
+		maxResultSize: MaxKeyScanLimit,
 		mutex:         &instrumentedRWMutex{},
 	}
 
