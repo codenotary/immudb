@@ -28,6 +28,8 @@ func TestStoreScan(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	db.maxResultSize = 3
+
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
 
@@ -51,12 +53,12 @@ func TestStoreScan(t *testing.T) {
 	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
 		Prefix:  []byte(`a`),
-		Limit:   MaxKeyScanLimit + 1,
+		Limit:   uint64(db.MaxResultSize() + 1),
 		Desc:    true,
 	}
 
 	_, err = db.Scan(&scanOptions)
-	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
 
 	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
@@ -80,8 +82,8 @@ func TestStoreScan(t *testing.T) {
 		Desc:    false,
 	}
 
-	list1, err1 := db.Scan(&scanOptions1)
-	require.NoError(t, err1)
+	list1, err := db.Scan(&scanOptions1)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
 	require.Exactly(t, 3, len(list1.Entries))
 	require.Equal(t, list1.Entries[0].Key, []byte(`aaa`))
 	require.Equal(t, list1.Entries[0].Value, []byte(`item1`))

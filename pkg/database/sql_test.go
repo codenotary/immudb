@@ -28,6 +28,8 @@ func TestSQLExecAndQuery(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	db.maxResultSize = 2
+
 	_, _, err := db.SQLExecPrepared(nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
@@ -83,9 +85,14 @@ func TestSQLExecAndQuery(t *testing.T) {
 	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"}, nil)
 	require.Equal(t, sql.ErrExpectingDQLStmt, err)
 
-	q := "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
+	q := "SELECT * FROM table1 LIMIT 1"
 	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
 	require.NoError(t, err)
+	require.Len(t, res.Rows, 1)
+
+	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
 	require.Len(t, res.Rows, 2)
 
 	inferredParams, err := db.InferParameters(q, nil)

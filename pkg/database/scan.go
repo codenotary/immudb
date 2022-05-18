@@ -33,8 +33,9 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
-	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+	if req.Limit > uint64(d.maxResultSize) {
+		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
+			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	waitUntilTx := req.SinceTx
@@ -52,7 +53,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	limit := int(req.Limit)
 
 	if req.Limit == 0 {
-		limit = MaxKeyScanLimit
+		limit = d.maxResultSize
 	}
 
 	snap, err := d.st.SnapshotSince(waitUntilTx)
@@ -111,8 +112,11 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 
 		entries.Entries = append(entries.Entries, e)
 
-		if l == MaxKeyScanLimit {
-			return entries, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+		if l == d.maxResultSize {
+			return entries,
+				fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
+					"Pagination over large results can be achieved by using the limit and initialTx arguments",
+					ErrMaxResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 

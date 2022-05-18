@@ -99,14 +99,15 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
-	if req.Limit > MaxKeyScanLimit {
-		return nil, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitExceeded, MaxKeyScanLimit)
+	if req.Limit > uint64(d.maxResultSize) {
+		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
+			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	limit := int(req.Limit)
 
 	if req.Limit == 0 {
-		limit = MaxKeyScanLimit
+		limit = d.maxResultSize
 	}
 
 	d.mutex.RLock()
@@ -235,8 +236,10 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 		entries.Entries = append(entries.Entries, zentry)
 
-		if l == MaxKeyScanLimit {
-			return entries, fmt.Errorf("%w: %d is the limit", ErrMaxKeyScanLimitReached, MaxKeyScanLimit)
+		if l == d.maxResultSize {
+			return entries, fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
+				"Pagination over large results can be achieved by using the limit, seekKey, seekScore and seekAtTx arguments",
+				ErrMaxResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 
