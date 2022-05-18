@@ -29,8 +29,8 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
-    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" \
-	IMMUDB_PGSQL_SERVER="true"
+    IMMUDB_PGSQL_SERVER="true" \
+    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
@@ -69,6 +69,7 @@ ENV IMMUDB_HOME="${IMMUDB_HOME}" \
     IMMUDB_DEVMODE="true" \
     IMMUDB_MAINTENANCE="false" \
     IMMUDB_ADMIN_PASSWORD="immudb" \
+    IMMUDB_PGSQL_SERVER="true" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" \
     USER=immu \
     HOME="${IMMUDB_HOME}"
@@ -82,6 +83,7 @@ COPY --from=build "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certif
 EXPOSE 3322
 EXPOSE 9497
 EXPOSE 8080
+EXPOSE 5432
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
 USER "${IMMU_UID}:${IMMU_GID}"
