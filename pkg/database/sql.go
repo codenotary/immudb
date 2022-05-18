@@ -441,7 +441,7 @@ func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedPa
 		if l == d.maxResultSize {
 			return res, fmt.Errorf("%w: found at least %d rows (the maximum limit). "+
 				"Query constraints can be applied using the LIMIT clause",
-				ErrMaxResultSizeLimitReached, d.maxResultSize)
+				ErrResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 

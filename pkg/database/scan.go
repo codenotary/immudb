@@ -35,7 +35,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 
 	if req.Limit > uint64(d.maxResultSize) {
 		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
-			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
+			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	waitUntilTx := req.SinceTx
@@ -116,7 +116,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return entries,
 				fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
 					"Pagination over large results can be achieved by using the limit and initialTx arguments",
-					ErrMaxResultSizeLimitReached, d.maxResultSize)
+					ErrResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 

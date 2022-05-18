@@ -92,7 +92,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 
 	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
 	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	require.Len(t, res.Rows, 2)
 
 	inferredParams, err := db.InferParameters(q, nil)
