@@ -31,6 +31,8 @@ func TestDummyClosedDatabase(t *testing.T) {
 
 	require.False(t, cdb.IsReplica())
 
+	require.Equal(t, 1000, cdb.MaxResultSize())
+
 	err := cdb.UseTimeFunc(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 

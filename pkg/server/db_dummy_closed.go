@@ -52,6 +52,10 @@ func (db *closedDB) IsReplica() bool {
 	return false
 }
 
+func (db *closedDB) MaxResultSize() int {
+	return 1000
+}
+
 func (db *closedDB) UseTimeFunc(timeFunc store.TimeFunc) error {
 	return store.ErrAlreadyClosed
 }

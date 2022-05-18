@@ -55,7 +55,7 @@ var kvs = []*schema.KeyValue{
 	},
 }
 
-func makeDb() (DB, func()) {
+func makeDb() (*db, func()) {
 	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
@@ -64,18 +64,18 @@ func makeDb() (DB, func()) {
 	return makeDbWith("db", options)
 }
 
-func makeDbWith(dbName string, opts *Options) (DB, func()) {
-	db, err := NewDB(dbName, &dummyMultidbHandler{}, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
+func makeDbWith(dbName string, opts *Options) (*db, func()) {
+	d, err := NewDB(dbName, &dummyMultidbHandler{}, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
 
-	return db, func() {
-		if err := db.Close(); err != nil {
+	return d.(*db), func() {
+		if err := d.Close(); err != nil {
 			log.Fatal(err)
 		}
 
-		if err := os.RemoveAll(db.GetOptions().dbRootPath); err != nil {
+		if err := os.RemoveAll(d.GetOptions().dbRootPath); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -914,12 +914,17 @@ func TestTxScan(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	db.maxResultSize = len(kvs)
+
+	initialState, err := db.CurrentState()
+	require.NoError(t, err)
+
 	for _, val := range kvs {
 		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 	}
 
-	_, err := db.TxScan(nil)
+	_, err = db.TxScan(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = db.TxScan(&schema.TxScanRequest{
@@ -929,13 +934,36 @@ func TestTxScan(t *testing.T) {
 
 	_, err = db.TxScan(&schema.TxScanRequest{
 		InitialTx: 1,
-		Limit:     MaxKeyScanLimit + 1,
+		Limit:     uint32(db.MaxResultSize() + 1),
 	})
-	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
 
-	t.Run("values should be returned", func(t *testing.T) {
+	t.Run("values should be returned reaching result size limit", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
-			InitialTx: 1,
+			InitialTx: initialState.TxId + 1,
+			EntriesSpec: &schema.EntriesSpec{
+				KvEntriesSpec: &schema.EntryTypeSpec{
+					Action: schema.EntryTypeAction_RAW_VALUE,
+				},
+			},
+		})
+		require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+		require.Len(t, txList.Txs, len(kvs))
+
+		for i := 0; i < len(kvs); i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i].Entries[0].Key))
+
+			hval := sha256.Sum256(txList.Txs[i].Entries[0].Value)
+			require.Equal(t, txList.Txs[i].Entries[0].HValue, hval[:])
+		}
+	})
+
+	t.Run("values should be returned without reaching result size limit", func(t *testing.T) {
+		limit := db.MaxResultSize() - 1
+
+		txList, err := db.TxScan(&schema.TxScanRequest{
+			InitialTx: initialState.TxId + 1,
+			Limit:     uint32(limit),
 			EntriesSpec: &schema.EntriesSpec{
 				KvEntriesSpec: &schema.EntryTypeSpec{
 					Action: schema.EntryTypeAction_RAW_VALUE,
@@ -943,26 +971,26 @@ func TestTxScan(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Len(t, txList.Txs, len(kvs)+1)
+		require.Len(t, txList.Txs, limit)
 
-		for i := 0; i < len(kvs); i++ {
-			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
+		for i := 0; i < limit; i++ {
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i].Entries[0].Key))
 
-			hval := sha256.Sum256(txList.Txs[i+1].Entries[0].Value)
-			require.Equal(t, txList.Txs[i+1].Entries[0].HValue, hval[:])
+			hval := sha256.Sum256(txList.Txs[i].Entries[0].Value)
+			require.Equal(t, txList.Txs[i].Entries[0].HValue, hval[:])
 		}
 	})
 
 	t.Run("values should not be returned", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
-			InitialTx: 1,
+			InitialTx: initialState.TxId + 1,
 		})
-		require.NoError(t, err)
-		require.Len(t, txList.Txs, len(kvs)+1)
+		require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
-			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i+1].Entries[0].Key))
-			require.Len(t, txList.Txs[i+1].Entries[0].Value, 0)
+			require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i].Entries[0].Key))
+			require.Len(t, txList.Txs[i].Entries[0].Value, 0)
 		}
 	})
 }
@@ -970,6 +998,8 @@ func TestTxScan(t *testing.T) {
 func TestHistory(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
+
+	db.maxResultSize = 2
 
 	var lastTx uint64
 
@@ -1004,15 +1034,15 @@ func TestHistory(t *testing.T) {
 	_, err = db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
-		Limit:   MaxKeyScanLimit + 1,
+		Limit:   int32(db.MaxResultSize() + 1),
 	})
-	require.ErrorIs(t, err, ErrMaxKeyScanLimitExceeded)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
 
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
 
 	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1029,7 +1059,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Desc:    true,
 	})
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
 
 	for i, val := range dec.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
