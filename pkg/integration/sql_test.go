@@ -190,6 +190,55 @@ func TestImmuClient_SQL(t *testing.T) {
 		require.Equal(t, "title2", res.Rows[0].Values[0].GetS())
 	})
 
+	t.Run("verify row after alter table", func(t *testing.T) {
+		t.Run("not a primary key", func(t *testing.T) {
+			_, err := client.SQLExec(ctx, `
+				ALTER TABLE table1 RENAME COLUMN title TO title2
+				`, nil)
+			require.NoError(t, err)
+
+			res, err := client.SQLQuery(ctx, "SELECT id, active, title2 FROM table1", nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			for _, row := range res.Rows {
+				err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("primary key", func(t *testing.T) {
+			_, err := client.SQLExec(ctx, `
+				ALTER TABLE table1 RENAME COLUMN id TO id2
+				`, nil)
+			require.NoError(t, err)
+
+			res, err := client.SQLQuery(ctx, "SELECT id2, active, title2 FROM table1", nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			for _, row := range res.Rows {
+				err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("add column key", func(t *testing.T) {
+			_, err := client.SQLExec(ctx, `
+				ALTER TABLE table1 ADD COLUMN id INTEGER
+				`, nil)
+			require.NoError(t, err)
+
+			res, err := client.SQLQuery(ctx, "SELECT id2, id, active, title2 FROM table1", nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			for _, row := range res.Rows {
+				err := client.VerifyRow(ctx, row, "table1", []*schema.SQLValue{row.Values[0]})
+				require.NoError(t, err)
+			}
+		})
+	})
 }
 
 func TestImmuClient_SQL_Errors(t *testing.T) {
