@@ -936,7 +936,7 @@ func TestTxScan(t *testing.T) {
 		InitialTx: 1,
 		Limit:     uint32(db.MaxResultSize() + 1),
 	})
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
+	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
 	t.Run("values should be returned reaching result size limit", func(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
@@ -947,7 +947,7 @@ func TestTxScan(t *testing.T) {
 				},
 			},
 		})
-		require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+		require.ErrorIs(t, err, ErrResultSizeLimitReached)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -985,7 +985,7 @@ func TestTxScan(t *testing.T) {
 		txList, err := db.TxScan(&schema.TxScanRequest{
 			InitialTx: initialState.TxId + 1,
 		})
-		require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+		require.ErrorIs(t, err, ErrResultSizeLimitReached)
 		require.Len(t, txList.Txs, len(kvs))
 
 		for i := 0; i < len(kvs); i++ {
@@ -1036,13 +1036,13 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Limit:   int32(db.MaxResultSize() + 1),
 	})
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
+	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,
 	})
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 
 	for i, val := range inc.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)
@@ -1059,7 +1059,7 @@ func TestHistory(t *testing.T) {
 		SinceTx: lastTx,
 		Desc:    true,
 	})
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 
 	for i, val := range dec.Entries {
 		require.Equal(t, kvs[0].Key, val.Key)

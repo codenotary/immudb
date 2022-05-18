@@ -101,7 +101,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 	if req.Limit > uint64(d.maxResultSize) {
 		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
-			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
+			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	limit := int(req.Limit)
@@ -239,7 +239,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		if l == d.maxResultSize {
 			return entries, fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
 				"Pagination over large results can be achieved by using the limit, seekKey, seekScore and seekAtTx arguments",
-				ErrMaxResultSizeLimitReached, d.maxResultSize)
+				ErrResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 

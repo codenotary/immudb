@@ -39,9 +39,9 @@ const MaxKeyResolutionLimit = 1
 
 const dbInstanceName = "dbinstance"
 
-var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
-var ErrMaxResultSizeLimitExceeded = errors.New("max result size limit exceeded")
-var ErrMaxResultSizeLimitReached = errors.New("max result size limit reached")
+var ErrKeyResolutionLimitReached = errors.New("key resolution limit reached. It may be due to cyclic references")
+var ErrResultSizeLimitExceeded = errors.New("result size limit exceeded")
+var ErrResultSizeLimitReached = errors.New("result size limit reached")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
 var ErrIsReplica = errors.New("database is read-only because it's a replica")
@@ -585,7 +585,7 @@ func (d *db) resolveValue(
 			)
 		}
 		if resolved == MaxKeyResolutionLimit {
-			return nil, ErrMaxKeyResolutionLimitReached
+			return nil, ErrKeyResolutionLimitReached
 		}
 
 		atTx := binary.BigEndian.Uint64(TrimPrefix(val))
@@ -1232,7 +1232,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 
 	if int(req.Limit) > d.maxResultSize {
 		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
-			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
+			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	limit := int(req.Limit)
@@ -1274,7 +1274,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			return txList,
 				fmt.Errorf("%w: found at least %d entries (maximum limit). "+
 					"Pagination over large results can be achieved by using the limit and initialTx arguments",
-					ErrMaxResultSizeLimitReached, d.maxResultSize)
+					ErrResultSizeLimitReached, d.maxResultSize)
 		}
 	}
 
@@ -1289,7 +1289,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 	if int(req.Limit) > d.maxResultSize {
 		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
-			ErrMaxResultSizeLimitExceeded, req.Limit, d.maxResultSize)
+			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
 	currTxID, _ := d.st.Alh()
@@ -1371,7 +1371,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return list,
 			fmt.Errorf("%w: found at least %d entries (the maximum limit). "+
 				"Pagination over large results can be achieved by using the limit and initialTx arguments",
-				ErrMaxResultSizeLimitReached, d.maxResultSize)
+				ErrResultSizeLimitReached, d.maxResultSize)
 	}
 
 	return list, nil

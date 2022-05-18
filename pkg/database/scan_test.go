@@ -58,7 +58,7 @@ func TestStoreScan(t *testing.T) {
 	}
 
 	_, err = db.Scan(&scanOptions)
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitExceeded)
+	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
 	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
@@ -83,7 +83,7 @@ func TestStoreScan(t *testing.T) {
 	}
 
 	list1, err := db.Scan(&scanOptions1)
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	require.Exactly(t, 3, len(list1.Entries))
 	require.Equal(t, list1.Entries[0].Key, []byte(`aaa`))
 	require.Equal(t, list1.Entries[0].Value, []byte(`item1`))

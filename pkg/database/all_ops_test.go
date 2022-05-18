@@ -284,7 +284,7 @@ func TestExecAllOps(t *testing.T) {
 		Set: []byte(`mySet`),
 	}
 	zList, err := db.ZScan(zScanOpt)
-	require.ErrorIs(t, err, ErrMaxResultSizeLimitReached)
+	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	println(len(zList.Entries))
 	require.Len(t, zList.Entries, batchCount*batchSize)
 }
@@ -761,13 +761,13 @@ func TestExecAllNoWait(t *testing.T) {
 
 		// ref became a reference of a reference
 		_, err = db.Get(&schema.KeyRequest{Key: []byte("ref")})
-		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+		require.ErrorIs(t, err, ErrKeyResolutionLimitReached)
 
 		// "key" became a reference
 		_, err = db.ZScan(&schema.ZScanRequest{
 			Set: []byte("set"),
 		})
-		require.ErrorIs(t, err, ErrMaxKeyResolutionLimitReached)
+		require.ErrorIs(t, err, ErrKeyResolutionLimitReached)
 	})
 }
 
