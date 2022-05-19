@@ -5215,22 +5215,43 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		_, _, err = engine.Exec("BEGIN TRANSACTION; USE DATABASE db1; COMMIT;", nil, nil)
 		require.ErrorIs(t, err, ErrNonTransactionalStmt)
 
-		r, err := engine.Query("SELECT * FROM DATABASES()", nil, nil)
-		require.NoError(t, err)
-
-		for _, db := range dbs {
-			row, err := r.Read()
+		t.Run("unconditional database query", func(t *testing.T) {
+			r, err := engine.Query("SELECT * FROM DATABASES() WHERE name LIKE 'db*'", nil, nil)
 			require.NoError(t, err)
-			require.NotNil(t, row)
-			require.NotNil(t, row)
-			require.Equal(t, db, row.ValuesBySelector["(*.databases.name)"].Value())
-		}
 
-		_, err = r.Read()
-		require.ErrorIs(t, err, ErrNoMoreRows)
+			for _, db := range dbs {
+				row, err := r.Read()
+				require.NoError(t, err)
+				require.NotNil(t, row)
+				require.NotNil(t, row)
+				require.Equal(t, db, row.ValuesBySelector["(*.databases.name)"].Value())
+			}
 
-		err = r.Close()
-		require.NoError(t, err)
+			_, err = r.Read()
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
+
+		t.Run("query databases using conditions with table and column aliasing", func(t *testing.T) {
+			r, err := engine.Query("SELECT dbs.name as dbname FROM DATABASES() as dbs WHERE name LIKE 'db*'", nil, nil)
+			require.NoError(t, err)
+
+			for _, db := range dbs {
+				row, err := r.Read()
+				require.NoError(t, err)
+				require.NotNil(t, row)
+				require.NotNil(t, row)
+				require.Equal(t, db, row.ValuesBySelector["(*.dbs.dbname)"].Value())
+			}
+
+			_, err = r.Read()
+			require.ErrorIs(t, err, ErrNoMoreRows)
+
+			err = r.Close()
+			require.NoError(t, err)
+		})
 	})
 
 	t.Run("with a handler, statements must only involve current selected database", func(t *testing.T) {
