@@ -462,9 +462,19 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		colID := binary.BigEndian.Uint32(v[voff:])
 		voff += EncIDLen
 
-		col, err := r.table.GetColumnByID(colID)
+		col, err := r.table.GetColumnByIDWithCatalogHistory(colID)
 		if err != nil {
-			return nil, ErrCorruptedData
+			return nil, err
+		}
+
+		if col == nil {
+			// Deleted column, skip it
+			vlen, n, err := decodeValueLength(v[voff:])
+			if err != nil {
+				return nil, err
+			}
+			voff += n + vlen
+			continue
 		}
 
 		val, n, err := DecodeValue(v[voff:], col.colType)

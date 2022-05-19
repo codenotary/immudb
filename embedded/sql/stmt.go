@@ -513,6 +513,62 @@ func (stmt *RenameColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (
 	return tx, nil
 }
 
+type DropColumnStmt struct {
+	table string
+	name  string
+}
+
+func (stmt *DropColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+	return nil
+}
+
+func persistColumnDeletion(col *Column, tx *SQLTx) error {
+
+	mappedKey := mapKey(
+		tx.sqlPrefix(),
+		catalogColumnPrefix,
+		EncodeID(col.table.db.id),
+		EncodeID(col.table.id),
+		EncodeID(col.id),
+		[]byte(col.colType),
+	)
+
+	md := store.NewKVMetadata()
+	err := md.AsDeleted(true)
+	if err != nil {
+		return err
+	}
+
+	return tx.set(
+		mappedKey,
+		md,
+		nil,
+	)
+}
+
+func (stmt *DropColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	if tx.currentDB == nil {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	table, err := tx.currentDB.GetTableByName(stmt.table)
+	if err != nil {
+		return nil, err
+	}
+
+	col, err := table.dropColumn(stmt.name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = persistColumnDeletion(col, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
 type UpsertIntoStmt struct {
 	isInsert   bool
 	tableRef   *tableRef

@@ -40,6 +40,7 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 var ErrColumnAlreadyExists = errors.New("column already exists")
 var ErrSameOldAndNewColumnName = errors.New("same old and new column names")
+var ErrCantDropIndexedColumn = errors.New("can not drop indexed column")
 var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrFunctionDoesNotExist = errors.New("function does not exist")
 var ErrLimitedKeyType = errors.New("indexed key of invalid type. Supported types are: INTEGER, VARCHAR[256] OR BLOB[256]")
@@ -468,8 +469,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
-		Prefix:  initialKey,
-		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+		Prefix: initialKey,
 	}
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
@@ -489,13 +489,27 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 			return nil, err
 		}
 
+		md := vref.KVMetadata()
+		if md != nil && md.IsExpirable() {
+			return nil, fmt.Errorf("%w: catalog entry set as expirable", ErrCorruptedData)
+		}
+
 		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
 			return nil, err
 		}
 
 		if dbID != mdbID || tableID != mtableID {
-			return nil, ErrCorruptedData
+			return nil, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
+		}
+
+		if int(colID) != len(specs)+1 {
+			return nil, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
+		}
+
+		if md != nil && md.Deleted() {
+			specs = append(specs, nil)
+			continue
 		}
 
 		v, err := vref.Resolve()
@@ -503,7 +517,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 			return nil, err
 		}
 		if len(v) < 6 {
-			return nil, ErrCorruptedData
+			return nil, fmt.Errorf("%w: corrupted column entry value", ErrCorruptedData)
 		}
 
 		spec := &ColSpec{
@@ -515,10 +529,6 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 		}
 
 		specs = append(specs, spec)
-
-		if int(colID) != len(specs) {
-			return nil, ErrCorruptedData
-		}
 	}
 
 	return
@@ -1020,16 +1030,25 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 	return nil, ErrInvalidValue
 }
 
-func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+func decodeValueLength(b []byte) (int, int, error) {
 	if len(b) < EncLenLen {
-		return nil, 0, ErrCorruptedData
+		return 0, 0, ErrCorruptedData
 	}
 
 	vlen := int(binary.BigEndian.Uint32(b[:]))
 	voff := EncLenLen
 
 	if vlen < 0 || len(b) < voff+vlen {
-		return nil, 0, ErrCorruptedData
+		return 0, 0, ErrCorruptedData
+	}
+
+	return vlen, EncLenLen, nil
+}
+
+func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+	vlen, voff, err := decodeValueLength(b)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	switch colType {

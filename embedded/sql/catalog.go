@@ -47,6 +47,7 @@ type Table struct {
 	primaryIndex    *Index
 	autoIncrementPK bool
 	maxPK           int64
+	maxColID        uint32
 }
 
 type Index struct {
@@ -223,6 +224,14 @@ func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) GetColumnByIDWithCatalogHistory(id uint32) (*Column, error) {
+	col, exists := t.colsByID[id]
+	if !exists && id > t.maxColID {
+		return nil, ErrColumnDoesNotExist
+	}
+	return col, nil
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }
@@ -309,14 +318,20 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		id:             uint32(id),
 		db:             db,
 		name:           name,
-		cols:           make([]*Column, len(colsSpec)),
+		cols:           make([]*Column, 0, len(colsSpec)),
 		colsByID:       make(map[uint32]*Column),
 		colsByName:     make(map[string]*Column),
 		indexesByName:  make(map[string]*Index),
 		indexesByColID: make(map[uint32][]*Index),
+		maxColID:       uint32(len(colsSpec)),
 	}
 
-	for i, cs := range colsSpec {
+	for pos, cs := range colsSpec {
+		if cs == nil {
+			// Deleted column
+			continue
+		}
+
 		_, colExists := table.colsByName[cs.colName]
 		if colExists {
 			return nil, ErrDuplicatedColumn
@@ -330,10 +345,8 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 			return nil, ErrLimitedMaxLen
 		}
 
-		id := len(table.colsByID) + 1
-
 		col := &Column{
-			id:            uint32(id),
+			id:            uint32(pos + 1),
 			table:         table,
 			colName:       cs.colName,
 			colType:       cs.colType,
@@ -342,7 +355,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 			notNull:       cs.notNull,
 		}
 
-		table.cols[i] = col
+		table.cols = append(table.cols, col)
 		table.colsByID[col.id] = col
 		table.colsByName[col.colName] = col
 	}
@@ -425,10 +438,10 @@ func (t *Table) newColumn(spec *ColSpec) (*Column, error) {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnAlreadyExists, spec.colName)
 	}
 
-	id := len(t.cols) + 1
+	t.maxColID++
 
 	col := &Column{
-		id:            uint32(id),
+		id:            t.maxColID,
 		table:         t,
 		colName:       spec.colName,
 		colType:       spec.colType,
@@ -463,6 +476,32 @@ func (t *Table) renameColumn(oldName, newName string) (*Column, error) {
 
 	delete(t.colsByName, oldName)
 	t.colsByName[newName] = col
+
+	return col, nil
+}
+
+func (t *Table) dropColumn(name string) (*Column, error) {
+
+	col, exists := t.colsByName[name]
+	if !exists {
+		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, name)
+	}
+
+	_, hasIndexes := t.indexesByColID[col.ID()]
+	if hasIndexes {
+		return nil, fmt.Errorf("%w (%s)", ErrCantDropIndexedColumn, name)
+	}
+
+	newCols := make([]*Column, 0, len(t.cols)-1)
+	for i := range t.cols {
+		if t.cols[i] != col {
+			newCols = append(newCols, t.cols[i])
+		}
+	}
+
+	t.cols = newCols
+	delete(t.colsByName, name)
+	delete(t.colsByID, col.id)
 
 	return col, nil
 }
