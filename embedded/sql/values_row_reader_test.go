@@ -62,7 +62,7 @@ func TestValuesRowReader(t *testing.T) {
 	rowReader, err := newValuesRowReader(nil, cols, "db1", "table1", values)
 	require.NoError(t, err)
 
-	require.Equal(t, "db1", rowReader.DBAlias())
+	require.Equal(t, "db1", rowReader.Database())
 	require.Nil(t, rowReader.OrderBy())
 	require.Nil(t, rowReader.ScanSpecs())
 

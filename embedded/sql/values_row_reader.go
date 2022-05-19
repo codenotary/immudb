@@ -91,10 +91,10 @@ func (vr *valuesRowReader) Tx() *SQLTx {
 }
 
 func (vr *valuesRowReader) Database() string {
-	return vr.tx.currentDB.name
-}
+	if vr.dbAlias == "" {
+		return vr.tx.currentDB.name
+	}
 
-func (vr *valuesRowReader) DBAlias() string {
 	return vr.dbAlias
 }
 
