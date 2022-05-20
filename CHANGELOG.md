@@ -4,6 +4,90 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.3.0-RC1"></a>
+## [v1.3.0-RC1] - 2022-05-19
+### Bug Fixes
+- **cmd/immuclient:** Do not crash on login prompt
+- **embedded/sql:** selector resolution using valuesRowReader
+- **embedded/sql:** continue stmt execution on handler after changing db in use
+- **embedded/sql:** increase auto_increment pk once per row
+- **embedded/sql:** typo in error message
+- **embedded/sql:** adjust named parameter parsing
+- **github:** Run sonarcloud code analysis after cove coverate
+- **pkg/database:** avoid silent returns when the scan limit is reached
+- **pkg/database:** Fix detection of incorrect revision numbers
+- **pkg/database:** Correctly interpret negative revision for getAt
+
+### Changes
+- **Dockerfile:** Add EXPOSE 5432 and IMMUDB_PGSQL_SERVER to all immudb images
+- **README.md:** Switch to github badge
+- **build:** Update the RELEASING.md documentation
+- **cmd/immuclient:** Remove unnecessary sleep for set commands
+- **cmd/immuclient:** Move history command to a separate file
+- **cmd/immuclient:** Extract separate immuclient options
+- **embedded/sql:** validate current database as first step
+- **embedded/sql:** check tx range edge cases
+- **embedded/sql:** not showing unexistent db name as part of error message
+- **embedded/sql:** fully non-transactional db creation and selection
+- **embedded/sql:** re-include ttimestamp conversions in tx periods
+- **embedded/sql:** de-duplicate error handling
+- **embedded/sql:** database selection without multidb handler is still transactional
+- **embedded/sql:** database selection as  non-transactional
+- **embedded/sql:** postpone period evaluation so to support parameters type inference
+- **embedded/sql:** param substitution in functional datasource
+- **embedded/sql:** functional-style catalog queries
+- **embedded/sql:** quoted identifiers
+- **embedded/sql:** ensure db selection is the last operation
+- **embedded/sql:** unit testing db selection
+- **embedded/sql:** include short database selection stmt
+- **embedded/sql:** ensure context propagation with multiple txs
+- **embedded/sql:** implicit time expression
+- **embedded/sql:** functional catalog api
+- **embedded/sql:** non-functional catalog access
+- **embedded/sql:** wip grammar extensions to enrich temporal queries
+- **embedded/sql:** sql tx with context
+- **embedded/sql:** multi-db handler
+- **embedded/sql:** detailed error messages
+- **embedded/store:** minor refactoring time-based tx lookup
+- **github:** Speedup push github actions
+- **grpc:** Extend Scan API with endKey, inclusiveSeek, inclusiveEnd
+- **pkg/api:** extend database creation response to indicate db already existed
+- **pkg/database:** minor error renaming
+- **pkg/database:** Rename getAt to getAtTx
+- **pkg/database:** provide query parameters during resolution
+- **pkg/database:** Add missing copyright header in scan_test.go
+- **pkg/database:** contextual sql tx
+- **pkg/database:** set multi-db handler after db initialization
+- **pkg/database:** Improved checking of KeyRequest constraints
+- **pkg/database:** databases catalog query yet unsupported
+- **pkg/database:** maintain MaxKeyScanLimit for backward compatibility
+- **pkg/integration:** Add SQL verify tests after ALTER TABLE
+- **pkg/integration:** Cleanup and restructure SQL tests
+- **pkg/server:** upgrade database method signature
+- **pkg/server:** contextual sql tx
+
+### Features
+- Add revision number when getting DB entries
+- Calculate revision number when scanning key history
+- **api/schema:** Add revision-based option to key query
+- **cmd/immuclient:** Add restore operation
+- **cmd/immuclient:** Add revision numbers when looking up key history
+- **cmd/immuclient:** Add support for revision-based get in immuclient
+- **cmd/immuclient:** Better error messages for invalid revision for restore command
+- **embedded/sql:** create database if not exists
+- **embedded/sql:** queries with temporal ranges
+- **embedded/sql:** temporal row ranges
+- **embedded/sql:** catalog queries
+- **embedded/sql:** WIP - UNION operator
+- **embedded/sql:** Implement ALTER TABLE ADD COLUMN
+- **embedded/store:** time-based tx lookup
+- **embedded/store:** ranged key update reading
+- **pkg/client:** Add revision-based get request on the go client
+- **pkg/database:** Add revision-based get request on the GRPC level
+- **pkg/server:** support database creation from sql
+- **pkg/server:** support database selection from sql stmt
+
+
 <a name="v1.2.4"></a>
 ## [v1.2.4] - 2022-04-28
 
