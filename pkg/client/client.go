@@ -683,16 +683,23 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	var vTx uint64
+	vTx := kReq.AtTx
 	var e *store.EntrySpec
 
 	if vEntry.Entry.ReferencedBy == nil {
-		vTx = vEntry.Entry.Tx
+		if kReq.AtTx == 0 {
+			vTx = vEntry.Entry.Tx
+		}
+
 		e = database.EncodeEntrySpec(kReq.Key, schema.KVMetadataFromProto(vEntry.Entry.Metadata), vEntry.Entry.Value)
 	} else {
 		ref := vEntry.Entry.ReferencedBy
-		vTx = ref.Tx
-		e = database.EncodeReference(ref.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx)
+
+		if kReq.AtTx == 0 {
+			vTx = ref.Tx
+		}
+
+		e = database.EncodeReference(kReq.Key, schema.KVMetadataFromProto(ref.Metadata), vEntry.Entry.Key, ref.AtTx)
 	}
 
 	if state.TxId <= vTx {
@@ -1055,13 +1062,13 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId <= vTx.Tx.Header.Id {
+	if state.TxId <= tx {
 		sourceID = state.TxId
 		sourceAlh = schema.DigestFromProto(state.TxHash)
-		targetID = vTx.Tx.Header.Id
+		targetID = tx
 		targetAlh = dualProof.TargetTxHeader.Alh()
 	} else {
-		sourceID = vTx.Tx.Header.Id
+		sourceID = tx
 		sourceAlh = dualProof.SourceTxHeader.Alh()
 		targetID = state.TxId
 		targetAlh = schema.DigestFromProto(state.TxHash)

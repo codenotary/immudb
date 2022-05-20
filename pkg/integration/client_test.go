@@ -37,17 +37,13 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-var lis *bufconn.Listener
 
 var testData = struct {
 	keys    [][]byte
@@ -63,16 +59,11 @@ var testData = struct {
 	scores:  []float64{1.0, 2.0, 3.0},
 }
 
-var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
-
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte, client ic.ImmuClient) {
-	_, err2 := client.VerifiedSet(ctx, key, value)
-	require.NoError(t, err2)
-
-	time.Sleep(10 * time.Millisecond)
+	_, err := client.VerifiedSet(ctx, key, value)
+	require.NoError(t, err)
 
 	vi, err := client.VerifiedGet(ctx, key)
-
 	require.NoError(t, err)
 	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
@@ -80,8 +71,9 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 }
 
 func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte, client ic.ImmuClient) {
-	_, err2 := client.SetReference(ctx, referenceKey, key)
-	require.NoError(t, err2)
+	_, err := client.SetReference(ctx, referenceKey, key)
+	require.NoError(t, err)
+
 	vi, err := client.VerifiedGet(ctx, referenceKey)
 	require.NoError(t, err)
 	require.NotNil(t, vi)
@@ -90,8 +82,8 @@ func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key [
 }
 
 func testVerifiedReference(ctx context.Context, t *testing.T, key []byte, referencedKey []byte, value []byte, client ic.ImmuClient) {
-	md, err2 := client.VerifiedSetReference(ctx, key, referencedKey)
-	require.NoError(t, err2)
+	md, err := client.VerifiedSetReference(ctx, key, referencedKey)
+	require.NoError(t, err)
 
 	vi, err := client.VerifiedGetSince(ctx, key, md.Id)
 	require.NoError(t, err)
@@ -252,9 +244,9 @@ func testGetAtRevision(ctx context.Context, t *testing.T, client ic.ImmuClient) 
 
 	item, err = client.Get(ctx, key, ic.AtRevision(-1))
 	require.NoError(t, err)
-	require.Equal(t, key, vitem.Key)
-	require.Equal(t, []byte("value3"), vitem.Value)
-	require.EqualValues(t, 3, vitem.Revision)
+	require.Equal(t, key, item.Key)
+	require.Equal(t, []byte("value3"), item.Value)
+	require.EqualValues(t, 3, item.Revision)
 
 	vitem, err = client.VerifiedGet(ctx, key, ic.AtRevision(-1))
 	require.NoError(t, err)
@@ -267,9 +259,9 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
-	item1, err3 := client.TxByID(ctx, vi1.Id)
+	item1, err := client.TxByID(ctx, vi1.Id)
 	require.Equal(t, vi1.Ts, item1.Header.Ts)
-	require.NoError(t, err3)
+	require.NoError(t, err)
 }
 
 func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ic.ImmuClient) {
@@ -302,8 +294,10 @@ func TestImmuClient(t *testing.T) {
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	require.NoError(t, err)
+
 	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
+
 	md := metadata.Pairs("authorization", resp.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
@@ -342,9 +336,11 @@ func TestImmuClientTampering(t *testing.T) {
 	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
+
 	md := metadata.Pairs("authorization", resp.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
@@ -1673,32 +1669,51 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	require.NoError(t, err)
+
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
+
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	txMeta0, err := client.Set(ctx, []byte(`key0`), []byte(`val0`))
+	txHdr0, err := client.Set(ctx, []byte(`key0`), []byte(`val0`))
 	require.NoError(t, err)
-	entry0, err := client.VerifiedGetAt(ctx, []byte(`key0`), txMeta0.Id)
+
+	entry0, err := client.VerifiedGetAt(ctx, []byte(`key0`), txHdr0.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`key0`), entry0.Key)
 	require.Equal(t, []byte(`val0`), entry0.Value)
 
-	txMeta1, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	txHdr1, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
-	txMeta2, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+
+	txHdr2, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
 	require.NoError(t, err)
-	entry, err := client.VerifiedGetAt(ctx, []byte(`key1`), txMeta1.Id)
+
+	entry, err := client.VerifiedGetAt(ctx, []byte(`key1`), txHdr1.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`key1`), entry.Key)
 	require.Equal(t, []byte(`val1`), entry.Value)
 
-	entry2, err := client.VerifiedGetAt(ctx, []byte(`key1`), txMeta2.Id)
+	entry2, err := client.VerifiedGetAt(ctx, []byte(`key1`), txHdr2.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`key1`), entry2.Key)
 	require.Equal(t, []byte(`val2`), entry2.Value)
+
+	bs.Server.PreVerifiableGetFn = func(ctx context.Context, req *schema.VerifiableGetRequest) {
+		req.KeyRequest.AtTx = txHdr1.Id
+	}
+	_, err = client.VerifiedGetAt(ctx, []byte(`key1`), txHdr2.Id)
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PreVerifiableSetFn = func(ctx context.Context, req *schema.VerifiableSetRequest) {
+		req.SetRequest.KVs[0].Value = []byte(`val2`)
+	}
+
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val3`))
+	require.Equal(t, store.ErrCorruptedData, err)
+
 	client.Disconnect()
 }
 
