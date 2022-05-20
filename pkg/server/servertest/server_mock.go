@@ -27,6 +27,9 @@ import (
 type ServerMock struct {
 	Srv *server.ImmuServer
 
+	PreVerifiableGetFn func(context.Context, *schema.VerifiableGetRequest)
+
+	PreVerifiableSetFn  func(context.Context, *schema.VerifiableSetRequest)
 	PostSetFn           func(context.Context, *schema.SetRequest, *schema.TxHeader, error) (*schema.TxHeader, error)
 	PostVerifiableSetFn func(context.Context, *schema.VerifiableSetRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
 
@@ -151,6 +154,10 @@ func (s *ServerMock) Set(ctx context.Context, req *schema.SetRequest) (*schema.T
 }
 
 func (s *ServerMock) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+	if s.PreVerifiableSetFn != nil {
+		s.PreVerifiableSetFn(ctx, req)
+	}
+
 	if s.PostVerifiableSetFn == nil {
 		return s.Srv.VerifiableSet(ctx, req)
 	}
@@ -164,6 +171,10 @@ func (s *ServerMock) Get(ctx context.Context, req *schema.KeyRequest) (*schema.E
 }
 
 func (s *ServerMock) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
+	if s.PreVerifiableGetFn != nil {
+		s.PreVerifiableGetFn(ctx, req)
+	}
+
 	return s.Srv.VerifiableGet(ctx, req)
 }
 
