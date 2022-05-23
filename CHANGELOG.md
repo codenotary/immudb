@@ -4,8 +4,15 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.3.0"></a>
+## [v1.3.0] - 2022-05-23
+### Bug Fixes
+- **embedded/sql:** return invalid value when using aggregated col selector in temporal queries
+- **pkg/client:** enhance client-side validations in verified methods
+
+
 <a name="v1.3.0-RC1"></a>
-## [v1.3.0-RC1] - 2022-05-19
+## [v1.3.0-RC1] - 2022-05-20
 ### Bug Fixes
 - **cmd/immuclient:** Do not crash on login prompt
 - **embedded/sql:** selector resolution using valuesRowReader
