@@ -2599,7 +2599,7 @@ func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, err
 
 func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if row == nil {
-		return nil, ErrInvalidValue
+		return nil, fmt.Errorf("%w: no row to evaluate in current context", ErrInvalidValue)
 	}
 
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
@@ -2706,6 +2706,10 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 }
 
 func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	if row == nil {
+		return nil, fmt.Errorf("%w: no row to evaluate aggregation (%s) in current context", ErrInvalidValue, sel.aggFn)
+	}
+
 	v, ok := row.ValuesBySelector[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
 	if !ok {
 		return nil, fmt.Errorf("%w (%s)", ErrColumnDoesNotExist, sel.col)

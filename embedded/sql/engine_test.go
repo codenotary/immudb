@@ -5086,6 +5086,18 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 			err:    ErrIllegalArguments,
 		},
 		{
+			title:  "querying data with col selector as tx id should return error",
+			query:  "SELECT id, title FROM table1 SINCE TX id",
+			params: nil,
+			err:    ErrInvalidValue,
+		},
+		{
+			title:  "querying data with aggregations as tx id should return error",
+			query:  "SELECT id, title FROM table1 SINCE TX COUNT(*)",
+			params: nil,
+			err:    ErrInvalidValue,
+		},
+		{
 			title:  "querying data with invalid tx id should return error",
 			query:  "SELECT id, title FROM table1 AFTER TX @tx",
 			params: map[string]interface{}{"tx": 0},
