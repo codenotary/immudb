@@ -589,6 +589,171 @@ func TestRenameColumn(t *testing.T) {
 	})
 }
 
+func TestAlterTableDropColumn(t *testing.T) {
+	defer os.RemoveAll("sqldata_drop_column")
+
+	t.Run("create-store", func(t *testing.T) {
+		st, err := store.Open("sqldata_drop_column", store.DefaultOptions())
+		require.NoError(t, err)
+		defer func() { require.NoError(t, st.Close()) }()
+
+		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+		require.NoError(t, err)
+
+		err = engine.SetCurrentDatabase("db1")
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			CREATE TABLE table1 (
+				id INTEGER AUTO_INCREMENT,
+				name VARCHAR[50],
+				surname VARCHAR[50],
+				active BOOLEAN,
+				PRIMARY KEY (id)
+			)`, nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(name, surname)", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			INSERT INTO table1(name, surname, active)
+			VALUES
+				('John', 'Smith', true),
+				('Sylvia', 'Smith', true),
+				('Robo', 'Cop', false)
+			`, nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN id", nil, nil)
+		require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+
+		_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN name", nil, nil)
+		require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+
+		_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN surname", nil, nil)
+		require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+
+		_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN active", nil, nil)
+		require.NoError(t, err)
+
+		tx, err := engine.NewTx(context.Background())
+		require.NoError(t, err)
+
+		catDB, err := tx.catalog.GetDatabaseByName("db1")
+		require.NoError(t, err)
+
+		catTable, err := catDB.GetTableByName("table1")
+		require.NoError(t, err)
+
+		require.Len(t, catTable.cols, 3)
+		require.Len(t, catTable.colsByID, 3)
+		require.Len(t, catTable.colsByName, 3)
+		require.EqualValues(t, catTable.maxColID, 4)
+
+		err = tx.Cancel()
+		require.NoError(t, err)
+
+		res, err := engine.Query("SELECT id, name, surname, active FROM table1", nil, nil)
+		require.NoError(t, err)
+
+		_, err = res.Read()
+		require.ErrorIs(t, err, ErrColumnDoesNotExist)
+
+		err = res.Close()
+		require.NoError(t, err)
+
+		res, err = engine.Query("SELECT id, name, surname FROM table1", nil, nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			row, err := res.Read()
+			require.NoError(t, err)
+			require.Len(t, row.ValuesByPosition, 3)
+			require.Len(t, row.ValuesBySelector, 3)
+		}
+
+		_, err = res.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = res.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("ALTER TABLE table1 ADD COLUMN active BOOLEAN", nil, nil)
+		require.NoError(t, err)
+
+		tx, err = engine.NewTx(context.Background())
+		require.NoError(t, err)
+
+		catDB, err = tx.catalog.GetDatabaseByName("db1")
+		require.NoError(t, err)
+
+		catTable, err = catDB.GetTableByName("table1")
+		require.NoError(t, err)
+
+		require.Len(t, catTable.cols, 4)
+		require.Len(t, catTable.colsByID, 4)
+		require.Len(t, catTable.colsByName, 4)
+		require.EqualValues(t, 5, catTable.colsByName["active"].id)
+		require.EqualValues(t, 5, catTable.maxColID)
+
+		err = tx.Cancel()
+		require.NoError(t, err)
+
+		res, err = engine.Query("SELECT id, name, surname, active FROM table1", nil, nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			row, err := res.Read()
+			require.NoError(t, err)
+			require.Len(t, row.ValuesByPosition, 4)
+			require.Len(t, row.ValuesBySelector, 4)
+			require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+		}
+
+		_, err = res.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = res.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("reopen-store", func(t *testing.T) {
+		st, err := store.Open("sqldata_drop_column", store.DefaultOptions())
+		require.NoError(t, err)
+		defer func() { require.NoError(t, st.Close()) }()
+
+		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+		require.NoError(t, err)
+
+		err = engine.SetCurrentDatabase("db1")
+		require.NoError(t, err)
+
+		res, err := engine.Query("SELECT id, name, surname, active FROM table1", nil, nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			row, err := res.Read()
+			require.NoError(t, err)
+			require.Len(t, row.ValuesByPosition, 4)
+			require.Len(t, row.ValuesBySelector, 4)
+			require.Nil(t, row.ValuesBySelector[EncodeSelector("", "db1", "table1", "active")].Value())
+		}
+
+		_, err = res.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = res.Close()
+		require.NoError(t, err)
+	})
+}
+
 func TestCreateIndex(t *testing.T) {
 	defer os.RemoveAll("sqldata_create_index")
 
