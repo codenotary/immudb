@@ -465,7 +465,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 		col, err := r.table.GetColumnByID(colID)
 		if err != nil && !errors.Is(err, ErrColumnDropped) {
-			return nil, err
+			return nil, ErrCorruptedData
 		}
 
 		if err != nil {
