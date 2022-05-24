@@ -35,7 +35,7 @@ jobs:
 
           - os: macos-latest
             go: "1.17"
-            test: true
+            testClientOnly: true
 
     runs-on: ${{ matrix.os }}
     steps:
