@@ -4,112 +4,92 @@ on: [pull_request]
 
 jobs:
   build:
-    name: build
+    name: build-and-test
     strategy:
       matrix:
         include:
-          - {os: ubuntu-latest, go: 1.13, immudb: "immudb", immuclient: "immuclient"}
-          - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
+          - os: ubuntu-latest
+            go: "1.14"
+
+          - os: ubuntu-latest
+            go: "1.13"
+
+          - os: ubuntu-latest
+            go: "1.15"
+
+          - os: ubuntu-latest
+            go: "1.16"
+
+          - os: ubuntu-latest
+            go: "1.17"
+            test: true
+
+          - os: ubuntu-latest
+            go: "1.18"
+            test: true
+
+          - os: windows-latest
+            go: "1.17"
+            testClientOnly: true
+            noWebconsole: true
+
+          - os: macos-latest
+            go: "1.17"
+            test: true
+
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+
       - uses: actions/checkout@v3
+
       - name: Test
         run: make test
-        if: runner.os == 'Linux'
+        if: matrix.test
+
       - name: Test Client
         run: make test-client
-        if: runner.os == 'Windows'
+        if: matrix.testClientOnly
         shell: bash
-      - name: build all
-        run: make all
+
       - name: Build with webconsole
         run: |
           sudo apt update && sudo apt install curl -y
           WEBCONSOLE=default make all
-        if: runner.os == 'Linux'
-      - name: Upload webconsole artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: immu-ubuntu-latest-webconsole
-          path: |
-            ${{github.workspace}}/${{matrix.immudb}}
-            ${{github.workspace}}/${{matrix.immuclient}}
-        if: runner.os == 'Linux'
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: immu-${{matrix.os}}
-          path: |
-            ${{github.workspace}}/${{matrix.immudb}}
-            ${{github.workspace}}/${{matrix.immuclient}}
-  
-  test:
-    name: Smoke tests (no webconsole)
-    needs: build
-    strategy:
-      matrix:
-        include:
-          - {os: ubuntu-latest, go: 1.13, immudb: "immudb", immuclient: "immuclient"}
-          - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/download-artifact@v3
-        with: 
-          name: immu-${{matrix.os}}
-          path: ${{github.workspace}}/bin
+        if: "!matrix.noWebconsole"
+
+      - name: Build without webconsole
+        run: make all
+        if: matrix.noWebconsole
+
       - name: Make binaries executable
-        run: |
-          chmod +x ${GITHUB_WORKSPACE}/bin/*
-        shell: bash
-        if: runner.os == 'Linux'
+        run: chmod +x immudb immuclient immuadmin
+        if: runner.os != 'Windows'
+
       - name: Testing immudb operations
         run: |
-          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
+          IMMUCLIENT=./immuclient*
+          IMMUADMIN=./immuadmin*
+          IMMUDB=./immudb*
+
           # Run immuclient before a server starts, make sure it fails
           set -euxo pipefail
-          ${{matrix.immuclient}} || echo "Test #1 OK - immuclient failed to connect (no server started)"
-          ${{matrix.immudb}} -d
-          ${{matrix.immuclient}} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          echo -n "immudb" | ${{matrix.immuclient}} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
-          ${{matrix.immuclient}} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
-          sg=$(${{matrix.immuclient}} safeget test3)
+          ${IMMUCLIENT} || echo "Test #1 OK - immuclient failed to connect (no server started)"
+          ${IMMUDB} -d
+          ${IMMUCLIENT} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
+          echo -n "immudb" | ${IMMUCLIENT} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
+          ${IMMUCLIENT} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
+          sg=$(${IMMUCLIENT} safeget test3)
           grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
           grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
           grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
         shell: bash
 
-  test-webconsole:
-    name: Smoke tests (webconsole bundled)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v3
-        with: 
-          name: immu-ubuntu-latest-webconsole
-          path: ${{github.workspace}}/bin
-      - name: Make binaries executable
+      - name: Testing immudb webconsole
+        if: "!matrix.noWebconsole"
         run: |
-          chmod +x ${GITHUB_WORKSPACE}/bin/*
-        shell: bash
-        if: runner.os == 'Linux'
-      - name: Testing immudb operations
-        run: |
-          sudo apt update && sudo apt install curl -y
-          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
-          # Run immuclient before a server starts, make sure it fails
-          set -euxo pipefail
-          immuclient || echo "Test #1 OK - immuclient failed to connect (no server started)"
-          immudb -d
-          immuclient login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          echo -n "immudb" | immuclient login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
-          immuclient safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
-          sg=$(immuclient safeget test3)
-          grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
-          grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
-          grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
           # Find <title>immudb webconsole</title>
           webconsole_page=$(curl -s localhost:8080) || { echo "Test #8 web console unreachable"; exit 1; }
           grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #9 Failed, web console reachable but title not found"; exit 1; }
@@ -120,7 +100,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.13
+          go-version: 1.17
       - uses: actions/checkout@v3
       - run: |
           export PATH=$PATH:$(go env GOPATH)/bin
