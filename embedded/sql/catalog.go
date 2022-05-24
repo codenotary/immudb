@@ -232,6 +232,10 @@ func (t *Table) GetColumnByIDWithCatalogHistory(id uint32) (*Column, error) {
 	return col, nil
 }
 
+func (t *Table) GetMaxColID() uint32 {
+	return t.maxColID
+}
+
 func (i *Index) IsPrimary() bool {
 	return i.id == PKIndexID
 }

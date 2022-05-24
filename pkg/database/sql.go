@@ -172,6 +172,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		ColIdsByName:   colIdsByName,
 		ColTypesById:   colTypesByID,
 		ColLenById:     colLenByID,
+		MaxColId:       table.GetMaxColID(),
 	}, nil
 }
 

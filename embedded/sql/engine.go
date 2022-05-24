@@ -1030,7 +1030,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 	return nil, ErrInvalidValue
 }
 
-func decodeValueLength(b []byte) (int, int, error) {
+func DecodeValueLength(b []byte) (int, int, error) {
 	if len(b) < EncLenLen {
 		return 0, 0, ErrCorruptedData
 	}
@@ -1046,7 +1046,7 @@ func decodeValueLength(b []byte) (int, int, error) {
 }
 
 func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
-	vlen, voff, err := decodeValueLength(b)
+	vlen, voff, err := DecodeValueLength(b)
 	if err != nil {
 		return nil, 0, err
 	}

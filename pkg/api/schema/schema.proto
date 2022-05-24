@@ -635,6 +635,7 @@ message VerifiableSQLEntry {
 	map<string, uint32> ColIdsByName = 9;
 	map<uint32, string> ColTypesById = 10;
 	map<uint32, int32> ColLenById = 11;
+	uint32 maxColId = 12;
 }
 
 message UseDatabaseReply{

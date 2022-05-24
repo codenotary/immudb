@@ -469,7 +469,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 		if col == nil {
 			// Deleted column, skip it
-			vlen, n, err := decodeValueLength(v[voff:])
+			vlen, n, err := DecodeValueLength(v[voff:])
 			if err != nil {
 				return nil, err
 			}

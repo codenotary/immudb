@@ -160,7 +160,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
 
-	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById)
+	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById, vEntry.MaxColId)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint32]*schema.SQLValue, c
 	return nil
 }
 
-func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uint32]*schema.SQLValue, error) {
+func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType, maxColID uint32) (map[uint32]*schema.SQLValue, error) {
 	off := 0
 
 	if len(encodedRow) < off+sql.EncLenLen {
@@ -294,7 +294,19 @@ func decodeRow(encodedRow []byte, colTypes map[uint32]sql.SQLValueType) (map[uin
 
 		colType, ok := colTypes[colID]
 		if !ok {
-			return nil, sql.ErrCorruptedData
+			// Support for dropped columns
+			if colID > maxColID {
+				return nil, sql.ErrCorruptedData
+			}
+
+			vlen, voff, err := sql.DecodeValueLength(encodedRow[off:])
+			if err != nil {
+				return nil, err
+			}
+
+			off += vlen
+			off += voff
+			continue
 		}
 
 		val, n, err := sql.DecodeValue(encodedRow[off:], colType)
