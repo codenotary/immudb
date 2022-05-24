@@ -219,14 +219,9 @@ func (t *Table) GetColumnByName(name string) (*Column, error) {
 func (t *Table) GetColumnByID(id uint32) (*Column, error) {
 	col, exists := t.colsByID[id]
 	if !exists {
-		return nil, ErrColumnDoesNotExist
-	}
-	return col, nil
-}
-
-func (t *Table) GetColumnByIDWithCatalogHistory(id uint32) (*Column, error) {
-	col, exists := t.colsByID[id]
-	if !exists && id > t.maxColID {
+		if id <= t.maxColID {
+			return nil, ErrColumnDropped
+		}
 		return nil, ErrColumnDoesNotExist
 	}
 	return col, nil
@@ -306,9 +301,15 @@ func indexName(tableName string, cols []*Column) string {
 	return buf.String()
 }
 
-func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, err error) {
+func (db *Database) newTable(name string, colsSpec map[uint32]*ColSpec, maxColID uint32) (table *Table, err error) {
 	if len(name) == 0 || len(colsSpec) == 0 {
 		return nil, ErrIllegalArguments
+	}
+
+	for id := range colsSpec {
+		if id <= 0 || id > maxColID {
+			return nil, ErrIllegalArguments
+		}
 	}
 
 	exists := db.ExistTable(name)
@@ -327,12 +328,13 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		colsByName:     make(map[string]*Column),
 		indexesByName:  make(map[string]*Index),
 		indexesByColID: make(map[uint32][]*Index),
-		maxColID:       uint32(len(colsSpec)),
+		maxColID:       maxColID,
 	}
 
-	for pos, cs := range colsSpec {
-		if cs == nil {
-			// Deleted column
+	for id := uint32(1); id <= maxColID; id++ {
+		cs, found := colsSpec[id]
+		if !found {
+			// dropped column
 			continue
 		}
 
@@ -350,7 +352,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec) (table *Table, er
 		}
 
 		col := &Column{
-			id:            uint32(pos + 1),
+			id:            id,
 			table:         table,
 			colName:       cs.colName,
 			colType:       cs.colType,

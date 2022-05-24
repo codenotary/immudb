@@ -38,6 +38,7 @@ var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrColumnDoesNotExist = errors.New("column does not exist")
+var ErrColumnDropped = fmt.Errorf("%w: column dropped", ErrColumnDoesNotExist)
 var ErrColumnAlreadyExists = errors.New("column already exists")
 var ErrSameOldAndNewColumnName = errors.New("same old and new column names")
 var ErrCantDropIndexedColumn = errors.New("can not drop indexed column")
@@ -394,7 +395,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return ErrCorruptedData
 		}
 
-		colSpecs, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
+		colSpecs, maxColID, err := loadColSpecs(db.id, tableID, tx, sqlPrefix)
 		if err != nil {
 			return err
 		}
@@ -404,7 +405,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 			return err
 		}
 
-		table, err := db.newTable(string(v), colSpecs)
+		table, err := db.newTable(string(v), colSpecs, maxColID)
 		if err != nil {
 			return err
 		}
@@ -465,7 +466,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 	return unmapIndexEntry(table.primaryIndex, sqlPrefix, mkey)
 }
 
-func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs map[uint32]*ColSpec, maxColId uint32, err error) {
 	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
@@ -474,11 +475,12 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 
 	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer colSpecReader.Close()
 
-	specs = make([]*ColSpec, 0)
+	specs = map[uint32]*ColSpec{}
+	maxColId = 0
 
 	for {
 		mkey, vref, err := colSpecReader.Read()
@@ -486,52 +488,50 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		md := vref.KVMetadata()
 		if md != nil && md.IsExpirable() {
-			return nil, fmt.Errorf("%w: catalog entry set as expirable", ErrCorruptedData)
+			return nil, 0, fmt.Errorf("%w: catalog entry set as expirable", ErrCorruptedData)
 		}
 
 		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if dbID != mdbID || tableID != mtableID {
-			return nil, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
+			return nil, 0, fmt.Errorf("%w: mismatch on database or table ids", ErrCorruptedData)
 		}
 
-		if int(colID) != len(specs)+1 {
-			return nil, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
+		if colID != maxColId+1 {
+			return nil, 0, fmt.Errorf("%w: table columns not stored sequentially", ErrCorruptedData)
 		}
+		maxColId = colID
 
 		if md != nil && md.Deleted() {
-			specs = append(specs, nil)
 			continue
 		}
 
 		v, err := vref.Resolve()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if len(v) < 6 {
-			return nil, fmt.Errorf("%w: corrupted column entry value", ErrCorruptedData)
+			return nil, 0, fmt.Errorf("%w: corrupted column entry value", ErrCorruptedData)
 		}
 
-		spec := &ColSpec{
+		specs[colID] = &ColSpec{
 			colName:       string(v[5:]),
 			colType:       colType,
 			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
 			autoIncrement: v[0]&autoIncrementFlag != 0,
 			notNull:       v[0]&nullableFlag != 0,
 		}
-
-		specs = append(specs, spec)
 	}
 
-	return
+	return specs, maxColId, nil
 }
 
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {

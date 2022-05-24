@@ -318,7 +318,12 @@ func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 		return tx, nil
 	}
 
-	table, err := tx.currentDB.newTable(stmt.table, stmt.colsSpec)
+	colSpecs := make(map[uint32]*ColSpec, len(stmt.colsSpec))
+	for i, cs := range stmt.colsSpec {
+		colSpecs[uint32(i)+1] = cs
+	}
+
+	table, err := tx.currentDB.newTable(stmt.table, colSpecs, uint32(len(colSpecs)))
 	if err != nil {
 		return nil, err
 	}

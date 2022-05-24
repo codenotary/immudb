@@ -41,7 +41,9 @@ func TestGroupedRowReader(t *testing.T) {
 	db, err := tx.catalog.newDatabase(1, "db1")
 	require.NoError(t, err)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}})
+	table, err := db.newTable("table1", map[uint32]*ColSpec{
+		1: {colName: "id", colType: IntegerType},
+	}, 1)
 	require.NoError(t, err)
 
 	index, err := table.newIndex(true, []uint32{1})

@@ -19,6 +19,7 @@ package sql
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -454,7 +455,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
 	voff += EncLenLen
 
-	for i := 0; i < cols; i++ {
+	for i, pos := 0, 0; i < cols; i++ {
 		if len(v) < EncIDLen {
 			return nil, ErrCorruptedData
 		}
@@ -462,13 +463,13 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		colID := binary.BigEndian.Uint32(v[voff:])
 		voff += EncIDLen
 
-		col, err := r.table.GetColumnByIDWithCatalogHistory(colID)
-		if err != nil {
+		col, err := r.table.GetColumnByID(colID)
+		if err != nil && !errors.Is(err, ErrColumnDropped) {
 			return nil, err
 		}
 
-		if col == nil {
-			// Deleted column, skip it
+		if err != nil {
+			// Dropped column, skip it
 			vlen, n, err := DecodeValueLength(v[voff:])
 			if err != nil {
 				return nil, err
@@ -484,7 +485,9 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 		voff += n
 
-		valuesByPosition[i] = val
+		valuesByPosition[pos] = val
+		pos++
+
 		valuesBySelector[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
 	}
 
