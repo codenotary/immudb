@@ -609,9 +609,9 @@ func TestAlterTableDropColumn(t *testing.T) {
 		_, _, err = engine.Exec(`
 			CREATE TABLE table1 (
 				id INTEGER AUTO_INCREMENT,
+				active BOOLEAN,
 				name VARCHAR[50],
 				surname VARCHAR[50],
-				active BOOLEAN,
 				PRIMARY KEY (id)
 			)`, nil, nil)
 		require.NoError(t, err)
@@ -669,7 +669,7 @@ func TestAlterTableDropColumn(t *testing.T) {
 		err = res.Close()
 		require.NoError(t, err)
 
-		res, err = engine.Query("SELECT id, name, surname FROM table1", nil, nil)
+		res, err = engine.Query("SELECT * FROM table1", nil, nil)
 		require.NoError(t, err)
 
 		for i := 0; i < 3; i++ {
