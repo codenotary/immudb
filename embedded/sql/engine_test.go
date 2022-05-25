@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"strings"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 var sqlPrefix = []byte{2}
@@ -5845,4 +5847,190 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		_, err = r.Read()
 		require.ErrorIs(t, err, ErrNoMoreRows)
 	})
+}
+
+type BrokenCatalogTestSuite struct {
+	suite.Suite
+
+	path   string
+	st     *store.ImmuStore
+	engine *Engine
+}
+
+func TestBrokenCatalogTestSuite(t *testing.T) {
+	suite.Run(t, new(BrokenCatalogTestSuite))
+}
+
+func (t *BrokenCatalogTestSuite) SetupTest() {
+	path, err := ioutil.TempDir("", "broken_catalog_test_suite")
+	t.Require().NoError(err)
+
+	t.path = path
+
+	t.st, err = store.Open(path, store.DefaultOptions())
+	t.Require().NoError(err)
+
+	t.engine, err = NewEngine(t.st, DefaultOptions().WithPrefix(sqlPrefix))
+	t.Require().NoError(err)
+
+	_, _, err = t.engine.Exec("CREATE DATABASE db1;", nil, nil)
+	t.Require().NoError(err)
+
+	_, _, err = t.engine.Exec("USE DATABASE db1;", nil, nil)
+	t.Require().NoError(err)
+
+	_, _, err = t.engine.Exec(`
+		CREATE TABLE test(
+			id INTEGER AUTO_INCREMENT,
+			var VARCHAR,
+			b BOOLEAN,
+			PRIMARY KEY(id)
+		)
+		`, nil, nil)
+	t.Require().NoError(err)
+
+	// Tests in teh suite require specific IDs to be assigned
+	// we check below if those are as expected
+	tx, err := t.engine.NewTx(context.Background())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	db, err := tx.catalog.GetDatabaseByName("db1")
+	t.Require().NoError(err)
+	t.Require().EqualValues(1, db.id)
+
+	tab, err := db.GetTableByName("test")
+	t.Require().NoError(err)
+	t.Require().EqualValues(1, tab.id)
+
+	for id, name := range map[uint32]string{
+		1: "id",
+		2: "var",
+		3: "b",
+	} {
+		col, err := tab.GetColumnByName(name)
+		t.Require().NoError(err)
+		t.Require().EqualValues(id, col.id)
+	}
+}
+
+func (t *BrokenCatalogTestSuite) TearDownTest() {
+	if t.st != nil {
+		err := t.st.Close()
+		t.Require().NoError(err)
+	}
+	os.RemoveAll(t.path)
+}
+
+func (t *BrokenCatalogTestSuite) getColEntry(colID uint32) (k, v []byte, vref store.ValueRef) {
+	tx, err := t.st.NewTx()
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	reader, err := tx.NewKeyReader(&store.KeyReaderSpec{
+		Prefix: mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(1), EncodeID(1), EncodeID(colID)),
+	})
+	t.Require().NoError(err)
+	defer reader.Close()
+
+	k, vref, err = reader.Read()
+	t.Require().NoError(err)
+
+	v, err = vref.Resolve()
+	t.Require().NoError(err)
+
+	return k, v, vref
+}
+
+func (t *BrokenCatalogTestSuite) TestCanNotSetExpiredEntryInCatalog() {
+	k, v, _ := t.getColEntry(2)
+
+	md := store.NewKVMetadata()
+	err := md.ExpiresAt(time.Now().Add(time.Hour))
+	t.Require().NoError(err)
+
+	tx, err := t.st.NewTx()
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	tx.Set(k, md, v)
+
+	c := newCatalog()
+	err = c.load(sqlPrefix, tx)
+
+	t.Require().ErrorIs(err, ErrBrokenCatalogColSpecExpirable)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorWhenColSpecIsToShort() {
+	k, v, vref := t.getColEntry(2)
+
+	tx, err := t.st.NewTx()
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	err = tx.Delete(k)
+	t.Require().NoError(err)
+
+	err = tx.Set(k[:len(k)-1], vref.KVMetadata(), v)
+	t.Require().NoError(err)
+
+	c := newCatalog()
+	err = c.load(sqlPrefix, tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorColSpecNotSequential() {
+	tx, err := t.engine.NewTx(context.Background())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	err = persistColumn(&Column{
+		id:    100,
+		table: &Table{id: 1, db: &Database{id: 1}},
+	}, tx)
+	t.Require().NoError(err)
+
+	c := newCatalog()
+	err = c.load(sqlPrefix, tx.tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorColSpecDuplicate() {
+	tx, err := t.engine.NewTx(context.Background())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	// the type is part of the key, write another column with same id as the primary key
+	err = persistColumn(&Column{
+		id:      1,
+		colType: BLOBType,
+		table:   &Table{id: 1, db: &Database{id: 1}},
+	}, tx)
+	t.Require().NoError(err)
+
+	c := newCatalog()
+	err = c.load(sqlPrefix, tx.tx)
+
+	t.Require().ErrorIs(err, ErrCorruptedData)
+}
+
+func (t *BrokenCatalogTestSuite) TestErrorDroppedPrimaryIndexColumn() {
+	tx, err := t.engine.NewTx(context.Background())
+	t.Require().NoError(err)
+	defer tx.Cancel()
+
+	// the type is part of the key, write another column with same id as the primary key
+	err = persistColumnDeletion(&Column{
+		id:      1,
+		colType: IntegerType,
+		table:   &Table{id: 1, db: &Database{id: 1}},
+	}, tx)
+	t.Require().NoError(err)
+
+	c := newCatalog()
+	err = c.load(sqlPrefix, tx.tx)
+
+	t.Require().ErrorIs(err, ErrColumnDoesNotExist)
 }

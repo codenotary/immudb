@@ -64,6 +64,7 @@ var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
 var ErrLimitedGroupBy = errors.New("group by requires ordering by the grouping column")
 var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
+var ErrBrokenCatalogColSpecExpirable = fmt.Errorf("%w: catalog column entry set as expirable", ErrCorruptedData)
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrInvalidTypes = errors.New("invalid types")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
@@ -493,7 +494,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 
 		md := vref.KVMetadata()
 		if md != nil && md.IsExpirable() {
-			return nil, 0, fmt.Errorf("%w: catalog entry set as expirable", ErrCorruptedData)
+			return nil, 0, ErrBrokenCatalogColSpecExpirable
 		}
 
 		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
