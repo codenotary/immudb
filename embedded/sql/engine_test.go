@@ -600,37 +600,49 @@ func TestAlterTableDropColumn(t *testing.T) {
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-		require.NoError(t, err)
+		t.Run("fail to drop column when no database is selected", func(t *testing.T) {
+			_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN active", nil, nil)
+			require.ErrorIs(t, err, ErrNoDatabaseSelected)
+		})
 
-		err = engine.SetCurrentDatabase("db1")
-		require.NoError(t, err)
+		t.Run("create initial table", func(t *testing.T) {
+			_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+			require.NoError(t, err)
 
-		_, _, err = engine.Exec(`
-			CREATE TABLE table1 (
-				id INTEGER AUTO_INCREMENT,
-				active BOOLEAN,
-				name VARCHAR[50],
-				surname VARCHAR[50],
-				age INTEGER,
-				PRIMARY KEY (id)
-			)`, nil, nil)
-		require.NoError(t, err)
+			err = engine.SetCurrentDatabase("db1")
+			require.NoError(t, err)
 
-		_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
-		require.NoError(t, err)
+			_, _, err = engine.Exec(`
+				CREATE TABLE table1 (
+					id INTEGER AUTO_INCREMENT,
+					active BOOLEAN,
+					name VARCHAR[50],
+					surname VARCHAR[50],
+					age INTEGER,
+					PRIMARY KEY (id)
+				)`, nil, nil)
+			require.NoError(t, err)
 
-		_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(name, surname)", nil, nil)
-		require.NoError(t, err)
+			_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
+			require.NoError(t, err)
 
-		_, _, err = engine.Exec(`
-			INSERT INTO table1(name, surname, active, age)
-			VALUES
-				('John', 'Smith', true, 42),
-				('Sylvia', 'Smith', true, 27),
-				('Robo', 'Cop', false, 101)
-			`, nil, nil)
-		require.NoError(t, err)
+			_, _, err = engine.Exec("CREATE UNIQUE INDEX ON table1(name, surname)", nil, nil)
+			require.NoError(t, err)
+
+			_, _, err = engine.Exec(`
+				INSERT INTO table1(name, surname, active, age)
+				VALUES
+					('John', 'Smith', true, 42),
+					('Sylvia', 'Smith', true, 27),
+					('Robo', 'Cop', false, 101)
+				`, nil, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("fail to drop indexed from table that does not exist", func(t *testing.T) {
+			_, _, err = engine.Exec("ALTER TABLE table2 DROP COLUMN active", nil, nil)
+			require.ErrorIs(t, err, ErrTableDoesNotExist)
+		})
 
 		t.Run("fail to drop indexed columns", func(t *testing.T) {
 			_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN id", nil, nil)
@@ -641,6 +653,11 @@ func TestAlterTableDropColumn(t *testing.T) {
 
 			_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN surname", nil, nil)
 			require.ErrorIs(t, err, ErrCantDropIndexedColumn)
+		})
+
+		t.Run("fail to drop columns that does not exist", func(t *testing.T) {
+			_, _, err = engine.Exec("ALTER TABLE table1 DROP COLUMN nonexistent", nil, nil)
+			require.ErrorIs(t, err, ErrColumnDoesNotExist)
 		})
 
 		t.Run("drop column in the middle", func(t *testing.T) {
@@ -4202,6 +4219,10 @@ func TestInferParameters(t *testing.T) {
 	require.Len(t, params, 0)
 
 	params, err = engine.InferParameters("ALTER TABLE mytableSE RENAME COLUMN note TO newNote", nil)
+	require.NoError(t, err)
+	require.Len(t, params, 0)
+
+	params, err = engine.InferParameters("ALTER TABLE mytableSE DROP COLUMN note", nil)
 	require.NoError(t, err)
 	require.Len(t, params, 0)
 
