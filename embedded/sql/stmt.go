@@ -2156,17 +2156,21 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = newJointRowReader(rowReader, stmt.joins)
+		jointRowReader, err := newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
+			rowReader.Close()
 			return nil, err
 		}
+		rowReader = jointRowReader
 	}
 
 	if stmt.where != nil {
-		rowReader, err = newConditionalRowReader(rowReader, stmt.where)
+		conditionalRowReader, err := newConditionalRowReader(rowReader, stmt.where)
 		if err != nil {
+			rowReader.Close()
 			return nil, err
 		}
+		rowReader = conditionalRowReader
 	}
 
 	containsAggregations := false
@@ -2183,33 +2187,46 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 			groupBy = stmt.groupBy
 		}
 
-		rowReader, err = newGroupedRowReader(rowReader, stmt.selectors, groupBy)
+		groupedRowReader, err := newGroupedRowReader(rowReader, stmt.selectors, groupBy)
 		if err != nil {
+			rowReader.Close()
 			return nil, err
 		}
+		rowReader = groupedRowReader
 
 		if stmt.having != nil {
-			rowReader, err = newConditionalRowReader(rowReader, stmt.having)
+			havingRowReader, err := newConditionalRowReader(rowReader, stmt.having)
 			if err != nil {
+				rowReader.Close()
 				return nil, err
 			}
+			rowReader = havingRowReader
 		}
 	}
 
-	rowReader, err = newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
+	projectedRowReader, err := newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
 	if err != nil {
+		rowReader.Close()
 		return nil, err
 	}
+	rowReader = projectedRowReader
 
 	if stmt.distinct {
-		rowReader, err = newDistinctRowReader(rowReader)
+		distinctRowReader, err := newDistinctRowReader(rowReader)
 		if err != nil {
+			rowReader.Close()
 			return nil, err
 		}
+		rowReader = distinctRowReader
 	}
 
 	if stmt.limit > 0 {
-		return newLimitRowReader(rowReader, stmt.limit)
+		limitRowReader, err := newLimitRowReader(rowReader, stmt.limit)
+		if err != nil {
+			rowReader.Close()
+			return nil, err
+		}
+		rowReader = limitRowReader
 	}
 
 	return rowReader, nil
