@@ -63,9 +63,7 @@ func newUnionRowReader(rowReaders []RowReader) (*unionRowReader, error) {
 }
 
 func (ur *unionRowReader) onClose(callback func()) {
-	for _, r := range ur.rowReaders {
-		r.onClose(callback)
-	}
+	ur.rowReaders[0].onClose(callback)
 }
 
 func (ur *unionRowReader) Tx() *SQLTx {
@@ -151,8 +149,11 @@ func (ur *unionRowReader) Read() (*Row, error) {
 func (ur *unionRowReader) Close() error {
 	merr := multierr.NewMultiErr()
 
-	for _, r := range ur.rowReaders {
-		merr.Append(r.Close())
+	// Closing in reverse order to ensure the onClose callback
+	// is called after the last reader is closed
+	for i := len(ur.rowReaders) - 1; i >= 0; i-- {
+		err := ur.rowReaders[i].Close()
+		merr.Append(err)
 	}
 
 	return merr.Reduce()

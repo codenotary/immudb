@@ -2352,16 +2352,24 @@ func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Scan
 
 	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
 	if err != nil {
+		rightRowReader.Close()
 		return nil, err
 	}
 
 	rowReader, err = newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
 	if err != nil {
+		leftRowReader.Close()
+		rightRowReader.Close()
 		return nil, err
 	}
 
 	if stmt.distinct {
-		return newDistinctRowReader(rowReader)
+		distinctReader, err := newDistinctRowReader(rowReader)
+		if err != nil {
+			leftRowReader.Close()
+			rightRowReader.Close()
+		}
+		rowReader = distinctReader
 	}
 
 	return rowReader, nil
