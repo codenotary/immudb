@@ -5011,6 +5011,12 @@ func TestUnionOperator(t *testing.T) {
 	_, _, err = engine.Exec("CREATE TABLE table2(id INTEGER AUTO_INCREMENT, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
+	_, err = engine.Query("SELECT COUNT(*) FROM table_unknown UNION SELECT COUNT(*) FROM table1", nil, nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
+	_, err = engine.Query("SELECT COUNT(*) FROM table1 UNION SELECT COUNT(*) FROM table_unknown", nil, nil)
+	require.ErrorIs(t, err, ErrTableDoesNotExist)
+
 	_, err = engine.Query("SELECT COUNT(*) as c FROM table1 UNION SELECT id, title FROM table1", nil, nil)
 	require.ErrorIs(t, err, ErrColumnMismatchInUnionStmt)
 
