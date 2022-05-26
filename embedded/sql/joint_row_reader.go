@@ -258,6 +258,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				break
 			}
 			if err != nil {
+				reader.Close()
 				return nil, err
 			}
 
@@ -284,8 +285,10 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 func (jointr *jointRowReader) Close() error {
 	merr := multierr.NewMultiErr()
 
-	for _, rowReader := range jointr.rowReaders {
-		err := rowReader.Close()
+	// Closing joint readers backwards - the first reader executes the onClose callback
+	// thus it must be closed at the end
+	for i := len(jointr.rowReaders) - 1; i >= 0; i-- {
+		err := jointr.rowReaders[i].Close()
 		merr.Append(err)
 	}
 
