@@ -5035,9 +5035,9 @@ func TestUnionOperator(t *testing.T) {
 	t.Run("default union should filter out duplicated rows", func(t *testing.T) {
 		r, err := engine.Query(`
 			SELECT COUNT(*) as c FROM table1
-			UNION 
+			UNION
 			SELECT COUNT(*) FROM table1
-			UNION 
+			UNION
 			SELECT COUNT(*) c FROM table1 t1
 		`, nil, nil)
 		require.NoError(t, err)
@@ -5271,6 +5271,9 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 
 		_, err = r.Read()
 		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("with a handler, multi database stmts are delegated to the handler", func(t *testing.T) {
@@ -5371,6 +5374,9 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 		tx.currentDB = nil
 		_, err = tableRef.referencedTable(tx)
 		require.ErrorIs(t, err, ErrNoDatabaseSelected)
+
+		err = tx.Cancel()
+		require.NoError(t, err)
 	})
 }
 
