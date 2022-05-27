@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	ic "github.com/codenotary/immudb/pkg/client"
+
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/server/sessions"
@@ -49,7 +50,21 @@ func TestSession_OpenCloseSession(t *testing.T) {
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
-	client.Set(context.TODO(), []byte("my"), []byte("session"))
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.ErrorIs(t, err, ic.ErrSessionAlreadyOpen)
+
+	client.Set(context.TODO(), []byte("myKey"), []byte("myValue"))
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	entry, err := client.Get(context.TODO(), []byte("myKey"))
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	require.Equal(t, []byte("myValue"), entry.Value)
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)

@@ -16,8 +16,8 @@ import (
 )
 
 func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error) {
-	if c.SessionID != "" {
-		return ErrSessionAlreadyOpen
+	if c.IsConnected() {
+		return errors.FromError(ErrSessionAlreadyOpen)
 	}
 
 	c.Options.DialOptions = c.SetupDialOptions(c.Options)
@@ -34,13 +34,11 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
 	}
 
-	if c.ServiceClient == nil {
-		if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
-			return err
-		}
-
-		c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
+		return err
 	}
+
+	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
 
 	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
 		Username:     user,
@@ -77,19 +75,16 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 
 	defer func() {
 		c.SessionID = ""
+		c.clientConn = nil
 	}()
 
 	c.HeartBeater.Stop()
 
+	defer c.clientConn.Close()
+
 	_, err := c.ServiceClient.CloseSession(ctx, new(empty.Empty))
 	if err != nil {
 		return errors.FromError(err)
-	}
-
-	if c.clientConn != nil {
-		if err := c.clientConn.Close(); err != nil {
-			return err
-		}
 	}
 
 	return nil
