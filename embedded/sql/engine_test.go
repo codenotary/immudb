@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1854,6 +1855,67 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+}
+
+func TestQueryCornerCases(t *testing.T) {
+	defer os.RemoveAll("sqldata_query_corner_cases")
+
+	opts := store.DefaultOptions()
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
+
+	st, err := store.Open("sqldata_query_corner_cases", opts)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, st.Close()) }()
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		CREATE TABLE table1 (
+			id INTEGER AUTO_INCREMENT,
+			PRIMARY KEY(id)
+		)`, nil, nil)
+	require.NoError(t, err)
+
+	res, err := engine.Query("SELECT * FROM table1", nil, nil)
+	require.NoError(t, err)
+
+	err = res.Close()
+	require.NoError(t, err)
+
+	t.Run("run out of snapshots", func(t *testing.T) {
+
+		// Get one tx that takes the snapshot
+		tx, err := engine.NewTx(context.Background())
+		require.NoError(t, err)
+
+		res, err = engine.Query("SELECT * FROM table1", nil, nil)
+		require.ErrorIs(t, err, tbtree.ErrorToManyActiveSnapshots)
+		require.Nil(t, res)
+
+		res, err = engine.Query("SELECT * FROM table1", nil, tx)
+		require.NoError(t, err)
+
+		err = res.Close()
+		require.NoError(t, err)
+
+		err = tx.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid query parameters", func(t *testing.T) {
+		_, err := engine.Query("SELECT * FROM table1", map[string]interface{}{
+			"param": "value",
+			"Param": "value",
+		}, nil)
+		require.ErrorIs(t, err, ErrDuplicatedParameters)
+	})
 }
 
 func TestQueryDistinct(t *testing.T) {
