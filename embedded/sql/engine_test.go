@@ -33,12 +33,20 @@ import (
 
 var sqlPrefix = []byte{2}
 
+func closeStore(t *testing.T, st *store.ImmuStore) {
+	err := st.Close()
+	if !t.Failed() {
+		// Do not pollute error output if test has already failed
+		require.NoError(t, err)
+	}
+}
+
 func TestCreateDatabase(t *testing.T) {
 	defer os.RemoveAll("sqldata_create_db")
 
 	st, err := store.Open("sqldata_create_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -64,7 +72,7 @@ func TestUseDatabase(t *testing.T) {
 
 	st, err := store.Open("sqldata_use_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -98,7 +106,7 @@ func TestCreateTable(t *testing.T) {
 
 	st, err := store.Open("sqldata_create_table", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -142,7 +150,7 @@ func TestTimestampType(t *testing.T) {
 
 	st, err := store.Open("timestamp", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -245,7 +253,7 @@ func TestTimestampIndex(t *testing.T) {
 
 	st, err := store.Open("timestamp_index", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -286,7 +294,7 @@ func TestTimestampCasts(t *testing.T) {
 
 	st, err := store.Open("timestamp_casts", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -385,7 +393,7 @@ func TestAddColumn(t *testing.T) {
 
 		st, err := store.Open("sqldata_add_column", store.DefaultOptions())
 		require.NoError(t, err)
-		defer func() { require.NoError(t, st.Close()) }()
+		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
@@ -452,7 +460,7 @@ func TestAddColumn(t *testing.T) {
 	t.Run("reopen-store", func(t *testing.T) {
 		st, err := store.Open("sqldata_add_column", store.DefaultOptions())
 		require.NoError(t, err)
-		defer func() { require.NoError(t, st.Close()) }()
+		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
@@ -484,7 +492,7 @@ func TestRenameColumn(t *testing.T) {
 	t.Run("create-store", func(t *testing.T) {
 		st, err := store.Open("sqldata_rename_column", store.DefaultOptions())
 		require.NoError(t, err)
-		defer func() { require.NoError(t, st.Close()) }()
+		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
@@ -553,7 +561,7 @@ func TestRenameColumn(t *testing.T) {
 	t.Run("reopen-store", func(t *testing.T) {
 		st, err := store.Open("sqldata_rename_column", store.DefaultOptions())
 		require.NoError(t, err)
-		defer func() { require.NoError(t, st.Close()) }()
+		defer closeStore(t, st)
 
 		engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 		require.NoError(t, err)
@@ -595,7 +603,7 @@ func TestCreateIndex(t *testing.T) {
 
 	st, err := store.Open("sqldata_create_index", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -651,7 +659,7 @@ func TestUpsertInto(t *testing.T) {
 
 	st, err := store.Open("sqldata_upsert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -805,7 +813,7 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 
 	st, err := store.Open("sqldata_insert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -878,7 +886,7 @@ func TestAutoIncrementPK(t *testing.T) {
 
 	st, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -973,7 +981,7 @@ func TestDelete(t *testing.T) {
 
 	st, err := store.Open("sqldata_delete", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1071,7 +1079,7 @@ func TestErrorDuringDelete(t *testing.T) {
 
 	st, err := store.Open("err_during_delete", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1100,7 +1108,7 @@ func TestUpdate(t *testing.T) {
 
 	st, err := store.Open("sqldata_update", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1195,7 +1203,7 @@ func TestTransactions(t *testing.T) {
 
 	st, err := store.Open("sqldata_tx", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1255,7 +1263,7 @@ func TestTransactionsEdgeCases(t *testing.T) {
 
 	st, err := store.Open("sqldata_tx_edge_cases", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithAutocommit(true))
 	require.NoError(t, err)
@@ -1327,7 +1335,7 @@ func TestUseSnapshot(t *testing.T) {
 
 	st, err := store.Open("sqldata_snap", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1510,7 +1518,7 @@ func TestQuery(t *testing.T) {
 
 	st, err := store.Open("sqldata_q", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1865,7 +1873,7 @@ func TestQueryCornerCases(t *testing.T) {
 
 	st, err := store.Open("sqldata_query_corner_cases", opts)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -1923,7 +1931,7 @@ func TestQueryDistinct(t *testing.T) {
 
 	st, err := store.Open("sqldata_qd", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	opts := DefaultOptions().WithPrefix(sqlPrefix).WithDistinctLimit(4)
 	engine, err := NewEngine(st, opts)
@@ -2129,7 +2137,7 @@ func TestIndexing(t *testing.T) {
 
 	st, err := store.Open("sqldata_indexing", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -2664,7 +2672,7 @@ func TestExecCornerCases(t *testing.T) {
 
 	st, err := store.Open("sqldata_q", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -2680,7 +2688,7 @@ func TestQueryWithNullables(t *testing.T) {
 
 	st, err := store.Open("sqldata_nullable", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -2733,7 +2741,7 @@ func TestOrderBy(t *testing.T) {
 
 	st, err := store.Open("sqldata_orderby", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -2906,7 +2914,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 
 	st, err := store.Open("sqldata_where", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3034,7 +3042,7 @@ func TestQueryWithInClause(t *testing.T) {
 
 	st, err := store.Open("sqldata_where_in", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3182,7 +3190,7 @@ func TestAggregations(t *testing.T) {
 
 	st, err := store.Open("sqldata_agg", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3281,7 +3289,7 @@ func TestCount(t *testing.T) {
 
 	st, err := store.Open("sqldata_agg", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3339,7 +3347,7 @@ func TestGroupByHaving(t *testing.T) {
 
 	st, err := store.Open("sqldata_having", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3469,7 +3477,7 @@ func TestJoins(t *testing.T) {
 
 	st, err := store.Open("sqldata_innerjoin", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3588,7 +3596,7 @@ func TestJoinsWithNullIndexes(t *testing.T) {
 
 	st, err := store.Open("sqldata_join_nullable_index", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3643,7 +3651,7 @@ func TestJoinsWithJointTable(t *testing.T) {
 
 	st, err := store.Open("sqldata_innerjoin_joint", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3710,7 +3718,7 @@ func TestNestedJoins(t *testing.T) {
 
 	st, err := store.Open("sqldata_nestedjoins", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3776,7 +3784,7 @@ func TestReOpening(t *testing.T) {
 
 	st, err := store.Open("sqldata_reopening", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3811,7 +3819,7 @@ func TestSubQuery(t *testing.T) {
 
 	st, err := store.Open("sqldata_subq", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -3885,7 +3893,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 
 	st, err := store.Open("sqldata_subq", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix).WithAutocommit(true))
 	require.NoError(t, err)
@@ -3973,7 +3981,7 @@ func TestInferParameters(t *testing.T) {
 
 	st, err := store.Open("catalog_infer_params", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -4141,7 +4149,7 @@ func TestInferParametersPrepared(t *testing.T) {
 
 	st, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -4169,7 +4177,7 @@ func TestInferParametersUnbounded(t *testing.T) {
 
 	st, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -4221,7 +4229,7 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	st, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -4681,7 +4689,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 
 	st, err := store.Open("catalog_indexing_nullable", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -4911,7 +4919,7 @@ func TestTemporalQueries(t *testing.T) {
 
 	st, err := store.Open("temporal_queries", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -5053,7 +5061,7 @@ func TestUnionOperator(t *testing.T) {
 
 	st, err := store.Open("union_queries", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -5192,7 +5200,7 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 
 	st, err := store.Open("temporal_queries_edge_cases", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -5317,7 +5325,7 @@ func TestMultiDBCatalogQueries(t *testing.T) {
 
 	st, err := store.Open("multidb_catalog_queries", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
@@ -5474,7 +5482,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 
 	st, err := store.Open("singledb_catalog_queries", store.DefaultOptions())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, st.Close()) }()
+	defer closeStore(t, st)
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
