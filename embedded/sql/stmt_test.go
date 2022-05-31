@@ -779,3 +779,130 @@ func TestTimestmapType(t *testing.T) {
 	err = ts.selectorRanges(&Table{}, "", map[string]interface{}{}, map[uint32]*typedValueRange{})
 	require.NoError(t, err)
 }
+
+func TestUnionSelectErrors(t *testing.T) {
+	t.Run("fail on creating union reader", func(t *testing.T) {
+		reader1 := &dummyRowReader{
+			recordClose: true,
+		}
+
+		reader2 := &dummyRowReader{
+			recordClose:          true,
+			failReturningColumns: true,
+		}
+
+		stmt := &UnionStmt{
+			left: &dummyDataSource{
+				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					return reader1, nil
+				},
+			},
+			right: &dummyDataSource{
+				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					return reader2, nil
+				},
+			},
+			distinct: true,
+		}
+
+		reader, err := stmt.Resolve(nil, nil, nil)
+		require.ErrorIs(t, err, errDummy)
+		require.Nil(t, reader)
+		require.True(t, reader1.closed)
+		require.True(t, reader2.closed)
+	})
+
+	t.Run("fail on creating distinct reader", func(t *testing.T) {
+		reader1 := &dummyRowReader{
+			recordClose:                true,
+			failSecondReturningColumns: true,
+		}
+
+		reader2 := &dummyRowReader{
+			recordClose: true,
+		}
+
+		stmt := &UnionStmt{
+			left: &dummyDataSource{
+				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					return reader1, nil
+				},
+			},
+			right: &dummyDataSource{
+				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					return reader2, nil
+				},
+			},
+			distinct: true,
+		}
+
+		reader, err := stmt.Resolve(nil, nil, nil)
+		require.ErrorIs(t, err, errDummy)
+		require.Nil(t, reader)
+		require.True(t, reader1.closed)
+		require.True(t, reader2.closed)
+	})
+}
+
+func TestJoinErrors(t *testing.T) {
+	baseReader := &dummyRowReader{
+		recordClose: true,
+	}
+
+	stmt := &SelectStmt{
+		ds: &dummyDataSource{
+			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				return baseReader, nil
+			},
+		},
+		joins: []*JoinSpec{{
+			joinType: JoinType(99999),
+		}},
+	}
+
+	reader, err := stmt.Resolve(nil, nil, nil)
+	require.ErrorIs(t, err, ErrUnsupportedJoinType)
+	require.Nil(t, reader)
+	require.True(t, baseReader.closed)
+}
+
+func TestProjectedRowReaderErrors(t *testing.T) {
+	baseReader := &dummyRowReader{
+		recordClose:          true,
+		failReturningColumns: true,
+	}
+
+	stmt := &SelectStmt{
+		ds: &dummyDataSource{
+			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				return baseReader, nil
+			},
+		},
+	}
+
+	reader, err := stmt.Resolve(nil, nil, nil)
+	require.ErrorIs(t, err, errDummy)
+	require.Nil(t, reader)
+	require.True(t, baseReader.closed)
+}
+
+func TestDistinctRowReaderErrors(t *testing.T) {
+	baseReader := &dummyRowReader{
+		recordClose:                true,
+		failSecondReturningColumns: true,
+	}
+
+	stmt := &SelectStmt{
+		ds: &dummyDataSource{
+			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				return baseReader, nil
+			},
+		},
+		distinct: true,
+	}
+
+	reader, err := stmt.Resolve(nil, nil, nil)
+	require.ErrorIs(t, err, errDummy)
+	require.Nil(t, reader)
+	require.True(t, baseReader.closed)
+}
