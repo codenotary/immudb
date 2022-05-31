@@ -22,11 +22,11 @@ type limitRowReader struct {
 	read  int
 }
 
-func newLimitRowReader(rowReader RowReader, limit int) (*limitRowReader, error) {
+func newLimitRowReader(rowReader RowReader, limit int) *limitRowReader {
 	return &limitRowReader{
 		rowReader: rowReader,
 		limit:     limit,
-	}, nil
+	}
 }
 
 func (lr *limitRowReader) onClose(callback func()) {

@@ -24,8 +24,7 @@ import (
 func TestLimitRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader, err := newLimitRowReader(dummyr, 1)
-	require.NoError(t, err)
+	rowReader := newLimitRowReader(dummyr, 1)
 
 	require.Equal(t, dummyr.Database(), rowReader.Database())
 	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())
@@ -34,7 +33,7 @@ func TestLimitRowReader(t *testing.T) {
 
 	require.Nil(t, rowReader.Tx())
 
-	_, err = rowReader.Read()
+	_, err := rowReader.Read()
 	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = true

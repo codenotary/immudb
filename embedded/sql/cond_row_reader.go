@@ -23,11 +23,11 @@ type conditionalRowReader struct {
 	condition ValueExp
 }
 
-func newConditionalRowReader(rowReader RowReader, condition ValueExp) (*conditionalRowReader, error) {
+func newConditionalRowReader(rowReader RowReader, condition ValueExp) *conditionalRowReader {
 	return &conditionalRowReader{
 		rowReader: rowReader,
 		condition: condition,
-	}, nil
+	}
 }
 
 func (cr *conditionalRowReader) onClose(callback func()) {

@@ -2165,12 +2165,7 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	}
 
 	if stmt.where != nil {
-		conditionalRowReader, err := newConditionalRowReader(rowReader, stmt.where)
-		if err != nil {
-			rowReader.Close()
-			return nil, err
-		}
-		rowReader = conditionalRowReader
+		rowReader = newConditionalRowReader(rowReader, stmt.where)
 	}
 
 	containsAggregations := false
@@ -2195,12 +2190,7 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 		rowReader = groupedRowReader
 
 		if stmt.having != nil {
-			havingRowReader, err := newConditionalRowReader(rowReader, stmt.having)
-			if err != nil {
-				rowReader.Close()
-				return nil, err
-			}
-			rowReader = havingRowReader
+			rowReader = newConditionalRowReader(rowReader, stmt.having)
 		}
 	}
 
@@ -2221,12 +2211,7 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	}
 
 	if stmt.limit > 0 {
-		limitRowReader, err := newLimitRowReader(rowReader, stmt.limit)
-		if err != nil {
-			rowReader.Close()
-			return nil, err
-		}
-		rowReader = limitRowReader
+		rowReader = newLimitRowReader(rowReader, stmt.limit)
 	}
 
 	return rowReader, nil
