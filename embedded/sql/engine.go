@@ -1262,30 +1262,26 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if err != nil {
+				qtx.Cancel()
+			}
+		}()
 	}
 
 	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
 	if err != nil {
-		if tx == nil {
-			qtx.Cancel()
-		}
 		return nil, err
 	}
 
 	_, err = stmt.execAt(qtx, nparams)
 	if err != nil {
-		if tx == nil {
-			qtx.Cancel()
-		}
 		return nil, err
 	}
 
 	r, err := stmt.Resolve(qtx, nparams, nil)
 	if err != nil {
-		if tx == nil {
-			qtx.Cancel()
-		}
 		return nil, err
 	}
 

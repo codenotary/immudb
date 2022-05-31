@@ -2144,21 +2144,25 @@ func (stmt *SelectStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 	return tx, nil
 }
 
-func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
 	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err = stmt.ds.Resolve(tx, params, scanSpecs)
+	rowReader, err := stmt.ds.Resolve(tx, params, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			rowReader.Close()
+		}
+	}()
 
 	if stmt.joins != nil {
 		jointRowReader, err := newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
-			rowReader.Close()
 			return nil, err
 		}
 		rowReader = jointRowReader
@@ -2184,7 +2188,6 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 
 		groupedRowReader, err := newGroupedRowReader(rowReader, stmt.selectors, groupBy)
 		if err != nil {
-			rowReader.Close()
 			return nil, err
 		}
 		rowReader = groupedRowReader
@@ -2196,7 +2199,6 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 
 	projectedRowReader, err := newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
 	if err != nil {
-		rowReader.Close()
 		return nil, err
 	}
 	rowReader = projectedRowReader
@@ -2204,7 +2206,6 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 	if stmt.distinct {
 		distinctRowReader, err := newDistinctRowReader(rowReader)
 		if err != nil {
-			rowReader.Close()
 			return nil, err
 		}
 		rowReader = distinctRowReader
@@ -2329,30 +2330,49 @@ func (stmt *UnionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx,
 	return stmt.right.execAt(tx, params)
 }
 
-func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{}) (ret RowReader, err error) {
 	leftRowReader, err := stmt.left.Resolve(tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			leftRowReader.Close()
+		}
+	}()
 
 	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
 	if err != nil {
-		leftRowReader.Close()
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rightRowReader.Close()
+		}
+	}()
+
+	rowReader, err := newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err = newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	return rowReader, nil
+}
+
+func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	rowReader, err := stmt.resolveUnionAll(tx, params)
 	if err != nil {
-		leftRowReader.Close()
-		rightRowReader.Close()
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			rowReader.Close()
+		}
+	}()
 
 	if stmt.distinct {
 		distinctReader, err := newDistinctRowReader(rowReader)
 		if err != nil {
-			leftRowReader.Close()
-			rightRowReader.Close()
 			return nil, err
 		}
 		rowReader = distinctReader
