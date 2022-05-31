@@ -9,12 +9,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            go: "1.14"
-
-          - os: ubuntu-latest
-            go: "1.13"
-
-          - os: ubuntu-latest
             go: "1.15"
 
           - os: ubuntu-latest

@@ -1,6 +1,6 @@
 module github.com/codenotary/immudb
 
-go 1.13
+go 1.15
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
