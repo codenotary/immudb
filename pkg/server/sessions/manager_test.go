@@ -18,14 +18,15 @@ package sessions
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewManager(t *testing.T) {
@@ -46,17 +47,19 @@ func TestSessionGuard(t *testing.T) {
 	require.NoError(t, err)
 }
 
-const SGUARD_CHECK_INTERVAL = time.Millisecond * 250
-const MAX_SESSION_INACTIVE = time.Millisecond * 2000
-const MAX_SESSION_AGE = time.Millisecond * 3000
-const TIMEOUT = time.Millisecond * 1000
-const KEEPSTATUS = time.Millisecond * 300
-const WORK_TIME = time.Millisecond * 1000
-
 func TestManager_ExpireSessions(t *testing.T) {
-	const SESS_NUMBER = 60
-	const KEEP_ACTIVE = 20
-	const KEEP_INFINITE = 20
+	const (
+		SESS_NUMBER   = 60
+		KEEP_ACTIVE   = 20
+		KEEP_INFINITE = 20
+
+		SGUARD_CHECK_INTERVAL = time.Millisecond * 2
+		MAX_SESSION_INACTIVE  = time.Millisecond * 20
+		MAX_SESSION_AGE       = time.Millisecond * 30
+		TIMEOUT               = time.Millisecond * 10
+		KEEPSTATUS            = time.Millisecond * 3
+		WORK_TIME             = time.Millisecond * 10
+	)
 
 	sessOptions := &Options{
 		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
@@ -74,80 +77,102 @@ func TestManager_ExpireSessions(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	sessIDs := make(chan string, SESS_NUMBER)
+	sessErrs := make(chan error, SESS_NUMBER)
 
 	wg := sync.WaitGroup{}
 	for i := 1; i <= SESS_NUMBER; i++ {
 		wg.Add(1)
-		go func(u int, cs chan string, w *sync.WaitGroup) {
+		go func(u int) {
+			defer wg.Done()
+
 			lid, err := m.NewSession(&auth.User{
 				Username: fmt.Sprintf("%d", u),
 			}, nil)
 			if err != nil {
-				t.Error(err)
+				sessErrs <- err
+			} else {
+				sessIDs <- lid.GetID()
 			}
-			cs <- lid.GetID()
-			w.Done()
-		}(i, sessIDs, &wg)
+		}(i)
+	}
+	wg.Wait()
+
+	close(sessErrs)
+	for err := range sessErrs {
+		require.NoError(t, err)
 	}
 
-	wg.Wait()
 	require.Equal(t, SESS_NUMBER, m.SessionCount())
 
 	activeDone := make(chan bool)
 	infiniteDone := make(chan bool)
 	// keep active
+
+	wg = sync.WaitGroup{}
 	for ac := 0; ac < KEEP_ACTIVE; ac++ {
-		go keepActive(<-sessIDs, m, activeDone)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			keepActive(<-sessIDs, m, KEEPSTATUS, activeDone)
+		}()
 	}
 	for alc := 0; alc < KEEP_INFINITE; alc++ {
-		go keepActive(<-sessIDs, m, infiniteDone)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			keepActive(<-sessIDs, m, KEEPSTATUS, infiniteDone)
+		}()
 	}
 
-	fInactiveC := 0
-	fActiveC := 0
 	time.Sleep(WORK_TIME)
-	for _, s := range m.sessions {
-		switch s.GetStatus() {
-		case active:
-			fActiveC++
-		case inactive:
-			fInactiveC++
-		}
-	}
+
+	fActiveC, fInactiveC := countSessions(m)
 
 	require.Equal(t, SESS_NUMBER, fActiveC)
 	require.Equal(t, 0, fInactiveC)
 
-	activeDone <- true
+	close(activeDone)
 
 	time.Sleep(MAX_SESSION_AGE + TIMEOUT)
-	fInactiveC = 0
-	fActiveC = 0
-
-	for _, s := range m.sessions {
-		switch s.GetStatus() {
-		case active:
-			fActiveC++
-		case inactive:
-			fInactiveC++
-		}
-	}
+	fActiveC, fInactiveC = countSessions(m)
 
 	require.Equal(t, 0, fActiveC)
 	require.Equal(t, 0, fInactiveC)
 
 	err = m.StopSessionsGuard()
 	require.NoError(t, err)
+
+	close(infiniteDone)
+
+	wg.Wait()
 }
 
-func keepActive(id string, m *manager, done chan bool) {
-	t := time.NewTicker(KEEPSTATUS)
+func keepActive(id string, m *manager, updateTime time.Duration, done chan bool) {
+	t := time.NewTicker(updateTime)
 	for {
 		select {
 		case <-t.C:
 			m.UpdateSessionActivityTime(id)
 		case <-done:
+			t.Stop()
 			return
 		}
 	}
+}
+
+func countSessions(m *manager) (fActiveC, fInactiveC int) {
+	m.sessionMux.RLock()
+	defer m.sessionMux.RUnlock()
+
+	fActiveC, fInactiveC = 0, 0
+	for _, s := range m.sessions {
+		switch s.GetStatus() {
+		case active:
+			fActiveC++
+		case inactive:
+			fInactiveC++
+		}
+	}
+
+	return fActiveC, fInactiveC
 }
