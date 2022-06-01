@@ -112,11 +112,12 @@ func (sm *manager) GetSession(sessionID string) (*Session, error) {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
 
-	if _, ok := sm.sessions[sessionID]; !ok {
+	session, ok := sm.sessions[sessionID]
+	if !ok {
 		return nil, ErrSessionNotFound
 	}
 
-	return sm.sessions[sessionID], nil
+	return session, nil
 }
 
 func (sm *manager) DeleteSession(sessionID string) error {
@@ -198,15 +199,21 @@ func (sm *manager) StopSessionsGuard() error {
 	if !sm.running {
 		return ErrGuardNotRunning
 	}
-
 	sm.running = false
+	sm.ticker.Stop()
 
-	for ID, _ := range sm.sessions {
-		sm.deleteSession(ID)
+	// Wait for the guard to finish any pending cancellation work
+	// this must be done with unlocked mutex since
+	// mutex expiration may try to lock the mutex
+	sm.sessionMux.Unlock()
+	sm.done <- true
+	sm.sessionMux.Lock()
+
+	// Delete all
+	for id := range sm.sessions {
+		sm.deleteSession(id)
 	}
 
-	sm.ticker.Stop()
-	sm.done <- true
 	sm.logger.Debugf("shutdown")
 
 	return nil
