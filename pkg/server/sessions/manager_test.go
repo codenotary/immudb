@@ -37,10 +37,10 @@ func TestNewManager(t *testing.T) {
 func TestSessionGuard(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
-	go func() {
-		err := m.StartSessionsGuard()
-		require.NoError(t, err)
-	}()
+
+	err = m.StartSessionsGuard()
+	require.NoError(t, err)
+
 	time.Sleep(time.Second * 1)
 	err = m.StopSessionsGuard()
 	require.NoError(t, err)
@@ -68,10 +68,8 @@ func TestManager_ExpireSessions(t *testing.T) {
 	require.NoError(t, err)
 
 	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout) //.CloneWithLevel(logger.LogDebug)
-	go func(mng *manager) {
-		err := mng.StartSessionsGuard()
-		require.NoError(t, err)
-	}(m)
+	err = m.StartSessionsGuard()
+	require.NoError(t, err)
 
 	rand.Seed(time.Now().UnixNano())
 

@@ -272,12 +272,10 @@ func (s *ImmuServer) Start() (err error) {
 		}
 	}()
 
-	go func() {
-		if err = s.SessManager.StartSessionsGuard(); err != nil {
-			log.Fatal(err)
-		}
-		s.Logger.Infof("sessions guard started")
-	}()
+	if err = s.SessManager.StartSessionsGuard(); err != nil {
+		log.Fatal(err)
+	}
+	s.Logger.Infof("sessions guard started")
 
 	if s.Options.PgsqlServer {
 		go func() {

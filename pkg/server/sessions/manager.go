@@ -163,21 +163,25 @@ func (sm *manager) SessionCount() int {
 
 func (sm *manager) StartSessionsGuard() error {
 	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+
 	if sm.running {
-		sm.sessionMux.Unlock()
 		return ErrGuardAlreadyRunning
 	}
 	sm.running = true
-	sm.sessionMux.Unlock()
 
-	for {
-		select {
-		case <-sm.done:
-			return nil
-		case <-sm.ticker.C:
-			sm.expireSessions()
+	go func() {
+		for {
+			select {
+			case <-sm.done:
+				return
+			case <-sm.ticker.C:
+				sm.expireSessions()
+			}
 		}
-	}
+	}()
+
+	return nil
 }
 
 func (sm *manager) IsRunning() bool {
