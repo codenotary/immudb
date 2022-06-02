@@ -183,7 +183,7 @@ func (sm *manager) StartSessionsGuard() error {
 			case <-sm.done:
 				return
 			case <-sm.ticker.C:
-				sm.expireSessions()
+				sm.expireSessions(time.Now())
 			}
 		}
 	}()
@@ -225,17 +225,16 @@ func (sm *manager) StopSessionsGuard() error {
 	return nil
 }
 
-func (sm *manager) expireSessions() {
+func (sm *manager) expireSessions(now time.Time) (sessionsCount, inactiveSessCount, deletedSessCount int, err error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 
 	if !sm.running {
-		return
+		return 0, 0, 0, ErrGuardNotRunning
 	}
 
-	now := time.Now()
-
-	inactiveSessCount := 0
+	inactiveSessCount = 0
+	deletedSessCount = 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
 		if sess.GetLastActivityTime().Add(sm.options.MaxSessionInactivityTime).Before(now) && sess.GetStatus() != inactive {
@@ -257,9 +256,15 @@ func (sm *manager) expireSessions() {
 		if sess.GetStatus() == dead {
 			sm.deleteSession(ID)
 			sm.logger.Debugf("removed dead session %s", ID)
+			deletedSessCount++
 		}
-		sm.logger.Debugf("Open sessions count: %d\nInactive sessions count: %d\n", len(sm.sessions), inactiveSessCount)
 	}
+
+	sm.logger.Debugf("Open sessions count: %d\n", len(sm.sessions))
+	sm.logger.Debugf("Inactive sessions count: %d\n", inactiveSessCount)
+	sm.logger.Debugf("Deleted sessions count: %d\n", deletedSessCount)
+
+	return len(sm.sessions), inactiveSessCount, deletedSessCount, nil
 }
 
 func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error) {

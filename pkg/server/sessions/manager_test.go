@@ -36,16 +36,83 @@ func TestNewManager(t *testing.T) {
 	require.NotNil(t, m.sessions)
 }
 
+func TestNewManagerCornerCases(t *testing.T) {
+	_, err := NewManager(nil)
+	require.ErrorIs(t, err, ErrInvalidOptionsProvided)
+
+	m, err := NewManager(DefaultOptions().
+		WithMaxSessionAgeTime(0).
+		WithMaxSessionInactivityTime(0).
+		WithTimeout(0),
+	)
+	require.NoError(t, err)
+	require.Equal(t, infinity, m.options.MaxSessionInactivityTime)
+	require.Equal(t, infinity, m.options.MaxSessionAgeTime)
+	require.Equal(t, infinity, m.options.Timeout)
+}
+
 func TestSessionGuard(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
 
+	isRunning := m.IsRunning()
+	require.False(t, isRunning)
+
 	err = m.StartSessionsGuard()
 	require.NoError(t, err)
 
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
+	err = m.StartSessionsGuard()
+	require.ErrorIs(t, err, ErrGuardAlreadyRunning)
+
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
 	time.Sleep(time.Second * 1)
+
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
 	err = m.StopSessionsGuard()
 	require.NoError(t, err)
+
+	isRunning = m.IsRunning()
+	require.False(t, isRunning)
+
+	err = m.StopSessionsGuard()
+	require.ErrorIs(t, err, ErrGuardNotRunning)
+
+	isRunning = m.IsRunning()
+	require.False(t, isRunning)
+
+	_, _, _, err = m.expireSessions(time.Now())
+	require.ErrorIs(t, err, ErrGuardNotRunning)
+}
+
+func TestManagerMaxSessions(t *testing.T) {
+	m, err := NewManager(DefaultOptions().WithMaxSessions(1))
+	require.NoError(t, err)
+
+	sess, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	sess2, err := m.NewSession(&auth.User{}, nil)
+	require.ErrorIs(t, err, ErrMaxSessionsReached)
+	require.Nil(t, sess2)
+
+	err = m.DeleteSession(sess.id)
+	require.NoError(t, err)
+}
+
+func TestGetSessionNotFound(t *testing.T) {
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
+
+	sess, err := m.GetSession("non-existing-session")
+	require.ErrorIs(t, err, ErrSessionNotFound)
+	require.Nil(t, sess)
 }
 
 func TestManager_ExpireSessions(t *testing.T) {
@@ -174,6 +241,90 @@ func countSessions(m *manager) (fActiveC, fInactiveC int) {
 			fInactiveC++
 		}
 	}
-
 	return fActiveC, fInactiveC
+}
+
+func TestManagerSessionExpiration(t *testing.T) {
+
+	m, err := NewManager(DefaultOptions().
+		WithMaxSessionInactivityTime(5 * time.Second).
+		WithTimeout(10 * time.Second).
+		WithMaxSessionAgeTime(100 * time.Second),
+	)
+	require.NoError(t, err)
+
+	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout)
+	err = m.StartSessionsGuard()
+	require.NoError(t, err)
+
+	nowTime := time.Now()
+
+	t.Run("do not expire new sessions", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		require.Zero(t, inactive)
+		require.Zero(t, del)
+
+		require.Equal(t, 1, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("do not expire inactive sessions before additional timeout", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime.Add(-7 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		require.Equal(t, 1, inactive)
+		require.Zero(t, del)
+
+		require.Equal(t, 1, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("expire inactive sessions once timeout passes", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime.Add(-13 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Zero(t, count)
+		require.Zero(t, inactive)
+		require.Equal(t, 1, del)
+
+		require.Equal(t, 0, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("expire active sessions due to max age", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime
+		sess.creationTime = nowTime.Add(-101 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Zero(t, count)
+		require.Zero(t, inactive)
+		require.Equal(t, 1, del)
+
+		require.Equal(t, 0, m.SessionCount())
+	})
 }
