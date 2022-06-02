@@ -31,8 +31,6 @@ import (
 	"github.com/rs/xid"
 )
 
-const MaxSessions = 100
-
 const infinity = time.Duration(math.MaxInt64)
 
 type manager struct {
@@ -96,7 +94,7 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 
-	if len(sm.sessions) >= MaxSessions {
+	if len(sm.sessions) >= sm.options.MaxSessions {
 		sm.logger.Warningf("max sessions reached")
 		return nil, ErrMaxSessionsReached
 	}

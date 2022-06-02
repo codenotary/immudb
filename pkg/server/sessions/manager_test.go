@@ -62,12 +62,12 @@ func TestManager_ExpireSessions(t *testing.T) {
 		WORK_TIME             = time.Millisecond * 10
 	)
 
-	sessOptions := &Options{
-		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
-		MaxSessionInactivityTime:  MAX_SESSION_INACTIVE,
-		MaxSessionAgeTime:         MAX_SESSION_AGE,
-		Timeout:                   TIMEOUT,
-	}
+	sessOptions := DefaultOptions().
+		WithSessionGuardCheckInterval(SGUARD_CHECK_INTERVAL).
+		WithMaxSessionInactivityTime(MAX_SESSION_INACTIVE).
+		WithMaxSessionAgeTime(MAX_SESSION_AGE).
+		WithTimeout(TIMEOUT)
+
 	m, err := NewManager(sessOptions)
 	require.NoError(t, err)
 

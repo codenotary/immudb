@@ -31,12 +31,14 @@ func TestOptions(t *testing.T) {
 	op.WithMaxSessionAgeTime(time.Second).
 		WithSessionGuardCheckInterval(2 * time.Second).
 		WithMaxSessionInactivityTime(3 * time.Second).
-		WithTimeout(4 * time.Second)
+		WithTimeout(4 * time.Second).
+		WithMaxSessions(99)
 
 	assert.Equal(t, time.Second, op.MaxSessionAgeTime)
 	assert.Equal(t, 2*time.Second, op.SessionGuardCheckInterval)
 	assert.Equal(t, 3*time.Second, op.MaxSessionInactivityTime)
 	assert.Equal(t, 4*time.Second, op.Timeout)
+	assert.Equal(t, 99, op.MaxSessions)
 }
 
 func TestOptionsValidate(t *testing.T) {
@@ -50,6 +52,8 @@ func TestOptionsValidate(t *testing.T) {
 		DefaultOptions().WithMaxSessionInactivityTime(-1 * time.Second),
 		DefaultOptions().WithMaxSessionAgeTime(-1 * time.Second),
 		DefaultOptions().WithTimeout(-1 * time.Second),
+		DefaultOptions().WithMaxSessions(0),
+		DefaultOptions().WithMaxSessions(-1),
 	} {
 		t.Run(fmt.Sprintf("%+v", op), func(t *testing.T) {
 			err = op.Validate()
