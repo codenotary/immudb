@@ -42,7 +42,7 @@ type manager struct {
 	ticker     *time.Ticker
 	done       chan bool
 	logger     logger.Logger
-	options    *Options
+	options    Options
 }
 
 type Manager interface {
@@ -65,22 +65,30 @@ func NewManager(options *Options) (*manager, error) {
 	if options == nil {
 		return nil, ErrInvalidOptionsProvided
 	}
-	if options.MaxSessionAgeTime == 0 {
-		options.MaxSessionAgeTime = infinity
+
+	err := options.Validate()
+	if err != nil {
+		return nil, err
 	}
-	if options.MaxSessionInactivityTime == 0 {
-		options.MaxSessionInactivityTime = infinity
-	}
-	if options.Timeout == 0 {
-		options.Timeout = infinity
-	}
+
 	guard := &manager{
 		sessions: make(map[string]*Session),
 		ticker:   time.NewTicker(options.SessionGuardCheckInterval),
 		done:     make(chan bool),
 		logger:   logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:  options,
+		options:  *options,
 	}
+
+	if guard.options.MaxSessionAgeTime == 0 {
+		guard.options.MaxSessionAgeTime = infinity
+	}
+	if guard.options.MaxSessionInactivityTime == 0 {
+		guard.options.MaxSessionInactivityTime = infinity
+	}
+	if guard.options.Timeout == 0 {
+		guard.options.Timeout = infinity
+	}
+
 	return guard, nil
 }
 
@@ -88,7 +96,7 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 
-	if len(sm.sessions) == MaxSessions {
+	if len(sm.sessions) >= MaxSessions {
 		sm.logger.Warningf("max sessions reached")
 		return nil, ErrMaxSessionsReached
 	}

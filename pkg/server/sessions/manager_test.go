@@ -33,6 +33,7 @@ func TestNewManager(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
 	require.IsType(t, new(manager), m)
+	require.NotNil(t, m.sessions)
 }
 
 func TestSessionGuard(t *testing.T) {

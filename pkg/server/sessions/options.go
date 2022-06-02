@@ -16,7 +16,10 @@ limitations under the License.
 
 package sessions
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Options struct {
 	SessionGuardCheckInterval time.Duration
@@ -54,4 +57,20 @@ func (o *Options) WithMaxSessionAgeTime(maxAgeTime time.Duration) *Options {
 func (o *Options) WithTimeout(timeout time.Duration) *Options {
 	o.Timeout = timeout
 	return o
+}
+
+func (o *Options) Validate() error {
+	if o.MaxSessionAgeTime < 0 {
+		return fmt.Errorf("%w: invalid MaxSessionAgeTime", ErrInvalidOptionsProvided)
+	}
+	if o.MaxSessionInactivityTime < 0 {
+		return fmt.Errorf("%w: invalid MaxSessionInactivityTime", ErrInvalidOptionsProvided)
+	}
+	if o.Timeout < 0 {
+		return fmt.Errorf("%w: invalid Timeout", ErrInvalidOptionsProvided)
+	}
+	if o.SessionGuardCheckInterval <= 0 {
+		return fmt.Errorf("%w: invalid SessionGuardCheckInterval", ErrInvalidOptionsProvided)
+	}
+	return nil
 }
