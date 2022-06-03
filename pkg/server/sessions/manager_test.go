@@ -323,12 +323,25 @@ func TestManagerNewSessionCryptographicQuality(t *testing.T) {
 }
 
 func TestManagerNewSessionFailureForNoRandomSource(t *testing.T) {
-	randSrc := bytes.NewReader(nil)
-	opts := DefaultOptions().WithRandSource(randSrc)
+	t.Run("correctly handle error while reading from random source", func(t *testing.T) {
+		randSrc := bytes.NewReader(nil)
+		opts := DefaultOptions().WithRandSource(randSrc)
 
-	m, err := NewManager(opts)
-	require.NoError(t, err)
+		m, err := NewManager(opts)
+		require.NoError(t, err)
 
-	_, err = m.NewSession(&auth.User{}, nil)
-	require.ErrorIs(t, err, ErrCantCreateSession)
+		_, err = m.NewSession(&auth.User{}, nil)
+		require.ErrorIs(t, err, ErrCantCreateSession)
+	})
+
+	t.Run("correctly handle not enough data in the random source", func(t *testing.T) {
+		randSrc := bytes.NewReader([]byte{0x00})
+		opts := DefaultOptions().WithRandSource(randSrc)
+
+		m, err := NewManager(opts)
+		require.NoError(t, err)
+
+		_, err = m.NewSession(&auth.User{}, nil)
+		require.ErrorIs(t, err, ErrCantCreateSession)
+	})
 }

@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"math"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -93,16 +92,17 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 	}
 
 	randomBytes := make([]byte, 32)
-	_, err := sm.options.RandSource.Read(randomBytes)
+	n, err := sm.options.RandSource.Read(randomBytes)
 	if err != nil {
 		sm.logger.Errorf("cant create session id: %v", err)
 		return nil, ErrCantCreateSessionID
 	}
+	if n < len(randomBytes) {
+		sm.logger.Errorf("cant create session id: could produce enough random data")
+		return nil, ErrCantCreateSessionID
+	}
 
-	sessionID := strings.TrimRight(
-		base64.URLEncoding.EncodeToString(randomBytes),
-		"=",
-	)
+	sessionID := base64.URLEncoding.EncodeToString(randomBytes)
 
 	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
