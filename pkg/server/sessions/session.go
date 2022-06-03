@@ -30,18 +30,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type Status int64
-
-const (
-	active Status = iota
-	inactive
-	dead
-)
-
 type Session struct {
 	mux                sync.RWMutex
 	id                 string
-	state              Status
 	user               *auth.User
 	database           database.DB
 	creationTime       time.Time
@@ -55,7 +46,6 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 	now := time.Now()
 	return &Session{
 		id:               sessionID,
-		state:            active,
 		user:             user,
 		database:         db,
 		creationTime:     now,
@@ -201,18 +191,6 @@ func (s *Session) SetDatabase(db database.DB) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.database = db
-}
-
-func (s *Session) setStatus(st Status) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.state = st
-}
-
-func (s *Session) GetStatus() Status {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.state
 }
 
 func (s *Session) GetLastActivityTime() time.Time {

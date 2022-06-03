@@ -18,18 +18,21 @@ package sessions
 
 import (
 	"context"
+	stdos "os"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
-	stdos "os"
-	"testing"
 )
 
 func TestNewSession(t *testing.T) {
 	sess := NewSession("sessID", &auth.User{}, nil, logger.NewSimpleLogger("test", stdos.Stdout))
-	st := sess.GetStatus()
-	require.Equal(t, active, st)
+	require.NotNil(t, sess)
+	require.Less(t, sess.GetCreationTime(), time.Now())
+	require.Less(t, sess.GetLastActivityTime(), time.Now())
 }
 
 func TestGetSessionIDFromContext(t *testing.T) {

@@ -237,26 +237,20 @@ func (sm *manager) expireSessions(now time.Time) (sessionsCount, inactiveSessCou
 	deletedSessCount = 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
-		if sess.GetLastActivityTime().Add(sm.options.MaxSessionInactivityTime).Before(now) && sess.GetStatus() != inactive {
-			sess.setStatus(inactive)
-			sm.logger.Debugf("session %s became Inactive due to max inactivity time", ID)
-		}
-		if sess.GetCreationTime().Add(sm.options.MaxSessionAgeTime).Before(now) {
-			sess.setStatus(dead)
-			sm.logger.Debugf("session %s exceeded MaxSessionAgeTime and became dead", ID)
-		}
-		if sess.GetStatus() == inactive {
-			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
-				sess.setStatus(dead)
-				sm.logger.Debugf("Inactive session %s is dead", ID)
-			} else {
-				inactiveSessCount++
-			}
-		}
-		if sess.GetStatus() == dead {
+
+		createdAt := sess.GetCreationTime()
+		lastActivity := sess.GetLastActivityTime()
+
+		if now.Sub(createdAt) > sm.options.MaxSessionAgeTime {
+			sm.logger.Debugf("removing session %s - exceeded MaxSessionAgeTime", ID)
 			sm.deleteSession(ID)
-			sm.logger.Debugf("removed dead session %s", ID)
 			deletedSessCount++
+		} else if now.Sub(lastActivity) > sm.options.Timeout {
+			sm.logger.Debugf("removing session %s - exceeded Timeout", ID)
+			sm.deleteSession(ID)
+			deletedSessCount++
+		} else if now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime {
+			inactiveSessCount++
 		}
 	}
 
