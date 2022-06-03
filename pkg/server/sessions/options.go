@@ -17,7 +17,9 @@ limitations under the License.
 package sessions
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"time"
 )
 
@@ -31,6 +33,8 @@ type Options struct {
 	Timeout time.Duration
 	// Max number of simultaneous sessions
 	MaxSessions int
+	// Random number generator
+	RandSource io.Reader
 }
 
 func DefaultOptions() *Options {
@@ -40,6 +44,7 @@ func DefaultOptions() *Options {
 		MaxSessionAgeTime:         infinity,
 		Timeout:                   time.Minute * 2,
 		MaxSessions:               100,
+		RandSource:                rand.Reader,
 	}
 }
 
@@ -67,6 +72,11 @@ func (o *Options) WithMaxSessions(maxSessions int) *Options {
 	return o
 }
 
+func (o *Options) WithRandSource(src io.Reader) *Options {
+	o.RandSource = src
+	return o
+}
+
 func (o *Options) Validate() error {
 	if o.MaxSessionAgeTime < 0 {
 		return fmt.Errorf("%w: invalid MaxSessionAgeTime", ErrInvalidOptionsProvided)
@@ -82,6 +92,9 @@ func (o *Options) Validate() error {
 	}
 	if o.MaxSessions <= 0 {
 		return fmt.Errorf("%w: invalid MaxSessions", ErrInvalidOptionsProvided)
+	}
+	if o.RandSource == nil {
+		return fmt.Errorf("%w: invalid RandSource", ErrInvalidOptionsProvided)
 	}
 	return nil
 }

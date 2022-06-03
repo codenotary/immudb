@@ -18,8 +18,10 @@ package sessions
 
 import (
 	"context"
+	"encoding/base64"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,7 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
-	"github.com/rs/xid"
 )
 
 const infinity = time.Duration(math.MaxInt64)
@@ -91,7 +92,18 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 		return nil, ErrMaxSessionsReached
 	}
 
-	sessionID := xid.New().String()
+	randomBytes := make([]byte, 32)
+	_, err := sm.options.RandSource.Read(randomBytes)
+	if err != nil {
+		sm.logger.Errorf("cant create session id: %v", err)
+		return nil, ErrCantCreateSessionID
+	}
+
+	sessionID := strings.TrimRight(
+		base64.URLEncoding.EncodeToString(randomBytes),
+		"=",
+	)
+
 	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
 

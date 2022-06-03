@@ -17,6 +17,7 @@ limitations under the License.
 package sessions
 
 import (
+	"bytes"
 	"fmt"
 	"math/bits"
 	"os"
@@ -319,4 +320,15 @@ func TestManagerNewSessionCryptographicQuality(t *testing.T) {
 	}
 
 	require.GreaterOrEqual(t, bitsDifference, 90)
+}
+
+func TestManagerNewSessionFailureForNoRandomSource(t *testing.T) {
+	randSrc := bytes.NewReader(nil)
+	opts := DefaultOptions().WithRandSource(randSrc)
+
+	m, err := NewManager(opts)
+	require.NoError(t, err)
+
+	_, err = m.NewSession(&auth.User{}, nil)
+	require.ErrorIs(t, err, ErrCantCreateSession)
 }
