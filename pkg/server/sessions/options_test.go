@@ -60,5 +60,16 @@ func TestOptionsValidate(t *testing.T) {
 			require.ErrorIs(t, err, ErrInvalidOptionsProvided)
 		})
 	}
+}
 
+func TestOptionsNormalize(t *testing.T) {
+	opts := DefaultOptions().
+		WithMaxSessionAgeTime(0).
+		WithMaxSessionInactivityTime(0).
+		WithTimeout(0).
+		Normalize()
+
+	require.Equal(t, infinity, opts.MaxSessionInactivityTime)
+	require.Equal(t, infinity, opts.MaxSessionAgeTime)
+	require.Equal(t, infinity, opts.Timeout)
 }

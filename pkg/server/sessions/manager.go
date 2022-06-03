@@ -77,15 +77,7 @@ func NewManager(options *Options) (*manager, error) {
 		options:  *options,
 	}
 
-	if guard.options.MaxSessionAgeTime == 0 {
-		guard.options.MaxSessionAgeTime = infinity
-	}
-	if guard.options.MaxSessionInactivityTime == 0 {
-		guard.options.MaxSessionInactivityTime = infinity
-	}
-	if guard.options.Timeout == 0 {
-		guard.options.Timeout = infinity
-	}
+	guard.options.Normalize()
 
 	return guard, nil
 }

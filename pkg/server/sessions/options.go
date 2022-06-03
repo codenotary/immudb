@@ -85,3 +85,16 @@ func (o *Options) Validate() error {
 	}
 	return nil
 }
+
+func (o *Options) Normalize() *Options {
+	if o.MaxSessionAgeTime == 0 {
+		o.MaxSessionAgeTime = infinity
+	}
+	if o.MaxSessionInactivityTime == 0 {
+		o.MaxSessionInactivityTime = infinity
+	}
+	if o.Timeout == 0 {
+		o.Timeout = infinity
+	}
+	return o
+}

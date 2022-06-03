@@ -38,16 +38,6 @@ func TestNewManager(t *testing.T) {
 func TestNewManagerCornerCases(t *testing.T) {
 	_, err := NewManager(nil)
 	require.ErrorIs(t, err, ErrInvalidOptionsProvided)
-
-	m, err := NewManager(DefaultOptions().
-		WithMaxSessionAgeTime(0).
-		WithMaxSessionInactivityTime(0).
-		WithTimeout(0),
-	)
-	require.NoError(t, err)
-	require.Equal(t, infinity, m.options.MaxSessionInactivityTime)
-	require.Equal(t, infinity, m.options.MaxSessionAgeTime)
-	require.Equal(t, infinity, m.options.Timeout)
 }
 
 func TestSessionGuard(t *testing.T) {
