@@ -18,6 +18,7 @@ package sessions
 
 import (
 	"fmt"
+	"math/bits"
 	"os"
 	"sync"
 	"testing"
@@ -296,4 +297,26 @@ func TestManagerSessionExpiration(t *testing.T) {
 
 		m.DeleteSession(sess.id)
 	})
+}
+
+func TestManagerNewSessionCryptographicQuality(t *testing.T) {
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
+
+	sess1, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	sess2, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	bitsDifference := 0
+	for i := 0; i < len(sess1.id) && i < len(sess2.id); i++ {
+		b1 := ([]byte(sess1.id))[i]
+		b2 := ([]byte(sess2.id))[i]
+
+		diff := bits.OnesCount8(b1 ^ b2)
+		bitsDifference += diff
+	}
+
+	require.GreaterOrEqual(t, bitsDifference, 90)
 }
