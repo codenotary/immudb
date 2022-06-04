@@ -180,6 +180,7 @@ message ScanRequest {
 	bool  noWait = 6;
 	bool inclusiveSeek = 8;		// If set to true, results will include seekKey
 	bool inclusiveEnd = 9;		// If set to true, results will include endKey if needed
+	uint64 offset = 10;
 }
 
 message KeyPrefix {
@@ -376,6 +377,7 @@ message ZScanRequest {
 	Score maxScore = 9;
 	uint64 sinceTx = 10;
 	bool  noWait = 11;
+	uint64 offset = 12;
 }
 
 message HistoryRequest {
