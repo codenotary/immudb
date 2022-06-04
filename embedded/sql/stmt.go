@@ -979,6 +979,7 @@ type UpdateStmt struct {
 	updates  []*colUpdate
 	indexOn  []string
 	limit    int
+	offset   int
 }
 
 type colUpdate struct {
@@ -1060,6 +1061,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 		where:   stmt.where,
 		indexOn: stmt.indexOn,
 		limit:   stmt.limit,
+		offset:  stmt.offset,
 	}
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
@@ -1145,6 +1147,7 @@ type DeleteFromStmt struct {
 	where    ValueExp
 	indexOn  []string
 	limit    int
+	offset   int
 }
 
 func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -1165,6 +1168,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		where:   stmt.where,
 		indexOn: stmt.indexOn,
 		limit:   stmt.limit,
+		offset:  stmt.offset,
 	}
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
@@ -2078,12 +2082,17 @@ type SelectStmt struct {
 	groupBy   []*ColSelector
 	having    ValueExp
 	limit     int
+	offset    int
 	orderBy   []*OrdCol
 	as        string
 }
 
 func (stmt *SelectStmt) Limit() int {
 	return stmt.limit
+}
+
+func (stmt *SelectStmt) Offset() int {
+	return stmt.offset
 }
 
 func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -2209,6 +2218,10 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 			return nil, err
 		}
 		rowReader = distinctRowReader
+	}
+
+	if stmt.offset > 0 {
+		rowReader = newOffsetRowReader(rowReader, stmt.offset)
 	}
 
 	if stmt.limit > 0 {

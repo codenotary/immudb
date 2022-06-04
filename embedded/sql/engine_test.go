@@ -2068,6 +2068,34 @@ func TestQueryDistinct(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("should return two titles starting from the second one", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.Query("SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2 OFFSET 1", nil, nil)
+		require.NoError(t, err)
+
+		r.SetParameters(params)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.title)", cols[0].Selector())
+
+		for i := 2; i <= 3; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.ValuesBySelector, 1)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
 	t.Run("should return two distinct amounts", func(t *testing.T) {
 		params := make(map[string]interface{})
 		params["id"] = 3
