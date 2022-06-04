@@ -71,6 +71,7 @@ type KeyReaderSpec struct {
 	InclusiveEnd  bool
 	DescOrder     bool
 	Filters       []FilterFn
+	Offset        uint64
 }
 
 func (s *Snapshot) set(key, value []byte) error {
@@ -138,6 +139,7 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		InclusiveSeek: spec.InclusiveSeek,
 		InclusiveEnd:  spec.InclusiveEnd,
 		DescOrder:     spec.DescOrder,
+		Offset:        spec.Offset,
 	})
 	if err != nil {
 		return nil, err
