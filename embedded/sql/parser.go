@@ -74,6 +74,7 @@ var reservedWords = map[string]int{
 	"GROUP":          GROUP,
 	"BY":             BY,
 	"LIMIT":          LIMIT,
+	"OFFSET":         OFFSET,
 	"ORDER":          ORDER,
 	"AS":             AS,
 	"ASC":            ASC,

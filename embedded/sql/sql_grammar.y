@@ -71,7 +71,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE USE DATABASE SNAPSHOT SINCE AFTER BEFORE UNTIL TX OF TIMESTAMP TABLE UNIQUE INDEX ON ALTER ADD RENAME TO COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT ROLLBACK
 %token INSERT UPSERT INTO VALUES DELETE UPDATE SET CONFLICT DO NOTHING
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS UNION ALL
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT OFFSET ORDER ASC DESC AS UNION ALL
 %token NOT LIKE IF EXISTS IN IS
 %token AUTO_INCREMENT NULL CAST
 %token <id> NPARAM
@@ -126,7 +126,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <number> opt_limit opt_max_len
+%type <number> opt_limit opt_offset opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -254,14 +254,14 @@ dmlstmt:
         $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, rows: $8}
     }
 |
-    DELETE FROM tableRef opt_where opt_indexon opt_limit
+    DELETE FROM tableRef opt_where opt_indexon opt_limit opt_offset
     {
-        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: int($6)}
+        $$ = &DeleteFromStmt{tableRef: $3, where: $4, indexOn: $5, limit: int($6), offset: int($7)}
     }
 |
-    UPDATE tableRef SET updates opt_where opt_indexon opt_limit
+    UPDATE tableRef SET updates opt_where opt_indexon opt_limit opt_offset
     {
-        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: int($7)}
+        $$ = &UpdateStmt{tableRef: $2, updates: $4, where: $5, indexOn: $6, limit: int($7), offset: int($8)}
     }
 
 opt_on_conflict:
@@ -480,7 +480,7 @@ dqlstmt:
         }
     }
 
-select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit
+select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_offset
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -493,6 +493,7 @@ select_stmt: SELECT opt_distinct opt_selectors FROM ds opt_indexon opt_joins opt
                 having: $10,
                 orderBy: $11,
                 limit: int($12),
+                offset: int($13),
             }
     }
 
@@ -712,6 +713,16 @@ opt_limit:
     }
 |
     LIMIT NUMBER
+    {
+        $$ = $2
+    }
+
+opt_offset:
+    {
+        $$ = 0
+    }
+|
+    OFFSET NUMBER
     {
         $$ = $2
     }
