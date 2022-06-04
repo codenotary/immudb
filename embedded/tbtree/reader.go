@@ -30,8 +30,12 @@ type Reader struct {
 	descOrder     bool
 	path          path
 	leafNode      *leafNode
-	offset        int
-	closed        bool
+	leafOffset    int
+
+	offset  uint64
+	skipped uint64
+
+	closed bool
 }
 
 type ReaderSpec struct {
@@ -41,6 +45,7 @@ type ReaderSpec struct {
 	InclusiveSeek bool
 	InclusiveEnd  bool
 	DescOrder     bool
+	Offset        uint64
 }
 
 func (r *Reader) Reset() error {
@@ -51,7 +56,8 @@ func (r *Reader) Reset() error {
 
 	r.path = path
 	r.leafNode = startingLeaf
-	r.offset = startingOffset
+	r.leafOffset = startingOffset
+	r.skipped = 0
 
 	return nil
 }
@@ -72,11 +78,11 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 
 		r.path = path
 		r.leafNode = startingLeaf
-		r.offset = startingOffset
+		r.leafOffset = startingOffset
 	}
 
 	for {
-		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
+		if (!r.descOrder && len(r.leafNode.values) == r.leafOffset) || (r.descOrder && r.leafOffset < 0) {
 			for {
 				if len(r.path) == 0 {
 					return nil, 0, 0, ErrNoMoreEntries
@@ -102,17 +108,17 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 
 				r.path = path
 				r.leafNode = leaf
-				r.offset = off
+				r.leafOffset = off
 				break
 			}
 		}
 
-		leafValue := r.leafNode.values[r.offset]
+		leafValue := r.leafNode.values[r.leafOffset]
 
 		if r.descOrder {
-			r.offset--
+			r.leafOffset--
 		} else {
-			r.offset++
+			r.leafOffset++
 		}
 
 		if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
@@ -131,26 +137,20 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 			}
 		}
 
-		if len(r.prefix) == 0 {
-			ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
-			if err == nil {
-				return cp(leafValue.key), ts, hc, nil
-			}
+		// prefix mismatch
+		if len(r.prefix) > 0 &&
+			(len(leafValue.key) < len(r.prefix) || !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)])) {
+			continue
 		}
 
-		if len(r.prefix) > 0 && len(leafValue.key) >= len(r.prefix) {
-			leafPrefix := leafValue.key[:len(r.prefix)]
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
+		}
 
-			// prefix match
-			if bytes.Equal(r.prefix, leafPrefix) {
-				ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
-				if err != nil && err != ErrKeyNotFound {
-					return nil, 0, 0, err
-				}
-				if err == nil {
-					return cp(leafValue.key), ts, hc, nil
-				}
-			}
+		ts, hc, err := leafValue.lastUpdateBetween(r.snapshot.t.hLog, initialTs, finalTs)
+		if err == nil {
+			return cp(leafValue.key), ts, hc, nil
 		}
 	}
 }
@@ -171,11 +171,11 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 		r.path = path
 		r.leafNode = startingLeaf
-		r.offset = startingOffset
+		r.leafOffset = startingOffset
 	}
 
 	for {
-		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
+		if (!r.descOrder && len(r.leafNode.values) == r.leafOffset) || (r.descOrder && r.leafOffset < 0) {
 			for {
 				if len(r.path) == 0 {
 					return nil, nil, 0, 0, ErrNoMoreEntries
@@ -201,17 +201,17 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 				r.path = path
 				r.leafNode = leaf
-				r.offset = off
+				r.leafOffset = off
 				break
 			}
 		}
 
-		leafValue := r.leafNode.values[r.offset]
+		leafValue := r.leafNode.values[r.leafOffset]
 
 		if r.descOrder {
-			r.offset--
+			r.leafOffset--
 		} else {
-			r.offset++
+			r.leafOffset++
 		}
 
 		if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
@@ -230,18 +230,18 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 			}
 		}
 
-		if len(r.prefix) == 0 {
-			return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
+		// prefix mismatch
+		if len(r.prefix) > 0 &&
+			(len(leafValue.key) < len(r.prefix) || !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)])) {
+			continue
 		}
 
-		if len(r.prefix) > 0 && len(leafValue.key) >= len(r.prefix) {
-			leafPrefix := leafValue.key[:len(r.prefix)]
-
-			// prefix match
-			if bytes.Equal(r.prefix, leafPrefix) {
-				return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
-			}
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
 		}
+
+		return cp(leafValue.key), cp(leafValue.value), leafValue.ts, leafValue.hCount, nil
 	}
 }
 
