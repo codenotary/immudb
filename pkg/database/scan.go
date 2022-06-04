@@ -82,6 +82,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 			InclusiveSeek: req.InclusiveSeek,
 			InclusiveEnd:  req.InclusiveEnd,
+			Offset:        req.Offset,
 		})
 	if err != nil {
 		return nil, err
