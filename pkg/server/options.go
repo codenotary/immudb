@@ -321,6 +321,12 @@ func (o *Options) GetDefaultDBName() string {
 	return o.defaultDBName
 }
 
+//GetDefaultDBName returns the default database name
+func (o *Options) WithDefaultDBName(name string) *Options {
+	o.defaultDBName = name
+	return o
+}
+
 // WithListener used usually to pass a bufered listener for testing purposes
 func (o *Options) WithListener(lis net.Listener) *Options {
 	o.listener = lis

@@ -30,6 +30,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().Bool("replication-enabled", false, "set systemdb and defaultdb as replica")
+	cmd.Flags().String("replication-db", server.DefaultDBName, "set defaultdb name for replication")
 	cmd.Flags().String("replication-master-address", "", "master address (if replica=true)")
 	cmd.Flags().Int("replication-master-port", 3322, "master port (if replica=true)")
 	cmd.Flags().String("replication-follower-username", "", "username used for replication of systemdb and defaultdb")
@@ -109,4 +110,5 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("max-session-age-time", 0)
 	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
+	viper.SetDefault("replication-db", server.DefaultDBName)
 }
