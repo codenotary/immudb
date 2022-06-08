@@ -84,6 +84,11 @@ type ReplicationOptions struct {
 	MasterPort       int
 	FollowerUsername string
 	FollowerPassword string
+	Mtls             bool
+	Servername       string
+	Certifcate       string
+	Pkey             string
+	ClientCAs        string
 }
 
 // DefaultOptions returns default server options
@@ -446,5 +451,14 @@ func (opts *ReplicationOptions) WithFollowerUsername(followerUsername string) *R
 
 func (opts *ReplicationOptions) WithFollowerPassword(followerPassword string) *ReplicationOptions {
 	opts.FollowerPassword = followerPassword
+	return opts
+}
+
+func (opts *ReplicationOptions) WithMTLs(mtls bool, servername string, certificate string, pkey string, clientcas string) *ReplicationOptions {
+	opts.Mtls = mtls
+	opts.Servername = servername
+	opts.Certifcate = certificate
+	opts.Pkey = pkey
+	opts.ClientCAs = clientcas
 	return opts
 }

@@ -16,7 +16,9 @@ limitations under the License.
 
 package replication
 
-import "time"
+import (
+	"time"
+)
 
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 
@@ -26,6 +28,12 @@ type Options struct {
 	masterPort       int
 	followerUsername string
 	followerPassword string
+
+	mtls        bool
+	Servername  string
+	Certificate string
+	Pkey        string
+	ClientCAs   string
 
 	streamChunkSize int
 
@@ -50,6 +58,21 @@ func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.streamChunkSize > 0 &&
 		opts.delayer != nil
+}
+
+// WithMTLs enabled/disables mtls for replication
+func (o *Options) WithMTLs(mtls bool) *Options {
+	o.mtls = mtls
+	return o
+}
+
+// WithMTLsOptions enabled/disables mtls for replication
+func (o *Options) WithMTLsOptions(servername string, certificate string, pkey string, clientcas string) *Options {
+	o.Servername = servername
+	o.Certificate = certificate
+	o.Pkey = pkey
+	o.ClientCAs = clientcas
+	return o
 }
 
 // WithMasterDatabase sets the source database name

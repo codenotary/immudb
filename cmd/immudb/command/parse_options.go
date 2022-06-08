@@ -33,11 +33,18 @@ func parseOptions() (options *server.Options, err error) {
 	var replicationOptions *server.ReplicationOptions
 
 	if replicationEnabled {
+		mtls := viper.GetBool("replication-mtls")
+		servername := viper.GetString("replication-servername")
+		certificate := viper.GetString("replication-certificate")
+		pkey := viper.GetString("replication-pkey")
+		clientcas := viper.GetString("replication-clientcas")
+
 		replicationOptions = (&server.ReplicationOptions{}).
 			WithMasterAddress(viper.GetString("replication-master-address")).
 			WithMasterPort(viper.GetInt("replication-master-port")).
 			WithFollowerUsername(viper.GetString("replication-follower-username")).
-			WithFollowerPassword(viper.GetString("replication-follower-password"))
+			WithFollowerPassword(viper.GetString("replication-follower-password")).
+			WithMTLs(mtls, servername, certificate, pkey, clientcas)
 	}
 
 	pidfile := viper.GetString("pidfile")
