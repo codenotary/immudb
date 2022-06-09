@@ -179,3 +179,49 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Equal(t, store.ErrKeyNotFound, err)
 
 }
+
+func TestVerifiableSQLGet(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
+	require.Error(t, err)
+
+	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
+	require.Error(t, err)
+
+	t.Run("correctly handle verified get when incorrect number of primary key values is given", func(t *testing.T) {
+		_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
+			CREATE TABLE table1(
+				pk1 INTEGER,
+				pk2 INTEGER,
+				PRIMARY KEY (pk1, pk2))
+		`}, nil)
+		require.NoError(t, err)
+
+		_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
+			INSERT INTO table1(pk1, pk2) VALUES (1,11), (2,22), (3,33)
+		`}, nil)
+		require.NoError(t, err)
+
+		_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
+			Table: "table1",
+			PkValues: []*schema.SQLValue{{
+				Value: &schema.SQLValue_N{N: 1},
+			}},
+		}})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "incorrect number of primary key values")
+
+		_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
+			Table: "table1",
+			PkValues: []*schema.SQLValue{
+				{Value: &schema.SQLValue_N{N: 1}},
+				{Value: &schema.SQLValue_N{N: 11}},
+				{Value: &schema.SQLValue_N{N: 111}},
+			},
+		}})
+		require.ErrorIs(t, err, ErrIllegalArguments)
+		require.Contains(t, err.Error(), "incorrect number of primary key values")
+	})
+}
