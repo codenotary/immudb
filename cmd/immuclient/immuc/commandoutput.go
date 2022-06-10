@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/olekukonko/tablewriter"
 )
 
 // CommandOutput represents an output from a command
@@ -312,5 +313,87 @@ func (o *txInfoOutput) Json() interface{} {
 		Entries:  o.tx.Header.Nentries,
 		Hash:     hex.EncodeToString(hash[:]),
 		Verified: o.verified,
+	}
+}
+
+// sqlExecOutput represents output of an sqlExec operation
+type sqlExecOutput struct {
+	UpdatedRows int `json:"updatedRows"`
+}
+
+func (o *sqlExecOutput) Plain() string {
+	return fmt.Sprintf("Updated rows: %d", o.UpdatedRows)
+}
+
+func (o *sqlExecOutput) ValueOnly() string {
+	return fmt.Sprintf("%d", o.UpdatedRows)
+}
+
+func (o *sqlExecOutput) Json() interface{} {
+	return o
+}
+
+// tableOutput represents a common tabular output
+type tableOutput struct {
+	resp *schema.SQLQueryResult
+}
+
+func (o *tableOutput) Plain() string {
+	result := &strings.Builder{}
+	consoleTable := tablewriter.NewWriter(result)
+	cols := make([]string, len(o.resp.Columns))
+	for i, c := range o.resp.Columns {
+		cols[i] = c.Name
+	}
+	consoleTable.SetHeader(cols)
+
+	for _, r := range o.resp.Rows {
+		row := make([]string, len(r.Values))
+
+		for i, v := range r.Values {
+			row[i] = schema.RenderValue(v.Value)
+		}
+
+		consoleTable.Append(row)
+	}
+
+	consoleTable.Render()
+	return result.String()
+}
+
+func (o *tableOutput) ValueOnly() string {
+	result := &strings.Builder{}
+
+	for i, r := range o.resp.Rows {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+		for j, v := range r.Values {
+			if j > 0 {
+				result.WriteString(",")
+			}
+			result.WriteString(schema.RenderValue(v.Value))
+		}
+	}
+
+	return result.String()
+}
+
+func (o *tableOutput) Json() interface{} {
+	rows := []map[string]interface{}{}
+	for _, row := range o.resp.Rows {
+		r := map[string]interface{}{}
+		for i, v := range row.Values {
+			if i > len(o.resp.Columns) {
+				r[fmt.Sprintf("UNKNOWN_COLUMN_%d", i+1)] = schema.RawValue(v)
+			} else {
+				r[o.resp.Columns[i].Name] = schema.RawValue(v)
+			}
+		}
+		rows = append(rows, r)
+	}
+
+	return map[string]interface{}{
+		"rows": rows,
 	}
 }

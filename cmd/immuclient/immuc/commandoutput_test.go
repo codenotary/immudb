@@ -260,3 +260,96 @@ func TestZEntryOutput(t *testing.T) {
 		}
 	`, toJsonString(t, o.Json()))
 }
+
+func TestSQLExecOutput(t *testing.T) {
+	var o CommandOutput = &sqlExecOutput{
+		UpdatedRows: 1234,
+	}
+
+	require.Regexp(t, `Updated rows:\s*1234`, o.Plain())
+	require.Equal(t, "1234", o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"updatedRows": 1234
+		}
+	`, toJsonString(t, o.Json()))
+}
+
+func TestTableOutput(t *testing.T) {
+	var o CommandOutput = &tableOutput{
+		resp: &schema.SQLQueryResult{
+			Columns: []*schema.Column{
+				{
+					Name: "col1",
+					Type: "INTEGER",
+				},
+				{
+					Name: "col2",
+					Type: "VARCHAR",
+				},
+				{
+					Name: "col3",
+					Type: "BOOLEAN",
+				},
+				{
+					Name: "col4",
+					Type: "TIMESTAMP",
+				},
+				{
+					Name: "col5",
+					Type: "BLOB",
+				},
+			},
+			Rows: []*schema.Row{
+				{
+					Values: []*schema.SQLValue{
+						{Value: &schema.SQLValue_N{N: 1231}},
+						{Value: &schema.SQLValue_S{S: "tests1"}},
+						{Value: &schema.SQLValue_B{B: true}},
+						{Value: &schema.SQLValue_Ts{Ts: time.Date(2022, 6, 10, 15, 51, 15, 123456789, time.UTC).UnixMicro()}},
+						{Value: &schema.SQLValue_Bs{Bs: []byte{0x12, 0x34, 0x56}}},
+					},
+				},
+				{
+					Values: []*schema.SQLValue{
+						{Value: &schema.SQLValue_N{N: 1232}},
+						{Value: &schema.SQLValue_S{S: "tests2"}},
+						{Value: &schema.SQLValue_B{B: false}},
+						{Value: &schema.SQLValue_Ts{Ts: time.Date(2022, 6, 9, 15, 51, 15, 123456789, time.UTC).UnixMicro()}},
+						{Value: &schema.SQLValue_Bs{Bs: []byte{0x78, 0xab, 0xcd}}},
+					},
+				},
+			},
+		},
+	}
+
+	plain := o.Plain()
+
+	require.Regexp(t, `\|\s*COL1\s*\|\s*COL2\s*\|\s*COL3\s*\|\s*COL4\s*\|\s*COL5\s*\|`, plain)
+	require.Regexp(t, `\|\s*1231\s*\|\s*"tests1"\s*\|\s*true\s*\|\s*2022-06-10 15:51:15\.123456\s*\|\s*123456\s*\|`, plain)
+	require.Regexp(t, `\|\s*1232\s*\|\s*"tests2"\s*\|\s*false\s*\|\s*2022-06-09 15:51:15\.123456\s*\|\s*78abcd\s*\|`, plain)
+	require.Regexp(t, `1231,"tests1",true,2022-06-10 15:51:15\.123456,123456`, o.ValueOnly())
+	require.Regexp(t, `1232,"tests2",false,2022-06-09 15:51:15\.123456,78abcd`, o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"rows": [
+				{
+					"col1": 1231,
+					"col2": "tests1",
+					"col3": true,
+					"col4": "2022-06-10T15:51:15.123456Z",
+					"col5": "EjRW"
+				},
+				{
+					"col1": 1232,
+					"col2": "tests2",
+					"col3": false,
+					"col4": "2022-06-09T15:51:15.123456Z",
+					"col5": "eKvN"
+				}
+			]
+		}
+	`, toJsonString(t, o.Json()))
+}

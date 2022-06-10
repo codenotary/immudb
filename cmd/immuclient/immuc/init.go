@@ -65,10 +65,10 @@ type Client interface {
 	UseDatabase(args []string) (string, error)
 	ValueOnly() bool     // TODO: ?
 	SetValueOnly(v bool) // TODO: ?
-	SQLExec(args []string) (string, error)
-	SQLQuery(args []string) (string, error)
-	ListTables() (string, error)
-	DescribeTable(args []string) (string, error)
+	SQLExec(args []string) (CommandOutput, error)
+	SQLQuery(args []string) (CommandOutput, error)
+	ListTables() (CommandOutput, error)
+	DescribeTable(args []string) (CommandOutput, error)
 
 	WithFileTokenService(tkns tokenservice.TokenService) Client
 }
