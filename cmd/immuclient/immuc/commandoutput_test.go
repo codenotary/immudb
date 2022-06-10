@@ -228,3 +228,35 @@ func TestTxInfoOutput(t *testing.T) {
 		}
 	`, toJsonString(t, o.Json()))
 }
+
+func TestZEntryOutput(t *testing.T) {
+	var o CommandOutput = &zEntryOutput{
+		set:           []byte("test_set"),
+		referencedKey: []byte("test_ref_key"),
+		score:         1234.56,
+		txhdr: &schema.TxHeader{
+			Id: 321,
+			EH: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+		},
+		verified: true,
+	}
+
+	require.Regexp(t, `tx:\s*321`, o.Plain())
+	require.Regexp(t, `set:\s*test_set`, o.Plain())
+	require.Regexp(t, `referenced key:\s*test_ref_key`, o.Plain())
+	require.Regexp(t, `score:\s*1234.56`, o.Plain())
+	require.Regexp(t, `hash:\s*01020304050607080900`, o.Plain())
+	require.Regexp(t, `verified:\s*true`, o.Plain())
+	require.Equal(t, "test_ref_key", o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"tx": 321,
+			"set": "test_set",
+			"referencedKey": "test_ref_key",
+			"score": 1234.56,
+			"hash": "01020304050607080900",
+			"verified": true
+		}
+	`, toJsonString(t, o.Json()))
+}

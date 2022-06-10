@@ -185,6 +185,61 @@ func (o *multiKVOutput) Json() interface{} {
 	return ret
 }
 
+// zEntryOutput contains a single ZSet entry output
+type zEntryOutput struct {
+	set           []byte
+	referencedKey []byte
+	score         float64
+	txhdr         *schema.TxHeader
+	verified      bool
+}
+
+func (o *zEntryOutput) Plain() string {
+	str := &strings.Builder{}
+	o.writePlain(str)
+	return str.String()
+}
+
+func (o *zEntryOutput) writePlain(str io.Writer) {
+	fmt.Fprintf(str,
+		""+
+			"tx:             %d\n"+
+			"set:            %s\n"+
+			"referenced key: %s\n"+
+			"score:          %f\n"+
+			"hash:           %x\n"+
+			"verified:       %t\n",
+		o.txhdr.Id,
+		o.set,
+		o.referencedKey,
+		o.score,
+		o.txhdr.EH,
+		o.verified,
+	)
+}
+
+func (o *zEntryOutput) ValueOnly() string {
+	return string(o.referencedKey)
+}
+
+func (o *zEntryOutput) Json() interface{} {
+	return &struct {
+		Set           string  `json:"set"`
+		ReferencedKey string  `json:"referencedKey"`
+		Tx            uint64  `json:"tx"`
+		Score         float64 `json:"score"`
+		Hash          string  `json:"hash"`
+		Verified      bool    `json:"verified,omitempty"`
+	}{
+		Set:           string(o.set),
+		ReferencedKey: string(o.referencedKey),
+		Tx:            o.txhdr.Id,
+		Score:         o.score,
+		Hash:          hex.EncodeToString(o.txhdr.EH),
+		Verified:      o.verified,
+	}
+}
+
 // healthOutput represents output of a health operation
 type healthOutput struct {
 	h *schema.DatabaseHealthResponse

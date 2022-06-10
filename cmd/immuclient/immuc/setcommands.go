@@ -31,7 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) Set(args []string) (string, error) {
+func (i *immuc) Set(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -40,14 +40,11 @@ func (i *immuc) Set(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -55,7 +52,7 @@ func (i *immuc) Set(args []string) (string, error) {
 		return immuClient.Set(ctx, key, value)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := response.(*schema.TxHeader)
@@ -63,13 +60,15 @@ func (i *immuc) Set(args []string) (string, error) {
 		return immuClient.GetSince(ctx, key, txhdr.Id)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(scstr.(*schema.Entry), false, false), nil
+	return &kvOutput{
+		entry: scstr.(*schema.Entry),
+	}, nil
 }
 
-func (i *immuc) VerifiedSet(args []string) (string, error) {
+func (i *immuc) VerifiedSet(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -78,45 +77,45 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
 	if _, err = i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedSet(ctx, key, value)
 	}); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	vi, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(vi.(*schema.Entry), true, false), nil
+	return &kvOutput{
+		entry:    vi.(*schema.Entry),
+		verified: true,
+	}, nil
 }
 
-func (i *immuc) Restore(args []string) (string, error) {
+func (i *immuc) Restore(args []string) (CommandOutput, error) {
 	key, atRevision, hasRevision, err := i.parseKeyArg(args[0])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if !hasRevision {
-		return "please specify the key with revision to restore", nil
+		return &errorOutput{err: "please specify the key with revision to restore"}, nil
 	}
 
 	if atRevision == 0 {
-		return "can not restore current revision", nil
+		return &errorOutput{err: "can not restore current revision"}, nil
 	}
 
 	ctx := context.Background()
@@ -125,13 +124,13 @@ func (i *immuc) Restore(args []string) (string, error) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
 	oldEntry := oldValue.(*schema.Entry)
@@ -145,7 +144,7 @@ func (i *immuc) Restore(args []string) (string, error) {
 		})
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := newValue.(*schema.TxHeader)
@@ -153,13 +152,15 @@ func (i *immuc) Restore(args []string) (string, error) {
 		return immuClient.GetSince(ctx, key, txhdr.Id)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(scstr.(*schema.Entry), false, false), nil
+	return &kvOutput{
+		entry: scstr.(*schema.Entry),
+	}, nil
 }
 
-func (i *immuc) DeleteKey(args []string) (string, error) {
+func (i *immuc) DeleteKey(args []string) (CommandOutput, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
 	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
@@ -167,19 +168,19 @@ func (i *immuc) DeleteKey(args []string) (string, error) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
-	return "key successfully deleted", nil
+	return &resultOutput{Result: "key successfully deleted"}, nil
 }
 
-func (i *immuc) ZAdd(args []string) (string, error) {
+func (i *immuc) ZAdd(args []string) (CommandOutput, error) {
 	var setReader io.Reader
 	var scoreReader io.Reader
 	var keyReader io.Reader
@@ -192,22 +193,22 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 
 	bs, err := ioutil.ReadAll(scoreReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	set, err := ioutil.ReadAll(setReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -215,13 +216,19 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 		return immuClient.ZAdd(ctx, set, score, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintSetItem(set, key, score, txhdr.(*schema.TxHeader), false), nil
+	return &zEntryOutput{
+		set:           set,
+		referencedKey: key,
+		score:         score,
+		txhdr:         txhdr.(*schema.TxHeader),
+		verified:      false,
+	}, nil
 }
 
-func (i *immuc) VerifiedZAdd(args []string) (string, error) {
+func (i *immuc) VerifiedZAdd(args []string) (CommandOutput, error) {
 	var setReader io.Reader
 	var scoreReader io.Reader
 	var keyReader io.Reader
@@ -234,22 +241,22 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 
 	bs, err := ioutil.ReadAll(scoreReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	set, err := ioutil.ReadAll(setReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -257,12 +264,16 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 		return immuClient.VerifiedZAdd(ctx, set, score, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response.(*schema.TxHeader), true)
-
-	return resp, nil
+	return &zEntryOutput{
+		set:           set,
+		referencedKey: key,
+		score:         score,
+		txhdr:         response.(*schema.TxHeader),
+		verified:      true,
+	}, nil
 }
 
 func (i *immuc) CreateDatabase(args []string) (string, error) {
