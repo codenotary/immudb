@@ -39,9 +39,9 @@ type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
 	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
-	HealthCheck(args []string) (string, error)
-	DatabaseHealth(args []string) (string, error)
-	CurrentState(args []string) (string, error)
+	HealthCheck(args []string) (CommandOutput, error)
+	DatabaseHealth(args []string) (CommandOutput, error)
+	CurrentState(args []string) (CommandOutput, error)
 	GetTxByID(args []string) (string, error)
 	VerifiedGetTxByID(args []string) (string, error)
 	Get(args []string) (string, error)

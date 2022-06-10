@@ -19,7 +19,9 @@ package immuc
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,4 +60,54 @@ func TestResultOutputNoWarning(t *testing.T) {
 	require.Equal(t, "Test result", o.Plain())
 	require.Equal(t, "Test result", o.ValueOnly())
 	require.JSONEq(t, `{"result": "Test result"}`, toJsonString(t, o.Json()))
+}
+
+func TestCurrentStatusOutput(t *testing.T) {
+
+	var o CommandOutput = &currentStateOutput{
+		Db:     "test_db",
+		TxId:   1234,
+		TxHash: "123456789abcdef",
+	}
+
+	require.Regexp(t, `database:\s*test_db`, o.Plain())
+	require.Regexp(t, `txID:\s*1234`, o.Plain())
+	require.Regexp(t, `hash:\s*123456789abcdef`, o.Plain())
+
+	require.Equal(t, o.Plain(), o.ValueOnly())
+
+	require.JSONEq(t, `{"database": "test_db", "txID": 1234, "hash": "123456789abcdef"}`, toJsonString(t, o.Json()))
+}
+
+func TestCurrentStatusOutputEmptyDb(t *testing.T) {
+
+	var o CommandOutput = &currentStateOutput{
+		Db:   "test_db",
+		TxId: 0,
+	}
+
+	require.Regexp(t, `database 'test_db' is empty`, o.Plain())
+	require.Equal(t, o.Plain(), o.ValueOnly())
+
+	require.JSONEq(t, `{"database": "test_db", "txID": 0}`, toJsonString(t, o.Json()))
+}
+
+func TestHealthOutput(t *testing.T) {
+	var o CommandOutput = &healthOutput{
+		h: &schema.DatabaseHealthResponse{
+			PendingRequests:        123,
+			LastRequestCompletedAt: time.Date(2022, 06, 10, 14, 03, 25, 123456789, time.UTC).UnixMilli(),
+		},
+	}
+
+	require.Regexp(t, `pendingRequests:\s*123`, o.Plain())
+	require.Regexp(t, `lastRequestCompletedAt:\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d+`, o.Plain())
+	require.Equal(t, o.Plain(), o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"pendingRequests": 123,
+			"lastRequestCompletedAt": "2022-06-10T14:03:25.123Z"
+		}
+	`, toJsonString(t, o.Json()))
 }

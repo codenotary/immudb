@@ -18,6 +18,10 @@ package immuc
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 // CommandOutput represents an output from a command
@@ -60,4 +64,62 @@ func (s *resultOutput) ValueOnly() string {
 
 func (s *resultOutput) Json() interface{} {
 	return s
+}
+
+// currentStateOutput contains the result of the db state call
+type currentStateOutput struct {
+	Db     string `json:"database"`
+	TxId   uint64 `json:"txID"`
+	TxHash string `json:"hash,omitempty"`
+}
+
+func (o *currentStateOutput) Plain() string {
+	if o.TxId == 0 {
+		return fmt.Sprintf("database '%s' is empty", o.Db)
+	}
+
+	str := &strings.Builder{}
+
+	fmt.Fprintf(str, "database:	%s\n", o.Db)
+	fmt.Fprintf(str, "txID:		%d\n", o.TxId)
+	fmt.Fprintf(str, "hash:		%s", o.TxHash)
+
+	return str.String()
+}
+
+func (o *currentStateOutput) ValueOnly() string { return o.Plain() }
+func (o *currentStateOutput) Json() interface{} { return o }
+
+// healthOutput represents output of a health operation
+type healthOutput struct {
+	h *schema.DatabaseHealthResponse
+}
+
+func (o *healthOutput) Plain() string {
+	return fmt.Sprintf(""+
+		"pendingRequests:        %d\n"+
+		"lastRequestCompletedAt: %s\n",
+		o.h.PendingRequests,
+		time.Unix(0, o.h.LastRequestCompletedAt*int64(time.Millisecond)),
+	)
+}
+
+func (o *healthOutput) ValueOnly() string {
+	return o.Plain()
+}
+
+func (o *healthOutput) Json() interface{} {
+	lastCompleted := time.Unix(
+		0,
+		o.h.LastRequestCompletedAt*int64(time.Millisecond),
+	).UTC().Format(
+		time.RFC3339Nano,
+	)
+	return &struct {
+		PendingRequests        uint32 `json:"pendingRequests"`
+		LastRequestCompletedAt string `json:"lastRequestCompletedAt"`
+	}{
+		PendingRequests:        o.h.PendingRequests,
+		LastRequestCompletedAt: lastCompleted,
+	}
 }

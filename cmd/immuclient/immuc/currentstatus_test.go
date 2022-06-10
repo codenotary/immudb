@@ -17,14 +17,15 @@ limitations under the License.
 package immuc_test
 
 import (
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"os"
-	"strings"
-	"testing"
 )
 
 func TestCurrentRoot(t *testing.T) {
@@ -51,7 +52,7 @@ func TestCurrentRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal("CurrentState fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg.Plain(), "hash") {
 		t.Fatalf("CurrentState failed: %s", msg)
 	}
 }

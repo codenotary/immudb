@@ -22,7 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) HealthCheck(args []string) (string, error) {
+func (i *immuc) HealthCheck(args []string) (CommandOutput, error) {
 	ctx := context.Background()
 
 	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
@@ -31,11 +31,15 @@ func (i *immuc) HealthCheck(args []string) (string, error) {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{
+				err: rpcerrors[len(rpcerrors)-1],
+			}, nil
 		}
 
-		return "", err
+		return nil, err
 	}
 
-	return "Health check OK", nil
+	return &resultOutput{
+		Result: "Health check OK",
+	}, nil
 }
