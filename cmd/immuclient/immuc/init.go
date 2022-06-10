@@ -46,8 +46,8 @@ type Client interface {
 	VerifiedGetTxByID(args []string) (string, error)
 	Get(args []string) (string, error)
 	VerifiedGet(args []string) (string, error)
-	Login(args []string) (string, error)
-	Logout(args []string) (string, error)
+	Login(args []string) (CommandOutput, error)
+	Logout(args []string) (CommandOutput, error)
 	History(args []string) (string, error)
 	SetReference(args []string) (string, error)
 	VerifiedSetReference(args []string) (string, error)
@@ -63,11 +63,6 @@ type Client interface {
 	CreateDatabase(args []string) (string, error)
 	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (string, error)
-	UserCreate(args []string) (string, error)
-	SetActiveUser(args []string, active bool) (string, error)
-	SetUserPermission(args []string) (string, error)
-	UserList(args []string) (string, error)
-	ChangeUserPassword(args []string) (string, error)
 	ValueOnly() bool     // TODO: ?
 	SetValueOnly(v bool) // TODO: ?
 	SQLExec(args []string) (string, error)
