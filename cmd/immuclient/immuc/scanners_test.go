@@ -61,7 +61,7 @@ func TestZScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("ZScan fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("ZScan failed: %s", msg)
 	}
 }
@@ -82,8 +82,7 @@ func TestIScan(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 	if err != nil {
@@ -118,7 +117,7 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("Scan fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("Scan failed: %s", msg)
 	}
 }
@@ -151,7 +150,7 @@ func _TestCount(t *testing.T) {
 	if err != nil {
 		t.Fatal("Count fail", err)
 	}
-	if !strings.Contains(msg, "1") {
+	if !strings.Contains(msg.Plain(), "1") {
 		t.Fatalf("Count failed: %s", msg)
 	}
 }
