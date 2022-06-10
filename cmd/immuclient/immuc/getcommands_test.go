@@ -54,7 +54,7 @@ func TestGetTxByID(t *testing.T) {
 	if err != nil {
 		t.Fatal("GetByIndex fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg.Plain(), "hash") {
 		t.Fatalf("GetByIndex failed: %s", msg)
 	}
 }
@@ -82,7 +82,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatal("GetKey fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("GetKey failed: %s", msg)
 	}
 }
@@ -111,7 +111,7 @@ func TestVerifiedGet(t *testing.T) {
 	if err != nil {
 		t.Fatal("VerifiedGet fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("VerifiedGet failed: %s", msg)
 	}
 }
@@ -146,31 +146,31 @@ func TestGetByRevision(t *testing.T) {
 
 	msg, err := ic.Imc.Get([]string{"key@1"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value1")
+	require.Equal(t, msg.ValueOnly(), "value1")
 
 	msg, err = ic.Imc.Get([]string{"key@2"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value2")
+	require.Equal(t, msg.ValueOnly(), "value2")
 
 	msg, err = ic.Imc.Get([]string{"key@3"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@0"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@-0"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@-1"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value2")
+	require.Equal(t, msg.ValueOnly(), "value2")
 
 	msg, err = ic.Imc.Get([]string{"key@-2"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value1")
+	require.Equal(t, msg.ValueOnly(), "value1")
 
 	msg, err = ic.Imc.Get([]string{"key@notarevision"})
 	require.Error(t, err)

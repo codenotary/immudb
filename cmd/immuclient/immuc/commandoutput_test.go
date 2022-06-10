@@ -111,3 +111,62 @@ func TestHealthOutput(t *testing.T) {
 		}
 	`, toJsonString(t, o.Json()))
 }
+
+func TestKVOutput(t *testing.T) {
+	var o CommandOutput = &kvOutput{
+		entry: &schema.Entry{
+			Tx:       123,
+			Key:      []byte("test_key"),
+			Value:    []byte("test_value"),
+			Revision: 321,
+		},
+		verified: true,
+	}
+
+	require.Regexp(t, `tx:\s*123`, o.Plain())
+	require.Regexp(t, `rev:\s*321`, o.Plain())
+	require.Regexp(t, `key:\s*test_key`, o.Plain())
+	require.Regexp(t, `value:\s*test_value`, o.Plain())
+	require.Regexp(t, `verified:\s*true`, o.Plain())
+	require.Equal(t, "test_value", o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"tx": 123,
+			"revision": 321,
+			"key": "test_key",
+			"value": "test_value",
+			"verified": true
+		}
+	`, toJsonString(t, o.Json()))
+}
+
+func TestTxInfoOutput(t *testing.T) {
+	var o CommandOutput = &txInfoOutput{
+		tx: &schema.Tx{
+			Header: &schema.TxHeader{
+				Id:       123,
+				Ts:       time.Date(2022, 06, 10, 14, 56, 10, 123456789, time.UTC).Unix(),
+				Nentries: 321,
+			},
+		},
+		verified: true,
+	}
+
+	require.Regexp(t, `tx:\s*123`, o.Plain())
+	require.Regexp(t, `time:\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, o.Plain())
+	require.Regexp(t, `entries:\s*321`, o.Plain())
+	require.Regexp(t, `hash:\s*[0-9a-f]{64}`, o.Plain())
+	require.Regexp(t, `verified:\s*true`, o.Plain())
+	require.Equal(t, o.Plain(), o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"tx": 123,
+			"time": "2022-06-10T14:56:10Z",
+			"entriesCount": 321,
+			"hash": "f990ac11dbbf45d49afb1c7950a950b9f73980cb433e8feae1e9f8fd58aae64a",
+			"verified": true
+		}
+	`, toJsonString(t, o.Json()))
+}

@@ -17,7 +17,9 @@ limitations under the License.
 package immuc
 
 import (
+	"encoding/hex"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -90,6 +92,60 @@ func (o *currentStateOutput) Plain() string {
 func (o *currentStateOutput) ValueOnly() string { return o.Plain() }
 func (o *currentStateOutput) Json() interface{} { return o }
 
+// kvOutput contains a single KV entry output
+type kvOutput struct {
+	entry    *schema.Entry
+	verified bool
+}
+
+func (o *kvOutput) Plain() string {
+	str := &strings.Builder{}
+	o.writePlain(str)
+	return str.String()
+}
+
+func (o *kvOutput) writePlain(str io.Writer) {
+	fmt.Fprintf(str, "tx:       %d\n", o.entry.Tx)
+
+	if o.entry.Revision != 0 {
+		fmt.Fprintf(str, "rev:      %d\n", o.entry.Revision)
+	}
+
+	fmt.Fprintf(str, "key:      %s\n", o.entry.Key)
+
+	if o.entry.Metadata != nil {
+		fmt.Fprintf(str, "metadata: {%s}\n", o.entry.Metadata)
+	}
+
+	fmt.Fprintf(str, "value:    %s\n", o.entry.Value)
+
+	if o.verified {
+		fmt.Fprintf(str, "verified: %t\n", o.verified)
+	}
+}
+
+func (o *kvOutput) ValueOnly() string {
+	return string(o.entry.Value)
+}
+
+func (o *kvOutput) Json() interface{} {
+	return &struct {
+		Key      string             `json:"key"`
+		Value    string             `json:"value"`
+		Tx       uint64             `json:"tx"`
+		Revision uint64             `json:"revision,omitempty"`
+		Verified bool               `json:"verified,omitempty"`
+		Metadata *schema.KVMetadata `json:"metadata,omitempty"`
+	}{
+		Key:      string(o.entry.Key),
+		Value:    string(o.entry.Value),
+		Tx:       o.entry.Tx,
+		Revision: o.entry.Revision,
+		Verified: o.verified,
+		Metadata: o.entry.Metadata,
+	}
+}
+
 // healthOutput represents output of a health operation
 type healthOutput struct {
 	h *schema.DatabaseHealthResponse
@@ -121,5 +177,46 @@ func (o *healthOutput) Json() interface{} {
 	}{
 		PendingRequests:        o.h.PendingRequests,
 		LastRequestCompletedAt: lastCompleted,
+	}
+}
+
+// txInfoOutput represents output of a health operation
+type txInfoOutput struct {
+	tx       *schema.Tx
+	verified bool
+}
+
+func (o *txInfoOutput) Plain() string {
+	str := strings.Builder{}
+	str.WriteString(fmt.Sprintf("tx:		%d\n", o.tx.Header.Id))
+	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(o.tx.Header.Ts), 0)))
+	str.WriteString(fmt.Sprintf("entries:	%d\n", o.tx.Header.Nentries))
+	str.WriteString(fmt.Sprintf("hash:		%x\n", schema.TxHeaderFromProto(o.tx.Header).Alh()))
+	if o.verified {
+		str.WriteString(fmt.Sprintf("verified:	%t \n", o.verified))
+	}
+
+	return str.String()
+}
+
+func (o *txInfoOutput) ValueOnly() string {
+	return o.Plain()
+}
+
+func (o *txInfoOutput) Json() interface{} {
+	time := time.Unix(int64(o.tx.Header.Ts), 0).UTC().Format(time.RFC3339)
+	hash := schema.TxHeaderFromProto(o.tx.Header).Alh()
+	return &struct {
+		Tx       uint64 `json:"tx"`
+		Time     string `json:"time"`
+		Entries  int32  `json:"entriesCount"`
+		Hash     string `json:"hash"`
+		Verified bool   `json:"verified,omitempty"`
+	}{
+		Tx:       o.tx.Header.Id,
+		Time:     time,
+		Entries:  o.tx.Header.Nentries,
+		Hash:     hex.EncodeToString(hash[:]),
+		Verified: o.verified,
 	}
 }
