@@ -146,6 +146,45 @@ func (o *kvOutput) Json() interface{} {
 	}
 }
 
+// multiKVOutput contains KV output for multiple entries
+type multiKVOutput struct {
+	entries []kvOutput
+}
+
+func (o *multiKVOutput) Plain() string {
+	str := &strings.Builder{}
+	for i, entry := range o.entries {
+		if i > 0 {
+			str.WriteString("\n")
+		}
+		entry.writePlain(str)
+	}
+	return str.String()
+}
+
+func (o *multiKVOutput) ValueOnly() string {
+	str := &strings.Builder{}
+	for i, entry := range o.entries {
+		if i > 0 {
+			str.WriteString("\n")
+		}
+		str.Write(entry.entry.Value)
+	}
+	return str.String()
+}
+
+func (o *multiKVOutput) Json() interface{} {
+	ret := &struct {
+		Items []interface{} `json:"items"`
+	}{}
+
+	for _, entry := range o.entries {
+		ret.Items = append(ret.Items, entry.Json())
+	}
+
+	return ret
+}
+
 // healthOutput represents output of a health operation
 type healthOutput struct {
 	h *schema.DatabaseHealthResponse

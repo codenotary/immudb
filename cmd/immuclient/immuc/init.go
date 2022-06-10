@@ -48,7 +48,7 @@ type Client interface {
 	VerifiedGet(args []string) (CommandOutput, error)
 	Login(args []string) (CommandOutput, error)
 	Logout(args []string) (CommandOutput, error)
-	History(args []string) (string, error)
+	History(args []string) (CommandOutput, error)
 	SetReference(args []string) (string, error)
 	VerifiedSetReference(args []string) (string, error)
 	ZScan(args []string) (string, error)

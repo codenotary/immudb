@@ -141,6 +141,64 @@ func TestKVOutput(t *testing.T) {
 	`, toJsonString(t, o.Json()))
 }
 
+func TestMultiKVOutput(t *testing.T) {
+	var o CommandOutput = &multiKVOutput{
+		entries: []kvOutput{
+			{
+				entry: &schema.Entry{
+					Tx:       123,
+					Key:      []byte("test_key1"),
+					Value:    []byte("test_value1"),
+					Revision: 3211,
+				},
+				verified: true,
+			},
+			{
+				entry: &schema.Entry{
+					Tx:       124,
+					Key:      []byte("test_key2"),
+					Value:    []byte("test_value2"),
+					Revision: 3210,
+				},
+				verified: false,
+			},
+		},
+	}
+
+	require.Regexp(t, `tx:\s*123`, o.Plain())
+	require.Regexp(t, `rev:\s*3211`, o.Plain())
+	require.Regexp(t, `key:\s*test_key1`, o.Plain())
+	require.Regexp(t, `value:\s*test_value1`, o.Plain())
+	require.Regexp(t, `verified:\s*true`, o.Plain())
+
+	require.Regexp(t, `tx:\s*124`, o.Plain())
+	require.Regexp(t, `rev:\s*3210`, o.Plain())
+	require.Regexp(t, `key:\s*test_key2`, o.Plain())
+	require.Regexp(t, `value:\s*test_value2`, o.Plain())
+
+	require.Equal(t, "test_value1\ntest_value2", o.ValueOnly())
+
+	require.JSONEq(t, `
+		{
+			"items": [
+				{
+					"tx": 123,
+					"revision": 3211,
+					"key": "test_key1",
+					"value": "test_value1",
+					"verified": true
+				},
+				{
+					"tx": 124,
+					"revision": 3210,
+					"key": "test_key2",
+					"value": "test_value2"
+				}
+			]
+		}
+	`, toJsonString(t, o.Json()))
+}
+
 func TestTxInfoOutput(t *testing.T) {
 	var o CommandOutput = &txInfoOutput{
 		tx: &schema.Tx{

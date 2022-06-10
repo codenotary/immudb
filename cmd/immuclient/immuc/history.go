@@ -17,13 +17,14 @@ package immuc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) History(args []string) (string, error) {
+func (i *immuc) History(args []string) (CommandOutput, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
 
@@ -35,25 +36,25 @@ func (i *immuc) History(args []string) (string, error) {
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
-
-	str := strings.Builder{}
 
 	entries := response.(*schema.Entries)
 	if len(entries.Entries) == 0 {
-		str.WriteString("No item found \n")
-		return str.String(), nil
+		return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 	}
 
-	for j, entry := range entries.Entries {
-		if j > 0 {
-			str.WriteString("\n")
-		}
-		str.WriteString(PrintKV(entry, false, false))
+	ret := &multiKVOutput{
+		entries: make([]kvOutput, 0, len(entries.Entries)),
 	}
 
-	return str.String(), nil
+	for _, entry := range entries.Entries {
+		ret.entries = append(ret.entries, kvOutput{
+			entry: entry,
+		})
+	}
+
+	return ret, nil
 }
