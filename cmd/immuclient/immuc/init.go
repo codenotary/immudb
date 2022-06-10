@@ -62,7 +62,7 @@ type Client interface {
 	VerifiedZAdd(args []string) (CommandOutput, error)
 	CreateDatabase(args []string) (string, error)
 	DatabaseList(args []string) (string, error)
-	UseDatabase(args []string) (string, error)
+	UseDatabase(args []string) (CommandOutput, error)
 	ValueOnly() bool     // TODO: ?
 	SetValueOnly(v bool) // TODO: ?
 	SQLExec(args []string) (CommandOutput, error)

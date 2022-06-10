@@ -313,28 +313,3 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 
 	return dbList, nil
 }
-
-func (i *immuc) UseDatabase(args []string) (string, error) {
-	var dbname string
-	if len(args) > 0 {
-		dbname = args[0]
-	} else if len(i.options.immudbClientOptions.Database) > 0 {
-		dbname = i.options.immudbClientOptions.Database
-	} else {
-		return "", fmt.Errorf("database name not specified")
-	}
-
-	ctx := context.Background()
-	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.UseDatabase(ctx, &schema.Database{
-			DatabaseName: dbname,
-		})
-	})
-	if err != nil {
-		return "", err
-	}
-
-	i.ImmuClient.GetOptions().CurrentDatabase = dbname
-
-	return fmt.Sprintf("Now using %s", dbname), nil
-}

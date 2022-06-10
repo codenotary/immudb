@@ -19,8 +19,11 @@ package immuc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc/status"
 )
 
@@ -74,4 +77,31 @@ func (i *immuc) Logout(args []string) (CommandOutput, error) {
 		return nil, err
 	}
 	return &resultOutput{Result: "Successfully logged out"}, nil
+}
+
+func (i *immuc) UseDatabase(args []string) (CommandOutput, error) {
+	var dbname string
+	if len(args) > 0 {
+		dbname = args[0]
+	} else if len(i.options.immudbClientOptions.Database) > 0 {
+		dbname = i.options.immudbClientOptions.Database
+	} else {
+		return nil, fmt.Errorf("database name not specified")
+	}
+
+	ctx := context.Background()
+	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.UseDatabase(ctx, &schema.Database{
+			DatabaseName: dbname,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	i.ImmuClient.GetOptions().CurrentDatabase = dbname
+
+	return &resultOutput{
+		Result: fmt.Sprintf("Now using %s", dbname),
+	}, nil
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
@@ -100,4 +101,37 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestUseDatabase(t *testing.T) {
+	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	opts := OptionsFromEnv()
+	opts.GetImmudbClientOptions().
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		}).
+		WithPasswordReader(&immuclienttest.PasswordReader{
+			Pass: []string{"immudb"},
+		})
+
+	imc, err := Init(opts)
+	require.NoError(t, err)
+
+	err = imc.Connect([]string{})
+	require.NoError(t, err)
+
+	_, err = imc.Login([]string{"immudb"})
+	require.NoError(t, err)
+
+	_, err = imc.UseDatabase([]string{"defaultdb"})
+	require.NoError(t, err)
 }
