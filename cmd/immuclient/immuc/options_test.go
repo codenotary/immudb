@@ -30,9 +30,6 @@ func TestOptions(t *testing.T) {
 	o.WithImmudbClientOptions(clOpts)
 	require.Equal(t, clOpts, o.GetImmudbClientOptions())
 
-	o.WithValueOnly(true)
-	require.Equal(t, true, o.GetValueOnly())
-
 	o.WithRevisionSeparator("revsep")
 	require.Equal(t, "revsep", o.GetRevisionSeparator())
 }

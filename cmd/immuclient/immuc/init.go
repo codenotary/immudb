@@ -38,7 +38,6 @@ type immuc struct {
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
-	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
 	HealthCheck(args []string) (CommandOutput, error)
 	DatabaseHealth(args []string) (CommandOutput, error)
 	CurrentState(args []string) (CommandOutput, error)
@@ -60,11 +59,7 @@ type Client interface {
 	DeleteKey(args []string) (CommandOutput, error)
 	ZAdd(args []string) (CommandOutput, error)
 	VerifiedZAdd(args []string) (CommandOutput, error)
-	CreateDatabase(args []string) (string, error)
-	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (CommandOutput, error)
-	ValueOnly() bool     // TODO: ?
-	SetValueOnly(v bool) // TODO: ?
 	SQLExec(args []string) (CommandOutput, error)
 	SQLQuery(args []string) (CommandOutput, error)
 	ListTables() (CommandOutput, error)
@@ -97,7 +92,7 @@ func (i *immuc) Disconnect(args []string) error {
 	return nil
 }
 
-func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error) {
+func (i *immuc) execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error) {
 	r, err := f(i.ImmuClient)
 	if err == nil {
 		return r, nil
@@ -128,14 +123,6 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	}
 
 	return f(i.ImmuClient)
-}
-
-func (i *immuc) ValueOnly() bool {
-	return i.options.valueOnly
-}
-
-func (i *immuc) SetValueOnly(v bool) {
-	i.options.WithValueOnly(v)
 }
 
 func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
@@ -170,7 +157,6 @@ func OptionsFromEnv() *Options {
 
 	opts := (&Options{}).
 		WithImmudbClientOptions(immudbOptions).
-		WithValueOnly(viper.GetBool("value-only")).
 		WithRevisionSeparator(viper.GetString("revision-separator"))
 
 	return opts

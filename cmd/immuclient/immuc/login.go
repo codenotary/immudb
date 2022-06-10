@@ -90,7 +90,7 @@ func (i *immuc) UseDatabase(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	_, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.UseDatabase(ctx, &schema.Database{
 			DatabaseName: dbname,
 		})

@@ -26,7 +26,7 @@ import (
 func (i *immuc) SQLExec(args []string) (CommandOutput, error) {
 	sqlStmt := strings.Join(args, " ")
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.SQLExec(ctx, sqlStmt, nil)
 	})
 	if err != nil {
@@ -49,7 +49,7 @@ func (i *immuc) SQLExec(args []string) (CommandOutput, error) {
 func (i *immuc) SQLQuery(args []string) (CommandOutput, error) {
 	sqlStmt := strings.Join(args, " ")
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		resp, err := immuClient.SQLQuery(ctx, sqlStmt, nil, true)
 		if err != nil {
 			return nil, err
@@ -67,7 +67,7 @@ func (i *immuc) SQLQuery(args []string) (CommandOutput, error) {
 
 func (i *immuc) ListTables() (CommandOutput, error) {
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		resp, err := immuClient.ListTables(ctx)
 		if err != nil {
 			return nil, err
@@ -87,7 +87,7 @@ func (i *immuc) DescribeTable(args []string) (CommandOutput, error) {
 		return nil, client.ErrIllegalArguments
 	}
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		resp, err := immuClient.DescribeTable(ctx, args[0])
 		if err != nil {
 			return nil, err

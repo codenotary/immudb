@@ -27,7 +27,7 @@ func (i *immuc) ZScan(args []string) (CommandOutput, error) {
 	set := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.ZScan(ctx, &schema.ZScanRequest{Set: set, NoWait: true})
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func (i *immuc) Scan(args []string) (CommandOutput, error) {
 
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Scan(ctx, &schema.ScanRequest{Prefix: prefix, NoWait: true})
 	})
 	if err != nil {
@@ -95,7 +95,7 @@ func (i *immuc) Count(args []string) (CommandOutput, error) {
 	prefix := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Count(ctx, prefix)
 	})
 	if err != nil {

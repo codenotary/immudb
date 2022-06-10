@@ -41,7 +41,7 @@ func (i *immuc) GetTxByID(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	tx, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.TxByID(ctx, id)
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func (i *immuc) VerifiedGetTxByID(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	tx, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedTxByID(ctx, id)
 	})
 	if err != nil {
@@ -127,7 +127,7 @@ func (i *immuc) Get(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Get(ctx, key, client.AtRevision(atRevision))
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func (i *immuc) VerifiedGet(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key, client.AtRevision(atRevision))
 	})
 	if err != nil {

@@ -22,7 +22,6 @@ import (
 
 type Options struct {
 	immudbClientOptions *client.Options
-	valueOnly           bool
 	revisionSeparator   string
 }
 
@@ -32,15 +31,6 @@ func (o *Options) GetImmudbClientOptions() *client.Options {
 
 func (o *Options) WithImmudbClientOptions(opts *client.Options) *Options {
 	o.immudbClientOptions = opts
-	return o
-}
-
-func (o *Options) GetValueOnly() bool {
-	return o.valueOnly
-}
-
-func (o *Options) WithValueOnly(valueOnly bool) *Options {
-	o.valueOnly = valueOnly
 	return o
 }
 

@@ -28,7 +28,7 @@ func (i *immuc) History(args []string) (CommandOutput, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.History(ctx, &schema.HistoryRequest{
 			Key: key,
 		})

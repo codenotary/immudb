@@ -25,7 +25,7 @@ import (
 func (i *immuc) HealthCheck(args []string) (CommandOutput, error) {
 	ctx := context.Background()
 
-	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	if _, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return nil, immuClient.HealthCheck(ctx)
 	}); err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")

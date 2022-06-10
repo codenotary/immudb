@@ -27,7 +27,7 @@ import (
 
 func (i *immuc) DatabaseHealth(args []string) (CommandOutput, error) {
 	ctx := context.Background()
-	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	state, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Health(ctx)
 	})
 	if err != nil {
@@ -44,7 +44,7 @@ func (i *immuc) DatabaseHealth(args []string) (CommandOutput, error) {
 
 func (i *immuc) CurrentState(args []string) (CommandOutput, error) {
 	ctx := context.Background()
-	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	state, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.CurrentState(ctx)
 	})
 	if err != nil {

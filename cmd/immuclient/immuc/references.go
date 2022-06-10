@@ -46,7 +46,7 @@ func (i *immuc) SetReference(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.SetReference(ctx, key, referencedKey)
 	})
 	if err != nil {
@@ -84,7 +84,7 @@ func (i *immuc) VerifiedSetReference(args []string) (CommandOutput, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedSetReference(ctx, key, referencedKey)
 	})
 	if err != nil {
