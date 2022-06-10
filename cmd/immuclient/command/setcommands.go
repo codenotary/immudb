@@ -30,10 +30,9 @@ func (cl *commandline) set(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Set(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(2),
 	}
@@ -51,10 +50,9 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.VerifiedSet(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(2),
 	}
@@ -70,10 +68,9 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Restore(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -91,10 +88,9 @@ func (cl *commandline) deleteKey(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.DeleteKey(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -112,10 +108,9 @@ func (cl *commandline) zAdd(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ZAdd(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(3),
 	}
@@ -132,10 +127,9 @@ func (cl *commandline) safeZAdd(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.VerifiedZAdd(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(3),
 	}

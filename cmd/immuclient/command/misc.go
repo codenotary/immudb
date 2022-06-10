@@ -33,10 +33,9 @@ func (cl *commandline) history(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.History(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -55,8 +54,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.NoArgs,
 	}
@@ -109,10 +107,9 @@ func (cl *commandline) use(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.UseDatabase(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}

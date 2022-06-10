@@ -18,12 +18,13 @@ package immuclient
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/cmd/helper"
 
@@ -53,6 +54,7 @@ func TestLogin(t *testing.T) {
 		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
+	cmdl.outputRenderer = cmdl.renderOutputPlain
 	cmd, _ := cmdl.NewCmd()
 	cmdl.login(cmd)
 	b := bytes.NewBufferString("")

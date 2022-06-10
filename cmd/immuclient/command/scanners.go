@@ -30,10 +30,9 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ZScan(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -50,10 +49,9 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Scan(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -70,10 +68,9 @@ func (cl *commandline) count(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Count(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(1),
 	}
