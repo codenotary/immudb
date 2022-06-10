@@ -16,10 +16,12 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) health(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) health(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.DatabaseHealth(args)
 }
 
-func (cli *cli) currentState(args []string) (string, error) {
+func (cli *cli) currentState(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.CurrentState(args)
 }

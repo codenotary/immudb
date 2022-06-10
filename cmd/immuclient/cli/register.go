@@ -16,10 +16,12 @@ limitations under the License.
 
 package cli
 
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
 type command struct {
 	name     string
 	short    string
-	command  func(args []string) (string, error)
+	command  func(args []string) (immuc.CommandOutput, error)
 	args     []string
 	variable bool
 }
@@ -52,7 +54,7 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"reference", "Add new reference to an existing key", cli.reference, []string{"refkey", "key"}, false})
 	cli.Register(&command{"safereference", "Add and verify new reference to an existing key", cli.safereference, []string{"refkey", "key"}, false})
 
-	// Scannner commands
+	// Scan commands
 	cli.Register(&command{"scan", "Iterate over keys having the specified prefix", cli.scan, []string{"prefix"}, false})
 	cli.Register(&command{"zscan", "Iterate over a sorted set", cli.zScan, []string{"prefix"}, false})
 	cli.Register(&command{"count", "Count keys having the specified prefix", cli.count, []string{"prefix"}, false})

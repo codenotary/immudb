@@ -16,10 +16,12 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) reference(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) reference(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.SetReference(args)
 }
 
-func (cli *cli) safereference(args []string) (string, error) {
+func (cli *cli) safereference(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.VerifiedSetReference(args)
 }

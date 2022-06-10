@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -63,7 +64,7 @@ func TestZScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("ZScan fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("ZScan failed: %s", msg)
 	}
 }
@@ -89,17 +90,11 @@ func TestScan(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := cli.scan([]string{"k"})
-	if err != nil {
-		t.Fatal("Scan fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Scan failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func _TestCount(t *testing.T) {
@@ -117,22 +112,15 @@ func _TestCount(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := cli.count([]string{"key"})
-	if err != nil {
-		t.Fatal("Count fail", err)
-	}
-	if !strings.Contains(msg, "1") {
-		t.Fatalf("Count failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "1")
 }

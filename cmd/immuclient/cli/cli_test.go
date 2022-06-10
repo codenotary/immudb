@@ -104,7 +104,7 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value", "value"})
 	})
-	if !strings.Contains(msg, "Redunant argument") {
+	if !strings.Contains(msg, "Redundant argument") {
 		t.Fatal(msg)
 	}
 }

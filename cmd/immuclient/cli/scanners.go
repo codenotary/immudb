@@ -16,14 +16,16 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) zScan(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) zScan(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.ZScan(args)
 }
 
-func (cli *cli) scan(args []string) (string, error) {
+func (cli *cli) scan(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Scan(args)
 }
 
-func (cli *cli) count(args []string) (string, error) {
+func (cli *cli) count(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Count(args)
 }

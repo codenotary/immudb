@@ -17,17 +17,30 @@ limitations under the License.
 package cli
 
 import (
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/cmd/version"
 )
 
-func (cli *cli) history(args []string) (string, error) {
+func (cli *cli) history(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.History(args)
 }
 
-func (cli *cli) healthCheck(args []string) (string, error) {
+func (cli *cli) healthCheck(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.HealthCheck(args)
 }
 
-func (cli *cli) version(args []string) (string, error) {
-	return version.VersionStr(), nil
+type versionOutput struct {
+	Version string `json:"version"`
+}
+
+var _ immuc.CommandOutput = &versionOutput{}
+
+func (o *versionOutput) Plain() string     { return o.Version }
+func (o *versionOutput) ValueOnly() string { return o.Version }
+func (o *versionOutput) Json() interface{} { return o }
+
+func (cli *cli) version(args []string) (immuc.CommandOutput, error) {
+	return &versionOutput{
+		Version: version.VersionStr(),
+	}, nil
 }

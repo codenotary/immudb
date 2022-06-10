@@ -53,7 +53,7 @@ func TestSet(t *testing.T) {
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("Set failed: %s", msg)
 	}
 }
@@ -82,7 +82,7 @@ func TestSafeSet(t *testing.T) {
 	if err != nil {
 		t.Fatal("SafeSet fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("SafeSet failed: %s", msg)
 	}
 }
@@ -114,7 +114,7 @@ func TestZAdd(t *testing.T) {
 	if err != nil {
 		t.Fatal("ZAdd fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg.Plain(), "hash") {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
 }
@@ -147,7 +147,7 @@ func TestSafeZAdd(t *testing.T) {
 	if err != nil {
 		t.Fatal("SafeZAdd fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg.Plain(), "hash") {
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}
 }

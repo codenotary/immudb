@@ -16,10 +16,12 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) login(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) login(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Login(args)
 }
 
-func (cli *cli) logout(args []string) (string, error) {
+func (cli *cli) logout(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Logout(args)
 }

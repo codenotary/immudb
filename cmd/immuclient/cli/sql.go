@@ -16,22 +16,24 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) sqlExec(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) sqlExec(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.SQLExec(args)
 }
 
-func (cli *cli) sqlQuery(args []string) (string, error) {
+func (cli *cli) sqlQuery(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.SQLQuery(args)
 }
 
-func (cli *cli) describeTable(args []string) (string, error) {
+func (cli *cli) describeTable(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.DescribeTable(args)
 }
 
-func (cli *cli) listTables(args []string) (string, error) {
+func (cli *cli) listTables(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.ListTables()
 }
 
-func (cli *cli) useDatabase(args []string) (string, error) {
+func (cli *cli) useDatabase(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.UseDatabase(args)
 }

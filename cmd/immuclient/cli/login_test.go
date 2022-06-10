@@ -17,11 +17,12 @@ limitations under the License.
 package cli
 
 import (
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"os"
-	"strings"
-	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/pkg/auth"
 
@@ -52,18 +53,10 @@ func TestLogin(t *testing.T) {
 	cli.immucl.WithFileTokenService(ts)
 
 	msg, err := cli.login([]string{"immudb"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(msg, "immudb user has the default password") {
-		t.Fatalf("Login failed: %s", err)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "immudb user has the default password")
 
 	msg, err = cli.logout([]string{"immudb"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(msg, "Successfully logged out") {
-		t.Fatalf("Login failed: %s", err)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "Successfully logged out")
 }

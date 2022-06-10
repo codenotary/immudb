@@ -16,14 +16,16 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) getTxByID(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) getTxByID(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.GetTxByID(args)
 }
 
-func (cli *cli) getKey(args []string) (string, error) {
+func (cli *cli) getKey(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Get(args)
 }
 
-func (cli *cli) safeGetKey(args []string) (string, error) {
+func (cli *cli) safeGetKey(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.VerifiedGet(args)
 }
