@@ -53,7 +53,7 @@ func TestReference(t *testing.T) {
 	if err != nil {
 		t.Fatal("Reference fail", err)
 	}
-	if !strings.Contains(msg, "value") {
+	if !strings.Contains(msg.Plain(), "value") {
 		t.Fatalf("Reference failed: %s", msg)
 	}
 }
@@ -84,7 +84,7 @@ func _TestVerifiedSetReference(t *testing.T) {
 	if err != nil {
 		t.Fatal("SafeReference fail", err)
 	}
-	if !strings.Contains(msg, "hash") {
+	if !strings.Contains(msg.Plain(), "hash") {
 		t.Fatalf("SafeReference failed: %s", msg)
 	}
 }
