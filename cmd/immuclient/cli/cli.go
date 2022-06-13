@@ -223,7 +223,7 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		}
 		if len(redunantArgs) > 0 {
 			fmt.Fprintf(os.Stdout,
-				"INFO: Redunant argument(s) | %v \n", redunantArgs)
+				"INFO: Redundant argument(s) | %v \n", redunantArgs)
 		}
 	}
 

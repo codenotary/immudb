@@ -18,11 +18,11 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -44,18 +44,12 @@ func TestSet(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.Set([]string{"key", "val"})
-
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "value") {
-		t.Fatalf("Set failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestVerifiedSet(t *testing.T) {
@@ -74,18 +68,12 @@ func TestVerifiedSet(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
-
-	if err != nil {
-		t.Fatal("VerifiedSet fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "value") {
-		t.Fatalf("VerifiedSet failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestZAdd(t *testing.T) {
@@ -104,20 +92,15 @@ func TestZAdd(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "hash") {
-		t.Fatalf("ZAdd failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }
 
 func _TestVerifiedZAdd(t *testing.T) {
@@ -136,18 +119,13 @@ func _TestVerifiedZAdd(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("VerifiedZAdd fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "hash") {
-		t.Fatalf("VerifiedZAdd failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }

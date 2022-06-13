@@ -18,11 +18,11 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -48,22 +48,13 @@ func TestHistory(t *testing.T) {
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.History([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "key not found") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "key not found")
 
 	_, err = ic.Imc.Set([]string{"key", "value"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err)
+
 	msg, err = ic.Imc.History([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "value") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }

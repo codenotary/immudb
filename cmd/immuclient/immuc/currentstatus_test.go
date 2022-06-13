@@ -18,7 +18,6 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -26,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCurrentRoot(t *testing.T) {
@@ -48,11 +48,6 @@ func TestCurrentRoot(t *testing.T) {
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 	msg, err := ic.Imc.CurrentState([]string{""})
-
-	if err != nil {
-		t.Fatal("CurrentState fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "hash") {
-		t.Fatalf("CurrentState failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }

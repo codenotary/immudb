@@ -18,7 +18,6 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
@@ -52,21 +51,14 @@ func TestLogin(t *testing.T) {
 		})
 
 	imc, err := Init(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	err = imc.Connect([]string{""})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	msg, err := imc.Login([]string{"immudb"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(msg.Plain(), "Successfully logged in") {
-		t.Fatal("Login error")
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "Successfully logged in")
 }
 
 func TestLogout(t *testing.T) {
@@ -90,17 +82,13 @@ func TestLogout(t *testing.T) {
 		})
 
 	imc, err := Init(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	err = imc.Connect([]string{""})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	_, err = imc.Logout([]string{""})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func TestUseDatabase(t *testing.T) {

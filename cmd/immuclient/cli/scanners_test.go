@@ -18,7 +18,6 @@ package cli
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -51,22 +50,14 @@ func TestZScan(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	_, err = cli.zAdd([]string{"set", "445.3", "key"})
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := cli.zScan([]string{"set"})
-	if err != nil {
-		t.Fatal("ZScan fail", err)
-	}
-	if !strings.Contains(msg.Plain(), "value") {
-		t.Fatalf("ZScan failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestScan(t *testing.T) {
