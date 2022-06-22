@@ -32,6 +32,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -481,31 +482,26 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 // Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
+	if strings.Contains(name, "//") {
 		return false, ErrInvalidArguments
 	}
 
-	url, err := s.originalRequestURL(name)
+	entries, _, err := s.listEntries(ctx, name, 1)
 	if err != nil {
 		return false, err
 	}
 
-	resp, err := s.requestWithRedirects(
-		ctx, "HEAD", url,
-		[]int{200, 404},
-		func() (io.Reader, string, error) { return nil, "", nil },
-		func(req *http.Request) error { return nil },
-	)
-	if err != nil {
-		return false, err
+	// We're looking for all entries with the prefix, since those
+	// are sorted alphabetically, if there's an entry with exact
+	// name, it would be the first one returned.
+	if len(entries) > 0 && entries[0].Name == "" {
+		return true, nil
 	}
-	resp.Body.Close()
 
-	return resp.StatusCode == 200, nil
+	return false, nil
 }
 
 func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage.EntryInfo, []string, error) {
-
 	if path != "" {
 		if !strings.HasSuffix(path, "/") ||
 			strings.Contains(path, "//") {
@@ -513,6 +509,10 @@ func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 		}
 	}
 
+	return s.listEntries(ctx, path, 0)
+}
+
+func (s *Storage) listEntries(ctx context.Context, path string, limit int) ([]remotestorage.EntryInfo, []string, error) {
 	prefix := s.prefix + path
 
 	baseUrl, err := s.originalRequestURL("")
@@ -528,6 +528,10 @@ func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 	urlValues.Set("encoding-type", "url")
 	urlValues.Set("delimiter", "/")
 	urlValues.Set("prefix", prefix)
+
+	if limit > 0 {
+		urlValues.Set("max-keys", strconv.Itoa(limit))
+	}
 
 	entries := []remotestorage.EntryInfo{}
 	subPaths := []string{}
