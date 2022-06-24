@@ -482,11 +482,7 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 // Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
-	if strings.Contains(name, "//") {
-		return false, ErrInvalidArguments
-	}
-
-	entries, _, err := s.listEntries(ctx, name, 1)
+	entries, _, err := s.scanObjectNames(ctx, name, 1)
 	if err != nil {
 		return false, err
 	}
@@ -494,6 +490,8 @@ func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
 	// We're looking for all entries with the prefix, since those
 	// are sorted alphabetically, if there's an entry with exact
 	// name, it would be the first one returned.
+	// Since the `scanObjectNames` strips out the path prefix,
+	// the entry with the exact name will be returned with an empty name.
 	if len(entries) > 0 && entries[0].Name == "" {
 		return true, nil
 	}
@@ -502,18 +500,24 @@ func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage.EntryInfo, []string, error) {
-	if path != "" {
-		if !strings.HasSuffix(path, "/") ||
-			strings.Contains(path, "//") {
-			return nil, nil, ErrInvalidArguments
-		}
+	// The path must end with `/` so that we don't match entries in parent directory with same prefix name
+	// e.g. when scanning /some/entry directory it must not match /some/entry-file object name.
+	// That's because in s3, the scan is prefix-based without clear notion of directories
+	if path != "" && !strings.HasSuffix(path, "/") {
+		return nil, nil, ErrInvalidArguments
 	}
 
-	return s.listEntries(ctx, path, 0)
+	return s.scanObjectNames(ctx, path, 0)
 }
 
-func (s *Storage) listEntries(ctx context.Context, path string, limit int) ([]remotestorage.EntryInfo, []string, error) {
-	prefix := s.prefix + path
+func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int) ([]remotestorage.EntryInfo, []string, error) {
+
+	// Double delimiter character ('//') is invalid anywhere in the path
+	if strings.Contains(prefix, "//") {
+		return nil, nil, ErrInvalidArguments
+	}
+
+	prefix = s.prefix + prefix
 
 	baseUrl, err := s.originalRequestURL("")
 	if err != nil {
