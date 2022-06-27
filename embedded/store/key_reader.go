@@ -343,10 +343,12 @@ func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val 
 			st:     r.snap.st,
 		}
 
+		valRef := r.refInterceptor(key, val)
+
 		skipEntry := false
 
 		for _, filter := range r.filters {
-			err = filter(val, r.snap.ts)
+			err = filter(valRef, r.snap.ts)
 			if err != nil {
 				skipEntry = true
 				break
@@ -362,7 +364,7 @@ func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val 
 			continue
 		}
 
-		return key, r.refInterceptor(key, val), ktxID, nil
+		return key, valRef, ktxID, nil
 	}
 }
 
@@ -378,10 +380,12 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 			return nil, nil, err
 		}
 
+		valRef := r.refInterceptor(key, val)
+
 		skipEntry := false
 
 		for _, filter := range r.filters {
-			err = filter(val, r.snap.ts)
+			err = filter(valRef, r.snap.ts)
 			if err != nil {
 				skipEntry = true
 				break
@@ -397,7 +401,7 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 			continue
 		}
 
-		return key, r.refInterceptor(key, val), nil
+		return key, valRef, nil
 	}
 }
 
