@@ -118,14 +118,29 @@ jobs:
           go-version: 1.17
       - uses: actions/checkout@v3
       - run: |
+          # Spawn minio docker container in the background
+          docker run -d -t -p 9000:9000 --name minio \
+            -e "MINIO_ACCESS_KEY=minioadmin" \
+            -e "MINIO_SECRET_KEY=minioadmin" \
+            minio/minio server /data
+
+          # Create immudb bucket
+          docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
+            mc alias set local http://localhost:9000 minioadmin minioadmin &&
+            mc mb local/immudb
+          "
+
           export PATH=$PATH:$(go env GOPATH)/bin
           go get golang.org/x/tools/cmd/cover
           go get -u github.com/mattn/goveralls
           go get -u github.com/ory/go-acc
           set -o pipefail
-          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools || true
+          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
           cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
           goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+
+          # Stop minio
+          docker rm -f minio
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:
