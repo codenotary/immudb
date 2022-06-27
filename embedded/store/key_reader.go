@@ -16,7 +16,6 @@ limitations under the License.
 package store
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -60,7 +59,11 @@ type KeyReader struct {
 	reader         *tbtree.Reader
 	filters        []FilterFn
 	refInterceptor valueRefInterceptor
-	_tx            *Tx
+
+	offset  uint64
+	skipped uint64
+
+	_tx *Tx
 }
 
 type KeyReaderSpec struct {
@@ -139,7 +142,6 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		InclusiveSeek: spec.InclusiveSeek,
 		InclusiveEnd:  spec.InclusiveEnd,
 		DescOrder:     spec.DescOrder,
-		Offset:        spec.Offset,
 	})
 	if err != nil {
 		return nil, err
@@ -166,6 +168,7 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		reader:         r,
 		filters:        spec.Filters,
 		refInterceptor: refInterceptor,
+		offset:         spec.Offset,
 		_tx:            s.st.NewTxHolder(),
 	}, nil
 }
@@ -313,41 +316,54 @@ func (v *valueRef) Len() uint32 {
 }
 
 func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
-	key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-
-	err = r.snap.st.ReadTx(ktxID, r._tx)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-
-	for _, e := range r._tx.Entries() {
-		if bytes.Equal(e.key(), key) {
-			val = &valueRef{
-				tx:     r._tx.header.ID,
-				hc:     hc,
-				hVal:   e.hVal,
-				vOff:   int64(e.vOff),
-				valLen: uint32(e.vLen),
-				txmd:   r._tx.header.Metadata,
-				kvmd:   e.md,
-				st:     r.snap.st,
-			}
-
-			for _, filter := range r.filters {
-				err = filter(val, r.snap.ts)
-				if err != nil {
-					return nil, nil, 0, err
-				}
-			}
-
-			return key, r.refInterceptor(key, val), ktxID, nil
+	for {
+		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
+		if err != nil {
+			return nil, nil, 0, err
 		}
-	}
 
-	return nil, nil, 0, ErrUnexpectedError
+		err = r.snap.st.ReadTx(ktxID, r._tx)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		e, err := r._tx.EntryOf(key)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		val = &valueRef{
+			tx:     r._tx.header.ID,
+			hc:     hc,
+			hVal:   e.hVal,
+			vOff:   int64(e.vOff),
+			valLen: uint32(e.vLen),
+			txmd:   r._tx.header.Metadata,
+			kvmd:   e.md,
+			st:     r.snap.st,
+		}
+
+		skipEntry := false
+
+		for _, filter := range r.filters {
+			err = filter(val, r.snap.ts)
+			if err != nil {
+				skipEntry = true
+				break
+			}
+		}
+
+		if skipEntry {
+			continue
+		}
+
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
+		}
+
+		return key, r.refInterceptor(key, val), ktxID, nil
+	}
 }
 
 func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
@@ -376,11 +392,18 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 			continue
 		}
 
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
+		}
+
 		return key, r.refInterceptor(key, val), nil
 	}
 }
 
 func (r *KeyReader) Reset() error {
+	r.skipped = 0
+
 	return r.reader.Reset()
 }
 
