@@ -34,7 +34,7 @@ type Storage interface {
 	// String returns a human-readable representation of the storage
 	String() string
 
-	// Get opens a remote resource, if offs < 0, read as much as possible
+	// Get opens a remote resource, if size < 0, read as much as possible
 	Get(ctx context.Context, name string, offs, size int64) (io.ReadCloser, error)
 
 	// Put saves a local file to a remote storage
