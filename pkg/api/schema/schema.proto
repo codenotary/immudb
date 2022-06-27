@@ -180,7 +180,7 @@ message ScanRequest {
 	bool  noWait = 6;
 	bool inclusiveSeek = 8;		// If set to true, results will include seekKey
 	bool inclusiveEnd = 9;		// If set to true, results will include endKey if needed
-	uint64 offset = 10;
+	uint64 offset = 10;			// Specify the initial entry to be returned by excluding the initial set of entries
 }
 
 message KeyPrefix {
@@ -377,12 +377,12 @@ message ZScanRequest {
 	Score maxScore = 9;
 	uint64 sinceTx = 10;
 	bool  noWait = 11;
-	uint64 offset = 12;
+	uint64 offset = 12; // Specify the initial entry to be returned by excluding the initial set of entries
 }
 
 message HistoryRequest {
 	bytes key = 1;
-	uint64 offset = 2;
+	uint64 offset = 2; // Specify the initial entry to be returned by excluding the initial set of entries
 	int32 limit = 3;
 	bool desc = 4;
 	uint64 sinceTx = 5;

@@ -780,7 +780,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
-| offset | [uint64](#uint64) |  |  |
+| offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
 | limit | [int32](#int32) |  |  |
 | desc | [bool](#bool) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
@@ -1524,7 +1524,7 @@
 | noWait | [bool](#bool) |  |  |
 | inclusiveSeek | [bool](#bool) |  | If set to true, results will include seekKey |
 | inclusiveEnd | [bool](#bool) |  | If set to true, results will include endKey if needed |
-| offset | [uint64](#uint64) |  |  |
+| offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
 
 
 
@@ -2171,7 +2171,7 @@ Reserved to reply with more advanced response later
 | maxScore | [Score](#immudb.schema.Score) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 | noWait | [bool](#bool) |  |  |
-| offset | [uint64](#uint64) |  |  |
+| offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
 
 
 
