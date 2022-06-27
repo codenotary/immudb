@@ -1596,7 +1596,7 @@ type ScanRequest struct {
 	NoWait        bool   `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`
 	InclusiveSeek bool   `protobuf:"varint,8,opt,name=inclusiveSeek,proto3" json:"inclusiveSeek,omitempty"` // If set to true, results will include seekKey
 	InclusiveEnd  bool   `protobuf:"varint,9,opt,name=inclusiveEnd,proto3" json:"inclusiveEnd,omitempty"`   // If set to true, results will include endKey if needed
-	Offset        uint64 `protobuf:"varint,10,opt,name=offset,proto3" json:"offset,omitempty"`
+	Offset        uint64 `protobuf:"varint,10,opt,name=offset,proto3" json:"offset,omitempty"`              // Specify the initial entry to be returned by excluding the initial set of entries
 }
 
 func (x *ScanRequest) Reset() {
@@ -3453,7 +3453,7 @@ type ZScanRequest struct {
 	MaxScore      *Score  `protobuf:"bytes,9,opt,name=maxScore,proto3" json:"maxScore,omitempty"`
 	SinceTx       uint64  `protobuf:"varint,10,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
 	NoWait        bool    `protobuf:"varint,11,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	Offset        uint64  `protobuf:"varint,12,opt,name=offset,proto3" json:"offset,omitempty"`
+	Offset        uint64  `protobuf:"varint,12,opt,name=offset,proto3" json:"offset,omitempty"` // Specify the initial entry to be returned by excluding the initial set of entries
 }
 
 func (x *ZScanRequest) Reset() {
@@ -3578,7 +3578,7 @@ type HistoryRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key     []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Offset  uint64 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Offset  uint64 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"` // Specify the initial entry to be returned by excluding the initial set of entries
 	Limit   int32  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	Desc    bool   `protobuf:"varint,4,opt,name=desc,proto3" json:"desc,omitempty"`
 	SinceTx uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`

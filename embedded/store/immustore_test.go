@@ -1164,6 +1164,19 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Delete([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
+		r, err := tx.NewKeyReader(&KeyReaderSpec{
+			Prefix:  []byte{1, 2, 3},
+			Filters: []FilterFn{IgnoreDeleted},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, r)
+
+		_, _, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreEntries)
+
+		err = r.Close()
+		require.NoError(t, err)
+
 		_, err = tx.Commit()
 		require.NoError(t, err)
 
@@ -1179,6 +1192,23 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.True(t, valRef.KVMetadata().Deleted())
 		require.NotNil(t, valRef.KVMetadata())
 		require.False(t, valRef.KVMetadata().IsExpirable())
+
+		tx, err = immuStore.NewTx()
+		require.NoError(t, err)
+		defer tx.Cancel()
+
+		r, err = tx.NewKeyReader(&KeyReaderSpec{
+			Prefix:  []byte{1, 2, 3},
+			Filters: []FilterFn{IgnoreDeleted},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, r)
+
+		_, _, _, err = r.ReadBetween(1, immuStore.TxCount())
+		require.ErrorIs(t, err, ErrNoMoreEntries)
+
+		err = r.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("non-expired keys should be reachable", func(t *testing.T) {
