@@ -16,7 +16,7 @@ jobs:
 
           - os: ubuntu-latest
             go: "1.17"
-            test: true
+            testWithMinio: true
 
           - os: ubuntu-latest
             go: "1.18"
@@ -42,6 +42,27 @@ jobs:
       - name: Test
         run: make test
         if: matrix.test
+
+      - name: Test (with minio)
+        run: |
+          # Spawn minio docker container in the background
+          docker run -d -t -p 9000:9000 --name minio \
+            -e "MINIO_ACCESS_KEY=minioadmin" \
+            -e "MINIO_SECRET_KEY=minioadmin" \
+            minio/minio server /data
+
+          # Create immudb bucket
+          docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
+            mc alias set local http://localhost:9000 minioadmin minioadmin &&
+            mc mb local/immudb
+          "
+
+          # Run go tests with minio
+          GO_TEST_FLAGS="-tags minio" make test
+
+          # Stop minio
+          docker rm -f minio
+        if: matrix.testWithMinio
 
       - name: Test Client
         run: make test-client
