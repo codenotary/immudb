@@ -50,7 +50,12 @@ type Storage struct {
 }
 
 var (
-	ErrInvalidArguments = errors.New("invalid arguments")
+	ErrInvalidArguments            = errors.New("invalid arguments")
+	ErrInvalidArgumentsOffsSize    = fmt.Errorf("%w: negative offset or zero size", ErrInvalidArguments)
+	ErrInvalidArgumentsNameSlash   = fmt.Errorf("%w: name can not start or end with /", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketSlash = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketEmpty = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
+
 	ErrInvalidResponse  = errors.New("invalid response code")
 	ErrTooManyRedirects = errors.New("too many redirects")
 )
@@ -72,7 +77,12 @@ func Open(
 	// Bucket must have no '/' at all
 	bucket = strings.Trim(bucket, "/")
 	if strings.Contains(bucket, "/") {
-		return nil, ErrInvalidArguments
+		return nil, ErrInvalidArgumentsBucketSlash
+	}
+
+	// Bucket name must not be empty
+	if bucket == "" {
+		return nil, ErrInvalidArgumentsBucketEmpty
 	}
 
 	// if prefix is not empty, it must end with '/'
@@ -288,10 +298,10 @@ func (s *Storage) s3SignedRequestV2(
 // Get opens a remote s3 resource
 func (s *Storage) Get(ctx context.Context, name string, offs, size int64) (io.ReadCloser, error) {
 	if offs < 0 || size == 0 {
-		return nil, ErrInvalidArguments
+		return nil, ErrInvalidArgumentsOffsSize
 	}
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return nil, ErrInvalidArguments
+		return nil, ErrInvalidArgumentsNameSlash
 	}
 
 	url, err := s.originalRequestURL(name)
@@ -428,7 +438,7 @@ func (s *Storage) requestWithRedirects(
 // Put writes a remote s3 resource
 func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return ErrInvalidArguments
+		return ErrInvalidArgumentsNameSlash
 	}
 
 	// S3 is using 307 redirects that must preserve POST body,
