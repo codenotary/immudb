@@ -56,7 +56,14 @@ var (
 	ErrInvalidArgumentsBucketSlash = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
 	ErrInvalidArgumentsBucketEmpty = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
 
-	ErrInvalidResponse  = errors.New("invalid response code")
+	ErrInvalidResponse                    = errors.New("invalid response code")
+	ErrInvalidResponseXmlDecodeError      = fmt.Errorf("%w: xml decode error", ErrInvalidResponse)
+	ErrInvalidResponseEntriesNotSorted    = fmt.Errorf("%w: entries are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsNotSorted   = fmt.Errorf("%w: sub-paths are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongPrefix = fmt.Errorf("%w: sub-paths do not have correct prefix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongSuffix = fmt.Errorf("%w: sub-paths do end with '/' suffix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathMalicious    = fmt.Errorf("%w: sub-paths contain invalid characters", ErrInvalidResponse)
+
 	ErrTooManyRedirects = errors.New("too many redirects")
 )
 
@@ -373,7 +380,7 @@ func (s *Storage) requestWithRedirects(
 		resp, err := s.httpClient.Do(req)
 		if err != nil {
 			log.Printf("S3 %s %s failed: %v", req.Method, req.URL, err)
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
 		}
 
 		for _, validStatus := range validStatusCodes {
@@ -386,15 +393,9 @@ func (s *Storage) requestWithRedirects(
 
 		switch resp.StatusCode {
 		case 303:
-			locationURL, err := url.Parse(resp.Header.Get("Location"))
+			reqURL, err = s.parseRedirect(req, resp)
 			if err != nil {
-				log.Printf(
-					"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
-					req.Method,
-					req.URL,
-					req.Header.Get("Location"),
-				)
-				return nil, ErrInvalidResponse
+				return nil, err
 			}
 
 			// Switch to simple GET request
@@ -402,22 +403,14 @@ func (s *Storage) requestWithRedirects(
 			prepareData = func() (io.Reader, string, error) { return nil, "", nil }
 			setupRequest = func(req *http.Request) error { return nil }
 
-			reqURL = req.URL.ResolveReference(locationURL).String()
 			log.Printf("S3 %s redirect to GET %s", req.Method, reqURL)
 
 		case 301, 302, 307, 308:
-			locationURL, err := url.Parse(resp.Header.Get("Location"))
+			reqURL, err = s.parseRedirect(req, resp)
 			if err != nil {
-				log.Printf(
-					"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
-					req.Method,
-					req.URL,
-					req.Header.Get("Location"),
-				)
-				return nil, ErrInvalidResponse
+				return nil, err
 			}
 
-			reqURL = req.URL.ResolveReference(locationURL).String()
 			log.Printf("S3 %s redirect to %s", req.Method, reqURL)
 
 		default:
@@ -428,11 +421,34 @@ func (s *Storage) requestWithRedirects(
 				resp.StatusCode,
 				resp.Status,
 			)
-			return nil, ErrInvalidResponse
+			return nil, fmt.Errorf(
+				"%w: request failed with status code %d (%s)",
+				ErrInvalidResponse, resp.StatusCode, resp.Status,
+			)
 		}
 	}
 	log.Printf("S3 %s %s failed - too many redirects", method, reqURL)
 	return nil, ErrTooManyRedirects
+}
+
+func (s *Storage) parseRedirect(req *http.Request, resp *http.Response) (string, error) {
+	locationURL, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		log.Printf(
+			"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
+			req.Method,
+			req.URL,
+			req.Header.Get("Location"),
+		)
+		return "", fmt.Errorf(
+			"%w: failed to parse Location header %q: %v",
+			ErrInvalidResponse,
+			req.Header.Get("Location"),
+			err,
+		)
+	}
+
+	return req.URL.ResolveReference(locationURL).String(), nil
 }
 
 // Put writes a remote s3 resource
@@ -574,7 +590,7 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 
 		err = xml.NewDecoder(resp.Body).Decode(&respParsed)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, err)
 		}
 
 		for _, object := range respParsed.Contents {
@@ -584,14 +600,17 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 			})
 		}
 		for _, subPath := range respParsed.CommonPrefixes {
-			if !strings.HasPrefix(subPath.Prefix, prefix) || !strings.HasSuffix(subPath.Prefix, "/") {
-				return nil, nil, ErrInvalidResponse
+			if !strings.HasPrefix(subPath.Prefix, prefix) {
+				return nil, nil, ErrInvalidResponseSubPathsWrongPrefix
+			}
+			if !strings.HasSuffix(subPath.Prefix, "/") {
+				return nil, nil, ErrInvalidResponseSubPathsWrongSuffix
 			}
 
 			p := subPath.Prefix[len(prefix) : len(subPath.Prefix)-1]
 			if p == "." || p == ".." || strings.ContainsAny(p, "\\/:") {
 				// Avoid exploitation by a malicious server
-				return nil, nil, ErrInvalidResponse
+				return nil, nil, ErrInvalidResponseSubPathMalicious
 			}
 
 			subPaths = append(subPaths, p)
@@ -604,9 +623,11 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 		urlValues.Set("continuation-token", respParsed.NextContinuationToken)
 	}
 
-	if !sort.SliceIsSorted(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name }) ||
-		!sort.StringsAreSorted(subPaths) {
-		return nil, nil, ErrInvalidResponse
+	if !sort.SliceIsSorted(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name }) {
+		return nil, nil, ErrInvalidResponseEntriesNotSorted
+	}
+	if !sort.StringsAreSorted(subPaths) {
+		return nil, nil, ErrInvalidResponseSubPathsNotSorted
 	}
 
 	return entries, subPaths, nil
