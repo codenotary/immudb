@@ -94,7 +94,8 @@ func TestCreateRemoteStorage(t *testing.T) {
 	// Set remote storage options
 	s.WithOptions(DefaultOptions().WithRemoteStorageOptions(
 		DefaultRemoteStorageOptions().
-			WithS3Storage(true),
+			WithS3Storage(true).
+			WithS3BucketName("bucket"),
 	))
 
 	storage, err = s.createRemoteStorageInstance()
