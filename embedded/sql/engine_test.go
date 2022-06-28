@@ -413,8 +413,8 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 
 		require.True(t, tx.Timestamp().After(currentTs))
 
-		for i := 1; i < 10; i++ {
-			_, _, err = engine.Exec("INSERT INTO tx_timestamp(ts) VALUES(NOW())", nil, tx)
+		for i := 0; i < 5; i++ {
+			_, _, err = engine.Exec("INSERT INTO tx_timestamp(ts) VALUES (NOW()), (NOW())", nil, tx)
 			require.NoError(t, err)
 		}
 
@@ -425,7 +425,7 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		require.NoError(t, err)
 		defer r.Close()
 
-		for i := 1; i < 10; i++ {
+		for i := 0; i < 10; i++ {
 			row, err := r.Read()
 			require.NoError(t, err)
 			require.EqualValues(t, tx.Timestamp().UTC(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
