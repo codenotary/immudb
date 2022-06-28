@@ -246,6 +246,10 @@ func (sqlTx *SQLTx) Database() *Database {
 	return sqlTx.currentDB
 }
 
+func (sqlTx *SQLTx) Timestamp() time.Time {
+	return sqlTx.tx.Timestamp()
+}
+
 func (sqlTx *SQLTx) UpdatedRows() int {
 	return sqlTx.updatedRows
 }
@@ -1145,7 +1149,6 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		return nil, nil, stmts, ErrIllegalArguments
 	}
 
-	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
 	if err != nil {
 		return nil, nil, stmts, err
@@ -1269,7 +1272,6 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 		}()
 	}
 
-	// TODO: eval params at once
 	nparams, err := normalizeParams(params)
 	if err != nil {
 		return nil, err
