@@ -50,11 +50,14 @@ type Storage struct {
 }
 
 var (
-	ErrInvalidArguments            = errors.New("invalid arguments")
-	ErrInvalidArgumentsOffsSize    = fmt.Errorf("%w: negative offset or zero size", ErrInvalidArguments)
-	ErrInvalidArgumentsNameSlash   = fmt.Errorf("%w: name can not start or end with /", ErrInvalidArguments)
-	ErrInvalidArgumentsBucketSlash = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
-	ErrInvalidArgumentsBucketEmpty = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
+	ErrInvalidArguments               = errors.New("invalid arguments")
+	ErrInvalidArgumentsOffsSize       = fmt.Errorf("%w: negative offset or zero size", ErrInvalidArguments)
+	ErrInvalidArgumentsNameStartSlash = fmt.Errorf("%w: name can not start with /", ErrInvalidArguments)
+	ErrInvalidArgumentsNameEndSlash   = fmt.Errorf("%w: name can not end with /", ErrInvalidArguments)
+	ErrInvalidArgumentsInvalidName    = fmt.Errorf("%w: invalid name", ErrInvalidArguments)
+	ErrInvalidArgumentsPathNoEndSlash = fmt.Errorf("%w: path must end with /", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketSlash    = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketEmpty    = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
 
 	ErrInvalidResponse                     = errors.New("invalid response code")
 	ErrInvalidResponseXmlDecodeError       = fmt.Errorf("%w: xml decode error", ErrInvalidResponse)
@@ -306,13 +309,36 @@ func (s *Storage) s3SignedRequestV2(
 	return req, nil
 }
 
+func (s *Storage) validateName(name string, isFolder bool) error {
+	if strings.HasPrefix(name, "/") {
+		return ErrInvalidArgumentsNameStartSlash
+	}
+	if isFolder && !strings.HasSuffix(name, "/") {
+		// The path must end with `/` so that we don't match entries in parent directory with same prefix name
+		// e.g. when scanning /some/entry directory it must not match /some/entry-file object name.
+		// That's because in s3, the scan is prefix-based without clear notion of directories
+		return ErrInvalidArgumentsPathNoEndSlash
+	}
+	if !isFolder && strings.HasSuffix(name, "/") {
+		return ErrInvalidArgumentsNameEndSlash
+	}
+	if strings.Contains(name, "//") {
+		return ErrInvalidArgumentsInvalidName
+	}
+	if strings.Contains("/"+name, "/./") || strings.Contains("/"+name, "/../") {
+		return ErrInvalidArgumentsInvalidName
+	}
+	return nil
+}
+
 // Get opens a remote s3 resource
 func (s *Storage) Get(ctx context.Context, name string, offs, size int64) (io.ReadCloser, error) {
 	if offs < 0 || size == 0 {
 		return nil, ErrInvalidArgumentsOffsSize
 	}
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return nil, ErrInvalidArgumentsNameSlash
+	err := s.validateName(name, false)
+	if err != nil {
+		return nil, err
 	}
 
 	url, err := s.originalRequestURL(name)
@@ -457,8 +483,9 @@ func (s *Storage) parseRedirect(req *http.Request, resp *http.Response) (string,
 
 // Put writes a remote s3 resource
 func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return ErrInvalidArgumentsNameSlash
+	err := s.validateName(name, false)
+	if err != nil {
+		return err
 	}
 
 	// S3 is using 307 redirects that must preserve POST body,
@@ -512,6 +539,11 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 // Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
+	err := s.validateName(name, false)
+	if err != nil {
+		return false, err
+	}
+
 	entries, _, err := s.scanObjectNames(ctx, name, 1)
 	if err != nil {
 		return false, err
@@ -530,23 +562,15 @@ func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage.EntryInfo, []string, error) {
-	// The path must end with `/` so that we don't match entries in parent directory with same prefix name
-	// e.g. when scanning /some/entry directory it must not match /some/entry-file object name.
-	// That's because in s3, the scan is prefix-based without clear notion of directories
-	if path != "" && !strings.HasSuffix(path, "/") {
-		return nil, nil, ErrInvalidArguments
+	err := s.validateName(path, true)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return s.scanObjectNames(ctx, path, 0)
 }
 
 func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int) ([]remotestorage.EntryInfo, []string, error) {
-
-	// Double delimiter character ('//') is invalid anywhere in the path
-	if strings.Contains(prefix, "//") {
-		return nil, nil, ErrInvalidArguments
-	}
-
 	prefix = s.prefix + prefix
 
 	baseUrl, err := s.originalRequestURL("")
@@ -606,6 +630,11 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 
 			if !strings.HasPrefix(objectName, prefix) {
 				return nil, nil, ErrInvalidResponseEntryNameWrongPrefix
+			}
+
+			err = s.validateName(objectName, false)
+			if err != nil {
+				return nil, nil, ErrInvalidResponseEntryNameMalicious
 			}
 
 			objectName = strings.TrimPrefix(objectName, prefix)

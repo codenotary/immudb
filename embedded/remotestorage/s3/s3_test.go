@@ -44,6 +44,34 @@ func TestOpen(t *testing.T) {
 	require.Equal(t, "s3:http://localhost:9000/immudb/prefix/", s.String())
 }
 
+func TestValidateName(t *testing.T) {
+	for _, d := range []struct {
+		name     string
+		isFolder bool
+		err      error
+	}{
+		{"test", false, nil},
+		{"test/", true, nil},
+		{"test/name", false, nil},
+		{"test/name/", true, nil},
+		{"/test", false, ErrInvalidArgumentsNameStartSlash},
+		{"/test", true, ErrInvalidArgumentsNameStartSlash},
+		{"test/", false, ErrInvalidArgumentsNameEndSlash},
+		{"test", true, ErrInvalidArgumentsPathNoEndSlash},
+		{"test//name", false, ErrInvalidArgumentsInvalidName},
+		{"test/./name", false, ErrInvalidArgumentsInvalidName},
+		{"test/../test", false, ErrInvalidArgumentsInvalidName},
+		{"./test", false, ErrInvalidArgumentsInvalidName},
+		{"../test", false, ErrInvalidArgumentsInvalidName},
+	} {
+		t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+			s := Storage{}
+			err := s.validateName(d.name, d.isFolder)
+			require.ErrorIs(t, err, d.err)
+		})
+	}
+}
+
 func TestCornerCases(t *testing.T) {
 	t.Run("bucket name can not be empty", func(t *testing.T) {
 		s, err := Open(
@@ -121,7 +149,7 @@ func TestCornerCases(t *testing.T) {
 		require.Equal(t, "s3(misconfigured)", s.String())
 	})
 
-	t.Run("invalid get / put path", func(t *testing.T) {
+	t.Run("invalid get / put / exists path", func(t *testing.T) {
 		s, err := Open(
 			"htts://localhost:9000",
 			"minioadmin",
@@ -134,19 +162,15 @@ func TestCornerCases(t *testing.T) {
 
 		_, err = s.Get(context.Background(), "/file", 0, -1)
 		require.ErrorIs(t, err, ErrInvalidArguments)
-		require.ErrorIs(t, err, ErrInvalidArgumentsNameSlash)
-
-		_, err = s.Get(context.Background(), "file/", 0, -1)
-		require.ErrorIs(t, err, ErrInvalidArguments)
-		require.ErrorIs(t, err, ErrInvalidArgumentsNameSlash)
+		require.ErrorIs(t, err, ErrInvalidArgumentsNameStartSlash)
 
 		err = s.Put(context.Background(), "/file", "/tmp/test.txt")
 		require.ErrorIs(t, err, ErrInvalidArguments)
-		require.ErrorIs(t, err, ErrInvalidArgumentsNameSlash)
+		require.ErrorIs(t, err, ErrInvalidArgumentsNameStartSlash)
 
-		err = s.Put(context.Background(), "file/", "/tmp/test.txt")
+		_, err = s.Exists(context.Background(), "/file")
 		require.ErrorIs(t, err, ErrInvalidArguments)
-		require.ErrorIs(t, err, ErrInvalidArgumentsNameSlash)
+		require.ErrorIs(t, err, ErrInvalidArgumentsNameStartSlash)
 	})
 
 	t.Run("invalid get offset / size", func(t *testing.T) {
@@ -620,23 +644,63 @@ func TestListEntries(t *testing.T) {
 
 		case "path13/":
 			w.Write([]byte(`
-			<?xml version="1.0" encoding="UTF-8"?>
-			<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-				<IsTruncated>false</IsTruncated>
-				<Contents>
-					<Key>path13%2FExampleObject1.txt</Key>
-				</Contents>
-				<Contents>
-					<Key>path13%2FExampleObject2.txt</Key>
-				</Contents>
-				<CommonPrefixes>
-					<Prefix>path13%2Fphotos1%2F</Prefix>
-				</CommonPrefixes>
-				<CommonPrefixes>
-					<Prefix>path13%2Fphotos2%2F</Prefix>
-				</CommonPrefixes>
-			</ListBucketResult>
-		`))
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path13%2FExampleObject1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path13%2FExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path13%2Fphotos1%2F</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path13%2Fphotos2%2F</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path14/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path14//ExampleObject1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path14/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path14/photos1/</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path14/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path15/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path15/Example/Object1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path15/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path14/photos1/</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path14/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
 
 		default:
 			require.Fail(t, "Invalid request")
@@ -733,4 +797,13 @@ func TestListEntries(t *testing.T) {
 		require.Equal(t, []string{"photos1", "photos2"}, subPaths)
 	})
 
+	t.Run("detect malicious object names", func(t *testing.T) {
+		_, _, err := s.ListEntries(ctx, "path14/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseEntryNameMalicious)
+
+		_, _, err = s.ListEntries(ctx, "path15/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseEntryNameMalicious)
+	})
 }
