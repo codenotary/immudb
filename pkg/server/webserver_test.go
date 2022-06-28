@@ -18,11 +18,12 @@ package server
 
 import (
 	"crypto/tls"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStartWebServerHTTP(t *testing.T) {
@@ -48,7 +49,7 @@ func TestStartWebServerHTTP(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		_, err = client.Get("http://0.0.0.0:8080")
 		return err == nil
-	}, 1*time.Second, 30*time.Millisecond)
+	}, 10*time.Second, 30*time.Millisecond)
 }
 
 func TestStartWebServerHTTPS(t *testing.T) {
