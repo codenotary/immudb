@@ -91,5 +91,5 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	assert.Eventually(t, func() bool {
 		_, err = client.Get("https://0.0.0.0:8080")
 		return err == nil
-	}, 1*time.Second, 30*time.Millisecond)
+	}, 10*time.Second, 30*time.Millisecond)
 }
