@@ -56,13 +56,17 @@ var (
 	ErrInvalidArgumentsBucketSlash = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
 	ErrInvalidArgumentsBucketEmpty = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
 
-	ErrInvalidResponse                    = errors.New("invalid response code")
-	ErrInvalidResponseXmlDecodeError      = fmt.Errorf("%w: xml decode error", ErrInvalidResponse)
-	ErrInvalidResponseEntriesNotSorted    = fmt.Errorf("%w: entries are not sorted", ErrInvalidResponse)
-	ErrInvalidResponseSubPathsNotSorted   = fmt.Errorf("%w: sub-paths are not sorted", ErrInvalidResponse)
-	ErrInvalidResponseSubPathsWrongPrefix = fmt.Errorf("%w: sub-paths do not have correct prefix", ErrInvalidResponse)
-	ErrInvalidResponseSubPathsWrongSuffix = fmt.Errorf("%w: sub-paths do end with '/' suffix", ErrInvalidResponse)
-	ErrInvalidResponseSubPathMalicious    = fmt.Errorf("%w: sub-paths contain invalid characters", ErrInvalidResponse)
+	ErrInvalidResponse                     = errors.New("invalid response code")
+	ErrInvalidResponseXmlDecodeError       = fmt.Errorf("%w: xml decode error", ErrInvalidResponse)
+	ErrInvalidResponseEntriesNotSorted     = fmt.Errorf("%w: entries are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameWrongPrefix = fmt.Errorf("%w: entry do not have correct prefix", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameMalicious   = fmt.Errorf("%w: entry name contains invalid characters", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameUnescape    = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsNotSorted    = fmt.Errorf("%w: sub-paths are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongPrefix  = fmt.Errorf("%w: sub-paths do not have correct prefix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongSuffix  = fmt.Errorf("%w: sub-paths do end with '/' suffix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathMalicious     = fmt.Errorf("%w: sub-paths contain invalid characters", ErrInvalidResponse)
+	ErrInvalidResponseSubPathUnescape      = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
 
 	ErrTooManyRedirects = errors.New("too many redirects")
 )
@@ -558,6 +562,7 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 	urlValues.Set("encoding-type", "url")
 	urlValues.Set("delimiter", "/")
 	urlValues.Set("prefix", prefix)
+	urlValues.Set("encoding-type", "url")
 
 	if limit > 0 {
 		urlValues.Set("max-keys", strconv.Itoa(limit))
@@ -594,20 +599,39 @@ func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int)
 		}
 
 		for _, object := range respParsed.Contents {
+			objectName, err := url.QueryUnescape(object.Key)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseEntryNameUnescape, err)
+			}
+
+			if !strings.HasPrefix(objectName, prefix) {
+				return nil, nil, ErrInvalidResponseEntryNameWrongPrefix
+			}
+
+			objectName = strings.TrimPrefix(objectName, prefix)
+			if strings.Contains(objectName, "/") {
+				return nil, nil, ErrInvalidResponseEntryNameMalicious
+			}
+
 			entries = append(entries, remotestorage.EntryInfo{
-				Name: strings.TrimPrefix(object.Key, prefix),
+				Name: strings.TrimPrefix(objectName, prefix),
 				Size: object.Size,
 			})
 		}
 		for _, subPath := range respParsed.CommonPrefixes {
-			if !strings.HasPrefix(subPath.Prefix, prefix) {
+			subPathPrefix, err := url.QueryUnescape(subPath.Prefix)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseSubPathUnescape, err)
+			}
+
+			if !strings.HasPrefix(subPathPrefix, prefix) {
 				return nil, nil, ErrInvalidResponseSubPathsWrongPrefix
 			}
-			if !strings.HasSuffix(subPath.Prefix, "/") {
+			if !strings.HasSuffix(subPathPrefix, "/") {
 				return nil, nil, ErrInvalidResponseSubPathsWrongSuffix
 			}
 
-			p := subPath.Prefix[len(prefix) : len(subPath.Prefix)-1]
+			p := subPathPrefix[len(prefix) : len(subPathPrefix)-1]
 			if p == "." || p == ".." || strings.ContainsAny(p, "\\/:") {
 				// Avoid exploitation by a malicious server
 				return nil, nil, ErrInvalidResponseSubPathMalicious
