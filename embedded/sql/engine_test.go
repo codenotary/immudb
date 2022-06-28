@@ -386,6 +386,55 @@ func TestTimestampCasts(t *testing.T) {
 
 }
 
+func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
+	defer os.RemoveAll("tx_timestamp")
+
+	st, err := store.Open("tx_timestamp", store.DefaultOptions())
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	currentTs := time.Now()
+
+	for it := 0; it < 3; it++ {
+		tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		require.True(t, tx.Timestamp().After(currentTs))
+
+		for i := 1; i < 10; i++ {
+			_, _, err = engine.Exec("INSERT INTO tx_timestamp(ts) VALUES(NOW())", nil, tx)
+			require.NoError(t, err)
+		}
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT * FROM tx_timestamp WHERE ts = @ts", map[string]interface{}{"ts": tx.Timestamp()}, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		for i := 1; i < 10; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.EqualValues(t, tx.Timestamp().UTC(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
+		}
+
+		currentTs = tx.Timestamp()
+	}
+}
+
 func TestAddColumn(t *testing.T) {
 	defer os.RemoveAll("sqldata_add_column")
 
