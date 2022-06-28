@@ -374,10 +374,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path1/ExampleObject1.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path1/ExampleObject2.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>path1/photos1/</Prefix>
@@ -399,10 +399,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path3/ExampleObject2.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path3/ExampleObject1.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>path3/photos1/</Prefix>
@@ -419,10 +419,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path4/ExampleObject1.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path4/ExampleObject2.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>path4/photos2/</Prefix>
@@ -439,10 +439,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path5/ExampleObject1.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path5/ExampleObject2.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>invalid-prefix/photos1/</Prefix>
@@ -459,10 +459,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path6/ExampleObject1.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path6/ExampleObject2.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>path6/photos1</Prefix>
@@ -479,10 +479,10 @@ func TestListEntries(t *testing.T) {
 				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 					<IsTruncated>false</IsTruncated>
 					<Contents>
-						<Key>ExampleObject1.txt</Key>
+						<Key>path7/ExampleObject1.txt</Key>
 					</Contents>
 					<Contents>
-						<Key>ExampleObject2.txt</Key>
+						<Key>path7/ExampleObject2.txt</Key>
 					</Contents>
 					<CommonPrefixes>
 						<Prefix>path7/photos1/</Prefix>
@@ -502,10 +502,10 @@ func TestListEntries(t *testing.T) {
 						<IsTruncated>true</IsTruncated>
 						<NextContinuationToken>cont-token</NextContinuationToken>
 						<Contents>
-							<Key>ExampleObject1.txt</Key>
+							<Key>path8/ExampleObject1.txt</Key>
 						</Contents>
 						<Contents>
-							<Key>ExampleObject2.txt</Key>
+							<Key>path8/ExampleObject2.txt</Key>
 						</Contents>
 						<CommonPrefixes>
 							<Prefix>path8/photos1/</Prefix>
@@ -521,10 +521,10 @@ func TestListEntries(t *testing.T) {
 					<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 						<IsTruncated>false</IsTruncated>
 						<Contents>
-							<Key>ExampleObject3.txt</Key>
+							<Key>path8/ExampleObject3.txt</Key>
 						</Contents>
 						<Contents>
-							<Key>ExampleObject4.txt</Key>
+							<Key>path8/ExampleObject4.txt</Key>
 						</Contents>
 						<CommonPrefixes>
 							<Prefix>path8/photos3/</Prefix>
@@ -537,6 +537,106 @@ func TestListEntries(t *testing.T) {
 			default:
 				require.Fail(t, "invalid continuation token")
 			}
+
+		case "path9/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>ExampleObject1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path9/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path9/photos1/</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path9/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path10/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path10/sub/ExampleObject1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path10/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path10/photos1/</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path10/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path11/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path11/ExampleObject1.txt%</Key>
+					</Contents>
+					<Contents>
+						<Key>path11/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path11/photos1/</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path11/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path12/":
+			w.Write([]byte(`
+				<?xml version="1.0" encoding="UTF-8"?>
+				<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+					<IsTruncated>false</IsTruncated>
+					<Contents>
+						<Key>path12/ExampleObject1.txt</Key>
+					</Contents>
+					<Contents>
+						<Key>path12/ExampleObject2.txt</Key>
+					</Contents>
+					<CommonPrefixes>
+						<Prefix>path12/photos1/%</Prefix>
+					</CommonPrefixes>
+					<CommonPrefixes>
+						<Prefix>path12/photos2/</Prefix>
+					</CommonPrefixes>
+				</ListBucketResult>
+			`))
+
+		case "path13/":
+			w.Write([]byte(`
+			<?xml version="1.0" encoding="UTF-8"?>
+			<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+				<IsTruncated>false</IsTruncated>
+				<Contents>
+					<Key>path13%2FExampleObject1.txt</Key>
+				</Contents>
+				<Contents>
+					<Key>path13%2FExampleObject2.txt</Key>
+				</Contents>
+				<CommonPrefixes>
+					<Prefix>path13%2Fphotos1%2F</Prefix>
+				</CommonPrefixes>
+				<CommonPrefixes>
+					<Prefix>path13%2Fphotos2%2F</Prefix>
+				</CommonPrefixes>
+			</ListBucketResult>
+		`))
 
 		default:
 			require.Fail(t, "Invalid request")
@@ -598,6 +698,39 @@ func TestListEntries(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, entries, 4)
 		require.Len(t, subPaths, 4)
+	})
+
+	t.Run("entry name does not start with prefix", func(t *testing.T) {
+		_, _, err := s.ListEntries(ctx, "path9/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseEntryNameWrongPrefix)
+	})
+
+	t.Run("entry name contains / character", func(t *testing.T) {
+		_, _, err := s.ListEntries(ctx, "path10/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseEntryNameMalicious)
+	})
+
+	t.Run("entry name not correctly url encoded", func(t *testing.T) {
+		_, _, err := s.ListEntries(ctx, "path11/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseEntryNameUnescape)
+	})
+
+	t.Run("subpath not correctly url encoded", func(t *testing.T) {
+		_, _, err := s.ListEntries(ctx, "path12/")
+		require.ErrorIs(t, err, ErrInvalidResponse)
+		require.ErrorIs(t, err, ErrInvalidResponseSubPathUnescape)
+	})
+
+	t.Run("correctly handle url encoded entry names", func(t *testing.T) {
+		entries, subPaths, err := s.ListEntries(ctx, "path13/")
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		require.Len(t, subPaths, 2)
+		require.Equal(t, "ExampleObject1.txt", entries[0].Name)
+		require.Equal(t, []string{"photos1", "photos2"}, subPaths)
 	})
 
 }
