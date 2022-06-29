@@ -313,10 +313,10 @@ func (s *Storage) validateName(name string, isFolder bool) error {
 	if strings.HasPrefix(name, "/") {
 		return ErrInvalidArgumentsNameStartSlash
 	}
-	if isFolder && !strings.HasSuffix(name, "/") {
+	if isFolder && name != "" && !strings.HasSuffix(name, "/") {
 		// The path must end with `/` so that we don't match entries in parent directory with same prefix name
 		// e.g. when scanning /some/entry directory it must not match /some/entry-file object name.
-		// That's because in s3, the scan is prefix-based without clear notion of directories
+		// That's because in s3, the scan is prefix-based without clear notion of directories.
 		return ErrInvalidArgumentsPathNoEndSlash
 	}
 	if !isFolder && strings.HasSuffix(name, "/") {

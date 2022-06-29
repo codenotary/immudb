@@ -50,6 +50,8 @@ func TestValidateName(t *testing.T) {
 		isFolder bool
 		err      error
 	}{
+		{"", false, nil},
+		{"", true, nil},
 		{"test", false, nil},
 		{"test/", true, nil},
 		{"test/name", false, nil},
