@@ -34,13 +34,13 @@ func TestOptions(t *testing.T) {
 		op.GetSystemAdminDBName() != SystemDBName ||
 		op.Detached != false ||
 		op.DevMode != false ||
-		op.MetricsServer != true ||
 		op.NoHistograms != false ||
 		op.AdminPassword != auth.SysAdminPassword ||
 		op.Address != "0.0.0.0" ||
 		op.Network != "tcp" ||
 		op.Port != 3322 ||
-		op.MetricsPort != 9497 ||
+		op.MetricsServer != true ||
+		op.MetricsServerPort != 9497 ||
 		op.Config != "configs/immudb.toml" ||
 		op.Pidfile != "" ||
 		op.StreamChunkSize != stream.DefaultChunkSize ||
