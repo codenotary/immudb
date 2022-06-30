@@ -408,6 +408,8 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 	currentTs := time.Now()
 
 	for it := 0; it < 3; it++ {
+		time.Sleep(1 * time.Microsecond)
+
 		tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
 		require.NoError(t, err)
 
@@ -435,8 +437,6 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		currentTs = tx.Timestamp()
-
-		time.Sleep(1 * time.Microsecond)
 	}
 }
 
