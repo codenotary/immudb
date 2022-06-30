@@ -41,6 +41,7 @@ func TestOpen(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, s)
+	require.Equal(t, "s3", s.Kind())
 	require.Equal(t, "s3:http://localhost:9000/immudb/prefix/", s.String())
 }
 

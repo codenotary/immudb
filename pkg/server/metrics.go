@@ -55,6 +55,8 @@ type MetricsCollection struct {
 
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
+
+	RemoteStorageKind *prometheus.GaugeVec
 }
 
 var metricsNamespace = "immudb"
@@ -140,6 +142,14 @@ var Metrics = MetricsCollection{
 			Help:      "Timestamp at which clients have sent their most recent message.",
 		},
 		[]string{"ip"},
+	),
+	RemoteStorageKind: promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "remote_storage_kind",
+			Help:      "Set to 1 for remote storage kind for given database",
+		},
+		[]string{"db", "kind"},
 	),
 }
 

@@ -120,6 +120,10 @@ func Open(
 	}, nil
 }
 
+func (s *Storage) Kind() string {
+	return "s3"
+}
+
 func (s *Storage) String() string {
 	url, err := s.originalRequestURL("")
 	if err != nil {

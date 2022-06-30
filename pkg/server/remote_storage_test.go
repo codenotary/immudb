@@ -43,6 +43,10 @@ type remoteStorageMockingWrapper struct {
 	fnListEntries func(ctx context.Context, path string, next func() (entries []remotestorage.EntryInfo, subPaths []string, err error)) (entries []remotestorage.EntryInfo, subPaths []string, err error)
 }
 
+func (r *remoteStorageMockingWrapper) Kind() string {
+	return r.wrapped.Kind()
+}
+
 func (r *remoteStorageMockingWrapper) String() string {
 	return r.wrapped.String()
 }

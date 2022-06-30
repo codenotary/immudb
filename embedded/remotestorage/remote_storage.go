@@ -31,6 +31,9 @@ type EntryInfo struct {
 }
 
 type Storage interface {
+	// Kind returns the kind of remote storage, e.g. `s3`
+	Kind() string
+
 	// String returns a human-readable representation of the storage
 	String() string
 
