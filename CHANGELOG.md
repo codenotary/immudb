@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.3.1"></a>
+## [v1.3.1] - 2022-06-30
+### Bug Fixes
+- **embedded/store:** filter evaluation after valRef resolution
+
+### Changes
+- **embedded/store:** offset handling at keyreader
+
+### Features
+- **embedded/sql:** offset clause
+- **embedded/store:** offset in key scanning
+- **pkg/api:** offset attribute in scan and zscan endpoints
+
+
 <a name="v1.3.1-RC1"></a>
 ## [v1.3.1-RC1] - 2022-06-30
 ### Bug Fixes
@@ -2787,7 +2801,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.3.1-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.3.1...HEAD
+[v1.3.1]: https://github.com/vchain-us/immudb/compare/v1.3.1-RC1...v1.3.1
 [v1.3.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.0...v1.3.1-RC1
 [v1.3.0]: https://github.com/vchain-us/immudb/compare/v1.3.0-RC1...v1.3.0
 [v1.3.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.2.4...v1.3.0-RC1
