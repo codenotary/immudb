@@ -136,7 +136,7 @@ func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 }
 
 func (tx *OngoingTx) Timestamp() time.Time {
-	return tx.ts
+	return tx.ts.Truncate(time.Microsecond).UTC()
 }
 
 func (tx *OngoingTx) Metadata() *TxMetadata {

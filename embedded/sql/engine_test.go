@@ -428,10 +428,15 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			row, err := r.Read()
 			require.NoError(t, err)
-			require.EqualValues(t, tx.Timestamp().UTC(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
+			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
 		}
 
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
 		currentTs = tx.Timestamp()
+
+		time.Sleep(1 * time.Microsecond)
 	}
 }
 

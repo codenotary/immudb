@@ -1820,7 +1820,7 @@ func (v *FnCall) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (
 		if len(v.params) > 0 {
 			return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, NowFnCall, len(v.params))
 		}
-		return &Timestamp{val: tx.Timestamp().UTC()}, nil
+		return &Timestamp{val: tx.Timestamp().Truncate(time.Microsecond).UTC()}, nil
 	}
 
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
@@ -1853,7 +1853,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				if val.Value() == nil {
 					return &NullValue{t: TimestampType}, nil
 				}
-				return &Timestamp{val: time.Unix(val.Value().(int64), 0).UTC()}, nil
+				return &Timestamp{val: time.Unix(val.Value().(int64), 0).Truncate(time.Microsecond).UTC()}, nil
 			}, nil
 		}
 
@@ -1871,7 +1871,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				} {
 					t, err := time.ParseInLocation(layout, str, time.UTC)
 					if err == nil {
-						return &Timestamp{val: t.UTC()}, nil
+						return &Timestamp{val: t.Truncate(time.Microsecond).UTC()}, nil
 					}
 				}
 
@@ -2029,7 +2029,7 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case time.Time:
 		{
-			return &Timestamp{val: v}, nil
+			return &Timestamp{val: v.Truncate(time.Microsecond).UTC()}, nil
 		}
 	}
 
