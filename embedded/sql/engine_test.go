@@ -5402,6 +5402,88 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 	}
 }
 
+func TestTemporalQueriesDeletedRows(t *testing.T) {
+	defer os.RemoveAll("temporal_queries_deleted_rows")
+
+	st, err := store.Open("temporal_queries_deleted_rows", store.DefaultOptions())
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		_, tx1, err := engine.Exec(
+			"INSERT INTO table1(id, title) VALUES(@id, @title)",
+			map[string]interface{}{
+				"id":    i,
+				"title": fmt.Sprintf("title%d", i),
+			},
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, tx1, 1)
+	}
+
+	_, tx2, err := engine.Exec("DELETE FROM table1 WHERE id = 5", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, tx2, 1)
+
+	// Update value that is topologically before the deleted entry when scanning primary index
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'updated_title2' WHERE id = 2", nil, nil)
+	require.NoError(t, err)
+
+	// Update value that is topologically after the deleted entry when scanning primary index
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'updated_title8' WHERE id = 8", nil, nil)
+	require.NoError(t, err)
+
+	// Reinsert deleted entry
+	_, tx3, err := engine.Exec("INSERT INTO table1(id, title) VALUES(5, 'title5')", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, tx3, 1)
+
+	// The sequence of operations is:
+	//       Crate table
+	//  tx1: INSERT id=0..9
+	//  tx2: DELETE id=5    \
+	//       UPDATE id=2     >- temporal query over the range
+	//       UPDATE id=8    /
+	//  tx3: INSERT id=5
+
+	res, err := engine.Query(
+		"SELECT id FROM table1 SINCE TX @since BEFORE TX @before",
+		map[string]interface{}{
+			"since":  tx2[0].txHeader.ID,
+			"before": tx3[0].txHeader.ID,
+		},
+		nil,
+	)
+	require.NoError(t, err)
+
+	row, err := res.Read()
+	require.NoError(t, err)
+	require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+	require.EqualValues(t, 8, row.ValuesByPosition[0].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = res.Close()
+	require.NoError(t, err)
+}
+
 func TestMultiDBCatalogQueries(t *testing.T) {
 	defer os.RemoveAll("multidb_catalog_queries")
 
