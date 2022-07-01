@@ -78,6 +78,7 @@ Add the files modified above to the git index:
 ```sh
 git add Makefile
 git add CHANGELOG.md
+git add helm/Chart.yaml
 git commit -m "release: vX.Y.Z"
 ```
 
@@ -97,7 +98,7 @@ Binaries and docker images are built automatically with github actions.
 
 ## 6. Create a draft pre-release in GitHub
 
-On GitHub, [draft a new release](https://github.com/vchain-us/immudb/releases),
+On GitHub, [draft a new release](https://github.com/codenotary/immudb/releases),
 attach all binaries built on github.
 Binaries will be available as a single compressed artifact from the `pushCI` action.
 Download it, decompress locally and upload as separate binary files.
