@@ -1786,6 +1786,66 @@ func TestGetAtRevision(t *testing.T) {
 	})
 }
 
+func TestRevisionGetConsistency(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	keyTx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+		Key:   []byte("key"),
+		Value: []byte("value"),
+	}}})
+	require.NoError(t, err)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+	})
+	require.NoError(t, err)
+
+	_, err = db.SetReference(&schema.ReferenceRequest{
+		Key:           []byte("reference"),
+		ReferencedKey: []byte("key"),
+		AtTx:          keyTx.Id,
+		BoundRef:      true,
+	})
+	require.NoError(t, err)
+
+	t.Run("get and scan should return consistent revision on direct entries", func(t *testing.T) {
+		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("key")})
+		require.NoError(t, err)
+
+		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("key")})
+		require.NoError(t, err)
+		require.Len(t, scanResults.Entries, 1)
+
+		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
+	})
+
+	t.Run("get and scan should return consistent revision on unbound references", func(t *testing.T) {
+		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference")})
+		require.NoError(t, err)
+
+		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference")})
+		require.NoError(t, err)
+		require.Len(t, scanResults.Entries, 1)
+
+		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
+		require.Equal(t, entryFromGet.ReferencedBy.Revision, scanResults.Entries[0].ReferencedBy.Revision)
+	})
+
+	t.Run("get and scan should return consistent revision on bound references", func(t *testing.T) {
+		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference")})
+		require.NoError(t, err)
+
+		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference")})
+		require.NoError(t, err)
+		require.Len(t, scanResults.Entries, 1)
+
+		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
+		require.Equal(t, entryFromGet.ReferencedBy.Revision, scanResults.Entries[0].ReferencedBy.Revision)
+	})
+}
+
 /*
 func TestReference(t *testing.T) {
 	db, closer := makeDb()
