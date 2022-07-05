@@ -223,6 +223,10 @@ func (s *ServerMock) History(ctx context.Context, req *schema.HistoryRequest) (*
 	return s.Srv.History(ctx, req)
 }
 
+func (s *ServerMock) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
+	return s.Srv.ServerInfo(ctx, req)
+}
+
 func (s *ServerMock) Health(ctx context.Context, req *empty.Empty) (*schema.HealthResponse, error) {
 	return s.Srv.Health(ctx, req)
 }
