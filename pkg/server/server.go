@@ -704,7 +704,7 @@ func (s *ImmuServer) ServerInfo(ctx context.Context, req *schema.ServerInfoReque
 
 // Health ...
 func (s *ImmuServer) Health(ctx context.Context, _ *empty.Empty) (*schema.HealthResponse, error) {
-	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%s", Version.Version)}, nil
+	return &schema.HealthResponse{Status: true, Version: Version.Version}, nil
 }
 
 func (s *ImmuServer) installShutdownHandler() {
