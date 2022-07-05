@@ -790,6 +790,15 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 }
 
+func testServerInfo(ctx context.Context, s *ImmuServer, t *testing.T) {
+	h, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
+	require.NoError(t, err)
+
+	if !h.GetStatus() {
+		t.Fatalf("ServerInfo, expected %v, got %v", true, h.GetStatus())
+	}
+}
+
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 	h, err := s.Health(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
@@ -1076,6 +1085,7 @@ func TestServerDbOperations(t *testing.T) {
 	testServerHistoryError(ctx, s, t)
 	testServerBySafeIndex(ctx, s, t)
 	testServerBySafeIndexError(ctx, s, t)
+	testServerInfo(ctx, s, t)
 	testServerHealth(ctx, s, t)
 	testServerHealthError(ctx, s, t)
 	testServerReference(ctx, s, t)
