@@ -88,6 +88,8 @@
     - [SQLValue](#immudb.schema.SQLValue)
     - [ScanRequest](#immudb.schema.ScanRequest)
     - [Score](#immudb.schema.Score)
+    - [ServerInfoRequest](#immudb.schema.ServerInfoRequest)
+    - [ServerInfoResponse](#immudb.schema.ServerInfoResponse)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
@@ -1546,6 +1548,32 @@
 
 
 
+<a name="immudb.schema.ServerInfoRequest"></a>
+
+### ServerInfoRequest
+
+
+
+
+
+
+
+<a name="immudb.schema.ServerInfoResponse"></a>
+
+### ServerInfoResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| status | [bool](#bool) |  |  |
+| version | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.SetActiveUserRequest"></a>
 
 ### SetActiveUserRequest
@@ -2261,6 +2289,7 @@ immudb gRPC &amp; REST service
 | VerifiableTxById | [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
 | History | [HistoryRequest](#immudb.schema.HistoryRequest) | [Entries](#immudb.schema.Entries) |  |
+| ServerInfo | [ServerInfoRequest](#immudb.schema.ServerInfoRequest) | [ServerInfoResponse](#immudb.schema.ServerInfoResponse) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
 | DatabaseHealth | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse) |  |
 | CurrentState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |

@@ -1491,6 +1491,29 @@
         ]
       }
     },
+    "/serverinfo": {
+      "get": {
+        "operationId": "ImmuService_ServerInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaServerInfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ],
+        "security": []
+      }
+    },
     "/user": {
       "post": {
         "operationId": "ImmuService_CreateUser",
@@ -2879,6 +2902,17 @@
         "score": {
           "type": "number",
           "format": "double"
+        }
+      }
+    },
+    "schemaServerInfoResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
         }
       }
     },

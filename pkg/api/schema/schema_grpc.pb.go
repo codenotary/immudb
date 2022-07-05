@@ -56,6 +56,7 @@ type ImmuServiceClient interface {
 	VerifiableTxById(ctx context.Context, in *VerifiableTxRequest, opts ...grpc.CallOption) (*VerifiableTx, error)
 	TxScan(ctx context.Context, in *TxScanRequest, opts ...grpc.CallOption) (*TxList, error)
 	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*Entries, error)
+	ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error)
 	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	DatabaseHealth(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error)
 	CurrentState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ImmutableState, error)
@@ -393,6 +394,15 @@ func (c *immuServiceClient) TxScan(ctx context.Context, in *TxScanRequest, opts 
 func (c *immuServiceClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*Entries, error) {
 	out := new(Entries)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/History", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error) {
+	out := new(ServerInfoResponse)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ServerInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1025,6 +1035,7 @@ type ImmuServiceServer interface {
 	VerifiableTxById(context.Context, *VerifiableTxRequest) (*VerifiableTx, error)
 	TxScan(context.Context, *TxScanRequest) (*TxList, error)
 	History(context.Context, *HistoryRequest) (*Entries, error)
+	ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error)
 	Health(context.Context, *empty.Empty) (*HealthResponse, error)
 	DatabaseHealth(context.Context, *empty.Empty) (*DatabaseHealthResponse, error)
 	CurrentState(context.Context, *empty.Empty) (*ImmutableState, error)
@@ -1173,6 +1184,9 @@ func (UnimplementedImmuServiceServer) TxScan(context.Context, *TxScanRequest) (*
 }
 func (UnimplementedImmuServiceServer) History(context.Context, *HistoryRequest) (*Entries, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method History not implemented")
+}
+func (UnimplementedImmuServiceServer) ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ServerInfo not implemented")
 }
 func (UnimplementedImmuServiceServer) Health(context.Context, *empty.Empty) (*HealthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
@@ -1854,6 +1868,24 @@ func _ImmuService_History_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).History(ctx, req.(*HistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_ServerInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServerInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).ServerInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/ServerInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).ServerInfo(ctx, req.(*ServerInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2722,6 +2754,10 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "History",
 			Handler:    _ImmuService_History_Handler,
+		},
+		{
+			MethodName: "ServerInfo",
+			Handler:    _ImmuService_ServerInfo_Handler,
 		},
 		{
 			MethodName: "Health",

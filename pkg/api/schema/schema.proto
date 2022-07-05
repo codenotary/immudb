@@ -321,6 +321,13 @@ message VerifiableGetRequest {
 	uint64 proveSinceTx = 2;
 }
 
+message ServerInfoRequest {}
+
+message ServerInfoResponse {
+	bool status = 1;
+	string version = 2;
+}
+
 message HealthResponse {
 	bool status = 1;
 	string version = 2;
@@ -958,6 +965,15 @@ service ImmuService {
 			post: "/db/history"
 			body: "*"
 		};
+	};
+
+	rpc ServerInfo (ServerInfoRequest) returns (ServerInfoResponse){
+		option (google.api.http) = {
+			get: "/serverinfo"
+		};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+			security: {} // no security
+		}; 
 	};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
