@@ -1456,20 +1456,21 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		proof.ConsistencyProof = binConsistencyProof
 	}
 
-	var targetBlTx *Tx
-
 	if targetTx.header.BlTxID > 0 {
-		targetBlTx, err = s.fetchAllocTx()
+		targetBlTx, err := s.fetchAllocTx()
 		if err != nil {
 			return nil, err
 		}
 
 		err = s.ReadTx(targetTx.header.BlTxID, targetBlTx)
 		if err != nil {
+			s.releaseAllocTx(targetBlTx)
 			return nil, err
 		}
 
 		proof.TargetBlTxAlh = targetBlTx.header.Alh()
+
+		s.releaseAllocTx(targetBlTx)
 
 		// Used to validate targetTx.BlRoot is calculated with alh@targetTx.BlTxID as last leaf
 		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.header.BlTxID, targetTx.header.BlTxID) // must match targetTx.BlRoot
@@ -1477,10 +1478,6 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			return nil, err
 		}
 		proof.LastInclusionProof = binLastInclusionProof
-	}
-
-	if targetBlTx != nil {
-		s.releaseAllocTx(targetBlTx)
 	}
 
 	lproof, err := s.LinearProof(maxUint64(sourceTx.header.ID, targetTx.header.BlTxID), targetTx.header.ID)
