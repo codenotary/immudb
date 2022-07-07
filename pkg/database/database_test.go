@@ -1790,60 +1790,81 @@ func TestRevisionGetConsistency(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	keyTx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
-		Key:   []byte("key"),
-		Value: []byte("value"),
-	}}})
-	require.NoError(t, err)
+	var keyTxId uint64
 
-	_, err = db.SetReference(&schema.ReferenceRequest{
-		Key:           []byte("reference"),
-		ReferencedKey: []byte("key"),
-	})
-	require.NoError(t, err)
+	// Repeat the test for different revision numbers
+	for i := 0; i < 10; i++ {
 
-	_, err = db.SetReference(&schema.ReferenceRequest{
-		Key:           []byte("reference"),
-		ReferencedKey: []byte("key"),
-		AtTx:          keyTx.Id,
-		BoundRef:      true,
-	})
-	require.NoError(t, err)
-
-	t.Run("get and scan should return consistent revision on direct entries", func(t *testing.T) {
-		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("key")})
+		keyTx, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+			Key:   []byte("key"),
+			Value: []byte(fmt.Sprintf("value_%d", i)),
+		}}})
 		require.NoError(t, err)
 
-		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("key")})
-		require.NoError(t, err)
-		require.Len(t, scanResults.Entries, 1)
+		if i == 0 {
+			keyTxId = keyTx.Id
+		}
 
-		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
-	})
-
-	t.Run("get and scan should return consistent revision on unbound references", func(t *testing.T) {
-		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference")})
-		require.NoError(t, err)
-
-		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference")})
-		require.NoError(t, err)
-		require.Len(t, scanResults.Entries, 1)
-
-		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
-		require.Equal(t, entryFromGet.ReferencedBy.Revision, scanResults.Entries[0].ReferencedBy.Revision)
-	})
-
-	t.Run("get and scan should return consistent revision on bound references", func(t *testing.T) {
-		entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference")})
+		_, err = db.SetReference(&schema.ReferenceRequest{
+			Key:           []byte("reference_unbound"),
+			ReferencedKey: []byte("key"),
+		})
 		require.NoError(t, err)
 
-		scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference")})
+		_, err = db.SetReference(&schema.ReferenceRequest{
+			Key:           []byte("reference_bound"),
+			ReferencedKey: []byte("key"),
+			AtTx:          keyTxId,
+			BoundRef:      true,
+		})
 		require.NoError(t, err)
-		require.Len(t, scanResults.Entries, 1)
 
-		require.Equal(t, entryFromGet.Revision, scanResults.Entries[0].Revision)
-		require.Equal(t, entryFromGet.ReferencedBy.Revision, scanResults.Entries[0].ReferencedBy.Revision)
-	})
+		t.Run("get and scan should return consistent revision on direct entries", func(t *testing.T) {
+			entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("key")})
+			require.NoError(t, err)
+
+			scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("key")})
+			require.NoError(t, err)
+			require.Len(t, scanResults.Entries, 1)
+
+			require.EqualValues(t, i+1, entryFromGet.Revision)
+			require.EqualValues(t, i+1, scanResults.Entries[0].Revision)
+		})
+
+		t.Run("get and scan should return consistent revision on unbound references", func(t *testing.T) {
+			entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference_unbound")})
+			require.NoError(t, err)
+			require.Equal(t, []byte(fmt.Sprintf("value_%d", i)), entryFromGet.Value)
+
+			scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference_unbound")})
+			require.NoError(t, err)
+			require.Len(t, scanResults.Entries, 1)
+			require.Equal(t, []byte(fmt.Sprintf("value_%d", i)), scanResults.Entries[0].Value)
+
+			require.EqualValues(t, i+1, entryFromGet.Revision)
+			require.EqualValues(t, i+1, scanResults.Entries[0].Revision)
+			require.EqualValues(t, i+1, entryFromGet.ReferencedBy.Revision)
+			require.EqualValues(t, i+1, scanResults.Entries[0].ReferencedBy.Revision)
+		})
+
+		t.Run("get and scan should return consistent revision on bound references", func(t *testing.T) {
+			entryFromGet, err := db.Get(&schema.KeyRequest{Key: []byte("reference_bound")})
+			require.NoError(t, err)
+			require.Equal(t, []byte("value_0"), entryFromGet.Value)
+
+			scanResults, err := db.Scan(&schema.ScanRequest{Prefix: []byte("reference_bound")})
+			require.NoError(t, err)
+			require.Len(t, scanResults.Entries, 1)
+			require.Equal(t, []byte("value_0"), scanResults.Entries[0].Value)
+
+			// Found references do not have revision value calculated
+			require.EqualValues(t, 0, entryFromGet.Revision)
+			require.EqualValues(t, 0, scanResults.Entries[0].Revision)
+
+			require.EqualValues(t, i+1, entryFromGet.ReferencedBy.Revision)
+			require.EqualValues(t, i+1, scanResults.Entries[0].ReferencedBy.Revision)
+		})
+	}
 }
 
 /*
