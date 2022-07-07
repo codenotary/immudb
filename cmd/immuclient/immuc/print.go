@@ -66,6 +66,10 @@ func PrintSetItem(set []byte, referencedkey []byte, score float64, txhdr *schema
 		verified)
 }
 
+func PrintServerInfo(resp *schema.ServerInfoResponse) string {
+	return fmt.Sprintf("version:	%s", resp.GetVersion())
+}
+
 func PrintHealth(res *schema.DatabaseHealthResponse) string {
 	return fmt.Sprintf("pendingRequests:		%d\nlastRequestCompletedAt:		%s\n", res.PendingRequests, time.Unix(0, res.LastRequestCompletedAt*int64(time.Millisecond)))
 }
