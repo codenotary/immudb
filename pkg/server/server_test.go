@@ -791,12 +791,8 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerInfo(ctx context.Context, s *ImmuServer, t *testing.T) {
-	h, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
+	_, err := s.ServerInfo(ctx, &schema.ServerInfoRequest{})
 	require.NoError(t, err)
-
-	if !h.GetStatus() {
-		t.Fatalf("ServerInfo, expected %v, got %v", true, h.GetStatus())
-	}
 }
 
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {

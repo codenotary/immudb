@@ -699,7 +699,7 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 // ServerInfo returns health and status information about the server instance.
 // ServerInfoRequest is defined for future extensions.
 func (s *ImmuServer) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
-	return &schema.ServerInfoResponse{Status: true, Version: version.Version}, nil
+	return &schema.ServerInfoResponse{Version: version.Version}, nil
 }
 
 // Health ...

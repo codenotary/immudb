@@ -1566,7 +1566,6 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| status | [bool](#bool) |  |  |
 | version | [string](#string) |  |  |
 
 

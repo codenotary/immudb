@@ -2908,9 +2908,6 @@
     "schemaServerInfoResponse": {
       "type": "object",
       "properties": {
-        "status": {
-          "type": "boolean"
-        },
         "version": {
           "type": "string"
         }

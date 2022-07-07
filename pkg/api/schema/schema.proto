@@ -324,8 +324,7 @@ message VerifiableGetRequest {
 message ServerInfoRequest {}
 
 message ServerInfoResponse {
-	bool status = 1;
-	string version = 2;
+	string version = 1;
 }
 
 message HealthResponse {
