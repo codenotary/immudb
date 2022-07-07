@@ -39,6 +39,7 @@ type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
 	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
+	ServerInfo(args []string) (string, error)
 	HealthCheck(args []string) (string, error)
 	DatabaseHealth(args []string) (string, error)
 	CurrentState(args []string) (string, error)

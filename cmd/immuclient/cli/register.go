@@ -61,6 +61,7 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"status", "", cli.healthCheck, nil, false})
 	cli.Register(&command{"history", "Fetch history for the item having the specified key", cli.history, []string{"key"}, false})
 	cli.Register(&command{"version", "Print version", cli.version, nil, false})
+	cli.Register(&command{"info", "Print server information", cli.serverInfo, nil, false})
 
 	// SQL
 	cli.Register(&command{"exec", "Executes sql statement", cli.sqlExec, []string{"statement"}, true})

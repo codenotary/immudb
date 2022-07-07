@@ -68,6 +68,7 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	cl.reference(rootCmd)
 	cl.safereference(rootCmd)
 	// misc
+	cl.serverInfo(rootCmd)
 	cl.consistency(rootCmd)
 	cl.history(rootCmd)
 	cl.status(rootCmd)
