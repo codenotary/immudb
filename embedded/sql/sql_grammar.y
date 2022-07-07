@@ -167,6 +167,11 @@ ddlstmt:
         $$ = &BeginTransactionStmt{}
     }
 |
+    BEGIN
+    {
+        $$ = &BeginTransactionStmt{}
+    }
+|
     COMMIT
     {
         $$ = &CommitStmt{}
