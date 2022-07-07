@@ -56,6 +56,8 @@ type ImmuServiceClient interface {
 	VerifiableTxById(ctx context.Context, in *VerifiableTxRequest, opts ...grpc.CallOption) (*VerifiableTx, error)
 	TxScan(ctx context.Context, in *TxScanRequest, opts ...grpc.CallOption) (*TxList, error)
 	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*Entries, error)
+	// ServerInfo returns information about the server instance.
+	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error)
 	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	DatabaseHealth(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error)
@@ -1035,6 +1037,8 @@ type ImmuServiceServer interface {
 	VerifiableTxById(context.Context, *VerifiableTxRequest) (*VerifiableTx, error)
 	TxScan(context.Context, *TxScanRequest) (*TxList, error)
 	History(context.Context, *HistoryRequest) (*Entries, error)
+	// ServerInfo returns information about the server instance.
+	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error)
 	Health(context.Context, *empty.Empty) (*HealthResponse, error)
 	DatabaseHealth(context.Context, *empty.Empty) (*DatabaseHealthResponse, error)

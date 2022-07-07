@@ -321,9 +321,12 @@ message VerifiableGetRequest {
 	uint64 proveSinceTx = 2;
 }
 
+// ServerInfoRequest exists to provide extensibility for rpc ServerInfo.
 message ServerInfoRequest {}
 
+// ServerInfoResponse contains information about the server instance.
 message ServerInfoResponse {
+	// The version of the server instance.
 	string version = 1;
 }
 
@@ -966,6 +969,8 @@ service ImmuService {
 		};
 	};
 
+	// ServerInfo returns information about the server instance.
+	// ServerInfoRequest is defined for future extensions.
 	rpc ServerInfo (ServerInfoRequest) returns (ServerInfoResponse){
 		option (google.api.http) = {
 			get: "/serverinfo"

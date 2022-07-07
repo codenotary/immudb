@@ -2976,6 +2976,7 @@ func (x *VerifiableGetRequest) GetProveSinceTx() uint64 {
 	return 0
 }
 
+// ServerInfoRequest exists to provide extensibility for rpc ServerInfo.
 type ServerInfoRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3014,11 +3015,13 @@ func (*ServerInfoRequest) Descriptor() ([]byte, []int) {
 	return file_schema_proto_rawDescGZIP(), []int{43}
 }
 
+// ServerInfoResponse contains information about the server instance.
 type ServerInfoResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// The version of the server instance.
 	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
 }
 
