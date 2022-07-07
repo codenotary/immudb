@@ -1304,7 +1304,7 @@ func TestTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(`
-		BEGIN TRANSACTION;
+		BEGIN;
 			CREATE INDEX ON table2(age);
 			INSERT INTO table2 (id, title, age) VALUES (1, 'title1', 40);
 		COMMIT;
