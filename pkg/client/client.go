@@ -114,6 +114,7 @@ type ImmuClient interface {
 	FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error)
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
+	ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error)
 	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
@@ -556,6 +557,14 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 
 	return nil
+}
+
+func (c *immuClient) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
+	if !c.IsConnected() {
+		return nil, errors.FromError(ErrNotConnected)
+	}
+
+	return c.ServiceClient.ServerInfo(ctx, req)
 }
 
 func (c *immuClient) Health(ctx context.Context) (*schema.DatabaseHealthResponse, error) {

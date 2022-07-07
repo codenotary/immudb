@@ -1375,6 +1375,31 @@ func TestImmuClient_GetOptions(t *testing.T) {
 	require.IsType(t, &ic.Options{}, op)
 }
 
+func TestImmuClient_ServerInfo(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
+
+	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	defer client.Disconnect()
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	resp, err := client.ServerInfo(ctx, &schema.ServerInfoRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, "", resp.Version)
+}
+
 func TestImmuClient_CurrentRoot(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
