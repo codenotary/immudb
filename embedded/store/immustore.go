@@ -370,7 +370,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
 		WithFileSize(fileSize).
-		WithSynced(opts.Synced) // built from derived data, but temporarily to reduce chances of data inconsistencies
+		WithSynced(false)
 
 	if opts.appFactory != nil {
 		ahtOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
