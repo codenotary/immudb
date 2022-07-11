@@ -124,7 +124,9 @@ build/codegen:
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
 	  --go_out=paths=source_relative:pkg/api/schema \
-	  --plugin=protoc-gen-go=$(PWD)/scripts/protoc-gen-go
+	  --go-grpc_out=require_unimplemented_servers=false,paths=source_relative:pkg/api/schema \
+	  --plugin=protoc-gen-go=$(PWD)/scripts/protoc-gen-go \
+	  --plugin=protoc-gen-go-grpc=$(PWD)/scripts/protoc-gen-go-grpc
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	  -I$(GOPATH)/pkg/mod \

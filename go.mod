@@ -50,11 +50,12 @@ require (
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
-	google.golang.org/genproto v0.0.0-20220324131243-acbaeb5b85eb
+	golang.org/x/net v0.0.0-20220708220712-1185a9018129
+	golang.org/x/sys v0.0.0-20220708085239-5a0f0661e09d
+	google.golang.org/genproto v0.0.0-20210828152312-66f60bf46e71
 	google.golang.org/grpc v1.46.2
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
+	google.golang.org/protobuf v1.28.0
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
