@@ -120,28 +120,28 @@ coverage:
 .PHONY: build/codegen
 build/codegen:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
-	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
+	  --go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
-  	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
+  	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
-  	--swagger_out=logtostderr=true:pkg/api/schema
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
+  	  --swagger_out=logtostderr=true:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I$(GOPATH)/pkg/mod \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
-	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
-	--doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
+	  -I$(GOPATH)/pkg/mod \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis \
+	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0 \
+	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md
 
 .PHONY: clean
 clean:
