@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+go run github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc

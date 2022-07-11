@@ -123,25 +123,29 @@ build/codegen:
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --go_out=paths=source_relative:pkg/api/schema
+	  --go_out=paths=source_relative:pkg/api/schema \
+	  --plugin=protoc-gen-go=$(PWD)/scripts/protoc-gen-go
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-  	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema
+	  --grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
+	  --plugin=protoc-gen-grpc-gateway=$(PWD)/scripts/protoc-gen-grpc-gateway
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-  	  --swagger_out=logtostderr=true:pkg/api/schema
+	  --swagger_out=logtostderr=true:pkg/api/schema \
+	  --plugin=protoc-gen-swagger=$(PWD)/scripts/protoc-gen-swagger
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	  -I$(GOPATH)/pkg/mod \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION)/third_party/googleapis \
 	  -I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@$(GRPC_GATEWAY_VERSION) \
-	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md
+	  --doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
+	  --plugin=protoc-gen-doc=$(PWD)/scripts/protoc-gen-doc
 
 .PHONY: clean
 clean:
