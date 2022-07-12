@@ -88,12 +88,10 @@ jobs:
             selector: '*-darwin-amd64'
           - os: ubuntu-latest
             selector: '*-linux-arm64'
-            qemu-launcher: qemu-aarch64
+            qemu-binfmt: true
           - os: ubuntu-latest
             selector: '*-linux-s390x'
-            qemu-launcher: qemu-s390x
-            extra-immudb-args: "--web-server=false"
-            continue-on-error: true
+            qemu-binfmt: true
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/download-artifact@v3
@@ -110,22 +108,20 @@ jobs:
       shell: bash
       if: runner.os != 'Windows'
 
-    - name: Install qemu-user
-      run: sudo apt update && sudo apt install -qq qemu-user
-      if: matrix.qemu-launcher
+    - name: Install qemu binaries
+      uses: docker/setup-qemu-action@v2
+      if: matrix.qemu-binfmt
 
     - name: Run immudb in the background
       shell: bash
-      continue-on-error: ${{ matrix.continue-on-error || false }}
       run: |
-        IMMUADMIN="${{ matrix.qemu-launcher }} "dist/immudb-${{ matrix.selector }}
-        $IMMUADMIN -d ${{ matrix.extra-immudb-args }}
+        IMMUDB=dist/immudb-${{ matrix.selector }}
+        $IMMUDB -d
 
     - name: immuadmin test
       shell: bash
-      continue-on-error: ${{ matrix.continue-on-error || false }}
       run: |
-        IMMUADMIN="${{ matrix.qemu-launcher }} "dist/immuadmin-${{ matrix.selector }}
+        IMMUADMIN=dist/immuadmin-${{ matrix.selector }}
 
         echo -n "immudb" | $IMMUADMIN login immudb || true
         $IMMUADMIN database create test
@@ -137,7 +133,7 @@ jobs:
       shell: bash
       continue-on-error: ${{ matrix.continue-on-error || false }}
       run: |
-        IMMUCLIENT="${{ matrix.qemu-launcher }} "dist/immuclient-${{ matrix.selector }}
+        IMMUCLIENT=dist/immuclient-${{ matrix.selector }}
 
         $IMMUCLIENT login --username immudb --password immudb
         echo -n "immudb" | $IMMUCLIENT login --username immudb
@@ -145,7 +141,7 @@ jobs:
         $IMMUCLIENT safeset test3 githubaction
         sg=$($IMMUCLIENT safeget test3)
         grep -q "githubaction" <<< $sg
-        grep -q  "verified" <<< $sg
+        grep -q "verified" <<< $sg
         grep -q "true" <<< $sg
 
   stress-tests:

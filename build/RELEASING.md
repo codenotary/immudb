@@ -160,9 +160,6 @@ Following binaries are validated automatically in github actions:
 * windows-amd64
 * darwin-amd64
 
-The linux-s390x build is tested on github but it can occasionally fail due to unknown
-issue with zip checksum mismatch. For that build, repeat the github action job.
-
 The following builds have to be manually tested:
 
 * darwin-arm64
