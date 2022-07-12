@@ -21,13 +21,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 func TestTransaction_SetAndGet(t *testing.T) {
@@ -105,29 +106,56 @@ func TestTransaction_Rollback(t *testing.T) {
 	require.Equal(t, "defaultdb", res.Rows[0].Values[0].GetS())
 	require.Equal(t, "db1", res.Rows[1].Values[0].GetS())
 
-	tx, err := client.NewTx(context.TODO())
-	require.NoError(t, err)
+	t.Run("double rollback should result in no transaction found error", func(t *testing.T) {
+		tx, err := client.NewTx(context.TODO())
+		require.NoError(t, err)
 
-	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
-		id INTEGER,
-		PRIMARY KEY id
+		err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+			id INTEGER,
+			PRIMARY KEY id
 		);`, nil)
-	require.NoError(t, err)
+		require.NoError(t, err)
 
-	err = tx.Rollback(context.TODO())
-	require.NoError(t, err)
+		err = tx.Rollback(context.TODO())
+		require.NoError(t, err)
 
-	err = tx.Rollback(context.TODO())
-	require.Error(t, err)
-	require.Equal(t, "no transaction found", err.Error())
+		err = tx.Rollback(context.TODO())
+		require.Error(t, err)
+		require.Equal(t, "no transaction found", err.Error())
+	})
 
-	tx1, err := client.NewTx(context.TODO())
-	require.NoError(t, err)
+	t.Run("rollback should succeed after failed query statement", func(t *testing.T) {
+		tx, err := client.NewTx(context.TODO())
+		require.NoError(t, err)
 
-	res, err = tx1.SQLQuery(context.TODO(), "SELECT * FROM table1", nil)
-	require.Error(t, err)
-	require.Equal(t, "table does not exist (table1)", err.Error())
-	require.Nil(t, res)
+		res, err = tx.SQLQuery(context.TODO(), "SELECT * FROM table1", nil)
+		require.Error(t, err)
+		require.Equal(t, "table does not exist (table1)", err.Error())
+		require.Nil(t, res)
+
+		err = tx.Rollback(context.TODO())
+		require.NoError(t, err)
+	})
+
+	t.Run("rollback should succeed after failed exec statement", func(t *testing.T) {
+		tx, err := client.NewTx(context.TODO())
+		require.NoError(t, err)
+
+		err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+			id INTEGER,
+			PRIMARY KEY id
+		);`, nil)
+		require.NoError(t, err)
+
+		err = tx.SQLExec(context.TODO(), `
+			INSERT INTO table1 (id) VALUES (1);
+			INSERT INTO table1 (id) VALUES (1);
+		`, nil)
+		require.EqualError(t, err, "key already exists")
+
+		err = tx.Rollback(context.TODO())
+		require.NoError(t, err)
+	})
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)
