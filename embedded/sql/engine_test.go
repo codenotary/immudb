@@ -26,9 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/stretchr/testify/require"
 )
 
 var sqlPrefix = []byte{2}
@@ -1381,6 +1382,22 @@ func TestTransactionsEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, ctxs, 2)
 		require.Nil(t, ntx)
+	})
+
+	t.Run("tx cancel should succeed after exec failure", func(t *testing.T) {
+		engine.autocommit = false
+
+		tx, err := engine.NewTx(context.TODO())
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(`
+			INSERT INTO table1 (id, title) VALUES (5, 'title5');
+			INSERT INTO table1 (id, title) VALUES (5, 'title5');
+		`, nil, tx)
+		require.EqualError(t, err, "key already exists")
+
+		err = tx.Cancel()
+		require.NoError(t, err)
 	})
 }
 
@@ -5663,7 +5680,7 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 	_, _, err = engine.Exec(`
 		CREATE TABLE mytable1(id INTEGER NOT NULL AUTO_INCREMENT, title VARCHAR[256], PRIMARY KEY id);
 		CREATE INDEX ON mytable1(title);
-	
+
 		CREATE TABLE mytable2(id INTEGER NOT NULL, name VARCHAR[100], active BOOLEAN, PRIMARY KEY id);
 		CREATE INDEX ON mytable2(name);
 		CREATE UNIQUE INDEX ON mytable2(name, active);
