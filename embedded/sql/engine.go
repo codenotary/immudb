@@ -1196,8 +1196,11 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 		ntx, err := stmt.execAt(currTx, nparams)
 		if err != nil {
-			currTx.Cancel()
-			return nil, committedTxs, stmts[execStmts:], err
+			if tx == nil {
+				currTx.Cancel()
+				return nil, committedTxs, stmts[execStmts:], err
+			}
+			return currTx, committedTxs, stmts[execStmts:], err
 		}
 
 		if !currTx.closed && !currTx.explicitClose && e.autocommit {
