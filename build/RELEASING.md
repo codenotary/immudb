@@ -116,34 +116,8 @@ Use the following template for release notes:
 
 # Downloads
 
-**Docker image**
-https://hub.docker.com/r/codenotary/immudb
-
-**Immudb Binaries**
-
-File | SHA256
-------------- | -------------
 <!--
-    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
-    Ensure to paste as a plain text
--->
-
-
-**Immuclient Binaries**
-
-File | SHA256
-------------- | -------------
-<!--
-    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
-    Ensure to paste as a plain text
--->
-
-**Immuadmin Binaries**
-
-File | SHA256
-------------- | -------------
-<!--
-    Paste checksums from github step: pushCI / Build binaries and notarize sources/Calculate checksums
+    Paste output from github step: pushCI / Build binaries and notarize sources/Calculate checksums
     Ensure to paste as a plain text
 -->
 ```
