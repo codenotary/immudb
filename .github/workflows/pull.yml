@@ -136,7 +136,7 @@ jobs:
           go get -u github.com/ory/go-acc
           set -o pipefail
           go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
-          cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
+          cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
           goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
           # Stop minio
