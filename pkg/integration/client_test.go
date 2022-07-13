@@ -744,6 +744,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.GetAt(context.TODO(), []byte("key"), 0)
 	require.True(t, errors.Is(err, ic.ErrNotConnected))
 
+	_, err = client.ServerInfo(context.TODO(), nil)
+	require.True(t, errors.Is(err, ic.ErrNotConnected))
+
 	require.True(t, errors.Is(client.HealthCheck(context.TODO()), ic.ErrNotConnected))
 
 	require.True(t, errors.Is(client.CreateDatabase(context.TODO(), nil), ic.ErrNotConnected))
