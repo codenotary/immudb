@@ -158,7 +158,7 @@ func (vr *valuesRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		rv, err := sv.reduce(vr.tx.catalog, nil, vr.dbAlias, vr.tableAlias)
+		rv, err := sv.reduce(vr.tx, nil, vr.dbAlias, vr.tableAlias)
 		if err != nil {
 			return nil, err
 		}

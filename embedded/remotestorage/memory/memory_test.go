@@ -169,6 +169,7 @@ func TestRemoteStorageAPIMemoryPutError(t *testing.T) {
 func TestRemoteStorageName(t *testing.T) {
 	storage := Open()
 	require.Contains(t, storage.String(), "memory")
+	require.Equal(t, "memory", storage.Kind())
 }
 
 func TestRemoteStorageGetInvalidParams(t *testing.T) {

@@ -71,6 +71,15 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 
 	valbuf := bytes.Buffer{}
 
+	if len(req.SqlGetRequest.PkValues) != len(table.PrimaryIndex().Cols()) {
+		return nil, fmt.Errorf(
+			"%w: incorrect number of primary key values, expected %d, got %d",
+			ErrIllegalArguments,
+			len(table.PrimaryIndex().Cols()),
+			len(req.SqlGetRequest.PkValues),
+		)
+	}
+
 	for i, pkCol := range table.PrimaryIndex().Cols() {
 		pkEncVal, err := sql.EncodeAsKey(schema.RawValue(req.SqlGetRequest.PkValues[i]), pkCol.Type(), pkCol.MaxLen())
 		if err != nil {

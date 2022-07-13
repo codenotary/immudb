@@ -20,22 +20,45 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server"
 	"net"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/server"
+
 	"github.com/stretchr/testify/require"
 )
 
-const immuServerRequired = "Please launch an immudb server at port %d to run this test."
+func testServer(t *testing.T) (port int, cleanup func()) {
+	options := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0)
+
+	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+	server.Initialize()
+
+	go func() {
+		server.Start()
+	}()
+
+	// TODO: Use a better method to wait for the test server
+	time.Sleep(500 * time.Millisecond)
+
+	port = server.Listener.Addr().(*net.TCPAddr).Port
+	return port, func() {
+		server.Stop()
+		os.RemoveAll(options.Dir)
+		os.Remove(".state-")
+	}
+}
 
 func TestDriver_Open(t *testing.T) {
 	d := immuDriver
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3324/defaultdb")
-	require.Errorf(t, err, immuServerRequired)
+	require.Error(t, err)
 	require.Nil(t, conn)
 }
 
@@ -90,79 +113,40 @@ func TestParseConfigErrs(t *testing.T) {
 }
 
 func TestDriver_OpenSSLPrefer(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
-	}
+	port, cleanup := testServer(t)
+	defer cleanup()
 
 	d := immuDriver
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb")
+	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb", port))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 }
 
 func TestDriver_OpenSSLDisable(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", client.DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf(immuServerRequired, client.DefaultOptions().Port))
-	}
+	port, cleanup := testServer(t)
+	defer cleanup()
 
 	d := immuDriver
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3322/defaultdb?sslmode=disable")
-	require.NoError(t, err)
-	require.NotNil(t, conn)
-}
-
-func TestDriver_OpenSSLRequire(t *testing.T) {
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
-
-	d := immuDriver
-
 	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 }
 
+func TestDriver_OpenSSLRequire(t *testing.T) {
+	t.Skip("TODO: internal server not running with ssl mode")
+
+	port, cleanup := testServer(t)
+	defer cleanup()
+
+	d := immuDriver
+	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=require", port))
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+}
+
 func Test_SQLOpen(t *testing.T) {
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
+	port, cleanup := testServer(t)
+	defer cleanup()
 
 	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NoError(t, err)
@@ -172,26 +156,8 @@ func Test_SQLOpen(t *testing.T) {
 }
 
 func Test_Open(t *testing.T) {
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
+	port, cleanup := testServer(t)
+	defer cleanup()
 
 	db := Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NotNil(t, db)

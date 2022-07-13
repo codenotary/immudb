@@ -31,43 +31,13 @@ func (cl *Commandline) NewRootCmd(immudbServer server.ImmuServerIf) (*cobra.Comm
 		Short: "immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `immudb - the lightweight, high-speed immutable database for systems and applications.
 
-immudb documentation:
-  https://docs.immudb.io/
+immudb documentation: https://docs.immudb.io/
 
-Environment variables:
-  IMMUDB_DIR=.
-  IMMUDB_NETWORK=tcp
-  IMMUDB_ADDRESS=0.0.0.0
-  IMMUDB_PORT=3322
-  IMMUDB_REPLICATION_ENABLED=true
-  IMMUDB_REPLICATION_MASTER_ADDRESS=127.0.0.1
-  IMMUDB_REPLICATION_PORT=3322
-  IMMUDB_REPLICATION_USERNAME=immudb
-  IMMUDB_REPLICATION_PASSWORD=immudb
-  IMMUDB_PIDFILE=
-  IMMUDB_LOGFILE=
-  IMMUDB_MTLS=false
-  IMMUDB_AUTH=true
-  IMMUDB_MAX_RECV_MSG_SIZE=4194304
-  IMMUDB_DETACHED=false
-  IMMUDB_CONSISTENCY_CHECK=true
-  IMMUDB_PKEY=
-  IMMUDB_CERTIFICATE=
-  IMMUDB_CLIENTCAS=
-  IMMUDB_DEVMODE=true
-  IMMUDB_MAINTENANCE=false
-  IMMUDB_ADMIN_PASSWORD=immudb
-  IMMUDB_SIGNINGKEY=
-  IMMUDB_SYNCED=true
-  IMMUDB_TOKEN_EXPIRY_TIME=1440
-  IMMUDB_PGSQL_SERVER=true
-  IMMUDB_PGSQL_SERVER_PORT=5432
-  IMMUDB_MAX_SESSION_AGE_TIME=0 (infinity)
-  IMMUDB_MAX_SESSION_INACTIVITY_TIME=3m
-  IMMUDB_SESSION_TIMEOUT=2m
-  IMMUDB_SESSIONS_GUARD_CHECK_INTERVAL=1m
-  LOG_LEVEL={debug|info|warning|error}
-
+Setting the logging level and other options through environment variables:
+- Logging level: LOG_LEVEL={debug|info|warning|error}
+- The environment variable names for other settings are derived by prefixing flag names with "IMMUDB_"
+  e.g IMMUDB_PORT=3323 ./immudb.
+  Note: flags take precedence over environment variables.
 `,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),

@@ -32,6 +32,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,8 +50,27 @@ type Storage struct {
 }
 
 var (
-	ErrInvalidArguments = errors.New("invalid arguments")
-	ErrInvalidResponse  = errors.New("invalid response code")
+	ErrInvalidArguments               = errors.New("invalid arguments")
+	ErrInvalidArgumentsOffsSize       = fmt.Errorf("%w: negative offset or zero size", ErrInvalidArguments)
+	ErrInvalidArgumentsNameStartSlash = fmt.Errorf("%w: name can not start with /", ErrInvalidArguments)
+	ErrInvalidArgumentsNameEndSlash   = fmt.Errorf("%w: name can not end with /", ErrInvalidArguments)
+	ErrInvalidArgumentsInvalidName    = fmt.Errorf("%w: invalid name", ErrInvalidArguments)
+	ErrInvalidArgumentsPathNoEndSlash = fmt.Errorf("%w: path must end with /", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketSlash    = fmt.Errorf("%w: bucket name can not contain / character", ErrInvalidArguments)
+	ErrInvalidArgumentsBucketEmpty    = fmt.Errorf("%w: bucket name can not be empty", ErrInvalidArguments)
+
+	ErrInvalidResponse                     = errors.New("invalid response code")
+	ErrInvalidResponseXmlDecodeError       = fmt.Errorf("%w: xml decode error", ErrInvalidResponse)
+	ErrInvalidResponseEntriesNotSorted     = fmt.Errorf("%w: entries are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameWrongPrefix = fmt.Errorf("%w: entry do not have correct prefix", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameMalicious   = fmt.Errorf("%w: entry name contains invalid characters", ErrInvalidResponse)
+	ErrInvalidResponseEntryNameUnescape    = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsNotSorted    = fmt.Errorf("%w: sub-paths are not sorted", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongPrefix  = fmt.Errorf("%w: sub-paths do not have correct prefix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathsWrongSuffix  = fmt.Errorf("%w: sub-paths do end with '/' suffix", ErrInvalidResponse)
+	ErrInvalidResponseSubPathMalicious     = fmt.Errorf("%w: sub-paths contain invalid characters", ErrInvalidResponse)
+	ErrInvalidResponseSubPathUnescape      = fmt.Errorf("%w: error un-escaping object name", ErrInvalidResponse)
+
 	ErrTooManyRedirects = errors.New("too many redirects")
 )
 
@@ -71,7 +91,12 @@ func Open(
 	// Bucket must have no '/' at all
 	bucket = strings.Trim(bucket, "/")
 	if strings.Contains(bucket, "/") {
-		return nil, ErrInvalidArguments
+		return nil, ErrInvalidArgumentsBucketSlash
+	}
+
+	// Bucket name must not be empty
+	if bucket == "" {
+		return nil, ErrInvalidArgumentsBucketEmpty
 	}
 
 	// if prefix is not empty, it must end with '/'
@@ -93,6 +118,10 @@ func Open(
 			},
 		},
 	}, nil
+}
+
+func (s *Storage) Kind() string {
+	return "s3"
 }
 
 func (s *Storage) String() string {
@@ -284,13 +313,36 @@ func (s *Storage) s3SignedRequestV2(
 	return req, nil
 }
 
+func (s *Storage) validateName(name string, isFolder bool) error {
+	if strings.HasPrefix(name, "/") {
+		return ErrInvalidArgumentsNameStartSlash
+	}
+	if isFolder && name != "" && !strings.HasSuffix(name, "/") {
+		// The path must end with `/` so that we don't match entries in parent directory with same prefix name
+		// e.g. when scanning /some/entry directory it must not match /some/entry-file object name.
+		// That's because in s3, the scan is prefix-based without clear notion of directories.
+		return ErrInvalidArgumentsPathNoEndSlash
+	}
+	if !isFolder && strings.HasSuffix(name, "/") {
+		return ErrInvalidArgumentsNameEndSlash
+	}
+	if strings.Contains(name, "//") {
+		return ErrInvalidArgumentsInvalidName
+	}
+	if strings.Contains("/"+name, "/./") || strings.Contains("/"+name, "/../") {
+		return ErrInvalidArgumentsInvalidName
+	}
+	return nil
+}
+
 // Get opens a remote s3 resource
 func (s *Storage) Get(ctx context.Context, name string, offs, size int64) (io.ReadCloser, error) {
 	if offs < 0 || size == 0 {
-		return nil, ErrInvalidArguments
+		return nil, ErrInvalidArgumentsOffsSize
 	}
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return nil, ErrInvalidArguments
+	err := s.validateName(name, false)
+	if err != nil {
+		return nil, err
 	}
 
 	url, err := s.originalRequestURL(name)
@@ -362,7 +414,7 @@ func (s *Storage) requestWithRedirects(
 		resp, err := s.httpClient.Do(req)
 		if err != nil {
 			log.Printf("S3 %s %s failed: %v", req.Method, req.URL, err)
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
 		}
 
 		for _, validStatus := range validStatusCodes {
@@ -375,15 +427,9 @@ func (s *Storage) requestWithRedirects(
 
 		switch resp.StatusCode {
 		case 303:
-			locationURL, err := url.Parse(resp.Header.Get("Location"))
+			reqURL, err = s.parseRedirect(req, resp)
 			if err != nil {
-				log.Printf(
-					"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
-					req.Method,
-					req.URL,
-					req.Header.Get("Location"),
-				)
-				return nil, ErrInvalidResponse
+				return nil, err
 			}
 
 			// Switch to simple GET request
@@ -391,22 +437,14 @@ func (s *Storage) requestWithRedirects(
 			prepareData = func() (io.Reader, string, error) { return nil, "", nil }
 			setupRequest = func(req *http.Request) error { return nil }
 
-			reqURL = req.URL.ResolveReference(locationURL).String()
 			log.Printf("S3 %s redirect to GET %s", req.Method, reqURL)
 
 		case 301, 302, 307, 308:
-			locationURL, err := url.Parse(resp.Header.Get("Location"))
+			reqURL, err = s.parseRedirect(req, resp)
 			if err != nil {
-				log.Printf(
-					"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
-					req.Method,
-					req.URL,
-					req.Header.Get("Location"),
-				)
-				return nil, ErrInvalidResponse
+				return nil, err
 			}
 
-			reqURL = req.URL.ResolveReference(locationURL).String()
 			log.Printf("S3 %s redirect to %s", req.Method, reqURL)
 
 		default:
@@ -417,17 +455,41 @@ func (s *Storage) requestWithRedirects(
 				resp.StatusCode,
 				resp.Status,
 			)
-			return nil, ErrInvalidResponse
+			return nil, fmt.Errorf(
+				"%w: request failed with status code %d (%s)",
+				ErrInvalidResponse, resp.StatusCode, resp.Status,
+			)
 		}
 	}
 	log.Printf("S3 %s %s failed - too many redirects", method, reqURL)
 	return nil, ErrTooManyRedirects
 }
 
+func (s *Storage) parseRedirect(req *http.Request, resp *http.Response) (string, error) {
+	locationURL, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		log.Printf(
+			"S3 %s %s failed: invalid `Location` header: '%s' when doing redirection",
+			req.Method,
+			req.URL,
+			req.Header.Get("Location"),
+		)
+		return "", fmt.Errorf(
+			"%w: failed to parse Location header %q: %v",
+			ErrInvalidResponse,
+			req.Header.Get("Location"),
+			err,
+		)
+	}
+
+	return req.URL.ResolveReference(locationURL).String(), nil
+}
+
 // Put writes a remote s3 resource
 func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return ErrInvalidArguments
+	err := s.validateName(name, false)
+	if err != nil {
+		return err
 	}
 
 	// S3 is using 307 redirects that must preserve POST body,
@@ -481,39 +543,39 @@ func (s *Storage) Put(ctx context.Context, name string, fileName string) error {
 // Note that due to an asynchronous nature of cloud storage,
 // a resource stored with the Put method may not be immediately accessible.
 func (s *Storage) Exists(ctx context.Context, name string) (bool, error) {
-	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return false, ErrInvalidArguments
-	}
-
-	url, err := s.originalRequestURL(name)
+	err := s.validateName(name, false)
 	if err != nil {
 		return false, err
 	}
 
-	resp, err := s.requestWithRedirects(
-		ctx, "HEAD", url,
-		[]int{200, 404},
-		func() (io.Reader, string, error) { return nil, "", nil },
-		func(req *http.Request) error { return nil },
-	)
+	entries, _, err := s.scanObjectNames(ctx, name, 1)
 	if err != nil {
 		return false, err
 	}
-	resp.Body.Close()
 
-	return resp.StatusCode == 200, nil
+	// We're looking for all entries with the prefix, since those
+	// are sorted alphabetically, if there's an entry with exact
+	// name, it would be the first one returned.
+	// Since the `scanObjectNames` strips out the path prefix,
+	// the entry with the exact name will be returned with an empty name.
+	if len(entries) > 0 && entries[0].Name == "" {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage.EntryInfo, []string, error) {
-
-	if path != "" {
-		if !strings.HasSuffix(path, "/") ||
-			strings.Contains(path, "//") {
-			return nil, nil, ErrInvalidArguments
-		}
+	err := s.validateName(path, true)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	prefix := s.prefix + path
+	return s.scanObjectNames(ctx, path, 0)
+}
+
+func (s *Storage) scanObjectNames(ctx context.Context, prefix string, limit int) ([]remotestorage.EntryInfo, []string, error) {
+	prefix = s.prefix + prefix
 
 	baseUrl, err := s.originalRequestURL("")
 	if err != nil {
@@ -528,6 +590,11 @@ func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 	urlValues.Set("encoding-type", "url")
 	urlValues.Set("delimiter", "/")
 	urlValues.Set("prefix", prefix)
+	urlValues.Set("encoding-type", "url")
+
+	if limit > 0 {
+		urlValues.Set("max-keys", strconv.Itoa(limit))
+	}
 
 	entries := []remotestorage.EntryInfo{}
 	subPaths := []string{}
@@ -556,24 +623,51 @@ func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 
 		err = xml.NewDecoder(resp.Body).Decode(&respParsed)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseXmlDecodeError, err)
 		}
 
 		for _, object := range respParsed.Contents {
+			objectName, err := url.QueryUnescape(object.Key)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseEntryNameUnescape, err)
+			}
+
+			if !strings.HasPrefix(objectName, prefix) {
+				return nil, nil, ErrInvalidResponseEntryNameWrongPrefix
+			}
+
+			err = s.validateName(objectName, false)
+			if err != nil {
+				return nil, nil, ErrInvalidResponseEntryNameMalicious
+			}
+
+			objectName = strings.TrimPrefix(objectName, prefix)
+			if strings.Contains(objectName, "/") {
+				return nil, nil, ErrInvalidResponseEntryNameMalicious
+			}
+
 			entries = append(entries, remotestorage.EntryInfo{
-				Name: strings.TrimPrefix(object.Key, prefix),
+				Name: strings.TrimPrefix(objectName, prefix),
 				Size: object.Size,
 			})
 		}
 		for _, subPath := range respParsed.CommonPrefixes {
-			if !strings.HasPrefix(subPath.Prefix, prefix) || !strings.HasSuffix(subPath.Prefix, "/") {
-				return nil, nil, ErrInvalidResponse
+			subPathPrefix, err := url.QueryUnescape(subPath.Prefix)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%w: %v", ErrInvalidResponseSubPathUnescape, err)
 			}
 
-			p := subPath.Prefix[len(prefix) : len(subPath.Prefix)-1]
+			if !strings.HasPrefix(subPathPrefix, prefix) {
+				return nil, nil, ErrInvalidResponseSubPathsWrongPrefix
+			}
+			if !strings.HasSuffix(subPathPrefix, "/") {
+				return nil, nil, ErrInvalidResponseSubPathsWrongSuffix
+			}
+
+			p := subPathPrefix[len(prefix) : len(subPathPrefix)-1]
 			if p == "." || p == ".." || strings.ContainsAny(p, "\\/:") {
 				// Avoid exploitation by a malicious server
-				return nil, nil, ErrInvalidResponse
+				return nil, nil, ErrInvalidResponseSubPathMalicious
 			}
 
 			subPaths = append(subPaths, p)
@@ -586,9 +680,11 @@ func (s *Storage) ListEntries(ctx context.Context, path string) ([]remotestorage
 		urlValues.Set("continuation-token", respParsed.NextContinuationToken)
 	}
 
-	if !sort.SliceIsSorted(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name }) ||
-		!sort.StringsAreSorted(subPaths) {
-		return nil, nil, ErrInvalidResponse
+	if !sort.SliceIsSorted(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name }) {
+		return nil, nil, ErrInvalidResponseEntriesNotSorted
+	}
+	if !sort.StringsAreSorted(subPaths) {
+		return nil, nil, ErrInvalidResponseSubPathsNotSorted
 	}
 
 	return entries, subPaths, nil

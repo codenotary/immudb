@@ -386,6 +386,60 @@ func TestTimestampCasts(t *testing.T) {
 
 }
 
+func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
+	defer os.RemoveAll("tx_timestamp")
+
+	st, err := store.Open("tx_timestamp", store.DefaultOptions())
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	currentTs := time.Now()
+
+	for it := 0; it < 3; it++ {
+		time.Sleep(1 * time.Microsecond)
+
+		tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		require.True(t, tx.Timestamp().After(currentTs))
+
+		for i := 0; i < 5; i++ {
+			_, _, err = engine.Exec("INSERT INTO tx_timestamp(ts) VALUES (NOW()), (NOW())", nil, tx)
+			require.NoError(t, err)
+		}
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx)
+		require.NoError(t, err)
+
+		r, err := engine.Query("SELECT * FROM tx_timestamp WHERE ts = @ts", map[string]interface{}{"ts": tx.Timestamp()}, nil)
+		require.NoError(t, err)
+		defer r.Close()
+
+		for i := 0; i < 10; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.EqualValues(t, tx.Timestamp(), row.ValuesBySelector[EncodeSelector("", "db1", "tx_timestamp", "ts")].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		currentTs = tx.Timestamp()
+	}
+}
+
 func TestAddColumn(t *testing.T) {
 	defer os.RemoveAll("sqldata_add_column")
 
@@ -2001,6 +2055,34 @@ func TestQueryDistinct(t *testing.T) {
 		require.Equal(t, "(db1.table1.title)", cols[0].Selector())
 
 		for i := 1; i <= 2; i++ {
+			row, err := r.Read()
+			require.NoError(t, err)
+			require.Len(t, row.ValuesBySelector, 1)
+			require.Equal(t, fmt.Sprintf("title%d", i), row.ValuesBySelector["(db1.table1.title)"].Value())
+		}
+
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("should return two titles starting from the second one", func(t *testing.T) {
+		params := make(map[string]interface{})
+		params["id"] = 3
+
+		r, err := engine.Query("SELECT DISTINCT title FROM table1 WHERE id <= @id LIMIT 2 OFFSET 1", nil, nil)
+		require.NoError(t, err)
+
+		r.SetParameters(params)
+
+		cols, err := r.Columns()
+		require.NoError(t, err)
+		require.Len(t, cols, 1)
+		require.Equal(t, "(db1.table1.title)", cols[0].Selector())
+
+		for i := 2; i <= 3; i++ {
 			row, err := r.Read()
 			require.NoError(t, err)
 			require.Len(t, row.ValuesBySelector, 1)
@@ -5318,6 +5400,88 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestTemporalQueriesDeletedRows(t *testing.T) {
+	defer os.RemoveAll("temporal_queries_deleted_rows")
+
+	st, err := store.Open("temporal_queries_deleted_rows", store.DefaultOptions())
+	require.NoError(t, err)
+	defer closeStore(t, st)
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	require.NoError(t, err)
+
+	err = engine.SetCurrentDatabase("db1")
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		_, tx1, err := engine.Exec(
+			"INSERT INTO table1(id, title) VALUES(@id, @title)",
+			map[string]interface{}{
+				"id":    i,
+				"title": fmt.Sprintf("title%d", i),
+			},
+			nil,
+		)
+		require.NoError(t, err)
+		require.Len(t, tx1, 1)
+	}
+
+	_, tx2, err := engine.Exec("DELETE FROM table1 WHERE id = 5", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, tx2, 1)
+
+	// Update value that is topologically before the deleted entry when scanning primary index
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'updated_title2' WHERE id = 2", nil, nil)
+	require.NoError(t, err)
+
+	// Update value that is topologically after the deleted entry when scanning primary index
+	_, _, err = engine.Exec("UPDATE table1 SET title = 'updated_title8' WHERE id = 8", nil, nil)
+	require.NoError(t, err)
+
+	// Reinsert deleted entry
+	_, tx3, err := engine.Exec("INSERT INTO table1(id, title) VALUES(5, 'title5')", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, tx3, 1)
+
+	// The sequence of operations is:
+	//       Crate table
+	//  tx1: INSERT id=0..9
+	//  tx2: DELETE id=5    \
+	//       UPDATE id=2     >- temporal query over the range
+	//       UPDATE id=8    /
+	//  tx3: INSERT id=5
+
+	res, err := engine.Query(
+		"SELECT id FROM table1 SINCE TX @since BEFORE TX @before",
+		map[string]interface{}{
+			"since":  tx2[0].txHeader.ID,
+			"before": tx3[0].txHeader.ID,
+		},
+		nil,
+	)
+	require.NoError(t, err)
+
+	row, err := res.Read()
+	require.NoError(t, err)
+	require.EqualValues(t, 2, row.ValuesByPosition[0].Value())
+
+	row, err = res.Read()
+	require.NoError(t, err)
+	require.EqualValues(t, 8, row.ValuesByPosition[0].Value())
+
+	_, err = res.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+
+	err = res.Close()
+	require.NoError(t, err)
 }
 
 func TestMultiDBCatalogQueries(t *testing.T) {

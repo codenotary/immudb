@@ -98,7 +98,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}
 
-		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database(), cr.rowReader.TableAlias())
+		r, err := cond.reduce(cr.Tx(), row, cr.rowReader.Database(), cr.rowReader.TableAlias())
 		if err != nil {
 			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}

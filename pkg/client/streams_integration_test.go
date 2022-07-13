@@ -22,10 +22,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -35,16 +35,25 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestImmuServer_SimpleSetGetStream(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+func externalImmudbClient(t *testing.T) (*immuClient, context.Context) {
+	extImmudb := os.Getenv("TEST_EXTERNAL_IMMUDB")
+	if extImmudb == "" {
+		t.Skip(fmt.Sprintf("Please launch an immudb server and set TEST_EXTERNAL_IMMUDB to its <host:port> value"))
 	}
 
-	cliIf, err := NewImmuClient(DefaultOptions())
+	s := strings.SplitN(extImmudb, ":", 2)
+	host := s[0]
+	port := DefaultOptions().Port
+	if len(s) > 1 {
+		p, err := strconv.Atoi(s[1])
+		require.NoError(t, err)
+		port = p
+	}
+
+	cli, err := NewImmuClient(DefaultOptions().WithAddress(host).WithPort(port))
 	require.NoError(t, err)
-	cli := cliIf
-	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+
+	lr, err := cli.Login(context.Background(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
@@ -54,6 +63,12 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	return cli, ctx
+}
+
+func TestImmuServer_SimpleSetGetStream(t *testing.T) {
+	cli, ctx := externalImmudbClient(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
@@ -72,24 +87,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 }
 
 func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
-	}
-
-	cliIf, err := NewImmuClient(DefaultOptions())
-	require.NoError(t, err)
-	cli := cliIf
-	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
-	require.NoError(t, err)
-
-	md = metadata.Pairs("authorization", ur.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
+	cli, ctx := externalImmudbClient(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
@@ -117,24 +115,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 }
 
 func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
-	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
-	}
-
-	cliIf, err := NewImmuClient(DefaultOptions())
-	require.NoError(t, err)
-	cli := cliIf
-	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
-	require.NoError(t, err)
-
-	md = metadata.Pairs("authorization", ur.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
+	cli, ctx := externalImmudbClient(t)
 
 	s1, err := cli.streamSet(ctx)
 	if err != nil {

@@ -18,6 +18,7 @@ package store
 import (
 	"crypto/sha256"
 	"fmt"
+	"time"
 )
 
 //OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
@@ -33,6 +34,8 @@ type OngoingTx struct {
 
 	metadata *TxMetadata
 
+	ts time.Time
+
 	closed bool
 }
 
@@ -46,6 +49,7 @@ func newWriteOnlyTx(s *ImmuStore) (*OngoingTx, error) {
 	return &OngoingTx{
 		st:           s,
 		entriesByKey: make(map[[sha256.Size]byte]int),
+		ts:           time.Now(),
 	}, nil
 }
 
@@ -53,6 +57,7 @@ func newReadWriteTx(s *ImmuStore) (*OngoingTx, error) {
 	tx := &OngoingTx{
 		st:           s,
 		entriesByKey: make(map[[sha256.Size]byte]int),
+		ts:           time.Now(),
 	}
 
 	err := s.WaitForIndexingUpto(s.committedTxID, nil)
@@ -128,6 +133,10 @@ func (tx *OngoingTx) IsWriteOnly() bool {
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 	tx.metadata = md
 	return nil
+}
+
+func (tx *OngoingTx) Timestamp() time.Time {
+	return tx.ts.Truncate(time.Microsecond).UTC()
 }
 
 func (tx *OngoingTx) Metadata() *TxMetadata {
