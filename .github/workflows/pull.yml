@@ -4,112 +4,107 @@ on: [pull_request]
 
 jobs:
   build:
-    name: build
+    name: build-and-test
     strategy:
       matrix:
         include:
-          - {os: ubuntu-latest, go: 1.13, immudb: "immudb", immuclient: "immuclient"}
-          - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
+          - os: ubuntu-latest
+            go: "1.15"
+
+          - os: ubuntu-latest
+            go: "1.16"
+
+          - os: ubuntu-latest
+            go: "1.17"
+            testWithMinio: true
+
+          - os: ubuntu-latest
+            go: "1.18"
+            test: true
+
+          - os: windows-latest
+            go: "1.17"
+            testClientOnly: true
+            noWebconsole: true
+
+          - os: macos-latest
+            go: "1.17"
+            testClientOnly: true
+
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+
       - uses: actions/checkout@v3
+
       - name: Test
         run: make test
-        if: runner.os == 'Linux'
+        if: matrix.test
+
+      - name: Test (with minio)
+        run: |
+          # Spawn minio docker container in the background
+          docker run -d -t -p 9000:9000 --name minio \
+            -e "MINIO_ACCESS_KEY=minioadmin" \
+            -e "MINIO_SECRET_KEY=minioadmin" \
+            minio/minio server /data
+
+          # Create immudb bucket
+          docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
+            mc alias set local http://localhost:9000 minioadmin minioadmin &&
+            mc mb local/immudb
+          "
+
+          # Run go tests with minio
+          GO_TEST_FLAGS="-tags minio" make test
+
+          # Stop minio
+          docker rm -f minio
+        if: matrix.testWithMinio
+
       - name: Test Client
         run: make test-client
-        if: runner.os == 'Windows'
+        if: matrix.testClientOnly
         shell: bash
-      - name: build all
-        run: make all
+
       - name: Build with webconsole
         run: |
           sudo apt update && sudo apt install curl -y
           WEBCONSOLE=default make all
-        if: runner.os == 'Linux'
-      - name: Upload webconsole artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: immu-ubuntu-latest-webconsole
-          path: |
-            ${{github.workspace}}/${{matrix.immudb}}
-            ${{github.workspace}}/${{matrix.immuclient}}
-        if: runner.os == 'Linux'
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: immu-${{matrix.os}}
-          path: |
-            ${{github.workspace}}/${{matrix.immudb}}
-            ${{github.workspace}}/${{matrix.immuclient}}
-  
-  test:
-    name: Smoke tests (no webconsole)
-    needs: build
-    strategy:
-      matrix:
-        include:
-          - {os: ubuntu-latest, go: 1.13, immudb: "immudb", immuclient: "immuclient"}
-          - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/download-artifact@v3
-        with: 
-          name: immu-${{matrix.os}}
-          path: ${{github.workspace}}/bin
+        if: "!matrix.noWebconsole"
+
+      - name: Build without webconsole
+        run: make all
+        if: matrix.noWebconsole
+
       - name: Make binaries executable
-        run: |
-          chmod +x ${GITHUB_WORKSPACE}/bin/*
-        shell: bash
-        if: runner.os == 'Linux'
+        run: chmod +x immudb immuclient immuadmin
+        if: runner.os != 'Windows'
+
       - name: Testing immudb operations
         run: |
-          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
+          IMMUCLIENT=./immuclient*
+          IMMUADMIN=./immuadmin*
+          IMMUDB=./immudb*
+
           # Run immuclient before a server starts, make sure it fails
           set -euxo pipefail
-          ${{matrix.immuclient}} || echo "Test #1 OK - immuclient failed to connect (no server started)"
-          ${{matrix.immudb}} -d
-          ${{matrix.immuclient}} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          echo -n "immudb" | ${{matrix.immuclient}} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
-          ${{matrix.immuclient}} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
-          sg=$(${{matrix.immuclient}} safeget test3)
+          ${IMMUCLIENT} || echo "Test #1 OK - immuclient failed to connect (no server started)"
+          ${IMMUDB} -d
+          ${IMMUCLIENT} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
+          echo -n "immudb" | ${IMMUCLIENT} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
+          ${IMMUCLIENT} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
+          sg=$(${IMMUCLIENT} safeget test3)
           grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
           grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
           grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
         shell: bash
 
-  test-webconsole:
-    name: Smoke tests (webconsole bundled)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v3
-        with: 
-          name: immu-ubuntu-latest-webconsole
-          path: ${{github.workspace}}/bin
-      - name: Make binaries executable
+      - name: Testing immudb webconsole
+        if: "!matrix.noWebconsole"
         run: |
-          chmod +x ${GITHUB_WORKSPACE}/bin/*
-        shell: bash
-        if: runner.os == 'Linux'
-      - name: Testing immudb operations
-        run: |
-          sudo apt update && sudo apt install curl -y
-          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
-          # Run immuclient before a server starts, make sure it fails
-          set -euxo pipefail
-          immuclient || echo "Test #1 OK - immuclient failed to connect (no server started)"
-          immudb -d
-          immuclient login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          echo -n "immudb" | immuclient login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
-          immuclient safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
-          sg=$(immuclient safeget test3)
-          grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
-          grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
-          grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
           # Find <title>immudb webconsole</title>
           webconsole_page=$(curl -s localhost:8080) || { echo "Test #8 web console unreachable"; exit 1; }
           grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #9 Failed, web console reachable but title not found"; exit 1; }
@@ -120,17 +115,32 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.13
+          go-version: 1.17
       - uses: actions/checkout@v3
       - run: |
+          # Spawn minio docker container in the background
+          docker run -d -t -p 9000:9000 --name minio \
+            -e "MINIO_ACCESS_KEY=minioadmin" \
+            -e "MINIO_SECRET_KEY=minioadmin" \
+            minio/minio server /data
+
+          # Create immudb bucket
+          docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
+            mc alias set local http://localhost:9000 minioadmin minioadmin &&
+            mc mb local/immudb
+          "
+
           export PATH=$PATH:$(go env GOPATH)/bin
           go get golang.org/x/tools/cmd/cover
           go get -u github.com/mattn/goveralls
           go get -u github.com/ory/go-acc
           set -o pipefail
-          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools || true
+          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
           cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
           goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+
+          # Stop minio
+          docker rm -f minio
       - name: Analyze with SonarCloud
         uses: sonarsource/sonarcloud-github-action@master
         env:

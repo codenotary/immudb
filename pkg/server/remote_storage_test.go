@@ -1,3 +1,18 @@
+/*
+Copyright 2022 CodeNotary, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package server
 
 import (
@@ -26,6 +41,10 @@ type remoteStorageMockingWrapper struct {
 	fnPut         func(ctx context.Context, name string, fileName string, next func() error) error
 	fnExists      func(ctx context.Context, name string, next func() (bool, error)) (bool, error)
 	fnListEntries func(ctx context.Context, path string, next func() (entries []remotestorage.EntryInfo, subPaths []string, err error)) (entries []remotestorage.EntryInfo, subPaths []string, err error)
+}
+
+func (r *remoteStorageMockingWrapper) Kind() string {
+	return r.wrapped.Kind()
 }
 
 func (r *remoteStorageMockingWrapper) String() string {
@@ -79,7 +98,8 @@ func TestCreateRemoteStorage(t *testing.T) {
 	// Set remote storage options
 	s.WithOptions(DefaultOptions().WithRemoteStorageOptions(
 		DefaultRemoteStorageOptions().
-			WithS3Storage(true),
+			WithS3Storage(true).
+			WithS3BucketName("bucket"),
 	))
 
 	storage, err = s.createRemoteStorageInstance()

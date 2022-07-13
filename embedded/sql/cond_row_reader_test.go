@@ -24,10 +24,9 @@ import (
 func TestConditionalRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: true}
 
-	rowReader, err := newConditionalRowReader(dummyr, &Bool{val: true})
-	require.NoError(t, err)
+	rowReader := newConditionalRowReader(dummyr, &Bool{val: true})
 
-	_, err = rowReader.Columns()
+	_, err := rowReader.Columns()
 	require.Equal(t, errDummy, err)
 
 	err = rowReader.InferParameters(nil)

@@ -18,23 +18,16 @@ package client
 
 import (
 	"context"
+	"net"
+	"syscall"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"net"
-	"syscall"
-	"testing"
 )
-
-func TestImmuClient_OpenSession_ErrSessionAlreadyOpen(t *testing.T) {
-	c := NewClient()
-	c.SessionID = "test"
-	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.Error(t, err)
-	require.ErrorIs(t, err, ErrSessionAlreadyOpen)
-}
 
 func TestImmuClient_OpenSession_ErrParsingKey(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithServerSigningPubKey("invalid"))

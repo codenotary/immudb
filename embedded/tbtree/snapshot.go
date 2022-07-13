@@ -226,6 +226,7 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		inclusiveSeek: inclusiveSeek,
 		inclusiveEnd:  inclusiveEnd,
 		descOrder:     spec.DescOrder,
+		offset:        spec.Offset,
 		closed:        false,
 	}
 

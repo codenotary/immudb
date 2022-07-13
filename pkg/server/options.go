@@ -39,7 +39,6 @@ type Options struct {
 	Network              string
 	Address              string
 	Port                 int
-	MetricsPort          int
 	Config               string
 	Pidfile              string
 	Logfile              string
@@ -49,6 +48,7 @@ type Options struct {
 	NoHistograms         bool
 	Detached             bool
 	MetricsServer        bool
+	MetricsServerPort    int
 	WebServer            bool
 	WebServerPort        int
 	DevMode              bool
@@ -98,8 +98,6 @@ func DefaultOptions() *Options {
 		Network:              "tcp",
 		Address:              "0.0.0.0",
 		Port:                 3322,
-		MetricsPort:          9497,
-		WebServerPort:        8080,
 		Config:               "configs/immudb.toml",
 		Pidfile:              "",
 		Logfile:              "",
@@ -109,7 +107,9 @@ func DefaultOptions() *Options {
 		NoHistograms:         false,
 		Detached:             false,
 		MetricsServer:        true,
+		MetricsServerPort:    9497,
 		WebServer:            true,
+		WebServerPort:        8080,
 		DevMode:              false,
 		AdminPassword:        auth.SysAdminPassword,
 		systemAdminDBName:    SystemDBName,
@@ -217,7 +217,7 @@ func (o *Options) Bind() string {
 
 // MetricsBind return metrics bind address
 func (o *Options) MetricsBind() string {
-	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
+	return o.Address + ":" + strconv.Itoa(o.MetricsServerPort)
 }
 
 // WebBind return bind address for the Web API/console
@@ -242,7 +242,7 @@ func (o *Options) String() string {
 	}
 
 	if o.MetricsServer {
-		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsPort)))
+		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsServerPort)))
 	}
 	if o.Config != "" {
 		opts = append(opts, rightPad("Config file", o.Config))
@@ -284,6 +284,12 @@ func (o *Options) String() string {
 // WithMetricsServer ...
 func (o *Options) WithMetricsServer(metricsServer bool) *Options {
 	o.MetricsServer = metricsServer
+	return o
+}
+
+// MetricsPort set Prometheus end-point port
+func (o *Options) WithMetricsServerPort(port int) *Options {
+	o.MetricsServerPort = port
 	return o
 }
 

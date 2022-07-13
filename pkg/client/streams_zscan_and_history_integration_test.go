@@ -19,45 +19,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
-	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/metadata"
 )
-
-func skipTestIfNoImmudbServer(t *testing.T) {
-	_, err := net.DialTimeout(
-		"tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
-	if err != nil {
-		t.Skip(fmt.Sprintf(
-			"Please launch an immudb server at port %d to run this test.",
-			DefaultOptions().Port))
-	}
-}
-
-func newImmuClient(t *testing.T) (ImmuClient, context.Context) {
-	cli, err := NewImmuClient(DefaultOptions())
-	require.NoError(t, err)
-	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
-	require.NoError(t, err)
-
-	md = metadata.Pairs("authorization", ur.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-	return cli, ctx
-}
 
 func inputTestFileToStreamKV(
 	t *testing.T,
@@ -130,9 +100,7 @@ func zAddFiles(
 }
 
 func TestImmuServer_StreamZScan(t *testing.T) {
-	skipTestIfNoImmudbServer(t)
-
-	cliIF, ctx := newImmuClient(t)
+	cliIF, ctx := externalImmudbClient(t)
 
 	tmpFile1, err := streamtest.GenerateDummyFile("myfile1.pdf", (8<<20)-1)
 	require.NoError(t, err)
@@ -170,9 +138,7 @@ func TestImmuServer_StreamZScan(t *testing.T) {
 }
 
 func TestImmuServer_StreamHistory(t *testing.T) {
-	skipTestIfNoImmudbServer(t)
-
-	cliIF, ctx := newImmuClient(t)
+	cliIF, ctx := externalImmudbClient(t)
 
 	tmpFile1, err := streamtest.GenerateDummyFile("myfile1.pdf", (8<<20)-1)
 	require.NoError(t, err)

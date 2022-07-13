@@ -69,6 +69,8 @@ appVersion: "X.Y.Z"
 The first line (`version`) is the version of the helm chart, the second the version of immudb.
 We may want to keep them aligned.
 
+For non-RC versions: bump the version in the README.md file in examples on how to download immudb binaries.
+
 ## 3. Commit and push the release branch
 
 Add the files modified above to the git index:
@@ -76,6 +78,7 @@ Add the files modified above to the git index:
 ```sh
 git add Makefile
 git add CHANGELOG.md
+git add helm/Chart.yaml
 git commit -m "release: vX.Y.Z"
 ```
 
@@ -95,7 +98,7 @@ Binaries and docker images are built automatically with github actions.
 
 ## 6. Create a draft pre-release in GitHub
 
-On GitHub, [draft a new release](https://github.com/vchain-us/immudb/releases),
+On GitHub, [draft a new release](https://github.com/codenotary/immudb/releases),
 attach all binaries built on github.
 Binaries will be available as a single compressed artifact from the `pushCI` action.
 Download it, decompress locally and upload as separate binary files.
@@ -144,6 +147,8 @@ File | SHA256
     Ensure to paste as a plain text
 -->
 ```
+
+In the changelog section of non-RC releases, also include changes for all prior RC versions.
 
 ## 7. Validate dist files
 
@@ -206,6 +211,8 @@ git push origin :release/vX.Y.Z
 Documentation is kept inside the [immudb.io repo](https://github.com/codenotary/immudb.io).
 
 Make sure that the documentation in `src/master` is up-to-date and then copy it to `src/<version>` folder.
+This includes changing the version in examples in how to download and run immudb binaries (get started / quickstart section).
+Also make sure to update the SDK compatibility matrix (get started / sdks).
 
 Once done, add new version to the list in the [version constant in src/.vuepress/theme/util/index.js file][index.js]
 and adjust the right-side menu list in the [getSidebar function in src/.vuepress/enhanceApp.js file][enhanceApp.js].
@@ -220,3 +227,12 @@ Once those changes end up in master, the documentation will be compiled and depl
 Once the release is done, make sure that the readme in docker hub are up-to-date.
 For immudb please edit the Readme in <https://hub.docker.com/repository/docker/codenotary/immudb>
 and synchronize it with README.md from this repository.
+
+## 11. Non-RC versions: Post-release actions
+
+Once the release is done, following post-release actions are needed
+
+* Ensure the new brew version is ready - sometimes it may need some manual fixes in [the formula file](https://github.com/Homebrew/homebrew-core/blob/master/Formula/immudb.rb)
+* Ensure helm chart on artifactory is updated
+* Start release of new AWS image
+* Create PR with updates to this file if there were any undocumented / unclear steps

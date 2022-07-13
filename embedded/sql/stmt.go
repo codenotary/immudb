@@ -636,7 +636,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 				return nil, err
 			}
 
-			rval, err := val.reduce(tx.catalog, nil, tx.currentDB.name, table.name)
+			rval, err := val.reduce(tx, nil, tx.currentDB.name, table.name)
 			if err != nil {
 				return nil, err
 			}
@@ -979,6 +979,7 @@ type UpdateStmt struct {
 	updates  []*colUpdate
 	indexOn  []string
 	limit    int
+	offset   int
 }
 
 type colUpdate struct {
@@ -1060,6 +1061,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 		where:   stmt.where,
 		indexOn: stmt.indexOn,
 		limit:   stmt.limit,
+		offset:  stmt.offset,
 	}
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
@@ -1104,7 +1106,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 				return nil, err
 			}
 
-			rval, err := sval.reduce(tx.catalog, row, table.db.name, table.name)
+			rval, err := sval.reduce(tx, row, table.db.name, table.name)
 			if err != nil {
 				return nil, err
 			}
@@ -1145,6 +1147,7 @@ type DeleteFromStmt struct {
 	where    ValueExp
 	indexOn  []string
 	limit    int
+	offset   int
 }
 
 func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -1165,6 +1168,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		where:   stmt.where,
 		indexOn: stmt.indexOn,
 		limit:   stmt.limit,
+		offset:  stmt.offset,
 	}
 
 	rowReader, err := selectStmt.Resolve(tx, params, nil)
@@ -1207,7 +1211,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	return tx, nil
 }
 
-func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
+func (tx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table) error {
 	for _, index := range table.indexes {
 		var prefix string
 		var encodedValues [][]byte
@@ -1245,7 +1249,7 @@ func (sqlTx *SQLTx) deleteIndexEntries(pkEncVals []byte, valuesByColID map[uint3
 
 		md.AsDeleted(true)
 
-		err := sqlTx.set(mapKey(sqlTx.sqlPrefix(), prefix, encodedValues...), md, nil)
+		err := tx.set(mapKey(tx.sqlPrefix(), prefix, encodedValues...), md, nil)
 		if err != nil {
 			return err
 		}
@@ -1258,7 +1262,7 @@ type ValueExp interface {
 	inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error)
 	requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error
 	substitute(params map[string]interface{}) (ValueExp, error)
-	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
+	reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error)
 	reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp
 	isConstant() bool
 	selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error
@@ -1424,7 +1428,7 @@ func (v *NullValue) substitute(params map[string]interface{}) (ValueExp, error) 
 	return v, nil
 }
 
-func (v *NullValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *NullValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1468,7 +1472,7 @@ func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Number) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Number) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1538,7 +1542,7 @@ func (v *Timestamp) substitute(params map[string]interface{}) (ValueExp, error) 
 	return v, nil
 }
 
-func (v *Timestamp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Timestamp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1608,7 +1612,7 @@ func (v *Varchar) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Varchar) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Varchar) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1670,7 +1674,7 @@ func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Bool) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Bool) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1740,7 +1744,7 @@ func (v *Blob) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Blob) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Blob) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -1815,12 +1819,12 @@ func (v *FnCall) substitute(params map[string]interface{}) (val ValueExp, err er
 	}, nil
 }
 
-func (v *FnCall) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *FnCall) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if strings.ToUpper(v.fn) == NowFnCall {
 		if len(v.params) > 0 {
 			return nil, fmt.Errorf("%w: '%s' function does not expect any argument but %d were provided", ErrIllegalArguments, NowFnCall, len(v.params))
 		}
-		return &Timestamp{val: time.Now().UTC()}, nil
+		return &Timestamp{val: tx.Timestamp().Truncate(time.Microsecond).UTC()}, nil
 	}
 
 	return nil, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
@@ -1853,7 +1857,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				if val.Value() == nil {
 					return &NullValue{t: TimestampType}, nil
 				}
-				return &Timestamp{val: time.Unix(val.Value().(int64), 0).UTC()}, nil
+				return &Timestamp{val: time.Unix(val.Value().(int64), 0).Truncate(time.Microsecond).UTC()}, nil
 			}, nil
 		}
 
@@ -1871,7 +1875,7 @@ func getConverter(src, dst SQLValueType) (converterFunc, error) {
 				} {
 					t, err := time.ParseInLocation(layout, str, time.UTC)
 					if err == nil {
-						return &Timestamp{val: t.UTC()}, nil
+						return &Timestamp{val: t.Truncate(time.Microsecond).UTC()}, nil
 					}
 				}
 
@@ -1933,8 +1937,8 @@ func (c *Cast) substitute(params map[string]interface{}) (ValueExp, error) {
 	return c, nil
 }
 
-func (c *Cast) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	val, err := c.val.reduce(catalog, row, implicitDB, implicitTable)
+func (c *Cast) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	val, err := c.val.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -2029,14 +2033,14 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case time.Time:
 		{
-			return &Timestamp{val: v}, nil
+			return &Timestamp{val: v.Truncate(time.Microsecond).UTC()}, nil
 		}
 	}
 
 	return nil, ErrUnsupportedParameter
 }
 
-func (p *Param) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (p *Param) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -2078,12 +2082,17 @@ type SelectStmt struct {
 	groupBy   []*ColSelector
 	having    ValueExp
 	limit     int
+	offset    int
 	orderBy   []*OrdCol
 	as        string
 }
 
 func (stmt *SelectStmt) Limit() int {
 	return stmt.limit
+}
+
+func (stmt *SelectStmt) Offset() int {
+	return stmt.offset
 }
 
 func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
@@ -2144,29 +2153,32 @@ func (stmt *SelectStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 	return tx, nil
 }
 
-func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
 	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err = stmt.ds.Resolve(tx, params, scanSpecs)
+	rowReader, err := stmt.ds.Resolve(tx, params, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			rowReader.Close()
+		}
+	}()
 
 	if stmt.joins != nil {
-		rowReader, err = newJointRowReader(rowReader, stmt.joins)
+		jointRowReader, err := newJointRowReader(rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
+		rowReader = jointRowReader
 	}
 
 	if stmt.where != nil {
-		rowReader, err = newConditionalRowReader(rowReader, stmt.where)
-		if err != nil {
-			return nil, err
-		}
+		rowReader = newConditionalRowReader(rowReader, stmt.where)
 	}
 
 	containsAggregations := false
@@ -2183,33 +2195,37 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 			groupBy = stmt.groupBy
 		}
 
-		rowReader, err = newGroupedRowReader(rowReader, stmt.selectors, groupBy)
+		groupedRowReader, err := newGroupedRowReader(rowReader, stmt.selectors, groupBy)
 		if err != nil {
 			return nil, err
 		}
+		rowReader = groupedRowReader
 
 		if stmt.having != nil {
-			rowReader, err = newConditionalRowReader(rowReader, stmt.having)
-			if err != nil {
-				return nil, err
-			}
+			rowReader = newConditionalRowReader(rowReader, stmt.having)
 		}
 	}
 
-	rowReader, err = newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
+	projectedRowReader, err := newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
 	if err != nil {
 		return nil, err
 	}
+	rowReader = projectedRowReader
 
 	if stmt.distinct {
-		rowReader, err = newDistinctRowReader(rowReader)
+		distinctRowReader, err := newDistinctRowReader(rowReader)
 		if err != nil {
 			return nil, err
 		}
+		rowReader = distinctRowReader
+	}
+
+	if stmt.offset > 0 {
+		rowReader = newOffsetRowReader(rowReader, stmt.offset)
 	}
 
 	if stmt.limit > 0 {
-		return newLimitRowReader(rowReader, stmt.limit)
+		rowReader = newLimitRowReader(rowReader, stmt.limit)
 	}
 
 	return rowReader, nil
@@ -2327,24 +2343,52 @@ func (stmt *UnionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx,
 	return stmt.right.execAt(tx, params)
 }
 
-func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{}) (ret RowReader, err error) {
 	leftRowReader, err := stmt.left.Resolve(tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			leftRowReader.Close()
+		}
+	}()
 
 	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			rightRowReader.Close()
+		}
+	}()
 
-	rowReader, err = newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	rowReader, err := newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
 	if err != nil {
 		return nil, err
 	}
 
+	return rowReader, nil
+}
+
+func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	rowReader, err := stmt.resolveUnionAll(tx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			rowReader.Close()
+		}
+	}()
+
 	if stmt.distinct {
-		return newDistinctRowReader(rowReader)
+		distinctReader, err := newDistinctRowReader(rowReader)
+		if err != nil {
+			return nil, err
+		}
+		rowReader = distinctReader
 	}
 
 	return rowReader, nil
@@ -2389,7 +2433,7 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 		return 0, err
 	}
 
-	instantVal, err := exp.reduce(tx.catalog, nil, tx.currentDB.name, "")
+	instantVal, err := exp.reduce(tx, nil, tx.currentDB.name, "")
 	if err != nil {
 		return 0, err
 	}
@@ -2597,7 +2641,7 @@ func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, err
 	return sel, nil
 }
 
-func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (sel *ColSelector) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if row == nil {
 		return nil, fmt.Errorf("%w: no row to evaluate in current context", ErrInvalidValue)
 	}
@@ -2705,7 +2749,7 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 	return sel, nil
 }
 
-func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (sel *AggColSelector) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if row == nil {
 		return nil, fmt.Errorf("%w: no row to evaluate aggregation (%s) in current context", ErrInvalidValue, sel.aggFn)
 	}
@@ -2783,13 +2827,13 @@ func (bexp *NumExp) substitute(params map[string]interface{}) (ValueExp, error) 
 	return bexp, nil
 }
 
-func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
+func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
+	vr, err := bexp.right.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -2878,8 +2922,8 @@ func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *NotBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, err := bexp.exp.reduce(catalog, row, implicitDB, implicitTable)
+func (bexp *NotBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	v, err := bexp.exp.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -2964,12 +3008,12 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 	}, nil
 }
 
-func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (bexp *LikeBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if bexp.val == nil || bexp.pattern == nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", ErrInvalidCondition)
 	}
 
-	rval, err := bexp.val.reduce(catalog, row, implicitDB, implicitTable)
+	rval, err := bexp.val.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -2978,7 +3022,7 @@ func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicit
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w (expecting %s)", ErrInvalidTypes, VarcharType)
 	}
 
-	rpattern, err := bexp.pattern.reduce(catalog, row, implicitDB, implicitTable)
+	rpattern, err := bexp.pattern.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, fmt.Errorf("error in 'LIKE' clause: %w", err)
 	}
@@ -3077,13 +3121,13 @@ func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *CmpBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
+func (bexp *CmpBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
+	vr, err := bexp.right.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -3291,13 +3335,13 @@ func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *BinBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
+func (bexp *BinBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
+	vr, err := bexp.right.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -3394,7 +3438,7 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 	return bexp, nil
 }
 
-func (bexp *ExistsBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (bexp *ExistsBoolExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
 }
 
@@ -3428,7 +3472,7 @@ func (bexp *InSubQueryExp) substitute(params map[string]interface{}) (ValueExp, 
 	return bexp, nil
 }
 
-func (bexp *InSubQueryExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (bexp *InSubQueryExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, fmt.Errorf("error inferring type in 'IN' clause: %w", ErrNoSupported)
 }
 
@@ -3502,8 +3546,8 @@ func (bexp *InListExp) substitute(params map[string]interface{}) (ValueExp, erro
 	}, nil
 }
 
-func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	rval, err := bexp.val.reduce(catalog, row, implicitDB, implicitTable)
+func (bexp *InListExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	rval, err := bexp.val.reduce(tx, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
 	}
@@ -3511,7 +3555,7 @@ func (bexp *InListExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTa
 	var found bool
 
 	for _, v := range bexp.values {
-		rv, err := v.reduce(catalog, row, implicitDB, implicitTable)
+		rv, err := v.reduce(tx, row, implicitDB, implicitTable)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating 'IN' clause: %w", err)
 		}
@@ -3728,7 +3772,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]in
 		return nil, err
 	}
 
-	tableName, err := val.reduce(tx.catalog, nil, tx.currentDB.name, "")
+	tableName, err := val.reduce(tx, nil, tx.currentDB.name, "")
 	if err != nil {
 		return nil, err
 	}
@@ -3803,7 +3847,7 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]in
 		return nil, err
 	}
 
-	tableName, err := val.reduce(tx.catalog, nil, tx.currentDB.name, "")
+	tableName, err := val.reduce(tx, nil, tx.currentDB.name, "")
 	if err != nil {
 		return nil, err
 	}

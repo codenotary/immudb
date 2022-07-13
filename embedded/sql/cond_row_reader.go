@@ -23,11 +23,11 @@ type conditionalRowReader struct {
 	condition ValueExp
 }
 
-func newConditionalRowReader(rowReader RowReader, condition ValueExp) (*conditionalRowReader, error) {
+func newConditionalRowReader(rowReader RowReader, condition ValueExp) *conditionalRowReader {
 	return &conditionalRowReader{
 		rowReader: rowReader,
 		condition: condition,
-	}, nil
+	}
 }
 
 func (cr *conditionalRowReader) onClose(callback func()) {
@@ -98,7 +98,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}
 
-		r, err := cond.reduce(cr.Tx().catalog, row, cr.rowReader.Database(), cr.rowReader.TableAlias())
+		r, err := cond.reduce(cr.Tx(), row, cr.rowReader.Database(), cr.rowReader.TableAlias())
 		if err != nil {
 			return nil, fmt.Errorf("%w: when evaluating WHERE clause", err)
 		}

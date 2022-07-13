@@ -179,6 +179,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			InclusiveSeek: req.InclusiveSeek,
 			DescOrder:     req.Desc,
 			Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+			Offset:        req.Offset,
 		})
 	if err != nil {
 		return nil, err

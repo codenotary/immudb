@@ -49,6 +49,10 @@ func Open() *Storage {
 	}
 }
 
+func (r *Storage) Kind() string {
+	return "memory"
+}
+
 func (r *Storage) String() string {
 	return fmt.Sprintf("memory(%p):", r)
 }

@@ -26,6 +26,10 @@ type dummyRowReader struct {
 	failInferringParams  bool
 	database             string
 	params               map[string]interface{}
+
+	recordClose                bool
+	closed                     bool
+	failSecondReturningColumns bool
 }
 
 func (r *dummyRowReader) onClose(callback func()) {
@@ -48,6 +52,13 @@ func (r *dummyRowReader) Read() (*Row, error) {
 }
 
 func (r *dummyRowReader) Close() error {
+	if r.recordClose {
+		if r.closed {
+			return ErrAlreadyClosed
+		}
+		r.closed = true
+		return nil
+	}
 	return errDummy
 }
 
@@ -62,6 +73,11 @@ func (r *dummyRowReader) ScanSpecs() *ScanSpecs {
 func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
 	if r.failReturningColumns {
 		return nil, errDummy
+	}
+
+	if r.failSecondReturningColumns {
+		// Will fail the next time
+		r.failReturningColumns = true
 	}
 
 	return nil, nil

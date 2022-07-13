@@ -92,7 +92,7 @@ func (v *CountValue) substitute(params map[string]interface{}) (ValueExp, error)
 	return nil, ErrUnexpected
 }
 
-func (v *CountValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *CountValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -182,7 +182,7 @@ func (v *SumValue) substitute(params map[string]interface{}) (ValueExp, error) {
 	return nil, ErrUnexpected
 }
 
-func (v *SumValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *SumValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -275,7 +275,7 @@ func (v *MinValue) substitute(params map[string]interface{}) (ValueExp, error) {
 	return nil, ErrUnexpected
 }
 
-func (v *MinValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *MinValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -368,7 +368,7 @@ func (v *MaxValue) substitute(params map[string]interface{}) (ValueExp, error) {
 	return nil, ErrUnexpected
 }
 
-func (v *MaxValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *MaxValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -462,7 +462,7 @@ func (v *AVGValue) substitute(params map[string]interface{}) (ValueExp, error) {
 	return nil, ErrUnexpected
 }
 
-func (v *AVGValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *AVGValue) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 

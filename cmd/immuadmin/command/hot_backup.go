@@ -255,30 +255,37 @@ func (cl *commandlineHotBck) backupTx(tx uint64, output io.Writer) error {
 	}
 
 	var content []byte
+
 	for {
 		var chunk *schema.Chunk
 		chunk, err = stream.Recv()
+
 		if errors.Is(err, io.EOF) {
 			err = nil
 			break
 		} else if err != nil {
 			break
 		}
+
 		content = append(content, chunk.Content...)
 	}
 
 	if err != nil {
 		return fmt.Errorf("cannot process transaction data: %w", err)
 	}
+
 	err = stream.CloseSend()
 	if err != nil {
 		return fmt.Errorf("CloseSend returned %v", err)
 	}
+
 	txn, err := cl.immuClient.TxByID(cl.context, tx)
 	if err != nil {
 		return err
 	}
+
 	alh := schema.TxHeaderFromProto(txn.Header).Alh()
+
 	err = outputTx(tx, output, alh[:], content)
 	if err != nil {
 		return err
@@ -478,14 +485,18 @@ func (cl *commandlineHotBck) initDbForRestore(params *restoreParams, name string
 	if err != nil {
 		return 0, err
 	}
+
 	gap := txId - lastTx
+
 	if gap > 1 {
 		return 0, fmt.Errorf("there is a gap of %d transaction(s) between database and file - restore not possible", gap-1)
 	}
+
 	if gap == 1 {
 		if !params.force {
 			return 0, errors.New("not possible to validate last transaction in DB - use --force to override")
 		}
+
 		err = cl.restoreTx(fileChecksum, payload)
 		if err != nil {
 			return 0, err
@@ -602,31 +613,38 @@ func (cl *commandlineHotBck) runHotRestore(input io.Reader, progress bool, first
 }
 
 func (cl *commandlineHotBck) restoreTx(checksum, payload []byte) error {
-	maxPayload := uint32(cl.options.MaxRecvMsgSize)
+	maxChunkSize := uint32(cl.options.StreamChunkSize)
 
 	stream, err := cl.immuClient.ReplicateTx(cl.context)
 	if err != nil {
 		return err
 	}
+
 	offset := uint32(0)
 	remainder := uint32(len(payload))
+
 	for remainder > 0 {
-		chunkSize := maxPayload
-		if remainder < maxPayload {
+		chunkSize := maxChunkSize
+		if remainder < maxChunkSize {
 			chunkSize = remainder
 		}
+
 		err = stream.Send(&schema.Chunk{Content: payload[offset : offset+chunkSize]})
 		if err != nil {
 			return err
 		}
+
 		remainder -= chunkSize
 		offset += chunkSize
 	}
-	metadata, err := stream.CloseAndRecv()
+
+	hdr, err := stream.CloseAndRecv()
 	if err != nil {
 		return err
 	}
-	alh := schema.TxHeaderFromProto(metadata).Alh()
+
+	alh := schema.TxHeaderFromProto(hdr).Alh()
+
 	if !bytes.Equal(checksum, alh[:]) {
 		return fmt.Errorf("transaction checksums don't match")
 	}

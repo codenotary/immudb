@@ -18,6 +18,7 @@ package sessions
 
 import (
 	"context"
+	"encoding/base64"
 	"math"
 	"os"
 	"sync"
@@ -28,10 +29,7 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
-	"github.com/rs/xid"
 )
-
-const MaxSessions = 100
 
 const infinity = time.Duration(math.MaxInt64)
 
@@ -42,7 +40,7 @@ type manager struct {
 	ticker     *time.Ticker
 	done       chan bool
 	logger     logger.Logger
-	options    *Options
+	options    Options
 }
 
 type Manager interface {
@@ -65,22 +63,22 @@ func NewManager(options *Options) (*manager, error) {
 	if options == nil {
 		return nil, ErrInvalidOptionsProvided
 	}
-	if options.MaxSessionAgeTime == 0 {
-		options.MaxSessionAgeTime = infinity
+
+	err := options.Validate()
+	if err != nil {
+		return nil, err
 	}
-	if options.MaxSessionInactivityTime == 0 {
-		options.MaxSessionInactivityTime = infinity
-	}
-	if options.Timeout == 0 {
-		options.Timeout = infinity
-	}
+
 	guard := &manager{
 		sessions: make(map[string]*Session),
 		ticker:   time.NewTicker(options.SessionGuardCheckInterval),
 		done:     make(chan bool),
 		logger:   logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:  options,
+		options:  *options,
 	}
+
+	guard.options.Normalize()
+
 	return guard, nil
 }
 
@@ -88,12 +86,24 @@ func (sm *manager) NewSession(user *auth.User, db database.DB) (*Session, error)
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 
-	if len(sm.sessions) == MaxSessions {
+	if len(sm.sessions) >= sm.options.MaxSessions {
 		sm.logger.Warningf("max sessions reached")
 		return nil, ErrMaxSessionsReached
 	}
 
-	sessionID := xid.New().String()
+	randomBytes := make([]byte, 32)
+	n, err := sm.options.RandSource.Read(randomBytes)
+	if err != nil {
+		sm.logger.Errorf("cant create session id: %v", err)
+		return nil, ErrCantCreateSessionID
+	}
+	if n < len(randomBytes) {
+		sm.logger.Errorf("cant create session id: could produce enough random data")
+		return nil, ErrCantCreateSessionID
+	}
+
+	sessionID := base64.URLEncoding.EncodeToString(randomBytes)
+
 	sm.sessions[sessionID] = NewSession(sessionID, user, db, sm.logger)
 	sm.logger.Debugf("created session %s", sessionID)
 
@@ -112,11 +122,12 @@ func (sm *manager) GetSession(sessionID string) (*Session, error) {
 	sm.sessionMux.RLock()
 	defer sm.sessionMux.RUnlock()
 
-	if _, ok := sm.sessions[sessionID]; !ok {
+	session, ok := sm.sessions[sessionID]
+	if !ok {
 		return nil, ErrSessionNotFound
 	}
 
-	return sm.sessions[sessionID], nil
+	return session, nil
 }
 
 func (sm *manager) DeleteSession(sessionID string) error {
@@ -163,21 +174,25 @@ func (sm *manager) SessionCount() int {
 
 func (sm *manager) StartSessionsGuard() error {
 	sm.sessionMux.Lock()
+	defer sm.sessionMux.Unlock()
+
 	if sm.running {
-		sm.sessionMux.Unlock()
 		return ErrGuardAlreadyRunning
 	}
 	sm.running = true
-	sm.sessionMux.Unlock()
 
-	for {
-		select {
-		case <-sm.done:
-			return nil
-		case <-sm.ticker.C:
-			sm.expireSessions()
+	go func() {
+		for {
+			select {
+			case <-sm.done:
+				return
+			case <-sm.ticker.C:
+				sm.expireSessions(time.Now())
+			}
 		}
-	}
+	}()
+
+	return nil
 }
 
 func (sm *manager) IsRunning() bool {
@@ -194,55 +209,60 @@ func (sm *manager) StopSessionsGuard() error {
 	if !sm.running {
 		return ErrGuardNotRunning
 	}
-
 	sm.running = false
+	sm.ticker.Stop()
 
-	for ID, _ := range sm.sessions {
-		sm.deleteSession(ID)
+	// Wait for the guard to finish any pending cancellation work
+	// this must be done with unlocked mutex since
+	// mutex expiration may try to lock the mutex
+	sm.sessionMux.Unlock()
+	sm.done <- true
+	sm.sessionMux.Lock()
+
+	// Delete all
+	for id := range sm.sessions {
+		sm.deleteSession(id)
 	}
 
-	sm.ticker.Stop()
-	sm.done <- true
 	sm.logger.Debugf("shutdown")
 
 	return nil
 }
 
-func (sm *manager) expireSessions() {
+func (sm *manager) expireSessions(now time.Time) (sessionsCount, inactiveSessCount, deletedSessCount int, err error) {
 	sm.sessionMux.Lock()
 	defer sm.sessionMux.Unlock()
 
 	if !sm.running {
-		return
+		return 0, 0, 0, ErrGuardNotRunning
 	}
 
-	now := time.Now()
-
-	inactiveSessCount := 0
+	inactiveSessCount = 0
+	deletedSessCount = 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
 	for ID, sess := range sm.sessions {
-		if sess.GetLastActivityTime().Add(sm.options.MaxSessionInactivityTime).Before(now) && sess.GetStatus() != inactive {
-			sess.setStatus(inactive)
-			sm.logger.Debugf("session %s became Inactive due to max inactivity time", ID)
-		}
-		if sess.GetCreationTime().Add(sm.options.MaxSessionAgeTime).Before(now) {
-			sess.setStatus(dead)
-			sm.logger.Debugf("session %s exceeded MaxSessionAgeTime and became dead", ID)
-		}
-		if sess.GetStatus() == inactive {
-			if sess.GetLastActivityTime().Add(sm.options.Timeout).Before(now) {
-				sess.setStatus(dead)
-				sm.logger.Debugf("Inactive session %s is dead", ID)
-			} else {
-				inactiveSessCount++
-			}
-		}
-		if sess.GetStatus() == dead {
+
+		createdAt := sess.GetCreationTime()
+		lastActivity := sess.GetLastActivityTime()
+
+		if now.Sub(createdAt) > sm.options.MaxSessionAgeTime {
+			sm.logger.Debugf("removing session %s - exceeded MaxSessionAgeTime", ID)
 			sm.deleteSession(ID)
-			sm.logger.Debugf("removed dead session %s", ID)
+			deletedSessCount++
+		} else if now.Sub(lastActivity) > sm.options.Timeout {
+			sm.logger.Debugf("removing session %s - exceeded Timeout", ID)
+			sm.deleteSession(ID)
+			deletedSessCount++
+		} else if now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime {
+			inactiveSessCount++
 		}
-		sm.logger.Debugf("Open sessions count: %d\nInactive sessions count: %d\n", len(sm.sessions), inactiveSessCount)
 	}
+
+	sm.logger.Debugf("Open sessions count: %d\n", len(sm.sessions))
+	sm.logger.Debugf("Inactive sessions count: %d\n", inactiveSessCount)
+	sm.logger.Debugf("Deleted sessions count: %d\n", deletedSessCount)
+
+	return len(sm.sessions), inactiveSessCount, deletedSessCount, nil
 }
 
 func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error) {

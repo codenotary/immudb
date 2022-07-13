@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLimitRowReader(t *testing.T) {
+func TestOffsetRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
-	rowReader := newLimitRowReader(dummyr, 1)
+	rowReader := newOffsetRowReader(dummyr, 1)
 
 	require.Equal(t, dummyr.Database(), rowReader.Database())
 	require.Equal(t, dummyr.TableAlias(), rowReader.TableAlias())

@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	ic "github.com/codenotary/immudb/pkg/client"
+
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/server/sessions"
@@ -49,26 +50,40 @@ func TestSession_OpenCloseSession(t *testing.T) {
 	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
-	client.Set(context.TODO(), []byte("my"), []byte("session"))
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.ErrorIs(t, err, ic.ErrSessionAlreadyOpen)
+
+	client.Set(context.TODO(), []byte("myKey"), []byte("myValue"))
+
+	err = client.CloseSession(context.TODO())
+	require.NoError(t, err)
+
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
+
+	entry, err := client.Get(context.TODO(), []byte("myKey"))
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	require.Equal(t, []byte("myValue"), entry.Value)
 
 	err = client.CloseSession(context.TODO())
 	require.NoError(t, err)
 }
 
 func TestSession_OpenCloseSessionMulti(t *testing.T) {
-	sessOptions := &sessions.Options{
-		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionInactivityTime:  time.Millisecond * 2000,
-		MaxSessionAgeTime:         time.Millisecond * 4000,
-		Timeout:                   time.Millisecond * 2000,
-	}
+	sessOptions := sessions.DefaultOptions().
+		WithSessionGuardCheckInterval(time.Millisecond * 100).
+		WithMaxSessionInactivityTime(time.Millisecond * 2000).
+		WithMaxSessionAgeTime(time.Millisecond * 4000).
+		WithTimeout(time.Millisecond * 2000)
 	options := server.DefaultOptions().WithSessionOptions(sessOptions).WithWebServer(false).WithPgsqlServer(false)
 	bs := servertest.NewBufconnServer(options)
 
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	bs.Start()
+	err := bs.Start()
+	require.NoError(t, err)
 	defer bs.Stop()
 
 	wg := sync.WaitGroup{}
@@ -127,19 +142,20 @@ func TestSession_OpenSessionNotConnected(t *testing.T) {
 }
 
 func TestSession_ExpireSessions(t *testing.T) {
-	sessOptions := &sessions.Options{
-		SessionGuardCheckInterval: time.Millisecond * 100,
-		MaxSessionInactivityTime:  time.Millisecond * 200,
-		MaxSessionAgeTime:         time.Millisecond * 900,
-		Timeout:                   time.Millisecond * 100,
-	}
+	sessOptions := sessions.DefaultOptions().
+		WithSessionGuardCheckInterval(time.Millisecond * 100).
+		WithMaxSessionInactivityTime(time.Millisecond * 200).
+		WithMaxSessionAgeTime(time.Millisecond * 900).
+		WithTimeout(time.Millisecond * 100)
+
 	options := server.DefaultOptions().WithSessionOptions(sessOptions)
 	bs := servertest.NewBufconnServer(options)
 
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	bs.Start()
+	err := bs.Start()
+	require.NoError(t, err)
 	defer bs.Stop()
 
 	rand.Seed(time.Now().UnixNano())

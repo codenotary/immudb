@@ -17,6 +17,8 @@ limitations under the License.
 package sessions
 
 import (
+	"fmt"
+
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/server/sessions/internal/transactions"
 )
@@ -32,6 +34,8 @@ var ErrInvalidOptionsProvided = errors.New("invalid options provided")
 var ErrTransactionNotFound = transactions.ErrTransactionNotFound
 var ErrGuardAlreadyRunning = errors.New("session guard already launched")
 var ErrGuardNotRunning = errors.New("session guard not running")
-var ErrMaxSessionsReached = errors.New("max sessions reached")
+var ErrCantCreateSession = errors.New("can not create new session")
+var ErrMaxSessionsReached = fmt.Errorf("%w: max sessions number reached", ErrCantCreateSession)
+var ErrCantCreateSessionID = fmt.Errorf("%w: generation of session id failed", ErrCantCreateSession)
 var ErrWriteOnlyTXNotAllowed = errors.New("write only transaction not allowed")
 var ErrReadOnlyTXNotAllowed = errors.New("read only transaction not allowed")

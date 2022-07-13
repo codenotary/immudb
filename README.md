@@ -82,11 +82,11 @@ Click here to try out the immudb web console access in an [online demo environme
 
 ### Getting immudb running: executable
 
-You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.3.0 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.2.1/immudb-v1.2.1-linux-amd64
-mv immudb-v1.2.1-linux-amd64 immudb
+wget https://github.com/codenotary/immudb/releases/download/v1.3.0/immudb-v1.3.0-linux-amd64
+mv immudb-v1.3.0-linux-amd64 immudb
 chmod +x immudb
 
 # run immudb in the foreground to see all output
@@ -109,6 +109,7 @@ If you are running the Docker image without host networking, make sure to expose
 ### Getting immudb running: Kubernetes
 
 In kubernetes, use helm for an easy deployment: just add our repository and install immudb with these simple commands:
+
 ```bash
 helm repo add immudb https://packages.codenotary.org/helm
 helm repo update
@@ -161,8 +162,8 @@ docker run --net=host -it --entrypoint /bin/sh minio/mc -c "
 You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v1.0.0 for linux amd64:
 
 ```bash
-wget https://github.com/codenotary/immudb/releases/download/v1.2.1/immuclient-v1.2.1-linux-amd64
-mv immuclient-v1.2.1-linux-amd64 immuclient
+wget https://github.com/codenotary/immudb/releases/download/v1.3.0/immuclient-v1.3.0-linux-amd64
+mv immuclient-v1.3.0-linux-amd64 immuclient
 chmod +x immuclient
 
 # start the interactive shell

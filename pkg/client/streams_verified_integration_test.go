@@ -28,9 +28,7 @@ import (
 )
 
 func TestImmuServer_StreamVerifiedSetAndGet(t *testing.T) {
-	skipTestIfNoImmudbServer(t)
-
-	cliIF, ctx := newImmuClient(t)
+	cliIF, ctx := externalImmudbClient(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (8<<20)-1)
 	require.NoError(t, err)

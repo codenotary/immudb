@@ -72,6 +72,9 @@ func parseOptions() (options *server.Options, err error) {
 	webServer := viper.GetBool("web-server")
 	webServerPort := viper.GetInt("web-server-port")
 
+	metricsServer := viper.GetBool("metrics-server")
+	metricsServerPort := viper.GetInt("metrics-server-port")
+
 	pgsqlServer := viper.GetBool("pgsql-server")
 	pgsqlServerPort := viper.GetInt("pgsql-server-port")
 
@@ -124,6 +127,8 @@ func parseOptions() (options *server.Options, err error) {
 		WithSynced(synced).
 		WithRemoteStorageOptions(remoteStorageOptions).
 		WithTokenExpiryTime(tokenExpTime).
+		WithMetricsServer(metricsServer).
+		WithMetricsServerPort(metricsServerPort).
 		WithWebServer(webServer).
 		WithWebServerPort(webServerPort).
 		WithPgsqlServer(pgsqlServer).

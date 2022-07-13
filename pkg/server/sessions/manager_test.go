@@ -17,139 +17,331 @@ limitations under the License.
 package sessions
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/stretchr/testify/require"
-	"math/rand"
+	"math/bits"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewManager(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
 	require.IsType(t, new(manager), m)
+	require.NotNil(t, m.sessions)
+}
+
+func TestNewManagerCornerCases(t *testing.T) {
+	_, err := NewManager(nil)
+	require.ErrorIs(t, err, ErrInvalidOptionsProvided)
 }
 
 func TestSessionGuard(t *testing.T) {
 	m, err := NewManager(DefaultOptions())
 	require.NoError(t, err)
-	go func() {
-		err := m.StartSessionsGuard()
-		require.NoError(t, err)
-	}()
+
+	isRunning := m.IsRunning()
+	require.False(t, isRunning)
+
+	err = m.StartSessionsGuard()
+	require.NoError(t, err)
+
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
+	err = m.StartSessionsGuard()
+	require.ErrorIs(t, err, ErrGuardAlreadyRunning)
+
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
 	time.Sleep(time.Second * 1)
+
+	isRunning = m.IsRunning()
+	require.True(t, isRunning)
+
 	err = m.StopSessionsGuard()
+	require.NoError(t, err)
+
+	isRunning = m.IsRunning()
+	require.False(t, isRunning)
+
+	err = m.StopSessionsGuard()
+	require.ErrorIs(t, err, ErrGuardNotRunning)
+
+	isRunning = m.IsRunning()
+	require.False(t, isRunning)
+
+	_, _, _, err = m.expireSessions(time.Now())
+	require.ErrorIs(t, err, ErrGuardNotRunning)
+}
+
+func TestManagerMaxSessions(t *testing.T) {
+	m, err := NewManager(DefaultOptions().WithMaxSessions(1))
+	require.NoError(t, err)
+
+	sess, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	sess2, err := m.NewSession(&auth.User{}, nil)
+	require.ErrorIs(t, err, ErrMaxSessionsReached)
+	require.Nil(t, sess2)
+
+	err = m.DeleteSession(sess.id)
 	require.NoError(t, err)
 }
 
-const SGUARD_CHECK_INTERVAL = time.Millisecond * 250
-const MAX_SESSION_INACTIVE = time.Millisecond * 2000
-const MAX_SESSION_AGE = time.Millisecond * 3000
-const TIMEOUT = time.Millisecond * 1000
-const KEEPSTATUS = time.Millisecond * 300
-const WORK_TIME = time.Millisecond * 1000
+func TestGetSessionNotFound(t *testing.T) {
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
+
+	sess, err := m.GetSession("non-existing-session")
+	require.ErrorIs(t, err, ErrSessionNotFound)
+	require.Nil(t, sess)
+}
 
 func TestManager_ExpireSessions(t *testing.T) {
-	const SESS_NUMBER = 60
-	const KEEP_ACTIVE = 20
-	const KEEP_INFINITE = 20
+	const (
+		SESS_NUMBER = 60
+		SESS_ACTIVE = 30
 
-	sessOptions := &Options{
-		SessionGuardCheckInterval: SGUARD_CHECK_INTERVAL,
-		MaxSessionInactivityTime:  MAX_SESSION_INACTIVE,
-		MaxSessionAgeTime:         MAX_SESSION_AGE,
-		Timeout:                   TIMEOUT,
-	}
+		TICK = time.Millisecond
+
+		SGUARD_CHECK_INTERVAL  = TICK * 2
+		MAX_SESSION_INACTIVE   = TICK * 10
+		TIMEOUT                = TICK * 50
+		STATUS_UPDATE_INTERVAL = TICK * 1
+	)
+
+	sessOptions := DefaultOptions().
+		WithSessionGuardCheckInterval(SGUARD_CHECK_INTERVAL).
+		WithMaxSessionInactivityTime(MAX_SESSION_INACTIVE).
+		WithMaxSessionAgeTime(infinity).
+		WithTimeout(TIMEOUT)
+
 	m, err := NewManager(sessOptions)
 	require.NoError(t, err)
 
-	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout) //.CloneWithLevel(logger.LogDebug)
-	go func(mng *manager) {
-		err := mng.StartSessionsGuard()
-		require.NoError(t, err)
-	}(m)
-
-	rand.Seed(time.Now().UnixNano())
+	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout)
 
 	sessIDs := make(chan string, SESS_NUMBER)
+	sessErrs := make(chan error, SESS_NUMBER)
 
-	wg := sync.WaitGroup{}
-	for i := 1; i <= SESS_NUMBER; i++ {
-		wg.Add(1)
-		go func(u int, cs chan string, w *sync.WaitGroup) {
-			lid, err := m.NewSession(&auth.User{
-				Username: fmt.Sprintf("%d", u),
-			}, nil)
-			if err != nil {
-				t.Error(err)
-			}
-			cs <- lid.GetID()
-			w.Done()
-		}(i, sessIDs, &wg)
-	}
+	t.Run("must correctly create sessions in parallel", func(t *testing.T) {
+		wg := sync.WaitGroup{}
+		for i := 1; i <= SESS_NUMBER; i++ {
+			wg.Add(1)
+			go func(u int) {
+				defer wg.Done()
 
-	wg.Wait()
-	require.Equal(t, SESS_NUMBER, m.SessionCount())
-
-	activeDone := make(chan bool)
-	infiniteDone := make(chan bool)
-	// keep active
-	for ac := 0; ac < KEEP_ACTIVE; ac++ {
-		go keepActive(<-sessIDs, m, activeDone)
-	}
-	for alc := 0; alc < KEEP_INFINITE; alc++ {
-		go keepActive(<-sessIDs, m, infiniteDone)
-	}
-
-	fInactiveC := 0
-	fActiveC := 0
-	time.Sleep(WORK_TIME)
-	for _, s := range m.sessions {
-		switch s.GetStatus() {
-		case active:
-			fActiveC++
-		case inactive:
-			fInactiveC++
+				lid, err := m.NewSession(&auth.User{
+					Username: fmt.Sprintf("%d", u),
+				}, nil)
+				if err != nil {
+					sessErrs <- err
+				} else {
+					sessIDs <- lid.GetID()
+				}
+			}(i)
 		}
-	}
+		wg.Wait()
 
-	require.Equal(t, SESS_NUMBER, fActiveC)
-	require.Equal(t, 0, fInactiveC)
-
-	activeDone <- true
-
-	time.Sleep(MAX_SESSION_AGE + TIMEOUT)
-	fInactiveC = 0
-	fActiveC = 0
-
-	for _, s := range m.sessions {
-		switch s.GetStatus() {
-		case active:
-			fActiveC++
-		case inactive:
-			fInactiveC++
+		close(sessErrs)
+		for err := range sessErrs {
+			require.NoError(t, err)
 		}
-	}
 
-	require.Equal(t, 0, fActiveC)
-	require.Equal(t, 0, fInactiveC)
+		require.Equal(t, SESS_NUMBER, m.SessionCount())
+	})
 
-	err = m.StopSessionsGuard()
-	require.NoError(t, err)
+	t.Run("check if session guard removes sessions", func(t *testing.T) {
+		err = m.StartSessionsGuard()
+		require.NoError(t, err)
+
+		// keep some sessions active
+		keepActiveDone := make(chan bool)
+		wg := sync.WaitGroup{}
+		for ac := 0; ac < SESS_ACTIVE; ac++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				id := <-sessIDs
+
+				t := time.NewTicker(STATUS_UPDATE_INTERVAL)
+				for {
+					select {
+					case <-t.C:
+						m.UpdateSessionActivityTime(id)
+					case <-keepActiveDone:
+						t.Stop()
+						return
+					}
+				}
+			}()
+		}
+
+		// Ensure session guard is doing its job
+		time.Sleep(2 * TIMEOUT)
+		require.Equal(t, SESS_ACTIVE, m.SessionCount())
+
+		// Cleanup
+		close(keepActiveDone)
+		wg.Wait()
+
+		err = m.StopSessionsGuard()
+		require.NoError(t, err)
+	})
 }
 
-func keepActive(id string, m *manager, done chan bool) {
-	t := time.NewTicker(KEEPSTATUS)
+func keepActive(id string, m *manager, updateTime time.Duration, done chan bool) {
+	t := time.NewTicker(updateTime)
 	for {
 		select {
 		case <-t.C:
 			m.UpdateSessionActivityTime(id)
 		case <-done:
+			t.Stop()
 			return
 		}
 	}
+}
+
+func TestManagerSessionExpiration(t *testing.T) {
+
+	m, err := NewManager(DefaultOptions().
+		WithMaxSessionInactivityTime(5 * time.Second).
+		WithTimeout(10 * time.Second).
+		WithMaxSessionAgeTime(100 * time.Second),
+	)
+	require.NoError(t, err)
+
+	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout)
+	err = m.StartSessionsGuard()
+	require.NoError(t, err)
+
+	nowTime := time.Now()
+
+	t.Run("do not expire new sessions", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		require.Zero(t, inactive)
+		require.Zero(t, del)
+
+		require.Equal(t, 1, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("do not expire inactive sessions before additional timeout", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime.Add(-7 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		require.Equal(t, 1, inactive)
+		require.Zero(t, del)
+
+		require.Equal(t, 1, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("expire inactive sessions once timeout passes", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime.Add(-13 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Zero(t, count)
+		require.Zero(t, inactive)
+		require.Equal(t, 1, del)
+
+		require.Equal(t, 0, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+
+	t.Run("expire active sessions due to max age", func(t *testing.T) {
+		sess, err := m.NewSession(&auth.User{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, m.SessionCount())
+
+		sess.lastActivityTime = nowTime
+		sess.creationTime = nowTime.Add(-101 * time.Second)
+
+		count, inactive, del, err := m.expireSessions(nowTime)
+		require.NoError(t, err)
+		require.Zero(t, count)
+		require.Zero(t, inactive)
+		require.Equal(t, 1, del)
+
+		require.Equal(t, 0, m.SessionCount())
+
+		m.DeleteSession(sess.id)
+	})
+}
+
+func TestManagerNewSessionCryptographicQuality(t *testing.T) {
+	m, err := NewManager(DefaultOptions())
+	require.NoError(t, err)
+
+	sess1, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	sess2, err := m.NewSession(&auth.User{}, nil)
+	require.NoError(t, err)
+
+	bitsDifference := 0
+	for i := 0; i < len(sess1.id) && i < len(sess2.id); i++ {
+		b1 := ([]byte(sess1.id))[i]
+		b2 := ([]byte(sess2.id))[i]
+
+		diff := bits.OnesCount8(b1 ^ b2)
+		bitsDifference += diff
+	}
+
+	require.GreaterOrEqual(t, bitsDifference, 90)
+}
+
+func TestManagerNewSessionFailureForNoRandomSource(t *testing.T) {
+	t.Run("correctly handle error while reading from random source", func(t *testing.T) {
+		randSrc := bytes.NewReader(nil)
+		opts := DefaultOptions().WithRandSource(randSrc)
+
+		m, err := NewManager(opts)
+		require.NoError(t, err)
+
+		_, err = m.NewSession(&auth.User{}, nil)
+		require.ErrorIs(t, err, ErrCantCreateSession)
+	})
+
+	t.Run("correctly handle not enough data in the random source", func(t *testing.T) {
+		randSrc := bytes.NewReader([]byte{0x00})
+		opts := DefaultOptions().WithRandSource(randSrc)
+
+		m, err := NewManager(opts)
+		require.NoError(t, err)
+
+		_, err = m.NewSession(&auth.User{}, nil)
+		require.ErrorIs(t, err, ErrCantCreateSession)
+	})
 }

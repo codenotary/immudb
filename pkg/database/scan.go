@@ -82,6 +82,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			Filters:       []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 			InclusiveSeek: req.InclusiveSeek,
 			InclusiveEnd:  req.InclusiveEnd,
+			Offset:        req.Offset,
 		})
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, tx, 0)
+		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, tx, valRef.HC())
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
