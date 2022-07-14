@@ -59,6 +59,7 @@ var reservedWords = map[string]int{
 	"SET":            SET,
 	"DELETE":         DELETE,
 	"BEGIN":          BEGIN,
+	"START":          START,
 	"TRANSACTION":    TRANSACTION,
 	"COMMIT":         COMMIT,
 	"ROLLBACK":       ROLLBACK,
