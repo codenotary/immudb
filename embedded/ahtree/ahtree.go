@@ -53,13 +53,11 @@ const cLogEntrySize = offsetSize + szSize
 const offsetSize = 8
 const szSize = 4
 
-//AHtree stands for Appendable Hash Tree
+// AHtree stands for Appendable Hash Tree
 type AHtree struct {
-	pLog appendable.Appendable
 	dLog appendable.Appendable
 	cLog appendable.Appendable
 
-	pLogSize int64
 	dLogSize int64
 	cLogSize int64
 
@@ -68,7 +66,6 @@ type AHtree struct {
 	cLogBuf      []byte
 	cLogBufCount int
 
-	pCache *cache.LRUCache
 	dCache *cache.LRUCache
 
 	syncThld int
@@ -117,12 +114,6 @@ func Open(path string, opts *Options) (*AHtree, error) {
 		}
 	}
 
-	appendableOpts.WithFileExt("dat")
-	pLog, err := appFactory(path, "data", appendableOpts)
-	if err != nil {
-		return nil, err
-	}
-
 	appendableOpts.WithFileExt("sha")
 	dLog, err := appFactory(path, "tree", appendableOpts)
 	if err != nil {
@@ -135,11 +126,11 @@ func Open(path string, opts *Options) (*AHtree, error) {
 		return nil, err
 	}
 
-	return OpenWith(pLog, dLog, cLog, opts)
+	return OpenWith(dLog, cLog, opts)
 }
 
-func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
-	if !validOptions(opts) || pLog == nil || dLog == nil || cLog == nil {
+func OpenWith(dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
+	if !validOptions(opts) || dLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -159,25 +150,17 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 
 	latestSyncedNode := uint64(cLogSize / cLogEntrySize)
 
-	pCache, err := cache.NewLRUCache(opts.dataCacheSlots)
-	if err != nil {
-		return nil, err
-	}
-
 	dCache, err := cache.NewLRUCache(opts.digestsCacheSlots)
 	if err != nil {
 		return nil, err
 	}
 
 	t := &AHtree{
-		pLog:             pLog,
 		dLog:             dLog,
 		cLog:             cLog,
-		pLogSize:         0,
 		dLogSize:         0,
 		cLogSize:         cLogSize,
 		latestSyncedNode: latestSyncedNode,
-		pCache:           pCache,
 		dCache:           dCache,
 		syncThld:         opts.syncThld,
 		readOnly:         opts.readOnly,
@@ -192,20 +175,6 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 	_, err = cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
 	if err != nil {
 		return nil, err
-	}
-
-	pOff := binary.BigEndian.Uint64(b[:])
-	pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-	t.pLogSize = int64(pOff) + int64(pSize)
-
-	pLogFileSize, err := pLog.Size()
-	if err != nil {
-		return nil, err
-	}
-
-	if pLogFileSize < t.pLogSize {
-		return nil, ErrorCorruptedData
 	}
 
 	t.dLogSize = int64(nodesUpto(t.latestSyncedNode) * sha256.Size)
@@ -239,27 +208,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	if d == nil {
 		err = ErrIllegalArguments
 		return
-	}
-
-	// will overwrite partially written and uncommitted data
-	err = t.pLog.SetOffset(t.pLogSize)
-	if err != nil {
-		return
-	}
-
-	var dLenBs [szSize]byte
-	binary.BigEndian.PutUint32(dLenBs[:], uint32(len(d)))
-	poff, _, perr := t.pLog.Append(dLenBs[:])
-	if perr != nil {
-		err = perr
-		return
-	}
-
-	if len(d) > 0 {
-		_, _, err = t.pLog.Append(d)
-		if err != nil {
-			return
-		}
 	}
 
 	n = t.size() + 1
@@ -300,11 +248,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		l++
 	}
 
-	err = t.pLog.Flush()
-	if err != nil {
-		return
-	}
-
 	// will overwrite partially written and uncommitted data
 	err = t.dLog.SetOffset(t.dLogSize)
 	if err != nil {
@@ -317,11 +260,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	err = t.dLog.Flush()
-	if err != nil {
-		return
-	}
-
-	_, _, err = t.pCache.Put(n, b[1:])
 	if err != nil {
 		return
 	}
@@ -340,7 +278,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	var cLogEntry [cLogEntrySize]byte
-	binary.BigEndian.PutUint64(cLogEntry[:], uint64(poff))
+	binary.BigEndian.PutUint64(cLogEntry[:], uint64(0))
 	binary.BigEndian.PutUint32(cLogEntry[offsetSize:], uint32(len(d)))
 
 	copy(t.cLogBuf[t.cLogBufCount*cLogEntrySize:], cLogEntry[:])
@@ -354,7 +292,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		}
 	}
 
-	t.pLogSize += int64(szSize + len(d))
 	t.dLogSize += int64(dCount * sha256.Size)
 	t.cLogSize += cLogEntrySize
 
@@ -389,30 +326,9 @@ func (t *AHtree) ResetSize(newSize uint64) error {
 	}
 
 	cLogSize := int64(newSize * cLogEntrySize)
-	pLogSize := int64(0)
 	dLogSize := int64(0)
 
 	if newSize > 0 {
-		var b [cLogEntrySize]byte
-		_, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err != nil {
-			return err
-		}
-
-		pOff := binary.BigEndian.Uint64(b[:])
-		pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-		pLogSize = int64(pOff) + int64(pSize)
-
-		pLogFileSize, err := t.pLog.Size()
-		if err != nil {
-			return err
-		}
-
-		if pLogFileSize < pLogSize {
-			return ErrorCorruptedData
-		}
-
 		dLogSize = int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
 
 		dLogFileSize, err := t.dLog.Size()
@@ -426,15 +342,11 @@ func (t *AHtree) ResetSize(newSize uint64) error {
 	}
 
 	// Invalidate caches
-	for i := cLogSize; i < t.cLogSize; i += cLogEntrySize {
-		t.pCache.Pop(uint64(i / cLogEntrySize))
-	}
 	for i := dLogSize; i < t.dLogSize; i += sha256.Size {
 		t.dCache.Pop(uint64(i / sha256.Size))
 	}
 
 	t.cLogSize = cLogSize
-	t.pLogSize = pLogSize
 	t.dLogSize = dLogSize
 
 	t.latestSyncedNode = newSize
@@ -656,62 +568,47 @@ func (t *AHtree) size() uint64 {
 	return uint64(t.cLogSize / cLogEntrySize)
 }
 
-func (t *AHtree) DataAt(n uint64) ([]byte, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+// Check if data at given offset equals to given buffer
+func (t *AHtree) DataAtEquals(n uint64, d []byte) (bool, error) {
 
-	if t.closed {
-		return nil, ErrAlreadyClosed
-	}
+	err := func() error {
+		t.mutex.Lock()
+		defer t.mutex.Unlock()
 
-	if n < 1 {
-		return nil, ErrIllegalArguments
-	}
-
-	if n > t.size() {
-		return nil, ErrUnexistentData
-	}
-
-	if n > t.latestSyncedNode {
-		err := t.sync()
-		if err != nil {
-			return nil, err
+		if n > t.latestSyncedNode {
+			err := t.sync()
+			if err != nil {
+				return err
+			}
 		}
-	}
-
-	v, err := t.pCache.Get(n)
-
-	if err == nil {
-		return v.([]byte), nil
-	}
-
-	if err != cache.ErrKeyNotFound {
-		return nil, err
-	}
-
-	var b [cLogEntrySize]byte
-	_, err = t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
+		return nil
+	}()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	pOff := binary.BigEndian.Uint64(b[:])
-	pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-	p := make([]byte, pSize)
-	_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
+	hn, err := t.node(n, 0)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	_, _, err = t.pCache.Put(n, p)
+	b := make([]byte, 1+len(d))
+	b[0] = LeafPrefix
+	copy(b[1:], d) // payload
 
-	return p, err
+	hh := sha256.Sum256(b)
+
+	return hn == hh, nil
 }
 
 func (t *AHtree) Root() (n uint64, r [sha256.Size]byte, err error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	if t.closed {
+		err = ErrAlreadyClosed
+		return
+	}
 
 	if t.cLogSize == 0 {
 		err = ErrEmptyTree
@@ -775,12 +672,7 @@ func (t *AHtree) sync() error {
 		return nil
 	}
 
-	err := t.pLog.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = t.dLog.Sync()
+	err := t.dLog.Sync()
 	if err != nil {
 		return err
 	}
@@ -825,9 +717,6 @@ func (t *AHtree) Close() error {
 	merrors := multierr.NewMultiErr()
 
 	err := t.sync()
-	merrors.Append(err)
-
-	err = t.pLog.Close()
 	merrors.Append(err)
 
 	err = t.dLog.Close()
