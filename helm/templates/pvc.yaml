@@ -1,0 +1,14 @@
+{{- if .Values.persistence.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: immudb-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: {{ .Values.persistence.volumeMode }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.storage }}
+{{- end }}

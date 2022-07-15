@@ -13,9 +13,13 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-volume:
-  class: ""
-  size: 5Gi
+
+persistence:
+  enabled: true
+  storageClass: gp2
+  storage: 1Gi
+
+databaseName: "immudb"
 adminPassword: ""
 
 podAnnotations: {}
@@ -39,16 +43,20 @@ service:
     metrics: 9497
     http: 8080
 
+replicaService:
+  type: ClusterIP
+  ports:
+    grpc: 3334
+    http: 9090
+    metrics: 9498
+
 ingress:
-  enabled: false
+  enabled: "false"
   className: ""
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hostname: immudb-example.localhost
-  tls:
-    enabled: false
-    secretName: immudb-tls
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -67,3 +75,17 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+envFrom:
+  - configMapRef:
+      name: immudb-configs
+  - secretRef:
+      name: immudb-credentials
+
+s3:
+  enabled: "false"
+  access_key: ""
+  secret_key: ""
+  bucket_name: ""
+  location: ""
+  path_prefix: ""

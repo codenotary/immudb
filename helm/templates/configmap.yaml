@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immudb-configs
+  labels:
+    {{- include "immudb.labels" . | nindent 4 }}
+data:
+  IMMUDB_S3_STORAGE: "{{$.Values.s3.enabled }}"
+  IMMUDB_S3_BUCKET_NAME: {{ .Values.s3.bucket_name }}
+  IMMUDB_S3_LOCATION: {{ .Values.s3.location }}
+  IMMUDB_S3_PATH_PREFIX: {{ .Values.s3.path_prefix }}
+  IMMUDB_S3_ENDPOINT: "https://{{$.Values.s3.bucket_name}}.s3.{{$.Values.s3.location}}.amazonaws.com"
+  IMMUDB_DBNAME: {{ .Values.databaseName }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immudb
+  labels:
+    {{- include "immudb.labels" . | nindent 4 }}
+data:
+  primary.cnf: |
+    dir = "./data/master"
+    network = "tcp"
+    address = "0.0.0.0"
+    port = 3322
+    dbname = "immudb"
+    pgsql-server = true # enable or disable pgsql server
+    pgsql-server-port = 5432  
+    web-server-port = 8080
+  replica.cnf: |
+    replication-enabled = true
+    replication-master-address="immudb-0.immudb"
+    replication-master-port=3322 
+    replication-follower-username="immudb"
+    replication-follower-password="immudb"
+    port=3334
+    pgsql-server-port=5434
+    dir="./data/replica"
+    pgsql-server = true # enable or disable pgsql server
+    web-server-port = 9090

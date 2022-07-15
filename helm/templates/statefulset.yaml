@@ -1,6 +1,3 @@
-{{- if gt (.Values.replicaCount | toString | atoi) 1 }}
-{{- fail "At the moment, you can just have 1 instance of immudb. We are working to raise that limit."}}
-{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -31,13 +28,45 @@ spec:
       volumes:
       - name: immudb-storage
         persistentVolumeClaim:
-          claimName: {{ include "immudb.fullname" . }}
+          claimName: immudb-claim
+      - name: conf
+        emptyDir: { }
+      - name: scripts
+        emptyDir: { }
+      - name: config-map
+        configMap:
+          name: immudb
+      initContainers:
+        - name: init-immudb
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              # Generate immudb server-id from pod ordinal index.
+              [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              if [[ $ordinal -eq 0 ]]; then
+                cp /mnt/config-map/primary.cnf /mnt/configs/immudb.toml
+              else
+                cp /mnt/config-map/replica.cnf /mnt/configs/immudb.toml
+              fi
+          volumeMounts:
+          - name: conf
+            mountPath: /mnt/configs
+            subPath: immudb.toml
+          - name: config-map
+            mountPath: /mnt/config-map
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          command: [ "immudb","--config","/mnt/configs/immudb.toml" ]
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            {{- toYaml .Values.envFrom | nindent 12 }}
           ports:
             - name: http
               containerPort: 8080
@@ -57,19 +86,18 @@ spec:
             httpGet:
               path: /readyz
               port: metrics
-          {{- if $.Values.adminPassword }}
-          env:
-          - name: IMMUDB_ADMIN_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: {{ include "immudb.fullname" . }}-credentials
-                key: immudb-admin-password
-          {{- end}}      
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-          - mountPath: /var/lib/immudb
-            name: immudb-storage
+            - mountPath: /var/lib/immudb
+              name: immudb-storage
+            - name: immudb-storage
+              mountPath: /data/master
+            - name: immudb-storage
+              mountPath: /data/replica
+            - name: conf
+              mountPath: /mnt/configs
+              subPath: immudb.toml
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -82,15 +110,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-  volumeClaimTemplates:
-  - metadata:
-      name: immudb-storage
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      {{- if .Values.volume.Class }}
-      storageClassName: {{ .Values.volume.Class | quote }}
-      {{- end }}
-      resources:
-        requests:
-          storage: {{ .Values.volume.size }}
