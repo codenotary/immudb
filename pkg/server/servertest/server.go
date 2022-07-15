@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 
@@ -35,7 +36,7 @@ const bufSize = 1024 * 1024
 
 type BuffDialer func(context.Context, string) (net.Conn, error)
 
-type bufconnServer struct {
+type BufconnServer struct {
 	immuServer *server.ImmuServer
 	m          sync.Mutex
 	pgsqlwg    sync.WaitGroup
@@ -47,10 +48,12 @@ type bufconnServer struct {
 	quit       chan struct{}
 }
 
-func NewBufconnServer(options *server.Options) *bufconnServer {
+// NewBuffconnServer creates new test server instance that uses grpc's buffconn connection method
+// to talk to its clients - communication happens using memory buffers instead of TCP connections.
+func NewBufconnServer(options *server.Options) *BufconnServer {
 	options.Port = 0
 	immuserver := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	bs := &bufconnServer{
+	bs := &BufconnServer{
 		quit:    make(chan struct{}),
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
@@ -64,7 +67,7 @@ func NewBufconnServer(options *server.Options) *bufconnServer {
 	return bs
 }
 
-func (bs *bufconnServer) Start() error {
+func (bs *BufconnServer) Start() error {
 	bs.m.Lock()
 	defer bs.m.Unlock()
 
@@ -101,7 +104,7 @@ func (bs *bufconnServer) Start() error {
 	return nil
 }
 
-func (bs *bufconnServer) Stop() error {
+func (bs *BufconnServer) Stop() error {
 	bs.m.Lock()
 	defer bs.m.Unlock()
 	if err := bs.Server.Srv.CloseDatabases(); err != nil {
@@ -116,8 +119,31 @@ func (bs *bufconnServer) Stop() error {
 	return nil
 }
 
-func (bs *bufconnServer) WaitForPgsqlListener() {
+func (bs *BufconnServer) WaitForPgsqlListener() {
 	bs.m.Lock()
 	defer bs.m.Unlock()
 	bs.pgsqlwg.Wait()
+}
+
+func (bs *BufconnServer) NewClient(options *client.Options) client.ImmuClient {
+	return client.NewClient().WithOptions(
+		options.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}),
+	)
+}
+
+func (bs *BufconnServer) NewAuthenticatedClient(options *client.Options) (client.ImmuClient, error) {
+	client := bs.NewClient(options)
+
+	err := client.OpenSession(
+		context.Background(),
+		[]byte(auth.SysAdminUsername),
+		[]byte(bs.Server.Srv.Options.AdminPassword),
+		bs.Server.Srv.Options.GetDefaultDBName(),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
