@@ -62,6 +62,7 @@ func NewBufconnServer(options *server.Options) *BufconnServer {
 			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(server.ErrorMapperStream, immuserver.KeepALiveSessionStreamInterceptor, auth.ServerStreamInterceptor)),
 		),
 		immuServer: immuserver,
+		Server:     &ServerMock{Srv: immuserver},
 	}
 
 	return bs
@@ -74,8 +75,6 @@ func (bs *BufconnServer) Start() error {
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}
-
-	bs.Server = &ServerMock{Srv: bs.immuServer}
 
 	bs.pgsqlwg.Add(1)
 
