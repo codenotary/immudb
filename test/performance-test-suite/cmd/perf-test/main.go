@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	results, err := runner.RunAllBenchmarks(time.Minute)
+	results, err := runner.RunAllBenchmarks(time.Second * 10)
 	if err != nil {
 		log.Fatal(err)
 	}

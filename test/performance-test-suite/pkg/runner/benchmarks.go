@@ -36,7 +36,11 @@ func RunAllBenchmarks(d time.Duration) (*BenchmarkSuiteResult, error) {
 		SystemInfo:  gatherSystemInfo(),
 	}
 
+	log.Printf("Starting immudb performance test suite")
+
 	for _, b := range getBenchmarksToRun() {
+
+		log.Printf("Running benchmark: %s", b.Name())
 
 		result := BenchmarkRunResult{
 			Name:     b.Name(),
@@ -68,7 +72,7 @@ func RunAllBenchmarks(d time.Duration) (*BenchmarkSuiteResult, error) {
 				probe := b.Probe()
 				result.Timeline = append(result.Timeline, BenchmarkTimelineEntry{
 					Time:     now,
-					Duration: now.Sub(result.StartTime),
+					Duration: Duration(now.Sub(result.StartTime)),
 					Probe:    probe,
 				})
 
@@ -92,15 +96,19 @@ func RunAllBenchmarks(d time.Duration) (*BenchmarkSuiteResult, error) {
 		close(done)
 
 		result.EndTime = time.Now()
-		result.Duration = result.EndTime.Sub(result.StartTime)
-		result.RequestedDuration = d
+		result.Duration = Duration(result.EndTime.Sub(result.StartTime))
+		result.RequestedDuration = Duration(d)
 		result.Results = res
 
 		ret.Benchmarks = append(ret.Benchmarks, result)
+
+		log.Printf("Benchmark %s finished", b.Name())
+		log.Printf("Results: %s", res)
 	}
 
 	ret.EndTime = time.Now()
-	ret.Duration = ret.EndTime.Sub(ret.StartTime)
+	ret.Duration = Duration(ret.EndTime.Sub(ret.StartTime))
 
+	log.Printf("Finished immudb performance test suite")
 	return ret, nil
 }

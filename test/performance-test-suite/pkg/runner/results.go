@@ -17,18 +17,24 @@ package runner
 
 import "time"
 
+type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + time.Duration(d).String() + "\""), nil
+}
+
 type BenchmarkTimelineEntry struct {
-	Time     time.Time     `json:"time"`
-	Duration time.Duration `json:"duration"`
-	Probe    interface{}   `json:"probe"`
+	Time     time.Time   `json:"time"`
+	Duration Duration    `json:"duration"`
+	Probe    interface{} `json:"probe"`
 }
 
 type BenchmarkRunResult struct {
 	Name              string                   `json:"name"`
 	StartTime         time.Time                `json:"startTime"`
 	EndTime           time.Time                `json:"endTime"`
-	Duration          time.Duration            `json:"duration"`
-	RequestedDuration time.Duration            `json:"requestedDuration"`
+	Duration          Duration                 `json:"duration"`
+	RequestedDuration Duration                 `json:"requestedDuration"`
 	Results           interface{}              `json:"results"`
 	Timeline          []BenchmarkTimelineEntry `json:"timeline"`
 }
@@ -46,9 +52,9 @@ type SystemInfo struct {
 }
 
 type BenchmarkSuiteResult struct {
-	StartTime time.Time     `json:"startTime"`
-	EndTime   time.Time     `json:"endTime"`
-	Duration  time.Duration `json:"duration"`
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
+	Duration  Duration  `json:"duration"`
 
 	ProcessInfo ProcessInfo `json:"processInfo"`
 	SystemInfo  SystemInfo  `json:"systemInfo"`
