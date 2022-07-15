@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,13 +109,19 @@ func (b *benchmark) Name() string {
 }
 
 func (b *benchmark) Warmup() error {
-	options := server.
-		DefaultOptions().
-		WithDir("tx-test")
+	const dirName = "tx-test"
 
+	err := os.RemoveAll(dirName)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dirName)
+
+	options := server.DefaultOptions().WithDir(dirName)
 	b.server = servertest.NewBufconnServer(options)
 	b.server.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
-	err := b.server.Start()
+
+	err = b.server.Start()
 	if err != nil {
 		return err
 	}
