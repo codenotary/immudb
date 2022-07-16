@@ -16,7 +16,7 @@ metadata:
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
-    {{- if .Values.ingress.tls.enabled }}
+    {{- if $.Values.ingress.tls.enabled }}
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     {{- end }}
