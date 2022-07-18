@@ -144,12 +144,9 @@ func (b *benchmark) Cleanup() error {
 func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error) {
 	wg := sync.WaitGroup{}
 
-	kt := keyTracker{
-		start: int(seed),
-	}
-
-	rand := NewRandStringGen(b.cfg.ValueSize)
-	defer rand.stop()
+	kt := benchmarks.NewKeyTracker(seed)
+	rand := benchmarks.NewRandStringGen(b.cfg.ValueSize)
+	defer rand.Stop()
 
 	var done chan bool
 	var errChan chan error
@@ -178,14 +175,14 @@ func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error
 				}
 
 				for i := 0; i < b.cfg.BatchSize; i++ {
-					key := h256(kt.getWKey())
+					key := h256(kt.GetWKey())
 					if len(key) > b.cfg.KeySize {
 						key = key[:b.cfg.KeySize]
 					}
 
 					setRequest.KVs[i] = &schema.KeyValue{
 						Key:   key,
-						Value: rand.getRnd(),
+						Value: rand.GetRnd(),
 					}
 				}
 
