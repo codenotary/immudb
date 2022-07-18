@@ -35,14 +35,13 @@ type HWStats struct {
 
 func (h *HWStats) String() string {
 	return fmt.Sprintf(
-		"CPUTime: %.2f, CPUKernelFrac: %.2f, VMM: %d, RSS: %d, Writes (bytes/calls): %d/%d, Reads (bytes/calls): %d/%d",
+		"CPUTime: %.2f, VMM: %s, RSS: %s, Writes (bytes/calls): %s/%d, Reads (bytes/calls): %s/%d",
 		h.CPUTime,
-		h.CPUKernelTimeFraction,
-		h.VMM,
-		h.RSS,
-		h.IOBytesWrite,
+		ToHumanReadable(h.VMM),
+		ToHumanReadable(h.RSS),
+		ToHumanReadable(h.IOBytesWrite),
 		h.IOCallsWrite,
-		h.IOBytesRead,
+		ToHumanReadable(h.IOBytesRead),
 		h.IOCallsRead,
 	)
 }
