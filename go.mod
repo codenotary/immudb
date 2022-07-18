@@ -29,6 +29,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
+	github.com/prometheus/procfs v0.7.3
 	github.com/pseudomuto/protoc-gen-doc v1.4.1
 	github.com/pseudomuto/protokit v0.2.1 // indirect
 	github.com/rakyll/statik v0.1.7
