@@ -29,7 +29,7 @@ func getBenchmarksToRun() []benchmarks.Benchmark {
 	}
 }
 
-func RunAllBenchmarks(d time.Duration) (*BenchmarkSuiteResult, error) {
+func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, error) {
 	ret := &BenchmarkSuiteResult{
 		StartTime:   time.Now(),
 		ProcessInfo: gatherProcessInfo(),
@@ -87,7 +87,7 @@ func RunAllBenchmarks(d time.Duration) (*BenchmarkSuiteResult, error) {
 		}()
 
 		// Run the benchmark
-		res, err := b.Run(d)
+		res, err := b.Run(d, seed)
 		if err != nil {
 			return nil, err
 		}
