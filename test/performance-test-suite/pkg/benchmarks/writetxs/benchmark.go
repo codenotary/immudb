@@ -47,15 +47,6 @@ type Config struct {
 	AsyncWrite bool
 }
 
-var DefaultConfig = Config{
-	Name:       "Write TX/s",
-	Workers:    30,
-	BatchSize:  1,
-	KeySize:    32,
-	ValueSize:  128,
-	AsyncWrite: true,
-}
-
 type benchmark struct {
 	cfg Config
 

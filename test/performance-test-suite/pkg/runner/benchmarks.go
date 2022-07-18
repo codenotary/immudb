@@ -25,7 +25,23 @@ import (
 
 func getBenchmarksToRun() []benchmarks.Benchmark {
 	return []benchmarks.Benchmark{
-		writetxs.NewBenchmark(writetxs.DefaultConfig),
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+		}),
 	}
 }
 
