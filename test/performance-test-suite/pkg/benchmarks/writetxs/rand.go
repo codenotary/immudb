@@ -18,18 +18,17 @@ package writetxs
 import (
 	"math/rand"
 	"runtime"
-	"sync/atomic"
 )
 
 const hexDigits = "0123456789abcdef"
 
 type randStringGen struct {
 	n       int
-	done    int32
+	done    chan bool
 	rndChan chan []byte
 }
 
-func (r *randStringGen) randHexString(n int) {
+func (r *randStringGen) randHexString(n int) bool {
 	b := make([]byte, n)
 	for i, offset := n/4, 0; i > 0; i-- {
 		// A Int63() generates 63 random bits
@@ -41,19 +40,25 @@ func (r *randStringGen) randHexString(n int) {
 			offset++
 		}
 	}
-	r.rndChan <- b
+
+	select {
+	case r.rndChan <- b:
+		return true
+	case <-r.done:
+		return false
+	}
 }
 
 func NewRandStringGen(size int) *randStringGen {
 	ret := &randStringGen{
 		rndChan: make(chan []byte, 65536),
+		done:    make(chan bool),
 	}
 
 	cpu := runtime.NumCPU()
 	for j := 0; j < cpu; j++ {
 		go func() {
-			for atomic.LoadInt32(&ret.done) == 0 {
-				ret.randHexString(size)
+			for ret.randHexString(size) {
 			}
 		}()
 	}
@@ -66,5 +71,5 @@ func (r *randStringGen) getRnd() []byte {
 }
 
 func (r *randStringGen) stop() {
-	atomic.StoreInt32(&r.done, 1)
+	close(r.done)
 }

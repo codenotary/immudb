@@ -158,6 +158,8 @@ func (b *benchmark) Run(duration time.Duration) (interface{}, error) {
 	}
 
 	rand := NewRandStringGen(b.cfg.ValueSize)
+	defer rand.stop()
+
 	var done chan bool
 	var errChan chan error
 
