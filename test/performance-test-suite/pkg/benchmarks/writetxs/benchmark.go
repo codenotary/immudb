@@ -59,7 +59,7 @@ type benchmark struct {
 	lastProbeKVSoFar int64
 	lastProbeTime    time.Time
 
-	hwStatsGatherer *benchmarks.HWStatsGatherer
+	hwStatsGatherer *benchmarks.HWStatsProber
 
 	m sync.Mutex
 
@@ -162,7 +162,7 @@ func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error
 	b.startTime = time.Now()
 	b.lastProbeTime = b.startTime
 
-	hwStatsGatherer, err := benchmarks.NewHWStatsGatherer()
+	hwStatsGatherer, err := benchmarks.NewHWStatsProber()
 	if err != nil {
 		log.Printf("HW stats disabled, couldn't initialize gathering object: %v", err)
 	} else {
