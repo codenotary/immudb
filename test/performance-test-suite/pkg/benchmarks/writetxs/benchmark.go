@@ -39,6 +39,7 @@ func h256(s string) []byte {
 }
 
 type Config struct {
+	Name       string
 	Workers    int
 	BatchSize  int
 	KeySize    int
@@ -48,6 +49,7 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
+	Name:       "Write TX/s",
 	Workers:    30,
 	BatchSize:  1,
 	KeySize:    32,
@@ -105,7 +107,7 @@ func NewBenchmark(cfg Config) benchmarks.Benchmark {
 }
 
 func (b *benchmark) Name() string {
-	return "Write TX/s"
+	return b.cfg.Name
 }
 
 func (b *benchmark) Warmup() error {
