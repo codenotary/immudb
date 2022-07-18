@@ -29,7 +29,7 @@ type Benchmark interface {
 	Cleanup() error
 
 	// Run the test, return the cumulative statistics after the whole run
-	Run(duration time.Duration) (interface{}, error)
+	Run(duration time.Duration, seed uint64) (interface{}, error)
 
 	// Gather current snapshot of probes
 	// This should be delta since the previous probe - e.g. req/sec that happened

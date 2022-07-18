@@ -45,7 +45,6 @@ type Config struct {
 	KeySize    int
 	ValueSize  int
 	AsyncWrite bool
-	Seed       int
 }
 
 var DefaultConfig = Config{
@@ -55,7 +54,6 @@ var DefaultConfig = Config{
 	KeySize:    32,
 	ValueSize:  128,
 	AsyncWrite: true,
-	Seed:       0,
 }
 
 type benchmark struct {
@@ -152,11 +150,11 @@ func (b *benchmark) Cleanup() error {
 	return b.server.Stop()
 }
 
-func (b *benchmark) Run(duration time.Duration) (interface{}, error) {
+func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error) {
 	wg := sync.WaitGroup{}
 
 	kt := keyTracker{
-		start: b.cfg.Seed,
+		start: int(seed),
 	}
 
 	rand := NewRandStringGen(b.cfg.ValueSize)
