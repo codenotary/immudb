@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package writetxs
+package benchmarks
 
 import (
 	"fmt"
@@ -21,19 +21,24 @@ import (
 	"sync/atomic"
 )
 
-type keyTracker struct {
-	start int
-	max   int64
+type KeyTracker struct {
+	start uint64
+	max   uint64
 }
 
-func (kt *keyTracker) getWKey() string {
-	max := atomic.AddInt64(&kt.max, 1)
-	return fmt.Sprintf("KEY:%10d", max+int64(kt.start))
+func NewKeyTracker(start uint64) *KeyTracker {
+	return &KeyTracker{
+		start: start,
+	}
 }
 
-func (kt *keyTracker) getRKey() string {
-	max := atomic.LoadInt64(&kt.max)
+func (kt *KeyTracker) GetWKey() string {
+	max := atomic.AddUint64(&kt.max, 1)
+	return fmt.Sprintf("KEY:%10d", max+kt.start)
+}
 
-	k := rand.Intn(int(max)-kt.start) + kt.start
+func (kt *KeyTracker) GetRKey() string {
+	max := atomic.LoadUint64(&kt.max)
+	k := rand.Uint64()%(max-kt.start) + kt.start
 	return fmt.Sprintf("KEY:%10d", k)
 }

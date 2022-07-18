@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package writetxs
+package benchmarks
 
 import (
 	"math/rand"
@@ -66,10 +66,10 @@ func NewRandStringGen(size int) *randStringGen {
 	return ret
 }
 
-func (r *randStringGen) getRnd() []byte {
+func (r *randStringGen) GetRnd() []byte {
 	return <-r.rndChan
 }
 
-func (r *randStringGen) stop() {
+func (r *randStringGen) Stop() {
 	close(r.done)
 }
