@@ -16,7 +16,10 @@ limitations under the License.
 package main
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
+	"flag"
 	"log"
 	"os"
 	"time"
@@ -25,7 +28,23 @@ import (
 )
 
 func main() {
-	results, err := runner.RunAllBenchmarks(time.Second * 10)
+
+	flDuration := flag.Duration("d", time.Second*10, "duration of each test run")
+	flSeed := flag.Uint64("s", 0, "seed for data generators")
+	flRandomSeed := flag.Bool("random-seed", false, "if set to true, use random seed for test runs")
+
+	flag.Parse()
+
+	if *flRandomSeed {
+		var rndSeed [8]byte
+		_, err := rand.Reader.Read(rndSeed[:])
+		if err != nil {
+			log.Fatalf("Couldn't initialize random seed: %v", err)
+		}
+		*flSeed = binary.BigEndian.Uint64(rndSeed[:])
+	}
+
+	results, err := runner.RunAllBenchmarks(*flDuration, *flSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
