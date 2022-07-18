@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -58,6 +59,8 @@ type benchmark struct {
 	lastProbeKVSoFar int64
 	lastProbeTime    time.Time
 
+	hwStatsGatherer *benchmarks.HWStatsGatherer
+
 	m sync.Mutex
 
 	server  *servertest.BufconnServer
@@ -65,12 +68,13 @@ type benchmark struct {
 }
 
 type Result struct {
-	TxTotal int64   `json:"txTotal"`
-	KvTotal int64   `json:"kvTotal"`
-	Txs     float64 `json:"txs"`
-	Kvs     float64 `json:"kvs"`
-	TxsInst float64 `json:"txsInstant,omitempty"`
-	KvsInst float64 `json:"kvsInstant,omitempty"`
+	TxTotal int64               `json:"txTotal"`
+	KvTotal int64               `json:"kvTotal"`
+	Txs     float64             `json:"txs"`
+	Kvs     float64             `json:"kvs"`
+	TxsInst float64             `json:"txsInstant,omitempty"`
+	KvsInst float64             `json:"kvsInstant,omitempty"`
+	HWStats *benchmarks.HWStats `json:"hwStats"`
 }
 
 func (r *Result) String() string {
@@ -87,6 +91,10 @@ func (r *Result) String() string {
 			r.TxsInst,
 			r.KvsInst,
 		)
+	}
+	if r.HWStats != nil {
+		s += ", "
+		s += r.HWStats.String()
 	}
 	return s
 }
@@ -153,6 +161,13 @@ func (b *benchmark) Run(duration time.Duration, seed uint64) (interface{}, error
 
 	b.startTime = time.Now()
 	b.lastProbeTime = b.startTime
+
+	hwStatsGatherer, err := benchmarks.NewHWStatsGatherer()
+	if err != nil {
+		log.Printf("HW stats disabled, couldn't initialize gathering object: %v", err)
+	} else {
+		b.hwStatsGatherer = hwStatsGatherer
+	}
 
 	for i := range b.clients {
 		wg.Add(1)
@@ -251,6 +266,15 @@ func (b *benchmark) genResults(asProbe bool) interface{} {
 		b.lastProbeKVSoFar = kvSoFar
 		b.lastProbeTime = now
 
+	}
+
+	if b.hwStatsGatherer != nil {
+		hwStats, err := b.hwStatsGatherer.GetHWStats()
+		if err != nil {
+			log.Printf("ERROR: Couldn't gather HW stats: %v", err)
+		} else {
+			res.HWStats = hwStats
+		}
 	}
 
 	return res
