@@ -50,10 +50,13 @@ type TxHeader struct {
 
 func newTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*TxEntry, nentries)
+
+	keyBuffer := make([]byte, maxKeyLen*nentries)
+	entriesBuffer := make([]TxEntry, nentries)
 	for i := 0; i < nentries; i++ {
-		entries[i] = &TxEntry{
-			k: make([]byte, maxKeyLen),
-		}
+		entries[i] = &entriesBuffer[i]
+		entries[i].k = keyBuffer[:maxKeyLen]
+		keyBuffer = keyBuffer[maxKeyLen:]
 	}
 
 	header := &TxHeader{NEntries: len(entries)}
