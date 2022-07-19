@@ -30,11 +30,9 @@ func TestServerInfo(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	msg, err := ic.Imc.ServerInfo(nil)
-	if err != nil {
+	if msg, err := ic.Imc.ServerInfo(nil); err != nil {
 		t.Fatal("ServerInfo fail", err)
-	}
-	if !strings.Contains(msg, "version") {
+	} else if !strings.Contains(msg, "version") {
 		t.Fatalf("ServerInfo failed: %s", msg)
 	}
 }
