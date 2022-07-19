@@ -19,9 +19,11 @@ package immuadmin
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats"
-	"github.com/spf13/cobra"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (cl *commandline) status(cmd *cobra.Command) {
@@ -33,7 +35,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
-			if err := cl.immuClient.HealthCheck(ctx); err != nil {
+			if _, err := cl.immuClient.ServerInfo(ctx, &schema.ServerInfoRequest{}); err != nil {
 				c.QuitWithUserError(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "OK - server is reachable and responding to queries\n")
