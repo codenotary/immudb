@@ -28,30 +28,25 @@ import (
 	"os"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/heartbeater"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
-	"github.com/codenotary/immudb/pkg/client/errors"
-
-	"github.com/codenotary/immudb/pkg/stream"
-
-	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-
-	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/state"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"google.golang.org/grpc"
-
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/errors"
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
+	"github.com/codenotary/immudb/pkg/client/state"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/codenotary/immudb/pkg/stream"
 )
 
 // ImmuClient ...
@@ -59,7 +54,8 @@ type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
 	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
-	WaitForHealthCheck(ctx context.Context) (err error)
+	WaitForHealthCheck(ctx context.Context) error
+	// Depreacted: use ServerInfo
 	HealthCheck(ctx context.Context) error
 	// Deprecated: connection is handled in OpenSession
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
@@ -397,7 +393,7 @@ func (c *immuClient) IsConnected() bool {
 
 func (c *immuClient) WaitForHealthCheck(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.HealthCheckRetries+1; i++ {
-		if err = c.HealthCheck(ctx); err == nil {
+		if _, err = c.ServerInfo(ctx, &schema.ServerInfoRequest{}); err == nil {
 			c.Logger.Debugf("health check succeeded %v", c.Options)
 			return nil
 		}
