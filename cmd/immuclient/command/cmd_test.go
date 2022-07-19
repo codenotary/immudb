@@ -24,7 +24,7 @@ import (
 
 func TestNew(t *testing.T) {
 	cmd := NewCommand()
-	require.Len(t, cmd.Commands(), 31)
+	require.Len(t, cmd.Commands(), 32)
 	cmd.SetArgs([]string{"--help"})
 
 	err := Execute(cmd)
