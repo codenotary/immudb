@@ -59,6 +59,7 @@ type ImmuServiceClient interface {
 	// ServerInfo returns information about the server instance.
 	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error)
+	// DEPRECATED: Use ServerInfo
 	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	DatabaseHealth(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error)
 	CurrentState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ImmutableState, error)
@@ -1040,6 +1041,7 @@ type ImmuServiceServer interface {
 	// ServerInfo returns information about the server instance.
 	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error)
+	// DEPRECATED: Use ServerInfo
 	Health(context.Context, *empty.Empty) (*HealthResponse, error)
 	DatabaseHealth(context.Context, *empty.Empty) (*DatabaseHealthResponse, error)
 	CurrentState(context.Context, *empty.Empty) (*ImmutableState, error)

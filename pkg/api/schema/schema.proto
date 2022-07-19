@@ -980,6 +980,7 @@ service ImmuService {
 		}; 
 	};
 
+	// DEPRECATED: Use ServerInfo
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
 			get: "/health"
