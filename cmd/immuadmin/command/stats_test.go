@@ -135,7 +135,7 @@ func TestStats_StatsText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Contains(t, string(out), "Database path")
+	assert.Contains(t, string(out), "Database")
 }
 
 func TestStats_StatsRaw(t *testing.T) {
