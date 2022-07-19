@@ -2324,7 +2324,7 @@ immudb gRPC &amp; REST service
 | TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
 | History | [HistoryRequest](#immudb.schema.HistoryRequest) | [Entries](#immudb.schema.Entries) |  |
 | ServerInfo | [ServerInfoRequest](#immudb.schema.ServerInfoRequest) | [ServerInfoResponse](#immudb.schema.ServerInfoResponse) | ServerInfo returns information about the server instance. ServerInfoRequest is defined for future extensions. |
-| Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
+| Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) | DEPRECATED: Use ServerInfo |
 | DatabaseHealth | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseHealthResponse](#immudb.schema.DatabaseHealthResponse) |  |
 | CurrentState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |
 | SetReference | [ReferenceRequest](#immudb.schema.ReferenceRequest) | [TxHeader](#immudb.schema.TxHeader) |  |

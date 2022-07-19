@@ -1405,6 +1405,7 @@
     },
     "/health": {
       "get": {
+        "summary": "DEPRECATED: Use ServerInfo",
         "operationId": "ImmuService_Health",
         "responses": {
           "200": {
