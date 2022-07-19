@@ -50,7 +50,8 @@ func TestOptions(t *testing.T) {
 		op.WebBind() != "0.0.0.0:8080" ||
 		op.MetricsBind() != "0.0.0.0:9497" ||
 		op.PgsqlServer ||
-		op.PgsqlServerPort != 5432 {
+		op.PgsqlServerPort != 5432 ||
+		op.PProf != false {
 		t.Errorf("database default options mismatch")
 	}
 }
@@ -69,7 +70,8 @@ func TestSetOptions(t *testing.T) {
 		WithWebServer(false).
 		WithTLS(tlsConfig).
 		WithPgsqlServer(true).
-		WithPgsqlServerPort(123456)
+		WithPgsqlServerPort(123456).
+		WithPProf(true)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -94,7 +96,8 @@ func TestSetOptions(t *testing.T) {
 		op.TLSConfig != tlsConfig ||
 		op.TokenExpiryTimeMin != 52 ||
 		!op.PgsqlServer ||
-		op.PgsqlServerPort != 123456 {
+		op.PgsqlServerPort != 123456 ||
+		op.PProf != true {
 		t.Errorf("database default options mismatch")
 	}
 }
