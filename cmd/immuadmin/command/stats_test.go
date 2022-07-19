@@ -16,7 +16,6 @@ limitations under the License.
 
 package immuadmin
 
-/*
 import (
 	"bytes"
 	"context"
@@ -26,13 +25,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 )
 
 func TestStats_Status(t *testing.T) {
@@ -51,12 +53,13 @@ func TestStats_Status(t *testing.T) {
 	cliopt := Options()
 	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
+	tkf := cmdtest.RandString()
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
+		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
 	}
 	cmd, _ := cl.NewCmd()
 
@@ -106,12 +109,13 @@ func TestStats_StatsText(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
+	tkf := cmdtest.RandString()
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
+		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
 	}
 	cmd, _ := cl.NewCmd()
 
@@ -160,12 +164,13 @@ func TestStats_StatsRaw(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	cliopt.Address = "127.0.0.1"
 	clientb, _ := client.NewImmuClient(cliopt)
+	tkf := cmdtest.RandString()
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		ts:             tokenservice.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
+		ts:             tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf),
 	}
 	cmd, _ := cl.NewCmd()
 	cl.stats(cmd)
@@ -186,4 +191,3 @@ func TestStats_StatsRaw(t *testing.T) {
 	}
 	assert.Contains(t, string(out), "go_gc_duration_seconds")
 }
-*/
