@@ -1456,13 +1456,9 @@ func (c *immuClient) HealthCheck(ctx context.Context) error {
 		return ErrNotConnected
 	}
 
-	response, err := c.ServiceClient.Health(ctx, &empty.Empty{})
+	_, err := c.ServiceClient.ServerInfo(ctx, &schema.ServerInfoRequest{})
 	if err != nil {
 		return err
-	}
-
-	if !response.Status {
-		return ErrHealthCheckFailed
 	}
 
 	c.Logger.Debugf("health-check finished in %s", time.Since(start))
