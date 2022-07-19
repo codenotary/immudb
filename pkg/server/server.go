@@ -332,6 +332,7 @@ func (s *ImmuServer) setUpMetricsServer() error {
 		s.metricFuncServerUptimeCounter,
 		s.metricFuncComputeDBSizes,
 		s.metricFuncComputeDBEntries,
+		s.Options.PProf,
 	)
 	return nil
 }

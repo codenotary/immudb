@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"expvar"
 	"net/http"
+	"net/http/pprof"
 	"strings"
 	"time"
 
@@ -162,6 +163,7 @@ func StartMetrics(
 	uptimeCounter func() float64,
 	computeDBSizes func() map[string]float64,
 	computeDBEntries func() map[string]float64,
+	addPProf bool,
 ) *http.Server {
 
 	Metrics.WithUptimeCounter(uptimeCounter)
@@ -178,6 +180,13 @@ func StartMetrics(
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", corsHandler(promhttp.Handler()))
 	mux.Handle("/debug/vars", corsHandler(expvar.Handler()))
+	if addPProf {
+		mux.HandleFunc("/debug/pprof/", corsHandlerFunc(pprof.Index))
+		mux.HandleFunc("/debug/pprof/cmdline", corsHandlerFunc(pprof.Cmdline))
+		mux.HandleFunc("/debug/pprof/profile", corsHandlerFunc(pprof.Profile))
+		mux.HandleFunc("/debug/pprof/symbol", corsHandlerFunc(pprof.Symbol))
+		mux.HandleFunc("/debug/pprof/trace", corsHandlerFunc(pprof.Trace))
+	}
 	mux.HandleFunc("/initz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/readyz", corsHandlerFunc(ImmudbHealthHandlerFunc()))
 	mux.HandleFunc("/livez", corsHandlerFunc(ImmudbHealthHandlerFunc()))

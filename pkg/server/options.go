@@ -67,6 +67,7 @@ type Options struct {
 	PgsqlServerPort      int
 	ReplicationOptions   *ReplicationOptions
 	SessionsOptions      *sessions.Options
+	PProf                bool
 }
 
 type RemoteStorageOptions struct {
@@ -118,6 +119,7 @@ func DefaultOptions() *Options {
 		PgsqlServer:          false,
 		PgsqlServerPort:      5432,
 		SessionsOptions:      sessions.DefaultOptions(),
+		PProf:                false,
 	}
 }
 
@@ -238,6 +240,9 @@ func (o *Options) String() string {
 
 	if o.MetricsServer {
 		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsServerPort)))
+		if o.PProf {
+			opts = append(opts, rightPad("Metrics with pprof", "true"))
+		}
 	}
 	if o.Config != "" {
 		opts = append(opts, rightPad("Config file", o.Config))
@@ -393,6 +398,11 @@ func (o *Options) WithReplicationOptions(replicationOptions *ReplicationOptions)
 
 func (o *Options) WithSessionOptions(options *sessions.Options) *Options {
 	o.SessionsOptions = options
+	return o
+}
+
+func (o *Options) WithPProf(pprof bool) *Options {
+	o.PProf = pprof
 	return o
 }
 
