@@ -33,6 +33,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"empty", &Options{}},
 		{"logger", DefaultOptions().WithLogger(nil)},
 		{"MaxConcurrency", DefaultOptions().WithMaxConcurrency(0)},
+		{"SyncFrequency", DefaultOptions().WithSyncFrequency(-1)},
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
 		{"MaxLinearProofLen", DefaultOptions().WithMaxLinearProofLen(-1)},
@@ -98,6 +99,8 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultMaxConcurrency, opts.WithMaxConcurrency(DefaultMaxConcurrency).MaxConcurrency)
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).FileMode)
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).FileSize)
+	require.Equal(t, DefaultSyncFrequency, opts.WithSyncFrequency(DefaultSyncFrequency).SyncFrequency)
+	require.Equal(t, DefaultMaxActiveTransactions, opts.WithMaxActiveTransactions(DefaultMaxActiveTransactions).MaxActiveTransactions)
 	require.Equal(t, DefaultMaxIOConcurrency, opts.WithMaxIOConcurrency(DefaultMaxIOConcurrency).MaxIOConcurrency)
 	require.Equal(t, DefaultMaxKeyLen, opts.WithMaxKeyLen(DefaultMaxKeyLen).MaxKeyLen)
 	require.Equal(t, DefaultMaxLinearProofLen, opts.WithMaxLinearProofLen(DefaultMaxLinearProofLen).MaxLinearProofLen)
