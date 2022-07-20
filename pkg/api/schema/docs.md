@@ -423,6 +423,7 @@
 | writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
 | readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| syncFrequency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
 

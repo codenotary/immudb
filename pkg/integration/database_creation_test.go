@@ -101,6 +101,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: 8},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: 4},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: 2},
+		SyncFrequency:           &schema.NullableUint32{Value: 15},
 		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: 256},
 			SyncThreshold:            &schema.NullableUint32{Value: 512},
@@ -136,6 +137,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.VLogMaxOpenedFiles.Value, res.Settings.VLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.TxLogMaxOpenedFiles.Value, res.Settings.TxLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.CommitLogMaxOpenedFiles.Value, res.Settings.CommitLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.SyncFrequency.Value, res.Settings.SyncFrequency.Value)
 
 	require.Equal(t, dbNullableSettings.IndexSettings.FlushThreshold.Value, res.Settings.IndexSettings.FlushThreshold.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.SyncThreshold.Value, res.Settings.IndexSettings.SyncThreshold.Value)
