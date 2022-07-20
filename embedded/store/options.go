@@ -26,11 +26,13 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
+const DefaultMaxActiveTransactions = 1000
 const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 10 // 1024
 const DefaultMaxKeyLen = 1024
 const DefaultMaxValueLen = 4096 // 4Kb
+const DefaultSyncFrequency = 20 * time.Millisecond
 const DefaultFileMode = os.FileMode(0755)
 const DefaultMaxLinearProofLen = 1 << 10
 const DefaultFileSize = multiapp.DefaultFileSize
@@ -54,13 +56,17 @@ type AppFactoryFunc func(
 type TimeFunc func() time.Time
 
 type Options struct {
-	ReadOnly bool
-	Synced   bool
+	ReadOnly      bool
+	Synced        bool
+	SyncFrequency time.Duration
+
 	FileMode os.FileMode
 	logger   logger.Logger
 
 	appFactory         AppFactoryFunc
 	CompactionDisabled bool
+
+	MaxActiveTransactions int
 
 	MaxConcurrency    int
 	MaxIOConcurrency  int
@@ -107,10 +113,13 @@ type IndexOptions struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		ReadOnly: false,
-		Synced:   true,
-		FileMode: DefaultFileMode,
-		logger:   logger.NewSimpleLogger("immudb ", os.Stderr),
+		ReadOnly:      false,
+		Synced:        true,
+		SyncFrequency: DefaultSyncFrequency,
+		FileMode:      DefaultFileMode,
+		logger:        logger.NewSimpleLogger("immudb ", os.Stderr),
+
+		MaxActiveTransactions: DefaultMaxActiveTransactions,
 
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
@@ -163,6 +172,14 @@ func DefaultIndexOptions() *IndexOptions {
 func (opts *Options) Validate() error {
 	if opts == nil {
 		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+
+	if opts.SyncFrequency < 0 {
+		return fmt.Errorf("%w: invalid SyncFrequency", ErrInvalidOptions)
+	}
+
+	if opts.MaxActiveTransactions <= 0 {
+		return fmt.Errorf("%w: invalid MaxActiveTransactions", ErrInvalidOptions)
 	}
 
 	if opts.MaxConcurrency <= 0 {
@@ -282,6 +299,11 @@ func (opts *Options) WithSynced(synced bool) *Options {
 	return opts
 }
 
+func (opts *Options) WithSyncFrequency(frequency time.Duration) *Options {
+	opts.SyncFrequency = frequency
+	return opts
+}
+
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.FileMode = fileMode
 	return opts
@@ -299,6 +321,11 @@ func (opts *Options) WithAppFactory(appFactory AppFactoryFunc) *Options {
 
 func (opts *Options) WithCompactionDisabled(disabled bool) *Options {
 	opts.CompactionDisabled = disabled
+	return opts
+}
+
+func (opts *Options) WithMaxActiveTransactions(maxActiveTransactions int) *Options {
+	opts.MaxActiveTransactions = maxActiveTransactions
 	return opts
 }
 

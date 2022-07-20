@@ -586,6 +586,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 		require.NoError(t, err)
+
 		err = store.Sync()
 		require.ErrorIs(t, err, injectedError)
 		err = store.Close()
@@ -2485,38 +2486,66 @@ func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
 }
 
 func BenchmarkSyncedAppend(b *testing.B) {
-	opts := DefaultOptions().WithMaxConcurrency(1)
+	opts := DefaultOptions().
+		WithMaxConcurrency(100).
+		WithSynced(true).
+		WithSyncFrequency(20 * time.Millisecond).
+		WithMaxActiveTransactions(1000)
+
 	immuStore, _ := Open("data_synced_bench", opts)
 	defer os.RemoveAll("data_synced_bench")
 
+	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
-		txCount := 1000
-		eCount := 100
+		workerCount := 500
 
-		for i := 0; i < txCount; i++ {
-			tx, err := immuStore.NewWriteOnlyTx()
-			if err != nil {
-				panic(err)
-			}
+		var wg sync.WaitGroup
+		wg.Add(workerCount)
 
-			for j := 0; j < eCount; j++ {
-				k := make([]byte, 8)
-				binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+		for w := 0; w < workerCount; w++ {
+			go func() {
+				txCount := 2
+				eCount := 1
 
-				v := make([]byte, 8)
-				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+				committed := 0
 
-				err = tx.Set(k, nil, v)
-				if err != nil {
-					panic(err)
+				for committed < txCount {
+					tx, err := immuStore.NewWriteOnlyTx()
+					if err != nil {
+						panic(err)
+					}
+
+					for j := 0; j < eCount; j++ {
+						k := make([]byte, 8)
+						binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+						v := make([]byte, 8)
+						binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+						err = tx.Set(k, nil, v)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					_, err = tx.AsyncCommit()
+					if err == ErrMaxConcurrencyLimitExceeded {
+						time.Sleep(1 * time.Nanosecond)
+						continue
+					}
+					if err != nil {
+						panic(err)
+					}
+
+					committed++
 				}
-			}
 
-			_, err = tx.Commit()
-			if err != nil {
-				panic(err)
-			}
+				wg.Done()
+			}()
 		}
+
+		wg.Wait()
 	}
 }
 

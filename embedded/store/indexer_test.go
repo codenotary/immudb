@@ -87,7 +87,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(d)
 
-	store, err := Open(d, DefaultOptions().WithMaxWaitees(1))
+	store, err := Open(d, DefaultOptions().WithMaxWaitees(1).WithMaxActiveTransactions(1))
 	require.NoError(t, err)
 
 	// Grab errors from waiters
