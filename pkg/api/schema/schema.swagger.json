@@ -1990,6 +1990,9 @@
         },
         "readTxPoolSize": {
           "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "syncFrequency": {
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },

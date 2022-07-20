@@ -551,6 +551,8 @@ message DatabaseNullableSettings {
 	NullableBool autoload = 21;
 
 	NullableUint32 readTxPoolSize = 22;
+	
+	NullableUint32 syncFrequency = 23;
 }
 
 message ReplicationNullableSettings {
