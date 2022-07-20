@@ -30,7 +30,8 @@ import (
 type dbOptions struct {
 	Database string `json:"database"`
 
-	synced bool // currently a global immudb instance option
+	synced        bool  // currently a global immudb instance option
+	SyncFrequency int64 `json:"syncFrequency"` // ms
 
 	// replication options
 	Replica          bool   `json:"replica"`
@@ -102,9 +103,9 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 	dbOpts := &dbOptions{
 		Database: database,
 
-		synced: s.Options.synced,
-
-		Replica: s.Options.ReplicationOptions != nil,
+		synced:        s.Options.synced,
+		SyncFrequency: store.DefaultSyncFrequency.Milliseconds(),
+		Replica:       s.Options.ReplicationOptions != nil,
 
 		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -188,6 +189,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 
 	stOpts := store.DefaultOptions().
 		WithSynced(opts.synced).
+		WithSyncFrequency(time.Millisecond * time.Duration(opts.SyncFrequency)).
 		WithFileSize(opts.FileSize).
 		WithMaxKeyLen(opts.MaxKeyLen).
 		WithMaxValueLen(opts.MaxValueLen).
@@ -221,6 +223,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			FollowerUsername: &schema.NullableString{Value: opts.FollowerUsername},
 			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
 		},
+
+		SyncFrequency: &schema.NullableUint32{Value: uint32(opts.SyncFrequency)},
 
 		FileSize:     &schema.NullableUint32{Value: uint32(opts.FileSize)},
 		MaxKeyLen:    &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
@@ -344,6 +348,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		if rs.FollowerPassword != nil {
 			opts.FollowerPassword = rs.FollowerPassword.Value
 		}
+	}
+
+	if settings.SyncFrequency != nil {
+		opts.SyncFrequency = int64(settings.SyncFrequency.Value)
 	}
 
 	if settings.FileSize != nil {
@@ -539,6 +547,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	// in logs such as replication passwords
 	s.Logger.Infof("%s.Autoload: %v", database, opts.Autoload.isEnabled())
 	s.Logger.Infof("%s.Synced: %v", database, opts.synced)
+	s.Logger.Infof("%s.SyncFrequency: %v", database, opts.SyncFrequency)
 	s.Logger.Infof("%s.Replica: %v", database, opts.Replica)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)

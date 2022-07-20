@@ -1987,6 +1987,9 @@
         },
         "autoload": {
           "$ref": "#/definitions/schemaNullableBool"
+        },
+        "syncFrequency": {
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },

@@ -549,6 +549,8 @@ message DatabaseNullableSettings {
 	NullableUint32 writeTxHeaderVersion = 20;
 
 	NullableBool autoload = 21;
+
+	NullableUint32 syncFrequency = 22;
 }
 
 message ReplicationNullableSettings {
