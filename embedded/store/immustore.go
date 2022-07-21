@@ -559,7 +559,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 				// ensure durability
 				err := store.sync()
-				if err == ErrAlreadyClosed {
+				if err == ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
 					return
 				}
 				if err != nil {
