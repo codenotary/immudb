@@ -94,7 +94,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 	immuStore, err := Open("data_store_reader_as_before", opts)
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer immustoreClose(t, immuStore)
 
 	txCount := 100
 	eCount := 100
@@ -136,7 +136,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1), tempTxHolder(t, immuStore))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
@@ -271,7 +271,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1), tempTxHolder(t, immuStore))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
