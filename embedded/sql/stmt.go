@@ -2462,6 +2462,14 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 
 		return uint64(txID - 1), nil
 	} else {
+
+		// TODO: Move allocation to SQLTx?
+		txHolder, err := tx.engine.allocTx()
+		if err != nil {
+			return 0, err
+		}
+		defer tx.engine.releaseTx(txHolder)
+
 		var ts time.Time
 
 		if instantVal.Type() == TimestampType {
@@ -2487,24 +2495,24 @@ func (i periodInstant) resolve(tx *SQLTx, params map[string]interface{}, asc, in
 				sts = sts.Add(1 * time.Second)
 			}
 
-			tx, err := tx.engine.store.FirstTxSince(sts)
+			err := tx.engine.store.FirstTxSince(sts, txHolder)
 			if err != nil {
 				return 0, err
 			}
 
-			return tx.Header().ID, nil
+			return txHolder.Header().ID, nil
 		}
 
 		if !inclusive {
 			sts = sts.Add(-1 * time.Second)
 		}
 
-		tx, err := tx.engine.store.LastTxUntil(sts)
+		err = tx.engine.store.LastTxUntil(sts, txHolder)
 		if err != nil {
 			return 0, err
 		}
 
-		return tx.Header().ID, nil
+		return txHolder.Header().ID, nil
 	}
 }
 

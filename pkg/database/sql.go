@@ -92,7 +92,23 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	tx := d.st.NewTxHolder()
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
+	var rootTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		rootTx = tx
+	} else {
+		rootTx, err = d.allocTx()
+		if err != nil {
+			return nil, err
+		}
+		defer d.releaseTx(rootTx)
+	}
 
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
@@ -119,13 +135,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, err
 	}
 
-	var rootTx *store.Tx
-
-	if req.ProveSinceTx == 0 {
-		rootTx = tx
-	} else {
-		rootTx = d.st.NewTxHolder()
-
+	if req.ProveSinceTx != 0 {
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
 			return nil, err

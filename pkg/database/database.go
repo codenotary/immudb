@@ -146,6 +146,8 @@ type db struct {
 	name string
 
 	maxResultSize int
+
+	txPool store.TxPool
 }
 
 // OpenDB Opens an existing Database from disk
@@ -180,6 +182,12 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
+	txPool, err := dbi.st.NewTxHolderPool(100)
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
+	}
+	dbi.txPool = txPool
+
 	if op.replica {
 		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
@@ -213,6 +221,14 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 func (d *db) Path() string {
 	return filepath.Join(d.options.GetDBRootPath(), d.GetName())
+}
+
+func (d *db) allocTx() (*store.Tx, error) {
+	return d.txPool.Alloc()
+}
+
+func (d *db) releaseTx(tx *store.Tx) {
+	d.txPool.Release(tx)
 }
 
 func (d *db) initSQLEngine() error {
@@ -285,6 +301,12 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
+
+	txPool, err := dbi.st.NewTxHolderPool(100)
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
+	}
+	dbi.txPool = txPool
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
@@ -473,11 +495,11 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return d.getAtRevision(EncodeKey(req.Key), req.AtRevision)
 	}
 
-	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, d.st.NewTxHolder(), 0)
+	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0)
 }
 
 func (d *db) get(key []byte, index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
-	return d.getAtTx(key, 0, 0, index, txHolder, 0)
+	return d.getAtTx(key, 0, 0, index, 0)
 }
 
 func (d *db) getAtTx(
@@ -485,7 +507,6 @@ func (d *db) getAtTx(
 	atTx uint64,
 	resolved int,
 	index store.KeyIndex,
-	txHolder *store.Tx,
 	revision uint64,
 ) (entry *schema.Entry, err error) {
 	var txID uint64
@@ -513,13 +534,19 @@ func (d *db) getAtTx(
 	} else {
 		txID = atTx
 
+		txHolder, err := d.allocTx()
+		if err != nil {
+			return nil, err
+		}
+		defer d.releaseTx(txHolder)
+
 		md, val, err = d.readMetadataAndValue(key, atTx, txHolder)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.resolveValue(key, val, resolved, txID, md, index, txHolder, revision)
+	return d.resolveValue(key, val, resolved, txID, md, index, revision)
 }
 
 func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, err error) {
@@ -546,7 +573,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		atRevision = int64(hCount) + atRevision
 	}
 
-	entry, err = d.getAtTx(key, txs[0], 0, d.st, d.st.NewTxHolder(), uint64(atRevision))
+	entry, err = d.getAtTx(key, txs[0], 0, d.st, uint64(atRevision))
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +588,6 @@ func (d *db) resolveValue(
 	txID uint64,
 	md *store.KVMetadata,
 	index store.KeyIndex,
-	txHolder *store.Tx,
 	revision uint64,
 ) (entry *schema.Entry, err error) {
 	if md != nil && md.Deleted() {
@@ -592,7 +618,7 @@ func (d *db) resolveValue(
 		copy(refKey, val[1+8:])
 
 		if index != nil {
-			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, txHolder, 0)
+			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, 0)
 			if err != nil {
 				return nil, err
 			}
@@ -677,25 +703,36 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, ErrIllegalState
 	}
 
-	txhdr, err := d.Set(req.SetRequest)
+	// Preallocate tx buffers
+	lastTx, err := d.allocTx()
 	if err != nil {
 		return nil, err
 	}
-
-	lastTx := d.st.NewTxHolder()
-
-	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
-	if err != nil {
-		return nil, err
-	}
+	defer d.releaseTx(lastTx)
 
 	var prevTx *store.Tx
 
 	if req.ProveSinceTx == 0 {
 		prevTx = lastTx
 	} else {
-		prevTx = d.st.NewTxHolder()
+		prevTx, err = d.allocTx()
+		if err != nil {
+			return nil, err
+		}
+		defer d.releaseTx(prevTx)
+	}
 
+	txhdr, err := d.Set(req.SetRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ProveSinceTx != 0 {
 		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
 		if err != nil {
 			return nil, err
@@ -729,8 +766,6 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	tx := d.st.NewTxHolder()
-
 	var vTxID uint64
 	var vKey []byte
 
@@ -743,12 +778,13 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(vTxID, tx)
+	tx, err := d.allocTx()
 	if err != nil {
 		return nil, err
 	}
+	defer d.releaseTx(tx)
 
-	inclusionProof, err := tx.Proof(EncodeKey(vKey))
+	err = d.st.ReadTx(vTxID, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -758,12 +794,20 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	if req.ProveSinceTx == 0 {
 		rootTx = tx
 	} else {
-		rootTx = d.st.NewTxHolder()
+		rootTx, err = d.allocTx()
+		if err != nil {
+			return nil, err
+		}
 
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	inclusionProof, err := tx.Proof(EncodeKey(vKey))
+	if err != nil {
+		return nil, err
 	}
 
 	var sourceTx, targetTx *store.Tx
@@ -865,12 +909,18 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 		return nil, ErrIllegalArguments
 	}
 
+	txHolder, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(txHolder)
+
 	waitUntilTx := req.SinceTx
 	if waitUntilTx == 0 {
 		waitUntilTx = currTxID
 	}
 
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
+	err = d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -882,8 +932,6 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	defer snapshot.Close()
 
 	list := &schema.Entries{}
-
-	txHolder := d.st.NewTxHolder()
 
 	for _, key := range req.Keys {
 		e, err := d.get(EncodeKey(key), snapshot, txHolder)
@@ -923,6 +971,12 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	var snap *store.Snapshot
 	var err error
 
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
 	if !req.KeepReferencesUnresolved {
 		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
 		if err != nil {
@@ -930,8 +984,6 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 		}
 		defer snap.Close()
 	}
-
-	tx := d.st.NewTxHolder()
 
 	// key-value inclusion proof
 	err = d.st.ReadTx(req.Tx, tx)
@@ -973,9 +1025,6 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 		Header: schema.TxHeaderToProto(tx.Header()),
 	}
 
-	// lazily initalized re-usable txHolder
-	var txHolder *store.Tx
-
 	for _, e := range tx.Entries() {
 		switch e.Key()[0] {
 		case SetKeyPrefix:
@@ -1004,17 +1053,13 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 					break
 				}
 
-				if txHolder == nil {
-					txHolder = d.st.NewTxHolder()
-				}
-
 				// resolve entry
 				var index store.KeyIndex
 				if snap != nil {
 					index = snap
 				}
 
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, txHolder, 0)
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0)
 				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
@@ -1068,15 +1113,11 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 
 				atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-				if txHolder == nil {
-					txHolder = d.st.NewTxHolder()
-				}
-
 				var entry *schema.Entry
 				var err error
 
 				if snap != nil {
-					entry, err = d.getAtTx(key, atTx, 1, snap, txHolder, 0)
+					entry, err = d.getAtTx(key, atTx, 1, snap, 0)
 					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
@@ -1135,7 +1176,13 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	return d.st.ExportTx(req.Tx, d.st.NewTxHolder())
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
+	return d.st.ExportTx(req.Tx, tx)
 }
 
 func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
@@ -1177,9 +1224,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}
 
 	// key-value inclusion proof
-	reqTx := d.st.NewTxHolder()
-
-	err = d.st.ReadTx(req.Tx, reqTx)
+	reqTx, err := d.allocTx()
 	if err != nil {
 		return nil, err
 	}
@@ -1191,12 +1236,21 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	if req.ProveSinceTx == 0 {
 		rootTx = reqTx
 	} else {
-		rootTx = d.st.NewTxHolder()
+		rootTx, err = d.allocTx()
+		if err != nil {
+			return nil, err
+		}
+		defer d.releaseTx(rootTx)
 
 		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	err = d.st.ReadTx(req.Tx, reqTx)
+	if err != nil {
+		return nil, err
 	}
 
 	if req.ProveSinceTx <= req.Tx {
@@ -1234,6 +1288,12 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
 	limit := int(req.Limit)
 
 	if req.Limit == 0 {
@@ -1246,7 +1306,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	}
 	defer snap.Close()
 
-	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, d.st.NewTxHolder())
+	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -1297,12 +1357,18 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrIllegalArguments
 	}
 
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
+
 	waitUntilTx := req.SinceTx
 	if waitUntilTx == 0 {
 		waitUntilTx = currTxID
 	}
 
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
+	err = d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1323,8 +1389,6 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	list := &schema.Entries{
 		Entries: make([]*schema.Entry, len(txs)),
 	}
-
-	tx := d.st.NewTxHolder()
 
 	revision := req.Offset + 1
 	if req.Desc {
