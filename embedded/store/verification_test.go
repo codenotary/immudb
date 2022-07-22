@@ -53,10 +53,17 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	require.False(t, VerifyDualProof(nil, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 	require.False(t, VerifyDualProof(&DualProof{}, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 
-	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(1)
+	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(3)
 	immuStore, err := Open("data_dualproof_edge_cases", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_dualproof_edge_cases")
+
+	defer func() {
+		err = immuStore.Close()
+		if !t.Failed() {
+			require.NoError(t, err)
+		}
+	}()
 
 	require.NotNil(t, immuStore)
 
@@ -83,8 +90,8 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
 
-	sourceTx := immuStore.NewTxHolder()
-	targetTx := immuStore.NewTxHolder()
+	sourceTx := tempTxHolder(t, immuStore)
+	targetTx := tempTxHolder(t, immuStore)
 
 	targetTxID := uint64(txCount)
 	err = immuStore.ReadTx(targetTxID, targetTx)
@@ -121,6 +128,4 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		dproof.TargetTxHeader.BlTxID--
 	}
 
-	err = immuStore.Close()
-	require.NoError(t, err)
 }

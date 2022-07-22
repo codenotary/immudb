@@ -63,8 +63,10 @@ func TestTxReader(t *testing.T) {
 	_, err = immuStore.NewTxReader(1, false, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
+	txHolder := tempTxHolder(t, immuStore)
+
 	currTxID := uint64(1)
-	txReader, err := immuStore.NewTxReader(currTxID, false, immuStore.NewTxHolder())
+	txReader, err := immuStore.NewTxReader(currTxID, false, txHolder)
 	require.NoError(t, err)
 
 	for {
@@ -80,7 +82,7 @@ func TestTxReader(t *testing.T) {
 	require.Equal(t, uint64(txCount), currTxID-1)
 
 	currTxID = uint64(txCount)
-	txReader, err = immuStore.NewTxReader(currTxID, true, immuStore.NewTxHolder())
+	txReader, err = immuStore.NewTxReader(currTxID, true, txHolder)
 	require.NoError(t, err)
 
 	for {
