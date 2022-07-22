@@ -199,6 +199,11 @@ func main() {
 		panic("invalid action")
 	}
 
+	txHolderPool, err := immuStore.NewTxHolderPool(*committers)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't allocate tx holder pool: %v", err))
+	}
+
 	if *mode == "auto" {
 		fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
@@ -296,7 +301,11 @@ func main() {
 				if *txRead {
 					fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
 
-					txHolder := immuStore.NewTxHolder()
+					txHolder, err := txHolderPool.Alloc()
+					if err != nil {
+						panic(err)
+					}
+					defer txHolderPool.Release(txHolder)
 
 					for i := range ids {
 						immuStore.ReadTx(ids[i], txHolder)
@@ -322,7 +331,7 @@ func main() {
 
 				wgEnded.Done()
 
-				fmt.Printf("Committer %d sucessfully ended!\r\n", id)
+				fmt.Printf("Committer %d successfully ended!\r\n", id)
 			}(c)
 		}
 
@@ -342,7 +351,13 @@ func main() {
 			fmt.Println("Starting full scan to verify linear cryptographic linking...")
 			start := time.Now()
 
-			txReader, err := immuStore.NewTxReader(1, false, immuStore.NewTxHolder())
+			txHolder, err := txHolderPool.Alloc()
+			if err != nil {
+				panic(err)
+			}
+			defer txHolderPool.Release(txHolder)
+
+			txReader, err := immuStore.NewTxReader(1, false, txHolder)
 			if err != nil {
 				panic(err)
 			}
