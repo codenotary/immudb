@@ -62,8 +62,6 @@ type KeyReader struct {
 
 	offset  uint64
 	skipped uint64
-
-	_tx *Tx
 }
 
 type KeyReaderSpec struct {
@@ -169,7 +167,6 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		filters:        spec.Filters,
 		refInterceptor: refInterceptor,
 		offset:         spec.Offset,
-		_tx:            s.st.NewTxHolder(),
 	}, nil
 }
 
@@ -315,30 +312,30 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
+func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64, txHolder *Tx) (key []byte, val ValueRef, tx uint64, err error) {
 	for {
 		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
-		err = r.snap.st.ReadTx(ktxID, r._tx)
+		err = r.snap.st.ReadTx(ktxID, txHolder)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
-		e, err := r._tx.EntryOf(key)
+		e, err := txHolder.EntryOf(key)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
 		val = &valueRef{
-			tx:     r._tx.header.ID,
+			tx:     txHolder.header.ID,
 			hc:     hc,
 			hVal:   e.hVal,
 			vOff:   int64(e.vOff),
 			valLen: uint32(e.vLen),
-			txmd:   r._tx.header.Metadata,
+			txmd:   txHolder.header.Metadata,
 			kvmd:   e.md,
 			st:     r.snap.st,
 		}

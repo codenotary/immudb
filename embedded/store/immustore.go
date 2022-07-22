@@ -153,12 +153,10 @@ type ImmuStore struct {
 
 	timeFunc TimeFunc
 
-	_txs     *list.List // pre-allocated txs
-	_txsLock sync.Mutex
+	txPool TxPool
 
-	_txbs []byte // pre-allocated buffer to support tx serialization
-
-	_kvs []*tbtree.KV //pre-allocated for indexing
+	_txbs []byte       // pre-allocated buffer to support tx serialization
+	_kvs  []*tbtree.KV //pre-allocated for indexing
 
 	aht      *ahtree.AHtree
 	blBuffer chan ([sha256.Size]byte)
@@ -331,15 +329,13 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		}
 	}
 
-	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen)
-
-	txs := list.New()
-
 	// one extra tx pre-allocation for indexing thread
-	for i := 0; i < opts.MaxConcurrency+1; i++ {
-		txs.PushBack(newTx(maxTxEntries, maxKeyLen))
+	txPool, err := newTxPool(maxTxEntries, maxKeyLen, opts.MaxConcurrency+1)
+	if err != nil {
+		return nil, fmt.Errorf("invalid configuration, couldn't initialize transaction holder pool")
 	}
 
+	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen, maxTxMetadataLen, maxKVMetadataLen)
 	txbs := make([]byte, maxTxSize)
 
 	committedAlh := sha256.Sum256(nil)
@@ -347,11 +343,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	if cLogSize > 0 {
 		txReader := appendable.NewReaderFrom(txLog, committedTxOffset, committedTxSize)
 
-		tx := txs.Front().Value.(*Tx)
+		tx, _ := txPool.Alloc()
+
 		err = tx.readFrom(txReader)
 		if err != nil {
+			txPool.Release(tx)
 			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
 		}
+
+		txPool.Release(tx)
 
 		committedAlh = tx.header.Alh()
 	}
@@ -433,9 +433,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		wHub: watchers.New(0, 1+opts.MaxWaitees),
 
-		_kvs:  kvs,
-		_txs:  txs,
-		_txbs: txbs,
+		txPool: txPool,
+		_kvs:   kvs,
+		_txbs:  txbs,
 
 		compactionDisabled: opts.CompactionDisabled,
 	}
@@ -601,8 +601,8 @@ func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 	return nil
 }
 
-func (s *ImmuStore) NewTxHolder() *Tx {
-	return newTx(s.maxTxEntries, s.maxKeyLen)
+func (s *ImmuStore) NewTxHolderPool(poolSize int) (TxPool, error) {
+	return newTxPool(s.maxTxEntries, s.maxKeyLen, poolSize)
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
@@ -678,11 +678,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 	s.logger.Infof("Syncing Binary Linking at '%s'...", s.path)
 
-	tx, err := s.fetchAllocTx()
+	tx, err := s.txPool.Alloc()
 	if err != nil {
 		return err
 	}
-	defer s.releaseAllocTx(tx)
+	defer s.txPool.Release(tx)
 
 	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
 	if err != nil {
@@ -789,21 +789,11 @@ func (s *ImmuStore) TxCount() uint64 {
 }
 
 func (s *ImmuStore) fetchAllocTx() (*Tx, error) {
-	s._txsLock.Lock()
-	defer s._txsLock.Unlock()
-
-	if s._txs.Len() == 0 {
-		return nil, ErrMaxConcurrencyLimitExceeded
-	}
-
-	return s._txs.Remove(s._txs.Front()).(*Tx), nil
+	return s.txPool.Alloc()
 }
 
 func (s *ImmuStore) releaseAllocTx(tx *Tx) {
-	s._txsLock.Lock()
-	defer s._txsLock.Unlock()
-
-	s._txs.PushBack(tx)
+	s.txPool.Release(tx)
 }
 
 func encodeOffset(offset int64, vLogID byte) int64 {
@@ -1760,18 +1750,16 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
-func (s *ImmuStore) FirstTxSince(ts time.Time) (*Tx, error) {
+func (s *ImmuStore) FirstTxSince(ts time.Time, tx *Tx) error {
 	left := uint64(1)
 	right, _, _ := s.commitState()
 
 	for left < right {
 		middle := left + (right-left)/2
 
-		tx := s.NewTxHolder()
-
 		err := s.ReadTx(middle, tx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if tx.header.Ts < ts.Unix() {
@@ -1781,32 +1769,28 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*Tx, error) {
 		}
 	}
 
-	tx := s.NewTxHolder()
-
 	err := s.ReadTx(left, tx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if tx.header.Ts >= ts.Unix() {
-		return tx, nil
+	if tx.header.Ts < ts.Unix() {
+		return ErrTxNotFound
 	}
 
-	return nil, ErrTxNotFound
+	return nil
 }
 
-func (s *ImmuStore) LastTxUntil(ts time.Time) (*Tx, error) {
+func (s *ImmuStore) LastTxUntil(ts time.Time, tx *Tx) error {
 	left := uint64(1)
 	right, _, _ := s.commitState()
 
 	for left < right {
 		middle := left + ((right-left)+1)/2
 
-		tx := s.NewTxHolder()
-
 		err := s.ReadTx(middle, tx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if tx.header.Ts > ts.Unix() {
@@ -1816,18 +1800,16 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*Tx, error) {
 		}
 	}
 
-	tx := s.NewTxHolder()
-
 	err := s.ReadTx(left, tx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if tx.header.Ts <= ts.Unix() {
-		return tx, nil
+	if tx.header.Ts > ts.Unix() {
+		return ErrTxNotFound
 	}
 
-	return nil, ErrTxNotFound
+	return nil
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
@@ -2049,6 +2031,11 @@ func (s *ImmuStore) Close() error {
 
 	err = s.aht.Close()
 	merr.Append(err)
+
+	used, _ := s.txPool.Stats()
+	if used > 0 {
+		merr.Append(errors.New("not all tx holders were released"))
+	}
 
 	return merr.Reduce()
 }

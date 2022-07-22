@@ -59,12 +59,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		// we build a map in which we store sha256 sum as key and the index as value
 		kmap := make(map[[sha256.Size]byte]bool)
 
-		var tx *store.Tx
-
-		if !req.NoWait {
-			tx = d.st.NewTxHolder()
-		}
-
 		for i, op := range req.Operations {
 
 			e := &store.EntrySpec{}
@@ -110,7 +104,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 				if !req.NoWait {
 					// check key does not exists or it's already a reference
-					entry, err := d.getAtTx(EncodeKey(x.Ref.Key), 0, 0, index, tx, 0)
+					entry, err := d.getAtTx(EncodeKey(x.Ref.Key), 0, 0, index, 0)
 					if err != nil && err != store.ErrKeyNotFound {
 						return nil, nil, err
 					}
@@ -120,7 +114,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 					if !exists || x.Ref.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, tx, 0)
+						refEntry, err := d.getAtTx(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, index, 0)
 						if err != nil {
 							return nil, nil, err
 						}
@@ -173,7 +167,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 				if !req.NoWait {
 					if !exists || x.ZAdd.AtTx > 0 {
 						// check referenced key exists and it's not a reference
-						refEntry, err := d.getAtTx(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, tx, 0)
+						refEntry, err := d.getAtTx(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, index, 0)
 						if err != nil {
 							return nil, nil, err
 						}

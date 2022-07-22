@@ -89,8 +89,6 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 	defer r.Close()
 
-	tx := d.st.NewTxHolder()
-
 	entries := &schema.Entries{}
 
 	for l := 1; l <= limit; l++ {
@@ -102,7 +100,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, tx, valRef.HC())
+		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC())
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

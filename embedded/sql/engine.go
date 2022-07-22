@@ -107,6 +107,8 @@ type Engine struct {
 	multidbHandler MultiDBHandler
 
 	mutex sync.RWMutex
+
+	txPool store.TxPool
 }
 
 type MultiDBHandler interface {
@@ -135,6 +137,8 @@ type SQLTx struct {
 
 	txHeader *store.TxHeader // header is set once tx is committed
 
+	txHolder *store.Tx // Temporary read buffer
+
 	committed bool
 	closed    bool
 }
@@ -144,11 +148,18 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 		return nil, ErrIllegalArguments
 	}
 
+	// TODO: Configure from options
+	txPool, err := store.NewTxHolderPool(1000)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't initialize SQL tx pool: %v", err)
+	}
+
 	e := &Engine{
 		store:         store,
 		prefix:        make([]byte, len(opts.prefix)),
 		distinctLimit: opts.distinctLimit,
 		autocommit:    opts.autocommit,
+		txPool:        txPool,
 	}
 
 	copy(e.prefix, opts.prefix)
@@ -157,6 +168,14 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	yyErrorVerbose = true
 
 	return e, nil
+}
+
+func (e *Engine) allocTx() (*store.Tx, error) {
+	return e.txPool.Alloc()
+}
+
+func (e *Engine) releaseTx(tx *store.Tx) {
+	e.txPool.Release(tx)
 }
 
 func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
@@ -290,10 +309,33 @@ func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
 	return sqlTx.tx.ExistKeyWith(prefix, neq)
 }
 
+func (sqlTx *SQLTx) getTxHolder() (*store.Tx, error) {
+	if sqlTx.txHolder != nil {
+		return sqlTx.txHolder, nil
+	}
+
+	txHolder, err := sqlTx.engine.allocTx()
+	if err != nil {
+		return nil, err
+	}
+
+	sqlTx.txHolder = txHolder
+	return txHolder, nil
+}
+
+func (sqlTx *SQLTx) releaseTxHolder() {
+	if sqlTx.txHolder != nil {
+		sqlTx.engine.releaseTx(sqlTx.txHolder)
+		sqlTx.txHolder = nil
+	}
+}
+
 func (sqlTx *SQLTx) Cancel() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
+
+	sqlTx.releaseTxHolder()
 
 	sqlTx.closed = true
 
@@ -304,6 +346,8 @@ func (sqlTx *SQLTx) commit() error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
+
+	sqlTx.releaseTxHolder()
 
 	sqlTx.committed = true
 	sqlTx.closed = true
