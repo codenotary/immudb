@@ -204,7 +204,11 @@ func (idx *indexer) Close() error {
 
 func (idx *indexer) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
 	if idx.wHub != nil {
-		return idx.wHub.WaitFor(txID, cancellation)
+		err := idx.wHub.WaitFor(txID, cancellation)
+		if err == watchers.ErrAlreadyClosed {
+			return ErrAlreadyClosed
+		}
+		return err
 	}
 
 	return watchers.ErrMaxWaitessLimitExceeded
