@@ -129,10 +129,11 @@ type ImmuStore struct {
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
 
-	txLog appendable.Appendable
-	cLog  appendable.Appendable
-
+	txLog      appendable.Appendable
 	txLogCache *cache.LRUCache
+
+	cLog    appendable.Appendable
+	cLogBuf []byte
 
 	committedTxID      uint64
 	committedAlh       [sha256.Size]byte
@@ -421,7 +422,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogs:            vLogsMap,
 		vLogUnlockedList: vLogUnlockedList,
 		vLogsCond:        sync.NewCond(&sync.Mutex{}),
-		cLog:             cLog,
+
+		cLog: cLog,
 
 		committedTxID:      committedTxID,
 		committedAlh:       committedAlh,
@@ -545,6 +547,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.synced {
+		store.cLogBuf = make([]byte, cLogEntrySize*opts.MaxActiveTransactions)
+
 		go func() {
 			for {
 				store.commitStateRWMutex.Lock()
@@ -793,7 +797,11 @@ func (s *ImmuStore) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
 		s.waiteesMutex.Unlock()
 	}()
 
-	return s.commitWHub.WaitFor(txID, cancellation)
+	err := s.commitWHub.WaitFor(txID, cancellation)
+	if err == watchers.ErrAlreadyClosed {
+		return ErrAlreadyClosed
+	}
+	return err
 }
 
 func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
@@ -816,6 +824,9 @@ func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{
 
 	// note: this wait is only needed if precommitted transactions are indexed
 	err := s.commitWHub.WaitFor(txID, cancellation)
+	if err == watchers.ErrAlreadyClosed {
+		return ErrAlreadyClosed
+	}
 	if err != nil {
 		return err
 	}
@@ -998,6 +1009,9 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 
 	// note: durability is ensured only if the store is in sync mode
 	err = s.commitWHub.WaitFor(hdr.ID, nil)
+	if err == watchers.ErrAlreadyClosed {
+		return hdr, ErrAlreadyClosed
+	}
 	if err != nil {
 		return hdr, err
 	}
@@ -1328,12 +1342,12 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
-	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
+	err = s.txLog.Flush()
 	if err != nil {
 		return err
 	}
 
-	err = s.txLog.Flush()
+	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
 	if err != nil {
 		return err
 	}
@@ -1351,32 +1365,35 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		s.blBuffer <- alh
 	}
 
-	// will overwrite partially written and uncommitted data
-	err = s.cLog.SetOffset(int64(s.preCommittedTxID * cLogEntrySize))
-	if err != nil {
-		return err
-	}
-
-	var cb [cLogEntrySize]byte
-	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
-	binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
-	_, _, err = s.cLog.Append(cb[:])
-	if err != nil {
-		return err
-	}
-
-	err = s.cLog.Flush()
-	if err != nil {
-		return err
-	}
-
 	s.preCommittedTxID++
 	s.preCommittedAlh = alh
 	s.preCommittedTxLogSize += int64(txSize)
 
 	s.precommitWHub.DoneUpto(s.preCommittedTxID)
 
-	if !s.synced {
+	var cb [cLogEntrySize]byte
+	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+	binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
+
+	if s.synced {
+		copy(s.cLogBuf[int(s.preCommittedTxID-s.committedTxID-1)*cLogEntrySize:], cb[:])
+	} else {
+		// will overwrite partially written and uncommitted data
+		err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
+		if err != nil {
+			return err
+		}
+
+		_, _, err = s.cLog.Append(cb[:])
+		if err != nil {
+			return err
+		}
+
+		err = s.cLog.Flush()
+		if err != nil {
+			return err
+		}
+
 		s.committedTxID = s.preCommittedTxID
 		s.committedAlh = s.preCommittedAlh
 		s.committedTxLogSize = s.preCommittedTxLogSize
@@ -1395,6 +1412,9 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*En
 
 	// note: durability is ensured only if the store is in sync mode
 	err = s.commitWHub.WaitFor(hdr.ID, nil)
+	if err == watchers.ErrAlreadyClosed {
+		return hdr, ErrAlreadyClosed
+	}
 	if err != nil {
 		return hdr, err
 	}
@@ -2090,6 +2110,11 @@ func (s *ImmuStore) sync() error {
 	s.commitStateRWMutex.Lock()
 	defer s.commitStateRWMutex.Unlock()
 
+	if s.preCommittedTxID == s.committedTxID {
+		// everything already synced
+		return nil
+	}
+
 	for i := range s.vLogs {
 		vLog := s.fetchVLog(i + 1)
 		defer s.releaseVLog(i + 1)
@@ -2105,12 +2130,23 @@ func (s *ImmuStore) sync() error {
 		return err
 	}
 
-	err = s.cLog.Sync()
+	// will overwrite partially written and uncommitted data
+	err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
 	if err != nil {
 		return err
 	}
 
-	err = s.aht.Sync()
+	_, _, err = s.cLog.Append(s.cLogBuf[:int(s.preCommittedTxID-s.committedTxID)*cLogEntrySize])
+	if err != nil {
+		return err
+	}
+
+	err = s.cLog.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = s.cLog.Sync()
 	if err != nil {
 		return err
 	}
