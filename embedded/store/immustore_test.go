@@ -308,7 +308,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	}
 
 	cLog := &mocked.MockedAppendable{
-		CloseFn: func() error { return nil },
+		CloseFn:  func() error { return nil },
+		AppendFn: func(bs []byte) (off int64, n int, err error) { return 0, len(bs), nil },
+		FlushFn:  func() error { return nil },
+		SyncFn:   func() error { return nil },
 	}
 
 	// Should fail reading fileSize from metadata
@@ -576,19 +579,53 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrCorruptedCLog)
 
 	// Errors during sync
+	vLog.AppendFn = func(bs []byte) (off int64, n int, err error) { return 0, len(bs), nil }
+	vLog.FlushFn = func() error { return nil }
+
+	txLog.AppendFn = func(bs []byte) (off int64, n int, err error) { return 0, len(bs), nil }
+	txLog.SetOffsetFn = func(off int64) error { return nil }
+	txLog.FlushFn = func() error { return nil }
+
+	cLogBuf := bytes.NewBuffer(nil)
+	cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		off = int64(cLogBuf.Len())
+		n, err = cLogBuf.Write(bs)
+		return
+	}
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		buf := cLogBuf.Bytes()
+		copy(bs, buf[off:])
+		return len(buf) - int(off), nil
+	}
+
 	mockedApps := []*mocked.MockedAppendable{vLog, txLog, cLog}
 	for _, app := range mockedApps {
 		app.SyncFn = func() error { return nil }
 	}
 	for i, checkApp := range mockedApps {
+		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts.WithSyncFrequency(time.Duration(1)*time.Second))
+		require.NoError(t, err)
+
+		go func() {
+			tx, err := store.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte("key"), nil, []byte("value"))
+			require.NoError(t, err)
+
+			_, err = tx.AsyncCommit()
+			require.ErrorIs(t, err, ErrAlreadyClosed)
+		}()
+
+		// wait for the tx to be waiting for sync to happen
+		time.Sleep(10 * time.Millisecond)
+
 		injectedError = fmt.Errorf("Injected error %d", i)
 		checkApp.SyncFn = func() error { return injectedError }
 
-		store, err := OpenWith("edge_cases", vLogs, txLog, cLog, opts)
-		require.NoError(t, err)
-
 		err = store.Sync()
 		require.ErrorIs(t, err, injectedError)
+
 		err = store.Close()
 		require.NoError(t, err)
 
@@ -2498,14 +2535,14 @@ func BenchmarkSyncedAppend(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		workerCount := 500
+		workerCount := 100
 
 		var wg sync.WaitGroup
 		wg.Add(workerCount)
 
 		for w := 0; w < workerCount; w++ {
 			go func() {
-				txCount := 2
+				txCount := 10
 				eCount := 1
 
 				committed := 0
