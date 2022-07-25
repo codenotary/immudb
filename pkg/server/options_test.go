@@ -168,3 +168,32 @@ Superadmin default credentials
 
 	assert.Equal(t, expected, op.String())
 }
+
+func TestOptionsStringWithPProf(t *testing.T) {
+	expected := `================ Config ================
+Data dir         : ./data
+Address          : 0.0.0.0:3322
+Metrics address  : 0.0.0.0:9497/metrics
+pprof enabled    : true
+Config file      : configs/immudb.toml
+PID file         : immu.pid
+Log file         : immu.log
+Max recv msg size: 33554432
+Auth enabled     : true
+Dev mode         : false
+Default database : defaultdb
+Maintenance mode : false
+Synced mode      : true
+----------------------------------------
+Superadmin default credentials
+   Username      : immudb
+   Password      : immudb
+========================================`
+
+	op := DefaultOptions().
+		WithPidfile("immu.pid").
+		WithLogfile("immu.log").
+		WithPProf(true)
+
+	assert.Equal(t, expected, op.String())
+}

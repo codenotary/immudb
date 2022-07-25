@@ -241,7 +241,7 @@ func (o *Options) String() string {
 	if o.MetricsServer {
 		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsServerPort)))
 		if o.PProf {
-			opts = append(opts, rightPad("Metrics with pprof", "true"))
+			opts = append(opts, rightPad("pprof enabled", "true"))
 		}
 	}
 	if o.Config != "" {
