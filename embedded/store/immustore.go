@@ -2130,6 +2130,11 @@ func (s *ImmuStore) sync() error {
 		return err
 	}
 
+	err = s.aht.Sync()
+	if err != nil {
+		return err
+	}
+
 	// will overwrite partially written and uncommitted data
 	err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
 	if err != nil {
