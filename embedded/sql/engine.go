@@ -149,7 +149,7 @@ func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
 	}
 
 	// TODO: Configure from options
-	txPool, err := store.NewTxHolderPool(1000)
+	txPool, err := store.NewTxHolderPool(1000, false)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't initialize SQL tx pool: %v", err)
 	}

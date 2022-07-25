@@ -330,7 +330,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	// one extra tx pre-allocation for indexing thread
-	txPool, err := newTxPool(maxTxEntries, maxKeyLen, opts.MaxConcurrency+1)
+	txPool, err := newTxPool(maxTxEntries, maxKeyLen, opts.MaxConcurrency+1, true)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration, couldn't initialize transaction holder pool")
 	}
@@ -601,8 +601,8 @@ func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 	return nil
 }
 
-func (s *ImmuStore) NewTxHolderPool(poolSize int) (TxPool, error) {
-	return newTxPool(s.maxTxEntries, s.maxKeyLen, poolSize)
+func (s *ImmuStore) NewTxHolderPool(poolSize int, preallocated bool) (TxPool, error) {
+	return newTxPool(s.maxTxEntries, s.maxKeyLen, poolSize, preallocated)
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
@@ -2032,7 +2032,7 @@ func (s *ImmuStore) Close() error {
 	err = s.aht.Close()
 	merr.Append(err)
 
-	used, _ := s.txPool.Stats()
+	used, _, _ := s.txPool.Stats()
 	if used > 0 {
 		merr.Append(errors.New("not all tx holders were released"))
 	}

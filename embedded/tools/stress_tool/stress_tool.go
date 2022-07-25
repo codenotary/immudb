@@ -199,7 +199,7 @@ func main() {
 		panic("invalid action")
 	}
 
-	txHolderPool, err := immuStore.NewTxHolderPool(*committers)
+	txHolderPool, err := immuStore.NewTxHolderPool(*committers, false)
 	if err != nil {
 		panic(fmt.Sprintf("Couldn't allocate tx holder pool: %v", err))
 	}

@@ -182,7 +182,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
-	txPool, err := dbi.st.NewTxHolderPool(100)
+	txPool, err := dbi.st.NewTxHolderPool(1000, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
 	}
@@ -302,7 +302,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
 
-	txPool, err := dbi.st.NewTxHolderPool(100)
+	txPool, err := dbi.st.NewTxHolderPool(1000, false)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
 	}
