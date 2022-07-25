@@ -24,28 +24,32 @@ import (
 type TxPool interface {
 	Alloc() (*Tx, error)
 	Release(*Tx)
-	Stats() (used, free int)
+	Stats() (used, free, max int)
 }
 
 type txPool struct {
-	pool []*Tx
-	used int
-	m    sync.Mutex
+	pool      []*Tx
+	used      int
+	max       int
+	nentries  int
+	maxKeyLen int
+	m         sync.Mutex
 }
 
-func newTxPool(nentries int, maxKeyLen int, poolSize int) (TxPool, error) {
+func newTxPool(nentries int, maxKeyLen int, poolSize int, preallocated bool) (TxPool, error) {
 
 	if nentries <= 0 || maxKeyLen <= 0 || poolSize <= 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	const minimalAlloc = true
-
 	ret := &txPool{
-		pool: make([]*Tx, poolSize),
+		pool:      make([]*Tx, 0, poolSize),
+		max:       poolSize,
+		nentries:  nentries,
+		maxKeyLen: maxKeyLen,
 	}
 
-	if minimalAlloc {
+	if preallocated {
 		// The pool uses only 5 allocations in total
 		// instead of allocating data separately for each tx and then each
 		// entry, we instead allocate single large arrays large enough
@@ -62,7 +66,7 @@ func newTxPool(nentries int, maxKeyLen int, poolSize int) (TxPool, error) {
 
 		for i := 0; i < poolSize; i++ {
 			tx := &txBuffer[i]
-			ret.pool[i] = tx
+			ret.pool = append(ret.pool, tx)
 
 			tx.entries = txEntryPtrBuffer[:nentries]
 			tx.htree, _ = htree.New(nentries)
@@ -80,11 +84,6 @@ func newTxPool(nentries int, maxKeyLen int, poolSize int) (TxPool, error) {
 			txEntryBuffer = txEntryBuffer[nentries:]
 		}
 
-	} else {
-
-		for i := range ret.pool {
-			ret.pool[i] = newTx(nentries, maxKeyLen)
-		}
 	}
 
 	return ret, nil
@@ -95,7 +94,11 @@ func (p *txPool) Alloc() (*Tx, error) {
 	defer p.m.Unlock()
 
 	if p.used == len(p.pool) {
-		return nil, ErrMaxConcurrencyLimitExceeded
+		if p.used == p.max {
+			return nil, ErrMaxConcurrencyLimitExceeded
+		}
+
+		p.pool = append(p.pool, newTx(p.nentries, p.maxKeyLen))
 	}
 
 	tx := p.pool[p.used]
@@ -112,9 +115,9 @@ func (p *txPool) Release(tx *Tx) {
 	p.pool[p.used] = tx
 }
 
-func (p *txPool) Stats() (used, free int) {
+func (p *txPool) Stats() (used, free, max int) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	return p.used, len(p.pool) - p.used
+	return p.used, len(p.pool) - p.used, p.max
 }
