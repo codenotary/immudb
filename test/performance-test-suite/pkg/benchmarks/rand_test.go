@@ -16,32 +16,18 @@ limitations under the License.
 package benchmarks
 
 import (
-	"fmt"
-	"math/rand"
-	"sync/atomic"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-type KeyTracker struct {
-	start uint64
-	max   uint64
-}
+func TestRandStringGen(t *testing.T) {
+	rsd := NewRandStringGen(16)
+	defer rsd.Stop()
 
-func NewKeyTracker(start uint64) *KeyTracker {
-	return &KeyTracker{
-		start: start,
+	for i := 0; i < 100; i++ {
+		b := rsd.GetRnd()
+		require.Len(t, b, 16)
+		require.Regexp(t, "^[0-9a-f]+$", string(b))
 	}
-}
-
-func (kt *KeyTracker) GetWKey() string {
-	max := atomic.AddUint64(&kt.max, 1)
-	return fmt.Sprintf("KEY:%010d", max+kt.start-1)
-}
-
-func (kt *KeyTracker) GetRKey() string {
-	max := atomic.LoadUint64(&kt.max)
-	k := kt.start
-	if max > 0 {
-		k += rand.Uint64() % max
-	}
-	return fmt.Sprintf("KEY:%010d", k)
 }

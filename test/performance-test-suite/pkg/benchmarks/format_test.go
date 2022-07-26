@@ -17,31 +17,32 @@ package benchmarks
 
 import (
 	"fmt"
-	"math/rand"
-	"sync/atomic"
+	"math"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type KeyTracker struct {
-	start uint64
-	max   uint64
-}
-
-func NewKeyTracker(start uint64) *KeyTracker {
-	return &KeyTracker{
-		start: start,
+func TestToHumanReadable(t *testing.T) {
+	for _, d := range []struct {
+		b uint64
+		s string
+	}{
+		{0, "0"},
+		{1, "1"},
+		{999, "999"},
+		{1000, "1.00k"},
+		{1001, "1.00k"},
+		{3333333, "3.33M"},
+		{4444444444, "4.44G"},
+		{5555555555555, "5.56T"},
+		{6666666666666666, "6.67P"},
+		{7777777777777777777, "7.78E"},
+		{math.MaxUint64, "18.45E"},
+	} {
+		t.Run(fmt.Sprintf("%v", d), func(t *testing.T) {
+			s := ToHumanReadable(d.b)
+			assert.Equal(t, d.s, s)
+		})
 	}
-}
-
-func (kt *KeyTracker) GetWKey() string {
-	max := atomic.AddUint64(&kt.max, 1)
-	return fmt.Sprintf("KEY:%010d", max+kt.start-1)
-}
-
-func (kt *KeyTracker) GetRKey() string {
-	max := atomic.LoadUint64(&kt.max)
-	k := kt.start
-	if max > 0 {
-		k += rand.Uint64() % max
-	}
-	return fmt.Sprintf("KEY:%010d", k)
 }
