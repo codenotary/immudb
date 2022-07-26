@@ -16,30 +16,32 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) set(args []string) (string, error) {
+import "github.com/codenotary/immudb/cmd/immuclient/immuc"
+
+func (cli *cli) set(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Set(args)
 }
 
-func (cli *cli) safeset(args []string) (string, error) {
+func (cli *cli) safeset(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.VerifiedSet(args)
 }
 
-func (cli *cli) restore(args []string) (string, error) {
+func (cli *cli) restore(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.Restore(args)
 }
 
-func (cli *cli) deleteKey(args []string) (string, error) {
+func (cli *cli) deleteKey(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.DeleteKey(args)
 }
 
-func (cli *cli) zAdd(args []string) (string, error) {
+func (cli *cli) zAdd(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.ZAdd(args)
 }
 
-func (cli *cli) safeZAdd(args []string) (string, error) {
+func (cli *cli) safeZAdd(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.VerifiedZAdd(args)
 }
 
-func (cli *cli) UseDatabase(args []string) (string, error) {
+func (cli *cli) UseDatabase(args []string) (immuc.CommandOutput, error) {
 	return cli.immucl.UseDatabase(args)
 }

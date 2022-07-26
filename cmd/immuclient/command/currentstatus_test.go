@@ -18,12 +18,13 @@ package immuclient
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -54,6 +55,7 @@ func TestCurrentState(t *testing.T) {
 		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
+	cmdl.outputRenderer = cmdl.renderOutputPlain
 	cmd, _ := cmdl.NewCmd()
 	cmdl.currentState(cmd)
 	b := bytes.NewBufferString("")
@@ -66,17 +68,11 @@ func TestCurrentState(t *testing.T) {
 	innercmd.PersistentPreRunE = nil
 
 	err := cmd.Execute()
+	require.NoError(t, err)
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	rsp := string(msg)
 
-	if !strings.Contains(rsp, "txID:") {
-		t.Fatal(err)
-	}
+	require.Contains(t, rsp, "txID:")
 }

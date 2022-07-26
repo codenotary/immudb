@@ -29,7 +29,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) SetReference(args []string) (string, error) {
+func (i *immuc) SetReference(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -38,48 +38,36 @@ func (i *immuc) SetReference(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-	referencedKey, err := ioutil.ReadAll(tee)
+	referencedKey, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.SetReference(ctx, key, referencedKey)
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
-	}
-
-	value, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := response.(*schema.TxHeader)
-	return PrintKV(
-		&schema.Entry{
+	return &kvOutput{
+		entry: &schema.Entry{
 			Key:   []byte(args[0]),
-			Value: value,
+			Value: referencedKey,
 			Tx:    txhdr.Id,
 		},
-		false,
-		false,
-	), nil
+	}, nil
 }
 
-func (i *immuc) VerifiedSetReference(args []string) (string, error) {
+func (i *immuc) VerifiedSetReference(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -88,43 +76,32 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-	referencedKey, err := ioutil.ReadAll(tee)
+	referencedKey, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedSetReference(ctx, key, referencedKey)
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
-	}
-
-	value, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := response.(*schema.TxHeader)
-	return PrintKV(
-		&schema.Entry{
+	return &kvOutput{
+		entry: &schema.Entry{
 			Key:   []byte(args[0]),
-			Value: value,
+			Value: referencedKey,
 			Tx:    txhdr.Id,
 		},
-		true,
-		false,
-	), nil
+		verified: true,
+	}, nil
 }

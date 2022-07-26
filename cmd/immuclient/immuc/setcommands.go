@@ -31,7 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) Set(args []string) (string, error) {
+func (i *immuc) Set(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -40,36 +40,35 @@ func (i *immuc) Set(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Set(ctx, key, value)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := response.(*schema.TxHeader)
-	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	scstr, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.GetSince(ctx, key, txhdr.Id)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(scstr.(*schema.Entry), false, false), nil
+	return &kvOutput{
+		entry: scstr.(*schema.Entry),
+	}, nil
 }
 
-func (i *immuc) VerifiedSet(args []string) (string, error) {
+func (i *immuc) VerifiedSet(args []string) (CommandOutput, error) {
 	var reader io.Reader
 
 	if len(args) > 1 {
@@ -78,65 +77,65 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
+	key := []byte(args[0])
 
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	if _, err = i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	if _, err = i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedSet(ctx, key, value)
 	}); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	vi, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	vi, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(vi.(*schema.Entry), true, false), nil
+	return &kvOutput{
+		entry:    vi.(*schema.Entry),
+		verified: true,
+	}, nil
 }
 
-func (i *immuc) Restore(args []string) (string, error) {
+func (i *immuc) Restore(args []string) (CommandOutput, error) {
 	key, atRevision, hasRevision, err := i.parseKeyArg(args[0])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if !hasRevision {
-		return "please specify the key with revision to restore", nil
+		return &errorOutput{err: "please specify the key with revision to restore"}, nil
 	}
 
 	if atRevision == 0 {
-		return "can not restore current revision", nil
+		return &errorOutput{err: "can not restore current revision"}, nil
 	}
 
 	ctx := context.Background()
-	oldValue, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	oldValue, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Get(ctx, key, client.AtRevision(atRevision))
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
 	oldEntry := oldValue.(*schema.Entry)
 
-	newValue, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	newValue, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.SetAll(ctx, &schema.SetRequest{
 			KVs: []*schema.KeyValue{{
 				Key:   oldEntry.Key,
@@ -145,41 +144,43 @@ func (i *immuc) Restore(args []string) (string, error) {
 		})
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	txhdr := newValue.(*schema.TxHeader)
-	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	scstr, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.GetSince(ctx, key, txhdr.Id)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintKV(scstr.(*schema.Entry), false, false), nil
+	return &kvOutput{
+		entry: scstr.(*schema.Entry),
+	}, nil
 }
 
-func (i *immuc) DeleteKey(args []string) (string, error) {
+func (i *immuc) DeleteKey(args []string) (CommandOutput, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	_, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Delete(ctx, &schema.DeleteKeysRequest{Keys: [][]byte{key}})
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
-	return "key successfully deleted", nil
+	return &resultOutput{Result: "key successfully deleted"}, nil
 }
 
-func (i *immuc) ZAdd(args []string) (string, error) {
+func (i *immuc) ZAdd(args []string) (CommandOutput, error) {
 	var setReader io.Reader
 	var scoreReader io.Reader
 	var keyReader io.Reader
@@ -192,36 +193,42 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 
 	bs, err := ioutil.ReadAll(scoreReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	set, err := ioutil.ReadAll(setReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	txhdr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	txhdr, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.ZAdd(ctx, set, score, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return PrintSetItem(set, key, score, txhdr.(*schema.TxHeader), false), nil
+	return &zEntryOutput{
+		set:           set,
+		referencedKey: key,
+		score:         score,
+		txhdr:         txhdr.(*schema.TxHeader),
+		verified:      false,
+	}, nil
 }
 
-func (i *immuc) VerifiedZAdd(args []string) (string, error) {
+func (i *immuc) VerifiedZAdd(args []string) (CommandOutput, error) {
 	var setReader io.Reader
 	var scoreReader io.Reader
 	var keyReader io.Reader
@@ -234,96 +241,37 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 
 	bs, err := ioutil.ReadAll(scoreReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	set, err := ioutil.ReadAll(setReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedZAdd(ctx, set, score, key)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response.(*schema.TxHeader), true)
-
-	return resp, nil
-}
-
-func (i *immuc) CreateDatabase(args []string) (string, error) {
-	if len(args) < 1 {
-		return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-	}
-
-	dbname := args[0]
-	ctx := context.Background()
-	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return nil, immuClient.CreateDatabase(ctx, &schema.DatabaseSettings{
-			DatabaseName: string(dbname),
-		})
-	}); err != nil {
-		return "", err
-	}
-
-	return "database successfully created", nil
-}
-
-func (i *immuc) DatabaseList(args []string) (string, error) {
-	resp, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.DatabaseList(context.Background())
-	})
-	if err != nil {
-		return "", err
-	}
-
-	var dbList string
-
-	for _, val := range resp.(*schema.DatabaseListResponse).Databases {
-		if i.options.immudbClientOptions.CurrentDatabase == val.DatabaseName {
-			dbList += "*"
-		}
-		dbList += fmt.Sprintf("%s", val.DatabaseName)
-	}
-
-	return dbList, nil
-}
-
-func (i *immuc) UseDatabase(args []string) (string, error) {
-	var dbname string
-	if len(args) > 0 {
-		dbname = args[0]
-	} else if len(i.options.immudbClientOptions.Database) > 0 {
-		dbname = i.options.immudbClientOptions.Database
-	} else {
-		return "", fmt.Errorf("database name not specified")
-	}
-
-	ctx := context.Background()
-	_, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.UseDatabase(ctx, &schema.Database{
-			DatabaseName: dbname,
-		})
-	})
-	if err != nil {
-		return "", err
-	}
-
-	i.ImmuClient.GetOptions().CurrentDatabase = dbname
-
-	return fmt.Sprintf("Now using %s", dbname), nil
+	return &zEntryOutput{
+		set:           set,
+		referencedKey: key,
+		score:         score,
+		txhdr:         response.(*schema.TxHeader),
+		verified:      true,
+	}, nil
 }

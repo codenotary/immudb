@@ -18,38 +18,45 @@ package immuc
 
 import (
 	"context"
+	"encoding/hex"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) DatabaseHealth(args []string) (string, error) {
+func (i *immuc) DatabaseHealth(args []string) (CommandOutput, error) {
 	ctx := context.Background()
-	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	state, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Health(ctx)
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
-	return PrintHealth(state.(*schema.DatabaseHealthResponse)), nil
+	return &healthOutput{
+		h: state.(*schema.DatabaseHealthResponse),
+	}, nil
 }
 
-func (i *immuc) CurrentState(args []string) (string, error) {
+func (i *immuc) CurrentState(args []string) (CommandOutput, error) {
 	ctx := context.Background()
-	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	state, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.CurrentState(ctx)
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
-	return PrintState(state.(*schema.ImmutableState)), nil
+	return &currentStateOutput{
+		Db:     state.(*schema.ImmutableState).Db,
+		TxId:   state.(*schema.ImmutableState).TxId,
+		TxHash: hex.EncodeToString(state.(*schema.ImmutableState).TxHash),
+	}, nil
 }

@@ -19,7 +19,6 @@ package cli
 import (
 	"os"
 	"path"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -70,9 +69,7 @@ func TestRunCommand(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value"})
 	})
-	if !strings.Contains(msg, "value") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, msg, "value")
 }
 
 func TestRunCommandExtraArgs(t *testing.T) {
@@ -104,10 +101,9 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value", "value"})
 	})
-	if !strings.Contains(msg, "Redunant argument") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, msg, "Redundant argument")
 }
+
 func TestRunMissingArgs(t *testing.T) {
 	cli := new(cli)
 	cli.commands = make(map[string]*command, 0)
@@ -137,9 +133,7 @@ func TestRunMissingArgs(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key"})
 	})
-	if !strings.Contains(msg, "Not enough arguments") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, msg, "Not enough arguments")
 }
 
 func TestRunWrongCommand(t *testing.T) {
@@ -170,9 +164,7 @@ func TestRunWrongCommand(t *testing.T) {
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"fet", "key"})
 	})
-	if !strings.Contains(msg, "ERROR: Unknown command") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, msg, "ERROR: Unknown command")
 }
 
 func TestCheckCommand(t *testing.T) {
@@ -217,9 +209,7 @@ func TestCheckCommand(t *testing.T) {
 	msg = test.CaptureStdout(func() {
 		cli.checkCommand([]string{"met", "-h"}, l)
 	})
-	if !strings.Contains(msg, "Did you mean this") {
-		t.Fatal("Help is empty")
-	}
+	require.Contains(t, msg, "Did you mean this")
 }
 
 func TestCheckCommandErrors(t *testing.T) {

@@ -18,11 +18,11 @@ package cli
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -50,12 +50,8 @@ func TestSet(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	msg, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Set failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestSafeSet(t *testing.T) {
@@ -79,12 +75,8 @@ func TestSafeSet(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	msg, err := cli.safeset([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("SafeSet fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("SafeSet failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestZAdd(t *testing.T) {
@@ -110,13 +102,8 @@ func TestZAdd(t *testing.T) {
 	_, _ = cli.safeset([]string{"key", "val"})
 
 	msg, err := cli.zAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("ZAdd failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }
 
 func TestSafeZAdd(t *testing.T) {
@@ -143,11 +130,6 @@ func TestSafeZAdd(t *testing.T) {
 	_, _ = cli.safeset([]string{"key", "val"})
 
 	msg, err := cli.safeZAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("SafeZAdd fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeZAdd failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }

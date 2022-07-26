@@ -18,11 +18,11 @@ package cli
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -50,12 +50,8 @@ func TestHealthCheck(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	msg, err := cli.healthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail", err)
-	}
-	if !strings.Contains(msg, "Health check OK") {
-		t.Fatal("HealthCheck fail")
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "Health check OK")
 }
 
 func TestHistory(t *testing.T) {
@@ -80,26 +76,17 @@ func TestHistory(t *testing.T) {
 
 	cli.immucl = ic.Imc
 	msg, err := cli.history([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	if !strings.Contains(msg, "key not found") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "key not found")
 
 	_, err = cli.set([]string{"key", "value"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err = cli.history([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
+
 func TestVersion(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -121,10 +108,6 @@ func TestVersion(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 	msg, err := cli.version([]string{"key"})
-	if err != nil {
-		t.Fatal("version fail", err)
-	}
-	if !strings.Contains(msg, "no version info available") {
-		t.Fatalf("version fail %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "no version info available")
 }

@@ -18,11 +18,11 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -44,19 +44,14 @@ func TestSet(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.Set([]string{"key", "val"})
-
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Set failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
+
 func TestVerifiedSet(t *testing.T) {
 	defer os.Remove(".state-")
 	options := server.DefaultOptions().WithAuth(true)
@@ -73,19 +68,14 @@ func TestVerifiedSet(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
-
-	if err != nil {
-		t.Fatal("VerifiedSet fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("VerifiedSet failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
+
 func TestZAdd(t *testing.T) {
 	defer os.Remove(".state-")
 	options := server.DefaultOptions().WithAuth(true)
@@ -102,21 +92,17 @@ func TestZAdd(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("ZAdd failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }
+
 func _TestVerifiedZAdd(t *testing.T) {
 	defer os.Remove(".state-")
 	options := server.DefaultOptions().WithAuth(true)
@@ -133,58 +119,13 @@ func _TestVerifiedZAdd(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
-
-	if err != nil {
-		t.Fatal("VerifiedZAdd fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("VerifiedZAdd failed: %s", msg)
-	}
-}
-func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	msg, err := ic.Imc.CreateDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("CreateDatabase fail", err)
-	}
-	if !strings.Contains(msg, "database successfully created") {
-		t.Fatalf("CreateDatabase failed: %s", msg)
-	}
-
-	_, err = ic.Imc.DatabaseList([]string{})
-	if err != nil {
-		t.Fatal("DatabaseList fail", err)
-	}
-
-	msg, err = ic.Imc.UseDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("UseDatabase fail", err)
-	}
-	if !strings.Contains(msg, "newdb") {
-		t.Fatalf("UseDatabase failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }

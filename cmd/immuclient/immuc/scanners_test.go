@@ -18,11 +18,11 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -48,22 +48,14 @@ func TestZScan(t *testing.T) {
 	ic.Login("immudb")
 
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	_, err = ic.Imc.ZAdd([]string{"set", "10.5", "key"})
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.ZScan([]string{"set"})
-	if err != nil {
-		t.Fatal("ZScan fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("ZScan failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestIScan(t *testing.T) {
@@ -82,13 +74,11 @@ func TestIScan(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
+
 	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestScan(t *testing.T) {
@@ -106,21 +96,15 @@ func TestScan(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
+
 	ic.Login("immudb")
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.Scan([]string{"k"})
-	if err != nil {
-		t.Fatal("Scan fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Scan failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func _TestCount(t *testing.T) {
@@ -138,20 +122,13 @@ func _TestCount(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.Count([]string{"key"})
-	if err != nil {
-		t.Fatal("Count fail", err)
-	}
-	if !strings.Contains(msg, "1") {
-		t.Fatalf("Count failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "1")
 }

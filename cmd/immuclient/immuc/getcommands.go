@@ -31,56 +31,70 @@ var (
 	errZeroTxID = errors.New("tx id cannot be 0 (should be bigger than 0)")
 )
 
-func (i *immuc) GetTxByID(args []string) (string, error) {
+func (i *immuc) GetTxByID(args []string) (CommandOutput, error) {
 	id, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
-		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
+		return nil, fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
 	if id == 0 {
-		return "", errZeroTxID
+		return nil, errZeroTxID
 	}
 
 	ctx := context.Background()
-	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	tx, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.TxByID(ctx, id)
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("no item exists in id:%v", id), nil
+			return &errorOutput{
+				err: fmt.Sprintf("no item exists in id:%v", id),
+			}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{
+				err: rpcerrors[len(rpcerrors)-1],
+			}, nil
 		}
-		return "", err
+		return nil, err
 	}
-	return PrintTx(tx.(*schema.Tx), false), nil
+
+	return &txInfoOutput{
+		tx: tx.(*schema.Tx),
+	}, nil
 }
 
-func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
+func (i *immuc) VerifiedGetTxByID(args []string) (CommandOutput, error) {
 	id, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
-		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
+		return nil, fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
 	if id == 0 {
-		return "", errZeroTxID
+		return nil, errZeroTxID
 	}
 
 	ctx := context.Background()
-	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	tx, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedTxByID(ctx, id)
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("no item exists in id:%v", id), nil
+			return &errorOutput{
+				err: fmt.Sprintf("no item exists in id:%v", id),
+			}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{
+				err: rpcerrors[len(rpcerrors)-1],
+			}, nil
 		}
-		return "", err
+		return nil, err
 	}
-	return PrintTx(tx.(*schema.Tx), true), nil
+	return &txInfoOutput{
+		tx:       tx.(*schema.Tx),
+		verified: true,
+	}, nil
 }
 
 func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, hasRevision bool, err error) {
@@ -106,52 +120,57 @@ func (i *immuc) parseKeyArg(arg string) (key []byte, revision int64, hasRevision
 	return key, revision, true, nil
 }
 
-func (i *immuc) Get(args []string) (string, error) {
+func (i *immuc) Get(args []string) (CommandOutput, error) {
 	key, atRevision, _, err := i.parseKeyArg(args[0])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Get(ctx, key, client.AtRevision(atRevision))
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
 	entry := response.(*schema.Entry)
-	return PrintKV(entry, false, i.options.valueOnly), nil
+	return &kvOutput{
+		entry:    entry,
+		verified: false,
+	}, nil
 }
 
-func (i *immuc) VerifiedGet(args []string) (string, error) {
+func (i *immuc) VerifiedGet(args []string) (CommandOutput, error) {
 	key, atRevision, _, err := i.parseKeyArg(args[0])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.VerifiedGet(ctx, key, client.AtRevision(atRevision))
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
+			return &errorOutput{err: fmt.Sprintf("key not found: %v ", string(key))}, nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
 
-	entry := response.(*schema.Entry)
-	return PrintKV(entry, true, i.options.valueOnly), nil
+	return &kvOutput{
+		entry:    response.(*schema.Entry),
+		verified: true,
+	}, nil
 }

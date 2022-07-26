@@ -30,10 +30,9 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SetReference(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -50,10 +49,9 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.VerifiedSetReference(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}

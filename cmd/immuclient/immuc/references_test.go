@@ -18,11 +18,11 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -50,12 +50,8 @@ func TestReference(t *testing.T) {
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 
 	msg, err := ic.Imc.SetReference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("Reference fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Reference failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func _TestVerifiedSetReference(t *testing.T) {
@@ -74,17 +70,13 @@ func _TestVerifiedSetReference(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
-	ic.
-		Connect(bs.Dialer)
+	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.Set([]string{"key", "val"})
+	_, err := ic.Imc.Set([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.VerifiedSetReference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("SafeReference fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeReference failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }

@@ -223,22 +223,21 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		}
 		if len(redunantArgs) > 0 {
 			fmt.Fprintf(os.Stdout,
-				"INFO: Redunant argument(s) | %v \n", redunantArgs)
+				"INFO: Redundant argument(s) | %v \n", redunantArgs)
 		}
 	}
-	if valOnly {
-		cli.immucl.SetValueOnly(true)
-	}
+
 	result, err := command.command(arrCommandStr[1:])
-	if valOnly {
-		cli.immucl.SetValueOnly(false)
-	}
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "ERROR: %s \n", err.Error())
+		fmt.Fprintf(os.Stdout, "ERROR: %s\n", err.Error())
 		return
 	}
-	fmt.Fprintf(os.Stdout, "%v \n", result)
-	return
+
+	if valOnly {
+		fmt.Fprintf(os.Stdout, "%s\n", result.ValueOnly())
+	} else {
+		fmt.Fprintf(os.Stdout, "%s\n", result.Plain())
+	}
 }
 
 func (cli *cli) singleCommandHelp(cmdName string) (string, error) {

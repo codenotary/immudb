@@ -38,42 +38,32 @@ type immuc struct {
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
-	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
-	HealthCheck(args []string) (string, error)
-	DatabaseHealth(args []string) (string, error)
-	CurrentState(args []string) (string, error)
-	GetTxByID(args []string) (string, error)
-	VerifiedGetTxByID(args []string) (string, error)
-	Get(args []string) (string, error)
-	VerifiedGet(args []string) (string, error)
-	Login(args []string) (string, error)
-	Logout(args []string) (string, error)
-	History(args []string) (string, error)
-	SetReference(args []string) (string, error)
-	VerifiedSetReference(args []string) (string, error)
-	ZScan(args []string) (string, error)
-	Scan(args []string) (string, error)
-	Count(args []string) (string, error)
-	Set(args []string) (string, error)
-	Restore(args []string) (string, error)
-	VerifiedSet(args []string) (string, error)
-	DeleteKey(args []string) (string, error)
-	ZAdd(args []string) (string, error)
-	VerifiedZAdd(args []string) (string, error)
-	CreateDatabase(args []string) (string, error)
-	DatabaseList(args []string) (string, error)
-	UseDatabase(args []string) (string, error)
-	UserCreate(args []string) (string, error)
-	SetActiveUser(args []string, active bool) (string, error)
-	SetUserPermission(args []string) (string, error)
-	UserList(args []string) (string, error)
-	ChangeUserPassword(args []string) (string, error)
-	ValueOnly() bool     // TODO: ?
-	SetValueOnly(v bool) // TODO: ?
-	SQLExec(args []string) (string, error)
-	SQLQuery(args []string) (string, error)
-	ListTables() (string, error)
-	DescribeTable(args []string) (string, error)
+	HealthCheck(args []string) (CommandOutput, error)
+	DatabaseHealth(args []string) (CommandOutput, error)
+	CurrentState(args []string) (CommandOutput, error)
+	GetTxByID(args []string) (CommandOutput, error)
+	VerifiedGetTxByID(args []string) (CommandOutput, error)
+	Get(args []string) (CommandOutput, error)
+	VerifiedGet(args []string) (CommandOutput, error)
+	Login(args []string) (CommandOutput, error)
+	Logout(args []string) (CommandOutput, error)
+	History(args []string) (CommandOutput, error)
+	SetReference(args []string) (CommandOutput, error)
+	VerifiedSetReference(args []string) (CommandOutput, error)
+	ZScan(args []string) (CommandOutput, error)
+	Scan(args []string) (CommandOutput, error)
+	Count(args []string) (CommandOutput, error)
+	Set(args []string) (CommandOutput, error)
+	Restore(args []string) (CommandOutput, error)
+	VerifiedSet(args []string) (CommandOutput, error)
+	DeleteKey(args []string) (CommandOutput, error)
+	ZAdd(args []string) (CommandOutput, error)
+	VerifiedZAdd(args []string) (CommandOutput, error)
+	UseDatabase(args []string) (CommandOutput, error)
+	SQLExec(args []string) (CommandOutput, error)
+	SQLQuery(args []string) (CommandOutput, error)
+	ListTables() (CommandOutput, error)
+	DescribeTable(args []string) (CommandOutput, error)
 
 	WithFileTokenService(tkns tokenservice.TokenService) Client
 }
@@ -102,7 +92,7 @@ func (i *immuc) Disconnect(args []string) error {
 	return nil
 }
 
-func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error) {
+func (i *immuc) execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error) {
 	r, err := f(i.ImmuClient)
 	if err == nil {
 		return r, nil
@@ -133,14 +123,6 @@ func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error
 	}
 
 	return f(i.ImmuClient)
-}
-
-func (i *immuc) ValueOnly() bool {
-	return i.options.valueOnly
-}
-
-func (i *immuc) SetValueOnly(v bool) {
-	i.options.WithValueOnly(v)
 }
 
 func (i *immuc) WithFileTokenService(tkns tokenservice.TokenService) Client {
@@ -175,7 +157,6 @@ func OptionsFromEnv() *Options {
 
 	opts := (&Options{}).
 		WithImmudbClientOptions(immudbOptions).
-		WithValueOnly(viper.GetBool("value-only")).
 		WithRevisionSeparator(viper.GetString("revision-separator"))
 
 	return opts

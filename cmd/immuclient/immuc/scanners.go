@@ -17,92 +17,90 @@ package immuc
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) ZScan(args []string) (string, error) {
+func (i *immuc) ZScan(args []string) (CommandOutput, error) {
 	set := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.ZScan(ctx, &schema.ZScanRequest{Set: set, NoWait: true})
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
 
-		return "", err
+		return nil, err
 	}
-
-	str := strings.Builder{}
 
 	zEntries := response.(*schema.ZEntries)
 	if len(zEntries.Entries) == 0 {
-		str.WriteString("no entries")
-		return str.String(), nil
+		return &errorOutput{err: "no entries"}, nil
 	}
 
-	for j, entry := range zEntries.Entries {
-		if j > 0 {
-			str.WriteString("\n")
-		}
-		str.WriteString(PrintKV(entry.Entry, false, i.options.valueOnly))
+	resp := &multiKVOutput{
+		entries: make([]kvOutput, 0, len(zEntries.Entries)),
 	}
 
-	return str.String(), nil
+	for _, entry := range zEntries.Entries {
+		resp.entries = append(resp.entries, kvOutput{
+			entry: entry.Entry,
+		})
+	}
+
+	return resp, nil
 }
 
-func (i *immuc) Scan(args []string) (res string, err error) {
+func (i *immuc) Scan(args []string) (CommandOutput, error) {
 	prefix := []byte(args[0])
 
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Scan(ctx, &schema.ScanRequest{Prefix: prefix, NoWait: true})
 	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
+			return &errorOutput{err: rpcerrors[len(rpcerrors)-1]}, nil
 		}
-		return "", err
+		return nil, err
 	}
-
-	str := strings.Builder{}
 
 	entries := response.(*schema.Entries)
 	if len(entries.Entries) == 0 {
-		str.WriteString("no entries")
-		return str.String(), nil
+		return &errorOutput{err: "no entries"}, nil
 	}
 
-	for j, entry := range entries.Entries {
-		if j > 0 {
-			str.WriteString("\n")
-		}
-		str.WriteString(PrintKV(entry, false, i.options.valueOnly))
+	ret := &multiKVOutput{
+		entries: make([]kvOutput, 0, len(entries.Entries)),
+	}
+	for _, entry := range entries.Entries {
+		ret.entries = append(ret.entries, kvOutput{
+			entry: entry,
+		})
 	}
 
-	return str.String(), nil
+	return ret, nil
 }
 
-func (i *immuc) Count(args []string) (string, error) {
+func (i *immuc) Count(args []string) (CommandOutput, error) {
 	prefix := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+	response, err := i.execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.Count(ctx, prefix)
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return fmt.Sprint(response.(*schema.EntryCount).Count), nil
+	return &resultOutput{Result: response.(*schema.EntryCount).Count}, nil
 }

@@ -18,7 +18,6 @@ package immuc_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -51,12 +50,8 @@ func TestGetTxByID(t *testing.T) {
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
 	msg, err := ic.Imc.GetTxByID([]string{"1"})
-	if err != nil {
-		t.Fatal("GetByIndex fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("GetByIndex failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "hash")
 }
 func TestGet(t *testing.T) {
 	defer os.Remove(".state")
@@ -79,12 +74,8 @@ func TestGet(t *testing.T) {
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.Get([]string{"key"})
-	if err != nil {
-		t.Fatal("GetKey fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("GetKey failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestVerifiedGet(t *testing.T) {
@@ -108,12 +99,8 @@ func TestVerifiedGet(t *testing.T) {
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
-	if err != nil {
-		t.Fatal("VerifiedGet fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("VerifiedGet failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func TestGetByRevision(t *testing.T) {
@@ -146,31 +133,31 @@ func TestGetByRevision(t *testing.T) {
 
 	msg, err := ic.Imc.Get([]string{"key@1"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value1")
+	require.Equal(t, msg.ValueOnly(), "value1")
 
 	msg, err = ic.Imc.Get([]string{"key@2"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value2")
+	require.Equal(t, msg.ValueOnly(), "value2")
 
 	msg, err = ic.Imc.Get([]string{"key@3"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@0"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@-0"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value3")
+	require.Equal(t, msg.ValueOnly(), "value3")
 
 	msg, err = ic.Imc.Get([]string{"key@-1"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value2")
+	require.Equal(t, msg.ValueOnly(), "value2")
 
 	msg, err = ic.Imc.Get([]string{"key@-2"})
 	require.NoError(t, err)
-	require.Contains(t, msg, "value1")
+	require.Equal(t, msg.ValueOnly(), "value1")
 
 	msg, err = ic.Imc.Get([]string{"key@notarevision"})
 	require.Error(t, err)

@@ -30,10 +30,9 @@ func (cl *commandline) sqlExec(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SQLExec(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -50,10 +49,9 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SQLQuery(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -70,10 +68,9 @@ func (cl *commandline) listTables(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ListTables()
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 		},
 		Args: cobra.ExactArgs(0),
 	}
@@ -90,10 +87,9 @@ func (cl *commandline) describeTable(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.DescribeTable(args)
 			if err != nil {
-				cl.quit(err)
+				return cl.quit(err)
 			}
-			fprintln(cmd.OutOrStdout(), resp)
-			return nil
+			return cl.outputRenderer(resp, cmd)
 
 		},
 		Args: cobra.ExactArgs(1),

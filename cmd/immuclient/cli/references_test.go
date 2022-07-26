@@ -18,7 +18,6 @@ package cli
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -26,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReference(t *testing.T) {
@@ -48,15 +48,12 @@ func TestReference(t *testing.T) {
 
 	cli := new(cli)
 	cli.immucl = ic.Imc
-	_, _ = cli.set([]string{"key", "val"})
+	_, err := cli.set([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := cli.reference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("Reference fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Reference failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg.Plain(), "value")
 }
 
 func _TestSafeReference(t *testing.T) {
@@ -80,13 +77,10 @@ func _TestSafeReference(t *testing.T) {
 
 	cli := new(cli)
 	cli.immucl = ic.Imc
-	_, _ = cli.set([]string{"key", "val"})
+	_, err := cli.set([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := cli.safereference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("SafeReference fail", err)
-	}
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("SafeReference failed: %s", msg)
-	}
+	require.NoError(t, err)
+	require.Contains(t, msg, "value")
 }
