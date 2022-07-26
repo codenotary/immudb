@@ -393,7 +393,7 @@ func (c *immuClient) IsConnected() bool {
 
 func (c *immuClient) WaitForHealthCheck(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.HealthCheckRetries+1; i++ {
-		if _, err = c.ServerInfo(ctx, &schema.ServerInfoRequest{}); err == nil {
+		if err = c.HealthCheck(ctx); err == nil {
 			c.Logger.Debugf("health check succeeded %v", c.Options)
 			return nil
 		}
