@@ -119,7 +119,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, tx)
+	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.Tx) (entry *schema.SQLEntry, err error) {
+func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex) (entry *schema.SQLEntry, err error) {
 	var txID uint64
 	var md *store.KVMetadata
 	var val []byte
@@ -216,7 +216,7 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.T
 	} else {
 		txID = atTx
 
-		md, val, err = d.readMetadataAndValue(key, atTx, tx)
+		md, val, err = d.readMetadataAndValue(key, atTx)
 		if err != nil {
 			return nil, err
 		}

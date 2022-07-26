@@ -1219,7 +1219,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, r)
 
-		_, _, _, err = r.ReadBetween(1, immuStore.TxCount(), tempTxHolder(t, immuStore))
+		_, _, _, err = r.ReadBetween(1, immuStore.TxCount())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = r.Close()
@@ -2817,12 +2817,10 @@ func TestTimeBasedTxLookup(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	tx := tempTxHolder(t, immuStore)
-
-	err = immuStore.FirstTxSince(start, tx)
+	_, err = immuStore.FirstTxSince(start)
 	require.ErrorIs(t, err, ErrTxNotFound)
 
-	err = immuStore.LastTxUntil(start, tx)
+	_, err = immuStore.LastTxUntil(start)
 	require.ErrorIs(t, err, ErrTxNotFound)
 
 	var txts []int64
@@ -2846,43 +2844,43 @@ func TestTimeBasedTxLookup(t *testing.T) {
 	}
 
 	t.Run("no tx should be returned when requesting a tx since a future time", func(t *testing.T) {
-		err = immuStore.FirstTxSince(time.Now().Add(1*time.Second), tx)
+		_, err = immuStore.FirstTxSince(time.Now().Add(1 * time.Second))
 		require.ErrorIs(t, err, ErrTxNotFound)
 	})
 
 	t.Run("the last tx should be returned when requesting a tx until a future time", func(t *testing.T) {
-		err := immuStore.LastTxUntil(time.Now().Add(1*time.Second), tx)
+		hdr, err := immuStore.LastTxUntil(time.Now().Add(1 * time.Second))
 		require.NoError(t, err)
-		require.Equal(t, uint64(txCount), tx.Header().ID)
+		require.Equal(t, uint64(txCount), hdr.ID)
 	})
 
 	t.Run("the first tx should be returned when requesting from a past time", func(t *testing.T) {
-		err := immuStore.FirstTxSince(start, tx)
+		hdr, err := immuStore.FirstTxSince(start)
 		require.NoError(t, err)
-		require.Equal(t, uint64(1), tx.Header().ID)
+		require.Equal(t, uint64(1), hdr.ID)
 	})
 
 	t.Run("no tx should be returned when requesting a tx until a past time", func(t *testing.T) {
-		err = immuStore.LastTxUntil(start, tx)
+		_, err = immuStore.LastTxUntil(start)
 		require.ErrorIs(t, err, ErrTxNotFound)
 	})
 
 	for i, ts := range txts {
-		err := immuStore.FirstTxSince(time.Unix(ts, 0), tx)
+		hdr, err := immuStore.FirstTxSince(time.Unix(ts, 0))
 		require.NoError(t, err)
-		require.LessOrEqual(t, ts, tx.Header().Ts)
-		require.GreaterOrEqual(t, uint64(i+1), tx.Header().ID)
+		require.LessOrEqual(t, ts, hdr.Ts)
+		require.GreaterOrEqual(t, uint64(i+1), hdr.ID)
 
-		if tx.Header().ID > 1 {
-			require.Less(t, txts[tx.Header().ID-2], ts)
+		if hdr.ID > 1 {
+			require.Less(t, txts[hdr.ID-2], ts)
 		}
 
-		err = immuStore.LastTxUntil(time.Unix(ts, 0), tx)
+		_, err = immuStore.LastTxUntil(time.Unix(ts, 0))
 		require.NoError(t, err)
-		require.GreaterOrEqual(t, ts, tx.Header().Ts)
+		require.GreaterOrEqual(t, ts, hdr.Ts)
 
-		if int(tx.Header().ID) < len(txts) {
-			require.Greater(t, txts[tx.Header().ID], ts)
+		if int(hdr.ID) < len(txts) {
+			require.GreaterOrEqual(t, txts[hdr.ID], ts)
 		}
 	}
 }

@@ -392,19 +392,11 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 	if r.txRange == nil {
 		mkey, vref, err = r.reader.Read()
-		if err != nil {
-			return nil, err
-		}
 	} else {
-		txHolder, err := r.tx.getTxHolder()
-		if err != nil {
-			return nil, err
-		}
-
-		mkey, vref, _, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID, txHolder)
-		if err != nil {
-			return nil, err
-		}
+		mkey, vref, _, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var v []byte

@@ -312,30 +312,25 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64, txHolder *Tx) (key []byte, val ValueRef, tx uint64, err error) {
+func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
 	for {
 		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
-		err = r.snap.st.ReadTx(ktxID, txHolder)
-		if err != nil {
-			return nil, nil, 0, err
-		}
-
-		e, err := txHolder.EntryOf(key)
+		e, header, err := r.snap.st.ReadTxEntry(ktxID, key)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
 		val = &valueRef{
-			tx:     txHolder.header.ID,
+			tx:     header.ID,
 			hc:     hc,
 			hVal:   e.hVal,
 			vOff:   int64(e.vOff),
 			valLen: uint32(e.vLen),
-			txmd:   txHolder.header.Metadata,
+			txmd:   header.Metadata,
 			kvmd:   e.md,
 			st:     r.snap.st,
 		}

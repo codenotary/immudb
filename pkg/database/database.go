@@ -534,13 +534,7 @@ func (d *db) getAtTx(
 	} else {
 		txID = atTx
 
-		txHolder, err := d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-		defer d.releaseTx(txHolder)
-
-		md, val, err = d.readMetadataAndValue(key, atTx, txHolder)
+		md, val, err = d.readMetadataAndValue(key, atTx)
 		if err != nil {
 			return nil, err
 		}
@@ -649,13 +643,8 @@ func (d *db) resolveValue(
 	}, nil
 }
 
-func (d *db) readMetadataAndValue(key []byte, atTx uint64, tx *store.Tx) (*store.KVMetadata, []byte, error) {
-	err := d.st.ReadTx(atTx, tx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	entry, err := tx.EntryOf(key)
+func (d *db) readMetadataAndValue(key []byte, atTx uint64) (*store.KVMetadata, []byte, error) {
+	entry, _, err := d.st.ReadTxEntry(atTx, key)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1750,16 +1750,23 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	return s.commit(txSpec, hdr, waitForIndexing)
 }
 
-func (s *ImmuStore) FirstTxSince(ts time.Time, tx *Tx) error {
+func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
 	right, _, _ := s.commitState()
+
+	// TODO: Get rid of that, we only need the header
+	tx, err := s.txPool.Alloc()
+	if err != nil {
+		return nil, err
+	}
+	s.txPool.Release(tx)
 
 	for left < right {
 		middle := left + (right-left)/2
 
 		err := s.ReadTx(middle, tx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if tx.header.Ts < ts.Unix() {
@@ -1769,28 +1776,35 @@ func (s *ImmuStore) FirstTxSince(ts time.Time, tx *Tx) error {
 		}
 	}
 
-	err := s.ReadTx(left, tx)
+	err = s.ReadTx(left, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if tx.header.Ts < ts.Unix() {
-		return ErrTxNotFound
+		return nil, ErrTxNotFound
 	}
 
-	return nil
+	return tx.Header(), nil
 }
 
-func (s *ImmuStore) LastTxUntil(ts time.Time, tx *Tx) error {
+func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
 	right, _, _ := s.commitState()
+
+	// TODO: Get rid of that, we only need the header
+	tx, err := s.txPool.Alloc()
+	if err != nil {
+		return nil, err
+	}
+	s.txPool.Release(tx)
 
 	for left < right {
 		middle := left + ((right-left)+1)/2
 
 		err := s.ReadTx(middle, tx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if tx.header.Ts > ts.Unix() {
@@ -1800,16 +1814,16 @@ func (s *ImmuStore) LastTxUntil(ts time.Time, tx *Tx) error {
 		}
 	}
 
-	err := s.ReadTx(left, tx)
+	err = s.ReadTx(left, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if tx.header.Ts > ts.Unix() {
-		return ErrTxNotFound
+		return nil, ErrTxNotFound
 	}
 
-	return nil
+	return tx.Header(), nil
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
@@ -1844,6 +1858,27 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	}
 
 	return err
+}
+
+func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
+	// TODO: Optimize by reading only a single entry
+	tx, err := s.txPool.Alloc()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer s.txPool.Release(tx)
+
+	err = s.ReadTx(txID, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	entry, err := tx.EntryOf(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return entry, tx.Header(), nil
 }
 
 // ReadValue returns the actual associated value to a key at a specific transaction
