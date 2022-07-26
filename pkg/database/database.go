@@ -498,7 +498,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0)
 }
 
-func (d *db) get(key []byte, index store.KeyIndex, txHolder *store.Tx) (*schema.Entry, error) {
+func (d *db) get(key []byte, index store.KeyIndex) (*schema.Entry, error) {
 	return d.getAtTx(key, 0, 0, index, 0)
 }
 
@@ -909,18 +909,12 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	txHolder, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(txHolder)
-
 	waitUntilTx := req.SinceTx
 	if waitUntilTx == 0 {
 		waitUntilTx = currTxID
 	}
 
-	err = d.WaitForIndexingUpto(waitUntilTx, nil)
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -934,7 +928,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		e, err := d.get(EncodeKey(key), snapshot, txHolder)
+		e, err := d.get(EncodeKey(key), snapshot)
 		if err == nil || err == store.ErrKeyNotFound {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
