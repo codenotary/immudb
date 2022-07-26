@@ -1410,35 +1410,35 @@ type DualProof struct {
 // root is also included as part of each transaction and thus considered when calculating the linear accumulative hash.
 // The objective of this proof is the same as the linear proof, that is, generate data for the calculation of the accumulative
 // hash value of the target transaction from the linear accumulative hash value up to source transaction.
-func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err error) {
-	if sourceTx == nil || targetTx == nil {
+func (s *ImmuStore) DualProof(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualProof, err error) {
+	if sourceTxHdr == nil || targetTxHdr == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if sourceTx.header.ID > targetTx.header.ID {
+	if sourceTxHdr.ID > targetTxHdr.ID {
 		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
 	proof = &DualProof{
-		SourceTxHeader: sourceTx.Header(),
-		TargetTxHeader: targetTx.Header(),
+		SourceTxHeader: sourceTxHdr,
+		TargetTxHeader: targetTxHdr,
 	}
 
-	if sourceTx.header.ID < targetTx.header.BlTxID {
-		binInclusionProof, err := s.aht.InclusionProof(sourceTx.header.ID, targetTx.header.BlTxID) // must match targetTx.BlRoot
+	if sourceTxHdr.ID < targetTxHdr.BlTxID {
+		binInclusionProof, err := s.aht.InclusionProof(sourceTxHdr.ID, targetTxHdr.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
 		proof.InclusionProof = binInclusionProof
 	}
 
-	if sourceTx.header.BlTxID > targetTx.header.BlTxID {
-		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrorCorruptedTxData, sourceTx.header.ID)
+	if sourceTxHdr.BlTxID > targetTxHdr.BlTxID {
+		return nil, fmt.Errorf("%w: binary linking mismatch at tx %d", ErrorCorruptedTxData, sourceTxHdr.ID)
 	}
 
-	if sourceTx.header.BlTxID > 0 {
+	if sourceTxHdr.BlTxID > 0 {
 		// first root sourceTx.BlRoot, second one targetTx.BlRoot
-		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.header.BlTxID, targetTx.header.BlTxID)
+		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTxHdr.BlTxID, targetTxHdr.BlTxID)
 		if err != nil {
 			return nil, err
 		}
@@ -1446,31 +1446,23 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		proof.ConsistencyProof = binConsistencyProof
 	}
 
-	if targetTx.header.BlTxID > 0 {
-		targetBlTx, err := s.fetchAllocTx()
+	if targetTxHdr.BlTxID > 0 {
+		targetBlTxHdr, err := s.ReadTxHeader(targetTxHdr.BlTxID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.ReadTx(targetTx.header.BlTxID, targetBlTx)
-		if err != nil {
-			s.releaseAllocTx(targetBlTx)
-			return nil, err
-		}
-
-		proof.TargetBlTxAlh = targetBlTx.header.Alh()
-
-		s.releaseAllocTx(targetBlTx)
+		proof.TargetBlTxAlh = targetBlTxHdr.Alh()
 
 		// Used to validate targetTx.BlRoot is calculated with alh@targetTx.BlTxID as last leaf
-		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.header.BlTxID, targetTx.header.BlTxID) // must match targetTx.BlRoot
+		binLastInclusionProof, err := s.aht.InclusionProof(targetTxHdr.BlTxID, targetTxHdr.BlTxID) // must match targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
 		proof.LastInclusionProof = binLastInclusionProof
 	}
 
-	lproof, err := s.LinearProof(maxUint64(sourceTx.header.ID, targetTx.header.BlTxID), targetTx.header.ID)
+	lproof, err := s.LinearProof(maxUint64(sourceTxHdr.ID, targetTxHdr.BlTxID), targetTxHdr.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -1754,76 +1746,62 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
 	right, _, _ := s.commitState()
 
-	// TODO: Get rid of that, we only need the header
-	tx, err := s.txPool.Alloc()
-	if err != nil {
-		return nil, err
-	}
-	s.txPool.Release(tx)
-
 	for left < right {
 		middle := left + (right-left)/2
 
-		err := s.ReadTx(middle, tx)
+		header, err := s.ReadTxHeader(middle)
 		if err != nil {
 			return nil, err
 		}
 
-		if tx.header.Ts < ts.Unix() {
+		if header.Ts < ts.Unix() {
 			left = middle + 1
 		} else {
 			right = middle
 		}
 	}
 
-	err = s.ReadTx(left, tx)
+	header, err := s.ReadTxHeader(left)
 	if err != nil {
 		return nil, err
 	}
 
-	if tx.header.Ts < ts.Unix() {
+	if header.Ts < ts.Unix() {
 		return nil, ErrTxNotFound
 	}
 
-	return tx.Header(), nil
+	return header, nil
 }
 
 func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
 	right, _, _ := s.commitState()
 
-	// TODO: Get rid of that, we only need the header
-	tx, err := s.txPool.Alloc()
-	if err != nil {
-		return nil, err
-	}
-	s.txPool.Release(tx)
-
 	for left < right {
 		middle := left + ((right-left)+1)/2
 
-		err := s.ReadTx(middle, tx)
+		header, err := s.ReadTxHeader(middle)
 		if err != nil {
 			return nil, err
 		}
 
-		if tx.header.Ts > ts.Unix() {
+		if header.Ts > ts.Unix() {
 			right = middle - 1
 		} else {
 			left = middle
 		}
 	}
 
-	err = s.ReadTx(left, tx)
+	header, err := s.ReadTxHeader(left)
 	if err != nil {
 		return nil, err
 	}
 
-	if tx.header.Ts > ts.Unix() {
+	if header.Ts > ts.Unix() {
 		return nil, ErrTxNotFound
 	}
 
-	return tx.Header(), nil
+	return header, nil
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
@@ -1858,6 +1836,22 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	}
 
 	return err
+}
+
+func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
+	// TODO: Optimize by reading only a single entry
+	tx, err := s.txPool.Alloc()
+	if err != nil {
+		return nil, err
+	}
+	defer s.txPool.Release(tx)
+
+	err = s.ReadTx(txID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Header(), nil
 }
 
 func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {

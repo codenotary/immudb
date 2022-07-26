@@ -644,7 +644,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	sourceTx.header.ID = 2
 	targetTx := newTx(1, 1)
 	targetTx.header.ID = 1
-	_, err = immuStore.DualProof(sourceTx, targetTx)
+	_, err = immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
 	_, err = immuStore.LinearProof(2, 1)
@@ -1899,7 +1899,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.header.ID)
 
-			dproof, err := immuStore.DualProof(sourceTx, targetTx)
+			dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 			require.NoError(t, err)
 
 			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
@@ -1965,7 +1965,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
-		dproof, err := immuStore.DualProof(sourceTx, targetTx)
+		dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 		require.NoError(t, err)
 
 		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
@@ -2061,7 +2061,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
 			require.True(t, verifies)
 
-			dproof, err := immuStore.DualProof(sourceTx, targetTx)
+			dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 			require.NoError(t, err)
 
 			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())

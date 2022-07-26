@@ -98,18 +98,6 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	}
 	defer d.releaseTx(tx)
 
-	var rootTx *store.Tx
-
-	if req.ProveSinceTx == 0 {
-		rootTx = tx
-	} else {
-		rootTx, err = d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-		defer d.releaseTx(rootTx)
-	}
-
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
@@ -135,24 +123,28 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, err
 	}
 
-	if req.ProveSinceTx != 0 {
-		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+	var rootTxHdr *store.TxHeader
+
+	if req.ProveSinceTx == 0 {
+		rootTxHdr = tx.Header()
+	} else {
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var sourceTx, targetTx *store.Tx
+	var sourceTxHdr, targetTxHdr *store.TxHeader
 
 	if req.ProveSinceTx <= e.Tx {
-		sourceTx = rootTx
-		targetTx = tx
+		sourceTxHdr = rootTxHdr
+		targetTxHdr = tx.Header()
 	} else {
-		sourceTx = tx
-		targetTx = rootTx
+		sourceTxHdr = tx.Header()
+		targetTxHdr = rootTxHdr
 	}
 
-	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
 	if err != nil {
 		return nil, err
 	}

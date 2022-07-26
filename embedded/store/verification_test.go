@@ -100,7 +100,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
-		dproof, err := immuStore.DualProof(sourceTx, targetTx)
+		dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 		require.NoError(t, err)
 
 		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())

@@ -141,26 +141,18 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 		return nil, err
 	}
 
-	var prevTx *store.Tx
+	var prevTxHdr *store.TxHeader
 
 	if req.ProveSinceTx == 0 {
-		prevTx = lastTx
+		prevTxHdr = lastTx.Header()
 	} else {
-		prevTx, err = d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-		defer d.releaseTx(prevTx)
-	}
-
-	if req.ProveSinceTx != 0 {
-		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	dualProof, err := d.st.DualProof(prevTx, lastTx)
+	dualProof, err := d.st.DualProof(prevTxHdr, lastTx.Header())
 	if err != nil {
 		return nil, err
 	}

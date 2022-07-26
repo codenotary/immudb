@@ -699,18 +699,6 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	}
 	defer d.releaseTx(lastTx)
 
-	var prevTx *store.Tx
-
-	if req.ProveSinceTx == 0 {
-		prevTx = lastTx
-	} else {
-		prevTx, err = d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-		defer d.releaseTx(prevTx)
-	}
-
 	txhdr, err := d.Set(req.SetRequest)
 	if err != nil {
 		return nil, err
@@ -721,14 +709,18 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	if req.ProveSinceTx != 0 {
-		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
+	var prevTxHdr *store.TxHeader
+
+	if req.ProveSinceTx == 0 {
+		prevTxHdr = lastTx.Header()
+	} else {
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	dualProof, err := d.st.DualProof(prevTx, lastTx)
+	dualProof, err := d.st.DualProof(prevTxHdr, lastTx.Header())
 	if err != nil {
 		return nil, err
 	}
@@ -778,17 +770,12 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	var rootTx *store.Tx
+	var rootTxHdr *store.TxHeader
 
 	if req.ProveSinceTx == 0 {
-		rootTx = tx
+		rootTxHdr = tx.Header()
 	} else {
-		rootTx, err = d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-
-		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -799,17 +786,17 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	var sourceTx, targetTx *store.Tx
+	var sourceTxHdr, targetTxHdr *store.TxHeader
 
 	if req.ProveSinceTx <= vTxID {
-		sourceTx = rootTx
-		targetTx = tx
+		sourceTxHdr = rootTxHdr
+		targetTxHdr = tx.Header()
 	} else {
-		sourceTx = tx
-		targetTx = rootTx
+		sourceTxHdr = tx.Header()
+		targetTxHdr = rootTxHdr
 	}
 
-	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
 	if err != nil {
 		return nil, err
 	}
@@ -1212,20 +1199,13 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, err
 	}
 
-	var sourceTx, targetTx *store.Tx
-
-	var rootTx *store.Tx
+	var sourceTxHdr, targetTxHdr *store.TxHeader
+	var rootTxHdr *store.TxHeader
 
 	if req.ProveSinceTx == 0 {
-		rootTx = reqTx
+		rootTxHdr = reqTx.Header()
 	} else {
-		rootTx, err = d.allocTx()
-		if err != nil {
-			return nil, err
-		}
-		defer d.releaseTx(rootTx)
-
-		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -1237,14 +1217,14 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}
 
 	if req.ProveSinceTx <= req.Tx {
-		sourceTx = rootTx
-		targetTx = reqTx
+		sourceTxHdr = rootTxHdr
+		targetTxHdr = reqTx.Header()
 	} else {
-		sourceTx = reqTx
-		targetTx = rootTx
+		sourceTxHdr = reqTx.Header()
+		targetTxHdr = rootTxHdr
 	}
 
-	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
 	if err != nil {
 		return nil, err
 	}
