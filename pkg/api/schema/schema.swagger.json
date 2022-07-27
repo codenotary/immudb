@@ -1767,6 +1767,14 @@
         }
       }
     },
+    "schemaAHTNullableSettings": {
+      "type": "object",
+      "properties": {
+        "syncThreshold": {
+          "$ref": "#/definitions/schemaNullableUint32"
+        }
+      }
+    },
     "schemaChangePasswordRequest": {
       "type": "object",
       "properties": {
@@ -1993,6 +2001,9 @@
         },
         "syncFrequency": {
           "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "ahtSettings": {
+          "$ref": "#/definitions/schemaAHTNullableSettings"
         }
       }
     },

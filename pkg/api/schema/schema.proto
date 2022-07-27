@@ -553,6 +553,8 @@ message DatabaseNullableSettings {
 	NullableUint32 readTxPoolSize = 22;
 	
 	NullableUint32 syncFrequency = 23;
+
+	AHTNullableSettings ahtSettings = 24;
 }
 
 message ReplicationNullableSettings {
@@ -578,6 +580,10 @@ message IndexNullableSettings {
 	NullableUint32  commitLogMaxOpenedFiles = 11;
 	NullableUint32  flushBufferSize = 12;
 	NullableFloat   cleanupPercentage = 13;
+}
+
+message AHTNullableSettings {
+	NullableUint32  syncThreshold = 1;
 }
 
 message LoadDatabaseRequest {
