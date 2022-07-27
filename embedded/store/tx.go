@@ -303,21 +303,21 @@ func (hdr *TxHeader) Alh() [sha256.Size]byte {
 	return sha256.Sum256(bi[:])
 }
 
-func (tx *Tx) TxEntryDigest() (TxEntryDigest, error) {
-	switch tx.header.Version {
+func (hdr *TxHeader) TxEntryDigest() (TxEntryDigest, error) {
+	switch hdr.Version {
 	case 0:
 		return TxEntryDigest_v1_1, nil
 	case 1:
 		return TxEntryDigest_v1_2, nil
 	}
 
-	return nil, ErrCorruptedData
+	return nil, ErrCorruptedTxDataUnknownHeaderVersion
 }
 
 func (tx *Tx) BuildHashTree() error {
 	digests := make([][sha256.Size]byte, tx.header.NEntries)
 
-	txEntryDigest, err := tx.TxEntryDigest()
+	txEntryDigest, err := tx.header.TxEntryDigest()
 	if err != nil {
 		return err
 	}
@@ -376,60 +376,92 @@ func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
 }
 
 func (tx *Tx) readFrom(r *appendable.Reader) error {
-	tx.header = &TxHeader{}
+	tdr := &txDataReader{r: r}
 
-	id, err := r.ReadUint64()
-	if err != nil {
-		return err
-	}
-	tx.header.ID = id
-
-	ts, err := r.ReadUint64()
-	if err != nil {
-		return err
-	}
-	tx.header.Ts = int64(ts)
-
-	blTxID, err := r.ReadUint64()
-	if err != nil {
-		return err
-	}
-	tx.header.BlTxID = blTxID
-
-	_, err = r.Read(tx.header.BlRoot[:])
+	header, err := tdr.readHeader(len(tx.entries))
 	if err != nil {
 		return err
 	}
 
-	_, err = r.Read(tx.header.PrevAlh[:])
+	tx.header = header
+
+	for i := 0; i < header.NEntries; i++ {
+		err = tdr.readEntry(tx.entries[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tdr.buildAndValidateHtree(tx.htree)
 	if err != nil {
 		return err
 	}
 
-	version, err := r.ReadUint16()
-	if err != nil {
-		return err
-	}
-	tx.header.Version = int(version)
+	return nil
+}
 
-	switch tx.header.Version {
+type txDataReader struct {
+	r          *appendable.Reader
+	h          *TxHeader
+	digests    [][sha256.Size]byte
+	digestFunc TxEntryDigest
+}
+
+func (t *txDataReader) readHeader(maxEntries int) (*TxHeader, error) {
+	header := &TxHeader{}
+
+	id, err := t.r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	header.ID = id
+
+	ts, err := t.r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	header.Ts = int64(ts)
+
+	blTxID, err := t.r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	header.BlTxID = blTxID
+
+	_, err = t.r.Read(header.BlRoot[:])
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = t.r.Read(header.PrevAlh[:])
+	if err != nil {
+		return nil, err
+	}
+
+	version, err := t.r.ReadUint16()
+	if err != nil {
+		return nil, err
+	}
+	header.Version = int(version)
+
+	switch header.Version {
 	case 0:
 		{
-			nentries, err := r.ReadUint16()
+			nentries, err := t.r.ReadUint16()
 			if err != nil {
-				return err
+				return nil, err
 			}
-			tx.header.NEntries = int(nentries)
+			header.NEntries = int(nentries)
 		}
 	case 1:
 		{
-			mdLen, err := r.ReadUint16()
+			mdLen, err := t.r.ReadUint16()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if mdLen > maxTxMetadataLen {
-				return ErrCorruptedData
+				return nil, ErrCorruptedData
 			}
 
 			var txmd *TxMetadata
@@ -437,104 +469,140 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 			if mdLen > 0 {
 				var mdBs [maxTxMetadataLen]byte
 
-				_, err = r.Read(mdBs[:mdLen])
+				_, err = t.r.Read(mdBs[:mdLen])
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				txmd = &TxMetadata{}
 
 				err = txmd.ReadFrom(mdBs[:mdLen])
 				if err != nil {
-					return err
+					return nil, err
 				}
 			}
 
-			tx.header.Metadata = txmd
+			header.Metadata = txmd
 
-			nentries, err := r.ReadUint32()
+			nentries, err := t.r.ReadUint32()
 			if err != nil {
-				return err
+				return nil, err
 			}
-			tx.header.NEntries = int(nentries)
+			header.NEntries = int(nentries)
 		}
 	default:
 		{
-			panic(fmt.Errorf("missing tx deserialization method for version %d", tx.header.Version))
+			return nil, fmt.Errorf("%w %d", ErrCorruptedTxDataUnknownHeaderVersion, header.Version)
 		}
 	}
 
-	for i := 0; i < int(tx.header.NEntries); i++ {
-		// md is stored before key to ensure backward compatibility
-		mdLen, err := r.ReadUint16()
-		if err != nil {
-			return err
-		}
-
-		var kvmd *KVMetadata
-
-		if mdLen > 0 {
-			mdbs := make([]byte, mdLen)
-
-			_, err = r.Read(mdbs)
-			if err != nil {
-				return err
-			}
-
-			kvmd = newReadOnlyKVMetadata()
-
-			err = kvmd.unsafeReadFrom(mdbs)
-			if err != nil {
-				return err
-			}
-		}
-
-		tx.entries[i].md = kvmd
-
-		kLen, err := r.ReadUint16()
-		if err != nil {
-			return err
-		}
-		tx.entries[i].kLen = int(kLen)
-
-		_, err = r.Read(tx.entries[i].k[:kLen])
-		if err != nil {
-			return err
-		}
-
-		vLen, err := r.ReadUint32()
-		if err != nil {
-			return err
-		}
-		tx.entries[i].vLen = int(vLen)
-
-		vOff, err := r.ReadUint64()
-		if err != nil {
-			return err
-		}
-		tx.entries[i].vOff = int64(vOff)
-
-		_, err = r.Read(tx.entries[i].hVal[:])
-		if err != nil {
-			return err
-		}
-
-		tx.entries[i].readonly = true
+	if header.NEntries > maxEntries {
+		return nil, ErrCorruptedTxDataMaxTxEntriesExceeded
 	}
 
+	t.h = header
+	t.digestFunc, err = header.TxEntryDigest()
+	if err != nil {
+		return nil, err
+	}
+
+	t.digests = make([][sha256.Size]byte, 0, header.NEntries)
+
+	return header, nil
+}
+
+func (t *txDataReader) readEntry(entry *TxEntry) error {
+	// md is stored before key to ensure backward compatibility
+	mdLen, err := t.r.ReadUint16()
+	if err != nil {
+		return err
+	}
+
+	var kvmd *KVMetadata
+
+	if mdLen > 0 {
+		mdbs := make([]byte, mdLen)
+
+		_, err = t.r.Read(mdbs)
+		if err != nil {
+			return err
+		}
+
+		kvmd = newReadOnlyKVMetadata()
+
+		err = kvmd.unsafeReadFrom(mdbs)
+		if err != nil {
+			return err
+		}
+	}
+
+	entry.md = kvmd
+
+	kLen, err := t.r.ReadUint16()
+	if err != nil {
+		return err
+	}
+	entry.kLen = int(kLen)
+
+	if entry.kLen > len(entry.k) {
+		return ErrCorruptedTxDataMaxTxEntriesExceeded
+	}
+
+	_, err = t.r.Read(entry.k[:kLen])
+	if err != nil {
+		return err
+	}
+
+	vLen, err := t.r.ReadUint32()
+	if err != nil {
+		return err
+	}
+	entry.vLen = int(vLen)
+
+	vOff, err := t.r.ReadUint64()
+	if err != nil {
+		return err
+	}
+	entry.vOff = int64(vOff)
+
+	_, err = t.r.Read(entry.hVal[:])
+	if err != nil {
+		return err
+	}
+
+	entry.readonly = true
+
+	digest, err := t.digestFunc(entry)
+	if err != nil {
+		return err
+	}
+
+	t.digests = append(t.digests, digest)
+
+	return nil
+}
+
+func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
 	var alh [sha256.Size]byte
-	_, err = r.Read(alh[:])
+	_, err := t.r.Read(alh[:])
 	if err != nil {
 		return err
 	}
 
-	err = tx.BuildHashTree()
+	err = htree.BuildWith(t.digests)
 	if err != nil {
 		return err
 	}
 
-	if tx.header.Alh() != alh {
-		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, tx.header.ID)
+	root, err := htree.Root()
+	if err != nil {
+		return err
+	}
+
+	t.h.Eh = root
+
+	if t.h.Alh() != alh {
+		return fmt.Errorf("%w: ALH mismatch at tx %d", ErrorCorruptedTxData, t.h.ID)
 	}
 
 	return nil
