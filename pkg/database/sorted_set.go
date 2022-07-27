@@ -256,16 +256,16 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 		return nil, store.ErrIllegalArguments
 	}
 
-	txMetatadata, err := d.ZAdd(req.ZAddRequest)
-	if err != nil {
-		return nil, err
-	}
-
 	lastTx, err := d.allocTx()
 	if err != nil {
 		return nil, err
 	}
 	defer d.releaseTx(lastTx)
+
+	txMetatadata, err := d.ZAdd(req.ZAddRequest)
+	if err != nil {
+		return nil, err
+	}
 
 	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {

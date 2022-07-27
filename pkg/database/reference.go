@@ -124,17 +124,17 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 		return nil, store.ErrIllegalArguments
 	}
 
-	txMetatadata, err := d.SetReference(req.ReferenceRequest)
-	if err != nil {
-		return nil, err
-	}
-
 	// Preallocate tx buffers
 	lastTx, err := d.allocTx()
 	if err != nil {
 		return nil, err
 	}
 	defer d.releaseTx(lastTx)
+
+	txMetatadata, err := d.SetReference(req.ReferenceRequest)
+	if err != nil {
+		return nil, err
+	}
 
 	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {
