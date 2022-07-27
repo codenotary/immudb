@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
@@ -1807,12 +1808,12 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	return header, nil
 }
 
-func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, error) {
 	cacheMiss := false
 
 	txbs, err := s.txLogCache.Get(txID)
 	if err != nil && err != cache.ErrKeyNotFound {
-		return err
+		return nil, err
 	}
 	if err == cache.ErrKeyNotFound {
 		cacheMiss = true
@@ -1820,7 +1821,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var txr io.ReaderAt
@@ -1831,7 +1832,14 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		txr = &slicedReaderAt{bs: txbs.([]byte), off: txOff}
 	}
 
-	r := appendable.NewReaderFrom(txr, txOff, txSize)
+	return appendable.NewReaderFrom(txr, txOff, txSize), nil
+}
+
+func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+	r, err := s.appendableReaderForTx(txID)
+	if err != nil {
+		return err
+	}
 
 	err = tx.readFrom(r)
 	if err == io.EOF {
@@ -1842,19 +1850,38 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 }
 
 func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
-	// TODO: Optimize by reading only a single entry
-	tx, err := s.txPool.Alloc()
-	if err != nil {
-		return nil, err
-	}
-	defer s.txPool.Release(tx)
-
-	err = s.ReadTx(txID, tx)
+	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
 		return nil, err
 	}
 
-	return tx.Header(), nil
+	tdr := &txDataReader{r: r}
+
+	header, err := tdr.readHeader(s.maxTxEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
+
+	for i := 0; i < header.NEntries; i++ {
+		err = tdr.readEntry(e)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	htree, err := htree.New(header.NEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tdr.buildAndValidateHtree(htree)
+	if err != nil {
+		return nil, err
+	}
+
+	return header, nil
 }
 
 func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
