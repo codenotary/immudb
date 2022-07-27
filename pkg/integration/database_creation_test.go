@@ -116,6 +116,9 @@ func TestCreateDatabaseV2(t *testing.T) {
 			HistoryLogMaxOpenedFiles: &schema.NullableUint32{Value: 15},
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: 3},
 		},
+		AhtSettings: &schema.AHTNullableSettings{
+			SyncThreshold: &schema.NullableUint32{Value: 10_000},
+		},
 	}
 	_, err = client.CreateDatabaseV2(context.Background(), "db1", dbNullableSettings)
 	require.NoError(t, err)
@@ -151,6 +154,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.IndexSettings.NodesLogMaxOpenedFiles.Value, res.Settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.HistoryLogMaxOpenedFiles.Value, res.Settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, res.Settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
+
+	require.Equal(t, dbNullableSettings.AhtSettings.SyncThreshold.Value, res.Settings.AhtSettings.SyncThreshold.Value)
 
 	_, err = client.UpdateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{})
 	require.NoError(t, err)
