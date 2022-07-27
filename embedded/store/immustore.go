@@ -384,7 +384,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
 		WithFileSize(fileSize).
-		WithSynced(false)
+		WithSyncThld(opts.AHTOpts.SyncThld)
 
 	if opts.appFactory != nil {
 		ahtOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
@@ -2126,11 +2126,6 @@ func (s *ImmuStore) sync() error {
 	}
 
 	err := s.txLog.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = s.aht.Sync()
 	if err != nil {
 		return err
 	}

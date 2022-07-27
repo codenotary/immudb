@@ -2526,6 +2526,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 	opts := DefaultOptions().
 		WithMaxConcurrency(100).
 		WithSynced(true).
+		WithAHTOptions(DefaultAHTOptions().WithSyncThld(1_000)).
 		WithSyncFrequency(20 * time.Millisecond).
 		WithMaxActiveTransactions(1000)
 
