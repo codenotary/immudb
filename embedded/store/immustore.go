@@ -60,6 +60,7 @@ var ErrorCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrorCorruptedTxData)
 var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header version", ErrorCorruptedTxData)
 var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrorCorruptedTxData)
+var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrorCorruptedTxData)
 var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrCorruptedIndex = errors.New("corrupted index")
@@ -1885,24 +1886,54 @@ func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
 }
 
 func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
-	// TODO: Optimize by reading only a single entry
-	tx, err := s.txPool.Alloc()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer s.txPool.Release(tx)
 
-	err = s.ReadTx(txID, tx)
+	var ret *TxEntry
+
+	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	entry, err := tx.EntryOf(key)
+	tdr := &txDataReader{r: r}
+
+	header, err := tdr.readHeader(s.maxTxEntries)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return entry, tx.Header(), nil
+	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
+
+	for i := 0; i < header.NEntries; i++ {
+		err = tdr.readEntry(e)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if bytes.Compare(e.key(), key) == 0 {
+			if ret != nil {
+				return nil, nil, ErrCorruptedTxDataDuplicateKey
+			}
+			ret = e
+
+			// Allocate new placeholder for scanning the rest of entries
+			e = &TxEntry{k: make([]byte, s.maxKeyLen)}
+		}
+	}
+	if ret == nil {
+		return nil, nil, ErrKeyNotFound
+	}
+
+	htree, err := htree.New(header.NEntries)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = tdr.buildAndValidateHtree(htree)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ret, header, nil
 }
 
 // ReadValue returns the actual associated value to a key at a specific transaction
