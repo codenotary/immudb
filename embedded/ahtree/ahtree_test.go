@@ -78,6 +78,9 @@ func TestEdgeCases(t *testing.T) {
 	dummyFlush := func() error {
 		return nil
 	}
+	dummySync := func() error {
+		return nil
+	}
 
 	pLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
 	dLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
@@ -214,9 +217,13 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("should fail on cLog SetOffset during append", func(t *testing.T) {
-		dLog.FlushFn = dummyFlush
+		pLog.FlushFn = dummyFlush
+		pLog.SyncFn = dummySync
 
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		dLog.FlushFn = dummyFlush
+		dLog.SyncFn = dummySync
+
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(1))
 		require.NoError(t, err)
 
 		cLog.SetOffsetFn = func(off int64) error {
@@ -233,7 +240,7 @@ func TestEdgeCases(t *testing.T) {
 			return 0, 0, injectedErr
 		}
 
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(1))
 		require.NoError(t, err)
 
 		_, _, err = tree.Append([]byte{1, 2, 3})
@@ -246,10 +253,13 @@ func TestEdgeCases(t *testing.T) {
 			return injectedErr
 		}
 
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(2))
 		require.NoError(t, err)
 
 		_, _, err = tree.Append([]byte{1, 2, 3})
+		require.NoError(t, err)
+
+		_, _, err = tree.Append([]byte{4, 5, 6})
 		require.ErrorIs(t, err, injectedErr)
 	})
 
@@ -432,7 +442,7 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
-	tree, err := Open(dir, DefaultOptions().WithSynced(false))
+	tree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	t.Run("should fail to get tree root when tree is empty", func(t *testing.T) {
@@ -522,12 +532,15 @@ func TestReadOnly(t *testing.T) {
 }
 
 func TestAppend(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithDigestsCacheSlots(100).WithDataCacheSlots(100)
+	opts := DefaultOptions().
+		WithDigestsCacheSlots(100).
+		WithDataCacheSlots(100)
+
 	tree, err := Open("ahtree_test", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
-	N := 1024
+	N := 100
 
 	for i := 1; i <= N; i++ {
 		p := []byte{byte(i)}
@@ -569,7 +582,7 @@ func TestAppend(t *testing.T) {
 }
 
 func TestIntegrity(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -605,23 +618,23 @@ func TestIntegrity(t *testing.T) {
 }
 
 func TestOpenFail(t *testing.T) {
-	_, err := Open("/dev/null", DefaultOptions().WithSynced(false))
+	_, err := Open("/dev/null", DefaultOptions())
 	require.Error(t, err)
 	os.Mkdir("ro_dir1", 0500)
 	defer os.RemoveAll("ro_dir1")
-	_, err = Open("ro_dir/bla", DefaultOptions().WithSynced(false))
+	_, err = Open("ro_dir/bla", DefaultOptions())
 	require.Error(t, err)
-	_, err = Open("wrongdir\000", DefaultOptions().WithSynced(false))
+	_, err = Open("wrongdir\000", DefaultOptions())
 	require.Error(t, err)
 	defer os.RemoveAll("tt1")
-	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
+	_, err = Open("tt1", DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "tree" {
 				e = errors.New("simulated error")
 			}
 			return
 		}))
-	_, err = Open("tt1", DefaultOptions().WithSynced(false).WithAppFactory(
+	_, err = Open("tt1", DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "commit" {
 				e = errors.New("simulated error")
@@ -632,7 +645,7 @@ func TestOpenFail(t *testing.T) {
 }
 
 func TestInclusionAndConsistencyProofs(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -709,7 +722,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	ACount := 100
 
 	for it := 0; it < ItCount; it++ {
-		tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+		tree, err := Open("ahtree_test", DefaultOptions())
 		require.NoError(t, err)
 
 		for i := 0; i < ACount; i++ {
@@ -723,7 +736,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions())
 	require.NoError(t, err)
 
 	for i := 1; i <= ItCount*ACount; i++ {
@@ -967,7 +980,7 @@ func TestResetCornerCases(t *testing.T) {
 }
 
 func BenchmarkAppend(b *testing.B) {
-	tree, _ := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	tree, _ := Open("ahtree_test", DefaultOptions())
 	defer os.RemoveAll("ahtree_test")
 
 	for i := 0; i < b.N; i++ {
