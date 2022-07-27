@@ -26,12 +26,9 @@ import (
 func TestDefaultOptions(t *testing.T) {
 	op := DefaultOption().AsReplica(true)
 
-	if op.GetDBRootPath() != DefaultOption().dbRootPath {
-		t.Errorf("default db rootpath not what expected")
-	}
-	if op.GetCorruptionChecker() {
-		t.Errorf("default corruption checker not what expected")
-	}
+	require.Equal(t, op.GetDBRootPath(), DefaultOption().dbRootPath)
+	require.False(t, op.GetCorruptionChecker())
+	require.Equal(t, op.GetTxPoolSize(), DefaultOption().readTxPoolSize)
 
 	rootpath := "rootpath"
 	storeOpts := store.DefaultOptions()
@@ -39,15 +36,12 @@ func TestDefaultOptions(t *testing.T) {
 	op = DefaultOption().
 		WithDBRootPath(rootpath).
 		WithCorruptionChecker(true).
-		WithStoreOptions(storeOpts)
+		WithStoreOptions(storeOpts).
+		WithReadTxPoolSize(789)
 
-	if op.GetDBRootPath() != rootpath {
-		t.Errorf("rootpath not set correctly , expected %s got %s", rootpath, op.GetDBRootPath())
-	}
-
-	if !op.GetCorruptionChecker() {
-		t.Errorf("corruption checker not set correctly , expected %v got %v", true, op.GetCorruptionChecker())
-	}
+	require.Equal(t, op.GetDBRootPath(), rootpath)
+	require.True(t, op.GetCorruptionChecker())
+	require.Equal(t, op.GetTxPoolSize(), 789)
 
 	require.Equal(t, storeOpts, op.storeOpts)
 }
