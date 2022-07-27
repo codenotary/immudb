@@ -1193,8 +1193,13 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		defer snap.Close()
 	}
 
-	// key-value inclusion proof
 	reqTx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(reqTx)
+
+	err = d.st.ReadTx(req.Tx, reqTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1209,11 +1214,6 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	err = d.st.ReadTx(req.Tx, reqTx)
-	if err != nil {
-		return nil, err
 	}
 
 	if req.ProveSinceTx <= req.Tx {
