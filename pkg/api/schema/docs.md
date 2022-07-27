@@ -4,6 +4,7 @@
 ## Table of Contents
 
 - [schema.proto](#schema.proto)
+    - [AHTNullableSettings](#immudb.schema.AHTNullableSettings)
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
@@ -142,6 +143,21 @@
 <p align="right"><a href="#top">Top</a></p>
 
 ## schema.proto
+
+
+
+<a name="immudb.schema.AHTNullableSettings"></a>
+
+### AHTNullableSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+
+
+
 
 
 
@@ -423,6 +439,7 @@
 | writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
 | syncFrequency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  |  |
 
 
 

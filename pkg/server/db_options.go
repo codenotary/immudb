@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -60,6 +61,8 @@ type dbOptions struct {
 
 	IndexOptions *indexOptions `json:"indexOptions"`
 
+	AHTOptions *ahtOptions `json:"ahtOptions"`
+
 	Autoload featureState `json:"autoload"` // unspecfied is considered as enabled for backward compatibility
 
 	CreatedBy string    `json:"createdBy"`
@@ -96,6 +99,10 @@ type indexOptions struct {
 	CommitLogMaxOpenedFiles  int     `json:"commitLogMaxOpenedFiles"`
 }
 
+type ahtOptions struct {
+	SyncThreshold int `json:"syncThreshold"`
+}
+
 const DefaultMaxValueLen = 1 << 25   //32Mb
 const DefaultStoreFileSize = 1 << 29 //512Mb
 
@@ -123,6 +130,8 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 		WriteTxHeaderVersion:    store.DefaultWriteTxHeaderVersion,
 
 		IndexOptions: s.defaultIndexOptions(),
+
+		AHTOptions: s.defaultAHTOptions(),
 
 		Autoload: unspecifiedState,
 
@@ -160,6 +169,12 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 	}
 }
 
+func (s *ImmuServer) defaultAHTOptions() *ahtOptions {
+	return &ahtOptions{
+		SyncThreshold: ahtree.DefaultSyncThld,
+	}
+}
+
 func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 	return database.DefaultOption().
 		WithDBRootPath(s.Options.Dir).
@@ -187,6 +202,12 @@ func (opts *dbOptions) storeOptions() *store.Options {
 			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles)
 	}
 
+	ahtOpts := store.DefaultAHTOptions()
+
+	if opts.AHTOptions != nil {
+		ahtOpts.WithSyncThld(opts.AHTOptions.SyncThreshold)
+	}
+
 	stOpts := store.DefaultOptions().
 		WithSynced(opts.synced).
 		WithSyncFrequency(time.Millisecond * time.Duration(opts.SyncFrequency)).
@@ -202,7 +223,8 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithTxLogMaxOpenedFiles(opts.TxLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.CommitLogMaxOpenedFiles).
 		WithMaxLinearProofLen(0). // fixed no limitation, it may be customized in the future
-		WithIndexOptions(indexOpts)
+		WithIndexOptions(indexOpts).
+		WithAHTOptions(ahtOpts)
 
 	if opts.ExcludeCommitTime {
 		stOpts.WithTimeFunc(func() time.Time { return time.Unix(0, 0) })
@@ -255,6 +277,10 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			NodesLogMaxOpenedFiles:   &schema.NullableUint32{Value: uint32(opts.IndexOptions.NodesLogMaxOpenedFiles)},
 			HistoryLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles)},
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: uint32(opts.IndexOptions.CommitLogMaxOpenedFiles)},
+		},
+
+		AhtSettings: &schema.AHTNullableSettings{
+			SyncThreshold: &schema.NullableUint32{Value: uint32(opts.AHTOptions.SyncThreshold)},
 		},
 
 		WriteTxHeaderVersion: &schema.NullableUint32{Value: uint32(opts.WriteTxHeaderVersion)},
@@ -454,6 +480,17 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 	}
 
+	// aht options
+	if settings.AhtSettings != nil {
+		if opts.AHTOptions == nil {
+			opts.AHTOptions = s.defaultAHTOptions()
+		}
+
+		if settings.AhtSettings.SyncThreshold != nil {
+			opts.AHTOptions.SyncThreshold = int(settings.AhtSettings.SyncThreshold.Value)
+		}
+	}
+
 	err := opts.Validate()
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrIllegalArguments, err)
@@ -574,4 +611,5 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.IndexOptions.NodesLogMaxOpenedFiles: %v", database, opts.IndexOptions.NodesLogMaxOpenedFiles)
 	s.Logger.Infof("%s.IndexOptions.HistoryLogMaxOpenedFiles: %v", database, opts.IndexOptions.HistoryLogMaxOpenedFiles)
 	s.Logger.Infof("%s.IndexOptions.CommitLogMaxOpenedFiles: %v", database, opts.IndexOptions.CommitLogMaxOpenedFiles)
+	s.Logger.Infof("%s.AHTOptions.SyncThreshold: %v", database, opts.AHTOptions.SyncThreshold)
 }
