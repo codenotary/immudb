@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -93,6 +94,9 @@ type Options struct {
 
 	// options below affect indexing
 	IndexOpts *IndexOptions
+
+	// options below affect appendable hash tree
+	AHTOpts *AHTOptions
 }
 
 type IndexOptions struct {
@@ -109,6 +113,10 @@ type IndexOptions struct {
 	NodesLogMaxOpenedFiles   int
 	HistoryLogMaxOpenedFiles int
 	CommitLogMaxOpenedFiles  int
+}
+
+type AHTOptions struct {
+	SyncThld int
 }
 
 func DefaultOptions() *Options {
@@ -148,6 +156,8 @@ func DefaultOptions() *Options {
 		CompressionLevel:  DefaultCompressionLevel,
 
 		IndexOpts: DefaultIndexOptions(),
+
+		AHTOpts: DefaultAHTOptions(),
 	}
 }
 
@@ -166,6 +176,12 @@ func DefaultIndexOptions() *IndexOptions {
 		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
 		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
+	}
+}
+
+func DefaultAHTOptions() *AHTOptions {
+	return &AHTOptions{
+		SyncThld: ahtree.DefaultSyncThld,
 	}
 }
 
@@ -239,7 +255,12 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid log", ErrInvalidOptions)
 	}
 
-	return opts.IndexOpts.Validate()
+	err := opts.IndexOpts.Validate()
+	if err != nil {
+		return err
+	}
+
+	return opts.AHTOpts.Validate()
 }
 
 func (opts *IndexOptions) Validate() error {
@@ -284,6 +305,17 @@ func (opts *IndexOptions) Validate() error {
 	}
 	if opts.CommitLogMaxOpenedFiles <= 0 {
 		return fmt.Errorf("%w: invalid index option CommitLogMaxOpenedFiles", ErrInvalidOptions)
+	}
+
+	return nil
+}
+
+func (opts *AHTOptions) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil AHT options ", ErrInvalidOptions)
+	}
+	if opts.SyncThld <= 0 {
+		return fmt.Errorf("%w: invalid AHT option SyncThld", ErrInvalidOptions)
 	}
 
 	return nil
@@ -414,6 +446,11 @@ func (opts *Options) WithIndexOptions(indexOptions *IndexOptions) *Options {
 	return opts
 }
 
+func (opts *Options) WithAHTOptions(ahtOptions *AHTOptions) *Options {
+	opts.AHTOpts = ahtOptions
+	return opts
+}
+
 // IndexOptions
 
 func (opts *IndexOptions) WithCacheSize(cacheSize int) *IndexOptions {
@@ -478,5 +515,12 @@ func (opts *IndexOptions) WithHistoryLogMaxOpenedFiles(historyLogMaxOpenedFiles 
 
 func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *IndexOptions {
 	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	return opts
+}
+
+// AHTOptions
+
+func (opts *AHTOptions) WithSyncThld(syncThld int) *AHTOptions {
+	opts.SyncThld = syncThld
 	return opts
 }
