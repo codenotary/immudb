@@ -28,6 +28,7 @@ const DefaultDataCacheSlots = 1_000
 const DefaultDigestsCacheSlots = 100_000
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
+const DefaultSyncThld = 1000
 
 type AppFactoryFunc func(
 	rootPath string,
@@ -36,8 +37,8 @@ type AppFactoryFunc func(
 ) (appendable.Appendable, error)
 
 type Options struct {
+	syncThld int
 	readOnly bool
-	synced   bool
 	fileMode os.FileMode
 
 	appFactory AppFactoryFunc
@@ -54,7 +55,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		readOnly:          false,
-		synced:            false,
+		syncThld:          DefaultSyncThld,
 		fileMode:          DefaultFileMode,
 		dataCacheSlots:    DefaultDataCacheSlots,
 		digestsCacheSlots: DefaultDigestsCacheSlots,
@@ -70,7 +71,8 @@ func validOptions(opts *Options) bool {
 	return opts != nil &&
 		opts.fileSize > 0 &&
 		opts.dataCacheSlots > 0 &&
-		opts.digestsCacheSlots > 0
+		opts.digestsCacheSlots > 0 &&
+		opts.syncThld > 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -78,8 +80,8 @@ func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	return opts
 }
 
-func (opts *Options) WithSynced(synced bool) *Options {
-	opts.synced = synced
+func (opts *Options) WithSyncThld(syncThld int) *Options {
+	opts.syncThld = syncThld
 	return opts
 }
 
