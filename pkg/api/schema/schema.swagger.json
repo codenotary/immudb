@@ -2000,7 +2000,7 @@
           "$ref": "#/definitions/schemaNullableUint32"
         },
         "syncFrequency": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableMilliseconds"
         },
         "ahtSettings": {
           "$ref": "#/definitions/schemaAHTNullableSettings"
@@ -2559,6 +2559,15 @@
         "value": {
           "type": "number",
           "format": "float"
+        }
+      }
+    },
+    "schemaNullableMilliseconds": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

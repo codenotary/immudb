@@ -526,6 +526,10 @@ message NullableString {
 	string value = 1;
 }
 
+message NullableMilliseconds {
+	int64 value = 1;
+}
+
 message DatabaseNullableSettings {
 	ReplicationNullableSettings replicationSettings = 2;
 
@@ -552,8 +556,8 @@ message DatabaseNullableSettings {
 
 	NullableUint32 readTxPoolSize = 22;
 	
-	NullableUint32 syncFrequency = 23;
-
+	NullableMilliseconds syncFrequency = 23;
+	
 	AHTNullableSettings ahtSettings = 24;
 }
 
