@@ -209,6 +209,33 @@ jobs:
           path: perf-test-results.json
           retention-days: 30
 
+  performance-test-suite-upload-s3:
+    needs: performance-test-suite
+    runs-on: ubuntu-latest
+    env:
+      PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
+    steps:
+      - name: Download test results
+        if: "${{ env.PERF_TEST_AWS_REGION }}"
+        uses: actions/download-artifact@v3
+        with:
+          name: Performance Test Results
+
+      - name: Configure AWS credentials
+        if: "${{ env.PERF_TEST_AWS_REGION }}"
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: "${{ secrets.PERF_TEST_AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.PERF_TEST_AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "${{ secrets.PERF_TEST_AWS_REGION }}"
+
+      - name: Upload perf results to S3
+        if: "${{ env.PERF_TEST_AWS_REGION }}"
+        run: |
+          aws s3 cp \
+            perf-test-results.json \
+            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/${{ github.ref_name }}/$( date "+%Y-%m-%d--%H-%M--" )${{ github.sha }}.json"
+
   notarize-binaries:
       name: Notarize binaries
       needs:
