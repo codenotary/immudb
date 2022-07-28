@@ -21,6 +21,13 @@ import (
 	"github.com/codenotary/immudb/embedded/htree"
 )
 
+type txPoolOptions struct {
+	PoolSize     int
+	MaxTxEntries int
+	MaxKeyLen    int
+	Preallocated bool
+}
+
 type TxPool interface {
 	Alloc() (*Tx, error)
 	Release(*Tx)
@@ -28,28 +35,24 @@ type TxPool interface {
 }
 
 type txPool struct {
-	pool      []*Tx
-	used      int
-	max       int
-	nentries  int
-	maxKeyLen int
-	m         sync.Mutex
+	pool []*Tx
+	used int
+	m    sync.Mutex
+	opts txPoolOptions
 }
 
-func newTxPool(nentries int, maxKeyLen int, poolSize int, preallocated bool) (TxPool, error) {
+func newTxPool(opts txPoolOptions) (TxPool, error) {
 
-	if nentries <= 0 || maxKeyLen <= 0 || poolSize <= 0 {
+	if opts.PoolSize <= 0 || opts.MaxTxEntries <= 0 || opts.MaxKeyLen <= 0 {
 		return nil, ErrIllegalArguments
 	}
 
 	ret := &txPool{
-		pool:      make([]*Tx, 0, poolSize),
-		max:       poolSize,
-		nentries:  nentries,
-		maxKeyLen: maxKeyLen,
+		pool: make([]*Tx, 0, opts.PoolSize),
+		opts: opts,
 	}
 
-	if preallocated {
+	if opts.Preallocated {
 		// The pool uses only 5 allocations in total
 		// instead of allocating data separately for each tx and then each
 		// entry, we instead allocate single large arrays large enough
@@ -58,30 +61,30 @@ func newTxPool(nentries int, maxKeyLen int, poolSize int, preallocated bool) (Tx
 		// Keeping the number of allocated objects small is essential
 		// for reducing the CPU time spent in GC cycles.
 
-		txBuffer := make([]Tx, poolSize)
-		txEntryPtrBuffer := make([]*TxEntry, poolSize*nentries)
-		txEntryBuffer := make([]TxEntry, poolSize*nentries)
-		headerBuffer := make([]TxHeader, poolSize)
-		keyBuffer := make([]byte, poolSize*nentries*maxKeyLen)
+		txBuffer := make([]Tx, opts.PoolSize)
+		txEntryPtrBuffer := make([]*TxEntry, opts.PoolSize*opts.MaxTxEntries)
+		txEntryBuffer := make([]TxEntry, opts.PoolSize*opts.MaxTxEntries)
+		headerBuffer := make([]TxHeader, opts.PoolSize)
+		keyBuffer := make([]byte, opts.PoolSize*opts.MaxTxEntries*opts.MaxKeyLen)
 
-		for i := 0; i < poolSize; i++ {
+		for i := 0; i < opts.PoolSize; i++ {
 			tx := &txBuffer[i]
 			ret.pool = append(ret.pool, tx)
 
-			tx.entries = txEntryPtrBuffer[:nentries]
-			tx.htree, _ = htree.New(nentries)
+			tx.entries = txEntryPtrBuffer[:opts.MaxTxEntries]
+			tx.htree, _ = htree.New(opts.MaxTxEntries)
 			tx.header = &headerBuffer[i]
 
-			for j := 0; j < nentries; j++ {
+			for j := 0; j < opts.MaxTxEntries; j++ {
 				entry := &txEntryBuffer[j]
 				tx.entries[j] = entry
 
-				entry.k = keyBuffer[:maxKeyLen]
-				keyBuffer = keyBuffer[maxKeyLen:]
+				entry.k = keyBuffer[:opts.MaxKeyLen]
+				keyBuffer = keyBuffer[opts.MaxKeyLen:]
 			}
 
-			txEntryPtrBuffer = txEntryPtrBuffer[nentries:]
-			txEntryBuffer = txEntryBuffer[nentries:]
+			txEntryPtrBuffer = txEntryPtrBuffer[opts.MaxTxEntries:]
+			txEntryBuffer = txEntryBuffer[opts.MaxTxEntries:]
 		}
 
 	}
@@ -94,11 +97,11 @@ func (p *txPool) Alloc() (*Tx, error) {
 	defer p.m.Unlock()
 
 	if p.used == len(p.pool) {
-		if p.used == p.max {
+		if p.used >= p.opts.PoolSize {
 			return nil, ErrMaxConcurrencyLimitExceeded
 		}
 
-		p.pool = append(p.pool, newTx(p.nentries, p.maxKeyLen))
+		p.pool = append(p.pool, newTx(p.opts.MaxTxEntries, p.opts.MaxKeyLen))
 	}
 
 	tx := p.pool[p.used]
@@ -119,5 +122,5 @@ func (p *txPool) Stats() (used, free, max int) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	return p.used, len(p.pool) - p.used, p.max
+	return p.used, len(p.pool) - p.used, p.opts.PoolSize
 }

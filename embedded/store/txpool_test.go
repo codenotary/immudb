@@ -26,7 +26,12 @@ func TestTxPool(t *testing.T) {
 	for _, preallocated := range []bool{true, false} {
 
 		t.Run(fmt.Sprintf("preallocated: %v", preallocated), func(t *testing.T) {
-			p, err := newTxPool(100, 101, 102, preallocated)
+			p, err := newTxPool(txPoolOptions{
+				MaxTxEntries: 100,
+				MaxKeyLen:    101,
+				PoolSize:     102,
+				Preallocated: preallocated,
+			})
 			require.NoError(t, err)
 
 			t.Run("test initial pool stats", func(t *testing.T) {
