@@ -1987,6 +1987,9 @@
         },
         "autoload": {
           "$ref": "#/definitions/schemaNullableBool"
+        },
+        "readTxPoolSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },

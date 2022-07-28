@@ -59,7 +59,9 @@ type dbOptions struct {
 
 	IndexOptions *indexOptions `json:"indexOptions"`
 
-	Autoload featureState `json:"autoload"` // unspecfied is considered as enabled for backward compatibility
+	Autoload featureState `json:"autoload"` // unspecified is considered as enabled for backward compatibility
+
+	ReadTxPoolSize int `json:"readTxPoolSize"`
 
 	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -98,9 +100,10 @@ type indexOptions struct {
 const DefaultMaxValueLen = 1 << 25   //32Mb
 const DefaultStoreFileSize = 1 << 29 //512Mb
 
-func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
+func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
+
 	dbOpts := &dbOptions{
-		Database: database,
+		Database: dbName,
 
 		synced: s.Options.synced,
 
@@ -120,6 +123,7 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles: store.DefaultCommitLogMaxOpenedFiles,
 		WriteTxHeaderVersion:    store.DefaultWriteTxHeaderVersion,
+		ReadTxPoolSize:          database.DefaultReadTxPoolSize,
 
 		IndexOptions: s.defaultIndexOptions(),
 
@@ -128,7 +132,7 @@ func (s *ImmuServer) defaultDBOptions(database string) *dbOptions {
 		CreatedAt: time.Now(),
 	}
 
-	if dbOpts.Replica && (database == s.Options.systemAdminDBName || database == s.Options.defaultDBName) {
+	if dbOpts.Replica && (dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName) {
 		repOpts := s.Options.ReplicationOptions
 
 		dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb and defaultdb must have the same name as in master
@@ -163,7 +167,8 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 	return database.DefaultOption().
 		WithDBRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
-		AsReplica(opts.Replica)
+		AsReplica(opts.Replica).
+		WithReadTxPoolSize(opts.ReadTxPoolSize)
 }
 
 func (opts *dbOptions) storeOptions() *store.Options {
@@ -256,6 +261,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		WriteTxHeaderVersion: &schema.NullableUint32{Value: uint32(opts.WriteTxHeaderVersion)},
 
 		Autoload: &schema.NullableBool{Value: opts.Autoload.isEnabled()},
+
+		ReadTxPoolSize: &schema.NullableUint32{Value: uint32(opts.ReadTxPoolSize)},
 	}
 }
 
@@ -323,6 +330,12 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	opts.synced = s.Options.synced
 
+	// database instance options
+	if settings.ReadTxPoolSize != nil {
+		opts.ReadTxPoolSize = int(settings.ReadTxPoolSize.Value)
+	}
+
+	// replication settings
 	if settings.ReplicationSettings != nil {
 		rs := settings.ReplicationSettings
 
@@ -346,6 +359,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 	}
 
+	// store options
 	if settings.FileSize != nil {
 		opts.FileSize = int(settings.FileSize.Value)
 	}
@@ -362,7 +376,6 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		opts.MaxTxEntries = int(settings.MaxTxEntries.Value)
 	}
 
-	// store options
 	if settings.ExcludeCommitTime != nil {
 		opts.ExcludeCommitTime = settings.ExcludeCommitTime.Value
 	}
@@ -464,6 +477,13 @@ func (opts *dbOptions) Validate() error {
 		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
 	}
 
+	if opts.ReadTxPoolSize <= 0 {
+		return fmt.Errorf(
+			"%w: invalid read tx pool size (%d) for database '%s'",
+			ErrIllegalArguments, opts.ReadTxPoolSize, opts.Database,
+		)
+	}
+
 	return opts.storeOptions().Validate()
 }
 
@@ -552,6 +572,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.TxLogMaxOpenedFiles: %v", database, opts.TxLogMaxOpenedFiles)
 	s.Logger.Infof("%s.CommitLogMaxOpenedFiles: %v", database, opts.CommitLogMaxOpenedFiles)
 	s.Logger.Infof("%s.WriteTxHeaderVersion: %v", database, opts.WriteTxHeaderVersion)
+	s.Logger.Infof("%s.ReadTxPoolSize: %v", database, opts.ReadTxPoolSize)
 	s.Logger.Infof("%s.IndexOptions.FlushThreshold: %v", database, opts.IndexOptions.FlushThreshold)
 	s.Logger.Infof("%s.IndexOptions.SyncThreshold: %v", database, opts.IndexOptions.SyncThreshold)
 	s.Logger.Infof("%s.IndexOptions.FlushBufferSize: %v", database, opts.IndexOptions.FlushBufferSize)

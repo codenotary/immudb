@@ -422,6 +422,7 @@
 | indexSettings | [IndexNullableSettings](#immudb.schema.IndexNullableSettings) |  |  |
 | writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
 
