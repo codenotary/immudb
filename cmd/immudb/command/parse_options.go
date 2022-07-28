@@ -88,6 +88,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithS3PathPrefix(s3PathPrefix)
 
 	sessionOptions := sessions.DefaultOptions().
+		WithMaxSessions(viper.GetInt("max-sessions")).
 		WithSessionGuardCheckInterval(viper.GetDuration("sessions-guard-check-interval")).
 		WithMaxSessionInactivityTime(viper.GetDuration("max-session-inactivity-time")).
 		WithMaxSessionAgeTime(viper.GetDuration("max-session-age-time")).
