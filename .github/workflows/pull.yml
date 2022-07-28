@@ -146,3 +146,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  performance-test-suite:
+    name: Performance Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "1.17"
+      - uses: actions/checkout@v3
+      - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
+      - run: ./perf-test-suite > perf-test-results.json
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: Performance Test Results
+          path: perf-test-results.json
