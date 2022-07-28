@@ -545,7 +545,7 @@ func (t *txDataReader) readEntry(entry *TxEntry) error {
 	entry.kLen = int(kLen)
 
 	if entry.kLen > len(entry.k) {
-		return ErrCorruptedTxDataMaxTxEntriesExceeded
+		return ErrCorruptedTxDataMaxKeyLenExceeded
 	}
 
 	_, err = t.r.Read(entry.k[:kLen])
