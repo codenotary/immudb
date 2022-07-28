@@ -1320,18 +1320,12 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(tx)
-
 	waitUntilTx := req.SinceTx
 	if waitUntilTx == 0 {
 		waitUntilTx = currTxID
 	}
 
-	err = d.WaitForIndexingUpto(waitUntilTx, nil)
+	err := d.WaitForIndexingUpto(waitUntilTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1359,12 +1353,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	}
 
 	for i, txID := range txs {
-		err = d.st.ReadTx(txID, tx)
-		if err != nil {
-			return nil, err
-		}
-
-		entry, err := tx.EntryOf(key)
+		entry, _, err := d.st.ReadTxEntry(txID, key)
 		if err != nil {
 			return nil, err
 		}
