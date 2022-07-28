@@ -562,15 +562,28 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		go func() {
 			for {
-				store.commitStateRWMutex.Lock()
-				committedTxID := store.committedTxID
-				store.commitStateRWMutex.Unlock()
+				committedTxID := store.lastCommittedTxID()
 
 				// passive wait for one new transaction at least
 				store.precommitWHub.WaitFor(committedTxID+1, nil)
 
-				// give some time for more transactions to be precommitted
-				time.Sleep(store.syncFrequency)
+				// TODO: waiting on earlier stages of transaction processing may also be possible
+				prevLatestPrecommitedTx := committedTxID + 1
+
+				// TODO: parametrize concurrency evaluation
+				for i := 0; i < 4; i++ {
+					// give some time for more transactions to be precommitted
+					time.Sleep(store.syncFrequency / 4)
+
+					latestPrecommitedTx := store.lastPreCommittedTxID()
+
+					if prevLatestPrecommitedTx == latestPrecommitedTx {
+						// avoid waiting if there are no new transactions
+						break
+					}
+
+					prevLatestPrecommitedTx = latestPrecommitedTx
+				}
 
 				// ensure durability
 				err := store.sync()
