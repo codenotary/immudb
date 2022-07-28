@@ -64,6 +64,7 @@
     - [NewTxResponse](#immudb.schema.NewTxResponse)
     - [NullableBool](#immudb.schema.NullableBool)
     - [NullableFloat](#immudb.schema.NullableFloat)
+    - [NullableMilliseconds](#immudb.schema.NullableMilliseconds)
     - [NullableString](#immudb.schema.NullableString)
     - [NullableUint32](#immudb.schema.NullableUint32)
     - [NullableUint64](#immudb.schema.NullableUint64)
@@ -439,7 +440,7 @@
 | writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
 | readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| syncFrequency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| syncFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  |  |
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  |  |
 
 
@@ -1136,6 +1137,21 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | value | [float](#float) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.NullableMilliseconds"></a>
+
+### NullableMilliseconds
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| value | [int64](#int64) |  |  |
 
 
 

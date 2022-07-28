@@ -28,11 +28,13 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 )
 
+type Milliseconds int64
+
 type dbOptions struct {
 	Database string `json:"database"`
 
-	synced        bool  // currently a global immudb instance option
-	SyncFrequency int64 `json:"syncFrequency"` // ms
+	synced        bool         // currently a global immudb instance option
+	SyncFrequency Milliseconds `json:"syncFrequency"` // ms
 
 	// replication options
 	Replica          bool   `json:"replica"`
@@ -114,7 +116,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		Database: dbName,
 
 		synced:        s.Options.synced,
-		SyncFrequency: store.DefaultSyncFrequency.Milliseconds(),
+		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
 		Replica:       s.Options.ReplicationOptions != nil,
 
 		FileSize:     DefaultStoreFileSize,
@@ -251,7 +253,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
 		},
 
-		SyncFrequency: &schema.NullableUint32{Value: uint32(opts.SyncFrequency)},
+		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
 
 		FileSize:     &schema.NullableUint32{Value: uint32(opts.FileSize)},
 		MaxKeyLen:    &schema.NullableUint32{Value: uint32(opts.MaxKeyLen)},
@@ -392,7 +394,7 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 	// store options
 
 	if settings.SyncFrequency != nil {
-		opts.SyncFrequency = int64(settings.SyncFrequency.Value)
+		opts.SyncFrequency = Milliseconds(settings.SyncFrequency.Value)
 	}
 
 	if settings.FileSize != nil {

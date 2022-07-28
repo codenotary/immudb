@@ -101,7 +101,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: 8},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: 4},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: 2},
-		SyncFrequency:           &schema.NullableUint32{Value: 15},
+		SyncFrequency:           &schema.NullableMilliseconds{Value: 15},
 		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: 256},
 			SyncThreshold:            &schema.NullableUint32{Value: 512},
