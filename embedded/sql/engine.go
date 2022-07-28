@@ -135,8 +135,6 @@ type SQLTx struct {
 
 	txHeader *store.TxHeader // header is set once tx is committed
 
-	txHolder *store.Tx // Temporary read buffer
-
 	committed bool
 	closed    bool
 }
