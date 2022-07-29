@@ -1559,12 +1559,10 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		txhdr, err := tx.AsyncCommit()
+		txhdr, err := tx.Commit()
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 	}
-
-	time.Sleep(100 * time.Millisecond)
 
 	err = immuStore.CompactIndex()
 	require.NoError(t, err)
