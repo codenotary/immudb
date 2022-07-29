@@ -17,8 +17,6 @@ package store
 
 import (
 	"sync"
-
-	"github.com/codenotary/immudb/embedded/htree"
 )
 
 type txPoolOptions struct {
@@ -53,40 +51,9 @@ func newTxPool(opts txPoolOptions) (TxPool, error) {
 	}
 
 	if opts.preallocated {
-		// The pool uses only 5 allocations in total
-		// instead of allocating data separately for each tx and then each
-		// entry, we instead allocate single large arrays large enough
-		// to fulfill requirements of all internal objects
-		//
-		// Keeping the number of allocated objects small is essential
-		// for reducing the CPU time spent in GC cycles.
-
-		txBuffer := make([]Tx, opts.poolSize)
-		txEntryPtrBuffer := make([]*TxEntry, opts.poolSize*opts.maxTxEntries)
-		txEntryBuffer := make([]TxEntry, opts.poolSize*opts.maxTxEntries)
-		headerBuffer := make([]TxHeader, opts.poolSize)
-		keyBuffer := make([]byte, opts.poolSize*opts.maxTxEntries*opts.maxKeyLen)
-
 		for i := 0; i < opts.poolSize; i++ {
-			tx := &txBuffer[i]
-			ret.pool = append(ret.pool, tx)
-
-			tx.entries = txEntryPtrBuffer[:opts.maxTxEntries]
-			tx.htree, _ = htree.New(opts.maxTxEntries)
-			tx.header = &headerBuffer[i]
-
-			for j := 0; j < opts.maxTxEntries; j++ {
-				entry := &txEntryBuffer[j]
-				tx.entries[j] = entry
-
-				entry.k = keyBuffer[:opts.maxKeyLen]
-				keyBuffer = keyBuffer[opts.maxKeyLen:]
-			}
-
-			txEntryPtrBuffer = txEntryPtrBuffer[opts.maxTxEntries:]
-			txEntryBuffer = txEntryBuffer[opts.maxTxEntries:]
+			ret.pool = append(ret.pool, newTx(opts.maxTxEntries, opts.maxKeyLen))
 		}
-
 	}
 
 	return ret, nil
