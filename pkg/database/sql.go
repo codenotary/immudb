@@ -92,12 +92,6 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	tx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(tx)
-
 	// build the encoded key for the pk
 	pkKey := sql.MapKey(
 		[]byte{SQLPrefix},
@@ -111,6 +105,12 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	if err != nil {
 		return nil, err
 	}
+
+	tx, err := d.allocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer d.releaseTx(tx)
 
 	// key-value inclusion proof
 	err = d.st.ReadTx(e.Tx, tx)
