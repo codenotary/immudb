@@ -224,7 +224,11 @@ func (d *db) Path() string {
 }
 
 func (d *db) allocTx() (*store.Tx, error) {
-	return d.txPool.Alloc()
+	tx, err := d.txPool.Alloc()
+	if errors.Is(err, store.ErrTxPoolExhausted) {
+		return nil, ErrTxReadPoolExhausted
+	}
+	return tx, err
 }
 
 func (d *db) releaseTx(tx *store.Tx) {

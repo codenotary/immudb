@@ -77,6 +77,7 @@ var ErrUnexpectedError = errors.New("unexpected error")
 var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
 var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
 var ErrInvalidOptions = errors.New("invalid options")
+var ErrTxPoolExhausted = errors.New("transaction pool exhausted")
 
 var ErrInvalidPrecondition = errors.New("invalid precondition")
 var ErrInvalidPreconditionTooMany = fmt.Errorf("%w: too many preconditions", ErrInvalidPrecondition)
@@ -692,11 +693,11 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 	s.logger.Infof("Syncing Binary Linking at '%s'...", s.path)
 
-	tx, err := s.txPool.Alloc()
+	tx, err := s.fetchAllocTx()
 	if err != nil {
 		return err
 	}
-	defer s.txPool.Release(tx)
+	defer s.releaseAllocTx(tx)
 
 	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
 	if err != nil {
@@ -803,7 +804,11 @@ func (s *ImmuStore) TxCount() uint64 {
 }
 
 func (s *ImmuStore) fetchAllocTx() (*Tx, error) {
-	return s.txPool.Alloc()
+	tx, err := s.txPool.Alloc()
+	if errors.Is(err, ErrTxPoolExhausted) {
+		return nil, ErrMaxConcurrencyLimitExceeded
+	}
+	return tx, nil
 }
 
 func (s *ImmuStore) releaseAllocTx(tx *Tx) {

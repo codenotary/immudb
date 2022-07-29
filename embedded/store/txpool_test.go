@@ -128,7 +128,7 @@ func TestTxPool(t *testing.T) {
 
 			t.Run("test error once the pool is exhausted", func(t *testing.T) {
 				tx, err := p.Alloc()
-				require.ErrorIs(t, err, ErrMaxConcurrencyLimitExceeded)
+				require.ErrorIs(t, err, ErrTxPoolExhausted)
 				require.Nil(t, tx)
 			})
 

@@ -33,4 +33,5 @@ var (
 	ErrDatabaseAlreadyExists      = errors.New("database already exists")
 	ErrDatabaseNotExists          = errors.New("database does not exist")
 	ErrCannotDeleteAnOpenDatabase = errors.New("cannot delete an open database")
+	ErrTxReadPoolExhausted        = errors.New("read tx pool exhausted")
 )

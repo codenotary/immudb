@@ -65,7 +65,7 @@ func (p *txPool) Alloc() (*Tx, error) {
 
 	if p.used == len(p.pool) {
 		if p.used >= p.opts.poolSize {
-			return nil, ErrMaxConcurrencyLimitExceeded
+			return nil, ErrTxPoolExhausted
 		}
 
 		p.pool = append(p.pool, newTx(p.opts.maxTxEntries, p.opts.maxKeyLen))
