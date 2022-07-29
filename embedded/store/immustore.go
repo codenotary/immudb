@@ -335,10 +335,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	txPool, err := newTxPool(txPoolOptions{
-		PoolSize:     opts.MaxConcurrency + 1, // one extra tx pre-allocation for indexing thread
-		MaxTxEntries: maxTxEntries,
-		MaxKeyLen:    maxKeyLen,
-		Preallocated: true,
+		poolSize:     opts.MaxConcurrency + 1, // one extra tx pre-allocation for indexing thread
+		maxTxEntries: maxTxEntries,
+		maxKeyLen:    maxKeyLen,
+		preallocated: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration, couldn't initialize transaction holder pool")
@@ -612,10 +612,10 @@ func (s *ImmuStore) UseTimeFunc(timeFunc TimeFunc) error {
 
 func (s *ImmuStore) NewTxHolderPool(poolSize int, preallocated bool) (TxPool, error) {
 	return newTxPool(txPoolOptions{
-		PoolSize:     poolSize,
-		MaxTxEntries: s.maxTxEntries,
-		MaxKeyLen:    s.maxKeyLen,
-		Preallocated: preallocated,
+		poolSize:     poolSize,
+		maxTxEntries: s.maxTxEntries,
+		maxKeyLen:    s.maxKeyLen,
+		preallocated: preallocated,
 	})
 }
 
