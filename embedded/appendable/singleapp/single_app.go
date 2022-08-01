@@ -45,25 +45,24 @@ const (
 )
 
 type AppendableFile struct {
-	f *os.File
+	f              *os.File
+	fileBaseOffset int64
+	fileOffset     int64
+
+	writeBuffer           []byte
+	writeBufferBaseOffset int
+	writeBufferOffset     int
+
+	readBufferSize int
+	readOnly       bool
+	synced         bool
 
 	compressionFormat int
 	compressionLevel  int
 
 	metadata []byte
 
-	readBufferSize  int
-	writeBufferSize int
-
-	readOnly bool
-	synced   bool
-
 	closed bool
-
-	w *bufio.Writer
-
-	baseOffset int64
-	offset     int64
 
 	mutex sync.Mutex
 }
@@ -96,7 +95,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	var metadata []byte
 	var compressionFormat int
 	var compressionLevel int
-	var baseOffset int64
+	var fileBaseOffset int64
 
 	if notExist {
 		m := appendable.NewMetadata(nil)
@@ -129,7 +128,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		compressionLevel = opts.compressionLevel
 		metadata = opts.metadata
 
-		baseOffset = int64(4 + len(mBs))
+		fileBaseOffset = int64(4 + len(mBs))
 	} else {
 		r := bufio.NewReader(f)
 
@@ -164,31 +163,25 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, ErrCorruptedMetadata
 		}
 
-		baseOffset = int64(4 + len(mBs))
+		fileBaseOffset = int64(4 + len(mBs))
 	}
 
-	off, err := f.Seek(0, io.SeekEnd)
+	fileOffset, err := f.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
 
-	var w *bufio.Writer
-	if !opts.readOnly {
-		w = bufio.NewWriterSize(f, opts.writeBufferSize)
-	}
-
 	return &AppendableFile{
 		f:                 f,
+		fileBaseOffset:    fileBaseOffset,
+		fileOffset:        fileOffset - fileBaseOffset,
+		writeBuffer:       make([]byte, opts.writeBufferSize),
+		readBufferSize:    opts.readBufferSize,
 		compressionFormat: compressionFormat,
 		compressionLevel:  compressionLevel,
-		readBufferSize:    opts.readBufferSize,
-		writeBufferSize:   opts.writeBufferSize,
 		metadata:          metadata,
 		readOnly:          opts.readOnly,
 		synced:            opts.synced,
-		w:                 w,
-		baseOffset:        baseOffset,
-		offset:            off - baseOffset,
 		closed:            false,
 	}, nil
 }
@@ -245,21 +238,21 @@ func (aof *AppendableFile) Size() (int64, error) {
 		return 0, ErrAlreadyClosed
 	}
 
-	stat, err := aof.f.Stat()
-	if err != nil {
-		return 0, err
-	}
-	return stat.Size() - aof.baseOffset, nil
+	return aof.offset(), nil
 }
 
 func (aof *AppendableFile) Offset() int64 {
 	aof.mutex.Lock()
 	defer aof.mutex.Unlock()
 
-	return aof.offset
+	return aof.offset()
 }
 
-func (aof *AppendableFile) SetOffset(off int64) error {
+func (aof *AppendableFile) offset() int64 {
+	return aof.fileOffset + int64(aof.writeBufferOffset)
+}
+
+func (aof *AppendableFile) SetOffset(newOffset int64) error {
 	aof.mutex.Lock()
 	defer aof.mutex.Unlock()
 
@@ -267,12 +260,33 @@ func (aof *AppendableFile) SetOffset(off int64) error {
 		return ErrAlreadyClosed
 	}
 
-	_, err := aof.f.Seek(off+aof.baseOffset, io.SeekStart)
+	currOffset := aof.offset()
+
+	if newOffset > currOffset {
+		return fmt.Errorf("%w: provided offset %d is bigger than current one %d", ErrIllegalArguments, newOffset, currOffset)
+	}
+
+	if newOffset == currOffset {
+		return nil
+	}
+
+	if newOffset >= aof.fileOffset {
+		//in-mem change
+		aof.writeBufferOffset -= int(currOffset - newOffset)
+		return nil
+	}
+
+	_, err := aof.f.Seek(aof.fileBaseOffset+newOffset, io.SeekStart)
 	if err != nil {
 		return err
 	}
 
-	aof.offset = off
+	aof.fileOffset = newOffset
+
+	// discard in-memory data
+	aof.writeBufferBaseOffset = 0
+	aof.writeBufferOffset = 0
+
 	return nil
 }
 
@@ -284,7 +298,7 @@ func (aof *AppendableFile) DiscardUpto(off int64) error {
 		return ErrAlreadyClosed
 	}
 
-	if aof.offset < off {
+	if aof.offset() < off {
 		return fmt.Errorf("%w: discard beyond existent data boundaries", ErrIllegalArguments)
 	}
 
@@ -335,12 +349,11 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, ErrIllegalArguments
 	}
 
-	off = aof.offset
+	off = aof.offset()
 
 	if aof.compressionFormat == appendable.NoCompression {
-		n, err = aof.w.Write(bs)
-		aof.offset += int64(n)
-		return
+		n, err = aof.write(bs)
+		return off, n, err
 	}
 
 	var b bytes.Buffer
@@ -362,18 +375,59 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 	bbLenBs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bbLenBs, uint32(len(bb)))
 
-	n, err = aof.w.Write(bbLenBs)
+	n, err = aof.write(bbLenBs)
 	if err != nil {
-		return
+		return off, n, err
 	}
 
-	n, err = aof.w.Write(bb)
-	if err != nil {
-		return off, 4 + n, err
+	n, err = aof.write(bb)
+
+	return off, n + 4, err
+}
+
+func (aof *AppendableFile) write(bs []byte) (n int, err error) {
+	for n < len(bs) {
+		available := len(aof.writeBuffer) - aof.writeBufferBaseOffset - aof.writeBufferOffset
+		if available == 0 {
+			err = aof.flush()
+			if err != nil {
+				return
+			}
+			available = len(aof.writeBuffer)
+		}
+
+		writeChunkSize := minInt(len(bs)-n, available)
+
+		copy(aof.writeBuffer[aof.writeBufferBaseOffset+aof.writeBufferOffset:], bs[n:n+writeChunkSize])
+		aof.writeBufferOffset += writeChunkSize
+
+		n += writeChunkSize
 	}
 
-	n += 4
-	aof.offset += int64(n)
+	return
+}
+
+func (aof *AppendableFile) readAt(bs []byte, off int64) (n int, err error) {
+	if off < aof.fileOffset {
+		n, err = aof.f.ReadAt(bs, aof.fileBaseOffset+off)
+	}
+
+	pending := len(bs) - n
+
+	if pending > 0 {
+		readChunkSize := minInt(pending, aof.writeBufferOffset)
+
+		if readChunkSize > 0 {
+			copy(bs[n:], aof.writeBuffer[aof.writeBufferBaseOffset:aof.writeBufferBaseOffset+readChunkSize])
+			n += readChunkSize
+		}
+
+		if readChunkSize == pending {
+			err = nil
+		} else {
+			err = io.EOF
+		}
+	}
 
 	return
 }
@@ -391,30 +445,17 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	}
 
 	if aof.compressionFormat == appendable.NoCompression {
-		return aof.f.ReadAt(bs, off+aof.baseOffset)
+		return aof.readAt(bs, off)
 	}
-
-	cOff, err := aof.f.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return 0, err
-	}
-	defer aof.f.Seek(cOff, io.SeekStart)
-
-	_, err = aof.f.Seek(off+aof.baseOffset, io.SeekStart)
-	if err != nil {
-		return 0, err
-	}
-
-	br := bufio.NewReaderSize(aof.f, aof.readBufferSize)
 
 	clenBs := make([]byte, 4)
-	_, err = br.Read(clenBs)
+	_, err = aof.readAt(clenBs, off)
 	if err != nil {
 		return 0, err
 	}
 
 	cBs := make([]byte, binary.BigEndian.Uint32(clenBs))
-	_, err = io.ReadFull(br, cBs)
+	_, err = aof.readAt(cBs, off+4)
 	if err != nil {
 		return 0, err
 	}
@@ -456,10 +497,22 @@ func (aof *AppendableFile) Flush() error {
 }
 
 func (aof *AppendableFile) flush() error {
-	err := aof.w.Flush()
+	if aof.writeBufferOffset == 0 {
+		return nil
+	}
+
+	n, err := aof.f.Write(aof.writeBuffer[aof.writeBufferBaseOffset : aof.writeBufferBaseOffset+aof.writeBufferOffset])
+
+	aof.fileOffset += int64(n)
+
 	if err != nil {
+		aof.writeBufferBaseOffset += n
+		aof.writeBufferOffset -= n
 		return err
 	}
+
+	aof.writeBufferBaseOffset = 0
+	aof.writeBufferOffset = 0
 
 	if aof.synced {
 		return aof.f.Sync()
@@ -480,10 +533,6 @@ func (aof *AppendableFile) Sync() error {
 		return ErrReadOnly
 	}
 
-	return aof.sync()
-}
-
-func (aof *AppendableFile) sync() error {
 	return aof.f.Sync()
 }
 
