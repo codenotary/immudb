@@ -253,7 +253,7 @@ jobs:
           GIT_COMMIT_NAME="$(git show -s --format=%cd --date="format:%Y-%m-%d--%H-%I-%S")--$(git rev-parse HEAD)"
           aws s3 cp \
             perf-test-results.json \
-            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/test/${{ github.ref_name }}/${GIT_COMMIT_NAME}/${{ matrix.target.name }}.json"
+            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/${{ github.ref_name }}/${GIT_COMMIT_NAME}/${{ matrix.target.name }}.json"
 
   notarize-binaries:
       name: Notarize binaries
