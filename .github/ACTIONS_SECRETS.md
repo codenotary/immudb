@@ -4,10 +4,10 @@
 
 This secret can be used to change the `runs-on` field for performance test suite.
 
-Example value (quotes are necessary for correct json encoding and decoding):
+Example value (keep it a single-line):
 
 ```json
-"runs-on": ["self-hosted", "perf-test"]
+{"targets":[{"name": "b1", "runs-on":["self-hosted", "b1"]}, {"name": "b2", "runs-on":["self-hosted", "b2"]}]}
 ```
 
 ### PERF_TEST_AWS_xxx
