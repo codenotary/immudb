@@ -176,23 +176,33 @@ jobs:
       matrix: ${{ steps.detect-runners.outputs.matrix }}
     env:
       PERF_TEST_RUNS_ON: ${{ secrets.PERF_TEST_RUNS_ON }}
+      PERF_TEST_RUNS_ON_DEFAULT: |
+        {
+          "targets": [
+            {
+              "name": "github-ubuntu-latest",
+              "runs-on": "ubuntu-latest"
+            }
+          ]
+        }
     steps:
       - id: detect-runners
         run: |
-          echo "::set-output name=matrix::$(
-            echo "{${PERF_TEST_RUNS_ON:-\"runs-on\":\"ubuntu-latest\"}}" | jq -c '[."runs-on"]'
-          )"
+          RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
+          echo "Detected targets:"
+          echo "$RES" | jq .
+          echo "::set-output name=matrix::${RES}"
 
   performance-test-suite:
-    name: Performance Test Suite
+    name: Performance Test Suite (${{ matrix.target.name }})
     needs:
       - gosec
       - old-go
       - performance-test-suite-detect-runners
     strategy:
       matrix:
-        runs-on: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
-    runs-on: ${{ matrix.runs-on }}
+        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
+    runs-on: ${{ matrix.target.runs-on }}
     env:
       ARG_DURATION: "${{ startsWith(github.ref, 'refs/tags/v') && '-d 10m' || '' }}"
     steps:
@@ -205,21 +215,28 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
-          name: Performance Test Results
+          name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
           retention-days: 30
 
   performance-test-suite-upload-s3:
-    needs: performance-test-suite
+    needs:
+      - performance-test-suite
+      - performance-test-suite-detect-runners
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
     env:
       PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
     steps:
+      - uses: actions/checkout@v3
+
       - name: Download test results
         if: "${{ env.PERF_TEST_AWS_REGION }}"
         uses: actions/download-artifact@v3
         with:
-          name: Performance Test Results
+          name: Performance Test Results (${{ matrix.target.name }})
 
       - name: Configure AWS credentials
         if: "${{ env.PERF_TEST_AWS_REGION }}"
@@ -229,12 +246,14 @@ jobs:
           aws-secret-access-key: "${{ secrets.PERF_TEST_AWS_SECRET_ACCESS_KEY }}"
           aws-region: "${{ secrets.PERF_TEST_AWS_REGION }}"
 
+
       - name: Upload perf results to S3
         if: "${{ env.PERF_TEST_AWS_REGION }}"
         run: |
+          GIT_COMMIT_NAME="$(git show -s --format=%cd --date="format:%Y-%m-%d--%H-%I-%S")--$(git rev-parse HEAD)"
           aws s3 cp \
             perf-test-results.json \
-            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/${{ github.ref_name }}/$( date "+%Y-%m-%d--%H-%M--" )${{ github.sha }}.json"
+            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/test/${{ github.ref_name }}/${GIT_COMMIT_NAME}/${{ matrix.target.name }}.json"
 
   notarize-binaries:
       name: Notarize binaries

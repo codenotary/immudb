@@ -153,20 +153,30 @@ jobs:
       matrix: ${{ steps.detect-runners.outputs.matrix }}
     env:
       PERF_TEST_RUNS_ON: ${{ secrets.PERF_TEST_RUNS_ON }}
+      PERF_TEST_RUNS_ON_DEFAULT: |
+        {
+          "targets": [
+            {
+              "name": "github-ubuntu-latest",
+              "runs-on": "ubuntu-latest"
+            }
+          ]
+        }
     steps:
       - id: detect-runners
         run: |
-          echo "::set-output name=matrix::$(
-            echo "{${PERF_TEST_RUNS_ON:-\"runs-on\":\"ubuntu-latest\"}}" | jq -c '[."runs-on"]'
-          )"
+          RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
+          echo "Detected targets:"
+          echo "$RES" | jq .
+          echo "::set-output name=matrix::${RES}"
 
   performance-test-suite:
     needs: performance-test-suite-detect-runners
     strategy:
       matrix:
-        runs-on: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
-    name: Performance Test Suite
-    runs-on: ${{ matrix.runs-on }}
+        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
+    name: Performance Test Suite (${{ matrix.target.name }})
+    runs-on: ${{ matrix.target.runs-on }}
     steps:
       - uses: actions/setup-go@v3
         with:
@@ -177,5 +187,5 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
-          name: Performance Test Results
+          name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
