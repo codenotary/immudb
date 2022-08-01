@@ -19,7 +19,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
@@ -27,8 +26,7 @@ func (i *immuc) HealthCheck(args []string) (string, error) {
 	ctx := context.Background()
 
 	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		_, err := immuClient.ServerInfo(ctx, &schema.ServerInfoRequest{})
-		return nil, err
+		return nil, immuClient.HealthCheck(ctx)
 	}); err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 
