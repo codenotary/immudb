@@ -80,11 +80,13 @@ func TestSingleApp(t *testing.T) {
 	bs := make([]byte, 4)
 	n, err = a.ReadAt(bs, 0)
 	require.NoError(t, err)
+	require.Equal(t, 4, n)
 	require.Equal(t, []byte{0, 1, 2, 3}, bs)
 
 	bs = make([]byte, 4)
 	n, err = a.ReadAt(bs, 7)
 	require.NoError(t, err)
+	require.Equal(t, 4, n)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
 	n, err = a.ReadAt(bs, 1000)
@@ -125,6 +127,7 @@ func TestSingleAppReOpening(t *testing.T) {
 	bs := make([]byte, 3)
 	n, err = a.ReadAt(bs, 0)
 	require.NoError(t, err)
+	require.Equal(t, 3, n)
 	require.Equal(t, []byte{1, 2, 3}, bs)
 
 	_, _, err = a.Append([]byte{})
@@ -423,4 +426,63 @@ func TestSingleAppDiscard(t *testing.T) {
 
 	err = app.Close()
 	require.NoError(t, err)
+}
+
+func BenchmarkAppendFlush(b *testing.B) {
+	app, err := Open("testdata_benchmark_flush.aof", DefaultOptions().WithSynced(false).WithWriteBufferSize(4096))
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.RemoveAll("testdata_benchmark_flush.aof")
+
+	b.ResetTimer()
+
+	chunck := make([]byte, 512)
+
+	for i := 0; i < b.N; i++ {
+		for j := 1; j <= 1000; j++ {
+			_, _, err = app.Append(chunck)
+			if err != nil {
+				panic(err)
+			}
+
+			err = app.Flush()
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	err = app.Close()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func BenchmarkAppendFlushless(b *testing.B) {
+	app, err := Open("testdata_benchmark_flushless.aof", DefaultOptions().WithSynced(false).WithWriteBufferSize(4096*16))
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.RemoveAll("testdata_benchmark_flushless.aof")
+
+	b.ResetTimer()
+
+	chunck := make([]byte, 512)
+
+	for i := 0; i < b.N; i++ {
+		for j := 1; j <= 1000; j++ {
+			_, _, err = app.Append(chunck)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	err = app.Close()
+	if err != nil {
+		panic(err)
+	}
 }

@@ -232,6 +232,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		WithSynced(false).
 		WithFileSize(opts.FileSize).
 		WithFileMode(opts.FileMode).
+		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16).
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -1025,12 +1026,6 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 		offsets[i] = encodeOffset(voff, vLogID)
 	}
 
-	err := vLog.Flush()
-	if err != nil {
-		donec <- appendableResult{nil, err}
-		return
-	}
-
 	donec <- appendableResult{offsets, nil}
 }
 
@@ -1401,11 +1396,6 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
-	err = s.txLog.Flush()
-	if err != nil {
-		return err
-	}
-
 	_, _, err = s.txLogCache.Put(tx.header.ID, txbs)
 	if err != nil {
 		return err
@@ -1444,11 +1434,6 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		}
 
 		_, _, err = s.cLog.Append(cb[:])
-		if err != nil {
-			return err
-		}
-
-		err = s.cLog.Flush()
 		if err != nil {
 			return err
 		}
@@ -2266,13 +2251,23 @@ func (s *ImmuStore) sync() error {
 		vLog := s.fetchVLog(i + 1)
 		defer s.releaseVLog(i + 1)
 
-		err := vLog.Sync()
+		err := vLog.Flush()
+		if err != nil {
+			return err
+		}
+
+		err = vLog.Sync()
 		if err != nil {
 			return err
 		}
 	}
 
-	err := s.txLog.Sync()
+	err := s.txLog.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = s.txLog.Sync()
 	if err != nil {
 		return err
 	}
