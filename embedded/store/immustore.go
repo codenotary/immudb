@@ -1757,15 +1757,21 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 	return available, nil
 }
 
-func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
-	err := s.ReadTx(txID, tx)
+func (s *ImmuStore) ExportTx(txID uint64) ([]byte, error) {
+	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
 		return nil, err
 	}
 
+	tdr := &txDataReader{r: r}
 	var buf bytes.Buffer
 
-	hdrBs, err := tx.Header().Bytes()
+	header, err := tdr.readHeader(s.maxTxEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	hdrBs, err := header.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -1783,8 +1789,15 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 	}
 
 	valBs := make([]byte, s.maxValueLen)
+	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
 
-	for _, e := range tx.Entries() {
+	for i := 0; i < header.NEntries; i++ {
+
+		err := tdr.readEntry(e)
+		if err != nil {
+			return nil, err
+		}
+
 		_, err = s.readValueAt(valBs[:e.vLen], e.vOff, e.hVal)
 		if err != nil {
 			return nil, err
@@ -1838,7 +1851,32 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 		}
 	}
 
-	return buf.Bytes(), nil
+	htree, err := htree.New(header.NEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tdr.buildAndValidateHtree(htree)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := buf.Bytes()
+
+	// The previously stored header contains invalid EH value since it's calculated only once the whole
+	// transaction is read. Fixing it now
+	hdrUpdated, err := header.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(hdrBs) != len(hdrUpdated) {
+		return nil, errors.New("Unexpected change of header size")
+	}
+
+	copy(ret[lszSize:], hdrUpdated)
+
+	return ret, nil
 }
 
 func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {

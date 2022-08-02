@@ -1150,13 +1150,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	tx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(tx)
-
-	return d.st.ExportTx(req.Tx, tx)
+	return d.st.ExportTx(req.Tx)
 }
 
 func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {

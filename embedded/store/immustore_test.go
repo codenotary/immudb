@@ -2335,9 +2335,7 @@ func TestExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	txholder := tempTxHolder(t, masterStore)
-
-	etx, err := masterStore.ExportTx(1, txholder)
+	etx, err := masterStore.ExportTx(1)
 	require.NoError(t, err)
 
 	rhdr, err := replicaStore.ReplicateTx(etx, false)
