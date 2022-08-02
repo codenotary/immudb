@@ -218,6 +218,9 @@ func (t *EdgeCasesTestSuite) TestShouldFailFlushingPLog() {
 	t.Require().NoError(err)
 
 	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().NoError(err)
+
+	err = tree.Sync()
 	t.Require().ErrorIs(err, t.injectedErr)
 }
 
@@ -242,6 +245,9 @@ func (t *EdgeCasesTestSuite) TestShouldFailFlushingDLog() {
 	t.Require().NoError(err)
 
 	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().NoError(err)
+
+	err = tree.Sync()
 	t.Require().ErrorIs(err, t.injectedErr)
 }
 

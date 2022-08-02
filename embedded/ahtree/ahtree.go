@@ -107,6 +107,7 @@ func Open(path string, opts *Options) (*AHtree, error) {
 		WithSynced(false).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
+		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16). // TODO: parameterize
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -300,11 +301,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		l++
 	}
 
-	err = t.pLog.Flush()
-	if err != nil {
-		return
-	}
-
 	// will overwrite partially written and uncommitted data
 	err = t.dLog.SetOffset(t.dLogSize)
 	if err != nil {
@@ -312,11 +308,6 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	}
 
 	_, _, err = t.dLog.Append(t._digests[:dCount*sha256.Size])
-	if err != nil {
-		return
-	}
-
-	err = t.dLog.Flush()
 	if err != nil {
 		return
 	}
@@ -775,7 +766,17 @@ func (t *AHtree) sync() error {
 		return nil
 	}
 
-	err := t.pLog.Sync()
+	err := t.pLog.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = t.pLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = t.dLog.Flush()
 	if err != nil {
 		return err
 	}
