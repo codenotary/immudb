@@ -27,11 +27,10 @@ type TxReader struct {
 	CurrTxID uint64
 	CurrAlh  [sha256.Size]byte
 
-	st  *ImmuStore
-	_tx *Tx
+	st *ImmuStore
 }
 
-func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
+func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool) (*TxReader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -39,15 +38,11 @@ func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 		return nil, ErrAlreadyClosed
 	}
 
-	return s.newTxReader(initialTxID, desc, tx)
+	return s.newTxReader(initialTxID, desc)
 }
 
-func (s *ImmuStore) newTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
+func (s *ImmuStore) newTxReader(initialTxID uint64, desc bool) (*TxReader, error) {
 	if initialTxID == 0 {
-		return nil, ErrIllegalArguments
-	}
-
-	if tx == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -56,16 +51,15 @@ func (s *ImmuStore) newTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 		Desc:        desc,
 		CurrTxID:    initialTxID,
 		st:          s,
-		_tx:         tx,
 	}, nil
 }
 
-func (txr *TxReader) Read() (*Tx, error) {
+func (txr *TxReader) Read() (TxDataReader, error) {
 	if txr.CurrTxID == 0 {
 		return nil, ErrNoMoreEntries
 	}
 
-	err := txr.st.ReadTx(txr.CurrTxID, txr._tx)
+	ret, err := txr.st.ReadTx(txr.CurrTxID)
 	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -91,5 +85,5 @@ func (txr *TxReader) Read() (*Tx, error) {
 		txr.CurrAlh = txr._tx.header.Alh()
 	}
 
-	return txr._tx, nil
+	return ret, nil
 }

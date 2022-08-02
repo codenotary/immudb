@@ -23,17 +23,23 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-func TxToProto(tx *store.Tx) *Tx {
-	entries := make([]*TxEntry, len(tx.Entries()))
+func TxToProto(tx store.TxDataReader) (*Tx, error) {
+	entries := make([]*TxEntry, tx.NEntries())
 
-	for i, e := range tx.Entries() {
+	e := tx.AllocTxEntry()
+
+	for i := range entries {
+		err := tx.ReadEntry(e)
+		if err != nil {
+			return nil, err
+		}
 		entries[i] = TxEntryToProto(e)
 	}
 
 	return &Tx{
-		Header:  TxHeaderToProto(tx.Header()),
+		Header:  TxHeaderToProto(tx.GetHeader()),
 		Entries: entries,
-	}
+	}, nil
 }
 
 func TxEntryToProto(e *store.TxEntry) *TxEntry {

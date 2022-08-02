@@ -19,8 +19,7 @@ package database
 import "github.com/codenotary/immudb/embedded/store"
 
 const (
-	DefaultDbRootPath     = "./data"
-	DefaultReadTxPoolSize = 128
+	DefaultDbRootPath = "./data"
 )
 
 //Options database instance options
@@ -32,16 +31,13 @@ type Options struct {
 	replica bool
 
 	corruptionChecker bool
-
-	readTxPoolSize int
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *Options {
 	return &Options{
-		dbRootPath:     DefaultDbRootPath,
-		storeOpts:      store.DefaultOptions(),
-		readTxPoolSize: DefaultReadTxPoolSize,
+		dbRootPath: DefaultDbRootPath,
+		storeOpts:  store.DefaultOptions(),
 	}
 }
 
@@ -82,13 +78,4 @@ func (o *Options) GetStoreOptions() *store.Options {
 func (o *Options) AsReplica(replica bool) *Options {
 	o.replica = replica
 	return o
-}
-
-func (o *Options) WithReadTxPoolSize(txPoolSize int) *Options {
-	o.readTxPoolSize = txPoolSize
-	return o
-}
-
-func (o *Options) GetTxPoolSize() int {
-	return o.readTxPoolSize
 }

@@ -781,13 +781,13 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
+	txr, err := s.NewTxReader(s.aht.Size()+1, false, tx)
 	if err != nil {
 		return err
 	}
 
 	for {
-		tx, err := txReader.Read()
+		txr, err := txr.Read()
 		if err == ErrNoMoreEntries {
 			break
 		}
@@ -795,11 +795,19 @@ func (s *ImmuStore) syncBinaryLinking() error {
 			return err
 		}
 
-		alh := tx.header.Alh()
+		e := txr.AllocTxEntry()
+		for i := 0; i < txr.NEntries(); i++ {
+			err := txr.ReadEntry(e)
+			if err != nil {
+				return err
+			}
+		}
+
+		alh := txr.GetHeader().Alh()
 		s.aht.Append(alh[:])
 
-		if tx.header.ID%1000 == 0 {
-			s.logger.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, tx.header.ID)
+		if txr.GetHeader().ID%1000 == 0 {
+			s.logger.Infof("Binary linking at '%s' in progress: processing tx: %d", s.path, txr.GetHeader().ID)
 		}
 	}
 
@@ -1671,13 +1679,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
-	tx, err := s.fetchAllocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer s.releaseAllocTx(tx)
-
-	r, err := s.NewTxReader(sourceTxID, false, tx)
+	r, err := s.NewTxReader(sourceTxID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1686,6 +1688,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	if err != nil {
 		return nil, err
 	}
+	tx.ReadEntry()
 
 	proof := make([][sha256.Size]byte, targetTxID-sourceTxID+1)
 	proof[0] = tx.header.Alh()
@@ -1696,7 +1699,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 			return nil, err
 		}
 
-		proof[i] = tx.Header().innerHash()
+		proof[i] = tx.GetHeader().innerHash()
 	}
 
 	return &LinearProof{
@@ -2053,15 +2056,15 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, erro
 	return appendable.NewReaderFrom(txr, txOff, txSize), nil
 }
 
-func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+func (s *ImmuStore) ReadTx(txID uint64) (TxDataReader, error) {
 	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = tx.readFrom(r)
 	if err == io.EOF {
-		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
+		return nil, fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
 	}
 
 	return err

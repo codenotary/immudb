@@ -32,7 +32,6 @@ type indexer struct {
 	path string
 
 	store *ImmuStore
-	tx    *Tx
 
 	index *tbtree.TBtree
 
@@ -85,14 +84,8 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 		wHub = watchers.New(0, maxWaitees)
 	}
 
-	tx, err := store.fetchAllocTx()
-	if err != nil {
-		return nil, err
-	}
-
 	indexer := &indexer{
 		store:     store,
-		tx:        tx,
 		path:      path,
 		index:     index,
 		wHub:      wHub,
@@ -195,7 +188,6 @@ func (idx *indexer) Close() error {
 
 	idx.stop()
 	idx.wHub.Close()
-	idx.store.releaseAllocTx(idx.tx)
 
 	idx.closed = true
 
@@ -369,24 +361,31 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 }
 
 func (idx *indexer) indexTx(txID uint64) error {
-	err := idx.store.ReadTx(txID, idx.tx)
+	txr, err := idx.store.ReadTx(txID)
 	if err != nil {
 		return err
 	}
 
-	txEntries := idx.tx.Entries()
+	// txEntries := idx.tx.Entries()
 
 	var txmd []byte
 
-	if idx.tx.header.Metadata != nil {
-		txmd = idx.tx.header.Metadata.Bytes()
+	if txr.GetIncompleteHeader().Metadata != nil {
+		txmd = txr.GetIncompleteHeader().Metadata.Bytes()
 	}
 
 	txmdLen := len(txmd)
 
 	indexableEntries := 0
 
-	for _, e := range txEntries {
+	e := txr.AllocTxEntry()
+
+	for i := 0; i < txr.NEntries(); i++ {
+		err := txr.ReadEntry(e)
+		if err != nil {
+			return err
+		}
+
 		if e.md != nil && e.md.NonIndexable() {
 			continue
 		}

@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -147,7 +148,7 @@ type db struct {
 
 	maxResultSize int
 
-	txPool store.TxPool
+	// txPool store.TxPool
 }
 
 // OpenDB Opens an existing Database from disk
@@ -182,11 +183,11 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, err
 	}
 
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
-	}
-	dbi.txPool = txPool
+	// txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
+	// if err != nil {
+	// 	return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
+	// }
+	// dbi.txPool = txPool
 
 	if op.replica {
 		dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
@@ -223,17 +224,17 @@ func (d *db) Path() string {
 	return filepath.Join(d.options.GetDBRootPath(), d.GetName())
 }
 
-func (d *db) allocTx() (*store.Tx, error) {
-	tx, err := d.txPool.Alloc()
-	if errors.Is(err, store.ErrTxPoolExhausted) {
-		return nil, ErrTxReadPoolExhausted
-	}
-	return tx, err
-}
+// func (d *db) allocTx() (*store.Tx, error) {
+// 	tx, err := d.txPool.Alloc()
+// 	if errors.Is(err, store.ErrTxPoolExhausted) {
+// 		return nil, ErrTxReadPoolExhausted
+// 	}
+// 	return tx, err
+// }
 
-func (d *db) releaseTx(tx *store.Tx) {
-	d.txPool.Release(tx)
-}
+// func (d *db) releaseTx(tx *store.Tx) {
+// 	d.txPool.Release(tx)
+// }
 
 func (d *db) initSQLEngine() error {
 	// Warn about existent SQL data
@@ -305,12 +306,6 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-
-	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
-	if err != nil {
-		return nil, logErr(dbi.Logger, "Unable to create tx pool: %s", err)
-	}
-	dbi.txPool = txPool
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
@@ -685,6 +680,84 @@ func (d *db) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) erro
 	return d.st.WaitForIndexingUpto(txID, cancellation)
 }
 
+func (d *db) fetchVerifiableTx(
+	txID uint64,
+	proveSinceTx uint64,
+	entryKey []byte,
+) (
+	*schema.VerifiableTx,
+	*schema.InclusionProof,
+	error,
+) {
+	// key-value inclusion proof
+	txr, err := d.st.ReadTx(txID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	verifiableTx := &schema.VerifiableTx{
+		Tx: &schema.Tx{
+			Entries: make([]*schema.TxEntry, txr.NEntries()),
+		},
+	}
+
+	entryIndex := -1
+	entryBuffer := txr.AllocTxEntry()
+
+	for i := range verifiableTx.Tx.Entries {
+		err := txr.ReadEntry(entryBuffer)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if entryKey != nil && bytes.Equal(entryBuffer.Key(), entryKey) {
+			entryIndex = i
+		}
+
+		verifiableTx.Tx.Entries[i] = schema.TxEntryToProto(entryBuffer)
+	}
+
+	var rootTxHdr *store.TxHeader
+
+	if proveSinceTx == 0 {
+		rootTxHdr = txr.GetHeader()
+	} else {
+		rootTxHdr, err = d.st.ReadTxHeader(proveSinceTx)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	var sourceTxHdr, targetTxHdr *store.TxHeader
+
+	if proveSinceTx <= txID {
+		sourceTxHdr = rootTxHdr
+		targetTxHdr = txr.GetHeader()
+	} else {
+		sourceTxHdr = txr.GetHeader()
+		targetTxHdr = rootTxHdr
+	}
+
+	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	verifiableTx.DualProof = schema.DualProofToProto(dualProof)
+
+	var inclusionProof *schema.InclusionProof
+
+	if entryKey != nil {
+		ip, err := txr.GetHTree().InclusionProof(entryIndex)
+		if err != nil {
+			return nil, nil, err
+		}
+		inclusionProof = schema.InclusionProofToProto(ip)
+	}
+
+	return verifiableTx, inclusionProof, nil
+}
+
 //VerifiableSet ...
 func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
@@ -696,43 +769,17 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, ErrIllegalState
 	}
 
-	// Preallocate tx buffers
-	lastTx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(lastTx)
-
 	txhdr, err := d.Set(req.SetRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
+	vtx, _, err := d.fetchVerifiableTx(uint64(txhdr.Id), req.ProveSinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var prevTxHdr *store.TxHeader
-
-	if req.ProveSinceTx == 0 {
-		prevTxHdr = lastTx.Header()
-	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	dualProof, err := d.st.DualProof(prevTxHdr, lastTx.Header())
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema.VerifiableTx{
-		Tx:        schema.TxToProto(lastTx),
-		DualProof: schema.DualProofToProto(dualProof),
-	}, nil
+	return vtx, nil
 }
 
 //VerifiableGet ...
@@ -762,58 +809,15 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		vKey = e.ReferencedBy.Key
 	}
 
-	// key-value inclusion proof
-	tx, err := d.allocTx()
+	vtx, ip, err := d.fetchVerifiableTx(vTxID, req.ProveSinceTx, EncodeKey(vKey))
 	if err != nil {
 		return nil, err
-	}
-	defer d.releaseTx(tx)
-
-	err = d.st.ReadTx(vTxID, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	var rootTxHdr *store.TxHeader
-
-	if req.ProveSinceTx == 0 {
-		rootTxHdr = tx.Header()
-	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	inclusionProof, err := tx.Proof(EncodeKey(vKey))
-	if err != nil {
-		return nil, err
-	}
-
-	var sourceTxHdr, targetTxHdr *store.TxHeader
-
-	if req.ProveSinceTx <= vTxID {
-		sourceTxHdr = rootTxHdr
-		targetTxHdr = tx.Header()
-	} else {
-		sourceTxHdr = tx.Header()
-		targetTxHdr = rootTxHdr
-	}
-
-	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
-	if err != nil {
-		return nil, err
-	}
-
-	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxToProto(tx),
-		DualProof: schema.DualProofToProto(dualProof),
 	}
 
 	return &schema.VerifiableEntry{
 		Entry:          e,
-		VerifiableTx:   verifiableTx,
-		InclusionProof: schema.InclusionProofToProto(inclusionProof),
+		VerifiableTx:   vtx,
+		InclusionProof: ip,
 	}, nil
 }
 
@@ -945,12 +949,6 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	var snap *store.Snapshot
 	var err error
 
-	tx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(tx)
-
 	if !req.KeepReferencesUnresolved {
 		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
 		if err != nil {
@@ -960,12 +958,12 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(req.Tx, tx)
+	txr, err := d.st.ReadTx(req.Tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return d.serializeTx(tx, req.EntriesSpec, snap)
+	return d.serializeTx(txr, req.EntriesSpec, snap)
 }
 
 func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
@@ -990,16 +988,21 @@ func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
 	return d.st.SnapshotSince(waitUntilTx)
 }
 
-func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
+func (d *db) serializeTx(tx store.TxDataReader, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
 	if spec == nil {
-		return schema.TxToProto(tx), nil
+		return schema.TxToProto(tx)
 	}
 
-	stx := &schema.Tx{
-		Header: schema.TxHeaderToProto(tx.Header()),
-	}
+	stx := &schema.Tx{}
 
-	for _, e := range tx.Entries() {
+	e := tx.AllocTxEntry()
+
+	for i := 0; i < tx.NEntries(); i++ {
+		err := tx.ReadEntry(e)
+		if err != nil {
+			return nil, err
+		}
+
 		switch e.Key()[0] {
 		case SetKeyPrefix:
 			{
@@ -1033,7 +1036,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 					index = snap
 				}
 
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0)
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.ID(), e.Metadata(), index, 0)
 				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
@@ -1142,6 +1145,8 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 		}
 	}
 
+	stx.Header = schema.TxHeaderToProto(tx.GetHeader())
+
 	return stx, nil
 }
 
@@ -1191,51 +1196,12 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		defer snap.Close()
 	}
 
-	reqTx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(reqTx)
-
-	err = d.st.ReadTx(req.Tx, reqTx)
+	vtx, _, err := d.fetchVerifiableTx(req.Tx, req.ProveSinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var sourceTxHdr, targetTxHdr *store.TxHeader
-	var rootTxHdr *store.TxHeader
-
-	if req.ProveSinceTx == 0 {
-		rootTxHdr = reqTx.Header()
-	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if req.ProveSinceTx <= req.Tx {
-		sourceTxHdr = rootTxHdr
-		targetTxHdr = reqTx.Header()
-	} else {
-		sourceTxHdr = reqTx.Header()
-		targetTxHdr = rootTxHdr
-	}
-
-	dualProof, err := d.st.DualProof(sourceTxHdr, targetTxHdr)
-	if err != nil {
-		return nil, err
-	}
-
-	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec, snap)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema.VerifiableTx{
-		Tx:        sReqTx,
-		DualProof: schema.DualProofToProto(dualProof),
-	}, nil
+	return vtx, nil
 }
 
 //TxScan ...
@@ -1248,12 +1214,6 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		return nil, fmt.Errorf("%w: the specified limit (%d) is larger than the maximum allowed one (%d)",
 			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
-
-	tx, err := d.allocTx()
-	if err != nil {
-		return nil, err
-	}
-	defer d.releaseTx(tx)
 
 	limit := int(req.Limit)
 
