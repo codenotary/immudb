@@ -232,7 +232,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		WithSynced(false).
 		WithFileSize(opts.FileSize).
 		WithFileMode(opts.FileMode).
-		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16).
+		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16). // TODO: parameterize
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
