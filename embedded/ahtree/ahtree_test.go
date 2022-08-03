@@ -976,13 +976,19 @@ func TestResetCornerCases(t *testing.T) {
 }
 
 func BenchmarkAppend(b *testing.B) {
-	tree, _ := Open("ahtree_test", DefaultOptions())
+	tree, _ := Open("ahtree_test", DefaultOptions().WithSyncThld(100_000).WithFileSize(1<<29))
 	defer os.RemoveAll("ahtree_test")
 
+	var bs [32]byte
+
 	for i := 0; i < b.N; i++ {
-		_, _, err := tree.Append([]byte{byte(i)})
-		if err != nil {
-			panic(err)
+		for j := 0; j < 1_000_000; j++ {
+			_, _, err := tree.Append(bs[:])
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
+
+	tree.Close()
 }
