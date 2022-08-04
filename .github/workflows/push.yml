@@ -1,8 +1,8 @@
 name: pushCI
 
 env:
-  GO_VERSION: 1.17
-  MIN_SUPPORTED_GO_VERSION: 1.15
+  GO_VERSION: "1.18"
+  MIN_SUPPORTED_GO_VERSION: "1.15"
 
 on:
   push:
