@@ -57,6 +57,18 @@ func TestImmuClient_OpenSession_OpenSessionError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestImmuClient_OpenSession_OpenAndCloseSessionAfterError_AvoidPanic(t *testing.T) {
+	c := NewClient()
+	err := c.OpenSession(context.TODO(), nil, nil, "")
+	require.Error(t, err)
+	// try open session again
+	err = c.OpenSession(context.TODO(), nil, nil, "")
+	require.NotErrorIs (t, err, ErrSessionAlreadyOpen)
+	// close over not open session
+	err = c.CloseSession(context.TODO())
+	require.NotErrorIs (t, err, ErrSessionAlreadyOpen)
+}
+
 func TestImmuClient_OpenSession_StateServiceError(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithDir("false"))
 	c.ServiceClient = &immuServiceClientMock{

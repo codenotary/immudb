@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -20,8 +19,6 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return errors.FromError(ErrSessionAlreadyOpen)
 	}
 
-	c.Options.DialOptions = c.SetupDialOptions(c.Options)
-
 	if c.Options.ServerSigningPubKey != "" {
 		pk, e := signer.ParsePublicKeyFile(c.Options.ServerSigningPubKey)
 		if e != nil {
@@ -34,13 +31,20 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 		return errors.New(stream.ErrChunkTooSmall).WithCode(errors.CodInvalidParameterValue)
 	}
 
-	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
+	dialOptions := c.SetupDialOptions(c.Options)
+
+	clientConn, err := grpc.Dial(c.Options.Bind(), dialOptions...)
+	if err != nil {
 		return err
 	}
+	defer func(){
+		if err != nil {
+			_ = clientConn.Close()
+		}
+	}()
 
-	c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
-
-	resp, err := c.ServiceClient.OpenSession(ctx, &schema.OpenSessionRequest{
+	serviceClient := schema.NewImmuServiceClient(clientConn)
+	resp, err := serviceClient.OpenSession(ctx, &schema.OpenSessionRequest{
 		Username:     user,
 		Password:     pass,
 		DatabaseName: database,
@@ -48,18 +52,26 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	if err != nil {
 		return errors.FromError(err)
 	}
+	defer func(){
+		if err != nil {
+			_, _ = serviceClient.CloseSession(ctx, new(empty.Empty))
+		}
+	}()
 
-	c.SessionID = resp.GetSessionID()
-
-	c.HeartBeater = heartbeater.NewHeartBeater(resp.GetSessionID(), c.ServiceClient, c.Options.HeartBeatFrequency)
-	c.HeartBeater.KeepAlive(ctx)
-
-	stateProvider := state.NewStateProvider(c.ServiceClient)
+	stateProvider := state.NewStateProvider(serviceClient)
 
 	stateService, err := state.NewStateServiceWithUUID(cache.NewFileCache(c.Options.Dir), c.Logger, stateProvider, resp.GetServerUUID())
 	if err != nil {
 		return errors.FromError(fmt.Errorf("unable to create state service: %v", err))
 	}
+
+	c.clientConn = clientConn
+	c.ServiceClient = serviceClient
+	c.Options.DialOptions = dialOptions
+	c.SessionID = resp.GetSessionID()
+
+	c.HeartBeater = heartbeater.NewHeartBeater(c.SessionID, c.ServiceClient, c.Options.HeartBeatFrequency)
+	c.HeartBeater.KeepAlive(ctx)
 
 	c.WithStateService(stateService)
 
