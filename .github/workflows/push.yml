@@ -389,13 +389,10 @@ jobs:
           "
 
           export PATH=$PATH:$(go env GOPATH)/bin
-          go get golang.org/x/tools/cmd/cover
-          go get -u github.com/mattn/goveralls
-          go get -u github.com/ory/go-acc
           set -o pipefail
-          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version  --tags minio || true
+          ./scripts/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version  --tags minio || true
           cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
-          goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+          ./scripts/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
           # Stop minio
           docker rm -f minio
