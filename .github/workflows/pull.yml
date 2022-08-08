@@ -18,7 +18,7 @@ jobs:
             go: "1.17"
 
           - os: ubuntu-latest
-            go: &main-go-version "1.18"
+            go: "1.18"
             testWithMinio: true
 
           - os: ubuntu-latest
@@ -26,12 +26,12 @@ jobs:
             test: true
 
           - os: windows-latest
-            go: *main-go-version
+            go: "1.18"
             testClientOnly: true
             noWebconsole: true
 
           - os: macos-latest
-            go: *main-go-version
+            go: "1.18"
             testClientOnly: true
 
     runs-on: ${{ matrix.os }}
@@ -118,7 +118,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: *main-go-version
+          go-version: "1.18"
       - uses: actions/checkout@v3
       - run: |
           # Spawn minio docker container in the background
@@ -183,7 +183,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: *main-go-version
+          go-version: "1.18"
       - uses: actions/checkout@v3
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json
