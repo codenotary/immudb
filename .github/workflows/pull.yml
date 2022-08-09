@@ -16,19 +16,22 @@ jobs:
 
           - os: ubuntu-latest
             go: "1.17"
-            testWithMinio: true
 
           - os: ubuntu-latest
             go: "1.18"
+            testWithMinio: true
+
+          - os: ubuntu-latest
+            go: "1.19"
             test: true
 
           - os: windows-latest
-            go: "1.17"
+            go: "1.18"
             testClientOnly: true
             noWebconsole: true
 
           - os: macos-latest
-            go: "1.17"
+            go: "1.18"
             testClientOnly: true
 
     runs-on: ${{ matrix.os }}
@@ -115,7 +118,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: "1.18"
       - uses: actions/checkout@v3
       - run: |
           # Spawn minio docker container in the background
@@ -131,13 +134,10 @@ jobs:
           "
 
           export PATH=$PATH:$(go env GOPATH)/bin
-          go get golang.org/x/tools/cmd/cover
-          go get -u github.com/mattn/goveralls
-          go get -u github.com/ory/go-acc
           set -o pipefail
-          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
+          ./scripts/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
           cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
-          goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+          ./scripts/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
           # Stop minio
           docker rm -f minio
@@ -180,7 +180,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.17"
+          go-version: "1.18"
       - uses: actions/checkout@v3
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - run: ./perf-test-suite > perf-test-results.json

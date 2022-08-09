@@ -20,11 +20,13 @@ require (
 	github.com/jaswdr/faker v1.4.3
 	github.com/lib/pq v1.10.2
 	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/mattn/goveralls v0.0.11
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/o1egl/paseto v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
+	github.com/ory/go-acc v0.2.8
 	github.com/peterh/liner v1.2.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0

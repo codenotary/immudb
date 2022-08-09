@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+go run github.com/mattn/goveralls "$@"

@@ -207,3 +207,4 @@ Once the release is done, following post-release actions are needed
 * Ensure helm chart on artifactory is updated
 * Start release of new AWS image
 * Create PR with updates to this file if there were any undocumented / unclear steps
+* Ensure that playground has the updated immudb (currently this is a manual process)
