@@ -29,6 +29,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 func TestNodeNumberCalculation(t *testing.T) {
@@ -62,7 +63,20 @@ func TestNodeNumberCalculation(t *testing.T) {
 	}
 }
 
-func TestEdgeCases(t *testing.T) {
+type EdgeCasesTestSuite struct {
+	suite.Suite
+
+	pLog        *mocked.MockedAppendable
+	cLog        *mocked.MockedAppendable
+	dLog        *mocked.MockedAppendable
+	injectedErr error
+}
+
+func TestEdgeCasesTestSuite(t *testing.T) {
+	suite.Run(t, new(EdgeCasesTestSuite))
+}
+
+func (t *EdgeCasesTestSuite) SetupTest() {
 
 	dummySetOffset := func(off int64) error {
 		return nil
@@ -81,431 +95,405 @@ func TestEdgeCases(t *testing.T) {
 	dummySync := func() error {
 		return nil
 	}
+	dummySize := func() (int64, error) {
+		return 0, nil
+	}
 
-	pLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
-	dLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
-	cLog := &mocked.MockedAppendable{SetOffsetFn: dummySetOffset}
+	dummyClose := func() error {
+		return nil
+	}
 
-	injectedErr := errors.New("error")
+	t.pLog = &mocked.MockedAppendable{
+		SizeFn:      dummySize,
+		AppendFn:    dummyAppend(),
+		SetOffsetFn: dummySetOffset,
+		FlushFn:     dummyFlush,
+		CloseFn:     dummyClose,
+		SyncFn:      dummySync,
+	}
 
-	t.Run("should fail on illegal arguments", func(t *testing.T) {
-		_, err := Open("ahtree_test", nil)
-		require.Equal(t, ErrIllegalArguments, err)
+	t.cLog = &mocked.MockedAppendable{
+		SizeFn:      dummySize,
+		AppendFn:    dummyAppend(),
+		SetOffsetFn: dummySetOffset,
+		FlushFn:     dummyFlush,
+		CloseFn:     dummyClose,
+		SyncFn:      dummySync,
+	}
 
-		_, err = OpenWith(nil, nil, nil, nil)
-		require.Equal(t, ErrIllegalArguments, err)
+	t.dLog = &mocked.MockedAppendable{
+		SizeFn:      dummySize,
+		AppendFn:    dummyAppend(),
+		SetOffsetFn: dummySetOffset,
+		FlushFn:     dummyFlush,
+		CloseFn:     dummyClose,
+		SyncFn:      dummySync,
+	}
 
-		_, err = OpenWith(nil, nil, nil, DefaultOptions())
-		require.Equal(t, ErrIllegalArguments, err)
-	})
+	t.injectedErr = errors.New("injected error")
+}
 
-	t.Run("should fail while querying cLog size", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return 0, injectedErr
+func (t *EdgeCasesTestSuite) TestShouldFailOnIllegalArguments() {
+	_, err := Open("ahtree_test", nil)
+	t.Require().ErrorIs(err, ErrIllegalArguments)
+
+	_, err = OpenWith(nil, nil, nil, nil)
+	t.Require().ErrorIs(err, ErrIllegalArguments)
+
+	_, err = OpenWith(nil, nil, nil, DefaultOptions())
+	t.Require().ErrorIs(err, ErrIllegalArguments)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileQueryingCLogSize() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return 0, t.injectedErr
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileSettingCLogOffset() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize - 1, nil
+	}
+	t.cLog.SetOffsetFn = func(off int64) error {
+		return t.injectedErr
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldGailWhileSettingPLogOffset() {
+	t.pLog.SetOffsetFn = func(off int64) error {
+		return t.injectedErr
+	}
+	t.pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		t.Require().Fail("Should fail before appending data")
+		return 0, 0, nil
+	}
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileAppendingPayloadWritingLength() {
+	t.pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileAppendingPayloadWritingData() {
+	written := 0
+	t.pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		off = int64(written)
+		written += len(bs)
+		if written > 4 {
+			return 0, 0, t.injectedErr
 		}
+		return off, len(bs), nil
+	}
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
 
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail while setting cLog offset", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize - 1, nil
-		}
-		cLog.SetOffsetFn = func(off int64) error {
-			return injectedErr
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail while setting pLog offset", func(t *testing.T) {
-		cLog.SetOffsetFn = dummySetOffset
-		cLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-		pLog.SetOffsetFn = func(off int64) error {
-			return injectedErr
-		}
-		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			require.Fail(t, "Should fail before appending data")
-			return 0, 0, nil
-		}
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail while appending payload", func(t *testing.T) {
-		cLog.SetOffsetFn = dummySetOffset
-		pLog.SetOffsetFn = dummySetOffset
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize - 1, nil
-		}
-
-		t.Run("writing length", func(t *testing.T) {
-			pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-				return 0, 0, injectedErr
-			}
-
-			tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-			require.NoError(t, err)
-
-			_, _, err = tree.Append([]byte{1, 2, 3})
-			require.ErrorIs(t, err, injectedErr)
-		})
-
-		t.Run("writing data", func(t *testing.T) {
-			written := 0
-			pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-				off = int64(written)
-				written += len(bs)
-				if written > 4 {
-					return 0, 0, injectedErr
-				}
-				return off, len(bs), nil
-			}
-			tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-			require.NoError(t, err)
-
-			_, _, err = tree.Append([]byte{1, 2, 3})
-			require.ErrorIs(t, err, injectedErr)
-		})
-	})
-
-	t.Run("should fail flushing pLog", func(t *testing.T) {
-		pLog.AppendFn = dummyAppend()
-		pLog.FlushFn = func() error {
-			return injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail on dLog SetOffset", func(t *testing.T) {
-		pLog.FlushFn = dummyFlush
-		dLog.AppendFn = dummyAppend()
-		dLog.SetOffsetFn = func(off int64) error {
-			return injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail flushing dLog", func(t *testing.T) {
-		dLog.SetOffsetFn = dummySetOffset
-		dLog.FlushFn = func() error {
-			return injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail on cLog SetOffset during append", func(t *testing.T) {
-		pLog.FlushFn = dummyFlush
-		pLog.SyncFn = dummySync
-
-		dLog.FlushFn = dummyFlush
-		dLog.SyncFn = dummySync
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(1))
-		require.NoError(t, err)
-
-		cLog.SetOffsetFn = func(off int64) error {
-			return injectedErr
-		}
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail writing cLog", func(t *testing.T) {
-		cLog.SetOffsetFn = dummySetOffset
-		cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(1))
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail flushing cLog", func(t *testing.T) {
-		cLog.AppendFn = dummyAppend()
-		cLog.FlushFn = func() error {
-			return injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions().WithSyncThld(2))
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{4, 5, 6})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail calculating hashes on append", func(t *testing.T) {
-		cLog.FlushFn = dummyFlush
-		dLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			return 0, injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.NoError(t, err)
-
-		tree.dCache.Pop(uint64(0))
-
-		_, _, err = tree.Append([]byte{4, 5, 6})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail while validating plog size", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize + 1, nil
-		}
-		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			binary.BigEndian.PutUint64(bs[:], 0)
-			binary.BigEndian.PutUint32(bs[offsetSize:], 8)
-			return cLogEntrySize, nil
-		}
-		pLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Equal(t, ErrorCorruptedData, err)
-	})
-
-	t.Run("should fail while validating dLog size", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize + 1, nil
-		}
-		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			binary.BigEndian.PutUint64(bs[:], 0)
-			binary.BigEndian.PutUint32(bs[offsetSize:], 8)
-			return cLogEntrySize, nil
-		}
-		pLog.SizeFn = func() (int64, error) {
-			return 8, nil
-		}
-		dLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.Equal(t, ErrorCorruptedDigests, err)
-	})
-
-	t.Run("should fail reading dLog size", func(t *testing.T) {
-		dLog.SizeFn = func() (int64, error) {
-			return 0, injectedErr
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail reading pLog size", func(t *testing.T) {
-		pLog.SizeFn = func() (int64, error) {
-			return 0, injectedErr
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail reading last cLog entry", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-		dLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-		pLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-
-		metadata := appendable.NewMetadata(nil)
-		metadata.PutInt(MetaVersion, Version)
-
-		pLog.MetadataFn = metadata.Bytes
-		dLog.MetadataFn = metadata.Bytes
-		cLog.MetadataFn = metadata.Bytes
-
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize, nil
-		}
-
-		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-			return 0, injectedErr
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail reading pLog size", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return cLogEntrySize, nil
-		}
-		pLog.SizeFn = func() (int64, error) {
-			return 0, injectedErr
-		}
-
-		_, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail flushing pLog", func(t *testing.T) {
-		cLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-		pLog.SizeFn = func() (int64, error) {
-			return 0, nil
-		}
-		pLog.SetOffsetFn = func(off int64) error {
-			return nil
-		}
-		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, nil
-		}
-		pLog.FlushFn = func() error {
-			return injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail appending to dLog", func(t *testing.T) {
-		pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, nil
-		}
-		pLog.FlushFn = func() error {
-			return nil
-		}
-		dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
-			return 0, 0, injectedErr
-		}
-
-		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-		require.NoError(t, err)
-
-		_, _, err = tree.Append(nil)
-		require.ErrorIs(t, err, ErrIllegalArguments)
-
-		_, _, err = tree.Append([]byte{1, 2, 3})
-		require.ErrorIs(t, err, injectedErr)
-	})
-
-	t.Run("should fail due to invalid path", func(t *testing.T) {
-		_, err := Open("options.go", DefaultOptions())
-		require.Equal(t, ErrorPathIsNotADirectory, err)
-	})
-
-	t.Run("should fail due to invalid cache size", func(t *testing.T) {
-		_, err := Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
-		require.Equal(t, ErrIllegalArguments, err)
-	})
-
-	t.Run("should fail due to invalid digests cache size", func(t *testing.T) {
-		_, err := Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
-		require.Equal(t, ErrIllegalArguments, err)
-	})
-
-	dir, err := ioutil.TempDir("", "ahtree_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	tree, err := Open(dir, DefaultOptions())
-	require.NoError(t, err)
-
-	t.Run("should fail to get tree root when tree is empty", func(t *testing.T) {
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailFlushingPLog() {
+	t.pLog.FlushFn = func() error {
+		return t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailOnDLogSetOffset() {
+	t.dLog.SetOffsetFn = func(off int64) error {
+		return t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailFlushingDLog() {
+	t.dLog.FlushFn = func() error {
+		return t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailOnCLogSetOffsetDuringAppend() {
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions().WithSyncThld(1))
+	t.Require().NoError(err)
+
+	t.cLog.SetOffsetFn = func(off int64) error {
+		return t.injectedErr
+	}
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWritingCLog() {
+	t.cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions().WithSyncThld(1))
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailFlushingCLog() {
+	t.cLog.FlushFn = func() error {
+		return t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions().WithSyncThld(2))
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{4, 5, 6})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailCalculatingHashesOnAppend() {
+	t.dLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().NoError(err)
+
+	tree.dCache.Pop(uint64(0))
+
+	_, _, err = tree.Append([]byte{4, 5, 6})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingPLogSize() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	t.cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		binary.BigEndian.PutUint64(bs[:], 0)
+		binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+		return cLogEntrySize, nil
+	}
+	t.pLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().Equal(ErrorCorruptedData, err)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingDLogSize() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	t.cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		binary.BigEndian.PutUint64(bs[:], 0)
+		binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+		return cLogEntrySize, nil
+	}
+	t.pLog.SizeFn = func() (int64, error) {
+		return 8, nil
+	}
+	t.dLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().Equal(ErrorCorruptedDigests, err)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailReadingDLogSize() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	t.cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		binary.BigEndian.PutUint64(bs[:], 0)
+		binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+		return cLogEntrySize, nil
+	}
+	t.pLog.SizeFn = func() (int64, error) {
+		return 8, nil
+	}
+	t.dLog.SizeFn = func() (int64, error) {
+		return 0, t.injectedErr
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailReadingPLogSize() {
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	t.cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		binary.BigEndian.PutUint64(bs[:], 0)
+		binary.BigEndian.PutUint32(bs[offsetSize:], 8)
+		return cLogEntrySize, nil
+	}
+	t.pLog.SizeFn = func() (int64, error) {
+		return 0, t.injectedErr
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailReadingLastCLogEntry() {
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetaVersion, Version)
+
+	t.dLog.MetadataFn = metadata.Bytes
+	t.cLog.MetadataFn = metadata.Bytes
+
+	t.cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+
+	t.cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, t.injectedErr
+	}
+
+	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailAppendingToDLog() {
+	t.dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, t.injectedErr
+	}
+
+	tree, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
+	t.Require().NoError(err)
+
+	_, _, err = tree.Append(nil)
+	t.Require().ErrorIs(err, ErrIllegalArguments)
+
+	_, _, err = tree.Append([]byte{1, 2, 3})
+	t.Require().ErrorIs(err, t.injectedErr)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidPath() {
+	_, err := Open("options.go", DefaultOptions())
+	t.Require().Equal(ErrorPathIsNotADirectory, err)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidCacheSize() {
+	_, err := Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
+	t.Require().Equal(ErrIllegalArguments, err)
+}
+
+func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidDigestsCacheSize() {
+	_, err := Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
+	t.Require().Equal(ErrIllegalArguments, err)
+}
+
+func (t *EdgeCasesTestSuite) TestWithEmptyFiles() {
+	tree, err := Open(t.T().TempDir(), DefaultOptions())
+	t.Require().NoError(err)
+
+	t.Run("should fail to get tree root when tree is empty", func() {
 		_, _, err := tree.Root()
-		require.Equal(t, ErrEmptyTree, err)
+		t.Require().Equal(ErrEmptyTree, err)
 
 		_, err = tree.rootAt(1)
-		require.Equal(t, ErrEmptyTree, err)
+		t.Require().Equal(ErrEmptyTree, err)
 
 		_, err = tree.rootAt(0)
-		require.Equal(t, ErrIllegalArguments, err)
+		t.Require().Equal(ErrIllegalArguments, err)
 	})
 
-	t.Run("should fail to get data when tree is empty", func(t *testing.T) {
+	t.Run("should fail to get data when tree is empty", func() {
 		_, err := tree.DataAt(0)
-		require.Equal(t, ErrIllegalArguments, err)
+		t.Require().Equal(ErrIllegalArguments, err)
 	})
 
-	t.Run("should not error when syncing empty tree", func(t *testing.T) {
+	t.Run("should not error when syncing empty tree", func() {
 		err := tree.Sync()
-		require.NoError(t, err)
+		t.Require().NoError(err)
 	})
 
-	t.Run("should fail on inclusion proof for non-existing root node", func(t *testing.T) {
+	t.Run("should fail on inclusion proof for non-existing root node", func() {
 		_, err := tree.InclusionProof(1, 2)
-		require.ErrorIs(t, err, ErrUnexistentData)
+		t.Require().ErrorIs(err, ErrUnexistentData)
 	})
+
+	err = tree.Close()
+	t.Require().NoError(err)
+}
+
+func (t *EdgeCasesTestSuite) TestFailAfterClose() {
+	tree, err := Open(t.T().TempDir(), DefaultOptions())
+	t.Require().NoError(err)
 
 	_, _, err = tree.Append([]byte{1})
-	require.NoError(t, err)
+	t.Require().NoError(err)
 
-	t.Run("should fail after close", func(t *testing.T) {
+	err = tree.Close()
+	t.Require().NoError(err)
 
-		err := tree.Close()
-		require.NoError(t, err)
+	_, _, err = tree.Append(nil)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, _, err = tree.Append(nil)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	_, err = tree.InclusionProof(1, 2)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, err = tree.InclusionProof(1, 2)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	_, err = tree.ConsistencyProof(1, 2)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, err = tree.ConsistencyProof(1, 2)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	_, _, err = tree.Root()
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, _, err = tree.Root()
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	_, err = tree.rootAt(1)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, err = tree.rootAt(1)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	_, err = tree.DataAt(1)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		_, err = tree.DataAt(1)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	err = tree.Sync()
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		err = tree.Sync()
-		require.ErrorIs(t, err, ErrAlreadyClosed)
+	err = tree.ResetSize(0)
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 
-		err = tree.ResetSize(0)
-		require.ErrorIs(t, err, ErrAlreadyClosed)
-
-		err = tree.Close()
-		require.Equal(t, ErrAlreadyClosed, err)
-	})
+	err = tree.Close()
+	t.Require().ErrorIs(err, ErrAlreadyClosed)
 }
 
 func TestReadOnly(t *testing.T) {
@@ -573,7 +561,6 @@ func TestAppend(t *testing.T) {
 	rp, err := tree.DataAt(uint64(1))
 	require.NoError(t, err)
 	require.Equal(t, []byte{byte(1)}, rp)
-
 	err = tree.Sync()
 	require.NoError(t, err)
 
@@ -627,6 +614,7 @@ func TestOpenFail(t *testing.T) {
 	_, err = Open("wrongdir\000", DefaultOptions())
 	require.Error(t, err)
 	defer os.RemoveAll("tt1")
+
 	_, err = Open("tt1", DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "tree" {
@@ -634,6 +622,8 @@ func TestOpenFail(t *testing.T) {
 			}
 			return
 		}))
+	require.Error(t, err)
+
 	_, err = Open("tt1", DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "commit" {
