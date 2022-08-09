@@ -343,7 +343,6 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	// Ensure the data was written to the remote storage
 	for _, name := range []string{
 		"testdb/aht/commit/00000000.di",
-		"testdb/aht/data/00000000.dat",
 		"testdb/aht/tree/00000000.sha",
 		"testdb/commit/00000000.txi",
 		"testdb/index/commit/00000000.ri",
