@@ -25,7 +25,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 Don't forget to ⭐ this repo if you like immudb!
 
-[:tada: 9M pulls from docker hub!](https://hub.docker.com/r/codenotary)
+[:tada: 10M pulls from docker hub!](https://hub.docker.com/r/codenotary)
 
 ---
 
