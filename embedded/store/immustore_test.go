@@ -2964,20 +2964,31 @@ func TestBlTXOrdering(t *testing.T) {
 
 	t.Run("run multiple simultaneous writes", func(t *testing.T) {
 		wg := sync.WaitGroup{}
+		done := make(chan struct{})
 		for i := 0; i < opts.MaxConcurrency; i++ {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
+				for {
+					select {
+					case <-done:
+						return
+					default:
+					}
+					tx, err := immuStore.NewWriteOnlyTx()
+					require.NoError(t, err)
 
-				tx, err := immuStore.NewWriteOnlyTx()
-				require.NoError(t, err)
+					tx.Set([]byte(fmt.Sprintf("key:%d", i)), nil, []byte("value"))
 
-				tx.Set([]byte(fmt.Sprintf("key:%d", i)), nil, []byte("value"))
-
-				_, err = tx.Commit()
-				require.NoError(t, err)
+					_, err = tx.Commit()
+					require.NoError(t, err)
+				}
 			}(i)
 		}
+		// Perform writes for larger time so that transactions will have different
+		// timestamps
+		time.Sleep(2 * time.Second)
+		close(done)
 		wg.Wait()
 	})
 
@@ -2993,6 +3004,7 @@ func TestBlTXOrdering(t *testing.T) {
 			require.NoError(t, err)
 
 			require.LessOrEqual(t, srcTxHeader.BlTxID, dstTxHeader.BlTxID)
+			require.LessOrEqual(t, srcTxHeader.Ts, dstTxHeader.Ts)
 
 			proof, err := immuStore.DualProof(srcTxHeader, dstTxHeader)
 			require.NoError(t, err)
