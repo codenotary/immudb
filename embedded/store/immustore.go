@@ -1118,7 +1118,6 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 	if expectedHeader == nil {
 		ts = s.timeFunc().Unix()
-		blTxID = s.aht.Size()
 		version = s.writeTxHeaderVersion
 	} else {
 		ts = expectedHeader.Ts
@@ -1205,6 +1204,9 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		return nil, ErrAlreadyClosed
 	}
 
+	if expectedHeader == nil {
+		blTxID = s.aht.Size()
+	}
 	precommittedTxID := s.lastPreCommittedTxID()
 
 	if !otx.IsWriteOnly() && otx.snap.Ts() <= precommittedTxID {
