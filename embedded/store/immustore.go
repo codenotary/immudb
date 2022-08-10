@@ -1112,51 +1112,6 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 	s.mutex.Unlock()
 
-	var ts int64
-	var blTxID uint64
-	var version int
-
-	if expectedHeader == nil {
-		ts = s.timeFunc().Unix()
-		blTxID = s.aht.Size()
-		version = s.writeTxHeaderVersion
-	} else {
-		ts = expectedHeader.Ts
-		blTxID = expectedHeader.BlTxID
-		version = expectedHeader.Version
-
-		//TxHeader is validated against current store
-
-		currTxID, currAlh := s.Alh()
-
-		var blRoot [sha256.Size]byte
-
-		if blTxID > 0 {
-			blRoot, err = s.aht.RootAt(blTxID)
-			if err != nil && err != ahtree.ErrEmptyTree {
-				return nil, err
-			}
-		}
-
-		if otx.metadata != nil {
-			if !otx.metadata.Equal(expectedHeader.Metadata) {
-				return nil, ErrIllegalArguments
-			}
-		} else if expectedHeader.Metadata != nil {
-			if !expectedHeader.Metadata.Equal(otx.metadata) {
-				return nil, ErrIllegalArguments
-			}
-		}
-
-		if currTxID != expectedHeader.ID-1 ||
-			currAlh != expectedHeader.PrevAlh ||
-			blRoot != expectedHeader.BlRoot ||
-			len(otx.entries) != expectedHeader.NEntries {
-			return nil, ErrIllegalArguments
-		}
-
-	}
-
 	appendableCh := make(chan appendableResult)
 	go s.appendData(otx.entries, appendableCh)
 
@@ -1167,7 +1122,12 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 	}
 	defer s.releaseAllocTx(tx)
 
-	tx.header.Version = version
+	if expectedHeader == nil {
+		tx.header.Version = s.writeTxHeaderVersion
+	} else {
+		tx.header.Version = expectedHeader.Version
+	}
+
 	tx.header.Metadata = otx.metadata
 
 	tx.header.NEntries = len(otx.entries)
@@ -1203,6 +1163,48 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 	if s.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	var ts int64
+	var blTxID uint64
+
+	if expectedHeader == nil {
+		ts = s.timeFunc().Unix()
+		blTxID = s.aht.Size()
+	} else {
+		ts = expectedHeader.Ts
+		blTxID = expectedHeader.BlTxID
+
+		//TxHeader is validated against current store
+
+		currTxID, currAlh := s.Alh()
+
+		var blRoot [sha256.Size]byte
+
+		if blTxID > 0 {
+			blRoot, err = s.aht.RootAt(blTxID)
+			if err != nil && err != ahtree.ErrEmptyTree {
+				return nil, err
+			}
+		}
+
+		if otx.metadata != nil {
+			if !otx.metadata.Equal(expectedHeader.Metadata) {
+				return nil, ErrIllegalArguments
+			}
+		} else if expectedHeader.Metadata != nil {
+			if !expectedHeader.Metadata.Equal(otx.metadata) {
+				return nil, ErrIllegalArguments
+			}
+		}
+
+		if currTxID != expectedHeader.ID-1 ||
+			currAlh != expectedHeader.PrevAlh ||
+			blRoot != expectedHeader.BlRoot ||
+			len(otx.entries) != expectedHeader.NEntries {
+			return nil, ErrIllegalArguments
+		}
+
 	}
 
 	precommittedTxID := s.lastPreCommittedTxID()
