@@ -1207,6 +1207,15 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 	} else {
 		ts = expectedHeader.Ts
 		blTxID = expectedHeader.BlTxID
+
+		// currTxID and currAlh were already checked before,
+		// but we have to add an additional check once the commit mutex
+		// is locked to ensure that those constraints are still valid
+		// in case of simultaneous writers
+		currTxID := s.lastCommittedTxID()
+		if currTxID != expectedHeader.ID-1 {
+			return nil, ErrTxReadConflict
+		}
 	}
 	precommittedTxID := s.lastPreCommittedTxID()
 
