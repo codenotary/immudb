@@ -82,8 +82,6 @@ func (l *mockLogger) Infof(f string, v ...interface{}) {}
 
 func (l *mockLogger) Debugf(f string, v ...interface{}) {}
 
-func (l *mockLogger) CloneWithLevel(level logger.LogLevel) logger.Logger { return l }
-
 type immuServiceClientMock struct{}
 
 func (m *immuServiceClientMock) ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.UserList, error) {

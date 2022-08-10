@@ -20,6 +20,7 @@ import (
 	"time"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,8 +36,9 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("replication-follower-username", "", "username used for replication of systemdb and defaultdb")
 	cmd.Flags().String("replication-follower-password", "", "password used for replication of systemdb and defaultdb")
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
-	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
-	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
+	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename e.g. /var/run/immudb.pid")
+	cmd.Flags().String("logfile", options.Logfile, "log path with filename e.g. /tmp/immudb/immudb.log")
+	cmd.Flags().String("logformat", options.LogFormat, "log format e.g. text/json")
 	cmd.Flags().BoolP("mtls", "m", false, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", false, "enable auth")
 	cmd.Flags().Int("max-recv-msg-size", options.MaxRecvMsgSize, "max message size in bytes the server can receive")
@@ -48,7 +50,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
-	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
+	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. e.g. \"./../test/signer/ec3.key\"")
 	cmd.Flags().Bool("synced", true, "synced mode prevents data lost under unexpected crashes but affects performance")
 	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "client authentication token expiration time. Minutes")
 	cmd.Flags().Bool("metrics-server", options.MetricsServer, "enable or disable Prometheus endpoint")
@@ -112,4 +114,5 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("max-session-age-time", 0)
 	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
+	viper.SetDefault("logformat", logger.LogFormatText)
 }

@@ -76,9 +76,16 @@ var immudbTextLogo = " _                               _ _     \n" +
 
 // Initialize initializes dependencies, set up multi database capabilities and stats
 func (s *ImmuServer) Initialize() error {
-	s.Logger.Infof("%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
+	// Print to stdout in case of text logger, or in case logs are being written to file
+	// This is to avoid mixing text output with json in case the log output is piped
+	if (s.Options.IsJSONLogger() && s.Options.IsFileLogger()) || !s.Options.IsJSONLogger() {
+		fmt.Fprintf(os.Stdout, "\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
+	}
 
-	if s.Options.Logfile != "" {
+	// Print the logo to the file in case of a text output only
+	if s.Options.IsJSONLogger() {
+		s.Logger.Infof("\n%s\n%s\n\n", version.VersionStr(), s.Options)
+	} else if s.Options.IsFileLogger() {
 		s.Logger.Infof("\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
 	}
 
@@ -356,11 +363,15 @@ func (s *ImmuServer) printUsageCallToAction() {
 	immuclientCLI := helper.Blue + "immuclient" + helper.Green
 	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
 
-	fmt.Fprintf(os.Stdout,
-		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start using immudb.%s\n",
-		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, helper.Reset)
+	// Print to stdout in case of text logger, or in case logs are being written to file
+	// This is to avoid mixing text output with json in case the log output is piped
+	if (s.Options.IsJSONLogger() && s.Options.IsFileLogger()) || !s.Options.IsJSONLogger() {
+		fmt.Fprintf(os.Stdout,
+			"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start using immudb.%s\n",
+			helper.Green, immuadminCLI, immuclientCLI, defaultUsername, helper.Reset)
+	}
 
-	if s.Options.Logfile != "" {
+	if s.Options.IsFileLogger() {
 		s.Logger.Infof(
 			"You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start using immudb.\n",
 			auth.SysAdminUsername)

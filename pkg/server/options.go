@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
 	"github.com/codenotary/immudb/pkg/stream"
@@ -68,6 +69,7 @@ type Options struct {
 	ReplicationOptions   *ReplicationOptions
 	SessionsOptions      *sessions.Options
 	PProf                bool
+	LogFormat            string
 }
 
 type RemoteStorageOptions struct {
@@ -171,6 +173,11 @@ func (o *Options) WithLogfile(logfile string) *Options {
 	return o
 }
 
+func (o *Options) WithLogFormat(logFormat string) *Options {
+	o.LogFormat = logFormat
+	return o
+}
+
 // WithTLS sets tls config
 func (o *Options) WithTLS(tls *tls.Config) *Options {
 	o.TLSConfig = tls
@@ -222,6 +229,16 @@ func (o *Options) WebBind() string {
 	return o.Address + ":" + strconv.Itoa(o.WebServerPort)
 }
 
+// IsJSONLogger returns if the log format is json
+func (o *Options) IsJSONLogger() bool {
+	return o.LogFormat == logger.LogFormatJSON
+}
+
+// IsFileLogger returns if the log format is to a file
+func (o *Options) IsFileLogger() bool {
+	return o.Logfile != ""
+}
+
 // String print options
 func (o *Options) String() string {
 	rightPad := func(k string, v interface{}) string {
@@ -252,6 +269,9 @@ func (o *Options) String() string {
 	}
 	if o.Logfile != "" {
 		opts = append(opts, rightPad("Log file", o.Logfile))
+	}
+	if o.LogFormat != "" {
+		opts = append(opts, rightPad("Log format", o.LogFormat))
 	}
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))

@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/stretchr/testify/assert"
@@ -51,7 +52,9 @@ func TestOptions(t *testing.T) {
 		op.MetricsBind() != "0.0.0.0:9497" ||
 		op.PgsqlServer ||
 		op.PgsqlServerPort != 5432 ||
-		op.PProf != false {
+		op.PProf != false ||
+		op.IsFileLogger() != false ||
+		op.IsJSONLogger() != false {
 		t.Errorf("database default options mismatch")
 	}
 }
@@ -71,7 +74,8 @@ func TestSetOptions(t *testing.T) {
 		WithTLS(tlsConfig).
 		WithPgsqlServer(true).
 		WithPgsqlServerPort(123456).
-		WithPProf(true)
+		WithPProf(true).
+		WithLogFormat(logger.LogFormatJSON)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -97,7 +101,8 @@ func TestSetOptions(t *testing.T) {
 		op.TokenExpiryTimeMin != 52 ||
 		!op.PgsqlServer ||
 		op.PgsqlServerPort != 123456 ||
-		op.PProf != true {
+		op.PProf != true ||
+		op.IsJSONLogger() != true {
 		t.Errorf("database default options mismatch")
 	}
 }

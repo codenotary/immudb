@@ -31,7 +31,7 @@ type SimpleLogger struct {
 func NewSimpleLogger(name string, out io.Writer) Logger {
 	return &SimpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
-		LogLevel: logLevelFromEnvironment(),
+		LogLevel: LogLevelFromEnvironment(),
 	}
 }
 
@@ -39,14 +39,6 @@ func NewSimpleLogger(name string, out io.Writer) Logger {
 func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger {
 	return &SimpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
-		LogLevel: level,
-	}
-}
-
-// CloneWithLevel ...
-func (l *SimpleLogger) CloneWithLevel(level LogLevel) Logger {
-	return &SimpleLogger{
-		Logger:   l.Logger,
 		LogLevel: level,
 	}
 }
@@ -77,4 +69,9 @@ func (l *SimpleLogger) Debugf(f string, v ...interface{}) {
 	if l.LogLevel <= LogDebug {
 		l.Logger.Printf("DEBUG: "+f, v...)
 	}
+}
+
+// Close the logger ...
+func (l *SimpleLogger) Close() error {
+	return nil
 }

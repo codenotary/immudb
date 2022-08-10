@@ -59,24 +59,34 @@ Setting the logging level and other options through environment variables:
 func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		var options *server.Options
+
 		if options, err = parseOptions(); err != nil {
 			return err
 		}
+
 		immudbServer := immudbServer.WithOptions(options)
-		if options.Logfile != "" {
-			if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
-				defer file.Close()
-				immudbServer.WithLogger(flogger)
-			} else {
-				c.QuitToStdErr(err)
-			}
+
+		// initialize logger for immudb
+		ilogger, err := logger.NewLogger(&logger.Options{
+			Name:      "immudb",
+			LogFormat: options.LogFormat,
+			LogFile:   options.Logfile,
+			Level:     logger.LogLevelFromEnvironment(),
+		})
+		if err != nil {
+			c.QuitToStdErr(err)
 		}
+		defer ilogger.Close()
+		immudbServer.WithLogger(ilogger)
+
+		// check if immudb needs to be run in detached mode
 		if options.Detached {
 			if err := cl.P.Detached(); err == nil {
 				return nil
 			}
 		}
 
+		// check if immudb needs to run in daemon mode
 		var d daem.Daemon
 		if d, err = daem.New("immudb", "immudb", "immudb"); err != nil {
 			c.QuitToStdErr(err)

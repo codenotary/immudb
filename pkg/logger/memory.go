@@ -30,7 +30,7 @@ type MemoryLogger struct {
 }
 
 func NewMemoryLogger() *MemoryLogger {
-	return NewMemoryLoggerWithLevel(logLevelFromEnvironment())
+	return NewMemoryLoggerWithLevel(LogLevelFromEnvironment())
 }
 
 func NewMemoryLoggerWithLevel(level LogLevel) *MemoryLogger {
@@ -54,13 +54,6 @@ func (l *MemoryLogger) Infof(fmt string, args ...interface{}) {
 
 func (l *MemoryLogger) Debugf(fmt string, args ...interface{}) {
 	l.addLog(LogDebug, "DBG", fmt, args)
-}
-
-func (l *MemoryLogger) CloneWithLevel(level LogLevel) Logger {
-	return &MemoryLogger{
-		lines: l.lines,
-		level: level,
-	}
 }
 
 func (l *MemoryLogger) GetLogs() []string {
@@ -89,4 +82,9 @@ func (l *MemoryLogger) addLog(level LogLevel, prefix string, f string, args []in
 	defer l.m.Unlock()
 
 	*l.lines = append(*l.lines, sb.String())
+}
+
+// Close the logger ...
+func (l *MemoryLogger) Close() error {
+	return nil
 }

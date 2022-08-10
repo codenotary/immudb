@@ -27,30 +27,34 @@ import (
 type FileLogger struct {
 	Logger   *log.Logger
 	LogLevel LogLevel
+	out      *os.File
 }
 
 // NewFileLogger ...
 func NewFileLogger(name string, file string) (logger Logger, out *os.File, err error) {
-	if out, err = setup(file); err != nil {
+	out, err = setup(file)
+	if err != nil {
 		return nil, nil, err
 	}
 	logger = &FileLogger{
+		out:      out,
 		Logger:   log.New(out, name, log.LstdFlags),
-		LogLevel: logLevelFromEnvironment(),
+		LogLevel: LogLevelFromEnvironment(),
 	}
 	return logger, out, nil
 }
 
 // NewFileLoggerWithLevel ...
-func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Logger, out *os.File, err error) {
-	if out, err = setup(file); err != nil {
-		return nil, nil, err
+func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Logger, err error) {
+	out, err := setup(file)
+	if err != nil {
+		return nil, err
 	}
 	logger = &FileLogger{
 		Logger:   log.New(out, name+".log", log.LstdFlags),
 		LogLevel: level,
 	}
-	return logger, out, nil
+	return logger, nil
 }
 
 func setup(file string) (out *os.File, err error) {
@@ -64,14 +68,6 @@ func setup(file string) (out *os.File, err error) {
 		return out, errors.New("Unable to create log file")
 	}
 	return out, err
-}
-
-// CloneWithLevel ...
-func (l *FileLogger) CloneWithLevel(level LogLevel) Logger {
-	return &FileLogger{
-		Logger:   l.Logger,
-		LogLevel: level,
-	}
 }
 
 // Errorf ...
@@ -100,4 +96,12 @@ func (l *FileLogger) Debugf(f string, v ...interface{}) {
 	if l.LogLevel <= LogDebug {
 		l.Logger.Printf("DEBUG: "+f, v...)
 	}
+}
+
+// Close the logger ...
+func (l *FileLogger) Close() error {
+	if l.out != nil {
+		return l.out.Close()
+	}
+	return nil
 }
