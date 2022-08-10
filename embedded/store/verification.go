@@ -118,6 +118,17 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		}
 	}
 
+	if len(proof.LinearProof.Terms) > 2 {
+		// AHT is calculated synchronously - during transaction commit we're waiting for the AH tree to be rebuild.
+		// This allows us accept only a single-entry (from the previous tree to the current entry) linear proofs.
+		//
+		// The linear proof must thus only go from the last transaction that was part of the Merkle Tree
+		// (last leaf node - TargetTx.BlTxAlh) to the target state (TargetAlh). That would consist of two terms:
+		// first one being the initial Alh of the linear proof (TargetTx.BlTxAlh) and the innerHash of the
+		// final transaction (innerHash used to build the TargetAlh).
+		return false
+	}
+
 	if sourceTxID < proof.TargetTxHeader.BlTxID {
 		return VerifyLinearProof(proof.LinearProof, proof.TargetTxHeader.BlTxID, targetTxID, proof.TargetBlTxAlh, targetAlh)
 	}
