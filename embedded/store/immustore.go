@@ -1112,16 +1112,11 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 	s.mutex.Unlock()
 
-	var ts int64
-	var blTxID uint64
 	var version int
 
 	if expectedHeader == nil {
-		ts = s.timeFunc().Unix()
 		version = s.writeTxHeaderVersion
 	} else {
-		ts = expectedHeader.Ts
-		blTxID = expectedHeader.BlTxID
 		version = expectedHeader.Version
 
 		//TxHeader is validated against current store
@@ -1130,8 +1125,8 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		var blRoot [sha256.Size]byte
 
-		if blTxID > 0 {
-			blRoot, err = s.aht.RootAt(blTxID)
+		if expectedHeader.BlTxID > 0 {
+			blRoot, err = s.aht.RootAt(expectedHeader.BlTxID)
 			if err != nil && err != ahtree.ErrEmptyTree {
 				return nil, err
 			}
@@ -1204,8 +1199,14 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		return nil, ErrAlreadyClosed
 	}
 
+	var ts int64
+	var blTxID uint64
 	if expectedHeader == nil {
+		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
+	} else {
+		ts = expectedHeader.Ts
+		blTxID = expectedHeader.BlTxID
 	}
 	precommittedTxID := s.lastPreCommittedTxID()
 
