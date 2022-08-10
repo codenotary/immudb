@@ -43,14 +43,6 @@ func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger
 	}
 }
 
-// CloneWithLevel ...
-func (l *SimpleLogger) CloneWithLevel(level LogLevel) Logger {
-	return &SimpleLogger{
-		Logger:   l.Logger,
-		LogLevel: level,
-	}
-}
-
 // Errorf ...
 func (l *SimpleLogger) Errorf(f string, v ...interface{}) {
 	if l.LogLevel <= LogError {

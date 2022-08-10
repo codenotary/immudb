@@ -76,10 +76,11 @@ var immudbTextLogo = " _                               _ _     \n" +
 
 // Initialize initializes dependencies, set up multi database capabilities and stats
 func (s *ImmuServer) Initialize() error {
-	s.Logger.Infof("%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
-
-	if s.Options.Logfile != "" {
-		s.Logger.Infof("\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
+	if !s.Options.DisableLogo {
+		s.Logger.Infof("%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
+		if s.Options.Logfile != "" {
+			s.Logger.Infof("\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
+		}
 	}
 
 	if s.Options.GetMaintenance() && s.Options.GetAuth() {

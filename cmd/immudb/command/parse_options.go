@@ -42,6 +42,8 @@ func parseOptions() (options *server.Options, err error) {
 
 	pidfile := viper.GetString("pidfile")
 	logfile := viper.GetString("logfile")
+	logFormat := viper.GetString("logformat")
+	disableLogo := viper.GetBool("disable-logo")
 
 	mtls := viper.GetBool("mtls")
 	auth := viper.GetBool("auth")
@@ -126,7 +128,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithPgsqlServer(pgsqlServer).
 		WithPgsqlServerPort(pgsqlServerPort).
 		WithSessionOptions(sessionOptions).
-		WithPProf(pprof)
+		WithPProf(pprof).
+		WithLogFormat(logFormat).
+		WithDisableLogo(disableLogo)
 
 	return options, nil
 }

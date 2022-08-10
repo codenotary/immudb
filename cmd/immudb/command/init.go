@@ -37,6 +37,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
+	cmd.Flags().String("logformat", options.LogFormat, "log format. E.g. text/json")
+	cmd.Flags().Bool("disable-logo", options.DisableLogo, "disable immudb text logo")
 	cmd.Flags().BoolP("mtls", "m", false, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", false, "enable auth")
 	cmd.Flags().Int("max-recv-msg-size", options.MaxRecvMsgSize, "max message size in bytes the server can receive")
@@ -112,4 +114,6 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("max-session-age-time", 0)
 	viper.SetDefault("session-timeout", 2*time.Minute)
 	viper.SetDefault("sessions-guard-check-interval", 1*time.Minute)
+	viper.SetDefault("logformat", "text")
+	viper.SetDefault("disable-logo", options.DisableLogo)
 }

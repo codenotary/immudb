@@ -17,8 +17,10 @@ limitations under the License.
 package logger
 
 import (
+	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 // LogLevel ...
@@ -38,7 +40,6 @@ type Logger interface {
 	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
-	CloneWithLevel(level LogLevel) Logger
 }
 
 func logLevelFromEnvironment() LogLevel {
@@ -54,4 +55,48 @@ func logLevelFromEnvironment() LogLevel {
 		return LogDebug
 	}
 	return LogInfo
+}
+
+type (
+	TimeFunc = func() time.Time
+
+	// Options can be used to configure a new logger.
+	Options struct {
+		// Name of the subsystem to prefix logs with
+		Name string
+
+		// The threshold for the logger. Anything less severe is supressed
+		Level LogLevel
+
+		// Where to write the logs to. Defaults to os.Stderr if nil
+		Output io.Writer
+
+		// The time format to use instead of the default
+		TimeFormat string
+
+		// A function which is called to get the time object that is formatted using `TimeFormat`
+		TimeFnc TimeFunc
+
+		// The format in which logs will be formatted. (eg: text/json)
+		LogFormat string
+
+		// The file to write to.
+		LogFile string
+	}
+)
+
+// NewLogger is a factory for selecting a logger based on options
+func NewLogger(opts *Options) (logger Logger, out *os.File, err error) {
+	switch opts.LogFormat {
+	case "json":
+		if opts.LogFile != "" {
+			return NewJSONFileLogger("immudb", opts.LogFile)
+		}
+		return NewJSONLogger(opts), nil, nil
+	default:
+		if opts.LogFile != "" {
+			return NewFileLogger("immudb ", opts.LogFile)
+		}
+		return NewSimpleLogger("immudb ", defaultOutput), nil, nil
+	}
 }

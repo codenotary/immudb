@@ -66,14 +66,6 @@ func setup(file string) (out *os.File, err error) {
 	return out, err
 }
 
-// CloneWithLevel ...
-func (l *FileLogger) CloneWithLevel(level LogLevel) Logger {
-	return &FileLogger{
-		Logger:   l.Logger,
-		LogLevel: level,
-	}
-}
-
 // Errorf ...
 func (l *FileLogger) Errorf(f string, v ...interface{}) {
 	if l.LogLevel <= LogError {
