@@ -31,6 +31,7 @@ func TestMemoryLogger(t *testing.T) {
 	defer os.Unsetenv("LOG_LEVEL")
 
 	ml := logger.NewMemoryLogger()
+	defer ml.Close()
 
 	ml.Infof("hello %s!", "world")
 	ml.Errorf("Hello %s!", "World")
@@ -48,17 +49,13 @@ func TestMemoryLogger(t *testing.T) {
 		{logger.LogError, 1},
 	} {
 		t.Run(fmt.Sprintf("filtering test (%+v)", d), func(t *testing.T) {
-
-			ml2 := ml.CloneWithLevel(d.level)
-
-			startLines := len(ml.GetLogs())
-
+			ml2 := logger.NewMemoryLoggerWithLevel(d.level)
 			ml2.Debugf("DEBUG")
 			ml2.Infof("INFO")
 			ml2.Warningf("WARNING")
 			ml2.Errorf("ERROR")
 
-			require.Equal(t, d.expectedNewLogs, len(ml.GetLogs())-startLines)
+			require.Equal(t, d.expectedNewLogs, len(ml2.GetLogs()))
 		})
 	}
 }

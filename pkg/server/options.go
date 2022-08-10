@@ -68,6 +68,8 @@ type Options struct {
 	ReplicationOptions   *ReplicationOptions
 	SessionsOptions      *sessions.Options
 	PProf                bool
+	LogFormat            string
+	DisableLogo          bool
 }
 
 type RemoteStorageOptions struct {
@@ -171,6 +173,16 @@ func (o *Options) WithLogfile(logfile string) *Options {
 	return o
 }
 
+func (o *Options) WithLogFormat(logFormat string) *Options {
+	o.LogFormat = logFormat
+	return o
+}
+
+func (o *Options) WithDisableLogo(disable bool) *Options {
+	o.DisableLogo = disable
+	return o
+}
+
 // WithTLS sets tls config
 func (o *Options) WithTLS(tls *tls.Config) *Options {
 	o.TLSConfig = tls
@@ -252,6 +264,9 @@ func (o *Options) String() string {
 	}
 	if o.Logfile != "" {
 		opts = append(opts, rightPad("Log file", o.Logfile))
+	}
+	if o.LogFormat != "" {
+		opts = append(opts, rightPad("Log format", o.LogFormat))
 	}
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))

@@ -45,19 +45,6 @@ func TestSimpleLogger(t *testing.T) {
 	require.NotContains(t, logOutput, "some info 1")
 	require.NotContains(t, logOutput, "some warning 1")
 
-	sl2 := sl.CloneWithLevel(LogDebug)
-	sl2.Debugf("some debug %d", 2)
-	sl2.Infof("some info %d", 2)
-	sl2.Warningf("some warning %d", 2)
-	sl2.Errorf("some error %d", 2)
-	logBytes, err = ioutil.ReadAll(outputWriter)
-	require.NoError(t, err)
-	logOutput = string(logBytes)
-	require.Contains(t, logOutput, " DEBUG: some debug 2")
-	require.Contains(t, logOutput, " INFO: some info 2")
-	require.Contains(t, logOutput, " WARNING: some warning 2")
-	require.Contains(t, logOutput, " ERROR: some error 2")
-
 	outputWriter.Reset()
 	sl3 := NewSimpleLoggerWithLevel(fmt.Sprintf("%s ", name), outputWriter, LogWarn)
 	sl3.Debugf("some debug %d", 3)
@@ -74,15 +61,15 @@ func TestSimpleLogger(t *testing.T) {
 }
 
 func TestLogLevelFromEnvironment(t *testing.T) {
-	defaultLevel := logLevelFromEnvironment()
+	defaultLevel := LogLevelFromEnvironment()
 	require.Equal(t, LogInfo, defaultLevel)
 	defer os.Unsetenv("LOG_LEVEL")
 	os.Setenv("LOG_LEVEL", "error")
-	require.Equal(t, LogError, logLevelFromEnvironment())
+	require.Equal(t, LogError, LogLevelFromEnvironment())
 	os.Setenv("LOG_LEVEL", "warn")
-	require.Equal(t, LogWarn, logLevelFromEnvironment())
+	require.Equal(t, LogWarn, LogLevelFromEnvironment())
 	os.Setenv("LOG_LEVEL", "info")
-	require.Equal(t, LogInfo, logLevelFromEnvironment())
+	require.Equal(t, LogInfo, LogLevelFromEnvironment())
 	os.Setenv("LOG_LEVEL", "debug")
-	require.Equal(t, LogDebug, logLevelFromEnvironment())
+	require.Equal(t, LogDebug, LogLevelFromEnvironment())
 }

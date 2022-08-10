@@ -17,8 +17,15 @@ limitations under the License.
 package logger
 
 import (
+	"errors"
+	"io"
 	"os"
 	"strings"
+	"time"
+)
+
+var (
+	ErrInvalidLoggerType = errors.New("invalid logger type")
 )
 
 // LogLevel ...
@@ -38,10 +45,10 @@ type Logger interface {
 	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
-	CloneWithLevel(level LogLevel) Logger
+	Close() error
 }
 
-func logLevelFromEnvironment() LogLevel {
+func LogLevelFromEnvironment() LogLevel {
 	logLevel, _ := os.LookupEnv("LOG_LEVEL")
 	switch strings.ToLower(logLevel) {
 	case "error":
@@ -54,4 +61,48 @@ func logLevelFromEnvironment() LogLevel {
 		return LogDebug
 	}
 	return LogInfo
+}
+
+type (
+	TimeFunc = func() time.Time
+
+	// Options can be used to configure a new logger.
+	Options struct {
+		// Name of the subsystem to prefix logs with
+		Name string
+
+		// The threshold for the logger. Anything less severe is supressed
+		Level LogLevel
+
+		// Where to write the logs to. Defaults to os.Stderr if nil
+		Output io.Writer
+
+		// The time format to use instead of the default
+		TimeFormat string
+
+		// A function which is called to get the time object that is formatted using `TimeFormat`
+		TimeFnc TimeFunc
+
+		// The format in which logs will be formatted. (eg: text/json)
+		LogFormat string
+
+		// The file to write to.
+		LogFile string
+	}
+)
+
+// NewLogger is a factory for selecting a logger based on options
+func NewLogger(opts *Options) (logger Logger, err error) {
+	switch opts.LogFormat {
+	case "json":
+		return NewJSONLogger(opts)
+	case "text":
+		if opts.LogFile != "" {
+			logger, _, err = NewFileLogger(opts.Name, opts.LogFile)
+			return logger, err
+		}
+		return NewSimpleLogger(opts.Name, defaultOutput), nil
+	default:
+		return nil, ErrInvalidLoggerType
+	}
 }
