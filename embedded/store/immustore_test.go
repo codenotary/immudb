@@ -2949,3 +2949,57 @@ func TestTimeBasedTxLookup(t *testing.T) {
 		}
 	}
 }
+
+func TestBlTXOrdering(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_bltx_ordering")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().WithMaxConcurrency(200)
+
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+
+	defer immustoreClose(t, immuStore)
+
+	t.Run("run multiple simultaneous writes", func(t *testing.T) {
+		wg := sync.WaitGroup{}
+		for i := 0; i < opts.MaxConcurrency; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
+				tx, err := immuStore.NewWriteOnlyTx()
+				require.NoError(t, err)
+
+				tx.Set([]byte(fmt.Sprintf("key:%d", i)), nil, []byte("value"))
+
+				_, err = tx.Commit()
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
+	})
+
+	t.Run("verify dual proofs for sequences of transactions", func(t *testing.T) {
+		maxTxID, _ := immuStore.Alh()
+
+		for i := uint64(1); i < maxTxID; i++ {
+
+			srcTxHeader, err := immuStore.ReadTxHeader(i)
+			require.NoError(t, err)
+
+			dstTxHeader, err := immuStore.ReadTxHeader(i + 1)
+			require.NoError(t, err)
+
+			require.LessOrEqual(t, srcTxHeader.BlTxID, dstTxHeader.BlTxID)
+
+			proof, err := immuStore.DualProof(srcTxHeader, dstTxHeader)
+			require.NoError(t, err)
+
+			verifies := VerifyDualProof(proof, i, i+1, srcTxHeader.Alh(), dstTxHeader.Alh())
+			require.True(t, verifies)
+		}
+
+	})
+}
