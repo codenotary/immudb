@@ -2315,13 +2315,15 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 }
 
 func TestExportAndReplicateTx(t *testing.T) {
+	defer os.RemoveAll("data_master_export_replicate")
 	masterStore, err := Open("data_master_export_replicate", DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("data_master_export_replicate")
+	defer immustoreClose(t, masterStore)
 
+	defer os.RemoveAll("data_replica_export_replicate")
 	replicaStore, err := Open("data_replica_export_replicate", DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("data_replica_export_replicate")
+	defer immustoreClose(t, replicaStore)
 
 	tx, err := masterStore.NewWriteOnlyTx()
 	require.NoError(t, err)
@@ -2349,6 +2351,61 @@ func TestExportAndReplicateTx(t *testing.T) {
 
 	_, err = replicaStore.ReplicateTx(nil, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
+}
+
+func TestExportAndReplicateTxCornerCases(t *testing.T) {
+	defer os.RemoveAll("data_master_export_replicate")
+	masterStore, err := Open("data_master_export_replicate", DefaultOptions())
+	require.NoError(t, err)
+	defer immustoreClose(t, masterStore)
+
+	defer os.RemoveAll("data_replica_export_replicate")
+	replicaStore, err := Open("data_replica_export_replicate", DefaultOptions())
+	require.NoError(t, err)
+	defer immustoreClose(t, replicaStore)
+
+	tx, err := masterStore.NewWriteOnlyTx()
+	require.NoError(t, err)
+
+	tx.WithMetadata(NewTxMetadata())
+
+	err = tx.Set([]byte("key1"), nil, []byte("value1"))
+	require.NoError(t, err)
+
+	hdr, err := tx.Commit()
+	require.NoError(t, err)
+	require.NotNil(t, hdr)
+
+	txholder := tempTxHolder(t, masterStore)
+
+	t.Run("prevent replicating broken data", func(t *testing.T) {
+		etx, err := masterStore.ExportTx(1, txholder)
+		require.NoError(t, err)
+
+		for i := range etx {
+			if i >= 44 && i < 52 {
+				// Timestamp - this field is part of innerHash thus is not validated through EH
+				continue
+			}
+
+			t.Run(fmt.Sprintf("broken byte at position %d", i), func(t *testing.T) {
+
+				// Break etx by modifying a single byte of the packet
+				brokenEtx := make([]byte, len(etx))
+				copy(brokenEtx, etx)
+				brokenEtx[i]++
+
+				_, err = replicaStore.ReplicateTx(brokenEtx, false)
+				require.Error(t, err)
+
+				if !errors.Is(err, ErrIllegalArguments) &&
+					!errors.Is(err, ErrCorruptedData) &&
+					!errors.Is(err, ErrNewerVersionOrCorruptedData) {
+					require.Failf(t, "Incorrect error", "Incorrect error received from validation: %v", err)
+				}
+			})
+		}
+	})
 }
 
 var errEmulatedAppendableError = errors.New("emulated appendable error")
