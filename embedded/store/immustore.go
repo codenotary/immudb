@@ -758,6 +758,13 @@ func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
 	return s.committedTxID, s.committedAlh
 }
 
+func (s *ImmuStore) preAlh() (uint64, [sha256.Size]byte) {
+	s.commitStateRWMutex.RLock()
+	defer s.commitStateRWMutex.RUnlock()
+
+	return s.preCommittedTxID, s.preCommittedAlh
+}
+
 func (s *ImmuStore) BlInfo() (uint64, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1122,9 +1129,9 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		// TxHeader is validated against current store
 
-		currTxID, currAlh := s.Alh()
+		currPrecomittedTxID, currPrecommittedAlh := s.preAlh()
 
-		if currTxID >= expectedHeader.ID {
+		if currPrecomittedTxID >= expectedHeader.ID {
 			return nil, ErrTxAlreadyCommitted
 		}
 
@@ -1151,13 +1158,12 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 			}
 		}
 
-		if currTxID != expectedHeader.ID-1 ||
-			currAlh != expectedHeader.PrevAlh ||
+		if currPrecomittedTxID != expectedHeader.ID-1 ||
+			currPrecommittedAlh != expectedHeader.PrevAlh ||
 			blRoot != expectedHeader.BlRoot ||
 			len(otx.entries) != expectedHeader.NEntries {
 			return nil, ErrIllegalArguments
 		}
-
 	}
 
 	tx, err := s.fetchAllocTx()
@@ -1207,6 +1213,8 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		return nil, ErrAlreadyClosed
 	}
 
+	precommittedTxID := s.lastPreCommittedTxID()
+
 	var ts int64
 	var blTxID uint64
 	if expectedHeader == nil {
@@ -1220,12 +1228,10 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		// but we have to add an additional check once the commit mutex
 		// is locked to ensure that those constraints are still valid
 		// in case of simultaneous writers
-		currTxID := s.lastCommittedTxID()
-		if currTxID != expectedHeader.ID-1 {
+		if precommittedTxID != expectedHeader.ID-1 {
 			return nil, ErrTxAlreadyCommitted
 		}
 	}
-	precommittedTxID := s.lastPreCommittedTxID()
 
 	if !otx.IsWriteOnly() && otx.snap.Ts() <= precommittedTxID {
 		return nil, ErrTxReadConflict
