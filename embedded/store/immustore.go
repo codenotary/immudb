@@ -1160,15 +1160,14 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 	}
 
-	appendableCh := make(chan appendableResult)
-	go s.appendData(otx.entries, appendableCh)
-
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
+
+	appendableCh := make(chan appendableResult)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx.header.Version = version
 	tx.header.Metadata = otx.metadata
@@ -1555,15 +1554,14 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 		s.indexer.Pause()
 	}
 
-	appendableCh := make(chan appendableResult)
-	go s.appendData(otx.entries, appendableCh)
-
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
+
+	appendableCh := make(chan appendableResult)
+	go s.appendData(otx.entries, appendableCh)
 
 	tx.header.Version = s.writeTxHeaderVersion
 	tx.header.NEntries = len(otx.entries)
