@@ -2408,6 +2408,64 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	})
 }
 
+func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
+	defer os.RemoveAll("data_master_export_replicate")
+	masterStore, err := Open("data_master_export_replicate", DefaultOptions())
+	require.NoError(t, err)
+	defer immustoreClose(t, masterStore)
+
+	defer os.RemoveAll("data_replica_export_replicate")
+	replicaOpts := DefaultOptions().WithMaxConcurrency(100)
+	replicaStore, err := Open("data_replica_export_replicate", replicaOpts)
+	require.NoError(t, err)
+	defer immustoreClose(t, replicaStore)
+
+	const txCount = 3
+
+	for i := 0; i < txCount; i++ {
+		t.Run(fmt.Sprintf("tx: %d", i), func(t *testing.T) {
+			tx, err := masterStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			tx.WithMetadata(NewTxMetadata())
+
+			err = tx.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+
+			hdr, err := tx.Commit()
+			require.NoError(t, err)
+			require.NotNil(t, hdr)
+
+			txholder := tempTxHolder(t, replicaStore)
+			etx, err := masterStore.ExportTx(hdr.ID, txholder)
+			require.NoError(t, err)
+
+			// Replicate the same transactions concurrently, only one must succeed
+			errors := make([]error, replicaStore.maxConcurrency)
+			wg := sync.WaitGroup{}
+			for j := 0; j < replicaStore.maxConcurrency; j++ {
+				wg.Add(1)
+				go func(j int) {
+					defer wg.Done()
+					_, errors[j] = replicaStore.ReplicateTx(etx, false)
+				}(j)
+			}
+			wg.Wait()
+
+			winnersCnt := 0
+			for _, err := range errors {
+				if err == nil {
+					winnersCnt++
+				} else {
+					require.ErrorIs(t, err, ErrTxAlreadyCommitted)
+				}
+			}
+			require.Equal(t, 1, winnersCnt)
+			require.EqualValues(t, i+1, replicaStore.TxCount())
+		})
+	}
+}
+
 var errEmulatedAppendableError = errors.New("emulated appendable error")
 
 type FailingAppendable struct {
