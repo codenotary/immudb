@@ -48,6 +48,7 @@ var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linea
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrWriteOnlyTx = errors.New("write-only transaction")
 var ErrTxReadConflict = errors.New("tx read conflict")
+var ErrTxAlreadyCommitted = errors.New("tx already committed")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
@@ -1119,9 +1120,13 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 	} else {
 		version = expectedHeader.Version
 
-		//TxHeader is validated against current store
+		// TxHeader is validated against current store
 
 		currTxID, currAlh := s.Alh()
+
+		if currTxID != expectedHeader.ID-1 {
+			return nil, ErrTxAlreadyCommitted
+		}
 
 		var blRoot [sha256.Size]byte
 
@@ -1142,8 +1147,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 			}
 		}
 
-		if currTxID != expectedHeader.ID-1 ||
-			currAlh != expectedHeader.PrevAlh ||
+		if currAlh != expectedHeader.PrevAlh ||
 			blRoot != expectedHeader.BlRoot ||
 			len(otx.entries) != expectedHeader.NEntries {
 			return nil, ErrIllegalArguments
@@ -1214,7 +1218,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		// in case of simultaneous writers
 		currTxID := s.lastCommittedTxID()
 		if currTxID != expectedHeader.ID-1 {
-			return nil, ErrTxReadConflict
+			return nil, ErrTxAlreadyCommitted
 		}
 	}
 	precommittedTxID := s.lastPreCommittedTxID()
