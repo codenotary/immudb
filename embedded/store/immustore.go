@@ -1130,6 +1130,10 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		var blRoot [sha256.Size]byte
 
+		if expectedHeader.BlTxID >= expectedHeader.ID {
+			return nil, ErrIllegalArguments
+		}
+
 		if expectedHeader.BlTxID > 0 {
 			blRoot, err = s.aht.RootAt(expectedHeader.BlTxID)
 			if err != nil && err != ahtree.ErrEmptyTree {
@@ -1897,6 +1901,10 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 
 		kLen := int(binary.BigEndian.Uint16(exportedTx[i:]))
 		i += sszSize
+
+		if len(exportedTx) < i+sszSize+lszSize+kLen {
+			return nil, ErrIllegalArguments
+		}
 
 		key := make([]byte, kLen)
 		copy(key, exportedTx[i:])
