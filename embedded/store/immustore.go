@@ -1124,7 +1124,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		currTxID, currAlh := s.Alh()
 
-		if currTxID != expectedHeader.ID-1 {
+		if currTxID >= expectedHeader.ID {
 			return nil, ErrTxAlreadyCommitted
 		}
 
@@ -1147,7 +1147,8 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 			}
 		}
 
-		if currAlh != expectedHeader.PrevAlh ||
+		if currTxID != expectedHeader.ID-1 ||
+			currAlh != expectedHeader.PrevAlh ||
 			blRoot != expectedHeader.BlRoot ||
 			len(otx.entries) != expectedHeader.NEntries {
 			return nil, ErrIllegalArguments
