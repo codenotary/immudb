@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,10 +63,10 @@ func TestImmuClient_OpenSession_OpenAndCloseSessionAfterError_AvoidPanic(t *test
 	require.Error(t, err)
 	// try open session again
 	err = c.OpenSession(context.TODO(), nil, nil, "")
-	require.NotErrorIs (t, err, ErrSessionAlreadyOpen)
+	require.NotErrorIs(t, err, ErrSessionAlreadyOpen)
 	// close over not open session
 	err = c.CloseSession(context.TODO())
-	require.NotErrorIs (t, err, ErrSessionAlreadyOpen)
+	require.NotErrorIs(t, err, ErrSessionAlreadyOpen)
 }
 
 func TestImmuClient_OpenSession_StateServiceError(t *testing.T) {

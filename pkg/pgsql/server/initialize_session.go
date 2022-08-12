@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/codenotary/immudb/pkg/database"
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
-	"strings"
 )
 
 // InitializeSession

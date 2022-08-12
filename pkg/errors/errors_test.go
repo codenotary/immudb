@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@ package errors_test
 import (
 	stdErrors "errors"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/errors"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 func Test_Immuerror(t *testing.T) {

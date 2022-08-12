@@ -8,7 +8,7 @@ RUN GOOS=linux GOARCH=amd64 WEBCONSOLE=default make immuadmin-static immudb-stat
 RUN mkdir /empty
 
 FROM debian:bullseye-slim as bullseye-slim
-LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
+LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
 COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
@@ -51,7 +51,7 @@ ENTRYPOINT ["/usr/sbin/immudb"]
 
 
 FROM scratch as scratch
-LABEL org.opencontainers.image.authors="CodeNotary, Inc. <info@codenotary.com>"
+LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"

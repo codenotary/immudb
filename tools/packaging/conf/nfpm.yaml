@@ -15,7 +15,7 @@ depends:
 maintainer: "<info@codenotary.com>"
 description: |
   immudb - the tamperproof database
-vendor: "CodeNotary, Inc."
+vendor: "Codenotary Inc."
 homepage: "https://github.com/codenotary/immudb"
 license: "Apache 2"
 bindir: "/usr/sbin"

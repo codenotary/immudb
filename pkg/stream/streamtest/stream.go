@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 type ChunkError struct {

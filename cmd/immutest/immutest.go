@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"os"
+
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/spf13/viper"
-	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	immutest "github.com/codenotary/immudb/cmd/immutest/command"

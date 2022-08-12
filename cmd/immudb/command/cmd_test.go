@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"github.com/codenotary/immudb/cmd/helper"
 )
 
 func DefaultTestOptions() (o *server.Options) {
@@ -95,8 +95,6 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 	assert.Error(t, err)
 	viper.Set("mtls", false)
 }
-
-
 
 //Priority:
 // 1. overrides
@@ -243,12 +241,12 @@ func TestNewCommand(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestExecute(t * testing.T) {
+func TestExecute(t *testing.T) {
 	quitCode := 0
-	os.Setenv("IMMUDB_ADDRESS","999.999.999.999")
+	os.Setenv("IMMUDB_ADDRESS", "999.999.999.999")
 	helper.OverrideQuitter(func(q int) {
-		quitCode=q
+		quitCode = q
 	})
 	Execute()
-	assert.Equal(t, quitCode,1)
+	assert.Equal(t, quitCode, 1)
 }

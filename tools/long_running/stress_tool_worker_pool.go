@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,13 +20,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	immudb "github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	immudb "github.com/codenotary/immudb/pkg/client"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // run stress tool worker pool. Ex stress_tool_worker_pool --committers 8 --readers 4 --duration 10s

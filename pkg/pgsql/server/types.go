@@ -1,5 +1,5 @@
 /*
-Copyright 2022 CodeNotary, Inc. All rights reserved.
+Copyright 2022 Codenotary Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func buildNamedParams(paramsType []*schema.Column, paramsVal []interface{}) ([]*schema.NamedParam, error) {
