@@ -37,8 +37,14 @@ type AppFactoryFunc func(
 ) (appendable.Appendable, error)
 
 type Options struct {
-	syncThld int
-	readOnly bool
+	readOnly       bool
+	readBufferSize int
+
+	writeBufferSize int
+	retryableSync   bool // if retryableSync is enabled, buffer space is released only after a successful sync
+	autoSync        bool // if autoSync is enabled, sync is called when the buffer is full
+	syncThld        int  // sync after appending the specified amount of values
+
 	fileMode os.FileMode
 
 	appFactory AppFactoryFunc
@@ -54,8 +60,14 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly:          false,
-		syncThld:          DefaultSyncThld,
+		readOnly:       false,
+		readBufferSize: multiapp.DefaultReadBufferSize,
+
+		writeBufferSize: multiapp.DefaultWriteBufferSize,
+		retryableSync:   true,
+		autoSync:        true,
+		syncThld:        DefaultSyncThld,
+
 		fileMode:          DefaultFileMode,
 		dataCacheSlots:    DefaultDataCacheSlots,
 		digestsCacheSlots: DefaultDigestsCacheSlots,
@@ -72,11 +84,33 @@ func validOptions(opts *Options) bool {
 		opts.fileSize > 0 &&
 		opts.dataCacheSlots > 0 &&
 		opts.digestsCacheSlots > 0 &&
+		opts.readBufferSize > 0 &&
+		opts.writeBufferSize > 0 &&
 		opts.syncThld > 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
+	return opts
+}
+
+func (opts *Options) WithReadBufferSize(size int) *Options {
+	opts.readBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithWriteBufferSize(size int) *Options {
+	opts.writeBufferSize = size
+	return opts
+}
+
+func (opts *Options) WithRetryableSync(retryableSync bool) *Options {
+	opts.retryableSync = retryableSync
+	return opts
+}
+
+func (opts *Options) WithAutoSync(autoSync bool) *Options {
+	opts.autoSync = autoSync
 	return opts
 }
 

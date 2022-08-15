@@ -104,10 +104,12 @@ func Open(path string, opts *Options) (*AHtree, error) {
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.readOnly).
-		WithSynced(false).
+		WithReadBufferSize(opts.readBufferSize).
+		WithWriteBufferSize(opts.writeBufferSize).
+		WithRetryableSync(opts.retryableSync).
+		WithAutoSync(opts.autoSync).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
-		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16). // TODO: parameterize
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
