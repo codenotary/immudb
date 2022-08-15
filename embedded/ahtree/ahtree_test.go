@@ -977,7 +977,7 @@ func TestResetCornerCases(t *testing.T) {
 
 func BenchmarkAppend(b *testing.B) {
 	opts := DefaultOptions().
-		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 1024).
+		WithWriteBufferSize(1 << 26). //64Mb
 		WithRetryableSync(true).
 		WithAutoSync(true).
 		WithSyncThld(100_000).
