@@ -29,7 +29,8 @@ const DefaultWriteBufferSize = 4096
 
 type Options struct {
 	readOnly      bool
-	retryableSync bool
+	retryableSync bool // if retryableSync is enabled, buffer space is released after a successful sync
+	autoSync      bool // if autoSync is enabled, sync is called when the buffer is full
 	fileMode      os.FileMode
 
 	compressionFormat int
@@ -45,6 +46,7 @@ func DefaultOptions() *Options {
 	return &Options{
 		readOnly:          false,
 		retryableSync:     true,
+		autoSync:          true,
 		fileMode:          DefaultFileMode,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
@@ -66,6 +68,11 @@ func (opts *Options) WithReadOnly(readOnly bool) *Options {
 
 func (opts *Options) WithRetryableSync(retryableSync bool) *Options {
 	opts.retryableSync = retryableSync
+	return opts
+}
+
+func (opts *Options) WithAutoSync(autoSync bool) *Options {
+	opts.autoSync = autoSync
 	return opts
 }
 
