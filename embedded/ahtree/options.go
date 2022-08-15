@@ -28,7 +28,7 @@ const DefaultDataCacheSlots = 1_000
 const DefaultDigestsCacheSlots = 100_000
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
-const DefaultSyncThld = 1000
+const DefaultSyncThld = 100_000
 
 type AppFactoryFunc func(
 	rootPath string,
