@@ -57,12 +57,16 @@ type AppFactoryFunc func(
 type TimeFunc func() time.Time
 
 type Options struct {
-	ReadOnly      bool
+	ReadOnly bool
+
 	Synced        bool
 	SyncFrequency time.Duration
 
+	WriteBufferSize int
+
 	FileMode os.FileMode
-	logger   logger.Logger
+
+	logger logger.Logger
 
 	appFactory         AppFactoryFunc
 	CompactionDisabled bool
@@ -116,16 +120,18 @@ type IndexOptions struct {
 }
 
 type AHTOptions struct {
-	SyncThld int
+	WriteBufferSize int
+	SyncThld        int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		ReadOnly:      false,
-		Synced:        true,
-		SyncFrequency: DefaultSyncFrequency,
-		FileMode:      DefaultFileMode,
-		logger:        logger.NewSimpleLogger("immudb ", os.Stderr),
+		ReadOnly:        false,
+		WriteBufferSize: 1 << 26, //64Mb
+		Synced:          true,
+		SyncFrequency:   DefaultSyncFrequency,
+		FileMode:        DefaultFileMode,
+		logger:          logger.NewSimpleLogger("immudb ", os.Stderr),
 
 		MaxActiveTransactions: DefaultMaxActiveTransactions,
 
@@ -181,7 +187,8 @@ func DefaultIndexOptions() *IndexOptions {
 
 func DefaultAHTOptions() *AHTOptions {
 	return &AHTOptions{
-		SyncThld: ahtree.DefaultSyncThld,
+		WriteBufferSize: 1 << 26, //64Mb
+		SyncThld:        ahtree.DefaultSyncThld,
 	}
 }
 
@@ -190,6 +197,9 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
 	}
 
+	if opts.WriteBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid WriteBufferSize", ErrInvalidOptions)
+	}
 	if opts.SyncFrequency < 0 {
 		return fmt.Errorf("%w: invalid SyncFrequency", ErrInvalidOptions)
 	}
@@ -314,6 +324,9 @@ func (opts *AHTOptions) Validate() error {
 	if opts == nil {
 		return fmt.Errorf("%w: nil AHT options ", ErrInvalidOptions)
 	}
+	if opts.WriteBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid AHT option WriteBufferSize", ErrInvalidOptions)
+	}
 	if opts.SyncThld <= 0 {
 		return fmt.Errorf("%w: invalid AHT option SyncThld", ErrInvalidOptions)
 	}
@@ -328,6 +341,11 @@ func (opts *Options) WithReadOnly(readOnly bool) *Options {
 
 func (opts *Options) WithSynced(synced bool) *Options {
 	opts.Synced = synced
+	return opts
+}
+
+func (opts *Options) WithWriteBufferSize(writeBufferSize int) *Options {
+	opts.WriteBufferSize = writeBufferSize
 	return opts
 }
 
@@ -519,6 +537,11 @@ func (opts *IndexOptions) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles in
 }
 
 // AHTOptions
+
+func (opts *AHTOptions) WithWriteBufferSize(writeBufferSize int) *AHTOptions {
+	opts.WriteBufferSize = writeBufferSize
+	return opts
+}
 
 func (opts *AHTOptions) WithSyncThld(syncThld int) *AHTOptions {
 	opts.SyncThld = syncThld
