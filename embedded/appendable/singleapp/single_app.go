@@ -565,10 +565,11 @@ func (aof *AppendableFile) sync() error {
 
 	err = aof.f.Sync()
 	if aof.retryableSync && err != nil {
-		// prevent data lost when fsync fails
-		// buffered data is going to be attempt to be re-written
-		// in following flushing and sync calls.
 		// Buffer space is not freed when there is an error during sync
+
+		// prevent data lost when fsync fails
+		// buffered data may be re-written in following
+		// flushing and syncing calls.
 		aof.fileOffset -= int64(aof.wbufFlushedOffset)
 		aof.wbufFlushedOffset = 0
 	}
