@@ -259,7 +259,7 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
 
-	a, err := Open("testdata.aof", DefaultOptions().WithSynced(false))
+	a, err := Open("testdata.aof", DefaultOptions().WithRetryableSync(false))
 	defer os.RemoveAll("testdata.aof")
 	require.NoError(t, err)
 
@@ -429,7 +429,7 @@ func TestSingleAppDiscard(t *testing.T) {
 }
 
 func BenchmarkAppendFlush(b *testing.B) {
-	app, err := Open("testdata_benchmark_flush.aof", DefaultOptions().WithSynced(false).WithWriteBufferSize(4096))
+	app, err := Open("testdata_benchmark_flush.aof", DefaultOptions().WithRetryableSync(false).WithWriteBufferSize(4096))
 	if err != nil {
 		panic(err)
 	}
@@ -461,7 +461,7 @@ func BenchmarkAppendFlush(b *testing.B) {
 }
 
 func BenchmarkAppendFlushless(b *testing.B) {
-	app, err := Open("testdata_benchmark_flushless.aof", DefaultOptions().WithSynced(false).WithWriteBufferSize(4096*16))
+	app, err := Open("testdata_benchmark_flushless.aof", DefaultOptions().WithRetryableSync(false).WithWriteBufferSize(4096*16))
 	if err != nil {
 		panic(err)
 	}
