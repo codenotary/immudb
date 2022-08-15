@@ -2204,7 +2204,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
-		WithSynced(opts.Synced).
+		WithRetryableSync(opts.Synced).
 		WithFileMode(opts.FileMode).
 		WithMetadata(metadata.Bytes())
 
