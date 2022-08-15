@@ -28,9 +28,9 @@ const DefaultReadBufferSize = 4096
 const DefaultWriteBufferSize = 4096
 
 type Options struct {
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
+	readOnly      bool
+	retryableSync bool
+	fileMode      os.FileMode
 
 	compressionFormat int
 	compressionLevel  int
@@ -44,7 +44,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		readOnly:          false,
-		synced:            true,
+		retryableSync:     true,
 		fileMode:          DefaultFileMode,
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
@@ -64,8 +64,8 @@ func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	return opts
 }
 
-func (opts *Options) WithSynced(synced bool) *Options {
-	opts.synced = synced
+func (opts *Options) WithRetryableSync(retryableSync bool) *Options {
+	opts.retryableSync = retryableSync
 	return opts
 }
 
