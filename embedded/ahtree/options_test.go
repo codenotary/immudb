@@ -45,10 +45,16 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).compressionLevel)
 	require.Equal(t, DefaultDataCacheSlots, opts.WithDataCacheSlots(DefaultDataCacheSlots).dataCacheSlots)
 	require.Equal(t, DefaultDigestsCacheSlots, opts.WithDigestsCacheSlots(DefaultDigestsCacheSlots).digestsCacheSlots)
-	require.Equal(t, DefaultSyncThld, opts.WithSyncThld(DefaultSyncThld).syncThld)
 	require.NotNil(t, opts.WithAppFactory(dummyAppFactory).appFactory)
 
-	require.False(t, opts.WithReadOnly(false).readOnly)
+	require.True(t, opts.WithReadOnly(true).readOnly)
+	require.Equal(t, multiapp.DefaultReadBufferSize, opts.WithReadBufferSize(multiapp.DefaultReadBufferSize).readBufferSize)
+
+	require.Equal(t, multiapp.DefaultWriteBufferSize, opts.WithWriteBufferSize(multiapp.DefaultWriteBufferSize).writeBufferSize)
+	require.True(t, opts.WithRetryableSync(true).retryableSync)
+	require.True(t, opts.WithAutoSync(true).autoSync)
+	require.Equal(t, DefaultSyncThld, opts.WithSyncThld(DefaultSyncThld).syncThld)
+
 	require.True(t, validOptions(opts))
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
