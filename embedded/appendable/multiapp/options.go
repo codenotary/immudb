@@ -30,9 +30,13 @@ const DefaultReadBufferSize = 4096
 const DefaultWriteBufferSize = 4096
 
 type Options struct {
-	readOnly          bool
-	retryableSync     bool
-	autoSync          bool
+	readOnly       bool
+	readBufferSize int
+
+	writeBufferSize int
+	retryableSync   bool // if retryableSync is enabled, buffer space is released only after a successful sync
+	autoSync        bool // if autoSync is enabled, sync is called when the buffer is full
+
 	fileMode          os.FileMode
 	fileSize          int
 	fileExt           string
@@ -40,8 +44,6 @@ type Options struct {
 	maxOpenedFiles    int
 	compressionFormat int
 	compressionLevel  int
-	readBufferSize    int
-	writeBufferSize   int
 }
 
 func DefaultOptions() *Options {
