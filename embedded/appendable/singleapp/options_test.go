@@ -40,6 +40,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).GetCompressionLevel())
 
 	require.True(t, opts.WithRetryableSync(true).retryableSync)
+	require.True(t, opts.WithAutoSync(true).autoSync)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
 
