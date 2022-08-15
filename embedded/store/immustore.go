@@ -229,10 +229,11 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
-		WithSynced(false).
+		WithWriteBufferSize(opts.WriteBufferSize).
+		WithRetryableSync(opts.Synced).
+		WithAutoSync(true).
 		WithFileSize(opts.FileSize).
 		WithFileMode(opts.FileMode).
-		WithWriteBufferSize(multiapp.DefaultWriteBufferSize * 16). // TODO: parameterize
 		WithMetadata(metadata.Bytes())
 
 	appFactory := opts.appFactory
@@ -261,12 +262,12 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
+	appendableOpts.WithFileExt("val")
+	appendableOpts.WithCompressionFormat(opts.CompressionFormat)
+	appendableOpts.WithCompresionLevel(opts.CompressionLevel)
+	appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
+
 	for i := 0; i < opts.MaxIOConcurrency; i++ {
-		appendableOpts.WithSynced(false)
-		appendableOpts.WithFileExt("val")
-		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
-		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
-		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
 		vLog, err := appFactory(path, fmt.Sprintf("val_%d", i), appendableOpts)
 		if err != nil {
 			return nil, err
@@ -397,6 +398,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
 		WithFileSize(fileSize).
+		WithRetryableSync(opts.Synced).
+		WithWriteBufferSize(opts.AHTOpts.WriteBufferSize).
 		WithSyncThld(opts.AHTOpts.SyncThld)
 
 	if opts.appFactory != nil {
