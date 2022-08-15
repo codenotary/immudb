@@ -57,6 +57,7 @@ type AppendableFile struct {
 	readBufferSize int
 	readOnly       bool
 	retryableSync  bool
+	autoSync       bool
 
 	compressionFormat int
 	compressionLevel  int
@@ -183,6 +184,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		metadata:          metadata,
 		readOnly:          opts.readOnly,
 		retryableSync:     opts.retryableSync,
+		autoSync:          opts.autoSync,
 		closed:            false,
 	}, nil
 }
@@ -391,14 +393,23 @@ func (aof *AppendableFile) write(bs []byte) (n int, err error) {
 		available := len(aof.writeBuffer) - aof.wbufUnwrittenOffset
 
 		if available == 0 {
-			if aof.retryableSync {
+			if aof.retryableSync && !aof.autoSync {
 				// Sync must be called to free buffer space
 				return n, ErrBufferFull
 			}
 
-			err = aof.flush()
-			if err != nil {
-				return
+			if aof.retryableSync && aof.autoSync {
+				err = aof.sync()
+				if err != nil {
+					return
+				}
+			}
+
+			if !aof.retryableSync {
+				err = aof.flush()
+				if err != nil {
+					return
+				}
 			}
 
 			available = len(aof.writeBuffer)
@@ -542,6 +553,10 @@ func (aof *AppendableFile) Sync() error {
 		return ErrReadOnly
 	}
 
+	return aof.sync()
+}
+
+func (aof *AppendableFile) sync() error {
 	err := aof.flush()
 	if err != nil {
 		return err
