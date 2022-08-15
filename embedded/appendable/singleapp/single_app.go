@@ -516,7 +516,8 @@ func (aof *AppendableFile) Flush() error {
 }
 
 // flush writes buffered data into the underlying file.
-// When retryableSync is used, the buffer space is released when sync succeeds to prevent data loss under unexpected conditions
+// When retryableSync is used, the buffer space is released
+// after sync succeeds to prevent data loss under unexpected conditions
 func (aof *AppendableFile) flush() error {
 	if aof.wbufUnwrittenOffset-aof.wbufFlushedOffset == 0 {
 		// nothing to write

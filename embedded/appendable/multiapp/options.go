@@ -31,7 +31,8 @@ const DefaultWriteBufferSize = 4096
 
 type Options struct {
 	readOnly          bool
-	synced            bool
+	retryableSync     bool
+	autoSync          bool
 	fileMode          os.FileMode
 	fileSize          int
 	fileExt           string
@@ -46,7 +47,8 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		readOnly:          false,
-		synced:            true,
+		retryableSync:     true,
+		autoSync:          true,
 		fileMode:          DefaultFileMode,
 		fileSize:          DefaultFileSize,
 		fileExt:           "aof",
@@ -72,8 +74,13 @@ func (opt *Options) WithReadOnly(readOnly bool) *Options {
 	return opt
 }
 
-func (opt *Options) WithSynced(synced bool) *Options {
-	opt.synced = synced
+func (opt *Options) WithRetryableSync(retryableSync bool) *Options {
+	opt.retryableSync = retryableSync
+	return opt
+}
+
+func (opt *Options) WithAutoSync(autoSync bool) *Options {
+	opt.autoSync = autoSync
 	return opt
 }
 
