@@ -33,6 +33,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"empty", &Options{}},
 		{"logger", DefaultOptions().WithLogger(nil)},
 		{"MaxConcurrency", DefaultOptions().WithMaxConcurrency(0)},
+		{"WriteBufferSize", DefaultOptions().WithWriteBufferSize(0)},
 		{"SyncFrequency", DefaultOptions().WithSyncFrequency(-1)},
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
@@ -93,6 +94,7 @@ func TestInvalidAHTOptions(t *testing.T) {
 	}{
 		{"nil", nil},
 		{"empty", &AHTOptions{}},
+		{"WriteBufferSize", DefaultAHTOptions().WithWriteBufferSize(0)},
 		{"SyncThld", DefaultAHTOptions().WithSyncThld(0)},
 	} {
 		t.Run(d.n, func(t *testing.T) {
@@ -112,6 +114,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).CompressionLevel)
 	require.Equal(t, DefaultCompressionFormat, opts.WithCompressionFormat(DefaultCompressionFormat).CompressionFormat)
 	require.Equal(t, DefaultMaxConcurrency, opts.WithMaxConcurrency(DefaultMaxConcurrency).MaxConcurrency)
+	require.Equal(t, 1<<20, opts.WithWriteBufferSize(1<<20).WriteBufferSize)
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).FileMode)
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).FileSize)
 	require.Equal(t, DefaultSyncFrequency, opts.WithSyncFrequency(DefaultSyncFrequency).SyncFrequency)
@@ -190,6 +193,7 @@ func TestValidOptions(t *testing.T) {
 	opts.WithAHTOptions(ahtOpts)
 	require.ErrorIs(t, opts.Validate(), ErrInvalidOptions)
 
+	require.Equal(t, 1<<20, ahtOpts.WithWriteBufferSize(1<<20).WriteBufferSize)
 	require.Equal(t, 10_000, ahtOpts.WithSyncThld(10_000).SyncThld)
 
 	require.NoError(t, opts.Validate())
