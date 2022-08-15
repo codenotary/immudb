@@ -1,9 +1,10 @@
+//go:build webconsole
 // +build webconsole
 
 package webconsole
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"

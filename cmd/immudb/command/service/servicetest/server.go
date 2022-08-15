@@ -17,7 +17,7 @@ limitations under the License.
 package servicetest
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/stream"
 )

@@ -17,7 +17,7 @@ limitations under the License.
 package immudbcmdtest
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/stream"

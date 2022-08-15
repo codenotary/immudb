@@ -20,12 +20,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
-	"golang.org/x/net/netutil"
 	"net"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/embedded/logger"
+	"github.com/codenotary/immudb/pkg/database"
+	"golang.org/x/net/netutil"
 )
 
 type srv struct {

@@ -39,7 +39,7 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")

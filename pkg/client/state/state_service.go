@@ -20,9 +20,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 // StateService the root service interface

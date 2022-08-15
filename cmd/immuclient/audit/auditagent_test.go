@@ -29,7 +29,7 @@ import (
 	"github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	immusrvc "github.com/codenotary/immudb/cmd/sservice"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/viper"

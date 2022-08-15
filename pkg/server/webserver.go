@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"net/http"
+
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"net/http"
 )
 
 func StartWebServer(addr string, tlsConfig *tls.Config, s schema.ImmuServiceServer, l logger.Logger) (*http.Server, error) {

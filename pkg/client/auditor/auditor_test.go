@@ -30,11 +30,11 @@ import (
 
 	"github.com/codenotary/immudb/pkg/signer"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/client/state"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

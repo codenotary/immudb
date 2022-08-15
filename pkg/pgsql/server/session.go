@@ -19,16 +19,17 @@ package server
 import (
 	"crypto/tls"
 	"encoding/json"
+	"net"
+	"sync"
+
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
-	"net"
-	"sync"
 )
 
 type session struct {
