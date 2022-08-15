@@ -307,7 +307,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.readOnly).
-		WithSynced(false).
+		WithRetryableSync(false).
 		WithFileSize(opts.fileSize).
 		WithFileMode(opts.fileMode).
 		WithWriteBufferSize(opts.flushBufferSize).
@@ -1363,7 +1363,7 @@ func (t *TBtree) fullDump(snap *Snapshot, progressOutput writeProgressOutputFunc
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(false).
-		WithSynced(false).
+		WithRetryableSync(false).
 		WithFileSize(t.fileSize).
 		WithFileMode(t.fileMode).
 		WithWriteBufferSize(t.flushBufferSize).
