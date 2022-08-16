@@ -93,7 +93,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 		if err != nil {
 			return nil, err
 		}
-		return &Rows{rows: queryResult.Rows}, nil
+		return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
 	}
 
 	queryResult, err = c.immuClient.SQLQuery(ctx, query, vals, true)
@@ -101,7 +101,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 		return nil, err
 	}
 
-	return &Rows{rows: queryResult.Rows}, nil
+	return &Rows{rows: queryResult.Rows, columns: queryResult.Columns}, nil
 }
 
 func (c *Conn) CheckNamedValue(nv *driver.NamedValue) error {

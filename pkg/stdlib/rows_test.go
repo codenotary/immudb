@@ -32,13 +32,18 @@ func TestRows(t *testing.T) {
 	r := Rows{
 		index: 0,
 		rows: []*schema.Row{{
-			Columns: []string{"c1"},
+			Columns: []string{"(defaultdb.emptytable.c1)"},
 			Values:  []*schema.SQLValue{{Value: nil}},
 		}},
+		columns: []*schema.Column{
+			{
+				Name: "(defaultdb.emptytable.c1)",
+			},
+		},
 	}
 
 	ast := r.Columns()
-	require.Equal(t, "c", ast[0])
+	require.Equal(t, "c1", ast[0])
 
 	st := r.ColumnTypeDatabaseTypeName(1)
 	require.Equal(t, "", st)
@@ -433,4 +438,21 @@ func TestRows_convertToPlainVals(t *testing.T) {
 			require.False(t, reflect.ValueOf(vals["v"]).Kind() == reflect.Ptr)
 		})
 	}
+}
+
+func TestEmptyRowsForColumns(t *testing.T) {
+	r := Rows{
+		columns: []*schema.Column{
+			{
+				Name: "(defaultdb.emptytable.id)",
+			},
+			{
+				Name: "(defaultdb.emptytable.name)",
+			},
+		},
+	}
+
+	ast := r.Columns()
+	require.Equal(t, "id", ast[0])
+	require.Equal(t, "name", ast[1])
 }
