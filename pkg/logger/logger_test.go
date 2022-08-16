@@ -40,7 +40,7 @@ func TestNewLogger(t *testing.T) {
 					LogFormat: "json",
 				},
 			},
-			wantLoggerType: &JsonLogger{},
+			wantLoggerType: &intLogger{},
 			wantErr:        false,
 		},
 		{
@@ -51,7 +51,7 @@ func TestNewLogger(t *testing.T) {
 					LogFormat: "text",
 				},
 			},
-			wantLoggerType: &SimpleLogger{},
+			wantLoggerType: &intLogger{},
 			wantErr:        false,
 		},
 	}
@@ -89,7 +89,7 @@ func TestNewLoggerWithFile(t *testing.T) {
 					LogFile:   "log_json.log",
 				},
 			},
-			wantLoggerType: &JsonLogger{},
+			wantLoggerType: &intLogger{},
 			wantErr:        false,
 		},
 		{
@@ -101,7 +101,7 @@ func TestNewLoggerWithFile(t *testing.T) {
 					LogFile:   "log_text.log",
 				},
 			},
-			wantLoggerType: &FileLogger{},
+			wantLoggerType: &intLogger{},
 			wantErr:        false,
 		},
 	}

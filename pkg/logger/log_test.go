@@ -31,9 +31,10 @@ import (
 func TestJSONLogger(t *testing.T) {
 	t.Run("log", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -55,8 +56,9 @@ func TestJSONLogger(t *testing.T) {
 	t.Run("use UTC time zone", func(t *testing.T) {
 		var buf bytes.Buffer
 
-		logger, err := NewJSONLogger(&Options{
+		logger, err := newLogger(&Options{
 			Name:       "test",
+			LogFormat:  "json",
 			Output:     &buf,
 			TimeFormat: time.Kitchen,
 			TimeFnc:    func() time.Time { return time.Now().UTC() },
@@ -83,9 +85,10 @@ func TestJSONLogger(t *testing.T) {
 	t.Run("log error type", func(t *testing.T) {
 		var buf bytes.Buffer
 
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -107,9 +110,10 @@ func TestJSONLogger(t *testing.T) {
 	t.Run("handles non-serializable args", func(t *testing.T) {
 		var buf bytes.Buffer
 
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -132,8 +136,9 @@ func TestJSONLogger(t *testing.T) {
 		assert.NoError(t, err)
 		defer os.Remove(file.Name())
 
-		logger, err := NewJSONLogger(&Options{
+		logger, err := newLogger(&Options{
 			Name:       "test",
+			LogFormat:  "json",
 			Output:     file,
 			TimeFormat: time.Kitchen,
 			TimeFnc:    func() time.Time { return time.Now().UTC() },
@@ -158,9 +163,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with debug", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -180,9 +186,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with warning", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -201,9 +208,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with error", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -222,9 +230,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with infof", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -243,9 +252,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with debugf", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -264,9 +274,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with warningf", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -284,9 +295,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with errorf", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -304,9 +316,10 @@ func TestJSONLogger(t *testing.T) {
 
 	t.Run("log with component", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger, err := NewJSONLogger(&Options{
-			Name:   "test",
-			Output: &buf,
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "json",
+			Output:    &buf,
 		})
 		assert.NoError(t, err)
 
@@ -324,6 +337,25 @@ func TestJSONLogger(t *testing.T) {
 
 }
 
-func logWithFunc(l *JsonLogger, msg string) {
+func logWithFunc(l *intLogger, msg string) {
 	l.Infof(msg)
+}
+
+func TestTextLogger(t *testing.T) {
+	t.Run("log", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger, err := newLogger(&Options{
+			Name:      "test",
+			LogFormat: "text",
+			Output:    &buf,
+		})
+		assert.NoError(t, err)
+
+		logger.Infof("some info %d", 3)
+
+		b := buf.Bytes()
+
+		assert.Contains(t, string(b), "INFO:")
+		assert.NoError(t, logger.Close())
+	})
 }

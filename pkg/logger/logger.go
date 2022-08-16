@@ -95,7 +95,7 @@ type (
 func NewLogger(opts *Options) (logger Logger, err error) {
 	switch opts.LogFormat {
 	case "json":
-		return NewJSONLogger(opts)
+		return newLogger(opts)
 	case "text":
 		if opts.LogFile != "" {
 			logger, _, err = NewFileLogger(opts.Name, opts.LogFile)
@@ -105,4 +105,49 @@ func NewLogger(opts *Options) (logger Logger, err error) {
 	default:
 		return nil, ErrInvalidLoggerType
 	}
+}
+
+func NewFileLogger(name string, file string) (logger Logger, out *os.File, err error) {
+	opts := &Options{
+		Name:      name,
+		LogFormat: "text",
+		LogFile:   file,
+	}
+	logger, err = newLogger(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return logger, logger.(*intLogger).writer.Writer().(*os.File), nil
+}
+
+func NewSimpleLogger(name string, out io.Writer) Logger {
+	opts := &Options{
+		Name:      name,
+		LogFormat: "text",
+		Output:    out,
+	}
+	logger, _ := newLogger(opts)
+	return logger
+}
+
+func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger {
+	opts := &Options{
+		Name:      name,
+		LogFormat: "text",
+		Output:    out,
+		Level:     LogLevelFromEnvironment(),
+	}
+	logger, _ := newLogger(opts)
+	return logger
+}
+
+func NewMemoryLoggerWithLevel(level LogLevel) Logger {
+	opts := &Options{
+		Name:      "memory",
+		LogFormat: "text",
+		Output:    newMemoryWriter(),
+		Level:     LogLevelFromEnvironment(),
+	}
+	logger, _ := newLogger(opts)
+	return logger
 }

@@ -20,10 +20,14 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,25 +47,42 @@ const (
 var (
 	// defaultOutput is used as the default log output.
 	defaultOutput io.Writer = os.Stderr
+
+	levelToString = map[LogLevel]string{
+		LogDebug: "DEBUG",
+		LogInfo:  "INFO",
+		LogWarn:  "WARN",
+		LogError: "ERROR",
+	}
 )
 
-var _ Logger = &JsonLogger{}
+var _ Logger = &intLogger{}
 
-// JsonLogger is a logger implementation for json logging.
-type JsonLogger struct {
-	name       string
-	timeFormat string
+// intLogger is a logger implementation for json logging.
+type (
+	writer interface {
+		Flush() error
+		Writer() io.Writer
+		Close() error
+		Write([]byte) (int, error)
+	}
 
-	timeFnc TimeFunc
+	intLogger struct {
+		name      string
+		logFormat string
 
-	mutex  sync.Mutex
-	writer *writer
+		timeFormat string
+		timeFnc    TimeFunc
 
-	level int32
-}
+		mutex  sync.Mutex
+		writer writer
 
-// NewJSONLogger returns a json logger.
-func NewJSONLogger(opts *Options) (*JsonLogger, error) {
+		level int32
+	}
+)
+
+// newLogger returns a json logger.
+func newLogger(opts *Options) (*intLogger, error) {
 	if opts == nil {
 		opts = &Options{}
 	}
@@ -79,11 +100,20 @@ func NewJSONLogger(opts *Options) (*JsonLogger, error) {
 		output = out
 	}
 
-	l := &JsonLogger{
+	var w writer
+	switch opts.LogFormat {
+	case "json":
+		w = newWriter(output)
+	case "text":
+		w = newWriter(newLogWriter(opts.Name, output))
+	}
+
+	l := &intLogger{
 		name:       opts.Name,
 		timeFormat: DefaultTimeFormat,
 		timeFnc:    time.Now,
-		writer:     newWriter(output),
+		writer:     w,
+		logFormat:  opts.LogFormat,
 	}
 
 	if opts.TimeFnc != nil {
@@ -97,13 +127,13 @@ func NewJSONLogger(opts *Options) (*JsonLogger, error) {
 	return l, nil
 }
 
-func (l *JsonLogger) logWithFmt(name string, level LogLevel, msg string, args ...interface{}) {
+func (l *intLogger) logWithFmt(name string, level LogLevel, msg string, args ...interface{}) {
 	msgStr := fmt.Sprintf(msg, args...)
 	l.log(name, level, msgStr)
 }
 
 // Log a message and a set of key/value pairs for a given level.
-func (l *JsonLogger) log(name string, level LogLevel, msg string, args ...interface{}) {
+func (l *intLogger) log(name string, level LogLevel, msg string, args ...interface{}) {
 	minLevel := LogLevel(atomic.LoadInt32(&l.level))
 	if level < minLevel {
 		return
@@ -114,12 +144,27 @@ func (l *JsonLogger) log(name string, level LogLevel, msg string, args ...interf
 
 	t := l.timeFnc()
 
-	l.logJSON(t, name, level, msg, args...)
+	// l.logJSON(t, name, level, msg, args...)
+	switch l.logFormat {
+	case "json":
+		l.logJSON(t, name, level, msg, args...)
+	case "text":
+		l.logText(t, name, level, msg, args...)
+	}
 
 	l.writer.Flush()
 }
 
-func (l *JsonLogger) logJSON(t time.Time, name string, level LogLevel, msg string, args ...interface{}) {
+func (l *intLogger) logText(t time.Time, name string, level LogLevel, msg string, args ...interface{}) {
+	lvl, ok := levelToString[level]
+	if !ok {
+		lvl = "[?????]"
+	}
+	text := fmt.Sprintf("%s: %s", lvl, msg)
+	l.writer.Write([]byte(text))
+}
+
+func (l *intLogger) logJSON(t time.Time, name string, level LogLevel, msg string, args ...interface{}) {
 	vals := l.getVals(t, name, level, msg)
 
 	if args != nil && len(args) > 0 {
@@ -146,18 +191,18 @@ func (l *JsonLogger) logJSON(t time.Time, name string, level LogLevel, msg strin
 		}
 	}
 
-	err := json.NewEncoder(l.writer).Encode(vals)
+	err := json.NewEncoder(l.writer.Writer()).Encode(vals)
 	if err != nil {
 		if _, ok := err.(*json.UnsupportedTypeError); ok {
 			vals := l.getVals(t, name, level, msg)
 			vals["warn"] = errInvalidTypeMsg
 
-			json.NewEncoder(l.writer).Encode(vals)
+			json.NewEncoder(l.writer.Writer()).Encode(vals)
 		}
 	}
 }
 
-func (l *JsonLogger) getVals(t time.Time, name string, level LogLevel, msg string) map[string]interface{} {
+func (l *intLogger) getVals(t time.Time, name string, level LogLevel, msg string) map[string]interface{} {
 	vals := map[string]interface{}{
 		"message":   msg,
 		"timestamp": t.Format(l.timeFormat),
@@ -195,81 +240,85 @@ func (l *JsonLogger) getVals(t time.Time, name string, level LogLevel, msg strin
 }
 
 // Debugf prints the message and args at DEBUG level
-func (l *JsonLogger) Debug(msg string, args ...interface{}) {
+func (l *intLogger) Debug(msg string, args ...interface{}) {
 	l.log(l.Name(), LogDebug, msg, args...)
 }
 
 // Infof prints the message and args at INFO level
-func (l *JsonLogger) Info(msg string, args ...interface{}) {
+func (l *intLogger) Info(msg string, args ...interface{}) {
 	l.log(l.Name(), LogInfo, msg, args...)
 }
 
 // Warningf prints the message and args at WARN level
-func (l *JsonLogger) Warning(msg string, args ...interface{}) {
+func (l *intLogger) Warning(msg string, args ...interface{}) {
 	l.log(l.Name(), LogWarn, msg, args...)
 }
 
 // Errorf prints the message and args at ERROR level
-func (l *JsonLogger) Error(msg string, args ...interface{}) {
+func (l *intLogger) Error(msg string, args ...interface{}) {
 	l.log(l.Name(), LogError, msg, args...)
 }
 
 // Debugf prints the message and args at DEBUG level
-func (l *JsonLogger) Debugf(msg string, args ...interface{}) {
+func (l *intLogger) Debugf(msg string, args ...interface{}) {
 	l.logWithFmt(l.Name(), LogDebug, msg, args...)
 }
 
 // Infof prints the message and args at INFO level
-func (l *JsonLogger) Infof(msg string, args ...interface{}) {
+func (l *intLogger) Infof(msg string, args ...interface{}) {
 	l.logWithFmt(l.Name(), LogInfo, msg, args...)
 }
 
 // Warningf prints the message and args at WARN level
-func (l *JsonLogger) Warningf(msg string, args ...interface{}) {
+func (l *intLogger) Warningf(msg string, args ...interface{}) {
 	l.logWithFmt(l.Name(), LogWarn, msg, args...)
 }
 
 // Errorf prints the message and args at ERROR level
-func (l *JsonLogger) Errorf(msg string, args ...interface{}) {
+func (l *intLogger) Errorf(msg string, args ...interface{}) {
 	l.logWithFmt(l.Name(), LogError, msg, args...)
 }
 
 // Update the logging level
-func (l *JsonLogger) SetLogLevel(level LogLevel) {
+func (l *intLogger) SetLogLevel(level LogLevel) {
 	atomic.StoreInt32(&l.level, int32(level))
 }
 
 // Name returns the loggers name
-func (i *JsonLogger) Name() string {
+func (i *intLogger) Name() string {
 	return i.name
 }
 
 // Close the logger
-func (i *JsonLogger) Close() error {
+func (i *intLogger) Close() error {
 	return i.writer.Close()
 }
 
-type writer struct {
+type bufferedWriter struct {
 	b bytes.Buffer
 	w io.Writer
 }
 
-func newWriter(w io.Writer) *writer {
-	return &writer{w: w}
+func newWriter(w io.Writer) writer {
+	return &bufferedWriter{w: w}
 }
 
-func (w *writer) Flush() (err error) {
+func (w *bufferedWriter) Write(p []byte) (int, error) {
+	return w.b.Write(p)
+}
+
+func (w *bufferedWriter) Flush() (err error) {
 	var unwritten = w.b.Bytes()
 	_, err = w.w.Write(unwritten)
 	w.b.Reset()
 	return err
 }
 
-func (w *writer) Write(p []byte) (int, error) {
-	return w.b.Write(p)
+func (w *bufferedWriter) Writer() io.Writer {
+	return w.w
 }
 
-func (w *writer) Close() error {
+func (w *bufferedWriter) Close() error {
 	switch t := w.w.(type) {
 	case *os.File:
 		err := w.Flush()
@@ -280,4 +329,55 @@ func (w *writer) Close() error {
 	default:
 		return w.Flush()
 	}
+}
+
+func newLogWriter(name string, out io.Writer) io.Writer {
+	return &logWriter{
+		Logger: log.New(out, name+" ", log.LstdFlags),
+	}
+}
+
+type logWriter struct {
+	*log.Logger
+}
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	l.Println(string(p))
+	return 0, nil
+}
+
+func newMemoryWriter() io.Writer {
+	lines := make([]string, 0, 1)
+	return &memoryWriter{
+		lines: &lines,
+	}
+}
+
+type memoryWriter struct {
+	lines *[]string
+}
+
+func (l *memoryWriter) Write(p []byte) (n int, err error) {
+	sb := &strings.Builder{}
+
+	sb.WriteRune('[')
+	sb.WriteString(time.Now().Format(time.RFC3339Nano))
+	sb.WriteString("] ")
+
+	fmt.Fprintf(sb, string(p))
+	*l.lines = append(*l.lines, sb.String())
+	return 0, nil
+}
+
+func setup(file string) (out *os.File, err error) {
+	if _, err = os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
+		if err = os.Mkdir(filepath.Dir(file), os.FileMode(0755)); err != nil {
+			return nil, errors.New("Unable to create log folder")
+		}
+	}
+	out, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return out, errors.New("Unable to create log file")
+	}
+	return out, err
 }
