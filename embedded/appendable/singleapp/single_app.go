@@ -38,6 +38,7 @@ var ErrAlreadyClosed = errors.New("single-file appendable already closed")
 var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 var ErrBufferFull = errors.New("buffer full")
+var ErrNegativeOffset = errors.New("negative offset")
 
 const (
 	metaCompressionFormat = "COMPRESSION_FORMAT"
@@ -49,6 +50,7 @@ type AppendableFile struct {
 	f              *os.File
 	fileBaseOffset int64
 	fileOffset     int64
+	seekRequired   bool
 
 	writeBuffer         []byte
 	wbufFlushedOffset   int
@@ -208,6 +210,8 @@ func (aof *AppendableFile) Copy(dstPath string) error {
 		return err
 	}
 
+	aof.seekRequired = true
+
 	_, err = aof.f.Seek(0, io.SeekStart)
 	if err != nil {
 		return err
@@ -263,6 +267,10 @@ func (aof *AppendableFile) SetOffset(newOffset int64) error {
 		return ErrAlreadyClosed
 	}
 
+	if newOffset < 0 {
+		return ErrNegativeOffset
+	}
+
 	currOffset := aof.offset()
 
 	if newOffset > currOffset {
@@ -279,12 +287,8 @@ func (aof *AppendableFile) SetOffset(newOffset int64) error {
 		return nil
 	}
 
-	_, err := aof.f.Seek(aof.fileBaseOffset+newOffset, io.SeekStart)
-	if err != nil {
-		return err
-	}
-
 	aof.fileOffset = newOffset
+	aof.seekRequired = true
 
 	// discard in-memory data
 	aof.wbufFlushedOffset = 0
@@ -393,19 +397,18 @@ func (aof *AppendableFile) write(bs []byte) (n int, err error) {
 		available := len(aof.writeBuffer) - aof.wbufUnwrittenOffset
 
 		if available == 0 {
-			if aof.retryableSync && !aof.autoSync {
-				// Sync must be called to free buffer space
-				return n, ErrBufferFull
-			}
+			if aof.retryableSync {
+				if !aof.autoSync {
+					// Sync must be called to free buffer space
+					return n, ErrBufferFull
+				}
 
-			if aof.retryableSync && aof.autoSync {
+				// auto-sync is enabled
 				err = aof.sync()
 				if err != nil {
 					return
 				}
-			}
-
-			if !aof.retryableSync {
+			} else {
 				err = aof.flush()
 				if err != nil {
 					return
@@ -427,6 +430,10 @@ func (aof *AppendableFile) write(bs []byte) (n int, err error) {
 }
 
 func (aof *AppendableFile) readAt(bs []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, ErrNegativeOffset
+	}
+
 	if off < aof.fileOffset {
 		n, err = aof.f.ReadAt(bs, aof.fileBaseOffset+off)
 	}
@@ -515,6 +522,21 @@ func (aof *AppendableFile) Flush() error {
 	return aof.flush()
 }
 
+func (aof *AppendableFile) seekIfRequired() error {
+	if !aof.seekRequired {
+		return nil
+	}
+
+	_, err := aof.f.Seek(aof.fileBaseOffset+aof.fileOffset, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	aof.seekRequired = false
+
+	return nil
+}
+
 // flush writes buffered data into the underlying file.
 // When retryableSync is used, the buffer space is released
 // after sync succeeds to prevent data loss under unexpected conditions
@@ -522,6 +544,12 @@ func (aof *AppendableFile) flush() error {
 	if aof.wbufUnwrittenOffset-aof.wbufFlushedOffset == 0 {
 		// nothing to write
 		return nil
+	}
+
+	// ensure that the file is written at the expected location
+	err := aof.seekIfRequired()
+	if err != nil {
+		return err
 	}
 
 	n, err := aof.f.Write(aof.writeBuffer[aof.wbufFlushedOffset:aof.wbufUnwrittenOffset])
@@ -564,19 +592,26 @@ func (aof *AppendableFile) sync() error {
 	}
 
 	err = aof.f.Sync()
-	if aof.retryableSync && err != nil {
+	if !aof.retryableSync {
+		return err
+	}
+
+	// retryableSync
+
+	if err == nil {
+		// buffer space is freed
+		aof.wbufFlushedOffset = 0
+		aof.wbufUnwrittenOffset = 0
+	} else {
 		// Buffer space is not freed when there is an error during sync
 
 		// prevent data lost when fsync fails
 		// buffered data may be re-written in following
 		// flushing and syncing calls.
 		aof.fileOffset -= int64(aof.wbufFlushedOffset)
+		aof.seekRequired = true
+
 		aof.wbufFlushedOffset = 0
-	}
-	if aof.retryableSync && err == nil {
-		// buffer space is freed
-		aof.wbufFlushedOffset = 0
-		aof.wbufUnwrittenOffset = 0
 	}
 
 	return err
