@@ -35,7 +35,7 @@ import (
 
 func getRandomTableName() string {
 	rand.Seed(time.Now().UnixNano())
-	r := rand.Intn(100)
+	r := rand.Intn(100000)
 	return fmt.Sprintf("table%d", r)
 }
 

@@ -22,6 +22,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/codenotary/immudb/pkg/server"
@@ -29,12 +36,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestPgsqlServer_SimpleQuery(t *testing.T) {
@@ -573,7 +574,7 @@ func TestPgsqlServer_SimpleQueryNilValues(t *testing.T) {
 
 func getRandomTableName() string {
 	rand.Seed(time.Now().UnixNano())
-	r := rand.Intn(100)
+	r := rand.Intn(100000)
 	return fmt.Sprintf("table%d", r)
 }
 
