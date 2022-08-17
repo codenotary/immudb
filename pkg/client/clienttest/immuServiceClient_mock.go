@@ -25,6 +25,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	_ schema.ImmuServiceClient = (*ImmuServiceClientMock)(nil)
+)
+
 // ImmuServiceClientMock ...
 type ImmuServiceClientMock struct {
 	schema.ImmuServiceClient

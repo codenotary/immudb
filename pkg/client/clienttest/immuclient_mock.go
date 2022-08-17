@@ -27,6 +27,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	_ client.ImmuClient = (*ImmuClientMock)(nil)
+)
+
 // ImmuClientMock ...
 type ImmuClientMock struct {
 	immuclient.ImmuClient
@@ -39,7 +43,7 @@ type ImmuClientMock struct {
 	DisconnectF           func() error
 	LoginF                func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
 	LogoutF               func(context.Context) error
-	VerifiedGetF          func(context.Context, []byte) (*schema.Entry, error)
+	VerifiedGetF          func(context.Context, []byte, ...client.GetOption) (*schema.Entry, error)
 	VerifiedGetAtF        func(context.Context, []byte, uint64) (*schema.Entry, error)
 	VerifiedSetF          func(context.Context, []byte, []byte) (*schema.TxHeader, error)
 	SetF                  func(context.Context, []byte, []byte) (*schema.TxHeader, error)
@@ -52,7 +56,7 @@ type ImmuClientMock struct {
 	DumpF                 func(context.Context, io.WriteSeeker) (int64, error)
 	CurrentStateF         func(context.Context) (*schema.ImmutableState, error)
 	TxByIDF               func(context.Context, uint64) (*schema.Tx, error)
-	GetF                  func(context.Context, []byte) (*schema.Entry, error)
+	GetF                  func(context.Context, []byte, ...client.GetOption) (*schema.Entry, error)
 	VerifiedTxByIDF       func(context.Context, uint64) (*schema.Tx, error)
 	ListUsersF            func(context.Context) (*schema.UserList, error)
 	SetActiveUserF        func(context.Context, *schema.SetActiveUserRequest) error
@@ -61,7 +65,7 @@ type ImmuClientMock struct {
 	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.Entries, error)
 	CountF                func(context.Context, []byte) (*schema.EntryCount, error)
 	CreateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
-	CreateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error)
+	CreateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
 	UpdateDatabaseF       func(context.Context, *schema.DatabaseSettings) error
 	UpdateDatabaseV2F     func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
@@ -110,8 +114,8 @@ func (icm *ImmuClientMock) Logout(ctx context.Context) error {
 }
 
 // VerifiedGet ...
-func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte) (*schema.Entry, error) {
-	return icm.VerifiedGetF(ctx, key)
+func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte, opts ...client.GetOption) (*schema.Entry, error) {
+	return icm.VerifiedGetF(ctx, key, opts...)
 }
 
 // VerifiedGetAt ...
@@ -200,8 +204,8 @@ func (icm *ImmuClientMock) CurrentState(ctx context.Context) (*schema.ImmutableS
 }
 
 // Get ...
-func (icm *ImmuClientMock) Get(ctx context.Context, key []byte) (*schema.Entry, error) {
-	return icm.GetF(ctx, key)
+func (icm *ImmuClientMock) Get(ctx context.Context, key []byte, opts ...client.GetOption) (*schema.Entry, error) {
+	return icm.GetF(ctx, key, opts...)
 }
 
 // TxByID ...
@@ -250,7 +254,7 @@ func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Databa
 }
 
 // CreateDatabaseV2 ...
-func (icm *ImmuClientMock) CreateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.DatabaseNullableSettings, error) {
+func (icm *ImmuClientMock) CreateDatabaseV2(ctx context.Context, db string, setttings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error) {
 	return icm.CreateDatabaseV2F(ctx, db, setttings)
 }
 

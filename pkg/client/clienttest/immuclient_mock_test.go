@@ -38,6 +38,7 @@ func TestImmuClientMock(t *testing.T) {
 	errVerifiedReference := errors.New("VerifiedReferenceF got called")
 	errVerifiedZAdd := errors.New("VerifiedZAddF got called")
 	errHistory := errors.New("HistoryF got called")
+	errCreateDatabase := errors.New("CreateDatabaseV2F got called")
 	icm := &ImmuClientMock{
 		ImmuClient: client.NewClient(),
 		IsConnectedF: func() bool {
@@ -58,7 +59,7 @@ func TestImmuClientMock(t *testing.T) {
 		LogoutF: func(context.Context) error {
 			return errLogout
 		},
-		VerifiedGetF: func(context.Context, []byte) (*schema.Entry, error) {
+		VerifiedGetF: func(context.Context, []byte, ...client.GetOption) (*schema.Entry, error) {
 			return nil, errVerifiedGet
 		},
 		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxHeader, error) {
@@ -75,6 +76,9 @@ func TestImmuClientMock(t *testing.T) {
 		},
 		HistoryF: func(context.Context, *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, errHistory
+		},
+		CreateDatabaseV2F: func(context.Context, string, *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error) {
+			return nil, errCreateDatabase
 		},
 	}
 	require.True(t, icm.IsConnected())
@@ -109,4 +113,7 @@ func TestImmuClientMock(t *testing.T) {
 	_, err = icm.History(context.TODO(), nil)
 
 	require.Equal(t, errHistory, err)
+
+	_, err = icm.CreateDatabaseV2(context.TODO(), "", nil)
+	require.Equal(t, errCreateDatabase, err)
 }

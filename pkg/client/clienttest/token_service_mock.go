@@ -21,6 +21,10 @@ import (
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 )
 
+var (
+	_ tokenservice.TokenService = (*TokenServiceMock)(nil)
+)
+
 type TokenServiceMock struct {
 	tokenservice.TokenService
 	GetTokenF       func() (string, error)

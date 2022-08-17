@@ -21,6 +21,10 @@ import (
 	"github.com/codenotary/immudb/pkg/client/homedir"
 )
 
+var (
+	_ homedir.HomedirService = (*HomedirServiceMock)(nil)
+)
+
 // HomedirServiceMock ...
 type HomedirServiceMock struct {
 	homedir.HomedirService
