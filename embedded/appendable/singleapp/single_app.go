@@ -435,7 +435,7 @@ func (aof *AppendableFile) readAt(bs []byte, off int64) (n int, err error) {
 	}
 
 	if off > aof.offset() {
-		return 0, fmt.Errorf("%w: invalid offset", ErrIllegalArguments)
+		return 0, io.EOF
 	}
 
 	// boff is the offset to employ when reading from the buffer
