@@ -53,11 +53,11 @@ func tempTxHolder(t *testing.T, immuStore *ImmuStore) *Tx {
 }
 
 func TestImmudbStoreConcurrency(t *testing.T) {
+	defer os.RemoveAll("data_concurrency")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
 	immuStore, err := Open("data_concurrency", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_concurrency")
-
 	require.NotNil(t, immuStore)
 
 	defer immustoreClose(t, immuStore)
@@ -137,11 +137,11 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 }
 
 func TestImmudbStoreConcurrentCommits(t *testing.T) {
+	defer os.RemoveAll("data_concurrent_commits")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(5)
 	immuStore, err := Open("data_concurrent_commits", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_concurrent_commits")
-
 	require.NotNil(t, immuStore)
 
 	defer immustoreClose(t, immuStore)
@@ -215,9 +215,10 @@ func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 }
 
 func TestImmudbStoreOnClosedStore(t *testing.T) {
+	defer os.RemoveAll("closed_store")
+
 	immuStore, err := Open("closed_store", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
-	defer os.RemoveAll("closed_store")
 
 	err = immuStore.ReadTx(1, nil)
 	require.Equal(t, ErrTxNotFound, err)
@@ -247,9 +248,10 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 }
 
 func TestImmudbStoreSettings(t *testing.T) {
+	defer os.RemoveAll("store_settings")
+
 	immuStore, err := Open("store_settings", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
-	defer os.RemoveAll("store_settings")
 
 	defer immustoreClose(t, immuStore)
 
@@ -781,10 +783,11 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
+	defer os.RemoveAll("data_bl_err")
+
 	opts := DefaultOptions().WithMaxConcurrency(1)
 	immuStore, err := Open("data_bl_err", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_bl_err")
 
 	defer immustoreClose(t, immuStore)
 
@@ -795,10 +798,11 @@ func TestImmudbSetBlErr(t *testing.T) {
 }
 
 func TestImmudbTxOffsetAndSize(t *testing.T) {
+	defer os.RemoveAll("data_tx_off_sz")
+
 	opts := DefaultOptions().WithMaxConcurrency(1)
 	immuStore, err := Open("data_tx_off_sz", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_tx_off_sz")
 
 	defer immustoreClose(t, immuStore)
 
@@ -810,10 +814,11 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
+	defer os.RemoveAll("data_indexing")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_indexing", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_indexing")
 	require.NotNil(t, immuStore)
 
 	defer immustoreClose(t, immuStore)
@@ -969,9 +974,11 @@ func TestImmudbStoreIndexing(t *testing.T) {
 }
 
 func TestImmudbStoreRWTransactions(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_tx", opts)
 	defer os.RemoveAll("data_tx")
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_tx", opts)
+	require.NoError(t, err)
 
 	defer immustoreClose(t, immuStore)
 
@@ -1338,9 +1345,11 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 }
 
 func TestImmudbStoreKVMetadata(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_kv_metadata", opts)
 	defer os.RemoveAll("data_kv_metadata")
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_kv_metadata", opts)
+	require.NoError(t, err)
 
 	defer immustoreClose(t, immuStore)
 
@@ -1410,9 +1419,11 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 }
 
 func TestImmudbStoreNonIndexableEntries(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_kv_metadata_non_indexable", opts)
 	defer os.RemoveAll("data_kv_metadata_non_indexable")
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_kv_metadata_non_indexable", opts)
+	require.NoError(t, err)
 
 	defer immustoreClose(t, immuStore)
 
@@ -1479,12 +1490,13 @@ func TestImmudbStoreNonIndexableEntries(t *testing.T) {
 }
 
 func TestImmudbStoreCommitWith(t *testing.T) {
+	defer os.RemoveAll("data_commit_with")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_commit_with", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_commit_with")
-
 	require.NotNil(t, immuStore)
+
 	defer immustoreClose(t, immuStore)
 
 	_, err = immuStore.CommitWith(nil, false)
@@ -1531,14 +1543,15 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 }
 
 func TestImmudbStoreHistoricalValues(t *testing.T) {
+	defer os.RemoveAll("data_historical")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	opts.WithIndexOptions(opts.IndexOpts.WithFlushThld(10))
 
 	immuStore, err := Open("data_historical", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_historical")
-
 	require.NotNil(t, immuStore)
+
 	defer immustoreClose(t, immuStore)
 
 	txCount := 10
@@ -1637,11 +1650,12 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 }
 
 func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
+	defer os.RemoveAll("data_compaction_remote_storage")
+
 	opts := DefaultOptions().WithCompactionDisabled(true)
 	immuStore, err := Open("data_compaction_remote_storage", opts)
 	require.NoError(t, err)
 
-	defer os.RemoveAll("data_compaction_remote_storage")
 	defer immustoreClose(t, immuStore)
 
 	err = immuStore.CompactIndex()
@@ -1649,11 +1663,11 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 }
 
 func TestImmudbStoreInclusionProof(t *testing.T) {
+	defer os.RemoveAll("data_inclusion_proof")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_inclusion_proof")
-
 	require.NotNil(t, immuStore)
 
 	txCount := 100
@@ -1759,10 +1773,11 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 }
 
 func TestLeavesMatchesAHTSync(t *testing.T) {
+	defer os.RemoveAll("data_leaves_alh")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(1)
 	immuStore, err := Open("data_leaves_alh", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_leaves_alh")
 
 	defer immustoreClose(t, immuStore)
 
@@ -1827,10 +1842,11 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 }
 
 func TestLeavesMatchesAHTASync(t *testing.T) {
+	defer os.RemoveAll("data_leaves_alh_async")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_leaves_alh_async", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_leaves_alh_async")
 
 	defer immustoreClose(t, immuStore)
 
@@ -1884,10 +1900,11 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProof(t *testing.T) {
+	defer os.RemoveAll("data_consistency_proof")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_consistency_proof", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_consistency_proof")
 
 	defer immustoreClose(t, immuStore)
 
@@ -1945,10 +1962,11 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
+	defer os.RemoveAll("data_consistency_proof_latest")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_consistency_proof_latest", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_consistency_proof_latest")
 
 	defer immustoreClose(t, immuStore)
 
@@ -2010,11 +2028,11 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
+	defer os.RemoveAll("data_consistency_proof_reopen")
+
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_consistency_proof_reopen", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_consistency_proof_reopen")
-
 	require.NotNil(t, immuStore)
 
 	txCount := 16
@@ -2482,11 +2500,12 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
+	defer os.RemoveAll("preconditions_store")
+
 	immuStore, err := Open("preconditions_store", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 
 	defer immuStore.Close()
-	defer os.RemoveAll("preconditions_store")
 
 	// set initial value
 	otx, err := immuStore.NewTx()
