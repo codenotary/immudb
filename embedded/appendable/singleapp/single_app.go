@@ -434,17 +434,27 @@ func (aof *AppendableFile) readAt(bs []byte, off int64) (n int, err error) {
 		return 0, ErrNegativeOffset
 	}
 
+	if off > aof.offset() {
+		return 0, fmt.Errorf("%w: invalid offset", ErrIllegalArguments)
+	}
+
+	// boff is the offset to employ when reading from the buffer
+	var boff int
+
 	if off < aof.fileOffset {
 		n, err = aof.f.ReadAt(bs, aof.fileBaseOffset+off)
+	} else {
+		boff = int(off - aof.fileOffset)
 	}
 
 	pending := len(bs) - n
 
 	if pending > 0 {
-		readChunkSize := minInt(pending, aof.wbufUnwrittenOffset-aof.wbufFlushedOffset)
+		available := (aof.wbufUnwrittenOffset - aof.wbufFlushedOffset) - boff
+		readChunkSize := minInt(pending, available)
 
 		if readChunkSize > 0 {
-			copy(bs[n:], aof.writeBuffer[aof.wbufFlushedOffset:aof.wbufFlushedOffset+readChunkSize])
+			copy(bs[n:], aof.writeBuffer[aof.wbufFlushedOffset+boff:aof.wbufFlushedOffset+boff+readChunkSize])
 			n += readChunkSize
 		}
 
