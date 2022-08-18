@@ -2427,14 +2427,14 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 }
 
 func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
-	defer os.RemoveAll("data_master_export_replicate")
-	masterStore, err := Open("data_master_export_replicate", DefaultOptions())
+	defer os.RemoveAll("data_master_export_replicate_writers")
+	masterStore, err := Open("data_master_export_replicate_writers", DefaultOptions())
 	require.NoError(t, err)
 	defer immustoreClose(t, masterStore)
 
-	defer os.RemoveAll("data_replica_export_replicate")
+	defer os.RemoveAll("data_replica_export_replicate_writers")
 	replicaOpts := DefaultOptions().WithMaxConcurrency(100)
-	replicaStore, err := Open("data_replica_export_replicate", replicaOpts)
+	replicaStore, err := Open("data_replica_export_replicate_writers", replicaOpts)
 	require.NoError(t, err)
 	defer immustoreClose(t, replicaStore)
 
