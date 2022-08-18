@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -34,11 +35,17 @@ import (
 )
 
 func TestImmuClient_StreamZScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -47,6 +54,7 @@ func TestImmuClient_StreamZScan(t *testing.T) {
 		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
@@ -92,11 +100,17 @@ func TestImmuClient_StreamZScan(t *testing.T) {
 }
 
 func TestImmuClient_StreamHistory(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -105,6 +119,7 @@ func TestImmuClient_StreamHistory(t *testing.T) {
 		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 

@@ -47,12 +47,12 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var dirname = "./test"
-
 func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
-	defer os.RemoveAll(dirname)
+	dir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 	defer bs.Stop()
 
@@ -61,9 +61,13 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	}
 
 	var clientConn *grpc.ClientConn
-	clientConn, err := grpc.Dial("add", ds...)
+	clientConn, err = grpc.Dial("add", ds...)
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
+
+	auditorDir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(auditorDir)
 
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
@@ -76,7 +80,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		auditor.AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
-		cache.NewHistoryFileCache(dirname),
+		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
@@ -101,9 +105,11 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 }
 
 func TestDefaultAuditorRunOnDb(t *testing.T) {
-	defer os.RemoveAll(dirname)
+	dir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 	defer bs.Stop()
 
@@ -142,6 +148,10 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
+	auditorDir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(auditorDir)
+
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -153,7 +163,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		auditor.AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
-		cache.NewHistoryFileCache(dirname),
+		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
@@ -167,9 +177,11 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 }
 
 func TestRepeatedAuditorRunOnDb(t *testing.T) {
-	defer os.RemoveAll(dirname)
+	dir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 	defer bs.Stop()
 
@@ -221,6 +233,10 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		},
 	}
 
+	auditorDir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(auditorDir)
+
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -232,7 +248,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		alertConfig,
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
-		cache.NewHistoryFileCache(dirname),
+		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
@@ -261,12 +277,14 @@ func TestDefaultAuditorRunOnDbWithSignatureFromState(t *testing.T) {
 }
 
 func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
-	defer os.RemoveAll(dirname)
+	dir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
 	pKeyPath := "./../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(
 		server.DefaultOptions().
-			WithDir(dirname).
+			WithDir(dir).
 			WithAuth(true).
 			WithSigningKey(pKeyPath).
 			WithAdminPassword(auth.SysAdminPassword))
@@ -308,6 +326,10 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
+	auditorDir, err := ioutil.TempDir("", "auditor_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(auditorDir)
+
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -319,7 +341,7 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 		auditor.AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
-		cache.NewHistoryFileCache(dirname),
+		cache.NewHistoryFileCache(auditorDir),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)

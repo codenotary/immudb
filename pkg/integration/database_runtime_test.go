@@ -17,6 +17,7 @@ package integration
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -29,11 +30,14 @@ import (
 )
 
 func TestDatabaseLoadingUnloading(t *testing.T) {
-	options := server.DefaultOptions()
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().WithDir(dir)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -52,7 +56,7 @@ func TestDatabaseLoadingUnloading(t *testing.T) {
 		require.Contains(t, err.Error(), "not connected")
 	})
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
 	dbSettings := &schema.DatabaseSettings{
