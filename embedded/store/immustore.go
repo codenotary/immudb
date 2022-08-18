@@ -1030,12 +1030,6 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 		offsets[i] = encodeOffset(voff, vLogID)
 	}
 
-	err := vLog.Flush()
-	if err != nil {
-		donec <- appendableResult{nil, err}
-		return
-	}
-
 	donec <- appendableResult{offsets, nil}
 }
 
@@ -1411,11 +1405,6 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		return err
 	}
 
-	err = s.txLog.Flush()
-	if err != nil {
-		return err
-	}
-
 	if s.blBuffer == nil {
 		err = s.aht.ResetSize(s.preCommittedTxID)
 		if err != nil {
@@ -1449,11 +1438,6 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		}
 
 		_, _, err = s.cLog.Append(cb[:])
-		if err != nil {
-			return err
-		}
-
-		err = s.cLog.Flush()
 		if err != nil {
 			return err
 		}
