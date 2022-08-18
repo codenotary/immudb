@@ -100,9 +100,9 @@ func TestTxReader(t *testing.T) {
 
 func TestWrapAppendableErr(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open("data_txreader", opts)
+	immuStore, err := Open("data_txreader_wrap_error", opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("data_txreader")
+	defer os.RemoveAll("data_txreader_wrap_error")
 
 	err = immuStore.wrapAppendableErr(nil, "anAction")
 	require.Nil(t, err)
