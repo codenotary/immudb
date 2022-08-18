@@ -23,7 +23,6 @@ jobs:
 
           - os: ubuntu-latest
             go: "1.18"
-            testWithMinio: true
             
           - os: windows-latest
             go: "1.18"
