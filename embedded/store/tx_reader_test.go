@@ -18,6 +18,7 @@ package store
 import (
 	"encoding/binary"
 	"errors"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -27,10 +28,13 @@ import (
 )
 
 func TestTxReader(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open("data_txreader", opts)
+	dir, err := ioutil.TempDir("", "data_txreader")
 	require.NoError(t, err)
-	defer os.RemoveAll("data_txreader")
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
 
 	require.NotNil(t, immuStore)
 
@@ -99,10 +103,13 @@ func TestTxReader(t *testing.T) {
 }
 
 func TestWrapAppendableErr(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open("data_txreader_wrap_error", opts)
+	dir, err := ioutil.TempDir("", "data_txreader_wrap_error")
 	require.NoError(t, err)
-	defer os.RemoveAll("data_txreader_wrap_error")
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
 
 	err = immuStore.wrapAppendableErr(nil, "anAction")
 	require.Nil(t, err)
