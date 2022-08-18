@@ -29,7 +29,11 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer("data", nil, nil, 0)
+	dir, err := ioutil.TempDir("", "indexertest")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	indexer, err := newIndexer(dir, nil, nil, 0)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 }
