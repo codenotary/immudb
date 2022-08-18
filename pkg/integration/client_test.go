@@ -18,6 +18,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -281,11 +282,17 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 }
 
 func TestImmuClient(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -324,11 +331,17 @@ func TestImmuClient(t *testing.T) {
 }
 
 func TestImmuClientTampering(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -472,11 +485,16 @@ func TestImmuClientTampering(t *testing.T) {
 }
 
 func TestReplica(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -516,11 +534,17 @@ func TestReplica(t *testing.T) {
 }
 
 func TestDatabasesSwitching(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -529,6 +553,7 @@ func TestDatabasesSwitching(t *testing.T) {
 		ic.DefaultOptions().
 			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
+
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
@@ -577,11 +602,16 @@ func TestDatabasesSwitching(t *testing.T) {
 }
 
 func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -628,11 +658,17 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 }
 
 func TestImmuClientDisconnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -788,11 +824,16 @@ func TestImmuClientDisconnect(t *testing.T) {
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -808,11 +849,16 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 }
 
 func TestWaitForHealthCheck(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -844,7 +890,6 @@ func TestSetupDialOptions(t *testing.T) {
 }
 
 func TestUserManagement(t *testing.T) {
-
 	var (
 		userName        = "test"
 		userPassword    = "1Password!*"
@@ -857,11 +902,17 @@ func TestUserManagement(t *testing.T) {
 		testUser        *schema.User
 	)
 
-	options := server.DefaultOptions().WithAuth(true).WithConfig("../../configs/immudb.toml")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithConfig("../../configs/immudb.toml")
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -948,11 +999,16 @@ func TestUserManagement(t *testing.T) {
 }
 
 func TestDatabaseManagement(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -983,11 +1039,16 @@ func TestDatabaseManagement(t *testing.T) {
 }
 
 func TestImmuClient_History(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1016,11 +1077,16 @@ func TestImmuClient_History(t *testing.T) {
 }
 
 func TestImmuClient_SetAll(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1070,11 +1136,16 @@ func TestImmuClient_SetAll(t *testing.T) {
 }
 
 func TestImmuClient_GetAll(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1112,11 +1183,16 @@ func TestImmuClient_GetAll(t *testing.T) {
 }
 
 func TestImmuClient_Delete(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1169,11 +1245,16 @@ func TestImmuClient_Delete(t *testing.T) {
 }
 
 func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1208,11 +1289,16 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 }
 
 func TestImmuClient_Scan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1238,11 +1324,16 @@ func TestImmuClient_Scan(t *testing.T) {
 }
 
 func TestImmuClient_TxScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1289,11 +1380,16 @@ func TestImmuClient_TxScan(t *testing.T) {
 }
 
 func TestImmuClient_Logout(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1353,11 +1449,16 @@ func TestImmuClient_Logout(t *testing.T) {
 }
 
 func TestImmuClient_GetServiceClient(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1379,11 +1480,16 @@ func TestImmuClient_GetOptions(t *testing.T) {
 }
 
 func TestImmuClient_ServerInfo(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1404,11 +1510,16 @@ func TestImmuClient_ServerInfo(t *testing.T) {
 }
 
 func TestImmuClient_CurrentRoot(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1437,11 +1548,16 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 }
 
 func TestImmuClient_Count(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1459,11 +1575,16 @@ func TestImmuClient_Count(t *testing.T) {
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1589,11 +1710,16 @@ func TestImmuClient_GetReference(t *testing.T) {
 */
 
 func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1660,13 +1786,19 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 }
 
 func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	err := bs.Start()
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
+
+	err = bs.Start()
 	require.NoError(t, err)
 	defer bs.Stop()
 
@@ -1685,11 +1817,17 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 }
 
 func TestImmuClient_VerifiedGetAt(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1746,11 +1884,16 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 }
 
 func TestImmuClient_VerifiedGetSince(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()

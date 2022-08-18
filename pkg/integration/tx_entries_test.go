@@ -19,6 +19,7 @@ package integration
 import (
 	"context"
 	"crypto/sha256"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -31,18 +32,25 @@ import (
 )
 
 func Test_GetTransactionEntries(t *testing.T) {
-	options := server.DefaultOptions()
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().WithDir(dir)
+
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	cliOpts := ic.DefaultOptions().
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	client := ic.NewClient().WithOptions(cliOpts)
+
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
 	hdr, err := client.ExecAll(context.Background(), &schema.ExecAllRequest{

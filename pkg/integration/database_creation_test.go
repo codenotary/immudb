@@ -17,6 +17,7 @@ package integration
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -29,11 +30,14 @@ import (
 )
 
 func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions()
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().WithDir(dir)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -41,7 +45,7 @@ func TestCreateDatabase(t *testing.T) {
 	clientOpts := immudb.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client := immudb.NewClient().WithOptions(clientOpts)
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
 	dbSettings := &schema.DatabaseSettings{
@@ -71,11 +75,14 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestCreateDatabaseV2(t *testing.T) {
-	options := server.DefaultOptions()
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().WithDir(dir)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
@@ -83,7 +90,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	clientOpts := immudb.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client := immudb.NewClient().WithOptions(clientOpts)
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
 	dbNullableSettings := &schema.DatabaseNullableSettings{

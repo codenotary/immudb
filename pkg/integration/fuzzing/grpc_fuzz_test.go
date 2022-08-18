@@ -44,15 +44,14 @@ func addCorpus(f *testing.F, request byte, msg proto.Message) {
 }
 
 func FuzzGRPCProtocol(f *testing.F) {
-
 	tmpDir, err := os.MkdirTemp("", "immudb-fuzz")
 	require.NoError(f, err)
+	defer os.RemoveAll(tmpDir)
+
+	defer os.Remove(".state-")
 
 	options := server.DefaultOptions().WithDir(tmpDir)
 	bs := servertest.NewBufconnServer(options)
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
 
 	bs.Start()
 	defer bs.Stop()

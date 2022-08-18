@@ -46,7 +46,6 @@ func TestReplication(t *testing.T) {
 		WithDir(masterDir)
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
-	defer os.RemoveAll(masterServerOpts.Dir)
 
 	err = masterServer.Initialize()
 	require.NoError(t, err)
@@ -64,7 +63,6 @@ func TestReplication(t *testing.T) {
 		WithDir(followerDir)
 
 	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
-	defer os.RemoveAll(followerServerOpts.Dir)
 
 	err = followerServer.Initialize()
 	require.NoError(t, err)
@@ -192,7 +190,6 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		WithDir(masterDir)
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
-	defer os.RemoveAll(masterServerOpts.Dir)
 
 	err = masterServer.Initialize()
 	require.NoError(t, err)
@@ -237,7 +234,6 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		WithReplicationOptions(replicationOpts)
 
 	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
-	defer os.RemoveAll(followerServerOpts.Dir)
 
 	err = followerServer.Initialize()
 	require.NoError(t, err)

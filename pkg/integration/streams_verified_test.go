@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -35,21 +36,29 @@ import (
 )
 
 func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
 	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions(
 		[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
 	))
 	require.NoError(t, err)
+
 	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
+
 	defer client.Disconnect()
 
 	md := metadata.Pairs("authorization", lr.Token)
@@ -58,6 +67,7 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 	nbFiles := 3
 	fileNames := make([]string, 0, nbFiles)
 	hashes := make([][]byte, 0, nbFiles)
+
 	for i := 1; i <= nbFiles; i++ {
 		tmpFile, err := streamtest.GenerateDummyFile(
 			fmt.Sprintf("TestImmuClient_StreamVerifiedSetAndGet_InputFile_%d", i),

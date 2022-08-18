@@ -18,6 +18,7 @@ package integration
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -33,18 +34,23 @@ func TestGRPCError(t *testing.T) {
 	os.Setenv("LOG_LEVEL", "debug")
 	defer os.Unsetenv("LOG_LEVEL")
 
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	dir, err := ioutil.TempDir("", "integration_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	options := server.DefaultOptions().
+		WithDir(dir).
+		WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
 	cli, _ := client.NewImmuClient(client.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 
-	_, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
+	_, err = cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
 
 	require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
 	require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
