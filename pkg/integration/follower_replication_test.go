@@ -18,6 +18,7 @@ package integration
 
 import (
 	"context"
+	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -33,26 +34,34 @@ import (
 
 func TestReplication(t *testing.T) {
 	//init master server
+	masterDir, err := ioutil.TempDir("", "master-data")
+	require.NoError(t, err)
+	defer os.RemoveAll(masterDir)
+
 	masterServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir("master-data")
+		WithDir(masterDir)
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
 	defer os.RemoveAll(masterServerOpts.Dir)
 
-	err := masterServer.Initialize()
+	err = masterServer.Initialize()
 	require.NoError(t, err)
 
 	//init follower server
+	followerDir, err := ioutil.TempDir("", "follower-data")
+	require.NoError(t, err)
+	defer os.RemoveAll(followerDir)
+
 	followerServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir("follower-data")
+		WithDir(followerDir)
 
 	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
 	defer os.RemoveAll(followerServerOpts.Dir)
@@ -171,17 +180,21 @@ func TestReplication(t *testing.T) {
 
 func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	//init master server
+	masterDir, err := ioutil.TempDir("", "master-data")
+	require.NoError(t, err)
+	defer os.RemoveAll(masterDir)
+
 	masterServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir("master-data")
+		WithDir(masterDir)
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
 	defer os.RemoveAll(masterServerOpts.Dir)
 
-	err := masterServer.Initialize()
+	err = masterServer.Initialize()
 	require.NoError(t, err)
 
 	go func() {
@@ -205,6 +218,10 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
 
 	//init follower server
+	followerDir, err := ioutil.TempDir("", "follower-data")
+	require.NoError(t, err)
+	defer os.RemoveAll(followerDir)
+
 	replicationOpts := &server.ReplicationOptions{
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       masterPort,
@@ -216,7 +233,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir("follower-data").
+		WithDir(followerDir).
 		WithReplicationOptions(replicationOpts)
 
 	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
