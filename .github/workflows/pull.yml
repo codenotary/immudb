@@ -18,13 +18,13 @@ jobs:
             go: "1.17"
 
           - os: ubuntu-latest
-            go: "1.18"
-            testWithMinio: true
-
-          - os: ubuntu-latest
             go: "1.19"
             test: true
 
+          - os: ubuntu-latest
+            go: "1.18"
+            testWithMinio: true
+            
           - os: windows-latest
             go: "1.18"
             testClientOnly: true
