@@ -104,11 +104,11 @@ vendor:
 .PHONY: test
 test:
 	$(GO) vet ./...
-	$(GO) test -failfast ./... ${GO_TEST_FLAGS}
+	$(GO) test -v -failfast ./... ${GO_TEST_FLAGS}
 
 .PHONY: test-client
 test-client:
-	$(GO) test -failfast ./pkg/client ${GO_TEST_FLAGS}
+	$(GO) test -v -failfast ./pkg/client ${GO_TEST_FLAGS}
 
 # To view coverage as HTML run: go tool cover -html=coverage.txt
 .PHONY: coverage
