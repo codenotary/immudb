@@ -18,12 +18,12 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
 	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,10 +31,15 @@ import (
 )
 
 func TestServerCurrentStateSigned(t *testing.T) {
-	dbRootpath := database.DefaultOption().GetDBRootPath()
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	s := DefaultServer()
 
-	defer os.RemoveAll(s.Options.Dir)
+	s.WithOptions(DefaultOptions().WithDir(dir))
+
+	dbRootpath := dir
 
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")
 	assert.NoError(t, err)

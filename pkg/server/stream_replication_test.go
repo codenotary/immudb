@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -30,13 +31,20 @@ import (
 )
 
 func TestExportTxEdgeCases(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
-	err := s.ExportTx(nil, nil)
+	err = s.ExportTx(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
@@ -61,13 +69,20 @@ func TestExportTxEdgeCases(t *testing.T) {
 }
 
 func TestReplicateTxEdgeCases(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
-	err := s.ReplicateTx(nil)
+	err = s.ReplicateTx(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = s.ReplicateTx(&immuServiceReplicateTxServer{ctx: context.Background()})

@@ -18,7 +18,9 @@ package server
 
 import (
 	"crypto/tls"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -27,7 +29,11 @@ import (
 )
 
 func TestStartWebServerHTTP(t *testing.T) {
-	options := DefaultOptions()
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	options := DefaultOptions().WithDir(dir)
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
 	tlsConfig := &tls.Config{
@@ -53,7 +59,11 @@ func TestStartWebServerHTTP(t *testing.T) {
 }
 
 func TestStartWebServerHTTPS(t *testing.T) {
-	options := DefaultOptions()
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	options := DefaultOptions().WithDir(dir)
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 	certPem := []byte(`-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw

@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -30,11 +31,18 @@ import (
 )
 
 func TestServerLogin(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
-	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	err := s.Initialize()
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -53,11 +61,18 @@ func TestServerLogin(t *testing.T) {
 }
 
 func TestServerLogout(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
-	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	err := s.Initialize()
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
 
 	_, err = s.Logout(context.Background(), &emptypb.Empty{})
 	if err == nil || err.Error() != ErrNotLoggedIn.Message() {
@@ -83,21 +98,35 @@ func TestServerLogout(t *testing.T) {
 }
 
 func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAuth(false)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAuth(false)
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
-	_, err := s.Logout(context.Background(), &emptypb.Empty{})
+	_, err = s.Logout(context.Background(), &emptypb.Empty{})
 	require.NotNil(t, err)
 	require.Equal(t, ErrAuthDisabled, err.Error())
 }
 
 func TestServerListUsersAdmin(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
@@ -232,11 +261,18 @@ func TestServerListUsersAdmin(t *testing.T) {
 }
 
 func TestServerUsermanagement(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
-	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
-	err := s.Initialize()
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
