@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -31,11 +32,15 @@ import (
 )
 
 func testServer(t *testing.T) (port int, cleanup func()) {
+	path, err := ioutil.TempDir(os.TempDir(), "test_data")
+	require.NoError(t, err)
+
 	options := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
-		WithPort(0)
+		WithPort(0).
+		WithDir(path)
 
 	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	server.Initialize()

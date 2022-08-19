@@ -593,6 +593,7 @@ func TestServerLoaduserDatabase(t *testing.T) {
 }
 
 func TestServerLoadUserDatabases(t *testing.T) {
+	os.RemoveAll("./data_v1.1.0")
 	copier := fs.NewStandardCopier()
 	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", "data_v1.1.0"))
 
