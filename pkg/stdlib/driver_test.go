@@ -19,6 +19,7 @@ package stdlib
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -30,7 +31,11 @@ import (
 )
 
 func TestRegisterConnConfig(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -53,7 +58,7 @@ func TestRegisterConnConfig(t *testing.T) {
 	defer UnregisterConnConfig(connStr)
 
 	db = Open(connStr)
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
 	require.NoError(t, err)
 
 }

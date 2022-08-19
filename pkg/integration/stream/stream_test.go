@@ -836,7 +836,7 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 	options := server.DefaultOptions().
 		WithDir(dir).
 		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
+		WithSigningKey("./../../../test/signer/ec1.key")
 
 	bs := servertest.NewBufconnServer(options)
 
@@ -850,7 +850,7 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 
 	cliOpts := ic.DefaultOptions().
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec1.pub")
+		WithServerSigningPubKey("./../../../test/signer/ec1.pub")
 
 	client, err := ic.NewImmuClient(cliOpts)
 	if err != nil {
@@ -893,7 +893,7 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 	options := server.DefaultOptions().
 		WithDir(dir).
 		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
+		WithSigningKey("./../../../test/signer/ec1.key")
 
 	bs := servertest.NewBufconnServer(options)
 
@@ -907,7 +907,7 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 
 	cliOpts := ic.DefaultOptions().
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec3.pub")
+		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
 
 	client, err := ic.NewImmuClient(cliOpts)
 	if err != nil {
@@ -963,7 +963,7 @@ func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
 
 	cliOpts := ic.DefaultOptions().
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec3.pub")
+		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
 
 	client, err := ic.NewImmuClient(cliOpts)
 	if err != nil {
@@ -1007,7 +1007,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	options := server.DefaultOptions().
 		WithDir(dir).
 		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec3.key")
+		WithSigningKey("./../../../test/signer/ec3.key")
 
 	bs := servertest.NewBufconnServer(options)
 
@@ -1021,7 +1021,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 
 	cliOpts := ic.DefaultOptions().
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec3.pub")
+		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
 
 	client, err := ic.NewImmuClient(cliOpts)
 	if err != nil {
@@ -1053,7 +1053,7 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	client.Disconnect()
 
 	ts = tokenservice.NewInmemoryTokenService()
-	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}

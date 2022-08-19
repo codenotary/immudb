@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -33,11 +34,16 @@ import (
 )
 
 func TestConn_BeginTx(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
 	options := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
-		WithPort(0)
+		WithPort(0).
+		WithDir(path)
 
 	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	server.Initialize()
@@ -99,11 +105,16 @@ func TestConn_BeginTx(t *testing.T) {
 }
 
 func TestTx_Rollback(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
 	options := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
-		WithPort(0)
+		WithPort(0).
+		WithDir(path)
 
 	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	server.Initialize()
@@ -147,11 +158,16 @@ func TestTx_Rollback(t *testing.T) {
 }
 
 func TestTx_Errors(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
 	options := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
-		WithPort(0)
+		WithPort(0).
+		WithDir(path)
 
 	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	server.Initialize()
