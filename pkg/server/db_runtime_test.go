@@ -18,6 +18,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -30,11 +31,17 @@ import (
 )
 
 func TestServerDatabaseRuntime(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().WithDir(dir)
+
 	s := DefaultServer()
 
-	s.Initialize()
+	s.WithOptions(opts)
 
-	defer os.RemoveAll(s.Options.Dir)
+	s.Initialize()
 
 	ctx := context.Background()
 
@@ -136,11 +143,17 @@ func TestServerDatabaseRuntime(t *testing.T) {
 }
 
 func TestServerDatabaseRuntimeEdgeCases(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().WithDir(dir)
+
 	s := DefaultServer()
 
-	s.Initialize()
+	s.WithOptions(opts)
 
-	defer os.RemoveAll(s.Options.Dir)
+	s.Initialize()
 
 	ctx := context.Background()
 

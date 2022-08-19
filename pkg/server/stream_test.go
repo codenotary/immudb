@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -10,9 +12,15 @@ import (
 )
 
 func TestImmuServer_StreamGetDbError(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	s := DefaultServer()
 
-	err := s.StreamSet(&StreamServerMock{})
+	s.WithOptions(DefaultOptions().WithDir(dir))
+
+	err = s.StreamSet(&StreamServerMock{})
 	require.Error(t, err)
 	err = s.StreamGet(nil, &StreamServerMock{})
 	require.Error(t, err)

@@ -17,17 +17,34 @@ limitations under the License.
 package server
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithLogger(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	s := DefaultServer()
+
+	s.WithOptions(DefaultOptions().WithDir(dir))
+
 	s.WithLogger(&mockLogger{})
 }
 
 func TestWithStreamServiceFactory(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	s := DefaultServer()
+
+	s.WithOptions(DefaultOptions().WithDir(dir))
+
 	s.WithStreamServiceFactory(stream.NewStreamServiceFactory(4096))
 }

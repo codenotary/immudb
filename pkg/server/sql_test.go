@@ -17,6 +17,7 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -29,19 +30,23 @@ import (
 )
 
 func TestSQLInteraction(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	serverOptions := DefaultOptions().
+		WithDir(dir).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithSigningKey("./../../test/signer/ec1.key")
 
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
 	ctx := context.Background()
 
-	_, err := s.ListTables(ctx, &emptypb.Empty{})
+	_, err = s.ListTables(ctx, &emptypb.Empty{})
 	require.Error(t, err)
 
 	_, err = s.SQLExec(ctx, nil)
@@ -108,11 +113,15 @@ func TestSQLInteraction(t *testing.T) {
 }
 
 func TestSQLExecResult(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	serverOptions := DefaultOptions().
+		WithDir(dir).
 		WithMetricsServer(false)
 
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
@@ -141,11 +150,15 @@ func TestSQLExecResult(t *testing.T) {
 }
 
 func TestSQLExecCreateDatabase(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
 	serverOptions := DefaultOptions().
+		WithDir(dir).
 		WithMetricsServer(false)
 
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	defer os.RemoveAll(s.Options.Dir)
 
 	s.Initialize()
 
