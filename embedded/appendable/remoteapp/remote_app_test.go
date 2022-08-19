@@ -174,15 +174,17 @@ func waitForFile(fileName string, maxWait time.Duration) bool {
 }
 
 func TestWritePastFirstChunk(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
 	opts := DefaultOptions()
 	opts.WithFileSize(10)
 	opts.WithMaxOpenedFiles(3)
 
 	mem := memory.Open()
 
-	require.NoError(t, os.RemoveAll("testdata"))
-	app, err := Open("testdata", "", mem, opts)
-	defer os.RemoveAll("testdata")
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	testData := []byte("Large buffer")
@@ -217,9 +219,9 @@ func TestWritePastFirstChunk(t *testing.T) {
 	assert.True(t, waitForObject(mem, "00000005.aof"))
 
 	// LRU cache shuld contain chunks: 3, 4, 5 now, 6th is the active one
-	assert.True(t, waitForRemoval("testdata/00000000.aof"))
-	assert.True(t, waitForRemoval("testdata/00000001.aof"))
-	assert.True(t, waitForRemoval("testdata/00000002.aof"))
+	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000000.aof", path)))
+	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000001.aof", path)))
+	assert.True(t, waitForRemoval(fmt.Sprintf("%s/00000002.aof", path)))
 
 	readData = make([]byte, 12+49)
 	n, err = app.ReadAt(readData, 0)
@@ -231,9 +233,10 @@ func TestWritePastFirstChunk(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func prepareLocalTestFiles(t *testing.T) {
-	require.NoError(t, os.RemoveAll("testdata"))
-	mapp, err := multiapp.Open("testdata", multiapp.DefaultOptions().WithFileSize(10).WithFileExt("tst"))
+func prepareLocalTestFiles(t *testing.T) string {
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	mapp, err := multiapp.Open(path, multiapp.DefaultOptions().WithFileSize(10).WithFileExt("tst"))
 	require.NoError(t, err)
 
 	_, _, err = mapp.Append([]byte("Some pretty long string to cross a chunk boundary"))
@@ -242,69 +245,73 @@ func prepareLocalTestFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
-		require.FileExists(t, fmt.Sprintf("testdata/%08d.tst", i))
+		require.FileExists(t, fmt.Sprintf("%s/%08d.tst", path, i))
 	}
+
+	return path
 }
 
 func TestRemoteAppUploadOnStartup(t *testing.T) {
-	defer os.RemoveAll("testdata")
-	prepareLocalTestFiles(t)
+	path := prepareLocalTestFiles(t)
+	defer os.RemoveAll(path)
 
 	opts := DefaultOptions()
 	opts.WithFileExt("tst")
 
 	mem := memory.Open()
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 	for i := 0; i < 4; i++ {
 		require.True(t, waitForObject(mem, fmt.Sprintf("%08d.tst", i)))
-		require.True(t, waitForRemoval(fmt.Sprintf("testdata/%08d.tst", i)))
+		require.True(t, waitForRemoval(fmt.Sprintf("%s/%08d.tst", path, i)))
 	}
 	err = app.Close()
 	require.NoError(t, err)
 }
 
 func TestReopenOnCleanShutdownWhenEmpty(t *testing.T) {
-	require.NoError(t, os.RemoveAll("testdata"))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	mem := memory.Open()
 	opts := DefaultOptions()
 	opts.WithFileExt("tst")
 	opts.WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
-	require.FileExists(t, "testdata/00000000.tst")
+	require.FileExists(t, fmt.Sprintf("%s/00000000.tst", path))
 
 	err = app.Close()
 	require.NoError(t, err)
-	require.FileExists(t, "testdata/00000000.tst")
+	require.FileExists(t, fmt.Sprintf("%s/00000000.tst", path))
 
 	exists, err := mem.Exists(context.Background(), "00000000.tst")
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	err = os.RemoveAll("testdata")
+	err = os.RemoveAll(path)
 	require.NoError(t, err)
 
-	app, err = Open("testdata", "", mem, opts)
+	app, err = Open(path, "", mem, opts)
 	require.NoError(t, err)
 
-	require.True(t, waitForFile("testdata/00000000.tst", time.Second))
+	require.True(t, waitForFile(fmt.Sprintf("%s/00000000.tst", path), time.Second))
 	size, err := app.Size()
 	require.NoError(t, err)
 	require.EqualValues(t, 0, size)
 }
 
 func TestReopenFromRemoteStorageOnCleanShutdown(t *testing.T) {
-	require.NoError(t, os.RemoveAll("testdata"))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	mem := memory.Open()
 	opts := DefaultOptions()
 	opts.WithFileExt("tst")
 	opts.WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -313,23 +320,23 @@ func TestReopenFromRemoteStorageOnCleanShutdown(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 0, offs)
 	require.EqualValues(t, len(dataWritten), n)
-	require.True(t, waitForRemoval("testdata/00000003.tst"))
+	require.True(t, waitForRemoval(fmt.Sprintf("%s/00000003.tst", path)))
 
 	err = app.Close()
 	require.NoError(t, err)
-	require.FileExists(t, "testdata/00000004.tst")
+	require.FileExists(t, fmt.Sprintf("%s/00000004.tst", path))
 
 	exists, err := mem.Exists(context.Background(), "00000004.tst")
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	err = os.RemoveAll("testdata")
+	err = os.RemoveAll(path)
 	require.NoError(t, err)
 
-	app, err = Open("testdata", "", mem, opts)
+	app, err = Open(path, "", mem, opts)
 	require.NoError(t, err)
 
-	require.True(t, waitForFile("testdata/00000004.tst", time.Second))
+	require.True(t, waitForFile(fmt.Sprintf("%s/00000004.tst", path), time.Second))
 
 	dataRead := make([]byte, len(dataWritten))
 	n, err = app.ReadAt(dataRead, 0)
@@ -344,13 +351,14 @@ func TestRemoteStorageMetrics(t *testing.T) {
 	mFailed := testutil.ToFloat64(metricsUploadFailed)
 	mSucceeded := testutil.ToFloat64(metricsUploadSucceeded)
 
-	require.NoError(t, os.RemoveAll("testdata"))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	mem := memory.Open()
 	opts := DefaultOptions()
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -451,8 +459,9 @@ func (r *remoteStorageMockingWrapper) ListEntries(ctx context.Context, path stri
 func TestRemoteStorageUploadRetry(t *testing.T) {
 	mRetries := testutil.ToFloat64(metricsUploadRetried)
 
-	require.NoError(t, os.RemoveAll("testdata"))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	// Injecting exactly one error in put, get and exists operations
 	var putErrInjected int32
@@ -482,7 +491,7 @@ func TestRemoteStorageUploadRetry(t *testing.T) {
 
 	opts := DefaultOptions().WithRetryMinDelay(time.Microsecond).WithRetryMaxDelay(time.Microsecond)
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -497,12 +506,14 @@ func TestRemoteStorageUploadRetry(t *testing.T) {
 }
 
 func TestRemoteStorageUploadCancel(t *testing.T) {
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	for _, name := range []string{"Put", "Get", "Exists"} {
 		t.Run(name, func(t *testing.T) {
 
-			require.NoError(t, os.RemoveAll("testdata"))
+			require.NoError(t, os.RemoveAll(path))
 
 			var getErrInjected int32
 			retryWait := sync.WaitGroup{}
@@ -547,7 +558,7 @@ func TestRemoteStorageUploadCancel(t *testing.T) {
 
 			opts := DefaultOptions()
 			opts.WithFileExt("tst").WithFileSize(10)
-			app, err := Open("testdata", "", mem, opts)
+			app, err := Open(path, "", mem, opts)
 			require.NoError(t, err)
 
 			dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -564,8 +575,9 @@ func TestRemoteStorageUploadCancel(t *testing.T) {
 }
 
 func TestRemoteStorageUploadCancelWhenThrottled(t *testing.T) {
-	defer os.RemoveAll("testdata")
-	require.NoError(t, os.RemoveAll("testdata"))
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	// Injecting exactly one error in put, get and exists operations
 	mem := &remoteStorageMockingWrapper{
@@ -579,7 +591,7 @@ func TestRemoteStorageUploadCancelWhenThrottled(t *testing.T) {
 	opts := DefaultOptions()
 	opts.WithParallelUploads(1)
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	// Write past 0th chunk, upload that starts should occupy the slot
@@ -599,9 +611,11 @@ func TestRemoteStorageUploadCancelWhenThrottled(t *testing.T) {
 }
 
 func _TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
 	mUploadFailed := testutil.ToFloat64(metricsUploadFailed)
-	defer os.RemoveAll("testdata")
-	require.NoError(t, os.RemoveAll("testdata"))
 
 	existReached := sync.WaitGroup{}
 	existReached.Add(1)
@@ -622,7 +636,7 @@ func _TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
 
 	opts := DefaultOptions()
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -638,7 +652,7 @@ func _TestRemoteStorageUploadUnrecoverableError(t *testing.T) {
 	// Remove the folder during `exists` check - that way
 	// there will be an error while trying to removing the file
 	existReached.Wait()
-	err = os.RemoveAll("testdata")
+	err = os.RemoveAll(path)
 	require.NoError(t, err)
 	existContinue.Done()
 
@@ -653,20 +667,22 @@ type errReader struct {
 func (e errReader) Read([]byte) (int, error) { return 0, e.err }
 
 func _TestRemoteStorageDownloadRetry(t *testing.T) {
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	for _, errKind := range []string{"Open", "Read"} {
 		t.Run(errKind, func(t *testing.T) {
 
 			mRetries := testutil.ToFloat64(metricsDownloadRetried)
 
-			require.NoError(t, os.RemoveAll("testdata"))
+			require.NoError(t, os.RemoveAll(path))
 
 			mem := memory.Open()
 
 			opts := DefaultOptions().WithRetryMinDelay(time.Microsecond).WithRetryMaxDelay(time.Microsecond)
 			opts.WithFileExt("tst").WithFileSize(10)
-			app, err := Open("testdata", "", mem, opts)
+			app, err := Open(path, "", mem, opts)
 			require.NoError(t, err)
 
 			dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -677,7 +693,7 @@ func _TestRemoteStorageDownloadRetry(t *testing.T) {
 			err = app.Close()
 			require.NoError(t, err)
 
-			require.NoError(t, os.RemoveAll("testdata"))
+			require.NoError(t, os.RemoveAll(path))
 
 			var errInjected int32
 			memErr := &remoteStorageMockingWrapper{wrapped: mem}
@@ -699,7 +715,7 @@ func _TestRemoteStorageDownloadRetry(t *testing.T) {
 				}
 			}
 
-			app, err = Open("testdata", "", memErr, opts)
+			app, err = Open(path, "", memErr, opts)
 			require.NoError(t, err)
 
 			dataRead := make([]byte, len(dataWritten))
@@ -716,18 +732,20 @@ func _TestRemoteStorageDownloadRetry(t *testing.T) {
 }
 
 func TestRemoteStorageDownloadCancel(t *testing.T) {
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	for _, errKind := range []string{"Open", "Read"} {
 		t.Run(errKind, func(t *testing.T) {
 
-			require.NoError(t, os.RemoveAll("testdata"))
+			require.NoError(t, os.RemoveAll(path))
 
 			mem := memory.Open()
 
 			opts := DefaultOptions().WithRetryMinDelay(time.Microsecond).WithRetryMaxDelay(time.Microsecond)
 			opts.WithFileExt("tst").WithFileSize(10)
-			app, err := Open("testdata", "", mem, opts)
+			app, err := Open(path, "", mem, opts)
 			require.NoError(t, err)
 
 			dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -738,7 +756,7 @@ func TestRemoteStorageDownloadCancel(t *testing.T) {
 			err = app.Close()
 			require.NoError(t, err)
 
-			require.NoError(t, os.RemoveAll("testdata"))
+			require.NoError(t, os.RemoveAll(path))
 
 			var errInjected int32
 			retryWait := sync.WaitGroup{}
@@ -768,7 +786,7 @@ func TestRemoteStorageDownloadCancel(t *testing.T) {
 				}
 			}
 
-			app, err = Open("testdata", "", memErr, opts)
+			app, err = Open(path, "", memErr, opts)
 			require.NoError(t, err)
 
 			// Switch active chunk to 00000003
@@ -792,16 +810,17 @@ func TestRemoteStorageDownloadCancel(t *testing.T) {
 }
 
 func TestRemoteStorageDownloadUnrecoverableError(t *testing.T) {
-	mDownloadFailed := testutil.ToFloat64(metricsDownloadFailed)
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
-	defer os.RemoveAll("testdata")
-	require.NoError(t, os.RemoveAll("testdata"))
+	mDownloadFailed := testutil.ToFloat64(metricsDownloadFailed)
 
 	mem := memory.Open()
 
 	opts := DefaultOptions().WithRetryMinDelay(time.Microsecond).WithRetryMaxDelay(time.Microsecond)
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	dataWritten := []byte("Some pretty long string to cross a chunk boundary")
@@ -811,20 +830,20 @@ func TestRemoteStorageDownloadUnrecoverableError(t *testing.T) {
 
 	err = app.Close()
 	require.NoError(t, err)
-	require.NoError(t, os.RemoveAll("testdata"))
+	require.NoError(t, os.RemoveAll(path))
 
 	memErr := &remoteStorageMockingWrapper{
 		wrapped: mem,
 		fnGet: func(ctx context.Context, name string, offs, size int64, next func() (io.ReadCloser, error)) (io.ReadCloser, error) {
 			if name == "00000003.tst" {
 				// Remove local folder to cause errors when creating a temporary file
-				os.RemoveAll("testdata")
+				os.RemoveAll(path)
 			}
 			return next()
 		},
 	}
 
-	app, err = Open("testdata", "", memErr, opts)
+	app, err = Open(path, "", memErr, opts)
 	require.NoError(t, err)
 
 	// Switch active chunk to 00000003
@@ -835,8 +854,8 @@ func TestRemoteStorageDownloadUnrecoverableError(t *testing.T) {
 }
 
 func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
-	defer os.RemoveAll("testdata")
-	prepareLocalTestFiles(t)
+	path := prepareLocalTestFiles(t)
+	defer os.RemoveAll(path)
 
 	mem := &remoteStorageMockingWrapper{
 		wrapped: memory.Open(),
@@ -850,7 +869,7 @@ func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 
 	opts := DefaultOptions()
 	opts.WithFileExt("tst").WithFileSize(10)
-	app, err := Open("testdata", "", mem, opts)
+	app, err := Open(path, "", mem, opts)
 	require.NoError(t, err)
 
 	require.True(t, waitForChunkState(app, 0, chunkState_Remote))
@@ -876,19 +895,20 @@ func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 }
 
 func TestRemoteStorageOpenInitialAppendableMissingRemoteChunk(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	// Prepare test dataset
 	opts := DefaultOptions()
 	opts.WithFileSize(10)
 	opts.WithFileExt("tst")
 	m := &remoteStorageMockingWrapper{wrapped: memory.Open()}
-	app, err := Open("testdata", "", m, opts)
+	app, err := Open(path, "", m, opts)
 	require.NoError(t, err)
 	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
 	require.NoError(t, err)
-	require.True(t, waitForRemoval("testdata/00000000.tst"))
+	require.True(t, waitForRemoval(fmt.Sprintf("%s/00000000.tst", path)))
 	err = app.Close()
 	require.NoError(t, err)
 
@@ -912,34 +932,35 @@ func TestRemoteStorageOpenInitialAppendableMissingRemoteChunk(t *testing.T) {
 	}
 
 	// Opening should fail now
-	app, err = Open("testdata", "", m, opts)
+	app, err = Open(path, "", m, opts)
 	require.Equal(t, ErrMissingRemoteChunk, err)
 	require.Nil(t, app)
 }
 
 func TestRemoteStorageOpenInitialAppendableCorruptedLocalFile(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
 	// Prepare test dataset
 	opts := DefaultOptions()
 	opts.WithFileSize(10)
 	opts.WithFileExt("tst")
 	m := &remoteStorageMockingWrapper{wrapped: memory.Open()}
-	app, err := Open("testdata", "", m, opts)
+	app, err := Open(path, "", m, opts)
 	require.NoError(t, err)
 	_, _, err = app.Append([]byte("Even larger buffer spanning across multiple files"))
 	require.NoError(t, err)
-	require.True(t, waitForRemoval("testdata/00000000.tst"))
+	require.True(t, waitForRemoval(fmt.Sprintf("%s/00000000.tst", path)))
 	err = app.Close()
 	require.NoError(t, err)
 
 	// Local file smaller than a corresponding remote object indicates data corruption
-	err = ioutil.WriteFile("testdata/00000000.tst", []byte{}, 0777)
+	err = ioutil.WriteFile(fmt.Sprintf("%s/00000000.tst", path), []byte{}, 0777)
 	require.NoError(t, err)
 
 	// Opening should fail now
-	app, err = Open("testdata", "", m, opts)
+	app, err = Open(path, "", m, opts)
 	require.Equal(t, ErrInvalidRemoteStorage, err)
 	require.Nil(t, app)
 }

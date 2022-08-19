@@ -18,6 +18,7 @@ package transactions
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -29,10 +30,12 @@ import (
 )
 
 func TestNewTx(t *testing.T) {
-	db, err := database.NewDB("db1", nil, database.DefaultOption(), logger.NewSimpleLogger("logger", os.Stdout))
+	path, err := ioutil.TempDir(os.TempDir(), "tx_session_data")
 	require.NoError(t, err)
+	defer os.RemoveAll(path)
 
-	defer os.RemoveAll("data")
+	db, err := database.NewDB("db1", nil, database.DefaultOption().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
+	require.NoError(t, err)
 
 	tx, err := NewTransaction(context.Background(), schema.TxMode_ReadWrite, db, "session1")
 	require.NoError(t, err)

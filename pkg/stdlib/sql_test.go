@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -40,7 +41,11 @@ func getRandomTableName() string {
 }
 
 func TestOpenDB(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -60,7 +65,7 @@ func TestOpenDB(t *testing.T) {
 	defer db.Close()
 
 	table := getRandomTableName()
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 
 	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (1, 'immu1')", table))
@@ -108,7 +113,11 @@ func TestOpenDB(t *testing.T) {
 }
 
 func TestQueryCapabilities(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -162,7 +171,11 @@ func TestQueryCapabilities(t *testing.T) {
 }
 
 func TestQueryCapabilitiesWithPointers(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -183,7 +196,7 @@ func TestQueryCapabilitiesWithPointers(t *testing.T) {
 
 	table := getRandomTableName()
 
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
+	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
 	require.NoError(t, err)
 
 	table1 := getRandomTableName()
@@ -200,7 +213,11 @@ func TestQueryCapabilitiesWithPointers(t *testing.T) {
 }
 
 func TestNilValues(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -256,7 +273,11 @@ func (v *valuer) Value() (driver.Value, error) {
 }
 
 func TestDriverValuer(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -309,7 +330,11 @@ func TestDriverValuer(t *testing.T) {
 }
 
 func TestImmuConnector_ConnectErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(path)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -326,7 +351,7 @@ func TestImmuConnector_ConnectErr(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 0)
 	defer cancel()
 
-	_, err := db.ExecContext(ctx, "this will not be executed")
+	_, err = db.ExecContext(ctx, "this will not be executed")
 	require.Error(t, err)
 }
 

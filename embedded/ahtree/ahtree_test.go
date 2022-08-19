@@ -641,9 +641,12 @@ func TestOpenFail(t *testing.T) {
 }
 
 func TestInclusionAndConsistencyProofs(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions())
+	path, err := ioutil.TempDir("", "ahtree_test")
 	require.NoError(t, err)
-	defer os.RemoveAll("ahtree_test")
+	defer os.RemoveAll(path)
+
+	tree, err := Open(path, DefaultOptions())
+	require.NoError(t, err)
 
 	N := 1024
 
