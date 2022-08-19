@@ -43,7 +43,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	options := server.DefaultOptions().
 		WithDir(dir).
 		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
+		WithSigningKey("./../../../test/signer/ec1.key")
 
 	bs := servertest.NewBufconnServer(options)
 
@@ -52,7 +52,7 @@ func TestImmuClient_SQL(t *testing.T) {
 
 	clientOpts := ic.DefaultOptions().
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec1.pub")
+		WithServerSigningPubKey("./../../../test/signer/ec1.pub")
 
 	client, err := ic.NewImmuClient(clientOpts)
 	require.NoError(t, err)

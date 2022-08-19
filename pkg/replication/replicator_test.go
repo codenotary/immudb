@@ -17,6 +17,7 @@ limitations under the License.
 package replication
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -26,7 +27,11 @@ import (
 )
 
 func TestReplication(t *testing.T) {
-	_, err := NewTxReplicator(nil, nil, nil)
+	path, err := ioutil.TempDir(os.TempDir(), "replication_data")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	_, err = NewTxReplicator(nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rOpts := DefaultOptions().
@@ -39,10 +44,8 @@ func TestReplication(t *testing.T) {
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)
 
-	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOption().AsReplica(true), logger)
+	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOption().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
-
-	defer os.RemoveAll(db.GetOptions().GetDBRootPath())
 
 	txReplicator, err := NewTxReplicator(db, rOpts, logger)
 	require.NoError(t, err)

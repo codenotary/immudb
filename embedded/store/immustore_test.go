@@ -2387,10 +2387,9 @@ func TestReOpenningWithCompressionEnabledImmudbStore(t *testing.T) {
 }
 
 func TestUncommittedTxOverwriting(t *testing.T) {
-	path := "data_overwriting"
-	err := os.Mkdir(path, 0700)
+	path, err := ioutil.TempDir("", "data_overwriting")
 	require.NoError(t, err)
-	defer os.RemoveAll("data_overwriting")
+	defer os.RemoveAll(path)
 
 	opts := DefaultOptions().WithMaxConcurrency(3)
 

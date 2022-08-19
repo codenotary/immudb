@@ -121,8 +121,11 @@ func TestMultiApOffsetAndLRUCacheEviction(t *testing.T) {
 }
 
 func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	a, err := Open(path, DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
 	require.NoError(t, err)
 
 	_, n, err := a.Append([]byte{0, 1, 2, 3, 4, 5, 6, 7})
@@ -139,7 +142,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 	fname := filepath.Join(a.path, appendableName(0, a.fileExt))
 	os.Remove(fname)
 
-	a, err = Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
+	a, err = Open(path, DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
 	require.NoError(t, err)
 
 	b := make([]byte, n)
@@ -148,8 +151,11 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 }
 
 func TestMultiAppClosedFiles(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(2))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	a, err := Open(path, DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(2))
 	require.NoError(t, err)
 
 	_, _, err = a.Append([]byte{0, 1, 2})
@@ -165,8 +171,11 @@ func TestMultiAppClosedFiles(t *testing.T) {
 }
 
 func TestMultiAppReOpening(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithFileSize(1))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	a, err := Open(path, DefaultOptions().WithFileSize(1))
 	require.NoError(t, err)
 
 	off, n, err := a.Append([]byte{1, 2})
@@ -179,15 +188,17 @@ func TestMultiAppReOpening(t *testing.T) {
 	require.Equal(t, int64(2), off)
 	require.Equal(t, 1, n)
 
-	err = a.Copy("testdata_copy")
+	copyPath, err := ioutil.TempDir(os.TempDir(), "testdata_copy")
 	require.NoError(t, err)
+	defer os.RemoveAll(copyPath)
 
-	defer os.RemoveAll("testdata_copy")
+	err = a.Copy(copyPath)
+	require.NoError(t, err)
 
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata_copy", DefaultOptions().WithReadOnly(true))
+	a, err = Open(copyPath, DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -216,17 +227,20 @@ func TestMultiAppReOpening(t *testing.T) {
 }
 
 func TestMultiAppEdgeCases(t *testing.T) {
-	_, err := Open("testdata", nil)
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	_, err = Open(path, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = Open("multi_app_test.go", DefaultOptions())
 	require.Equal(t, ErrorPathIsNotADirectory, err)
 
-	_, err = Open("testdata", DefaultOptions().WithReadOnly(true))
+	_, err = Open(path, DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
 
-	a, err := Open("testdata", DefaultOptions())
-	defer os.RemoveAll("testdata")
+	a, err := Open(path, DefaultOptions())
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
@@ -268,8 +282,11 @@ func TestMultiAppEdgeCases(t *testing.T) {
 }
 
 func TestMultiAppCompression(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithCompressionFormat(appendable.ZLibCompression))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	a, err := Open(path, DefaultOptions().WithCompressionFormat(appendable.ZLibCompression))
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
@@ -289,8 +306,11 @@ func TestMultiAppCompression(t *testing.T) {
 }
 
 func TestMultiAppAppendableForCurrentChunk(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithFileSize(10))
-	defer os.RemoveAll("testdata")
+	path, err := ioutil.TempDir(os.TempDir(), "testdata")
+	require.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	a, err := Open(path, DefaultOptions().WithFileSize(10))
 	require.NoError(t, err)
 
 	testData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
