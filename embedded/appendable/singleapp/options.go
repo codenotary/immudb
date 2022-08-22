@@ -31,9 +31,9 @@ type Options struct {
 	readOnly       bool
 	readBufferSize int
 
-	writeBufferSize int
-	retryableSync   bool // if retryableSync is enabled, buffer space is released only after a successful sync
-	autoSync        bool // if autoSync is enabled, sync is called when the buffer is full
+	writeBuffer   []byte
+	retryableSync bool // if retryableSync is enabled, buffer space is released only after a successful sync
+	autoSync      bool // if autoSync is enabled, sync is called when the buffer is full
 
 	fileMode os.FileMode
 
@@ -52,14 +52,14 @@ func DefaultOptions() *Options {
 		compressionFormat: DefaultCompressionFormat,
 		compressionLevel:  DefaultCompressionLevel,
 		readBufferSize:    DefaultReadBufferSize,
-		writeBufferSize:   DefaultWriteBufferSize,
+		writeBuffer:       make([]byte, DefaultWriteBufferSize),
 	}
 }
 
 func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.readBufferSize > 0 &&
-		opts.writeBufferSize > 0
+		(opts.readOnly || len(opts.writeBuffer) > 0)
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -99,8 +99,8 @@ func (opts *Options) GetReadBufferSize() int {
 	return opts.readBufferSize
 }
 
-func (opts *Options) GetWriteBufferSize() int {
-	return opts.writeBufferSize
+func (opts *Options) GetWriteBuffer() []byte {
+	return opts.writeBuffer
 }
 
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
@@ -118,7 +118,7 @@ func (opts *Options) WithReadBufferSize(size int) *Options {
 	return opts
 }
 
-func (opts *Options) WithWriteBufferSize(size int) *Options {
-	opts.writeBufferSize = size
+func (opts *Options) WithWriteBuffer(b []byte) *Options {
+	opts.writeBuffer = b
 	return opts
 }

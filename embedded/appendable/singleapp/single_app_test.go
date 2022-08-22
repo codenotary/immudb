@@ -30,9 +30,11 @@ import (
 )
 
 func TestSingleApp(t *testing.T) {
+	buf := make([]byte, DefaultWriteBufferSize*5)
+
 	opts := DefaultOptions().
 		WithReadBufferSize(DefaultReadBufferSize * 2).
-		WithWriteBufferSize(DefaultWriteBufferSize * 5)
+		WithWriteBuffer(buf)
 
 	a, err := Open("testdata.aof", opts)
 	defer os.Remove("testdata.aof")
@@ -429,7 +431,11 @@ func TestSingleAppDiscard(t *testing.T) {
 }
 
 func BenchmarkAppendFlush(b *testing.B) {
-	app, err := Open("testdata_benchmark_flush.aof", DefaultOptions().WithRetryableSync(false).WithWriteBufferSize(4096))
+	opts := DefaultOptions().
+		WithRetryableSync(false).
+		WithWriteBuffer(make([]byte, DefaultWriteBufferSize))
+
+	app, err := Open("testdata_benchmark_flush.aof", opts)
 	if err != nil {
 		panic(err)
 	}
@@ -461,7 +467,11 @@ func BenchmarkAppendFlush(b *testing.B) {
 }
 
 func BenchmarkAppendFlushless(b *testing.B) {
-	app, err := Open("testdata_benchmark_flushless.aof", DefaultOptions().WithRetryableSync(false).WithWriteBufferSize(4096*16))
+	opts := DefaultOptions().
+		WithRetryableSync(false).
+		WithWriteBuffer(make([]byte, DefaultWriteBufferSize*16))
+
+	app, err := Open("testdata_benchmark_flushless.aof", opts)
 	if err != nil {
 		panic(err)
 	}
