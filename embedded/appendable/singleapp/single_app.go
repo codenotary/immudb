@@ -35,7 +35,7 @@ import (
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("single-file appendable already closed")
-var ErrReadOnly = errors.New("cannot append when opened in read-only mode")
+var ErrReadOnly = errors.New("read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 var ErrBufferFull = errors.New("buffer full")
 var ErrNegativeOffset = errors.New("negative offset")
@@ -45,6 +45,8 @@ const (
 	metaCompressionLevel  = "COMPRESSION_LEVEL"
 	metaWrappedMeta       = "WRAPPED_METADATA"
 )
+
+var _ appendable.Appendable = (*AppendableFile)(nil)
 
 type AppendableFile struct {
 	f              *os.File
@@ -179,7 +181,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		f:                 f,
 		fileBaseOffset:    fileBaseOffset,
 		fileOffset:        fileOffset - fileBaseOffset,
-		writeBuffer:       make([]byte, opts.writeBufferSize),
+		writeBuffer:       opts.writeBuffer,
 		readBufferSize:    opts.readBufferSize,
 		compressionFormat: compressionFormat,
 		compressionLevel:  compressionLevel,
@@ -265,6 +267,10 @@ func (aof *AppendableFile) SetOffset(newOffset int64) error {
 
 	if aof.closed {
 		return ErrAlreadyClosed
+	}
+
+	if aof.readOnly {
+		return ErrReadOnly
 	}
 
 	if newOffset < 0 {
@@ -515,6 +521,38 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	}
 
 	return
+}
+
+func (aof *AppendableFile) SwitchToReadOnlyMode() error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
+	if aof.readOnly {
+		return ErrReadOnly
+	}
+
+	// write buffer must be freed
+	err := aof.flush()
+	if err != nil {
+		return err
+	}
+
+	if aof.retryableSync {
+		// syncing is required to free the write buffer with retryable sync
+		err := aof.sync()
+		if err != nil {
+			return err
+		}
+	}
+
+	aof.writeBuffer = nil
+	aof.readOnly = true
+
+	return nil
 }
 
 func (aof *AppendableFile) Flush() error {
