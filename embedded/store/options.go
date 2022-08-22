@@ -127,7 +127,7 @@ type AHTOptions struct {
 func DefaultOptions() *Options {
 	return &Options{
 		ReadOnly:        false,
-		WriteBufferSize: 1 << 21, //2Mb
+		WriteBufferSize: 1 << 22, //4Mb
 		Synced:          true,
 		SyncFrequency:   DefaultSyncFrequency,
 		FileMode:        DefaultFileMode,
@@ -187,7 +187,7 @@ func DefaultIndexOptions() *IndexOptions {
 
 func DefaultAHTOptions() *AHTOptions {
 	return &AHTOptions{
-		WriteBufferSize: 1 << 21, //2Mb
+		WriteBufferSize: 1 << 24, //16Mb
 		SyncThld:        ahtree.DefaultSyncThld,
 	}
 }
