@@ -127,7 +127,7 @@ type AHTOptions struct {
 func DefaultOptions() *Options {
 	return &Options{
 		ReadOnly:        false,
-		WriteBufferSize: 1 << 26, //64Mb
+		WriteBufferSize: 1 << 21, //2Mb
 		Synced:          true,
 		SyncFrequency:   DefaultSyncFrequency,
 		FileMode:        DefaultFileMode,
