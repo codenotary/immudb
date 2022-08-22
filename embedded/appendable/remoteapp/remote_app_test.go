@@ -855,6 +855,7 @@ func TestRemoteStorageDownloadUnrecoverableError(t *testing.T) {
 
 func TestRemoteStorageOpenChunkWhenUploading(t *testing.T) {
 	path := prepareLocalTestFiles(t)
+	defer os.RemoveAll(path)
 
 	mem := &remoteStorageMockingWrapper{
 		wrapped: memory.Open(),

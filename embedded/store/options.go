@@ -187,7 +187,7 @@ func DefaultIndexOptions() *IndexOptions {
 
 func DefaultAHTOptions() *AHTOptions {
 	return &AHTOptions{
-		WriteBufferSize: 1 << 26, //64Mb
+		WriteBufferSize: 1 << 21, //2Mb
 		SyncThld:        ahtree.DefaultSyncThld,
 	}
 }

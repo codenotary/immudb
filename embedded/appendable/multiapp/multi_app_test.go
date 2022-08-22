@@ -188,15 +188,19 @@ func TestMultiAppReOpening(t *testing.T) {
 	require.Equal(t, int64(2), off)
 	require.Equal(t, 1, n)
 
-	err = a.Copy("testdata_copy")
+	copyPath, err := ioutil.TempDir(os.TempDir(), "testdata_copy")
+	require.NoError(t, err)
+	defer os.RemoveAll(copyPath)
+
+	err = a.Copy(copyPath)
 	require.NoError(t, err)
 
-	defer os.RemoveAll("testdata_copy")
+	defer os.RemoveAll(copyPath)
 
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata_copy", DefaultOptions().WithReadOnly(true))
+	a, err = Open(copyPath, DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
