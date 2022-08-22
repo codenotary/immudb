@@ -98,6 +98,10 @@ func (r *remoteStorageReader) Sync() error {
 	return nil
 }
 
+func (r *remoteStorageReader) SwitchToReadOnlyMode() error {
+	return nil
+}
+
 func (r *remoteStorageReader) ReadAt(bs []byte, off int64) (int, error) {
 	if off < 0 {
 		return 0, ErrIllegalArguments

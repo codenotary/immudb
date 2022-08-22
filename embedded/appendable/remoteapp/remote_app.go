@@ -188,14 +188,7 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 		var newApp appendable.Appendable
 		cp := r.chunkedProcess(ctx)
 
-		// Ensure the chunk data is flushed
-		cp.Step(func() error {
-			err := r.FlushWithId(chunkID)
-			if err != nil && !errors.Is(err, singleapp.ErrAlreadyClosed) {
-				return err
-			}
-			return nil
-		})
+		// Chunk data was already flushed when changing the active appendable
 
 		// Update size stats after flush
 		cp.Step(func() error {

@@ -60,6 +60,10 @@ func TestMocked(t *testing.T) {
 		return nil
 	}
 
+	mocked.SwitchToReadOnlyModeFn = func() error {
+		return nil
+	}
+
 	mocked.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, nil
 	}
@@ -103,6 +107,9 @@ func TestMocked(t *testing.T) {
 	require.NoError(t, err)
 
 	err = mocked.Sync()
+	require.NoError(t, err)
+
+	err = mocked.SwitchToReadOnlyMode()
 	require.NoError(t, err)
 
 	n, err = mocked.ReadAt(nil, 0)
