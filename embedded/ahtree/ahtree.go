@@ -146,7 +146,7 @@ func Open(path string, opts *Options) (*AHtree, error) {
 
 func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
 	if pLog == nil || dLog == nil || cLog == nil {
-		return nil, fmt.Errorf("%w: invalid appendables", ErrIllegalArguments)
+		return nil, fmt.Errorf("%w: nil appendable", ErrIllegalArguments)
 	}
 
 	err := opts.Validate()
