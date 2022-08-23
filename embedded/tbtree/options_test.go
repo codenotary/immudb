@@ -51,7 +51,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"CommitLogMaxOpenedFiles", DefaultOptions().WithCommitLogMaxOpenedFiles(0)},
 	} {
 		t.Run(d.n, func(t *testing.T) {
-			require.ErrorIs(t, d.opts.Validate(), ErrIllegalArguments)
+			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
 		})
 	}
 }

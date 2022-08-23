@@ -55,13 +55,13 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.True(t, dumpNBuf.Len() == 0)
 
 	_, _, _, err = snapshot.Get(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = snapshot.History(nil, 0, false, 1)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = snapshot.History([]byte{}, 0, false, 0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = snapshot.Close()
 	require.NoError(t, err)
@@ -100,28 +100,28 @@ func TestSnapshotClosing(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = snapshot.NewReader(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = snapshot.Close()
 	require.NoError(t, err)
 
 	err = snapshot.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = snapshot.Get([]byte{})
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = snapshot.History([]byte{}, 0, false, 1)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = snapshot.ExistKeyWith([]byte{}, nil)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = snapshot.NewReader(nil)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = snapshot.NewHistoryReader(nil)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
 	require.NoError(t, err)
@@ -186,10 +186,10 @@ func TestSnapshotIsolation(t *testing.T) {
 
 	t.Run("keys inserted after snapshot creation should NOT be reachable", func(t *testing.T) {
 		_, _, _, err = snap1.Get([]byte("key2"))
-		require.Equal(t, ErrKeyNotFound, err)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		_, _, _, err = snap2.Get([]byte("key2"))
-		require.Equal(t, ErrKeyNotFound, err)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 
 	err = snap1.Set([]byte("key1"), []byte("value1_snap1"))
@@ -215,16 +215,16 @@ func TestSnapshotIsolation(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, _, err = snap1.Get([]byte("key1_snap2"))
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = snap2.Get([]byte("key1_snap1"))
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = tbtree.Get([]byte("key1_snap1"))
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	_, _, _, err = tbtree.Get([]byte("key1_snap2"))
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	err = snap1.Close()
 	require.NoError(t, err)

@@ -256,13 +256,13 @@ func TestEdgeCases(t *testing.T) {
 	require.ErrorIs(t, tree.wrapNwarn("%w", ErrorMaxValueSizeExceeded), ErrorMaxValueSizeExceeded)
 
 	err = tree.Insert(make([]byte, tree.maxKeySize+1), make([]byte, tree.maxValueSize))
-	require.Equal(t, ErrorMaxKeySizeExceeded, err)
+	require.ErrorIs(t, err, ErrorMaxKeySizeExceeded)
 
 	err = tree.Insert(make([]byte, tree.maxKeySize), make([]byte, tree.maxValueSize+1))
-	require.Equal(t, ErrorMaxValueSizeExceeded, err)
+	require.ErrorIs(t, err, ErrorMaxValueSizeExceeded)
 
 	_, _, _, err = tree.Get(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i := 0; i < 100; i++ {
 		err = tree.Insert(make([]byte, 1), []byte{2})
@@ -289,13 +289,13 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = s1.History(make([]byte, 1), 101, false, 100)
-	require.Equal(t, ErrOffsetOutOfRange, err)
+	require.ErrorIs(t, err, ErrOffsetOutOfRange)
 
 	_, err = tree.Snapshot()
-	require.Equal(t, ErrorToManyActiveSnapshots, err)
+	require.ErrorIs(t, err, ErrorToManyActiveSnapshots)
 
 	err = tree.Close()
-	require.Equal(t, ErrSnapshotsNotClosed, err)
+	require.ErrorIs(t, err, ErrSnapshotsNotClosed)
 
 	err = s1.Close()
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = s1.History([]byte{2}, 0, false, 1)
-		require.Equal(t, ErrKeyNotFound, err)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		err = s1.Close()
 		require.NoError(t, err)
@@ -343,7 +343,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			v1, ts1, hc, err := snapshot.Get(k)
 
 			if i == 0 {
-				require.Equal(t, ErrKeyNotFound, err)
+				require.ErrorIs(t, err, ErrKeyNotFound)
 			} else {
 				require.NoError(t, err)
 
@@ -616,7 +616,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = tree.SnapshotCount()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	tree, err = Open(d, DefaultOptions())
 	require.NoError(t, err)
@@ -937,19 +937,19 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	monotonicInsertions(t, tbtree, itCount, keyCount, true)
 
 	err = tbtree.BulkInsert(nil)
-	require.Equal(t, err, ErrIllegalArguments)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = tbtree.BulkInsert([]*KV{{}})
-	require.Equal(t, err, ErrIllegalArguments)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
 	_, _, err = tbtree.History(nil, 0, false, 10)
-	require.Equal(t, err, ErrIllegalArguments)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = tbtree.History([]byte("key"), 0, false, 0)
-	require.Equal(t, err, ErrIllegalArguments)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	exists, err := tbtree.ExistKeyWith([]byte("key"), []byte("longerkey"))
 	require.NoError(t, err)
@@ -959,31 +959,31 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = tbtree.Flush()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = tbtree.History([]byte("key"), 0, false, 10)
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = tbtree.Get([]byte("key"))
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = tbtree.ExistKeyWith([]byte("key"), nil)
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Insert([]byte("key"), []byte("value"))
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = tbtree.Snapshot()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = tbtree.Compact()
-	require.Equal(t, err, ErrAlreadyClosed)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	tbtree, err = Open("test_tree_iasc", DefaultOptions())
 	require.NoError(t, err)
@@ -1030,7 +1030,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	for {
 		k, _, _, _, err := reader.Read()
 		if err != nil {
-			require.Equal(t, ErrNoMoreEntries, err)
+			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
 		}
 
@@ -1105,7 +1105,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 
 		reader, err := snapshot.NewReader(rspec)
 		if err != nil {
-			require.Equal(t, ErrNoMoreEntries, err)
+			require.ErrorIs(t, err, ErrNoMoreEntries)
 			snapshot.Close()
 			continue
 		}
@@ -1115,7 +1115,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		for {
 			k, _, _, _, err := reader.Read()
 			if err != nil {
-				require.Equal(t, ErrNoMoreEntries, err)
+				require.ErrorIs(t, err, ErrNoMoreEntries)
 				break
 			}
 

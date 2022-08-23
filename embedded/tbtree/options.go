@@ -110,75 +110,75 @@ func DefaultOptions() *Options {
 
 func (opts *Options) Validate() error {
 	if opts == nil {
-		return fmt.Errorf("%w: nil options", ErrIllegalArguments)
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
 	}
 
 	if opts.fileSize <= 0 {
-		return fmt.Errorf("%w: invalid FileSize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid FileSize", ErrInvalidOptions)
 	}
 
 	if opts.maxKeySize <= 0 {
-		return fmt.Errorf("%w: invalid MaxKeySize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid MaxKeySize", ErrInvalidOptions)
 	}
 
 	if opts.maxValueSize <= 0 {
-		return fmt.Errorf("%w: invalid MaxValueSize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid MaxValueSize", ErrInvalidOptions)
 	}
 
 	if opts.maxNodeSize < requiredNodeSize(opts.maxKeySize, opts.maxValueSize) {
-		return fmt.Errorf("%w: invalid MaxNodeSize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid MaxNodeSize", ErrInvalidOptions)
 	}
 
 	if opts.flushThld <= 0 {
-		return fmt.Errorf("%w: invalid FlushThld", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid FlushThld", ErrInvalidOptions)
 	}
 
 	if opts.syncThld <= 0 {
-		return fmt.Errorf("%w: invalid SyncThld", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid SyncThld", ErrInvalidOptions)
 	}
 
 	if opts.flushThld > opts.syncThld {
-		return fmt.Errorf("%w: FlushThld must be lower or equal to SyncThld", ErrIllegalArguments)
+		return fmt.Errorf("%w: FlushThld must be lower or equal to SyncThld", ErrInvalidOptions)
 	}
 
 	if opts.flushBufferSize <= 0 {
-		return fmt.Errorf("%w: invalid FlushBufferSize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid FlushBufferSize", ErrInvalidOptions)
 	}
 
 	if opts.cleanupPercentage < 0 || opts.cleanupPercentage > 100 {
-		return fmt.Errorf("%w: invalid CleanupPercentage", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid CleanupPercentage", ErrInvalidOptions)
 	}
 
 	if opts.nodesLogMaxOpenedFiles <= 0 {
-		return fmt.Errorf("%w: invalid NodesLogMaxOpenedFiles", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid NodesLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
 	if opts.historyLogMaxOpenedFiles <= 0 {
-		return fmt.Errorf("%w: invalid HistoryLogMaxOpenedFiles", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid HistoryLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
 	if opts.commitLogMaxOpenedFiles <= 0 {
-		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
 	if opts.maxActiveSnapshots <= 0 {
-		return fmt.Errorf("%w: invalid MaxActiveSnapshots", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid MaxActiveSnapshots", ErrInvalidOptions)
 	}
 
 	if opts.renewSnapRootAfter < 0 {
-		return fmt.Errorf("%w: invalid RenewSnapRootAfter", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid RenewSnapRootAfter", ErrInvalidOptions)
 	}
 
 	if opts.cacheSize < MinCacheSize {
-		return fmt.Errorf("%w: invalid CacheSize", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid CacheSize", ErrInvalidOptions)
 	}
 
 	if opts.compactionThld <= 0 {
-		return fmt.Errorf("%w: invalid CompactionThld", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid CompactionThld", ErrInvalidOptions)
 	}
 
 	if opts.logger == nil {
-		return fmt.Errorf("%w: invalid Logger", ErrIllegalArguments)
+		return fmt.Errorf("%w: invalid Logger", ErrInvalidOptions)
 	}
 
 	return nil
