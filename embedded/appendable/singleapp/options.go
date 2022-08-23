@@ -16,6 +16,7 @@ limitations under the License.
 package singleapp
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -56,10 +57,20 @@ func DefaultOptions() *Options {
 	}
 }
 
-func (opts *Options) Valid() bool {
-	return opts != nil &&
-		opts.readBufferSize > 0 &&
-		(opts.readOnly || len(opts.writeBuffer) > 0)
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+
+	if opts.readBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid readBufferSize", ErrInvalidOptions)
+	}
+
+	if !opts.readOnly && len(opts.writeBuffer) == 0 {
+		return fmt.Errorf("%w: invalid writeBuffer", ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
