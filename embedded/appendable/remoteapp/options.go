@@ -42,6 +42,18 @@ func DefaultOptions() *Options {
 	}
 }
 
+func (opts *Options) Valid() bool {
+	// TODO: implement signature `Validate() error``
+	// TODO: Compression is not supported ATM, this must be disabled
+	return opts != nil &&
+		opts.Options.Validate() == nil &&
+		opts.parallelUploads > 0 &&
+		opts.parallelUploads < 100000 &&
+		opts.retryMinDelay > 0 &&
+		opts.retryMaxDelay > 0 &&
+		opts.retryDelayExp > 1
+}
+
 func (opts *Options) WithParallelUploads(parallelUploads int) *Options {
 	opts.parallelUploads = parallelUploads
 	return opts
@@ -65,15 +77,4 @@ func (opts *Options) WithRetryDelayExp(retryDelayExp float64) *Options {
 func (opts *Options) WithRetryDelayJitter(retryDelayJitter float64) *Options {
 	opts.retryDelayJitter = retryDelayJitter
 	return opts
-}
-
-func (opts *Options) Valid() bool {
-	// TODO: Compression is not supported ATM, this must be disabled
-	return opts != nil &&
-		opts.Options.Valid() &&
-		opts.parallelUploads > 0 &&
-		opts.parallelUploads < 100000 &&
-		opts.retryMinDelay > 0 &&
-		opts.retryMaxDelay > 0 &&
-		opts.retryDelayExp > 1
 }
