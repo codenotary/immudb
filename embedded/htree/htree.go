@@ -21,9 +21,9 @@ import (
 	"math/bits"
 )
 
-var ErrMaxWidthExceeded = errors.New("max width exceeded")
-var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrIllegalState = errors.New("illegal state")
+var ErrMaxWidthExceeded = errors.New("htree: max width exceeded")
+var ErrIllegalArguments = errors.New("htree: illegal arguments")
+var ErrIllegalState = errors.New("htree: illegal state")
 
 const LeafPrefix = byte(0)
 const NodePrefix = byte(1)
