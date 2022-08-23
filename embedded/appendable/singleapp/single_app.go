@@ -32,13 +32,14 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 )
 
-var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("single-file appendable already closed")
-var ErrReadOnly = errors.New("read-only mode")
-var ErrCorruptedMetadata = errors.New("corrupted metadata")
-var ErrBufferFull = errors.New("buffer full")
-var ErrNegativeOffset = errors.New("negative offset")
+var ErrorPathIsNotADirectory = errors.New("singleapp: path is not a directory")
+var ErrIllegalArguments = errors.New("singleapp: illegal arguments")
+var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
+var ErrAlreadyClosed = errors.New("singleapp: already closed")
+var ErrReadOnly = errors.New("singleapp: read-only mode")
+var ErrCorruptedMetadata = errors.New("singleapp: corrupted metadata")
+var ErrBufferFull = errors.New("singleapp: buffer full")
+var ErrNegativeOffset = errors.New("singleapp: negative offset")
 
 const (
 	metaCompressionFormat = "COMPRESSION_FORMAT"
@@ -74,8 +75,9 @@ type AppendableFile struct {
 }
 
 func Open(fileName string, opts *Options) (*AppendableFile, error) {
-	if !opts.Valid() {
-		return nil, ErrIllegalArguments
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	var flag int
@@ -86,7 +88,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		flag = os.O_CREATE | os.O_RDWR
 	}
 
-	_, err := os.Stat(fileName)
+	_, err = os.Stat(fileName)
 	notExist := os.IsNotExist(err)
 
 	if err != nil && ((opts.readOnly && notExist) || !notExist) {

@@ -56,10 +56,10 @@ func TestSingleApp(t *testing.T) {
 	require.Nil(t, md)
 
 	_, _, err = a.Append(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	off, n, err := a.Append([]byte{0})
 	require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestSingleApp(t *testing.T) {
 
 	n, err = a.ReadAt(bs, 1000)
 	require.Equal(t, n, 0)
-	require.Equal(t, err, io.EOF)
+	require.ErrorIs(t, err, io.EOF)
 
 	err = a.Sync()
 	require.NoError(t, err)
@@ -133,13 +133,13 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.Equal(t, []byte{1, 2, 3}, bs)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Flush()
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Sync()
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Close()
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should fail reading metadata len
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, ErrCorruptedMetadata)
 
 	mLenBs := make([]byte, 4)
 	binary.BigEndian.PutUint32(mLenBs, 1)
@@ -167,7 +167,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
@@ -194,7 +194,7 @@ func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
@@ -222,7 +222,7 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, ErrCorruptedMetadata)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
@@ -251,7 +251,7 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Equal(t, ErrCorruptedMetadata, err)
+	require.ErrorIs(t, err, ErrCorruptedMetadata)
 }
 
 func TestSingleAppEdgeCases(t *testing.T) {
