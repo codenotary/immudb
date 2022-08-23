@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/bits"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
+var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedData = errors.New("data log is corrupted")
 var ErrorCorruptedDigests = errors.New("hash log is corrupted")
@@ -81,8 +83,9 @@ type AHtree struct {
 }
 
 func Open(path string, opts *Options) (*AHtree, error) {
-	if !validOptions(opts) {
-		return nil, ErrIllegalArguments
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	finfo, err := os.Stat(path)
@@ -96,7 +99,7 @@ func Open(path string, opts *Options) (*AHtree, error) {
 			return nil, err
 		}
 	} else if !finfo.IsDir() {
-		return nil, ErrorPathIsNotADirectory
+		return nil, fmt.Errorf("%w: '%s'", ErrorPathIsNotADirectory, path)
 	}
 
 	metadata := appendable.NewMetadata(nil)
@@ -142,8 +145,13 @@ func Open(path string, opts *Options) (*AHtree, error) {
 }
 
 func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
-	if !validOptions(opts) || pLog == nil || dLog == nil || cLog == nil {
-		return nil, ErrIllegalArguments
+	if pLog == nil || dLog == nil || cLog == nil {
+		return nil, fmt.Errorf("%w: invalid appendables", ErrIllegalArguments)
+	}
+
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	cLogSize, err := cLog.Size()
@@ -172,6 +180,11 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		return nil, err
 	}
 
+	var cLogBuf []byte
+	if !opts.readOnly {
+		cLogBuf = make([]byte, opts.syncThld*cLogEntrySize)
+	}
+
 	t := &AHtree{
 		pLog:             pLog,
 		dLog:             dLog,
@@ -184,7 +197,7 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		dCache:           dCache,
 		syncThld:         opts.syncThld,
 		readOnly:         opts.readOnly,
-		cLogBuf:          make([]byte, opts.syncThld*cLogEntrySize),
+		cLogBuf:          cLogBuf,
 	}
 
 	if cLogSize == 0 {

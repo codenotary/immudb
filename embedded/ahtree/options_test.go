@@ -24,12 +24,27 @@ import (
 )
 
 func TestInvalidOptions(t *testing.T) {
-	require.False(t, validOptions(nil))
-	require.False(t, validOptions(&Options{}))
+	for _, d := range []struct {
+		n    string
+		opts *Options
+	}{
+		{"nil", nil},
+		{"empty", &Options{}},
+		{"FileSize", DefaultOptions().WithFileSize(0)},
+		{"DataCacheSlots", DefaultOptions().WithDataCacheSlots(0)},
+		{"DigestsCacheSlots", DefaultOptions().WithDigestsCacheSlots(0)},
+		{"ReadBufferSize", DefaultOptions().WithReadBufferSize(0)},
+		{"SyncThld", DefaultOptions().WithReadOnly(false).WithSyncThld(0)},
+		{"WriteBufferSize", DefaultOptions().WithReadOnly(false).WithWriteBufferSize(0)},
+	} {
+		t.Run(d.n, func(t *testing.T) {
+			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
+		})
+	}
 }
 
 func TestDefaultOptions(t *testing.T) {
-	require.True(t, validOptions(DefaultOptions()))
+	require.NoError(t, DefaultOptions().Validate())
 }
 
 func TestValidOptions(t *testing.T) {
@@ -49,14 +64,17 @@ func TestValidOptions(t *testing.T) {
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
 	require.Equal(t, multiapp.DefaultReadBufferSize, opts.WithReadBufferSize(multiapp.DefaultReadBufferSize).readBufferSize)
+	require.Equal(t, 0, opts.WithWriteBufferSize(0).writeBufferSize)
+	require.Equal(t, 0, opts.WithSyncThld(0).syncThld)
+	require.NoError(t, opts.Validate())
 
+	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.Equal(t, multiapp.DefaultWriteBufferSize, opts.WithWriteBufferSize(multiapp.DefaultWriteBufferSize).writeBufferSize)
 	require.True(t, opts.WithRetryableSync(true).retryableSync)
 	require.True(t, opts.WithAutoSync(true).autoSync)
 	require.Equal(t, DefaultSyncThld, opts.WithSyncThld(DefaultSyncThld).syncThld)
-
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
-	require.True(t, validOptions(opts))
+	require.NoError(t, opts.Validate())
 }
