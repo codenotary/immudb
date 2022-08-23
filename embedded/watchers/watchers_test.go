@@ -68,7 +68,7 @@ func TestWatchersHub(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	err = wHub.WaitFor(uint64(waitessCount*2+1), nil)
-	require.Equal(t, ErrMaxWaitessLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxWaitessLimitExceeded)
 
 	done := make(chan struct{})
 
@@ -126,14 +126,14 @@ func TestWatchersHub(t *testing.T) {
 	require.NoError(t, errHolder)
 
 	err = wHub.WaitFor(0, nil)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = wHub.DoneUpto(0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = wHub.Status()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = wHub.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }

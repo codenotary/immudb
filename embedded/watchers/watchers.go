@@ -20,9 +20,9 @@ import (
 	"sync"
 )
 
-var ErrMaxWaitessLimitExceeded = errors.New("max waiting limit exceeded")
-var ErrAlreadyClosed = errors.New("already closed")
-var ErrCancellationRequested = errors.New("cancellation requested")
+var ErrMaxWaitessLimitExceeded = errors.New("watchers: max waiting limit exceeded")
+var ErrAlreadyClosed = errors.New("watchers: already closed")
+var ErrCancellationRequested = errors.New("watchers: cancellation requested")
 
 type WatchersHub struct {
 	wpoints map[uint64]*waitingPoint
