@@ -29,7 +29,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"nil", nil},
 		{"empty", &Options{}},
 		{"ReadBufferSize", DefaultOptions().WithReadBufferSize(0)},
-		{"WriteBufferSize", DefaultOptions().WithReadOnly(false).WithWriteBuffer(nil)},
+		{"WriteBuffer", DefaultOptions().WithReadOnly(false).WithWriteBuffer(nil)},
 	} {
 		t.Run(d.n, func(t *testing.T) {
 			require.ErrorIs(t, d.opts.Validate(), ErrInvalidOptions)
