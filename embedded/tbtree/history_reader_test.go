@@ -33,7 +33,7 @@ func TestHistoryReaderEdgeCases(t *testing.T) {
 	defer snapshot.Close()
 
 	_, err = snapshot.NewHistoryReader(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rspec := &HistoryReaderSpec{
 		Key:       []byte{0, 0, 0, 250},
@@ -45,16 +45,16 @@ func TestHistoryReaderEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	err = snapshot.Close()
-	require.Equal(t, ErrReadersNotClosed, err)
+	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	err = reader.Close()
 	require.NoError(t, err)
 
 	err = reader.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = reader.Read()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
 func TestHistoryReaderAscendingScan(t *testing.T) {
@@ -94,12 +94,12 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 	defer reader.Close()
 
 	err = snapshot.Close()
-	require.Equal(t, ErrReadersNotClosed, err)
+	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	for {
 		tss, err := reader.Read()
 		if err != nil {
-			require.Equal(t, ErrNoMoreEntries, err)
+			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
 		}
 
@@ -148,12 +148,12 @@ func TestHistoryReaderDescendingScan(t *testing.T) {
 	defer reader.Close()
 
 	err = snapshot.Close()
-	require.Equal(t, ErrReadersNotClosed, err)
+	require.ErrorIs(t, err, ErrReadersNotClosed)
 
 	for {
 		tss, err := reader.Read()
 		if err != nil {
-			require.Equal(t, ErrNoMoreEntries, err)
+			require.ErrorIs(t, err, ErrNoMoreEntries)
 			break
 		}
 

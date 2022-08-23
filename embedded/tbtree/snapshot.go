@@ -24,8 +24,8 @@ import (
 	"sync"
 )
 
-var ErrNoMoreEntries = errors.New("no more entries")
-var ErrReadersNotClosed = errors.New("readers not closed")
+var ErrNoMoreEntries = errors.New("tbtree: no more entries")
+var ErrReadersNotClosed = errors.New("tbtree: readers not closed")
 
 const (
 	InnerNodeType = iota
