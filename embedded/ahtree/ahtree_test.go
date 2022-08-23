@@ -135,6 +135,7 @@ func (t *EdgeCasesTestSuite) SetupTest() {
 
 func (t *EdgeCasesTestSuite) TestShouldFailOnIllegalArguments() {
 	_, err := Open("ahtree_test", nil)
+	t.Require().ErrorIs(err, ErrInvalidOptions)
 	t.Require().ErrorIs(err, ErrIllegalArguments)
 
 	_, err = OpenWith(nil, nil, nil, nil)
@@ -321,7 +322,7 @@ func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingPLogSize() {
 	}
 
 	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
-	t.Require().Equal(ErrorCorruptedData, err)
+	t.Require().ErrorIs(err, ErrorCorruptedData)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingDLogSize() {
@@ -341,7 +342,7 @@ func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingDLogSize() {
 	}
 
 	_, err := OpenWith(t.pLog, t.dLog, t.cLog, DefaultOptions())
-	t.Require().Equal(ErrorCorruptedDigests, err)
+	t.Require().ErrorIs(err, ErrorCorruptedDigests)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailReadingDLogSize() {
@@ -417,17 +418,17 @@ func (t *EdgeCasesTestSuite) TestShouldFailAppendingToDLog() {
 
 func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidPath() {
 	_, err := Open("options.go", DefaultOptions())
-	t.Require().Equal(ErrorPathIsNotADirectory, err)
+	t.Require().ErrorIs(err, ErrorPathIsNotADirectory)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidCacheSize() {
 	_, err := Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
-	t.Require().Equal(ErrIllegalArguments, err)
+	t.Require().ErrorIs(err, ErrInvalidOptions)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidDigestsCacheSize() {
 	_, err := Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
-	t.Require().Equal(ErrIllegalArguments, err)
+	t.Require().ErrorIs(err, ErrInvalidOptions)
 }
 
 func (t *EdgeCasesTestSuite) TestWithEmptyFiles() {
@@ -436,18 +437,18 @@ func (t *EdgeCasesTestSuite) TestWithEmptyFiles() {
 
 	t.Run("should fail to get tree root when tree is empty", func() {
 		_, _, err := tree.Root()
-		t.Require().Equal(ErrEmptyTree, err)
+		t.Require().ErrorIs(err, ErrEmptyTree)
 
 		_, err = tree.rootAt(1)
-		t.Require().Equal(ErrEmptyTree, err)
+		t.Require().ErrorIs(err, ErrEmptyTree)
 
 		_, err = tree.rootAt(0)
-		t.Require().Equal(ErrIllegalArguments, err)
+		t.Require().ErrorIs(err, ErrIllegalArguments)
 	})
 
 	t.Run("should fail to get data when tree is empty", func() {
 		_, err := tree.DataAt(0)
-		t.Require().Equal(ErrIllegalArguments, err)
+		t.Require().ErrorIs(err, ErrIllegalArguments)
 	})
 
 	t.Run("should not error when syncing empty tree", func() {
@@ -516,10 +517,10 @@ func TestReadOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = tree.Append(nil)
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = tree.Sync()
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = tree.Close()
 	require.NoError(t, err)
@@ -558,10 +559,10 @@ func TestAppend(t *testing.T) {
 		require.Equal(t, p, rp)
 
 		_, err = tree.RootAt(uint64(i) + 1)
-		require.Equal(t, ErrUnexistentData, err)
+		require.ErrorIs(t, err, ErrUnexistentData)
 
 		_, err = tree.DataAt(uint64(i) + 1)
-		require.Equal(t, ErrUnexistentData, err)
+		require.ErrorIs(t, err, ErrUnexistentData)
 	}
 
 	rp, err := tree.DataAt(uint64(1))
@@ -664,10 +665,10 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 	}
 
 	_, err = tree.InclusionProof(2, 1)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = tree.ConsistencyProof(2, 1)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i := 1; i <= N; i++ {
 		for j := i; j <= N; j++ {

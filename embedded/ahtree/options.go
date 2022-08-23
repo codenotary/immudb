@@ -16,6 +16,7 @@ limitations under the License.
 package ahtree
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -79,14 +80,36 @@ func DefaultOptions() *Options {
 	}
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.fileSize > 0 &&
-		opts.dataCacheSlots > 0 &&
-		opts.digestsCacheSlots > 0 &&
-		opts.readBufferSize > 0 &&
-		opts.writeBufferSize > 0 &&
-		opts.syncThld > 0
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+
+	if opts.fileSize <= 0 {
+		return fmt.Errorf("%w: invalid fileSize", ErrInvalidOptions)
+	}
+
+	if opts.dataCacheSlots <= 0 {
+		return fmt.Errorf("%w: invalid dataCacheSlots", ErrInvalidOptions)
+	}
+
+	if opts.digestsCacheSlots <= 0 {
+		return fmt.Errorf("%w: invalid digestsCacheSlots", ErrInvalidOptions)
+	}
+
+	if opts.readBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid readBufferSize", ErrInvalidOptions)
+	}
+
+	if !opts.readOnly && opts.writeBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid writeBufferSize", ErrInvalidOptions)
+	}
+
+	if !opts.readOnly && opts.syncThld <= 0 {
+		return fmt.Errorf("%w: invalid syncThld", ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
