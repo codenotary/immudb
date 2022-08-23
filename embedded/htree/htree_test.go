@@ -27,14 +27,14 @@ func TestHTree(t *testing.T) {
 	const maxWidth = 1000
 
 	_, err := New(0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tree, err := New(maxWidth)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
 	_, err = tree.Root()
-	require.Equal(t, ErrIllegalState, err)
+	require.ErrorIs(t, err, ErrIllegalState)
 
 	digests := make([][sha256.Size]byte, maxWidth)
 
@@ -73,11 +73,11 @@ func TestHTree(t *testing.T) {
 	}
 
 	err = tree.BuildWith(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = tree.BuildWith(make([][sha256.Size]byte, maxWidth+1))
-	require.Equal(t, ErrMaxWidthExceeded, err)
+	require.ErrorIs(t, err, ErrMaxWidthExceeded)
 
 	_, err = tree.InclusionProof(maxWidth)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 }
