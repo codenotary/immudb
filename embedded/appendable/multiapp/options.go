@@ -16,6 +16,7 @@ limitations under the License.
 package multiapp
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -62,13 +63,32 @@ func DefaultOptions() *Options {
 	}
 }
 
-func (opts *Options) Valid() bool {
-	return opts != nil &&
-		opts.fileSize > 0 &&
-		opts.maxOpenedFiles > 0 &&
-		opts.fileExt != "" &&
-		opts.readBufferSize > 0 &&
-		opts.writeBufferSize > 0
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", ErrInvalidOptions)
+	}
+
+	if opts.fileSize <= 0 {
+		return fmt.Errorf("%w: invalid fileSize", ErrInvalidOptions)
+	}
+
+	if opts.maxOpenedFiles <= 0 {
+		return fmt.Errorf("%w: invalid maxOpenedFiles", ErrInvalidOptions)
+	}
+
+	if opts.fileExt == "" {
+		return fmt.Errorf("%w: invalid fileExt", ErrInvalidOptions)
+	}
+
+	if opts.readBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid readBufferSize", ErrInvalidOptions)
+	}
+
+	if !opts.readOnly && opts.writeBufferSize <= 0 {
+		return fmt.Errorf("%w: invalid writeBufferSize", ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 func (opt *Options) WithReadOnly(readOnly bool) *Options {

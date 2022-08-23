@@ -53,10 +53,10 @@ func TestMultiApp(t *testing.T) {
 	require.Equal(t, 1, mkey1)
 
 	_, _, err = a.Append(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	off, n, err := a.Append([]byte{0})
 	require.NoError(t, err)
@@ -79,11 +79,13 @@ func TestMultiApp(t *testing.T) {
 	bs := make([]byte, 4)
 	n, err = a.ReadAt(bs, 0)
 	require.NoError(t, err)
+	require.Equal(t, 4, n)
 	require.Equal(t, []byte{0, 1, 2, 3}, bs)
 
 	bs = make([]byte, 4)
 	n, err = a.ReadAt(bs, 7)
 	require.NoError(t, err)
+	require.Equal(t, 4, n)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
 	err = a.Sync()
@@ -137,7 +139,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	err = a.Close()
-	require.Equal(t, singleapp.ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, singleapp.ErrAlreadyClosed)
 
 	fname := filepath.Join(a.path, appendableName(0, a.fileExt))
 	os.Remove(fname)
@@ -147,7 +149,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 
 	b := make([]byte, n)
 	_, err = a.ReadAt(b, 0)
-	require.Equal(t, io.EOF, err)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestMultiAppClosedFiles(t *testing.T) {
@@ -167,7 +169,7 @@ func TestMultiAppClosedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = a.Append([]byte{3, 4, 5})
-	require.Equal(t, singleapp.ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, singleapp.ErrAlreadyClosed)
 }
 
 func TestMultiAppReOpening(t *testing.T) {
@@ -210,19 +212,20 @@ func TestMultiAppReOpening(t *testing.T) {
 	bs := make([]byte, 3)
 	n, err = a.ReadAt(bs, 0)
 	require.NoError(t, err)
+	require.Equal(t, 3, n)
 	require.Equal(t, []byte{1, 2, 3}, bs)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	_, _, err = a.Append([]byte{0})
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Flush()
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Sync()
-	require.Equal(t, ErrReadOnly, err)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	err = a.Close()
 	require.NoError(t, err)
@@ -234,10 +237,10 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	defer os.RemoveAll(path)
 
 	_, err = Open(path, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("multi_app_test.go", DefaultOptions())
-	require.Equal(t, ErrorPathIsNotADirectory, err)
+	require.ErrorIs(t, err, ErrorPathIsNotADirectory)
 
 	_, err = Open(path, DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
@@ -246,10 +249,10 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = a.ReadAt([]byte{}, 0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = a.Copy("multi_app_test.go")
 	require.Error(t, err)
@@ -259,28 +262,28 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.Size()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Copy("copy")
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.SetOffset(0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = a.Append([]byte{})
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = a.ReadAt(make([]byte, 1), 0)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Flush()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Sync()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
 func TestMultiAppCompression(t *testing.T) {
