@@ -32,10 +32,11 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 )
 
-var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("multi-appendable already closed")
-var ErrReadOnly = errors.New("read-only mode")
+var ErrorPathIsNotADirectory = errors.New("multiapp: path is not a directory")
+var ErrIllegalArguments = errors.New("multiapp: illegal arguments")
+var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
+var ErrAlreadyClosed = errors.New("multiapp: already closed")
+var ErrReadOnly = errors.New("multiapp: read-only mode")
 
 const (
 	metaFileSize    = "FILE_SIZE"
@@ -123,8 +124,9 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 }
 
 func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (*MultiFileAppendable, error) {
-	if !opts.Valid() {
-		return nil, ErrIllegalArguments
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	finfo, err := os.Stat(path)
@@ -209,12 +211,14 @@ func (mf *MultiFileAppendable) Copy(dstPath string) error {
 		return ErrAlreadyClosed
 	}
 
-	err := mf.sync()
-	if err != nil {
-		return err
+	if !mf.readOnly {
+		err := mf.sync()
+		if err != nil {
+			return err
+		}
 	}
 
-	err = os.MkdirAll(dstPath, mf.fileMode)
+	err := os.MkdirAll(dstPath, mf.fileMode)
 	if err != nil {
 		return err
 	}
@@ -590,6 +594,10 @@ func (mf *MultiFileAppendable) Flush() error {
 		return ErrAlreadyClosed
 	}
 
+	if mf.readOnly {
+		return ErrReadOnly
+	}
+
 	return mf.currApp.Flush()
 }
 
@@ -597,10 +605,6 @@ func (mf *MultiFileAppendable) Sync() error {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
-	return mf.sync()
-}
-
-func (mf *MultiFileAppendable) sync() error {
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
@@ -609,10 +613,13 @@ func (mf *MultiFileAppendable) sync() error {
 		return ErrReadOnly
 	}
 
+	return mf.sync()
+}
+
+func (mf *MultiFileAppendable) sync() error {
 	// sync is only needed in the current appendable:
 	// - with retryable sync, non-active appendables were alredy synced
 	// - with non-retryable sync, data may be lost in previous flush or sync calls
-
 	return mf.currApp.Sync()
 }
 
