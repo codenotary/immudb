@@ -63,7 +63,7 @@ func TestImmudbStoreReader(t *testing.T) {
 	defer snap.Close()
 
 	_, err = snap.NewKeyReader(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	reader, err := snap.NewKeyReader(&KeyReaderSpec{})
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestImmudbStoreReader(t *testing.T) {
 	}
 
 	_, _, err = reader.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.ErrorIs(t, err, ErrNoMoreEntries)
 }
 
 func TestImmudbStoreReaderAsBefore(t *testing.T) {
@@ -151,7 +151,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 		}
 
 		_, _, err = reader.Read()
-		require.Equal(t, ErrNoMoreEntries, err)
+		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = reader.Reset()
 		require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 	}
 
 	_, _, err = reader.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.ErrorIs(t, err, ErrNoMoreEntries)
 }
 
 func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
@@ -290,7 +290,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 		}
 
 		_, _, err = reader.Read()
-		require.Equal(t, ErrNoMoreEntries, err)
+		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = reader.Reset()
 		require.NoError(t, err)

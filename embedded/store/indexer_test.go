@@ -57,33 +57,33 @@ func TestClosedIndexerFailures(t *testing.T) {
 	require.Zero(t, v)
 	require.Zero(t, tx)
 	require.Zero(t, hc)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	txs, hCount, err := indexer.History(nil, 0, false, 0)
 	require.Zero(t, txs)
 	require.Zero(t, hCount)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	snap, err := indexer.Snapshot()
 	require.Zero(t, snap)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	snap, err = indexer.SnapshotSince(0)
 	require.Zero(t, snap)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	exists, err := indexer.ExistKeyWith(nil, nil)
 	require.Zero(t, exists)
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = indexer.Sync()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = indexer.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = indexer.CompactIndex()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
 
 func TestMaxIndexWaitees(t *testing.T) {
@@ -105,7 +105,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	// One goroutine should fail
 	select {
 	case err := <-errCh:
-		require.Equal(t, watchers.ErrMaxWaitessLimitExceeded, err)
+		require.ErrorIs(t, err, watchers.ErrMaxWaitessLimitExceeded)
 	case <-time.After(time.Second):
 		require.Fail(t, "Did not get waiter error")
 	}
@@ -140,7 +140,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 			func(t *testing.T, dir string, s *ImmuStore) {
 				s.Close()
 				err := s.indexer.restartIndex()
-				require.Equal(t, ErrAlreadyClosed, err)
+				require.ErrorIs(t, err, ErrAlreadyClosed)
 			},
 		},
 		{
@@ -190,29 +190,29 @@ func TestClosedIndexer(t *testing.T) {
 
 	_, _, _, err = i.Get(dummy)
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, _, err = i.History(dummy, 0, false, 0)
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = i.Snapshot()
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = i.SnapshotSince(0)
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = i.ExistKeyWith(dummy, dummy)
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = i.Sync()
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = i.Close()
 	assert.Error(t, err)
-	assert.Equal(t, err, ErrAlreadyClosed)
+	assert.ErrorIs(t, err, ErrAlreadyClosed)
 }

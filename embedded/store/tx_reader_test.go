@@ -62,10 +62,10 @@ func TestTxReader(t *testing.T) {
 	}
 
 	_, err = immuStore.NewTxReader(0, false, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = immuStore.NewTxReader(1, false, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	txHolder := tempTxHolder(t, immuStore)
 
@@ -114,12 +114,13 @@ func TestWrapAppendableErr(t *testing.T) {
 	err = immuStore.wrapAppendableErr(nil, "anAction")
 	require.Nil(t, err)
 
-	err = immuStore.wrapAppendableErr(errors.New("some error"), "anAction")
-	require.Equal(t, errors.New("some error"), err)
+	unwrappedErr := errors.New("some error")
+	err = immuStore.wrapAppendableErr(unwrappedErr, "anAction")
+	require.ErrorIs(t, err, unwrappedErr)
 
 	err = immuStore.wrapAppendableErr(singleapp.ErrAlreadyClosed, "anAction")
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = immuStore.wrapAppendableErr(multiapp.ErrAlreadyClosed, "anAction")
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, ErrAlreadyClosed)
 }
