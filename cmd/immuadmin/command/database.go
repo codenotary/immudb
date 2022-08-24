@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/embedded/store"
@@ -40,6 +41,8 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
+	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
+	c.Flags().Uint32("write-buffer-size", store.DefaultWriteBufferSize, "set the size of in-memory buffers for file abstractions")
 	c.Flags().Uint32("read-tx-pool-size", database.DefaultReadTxPoolSize, "set transaction read pool size (used for reading transaction objects)")
 	c.Flags().Bool("autoload", true, "enable database autoloading")
 }
@@ -338,6 +341,17 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, nil
 	}
 
+	condDuration := func(name string) (*schema.NullableMilliseconds, error) {
+		if flags.Changed(name) {
+			val, err := flags.GetDuration(name)
+			if err != nil {
+				return nil, err
+			}
+			return &schema.NullableMilliseconds{Value: val.Milliseconds()}, nil
+		}
+		return nil, nil
+	}
+
 	ret := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{},
 	}
@@ -387,6 +401,16 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
+	ret.SyncFrequency, err = condDuration("sync-frequency")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.WriteBufferSize, err = condUInt32("write-buffer-size")
+	if err != nil {
+		return nil, err
+	}
+
 	ret.ReadTxPoolSize, err = condUInt32("read-tx-pool-size")
 	if err != nil {
 		return nil, err
@@ -417,6 +441,15 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 
 	if settings.MaxConcurrency != nil {
 		propertiesStr = append(propertiesStr, fmt.Sprintf("max-commit-concurrency: %d", settings.GetMaxConcurrency().GetValue()))
+	}
+
+	if settings.SyncFrequency != nil {
+		syncFreq := time.Duration(settings.GetSyncFrequency().GetValue()) * time.Millisecond
+		propertiesStr = append(propertiesStr, fmt.Sprintf("sync-frequency: %v", syncFreq))
+	}
+
+	if settings.WriteBufferSize != nil {
+		propertiesStr = append(propertiesStr, fmt.Sprintf("write-buffer-size: %d", settings.GetWriteBufferSize().GetValue()))
 	}
 
 	if settings.ReadTxPoolSize != nil {
