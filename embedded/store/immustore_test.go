@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded"
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
@@ -215,7 +216,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 
 func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 	_, err := Open("immustore_test.go", DefaultOptions())
-	require.Equal(t, ErrorPathIsNotADirectory, err)
+	require.ErrorIs(t, err, ErrorPathIsNotADirectory)
 }
 
 func TestImmudbStoreOnClosedStore(t *testing.T) {
@@ -227,7 +228,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	require.NoError(t, err)
 
 	err = immuStore.ReadTx(1, nil)
-	require.Equal(t, ErrTxNotFound, err)
+	require.ErrorIs(t, err, ErrTxNotFound)
 
 	err = immuStore.Close()
 	require.NoError(t, err)
@@ -819,7 +820,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.fetchAllocTx()
-	require.Equal(t, ErrMaxConcurrencyLimitExceeded, err)
+	require.ErrorIs(t, err, ErrMaxConcurrencyLimitExceeded)
 
 	immuStore.releaseAllocTx(tx1)
 
@@ -834,16 +835,16 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	targetTx := newTx(1, 1)
 	targetTx.header.ID = 1
 	_, err = immuStore.DualProof(sourceTx.Header(), targetTx.Header())
-	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
+	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
 	_, err = immuStore.LinearProof(2, 1)
-	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
+	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
 	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
-	require.Equal(t, ErrLinearProofMaxLenExceeded, err)
+	require.ErrorIs(t, err, ErrLinearProofMaxLenExceeded)
 
 	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	t.Run("validateEntries", func(t *testing.T) {
 		err = immuStore.validateEntries(nil)
@@ -1220,13 +1221,13 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 
 	t.Run("read-your-own-writes should be possible before commit", func(t *testing.T) {
 		_, err := immuStore.Get([]byte("key1"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, embedded.ErrKeyNotFound)
 
 		tx, err := immuStore.NewTx()
 		require.NoError(t, err)
 
 		_, err = tx.Get([]byte("key1"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, embedded.ErrKeyNotFound)
 
 		err = tx.Set([]byte("key1"), nil, []byte("value1"))
 		require.NoError(t, err)
@@ -1263,7 +1264,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.Equal(t, []byte("value1"), v)
 
 		_, err = immuStore.Get([]byte("key1"))
-		require.ErrorIs(t, err, ErrKeyNotFound)
+		require.ErrorIs(t, err, embedded.ErrKeyNotFound)
 
 		_, err = tx.Commit()
 		require.NoError(t, err)
@@ -1669,7 +1670,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 		return nil, nil, nil
 	}
 	_, err = immuStore.CommitWith(callback, false)
-	require.Equal(t, ErrorNoEntriesProvided, err)
+	require.ErrorIs(t, err, ErrorNoEntriesProvided)
 
 	callback = func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error) {
 		return nil, nil, errors.New("error")
@@ -1823,7 +1824,7 @@ func TestImmudbStoreCompactionFailureForRemoteStorage(t *testing.T) {
 	defer immustoreClose(t, immuStore)
 
 	err = immuStore.CompactIndex()
-	require.Equal(t, ErrCompactionUnsupported, err)
+	require.ErrorIs(t, err, ErrCompactionUnsupported)
 }
 
 func TestImmudbStoreInclusionProof(t *testing.T) {
@@ -2218,7 +2219,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = tx.Commit()
-	require.Equal(t, ErrorNoEntriesProvided, err)
+	require.ErrorIs(t, err, ErrorNoEntriesProvided)
 
 	for i := 0; i < txCount; i++ {
 		tx, err := immuStore.NewWriteOnlyTx()
@@ -2433,7 +2434,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = txReader.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.ErrorIs(t, err, ErrNoMoreEntries)
 
 	txCount := 100
 	eCount := 64
@@ -2457,7 +2458,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 		txhdr, err := tx.Commit()
 		if err != nil {
-			require.Equal(t, errEmulatedAppendableError, err)
+			require.ErrorIs(t, err, errEmulatedAppendableError)
 			emulatedFailures++
 		} else {
 			require.Equal(t, uint64(i+1-emulatedFailures), txhdr.ID)
@@ -2503,7 +2504,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	}
 
 	_, err = r.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.ErrorIs(t, err, ErrNoMoreEntries)
 
 	require.Equal(t, uint64(txCount-emulatedFailures), immuStore.TxCount())
 
