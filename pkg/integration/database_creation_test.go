@@ -109,6 +109,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: 4},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: 2},
 		SyncFrequency:           &schema.NullableMilliseconds{Value: 15},
+		WriteBufferSize:         &schema.NullableUint32{Value: 4000},
 		IndexSettings: &schema.IndexNullableSettings{
 			FlushThreshold:           &schema.NullableUint32{Value: 256},
 			SyncThreshold:            &schema.NullableUint32{Value: 512},
@@ -124,7 +125,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: 3},
 		},
 		AhtSettings: &schema.AHTNullableSettings{
-			SyncThreshold: &schema.NullableUint32{Value: 10_000},
+			SyncThreshold:   &schema.NullableUint32{Value: 10_000},
+			WriteBufferSize: &schema.NullableUint32{Value: 8000},
 		},
 	}
 	_, err = client.CreateDatabaseV2(context.Background(), "db1", dbNullableSettings)
@@ -148,6 +150,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.TxLogMaxOpenedFiles.Value, res.Settings.TxLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.CommitLogMaxOpenedFiles.Value, res.Settings.CommitLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.SyncFrequency.Value, res.Settings.SyncFrequency.Value)
+	require.Equal(t, dbNullableSettings.WriteBufferSize.Value, res.Settings.WriteBufferSize.Value)
 
 	require.Equal(t, dbNullableSettings.IndexSettings.FlushThreshold.Value, res.Settings.IndexSettings.FlushThreshold.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.SyncThreshold.Value, res.Settings.IndexSettings.SyncThreshold.Value)
@@ -163,6 +166,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, res.Settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
 
 	require.Equal(t, dbNullableSettings.AhtSettings.SyncThreshold.Value, res.Settings.AhtSettings.SyncThreshold.Value)
+	require.Equal(t, dbNullableSettings.AhtSettings.WriteBufferSize.Value, res.Settings.AhtSettings.WriteBufferSize.Value)
 
 	_, err = client.UpdateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{})
 	require.NoError(t, err)

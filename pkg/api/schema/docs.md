@@ -156,6 +156,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
 
@@ -441,6 +442,7 @@
 | autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
 | readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | syncFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  |  |
+| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  |  |
 
 

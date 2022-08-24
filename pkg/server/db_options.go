@@ -55,6 +55,8 @@ type dbOptions struct {
 	MaxConcurrency   int `json:"maxConcurrency"`
 	MaxIOConcurrency int `json:"maxIOConcurrency"`
 
+	WriteBufferSize int `json:"writeBufferSize"`
+
 	TxLogCacheSize          int `json:"txLogCacheSize"`
 	VLogMaxOpenedFiles      int `json:"vLogMaxOpenedFiles"`
 	TxLogMaxOpenedFiles     int `json:"txLogMaxOpenedFiles"`
@@ -104,7 +106,8 @@ type indexOptions struct {
 }
 
 type ahtOptions struct {
-	SyncThreshold int `json:"syncThreshold"`
+	SyncThreshold   int `json:"syncThreshold"`
+	WriteBufferSize int `json:"writeBufferSize"`
 }
 
 const DefaultMaxValueLen = 1 << 25   //32Mb
@@ -128,6 +131,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 
 		MaxConcurrency:          store.DefaultMaxConcurrency,
 		MaxIOConcurrency:        store.DefaultMaxIOConcurrency,
+		WriteBufferSize:         store.DefaultWriteBufferSize,
 		TxLogCacheSize:          store.DefaultTxLogCacheSize,
 		VLogMaxOpenedFiles:      store.DefaultVLogMaxOpenedFiles,
 		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
@@ -177,7 +181,8 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 
 func (s *ImmuServer) defaultAHTOptions() *ahtOptions {
 	return &ahtOptions{
-		SyncThreshold: ahtree.DefaultSyncThld,
+		SyncThreshold:   ahtree.DefaultSyncThld,
+		WriteBufferSize: ahtree.DefaultWriteBufferSize,
 	}
 }
 
@@ -213,6 +218,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 
 	if opts.AHTOptions != nil {
 		ahtOpts.WithSyncThld(opts.AHTOptions.SyncThreshold)
+		ahtOpts.WithWriteBufferSize(opts.AHTOptions.WriteBufferSize)
 	}
 
 	stOpts := store.DefaultOptions().
@@ -225,6 +231,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithWriteTxHeaderVersion(opts.WriteTxHeaderVersion).
 		WithMaxConcurrency(opts.MaxConcurrency).
 		WithMaxIOConcurrency(opts.MaxIOConcurrency).
+		WithWriteBufferSize(opts.WriteBufferSize).
 		WithTxLogCacheSize(opts.TxLogCacheSize).
 		WithVLogMaxOpenedFiles(opts.VLogMaxOpenedFiles).
 		WithTxLogMaxOpenedFiles(opts.TxLogMaxOpenedFiles).
@@ -265,6 +272,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		MaxConcurrency:   &schema.NullableUint32{Value: uint32(opts.MaxConcurrency)},
 		MaxIOConcurrency: &schema.NullableUint32{Value: uint32(opts.MaxIOConcurrency)},
 
+		WriteBufferSize: &schema.NullableUint32{Value: uint32(opts.WriteBufferSize)},
+
 		TxLogCacheSize:          &schema.NullableUint32{Value: uint32(opts.TxLogCacheSize)},
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
@@ -287,7 +296,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		},
 
 		AhtSettings: &schema.AHTNullableSettings{
-			SyncThreshold: &schema.NullableUint32{Value: uint32(opts.AHTOptions.SyncThreshold)},
+			SyncThreshold:   &schema.NullableUint32{Value: uint32(opts.AHTOptions.SyncThreshold)},
+			WriteBufferSize: &schema.NullableUint32{Value: uint32(opts.AHTOptions.WriteBufferSize)},
 		},
 
 		WriteTxHeaderVersion: &schema.NullableUint32{Value: uint32(opts.WriteTxHeaderVersion)},
@@ -424,6 +434,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		opts.MaxIOConcurrency = int(settings.MaxIOConcurrency.Value)
 	}
 
+	if settings.WriteBufferSize != nil {
+		opts.WriteBufferSize = int(settings.WriteBufferSize.Value)
+	}
+
 	if settings.TxLogCacheSize != nil {
 		opts.TxLogCacheSize = int(settings.TxLogCacheSize.Value)
 	}
@@ -504,6 +518,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 		if settings.AhtSettings.SyncThreshold != nil {
 			opts.AHTOptions.SyncThreshold = int(settings.AhtSettings.SyncThreshold.Value)
+		}
+
+		if settings.AhtSettings.WriteBufferSize != nil {
+			opts.AHTOptions.WriteBufferSize = int(settings.AhtSettings.WriteBufferSize.Value)
 		}
 	}
 
@@ -616,6 +634,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.ExcludeCommitTime: %v", database, opts.ExcludeCommitTime)
 	s.Logger.Infof("%s.MaxConcurrency: %v", database, opts.MaxConcurrency)
 	s.Logger.Infof("%s.MaxIOConcurrency: %v", database, opts.MaxIOConcurrency)
+	s.Logger.Infof("%s.WriteBufferSize: %v", database, opts.WriteBufferSize)
 	s.Logger.Infof("%s.TxLogCacheSize: %v", database, opts.TxLogCacheSize)
 	s.Logger.Infof("%s.VLogMaxOpenedFiles: %v", database, opts.VLogMaxOpenedFiles)
 	s.Logger.Infof("%s.TxLogMaxOpenedFiles: %v", database, opts.TxLogMaxOpenedFiles)
@@ -636,4 +655,5 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.IndexOptions.HistoryLogMaxOpenedFiles: %v", database, opts.IndexOptions.HistoryLogMaxOpenedFiles)
 	s.Logger.Infof("%s.IndexOptions.CommitLogMaxOpenedFiles: %v", database, opts.IndexOptions.CommitLogMaxOpenedFiles)
 	s.Logger.Infof("%s.AHTOptions.SyncThreshold: %v", database, opts.AHTOptions.SyncThreshold)
+	s.Logger.Infof("%s.AHTOptions.WriteBufferSize: %v", database, opts.AHTOptions.WriteBufferSize)
 }

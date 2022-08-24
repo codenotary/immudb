@@ -1773,6 +1773,9 @@
       "properties": {
         "syncThreshold": {
           "$ref": "#/definitions/schemaNullableUint32"
+        },
+        "writeBufferSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },
@@ -2002,6 +2005,9 @@
         },
         "syncFrequency": {
           "$ref": "#/definitions/schemaNullableMilliseconds"
+        },
+        "writeBufferSize": {
+          "$ref": "#/definitions/schemaNullableUint32"
         },
         "ahtSettings": {
           "$ref": "#/definitions/schemaAHTNullableSettings"

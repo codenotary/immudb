@@ -558,7 +558,9 @@ message DatabaseNullableSettings {
 	
 	NullableMilliseconds syncFrequency = 23;
 	
-	AHTNullableSettings ahtSettings = 24;
+	NullableUint32 writeBufferSize = 24;
+
+	AHTNullableSettings ahtSettings = 25;
 }
 
 message ReplicationNullableSettings {
@@ -587,7 +589,8 @@ message IndexNullableSettings {
 }
 
 message AHTNullableSettings {
-	NullableUint32  syncThreshold = 1;
+	NullableUint32 syncThreshold = 1;
+	NullableUint32 writeBufferSize = 2;
 }
 
 message LoadDatabaseRequest {
