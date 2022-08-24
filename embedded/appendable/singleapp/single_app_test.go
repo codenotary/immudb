@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -102,6 +103,101 @@ func TestSingleApp(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSingleAppSetOffsetWithRetryableSyncOn(t *testing.T) {
+	opts := DefaultOptions().
+		WithWriteBuffer(make([]byte, 64))
+
+	testSingleAppSetOffsetWith(opts, t)
+}
+
+func TestSingleAppSetOffsetWithRetryableSyncOff(t *testing.T) {
+	opts := DefaultOptions().
+		WithRetryableSync(false).
+		WithWriteBuffer(make([]byte, 64))
+
+	testSingleAppSetOffsetWith(opts, t)
+}
+
+func testSingleAppSetOffsetWith(opts *Options, t *testing.T) {
+	a, err := Open("testdata.aof", opts)
+	defer os.Remove("testdata.aof")
+	require.NoError(t, err)
+
+	err = a.SetOffset(-1)
+	require.ErrorIs(t, err, ErrNegativeOffset)
+
+	// prealloc buffer used when writing data
+	writeBuf := make([]byte, len(opts.writeBuffer)*3)
+
+	// prealloc buffer used when reading data
+	readBuf := make([]byte, len(writeBuf))
+
+	for i := 1; i <= len(writeBuf); i++ {
+		// gen some random data
+		rand.Read(writeBuf[:i])
+
+		off, n, err := a.Append(writeBuf[:i])
+		require.NoError(t, err)
+		require.Equal(t, int64(0), off)
+		require.Equal(t, i, n)
+
+		err = a.SetOffset(int64(n + 1))
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		// incremental left truncation
+		for j := 0; j <= n; j++ {
+			err = a.SetOffset(int64(n - j))
+			require.NoError(t, err)
+			require.Equal(t, int64(n-j), a.Offset())
+
+			sz, err := a.Size()
+			require.NoError(t, err)
+			require.Equal(t, int64(n-j), sz)
+
+			// read entire content should match what was appended
+			rn, err := a.ReadAt(readBuf[:sz], 0)
+			require.NoError(t, err)
+			require.Equal(t, sz, int64(rn))
+			require.Equal(t, writeBuf[:sz], readBuf[:sz])
+		}
+	}
+
+	require.Zero(t, a.Offset())
+
+	sz, err := a.Size()
+	require.NoError(t, err)
+	require.Zero(t, sz)
+
+	err = a.Close()
+	require.NoError(t, err)
+}
+
+func TestSingleAppSwitchToReadOnlyMode(t *testing.T) {
+	a, err := Open("testdata.aof", DefaultOptions())
+	defer os.Remove("testdata.aof")
+	require.NoError(t, err)
+
+	off, n, err := a.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), off)
+	require.Equal(t, 3, n)
+
+	err = a.SwitchToReadOnlyMode()
+	require.NoError(t, err)
+
+	err = a.SwitchToReadOnlyMode()
+	require.ErrorIs(t, err, ErrReadOnly)
+
+	bs := make([]byte, 3)
+	n, err = a.ReadAt(bs, 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, n)
+	require.Equal(t, []byte{1, 2, 3}, bs)
+
+	err = a.Close()
+	require.NoError(t, err)
+}
+
 func TestSingleAppReOpening(t *testing.T) {
 	a, err := Open("testdata.aof", DefaultOptions())
 	defer os.Remove("testdata.aof")
@@ -131,6 +227,12 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, n)
 	require.Equal(t, []byte{1, 2, 3}, bs)
+
+	err = a.SwitchToReadOnlyMode()
+	require.ErrorIs(t, err, ErrReadOnly)
+
+	err = a.SetOffset(sz)
+	require.ErrorIs(t, err, ErrReadOnly)
 
 	_, _, err = a.Append([]byte{})
 	require.ErrorIs(t, err, ErrReadOnly)
