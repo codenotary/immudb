@@ -45,6 +45,7 @@ const DefaultVLogMaxOpenedFiles = 10
 const DefaultTxLogMaxOpenedFiles = 10
 const DefaultCommitLogMaxOpenedFiles = 10
 const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
+const DefaultWriteBufferSize = 1 << 22 //4Mb
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -120,14 +121,14 @@ type IndexOptions struct {
 }
 
 type AHTOptions struct {
-	WriteBufferSize int
 	SyncThld        int
+	WriteBufferSize int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
 		ReadOnly:        false,
-		WriteBufferSize: 1 << 22, //4Mb
+		WriteBufferSize: DefaultWriteBufferSize,
 		Synced:          true,
 		SyncFrequency:   DefaultSyncFrequency,
 		FileMode:        DefaultFileMode,
@@ -187,8 +188,8 @@ func DefaultIndexOptions() *IndexOptions {
 
 func DefaultAHTOptions() *AHTOptions {
 	return &AHTOptions{
-		WriteBufferSize: 1 << 24, //16Mb
 		SyncThld:        ahtree.DefaultSyncThld,
+		WriteBufferSize: ahtree.DefaultWriteBufferSize,
 	}
 }
 
