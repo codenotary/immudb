@@ -43,63 +43,63 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
-var ErrIllegalArguments = fmt.Errorf("store: %w", embedded.ErrIllegalArguments)
+var ErrIllegalArguments = embedded.ErrIllegalArguments
 var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrAlreadyClosed = fmt.Errorf("store: %w", embedded.ErrAlreadyClosed)
-var ErrUnexpectedLinkingError = errors.New("store: internal inconsistency between linear and binary linking")
-var ErrorNoEntriesProvided = errors.New("store: no entries provided")
-var ErrWriteOnlyTx = errors.New("store: write-only transaction")
-var ErrTxReadConflict = errors.New("store: tx read conflict")
-var ErrTxAlreadyCommitted = errors.New("store: tx already committed")
-var ErrorMaxTxEntriesLimitExceeded = errors.New("store: max number of entries per tx exceeded")
-var ErrNullKey = errors.New("store: null key")
-var ErrorMaxKeyLenExceeded = errors.New("store: max key length exceeded")
-var ErrorMaxValueLenExceeded = errors.New("store: max value length exceeded")
-var ErrPreconditionFailed = errors.New("store: precondition failed")
-var ErrDuplicatedKey = errors.New("store: duplicated key")
-var ErrMaxActiveTransactionsLimitExceeded = errors.New("store: max active transactions limit exceeded")
-var ErrMaxConcurrencyLimitExceeded = errors.New("store: max concurrency limit exceeded")
-var ErrorPathIsNotADirectory = errors.New("store: path is not a directory")
-var ErrorCorruptedTxData = errors.New("store: tx data is corrupted")
+var ErrAlreadyClosed = embedded.ErrAlreadyClosed
+var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
+var ErrorNoEntriesProvided = errors.New("no entries provided")
+var ErrWriteOnlyTx = errors.New("write-only transaction")
+var ErrTxReadConflict = errors.New("tx read conflict")
+var ErrTxAlreadyCommitted = errors.New("tx already committed")
+var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
+var ErrNullKey = errors.New("null key")
+var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
+var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrPreconditionFailed = errors.New("precondition failed")
+var ErrDuplicatedKey = errors.New("duplicated key")
+var ErrMaxActiveTransactionsLimitExceeded = errors.New("max active transactions limit exceeded")
+var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
+var ErrorPathIsNotADirectory = errors.New("path is not a directory")
+var ErrorCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedTxDataMaxTxEntriesExceeded = fmt.Errorf("%w: maximum number of TX entries exceeded", ErrorCorruptedTxData)
 var ErrCorruptedTxDataUnknownHeaderVersion = fmt.Errorf("%w: unknown TX header version", ErrorCorruptedTxData)
 var ErrCorruptedTxDataMaxKeyLenExceeded = fmt.Errorf("%w: maximum key length exceeded", ErrorCorruptedTxData)
 var ErrCorruptedTxDataDuplicateKey = fmt.Errorf("%w: duplicate key in a single TX", ErrorCorruptedTxData)
-var ErrCorruptedData = errors.New("store: data is corrupted")
-var ErrCorruptedCLog = errors.New("store: commit log is corrupted")
-var ErrCorruptedIndex = errors.New("store: corrupted index")
-var ErrTxSizeGreaterThanMaxTxSize = errors.New("store: tx size greater than max tx size")
-var ErrCorruptedAHtree = errors.New("store: appendable hash tree is corrupted")
+var ErrCorruptedData = errors.New("data is corrupted")
+var ErrCorruptedCLog = errors.New("commit log is corrupted")
+var ErrCorruptedIndex = errors.New("corrupted index")
+var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
+var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound // TODO: define error in store layer
 var ErrExpiredEntry = fmt.Errorf("%w: expired entry", ErrKeyNotFound)
-var ErrKeyAlreadyExists = errors.New("store: key already exists")
-var ErrTxNotFound = errors.New("store: tx not found")
+var ErrKeyAlreadyExists = errors.New("key already exists")
+var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries       // TODO: define error in store layer
 var ErrIllegalState = tbtree.ErrIllegalState         // TODO: define error in store layer
 var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange // TODO: define error in store layer
-var ErrUnexpectedError = errors.New("store: unexpected error")
-var ErrUnsupportedTxVersion = errors.New("store:: unsupported tx version")
-var ErrNewerVersionOrCorruptedData = errors.New("store: tx created with a newer version or data is corrupted")
-var ErrTxPoolExhausted = errors.New("store: transaction pool exhausted")
+var ErrUnexpectedError = errors.New("unexpected error")
+var ErrUnsupportedTxVersion = errors.New("unsupported tx version")
+var ErrNewerVersionOrCorruptedData = errors.New("tx created with a newer version or data is corrupted")
+var ErrTxPoolExhausted = errors.New("transaction pool exhausted")
 
-var ErrInvalidPrecondition = errors.New("store: invalid precondition")
+var ErrInvalidPrecondition = errors.New("invalid precondition")
 var ErrInvalidPreconditionTooMany = fmt.Errorf("%w: too many preconditions", ErrInvalidPrecondition)
 var ErrInvalidPreconditionNull = fmt.Errorf("%w: null", ErrInvalidPrecondition)
 var ErrInvalidPreconditionNullKey = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrNullKey)
 var ErrInvalidPreconditionMaxKeyLenExceeded = fmt.Errorf("%w: %v", ErrInvalidPrecondition, ErrorMaxKeyLenExceeded)
 var ErrInvalidPreconditionInvalidTxID = fmt.Errorf("%w: invalid transaction ID", ErrInvalidPrecondition)
 
-var ErrSourceTxNewerThanTargetTx = errors.New("store: source tx is newer than target tx")
-var ErrLinearProofMaxLenExceeded = errors.New("store: max linear proof length limit exceeded")
+var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
+var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
-var ErrCompactionUnsupported = errors.New("store: compaction is unsupported when remote storage is used")
+var ErrCompactionUnsupported = errors.New("compaction is unsupported when remote storage is used")
 
 var ErrMetadataUnsupported = errors.New(
-	"store: metadata is unsupported when in 1.1 compatibility mode, " +
+	"metadata is unsupported when in 1.1 compatibility mode, " +
 		"do not use metadata-related features such as expiration and logical deletion",
 )
 
-var ErrUnsupportedTxHeaderVersion = errors.New("store: missing tx header serialization method")
+var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization method")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
