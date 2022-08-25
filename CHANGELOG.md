@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.3.2"></a>
+## [v1.3.2] - 0001-01-01
+
 <a name="v1.3.2-RC1"></a>
 ## [v1.3.2-RC1] - 2022-08-24
 ### Bug Fixes
@@ -2958,7 +2961,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.3.2-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.3.2...HEAD
+[v1.3.2]: https://github.com/vchain-us/immudb/compare/v1.3.2-RC1...v1.3.2
 [v1.3.2-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.1...v1.3.2-RC1
 [v1.3.1]: https://github.com/vchain-us/immudb/compare/v1.3.1-RC1...v1.3.1
 [v1.3.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.0...v1.3.1-RC1
