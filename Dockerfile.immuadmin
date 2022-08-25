@@ -21,6 +21,8 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     mkdir -p "$IMMUADMIN_TOKENFILE" && \
     chown -R immu:immu "$IMMUADMIN_TOKENFILE" && \
     chmod +x /usr/local/bin/immuadmin
+	
+RUN mkdir -p /home/immu && chown immu:immu /home/immu
 
 USER immu
 ENTRYPOINT ["/usr/local/bin/immuadmin"]
