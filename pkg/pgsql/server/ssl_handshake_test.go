@@ -24,7 +24,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	pserr "github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/stretchr/testify/require"
 )

@@ -319,7 +319,7 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		require.Equal(t, "github.com/codenotary/immudb/pkg/logger.logWithFunc", raw["component"])
+		require.Equal(t, "github.com/codenotary/immudb/embedded/logger.logWithFunc", raw["component"])
 	})
 
 }
