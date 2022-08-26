@@ -20,8 +20,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 )

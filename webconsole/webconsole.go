@@ -5,7 +5,7 @@ package webconsole
 
 import (
 	"embed"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"io/fs"
 	"net/http"
 )

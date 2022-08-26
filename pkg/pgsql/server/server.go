@@ -24,8 +24,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 	"golang.org/x/net/netutil"
 )
 

@@ -19,8 +19,8 @@ package server
 import (
 	"crypto/tls"
 
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/database"
-	"github.com/codenotary/immudb/pkg/logger"
 )
 
 type Option func(s *srv)

@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/embedded/logger"
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server/sessions"
 
