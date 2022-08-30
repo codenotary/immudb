@@ -46,6 +46,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220708220712-1185a9018129
 	golang.org/x/sys v0.0.0-20220708085239-5a0f0661e09d
+	golang.org/x/tools v0.1.5
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
 	google.golang.org/grpc v1.46.2
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0

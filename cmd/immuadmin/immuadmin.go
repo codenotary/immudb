@@ -16,7 +16,11 @@ limitations under the License.
 
 package main
 
-import immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
+import (
+	_ "crypto/tls/fipsonly"
+
+	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
+)
 
 func main() {
 	immuadmin.Execute()
