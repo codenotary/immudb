@@ -43,6 +43,11 @@ type dbOptions struct {
 	MasterPort       int    `json:"masterPort"`
 	FollowerUsername string `json:"followerUsername"`
 	FollowerPassword string `json:"followerPassword"`
+	Mtls             bool   `json:"mtls"`
+	Servername       string `json:"servername"`
+	Certificate      string `json:"certificate"`
+	Pkey             string `json:"pkey"`
+	ClientCAs        string `json:"clientcas"`
 
 	// store options
 	FileSize     int `json:"fileSize"`     // permanent
@@ -156,6 +161,11 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		dbOpts.MasterPort = repOpts.MasterPort
 		dbOpts.FollowerUsername = repOpts.FollowerUsername
 		dbOpts.FollowerPassword = repOpts.FollowerPassword
+		dbOpts.Mtls = repOpts.Mtls
+		dbOpts.Servername = repOpts.Servername
+		dbOpts.Certificate = repOpts.Certifcate
+		dbOpts.Pkey = repOpts.Pkey
+		dbOpts.ClientCAs = repOpts.ClientCAs
 	}
 
 	return dbOpts
@@ -258,6 +268,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			MasterPort:       &schema.NullableUint32{Value: uint32(opts.MasterPort)},
 			FollowerUsername: &schema.NullableString{Value: opts.FollowerUsername},
 			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
+			Mtls:             &schema.NullableBool{Value: opts.Mtls},
 		},
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
@@ -331,6 +342,7 @@ func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.D
 			MasterPort:       &schema.NullableUint32{Value: settings.MasterPort},
 			FollowerUsername: &schema.NullableString{Value: settings.FollowerUsername},
 			FollowerPassword: &schema.NullableString{Value: settings.FollowerPassword},
+			Mtls:             &schema.NullableBool{Value: settings.Mtls},
 		},
 		FileSize:     nullableUInt32(settings.FileSize),
 		MaxKeyLen:    nullableUInt32(settings.MaxKeyLen),

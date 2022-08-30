@@ -87,6 +87,11 @@ type ReplicationOptions struct {
 	MasterPort       int
 	FollowerUsername string
 	FollowerPassword string
+	Mtls             bool
+	Servername       string
+	Certifcate       string
+	Pkey             string
+	ClientCAs        string
 }
 
 // DefaultOptions returns default server options
@@ -347,6 +352,12 @@ func (o *Options) GetDefaultDBName() string {
 	return o.defaultDBName
 }
 
+//GetDefaultDBName returns the default database name
+func (o *Options) WithDefaultDBName(name string) *Options {
+	o.defaultDBName = name
+	return o
+}
+
 // WithListener used usually to pass a bufered listener for testing purposes
 func (o *Options) WithListener(lis net.Listener) *Options {
 	o.listener = lis
@@ -482,5 +493,14 @@ func (opts *ReplicationOptions) WithFollowerUsername(followerUsername string) *R
 
 func (opts *ReplicationOptions) WithFollowerPassword(followerPassword string) *ReplicationOptions {
 	opts.FollowerPassword = followerPassword
+	return opts
+}
+
+func (opts *ReplicationOptions) WithMTLs(mtls bool, servername string, certificate string, pkey string, clientcas string) *ReplicationOptions {
+	opts.Mtls = mtls
+	opts.Servername = servername
+	opts.Certifcate = certificate
+	opts.Pkey = pkey
+	opts.ClientCAs = clientcas
 	return opts
 }

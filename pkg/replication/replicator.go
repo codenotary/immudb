@@ -200,7 +200,16 @@ func (txr *TxReplicator) connect() error {
 		txr.opts.masterPort,
 		txr.db.GetName())
 
-	opts := client.DefaultOptions().WithAddress(txr.opts.masterAddress).WithPort(txr.opts.masterPort)
+	opts := client.DefaultOptions().
+		WithAddress(txr.opts.masterAddress).
+		WithPort(txr.opts.masterPort).
+		WithMTLs(txr.opts.mtls).
+		WithMTLsOptions(client.MTLsOptions{
+			Servername:  txr.opts.servername,
+			Certificate: txr.opts.certificate,
+			Pkey:        txr.opts.pkey,
+			ClientCAs:   txr.opts.clientCAs,
+		})
 	client, err := client.NewImmuClient(opts)
 	if err != nil {
 		return err
