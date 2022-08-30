@@ -573,7 +573,9 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 		WithMasterPort(dbOpts.MasterPort).
 		WithFollowerUsername(dbOpts.FollowerUsername).
 		WithFollowerPassword(dbOpts.FollowerPassword).
-		WithStreamChunkSize(s.Options.StreamChunkSize)
+		WithStreamChunkSize(s.Options.StreamChunkSize).
+		WithMTLs(dbOpts.Mtls).
+		WithMTLsOptions(dbOpts.Servername, dbOpts.Certificate, dbOpts.Pkey, dbOpts.ClientCAs)
 
 	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
 	if err != nil {

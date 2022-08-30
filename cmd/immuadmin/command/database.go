@@ -39,6 +39,11 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("replication-master-port", 0, "set master port")
 	c.Flags().String("replication-follower-username", "", "set username used for replication")
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
+	c.Flags().Bool("replication-mtls", false, "enable mtls for replication of systemdb and defaultdb")
+	c.Flags().String("replication-servername", "", "mtls validation servername for replication of systemdb and defaultdb")
+	c.Flags().String("replication-certificate", "", "certifcate filepath for replication of systemdb and defaultdb")
+	c.Flags().String("replication-pkey", "", "private key filepath for replication of systemdb and defaultdb")
+	c.Flags().String("replication-clientcas", "", "clients certificates filepath for replication of systemdb and defaultdb")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
 	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
@@ -387,6 +392,31 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 	}
 
 	ret.ReplicationSettings.FollowerPassword, err = condString("replication-follower-password")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.Mtls, err = condBool("replication-mtls")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.Servername, err = condString("replication-servername")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.Certificate, err = condString("replication-certificate")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.Pkey, err = condString("replication-pkey")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.Cas, err = condString("replication-clientcas")
 	if err != nil {
 		return nil, err
 	}
