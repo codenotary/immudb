@@ -33,8 +33,9 @@ func setUpTLS(pkey, cert, ca string, mtls bool) (*tls.Config, error) {
 			return nil, errors.New(fmt.Sprintf("failed to read client certificate or private key: %v", err))
 		}
 		c = &tls.Config{
-			Certificates: []tls.Certificate{certs},
-			ClientAuth:   tls.VerifyClientCertIfGiven,
+			Certificates:             []tls.Certificate{certs},
+			ClientAuth:               tls.VerifyClientCertIfGiven,
+			PreferServerCipherSuites: true,
 		}
 	}
 
