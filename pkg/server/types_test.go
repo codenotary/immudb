@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/stretchr/testify/require"
 )
@@ -30,11 +31,14 @@ func TestWithLogger(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
+	logger := &mockLogger{}
+
 	s := DefaultServer()
-
 	s.WithOptions(DefaultOptions().WithDir(dir))
+	require.NotSame(t, logger, s.Logger)
 
-	s.WithLogger(&mockLogger{})
+	s.WithLogger(logger)
+	require.Same(t, logger, s.Logger)
 }
 
 func TestWithStreamServiceFactory(t *testing.T) {
@@ -42,9 +46,27 @@ func TestWithStreamServiceFactory(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
+	streamServiceFactory := stream.NewStreamServiceFactory(4096)
+
 	s := DefaultServer()
-
 	s.WithOptions(DefaultOptions().WithDir(dir))
+	require.NotSame(t, streamServiceFactory, s.StreamServiceFactory)
 
-	s.WithStreamServiceFactory(stream.NewStreamServiceFactory(4096))
+	s.WithStreamServiceFactory(streamServiceFactory)
+	require.Same(t, streamServiceFactory, s.StreamServiceFactory)
+}
+
+func TestWithDbList(t *testing.T) {
+	dir, err := ioutil.TempDir("", "server_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	dbList := database.NewDatabaseList()
+
+	s := DefaultServer()
+	s.WithOptions(DefaultOptions().WithDir(dir))
+	require.NotSame(t, dbList, s.dbList)
+
+	s.WithDbList(dbList)
+	require.Same(t, dbList, s.dbList)
 }
