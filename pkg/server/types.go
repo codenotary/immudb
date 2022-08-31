@@ -46,7 +46,7 @@ type usernameToUserdataMap struct {
 	sync.RWMutex
 }
 
-//defaultDbIndex systemdb should always be in index 0
+// defaultDbIndex systemdb should always be in index 0
 const defaultDbIndex = 0
 const sysDBIndex = math.MaxInt32
 
@@ -108,6 +108,7 @@ type ImmuServerIf interface {
 	WithStateSigner(stateSigner StateSigner) ImmuServerIf
 	WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf
 	WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf
+	WithDbList(dbList database.DatabaseList) ImmuServerIf
 }
 
 // WithLogger ...
@@ -136,5 +137,11 @@ func (s *ImmuServer) WithOptions(options *Options) ImmuServerIf {
 // WithPgsqlServer ...
 func (s *ImmuServer) WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf {
 	s.PgsqlSrv = psrv
+	return s
+}
+
+// WithDbList ...
+func (s *ImmuServer) WithDbList(dbList database.DatabaseList) ImmuServerIf {
+	s.dbList = dbList
 	return s
 }
