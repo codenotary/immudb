@@ -1,0 +1,11 @@
+{{- if .Values.grafanaDashboard -}}
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata: 
+  name: immudb-grafana-dashboard
+  labels: 
+    app: immudb
+spec:
+  url: https://raw.githubusercontent.com/codenotary/immudb/master/tools/monitoring/grafana-dashboard.json
+{{- end -}}
+

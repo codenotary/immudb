@@ -1,52 +1,61 @@
 {{- if .Values.ingress.enabled -}}
+{{- $18orHigher := semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
+{{- $19orHigher := semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
 {{- $fullName := include "immudb.fullname" . -}}
-{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+{{- if and .Values.ingress.className (not $18orHigher) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
   {{- end }}
 {{- end }}
+{{- $services := list $fullName}}
+{{- if gt (.Values.replicaCount | toString | atoi) 1 }}
+  {{- $services = append $services (printf "%s-rr" $fullName) }}
+{{- end }}
 
-
-apiVersion: {{ include "immudb.chart.ingressapiversion" . }}
+{{- range $services }}
+---
+apiVersion: {{ include "immudb.chart.ingressapiversion" $ }}
 kind: Ingress
 metadata:
-  name: {{ $fullName }}-http
+  name: {{ . }}-http
   labels:
-    {{- include "immudb.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "immudb.labels" $ | nindent 4 }}
+  {{- with $.Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- toYaml $ | nindent 4 }}
     {{- if $.Values.ingress.tls.enabled }}
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     {{- end }}
   {{- end }}
 spec:
-  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if and $.Values.ingress.className $18orHigher }}
+  ingressClassName: {{ $.Values.ingress.className }}
   {{- end }}
-  {{- if .Values.ingress.tls.enabled }}
+  {{- if $.Values.ingress.tls.enabled }}
   tls:
     - hosts:
         - {{ $.Values.ingress.hostname | quote }}
-      secretName: {{ .Values.ingress.tls.secretName }}
+      secretName: {{ $.Values.ingress.tls.secretName }}
   {{- end }}
   rules:
     - host: {{ $.Values.ingress.hostname | quote }}
       http:
         paths:
           - path: /
-            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
+            {{- if $18orHigher }}
             pathType: Prefix
             backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              {{- if $19orHigher }}
               service:
-                name: {{ $fullName }}-http
+                name: {{ . }}-http
                 port:
                   number: {{ $.Values.service.ports.http }}
               {{- else }}
-              serviceName: {{ $fullName }}
+              serviceName: {{ . }}-http
               servicePort: {{ $.Values.service.ports.http }}
               {{- end }}
             {{- end }}
+{{- end }}
+
 {{- end }}

@@ -16,6 +16,7 @@ fullnameOverride: ""
 volume:
   class: ""
   size: 5Gi
+adminUsername: ""
 adminPassword: ""
 
 podAnnotations: {}
@@ -67,3 +68,5 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+grafanaDashboard: false
