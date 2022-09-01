@@ -96,7 +96,7 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 	viper.Set("mtls", false)
 }
 
-//Priority:
+// Priority:
 // 1. overrides
 // 2. flags
 // 3. env. variables
@@ -179,7 +179,7 @@ func TestImmudb(t *testing.T) {
 
 	cl := Commandline{}
 
-	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
 
@@ -193,7 +193,7 @@ func TestImmudbDetached(t *testing.T) {
 
 	cl := Commandline{P: plauncherMock{}}
 
-	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
 	viper.Set("detached", false)
@@ -210,7 +210,7 @@ func TestImmudbMtls(t *testing.T) {
 
 	cl := Commandline{}
 
-	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
 	viper.Set("mtls", false)
@@ -225,7 +225,7 @@ func TestImmudbLogFile(t *testing.T) {
 
 	cl := Commandline{}
 
-	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
 }
