@@ -1,0 +1,19 @@
+FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build
+WORKDIR /src
+COPY . .
+RUN GOOS=linux GOARCH=amd64 make immuclient-fips
+
+### distroless FIPS 140-2
+FROM gcr.io/distroless/base:nonroot AS distroless-fips
+LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
+
+WORKDIR /usr/local/bin
+COPY --from=build /src/immuclient /usr/local/bin/immuclient
+
+ENV IMMUCLIENT_IMMUDB_ADDRESS="127.0.0.1" \
+    IMMUCLIENT_IMMUDB_PORT="3322" \
+    IMMUCLIENT_AUTH="true" \
+    IMMUCLIENT_MTLS="false"
+
+USER nonroot
+ENTRYPOINT ["/usr/local/bin/immuclient"]

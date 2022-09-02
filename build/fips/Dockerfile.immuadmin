@@ -1,0 +1,19 @@
+FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build
+WORKDIR /src
+COPY . .
+RUN GOOS=linux GOARCH=amd64 make immuadmin-fips
+
+### distroless FIPS 140-2
+FROM gcr.io/distroless/base:nonroot AS distroless-fips
+LABEL org.opencontainers.image.authors="Codenotary Inc. <info@codenotary.com>"
+
+WORKDIR /usr/local/bin
+COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
+
+ENV IMMUADMIN_IMMUDB_ADDRESS="127.0.0.1" \
+    IMMUADMIN_IMMUDB_PORT="3322" \
+    IMMUADMIN_MTLS="false" \
+    IMMUADMIN_TOKENFILE="/var/lib/immudb"
+
+USER nonroot
+ENTRYPOINT ["/usr/local/bin/immuadmin"]

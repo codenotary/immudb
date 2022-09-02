@@ -86,6 +86,7 @@ type VersionResponse struct {
 	BuildTime string `json:"buildtime" example:"1604692129"`
 	BuiltBy   string `json:"builtby,omitempty"`
 	Static    bool   `json:"static"`
+	FIPS      bool   `json:"fips"`
 }
 
 var Version VersionResponse

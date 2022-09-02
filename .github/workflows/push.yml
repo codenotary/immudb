@@ -289,8 +289,11 @@ jobs:
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
         DOCKER_IMAGE_IMMUDB: "codenotary/immudb"
+        DOCKER_IMAGE_IMMUDB_FIPS: "codenotary/immudb-fips"
         DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
+        DOCKER_IMAGE_IMMUADMIN_FIPS: "codenotary/immuadmin-fips"
         DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
+        DOCKER_IMAGE_IMMUCLIENT_FIPS: "codenotary/immuclient-fips"
         DOCKER_BUILDKIT: "1"
         DEBIAN_VERSION: bullseye-slim
         ALMA_VERSION: almalinux-8-minimal
@@ -309,6 +312,9 @@ jobs:
             docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" -f build/Dockerfile.alma .
             docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f build/Dockerfile.immuadmin .
             docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f build/Dockerfile.immuclient .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB_FIPS}:dev" -f build/fips/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev" -f build/fips/Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev" -f build/fips/Dockerfile.immuclient .
 
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
 
@@ -317,6 +323,9 @@ jobs:
             docker push "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}"
             docker push "${DOCKER_IMAGE_IMMUADMIN}:dev"
             docker push "${DOCKER_IMAGE_IMMUCLIENT}:dev"
+            docker push "${DOCKER_IMAGE_IMMUDB_FIPS}:dev"
+            docker push "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev"
+            docker push "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev"
 
             if [[ ! -z "$VERSION_TAG" ]]; then
               for tag in "${VERSION_TAG}" "${VERSION_TAG_SHORT}" "latest"; do
@@ -334,6 +343,16 @@ jobs:
 
                 docker tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
                 docker push "${DOCKER_IMAGE_IMMUCLIENT}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUDB_FIPS}:dev" "${DOCKER_IMAGE_IMMUDB_FIPS}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUDB_FIPS}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUADMIN_FIPS}:dev" "${DOCKER_IMAGE_IMMUADMIN_FIPS}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUADMIN_FIPS}:${tag}"
+
+                docker tag "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:dev" "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:${tag}"
+                docker push "${DOCKER_IMAGE_IMMUCLIENT_FIPS}:${tag}"
+
               done
             fi
 
@@ -363,6 +382,21 @@ jobs:
           uses: docker://codenotary/cas:bom-docker
           with:
             args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUDB_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUADMIN_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
+
+        - name: Notarize docker image ${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev
+          uses: docker://codenotary/cas:bom-docker
+          with:
+            args: n docker://${{ env.DOCKER_IMAGE_IMMUCLIENT_FIPS }}:dev --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
 
   coveralls:
     name: Publish coverage

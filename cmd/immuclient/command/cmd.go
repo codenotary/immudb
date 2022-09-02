@@ -50,6 +50,7 @@ func NewCommand() *cobra.Command {
 		BuildTime: version.BuiltAt,
 		BuiltBy:   version.BuiltBy,
 		Static:    version.Static == "static",
+		FIPS:      version.FIPSBuild(),
 	}
 	if version.BuiltAt != "" {
 		i, err := strconv.ParseInt(version.BuiltAt, 10, 64)

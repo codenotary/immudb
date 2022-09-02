@@ -43,6 +43,9 @@ var BuiltAt string
 // Static flags the binary as statically linked
 var Static string
 
+// FIPSEnabled flags if the binary is running in FIPS mode
+var FIPSEnabled string
+
 // VersionCmd returns a new version command
 func VersionCmd() *cobra.Command {
 	return &cobra.Command{
@@ -91,10 +94,20 @@ func VersionStr() string {
 			pieces,
 			fmt.Sprintf("%-*s: %t", longestLabelLength, "Static", StaticBuild()))
 	}
+	if FIPSEnabled != "" {
+		pieces = append(
+			pieces,
+			fmt.Sprintf("%-*s: %t", longestLabelLength, "FIPS enabled", FIPSBuild()))
+	}
 	return fmt.Sprint(strings.Join(pieces, "\n"))
 }
 
 // StaticBuild set the flag which marks the binary as statically linked
 func StaticBuild() bool {
 	return Static == "static"
+}
+
+// FIPSBuild set the flag which marks the binary as statically linked
+func FIPSBuild() bool {
+	return FIPSEnabled == "true"
 }

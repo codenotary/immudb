@@ -1,0 +1,20 @@
+FROM us-docker.pkg.dev/google.com/api-project-999119582588/go-boringcrypto/golang:1.18.5b7 as build-fips
+ARG USERNAME=fipsadmin
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# Create the user
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
+
+WORKDIR /src
+COPY go.mod go.sum /src/
+RUN go mod download
+COPY . .
+RUN rm -rf /src/webconsole/dist
+
+RUN chown -R $USER_UID:$USER_GID /src/
+RUN chmod 755 /src
+
+USER $USERNAME
+ENTRYPOINT ["/bin/bash"]
