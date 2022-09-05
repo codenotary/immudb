@@ -1,4 +1,4 @@
-FROM golang:1.18 as build
+FROM golang:1.19.0 as build
 WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=amd64 make immuadmin-static

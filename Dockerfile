@@ -1,4 +1,4 @@
-FROM golang:1.18 as build
+FROM golang:1.19.0 as build
 WORKDIR /src
 COPY go.mod go.sum /src/
 RUN go mod download -x
