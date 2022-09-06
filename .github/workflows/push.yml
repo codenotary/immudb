@@ -304,11 +304,11 @@ jobs:
               VERSION_TAG_SHORT="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
             fi
 
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" --target scratch -f Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" --target ${DEBIAN_VERSION} -f Dockerfile .
-            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" -f Dockerfile.alma .
-            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f Dockerfile.immuadmin .
-            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f Dockerfile.immuclient .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev" --target scratch -f build/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${DEBIAN_VERSION}" --target ${DEBIAN_VERSION} -f build/Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:dev-${ALMA_VERSION}" -f build/Dockerfile.alma .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:dev" -f build/Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:dev" -f build/Dockerfile.immuclient .
 
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
 
