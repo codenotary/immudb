@@ -2057,6 +2057,21 @@
         },
         "excludeCommitTime": {
           "type": "boolean"
+        },
+        "mtls": {
+          "type": "boolean"
+        },
+        "certificate": {
+          "type": "string"
+        },
+        "pkey": {
+          "type": "string"
+        },
+        "cas": {
+          "type": "string"
+        },
+        "servername": {
+          "type": "string"
         }
       }
     },
@@ -2735,6 +2750,21 @@
           "$ref": "#/definitions/schemaNullableString"
         },
         "followerPassword": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "mtls": {
+          "$ref": "#/definitions/schemaNullableBool"
+        },
+        "certificate": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "pkey": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "cas": {
+          "$ref": "#/definitions/schemaNullableString"
+        },
+        "servername": {
           "$ref": "#/definitions/schemaNullableString"
         }
       }

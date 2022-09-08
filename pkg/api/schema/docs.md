@@ -470,6 +470,11 @@
 | maxValueLen | [uint32](#uint32) |  |  |
 | maxTxEntries | [uint32](#uint32) |  |  |
 | excludeCommitTime | [bool](#bool) |  |  |
+| mtls | [bool](#bool) |  |  |
+| certificate | [string](#string) |  |  |
+| pkey | [string](#string) |  |  |
+| cas | [string](#string) |  |  |
+| servername | [string](#string) |  |  |
 
 
 
@@ -1387,6 +1392,11 @@
 | masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  |  |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  |  |
+| mtls | [NullableBool](#immudb.schema.NullableBool) |  |  |
+| certificate | [NullableString](#immudb.schema.NullableString) |  |  |
+| pkey | [NullableString](#immudb.schema.NullableString) |  |  |
+| cas | [NullableString](#immudb.schema.NullableString) |  |  |
+| servername | [NullableString](#immudb.schema.NullableString) |  |  |
 
 
 

@@ -473,6 +473,12 @@ message DatabaseSettings {
 	uint32 maxTxEntries = 11;
 
 	bool   excludeCommitTime = 12;
+
+	bool   mtls = 13;
+	string certificate = 14;
+	string pkey = 15;
+	string cas = 16;
+	string servername = 17;
 }
 
 message CreateDatabaseRequest {
@@ -570,6 +576,12 @@ message ReplicationNullableSettings {
 	NullableUint32 masterPort = 4;
 	NullableString followerUsername = 5;
 	NullableString followerPassword = 6;
+	NullableBool   mtls = 7;
+	NullableString certificate = 8;
+	NullableString pkey = 9;
+	NullableString cas = 10;
+	NullableString servername = 11;
+
 }
 
 message IndexNullableSettings {
