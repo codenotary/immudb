@@ -24,6 +24,7 @@ import (
 
 var ErrCacheNotLocked = errors.New("cache is not locked")
 var ErrCacheAlreadyLocked = errors.New("cache is already locked")
+var ErrServerIdentityValidationFailed = errors.New("failed to validate the identity of the server")
 
 // Cache the cache interface
 type Cache interface {
@@ -31,6 +32,9 @@ type Cache interface {
 	Set(serverUUID, db string, state *schema.ImmutableState) error
 	Lock(serverUUID string) error
 	Unlock() error
+
+	// Consistency check validates that a server with given identity can use given server uuid
+	ServerIdentityCheck(serverIdentity, serverUUID string) error
 }
 
 // HistoryCache the history cache interface

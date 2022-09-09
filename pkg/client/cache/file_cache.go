@@ -139,6 +139,14 @@ func (w *fileCache) Unlock() (err error) {
 	return nil
 }
 
+func (w *fileCache) ServerIdentityCheck(serverIdentity, serverUUID string) error {
+	return validateServerIdentityInFile(
+		serverIdentity,
+		serverUUID,
+		w.Dir,
+	)
+}
+
 func (w *fileCache) getStateFilePath(UUID string) string {
 	return filepath.Join(w.Dir, STATE_FN+UUID)
 }

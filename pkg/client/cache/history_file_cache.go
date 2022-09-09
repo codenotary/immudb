@@ -162,10 +162,18 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 	return nil, nil
 }
 
-func (fl *historyFileCache) Lock(serverUUID string) (err error) {
+func (history *historyFileCache) Lock(serverUUID string) (err error) {
 	return fmt.Errorf("not implemented")
 }
 
-func (fl *historyFileCache) Unlock() (err error) {
+func (history *historyFileCache) Unlock() (err error) {
 	return fmt.Errorf("not implemented")
+}
+
+func (history *historyFileCache) ServerIdentityCheck(serverIdentity, serverUUID string) error {
+	return validateServerIdentityInFile(
+		serverIdentity,
+		serverUUID,
+		history.dir,
+	)
 }

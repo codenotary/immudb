@@ -24,15 +24,16 @@ import (
 )
 
 type inMemoryCache struct {
-	states map[string]map[string]*schema.ImmutableState
-	lock   *sync.RWMutex
+	serverUUID string
+	states     map[string]map[string]*schema.ImmutableState
+	identities map[string]string
+	lock       sync.RWMutex
 }
 
 // NewInMemoryCache returns a new in-memory cache
 func NewInMemoryCache() Cache {
 	return &inMemoryCache{
 		states: map[string]map[string]*schema.ImmutableState{},
-		lock:   new(sync.RWMutex),
 	}
 }
 
@@ -60,10 +61,26 @@ func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableStat
 	return nil
 }
 
-func (fl *inMemoryCache) Lock(serverUUID string) (err error) {
+func (imc *inMemoryCache) Lock(serverUUID string) (err error) {
 	return fmt.Errorf("not implemented")
 }
 
-func (fl *inMemoryCache) Unlock() (err error) {
+func (imc *inMemoryCache) Unlock() (err error) {
 	return fmt.Errorf("not implemented")
+}
+
+func (imc *inMemoryCache) ServerIdentityCheck(serverIdentity, serverUUID string) error {
+	imc.lock.Lock()
+	defer imc.lock.Unlock()
+
+	if previousUUID, ok := imc.identities[serverIdentity]; ok {
+		// Server with this identity was seen before, ensure it did not change
+		if previousUUID != serverUUID {
+			return ErrServerIdentityValidationFailed
+		}
+		return nil
+	}
+
+	imc.identities[serverIdentity] = serverUUID
+	return nil
 }
