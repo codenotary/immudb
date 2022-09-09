@@ -1,0 +1,7 @@
+version: '3'
+services:
+  fakeimmudb:
+    build:
+      context: .
+    ports:
+      - 3322:3322
