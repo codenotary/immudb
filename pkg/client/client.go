@@ -592,9 +592,28 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	}
 
 	stateProvider := state.NewStateProvider(serviceClient)
-	uuidProvider := state.NewUUIDProvider(serviceClient)
+	serverUUID, err := state.NewUUIDProvider(serviceClient).CurrentUUID(context.Background())
+	if err != nil {
+		return nil, logErr(l, "Unable to get server uuid: %s", err)
+	}
 
-	stateService, err := state.NewStateService(cache.NewFileCache(options.Dir), l, stateProvider, uuidProvider)
+	stateCache := cache.NewFileCache(c.Options.Dir)
+	if !c.Options.DisableIdentityCheck {
+		err = stateCache.ServerIdentityCheck(
+			fmt.Sprintf("%s:%d", c.Options.Address, c.Options.Port),
+			serverUUID,
+		)
+		if err != nil {
+			return nil, logErr(l, "Unable to validate server identity: %s", err)
+		}
+	}
+
+	stateService, err := state.NewStateServiceWithUUID(
+		stateCache,
+		l,
+		stateProvider,
+		serverUUID,
+	)
 	if err != nil {
 		return nil, logErr(l, "Unable to create state service: %s", err)
 	}

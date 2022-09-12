@@ -59,27 +59,30 @@ type Options struct {
 	StreamChunkSize     int    // Maximum size of a data chunk in bytes for streaming operations (directly affects maximum GRPC packet size)
 
 	HeartBeatFrequency time.Duration // Duration between two consecutive heartbeat calls to the server for session heartbeats
+
+	DisableIdentityCheck bool // Do not validate server's identity
 }
 
 // DefaultOptions ...
 func DefaultOptions() *Options {
 	return &Options{
-		Dir:                 ".",
-		Address:             "127.0.0.1",
-		Port:                3322,
-		HealthCheckRetries:  5,
-		MTLs:                false,
-		Auth:                true,
-		MaxRecvMsgSize:      4 * 1024 * 1024, //4Mb
-		Config:              "configs/immuclient.toml",
-		DialOptions:         []grpc.DialOption{grpc.WithInsecure()},
-		PasswordReader:      c.DefaultPasswordReader,
-		Metrics:             true,
-		PidPath:             "",
-		LogFileName:         "",
-		ServerSigningPubKey: "",
-		StreamChunkSize:     stream.DefaultChunkSize,
-		HeartBeatFrequency:  time.Minute * 1,
+		Dir:                  ".",
+		Address:              "127.0.0.1",
+		Port:                 3322,
+		HealthCheckRetries:   5,
+		MTLs:                 false,
+		Auth:                 true,
+		MaxRecvMsgSize:       4 * 1024 * 1024, //4Mb
+		Config:               "configs/immuclient.toml",
+		DialOptions:          []grpc.DialOption{grpc.WithInsecure()},
+		PasswordReader:       c.DefaultPasswordReader,
+		Metrics:              true,
+		PidPath:              "",
+		LogFileName:          "",
+		ServerSigningPubKey:  "",
+		StreamChunkSize:      stream.DefaultChunkSize,
+		HeartBeatFrequency:   time.Minute * 1,
+		DisableIdentityCheck: false,
 	}
 }
 
@@ -213,6 +216,11 @@ func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 // WithHeartBeatFrequency set the keep alive message frequency
 func (o *Options) WithHeartBeatFrequency(heartBeatFrequency time.Duration) *Options {
 	o.HeartBeatFrequency = heartBeatFrequency
+	return o
+}
+
+func (o *Options) WithDisableIdentityCheck(disableIdentityCheck bool) *Options {
+	o.DisableIdentityCheck = disableIdentityCheck
 	return o
 }
 

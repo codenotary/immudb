@@ -18,6 +18,8 @@ package client
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptions(t *testing.T) {
@@ -43,30 +45,31 @@ func TestOptions(t *testing.T) {
 		WithUsername("some-username").
 		WithPassword("some-password").
 		WithDatabase("some-db").
-		WithStreamChunkSize(4096)
+		WithStreamChunkSize(4096).
+		WithDisableIdentityCheck(true)
 
-	if op.LogFileName != "logfilename" ||
-		op.PidPath != "pidpath" ||
-		!op.Metrics ||
-		op.Dir != "clientdir" ||
-		op.Address != "127.0.0.1" ||
-		op.Port != 4321 ||
-		op.HealthCheckRetries != 3 ||
-		!op.MTLs ||
-		op.MTLsOptions.Servername != "localhost" ||
-		op.MTLsOptions.Certificate != "no-certificate" ||
-		op.MTLsOptions.ClientCAs != "no-client-ca" ||
-		op.MTLsOptions.Pkey != "no-pkey" ||
-		!op.Auth ||
-		op.MaxRecvMsgSize != 1<<20 ||
-		op.Config != "configfile" ||
-		op.TokenFileName != "tokenfile" ||
-		op.Username != "some-username" ||
-		op.Password != "some-password" ||
-		op.Database != "some-db" ||
-		op.StreamChunkSize != 4096 ||
-		op.Bind() != "127.0.0.1:4321" ||
-		len(op.String()) == 0 {
-		t.Fatal("Client options fail")
-	}
+	require.Equal(t, op.LogFileName, "logfilename")
+	require.Equal(t, op.PidPath, "pidpath")
+	require.True(t, op.Metrics)
+	require.Equal(t, op.Dir, "clientdir")
+	require.Equal(t, op.Address, "127.0.0.1")
+	require.Equal(t, op.Port, 4321)
+	require.Equal(t, op.HealthCheckRetries, 3)
+	require.True(t, op.MTLs)
+	require.Equal(t, op.MTLsOptions.Servername, "localhost")
+	require.Equal(t, op.MTLsOptions.Certificate, "no-certificate")
+	require.Equal(t, op.MTLsOptions.ClientCAs, "no-client-ca")
+	require.Equal(t, op.MTLsOptions.Pkey, "no-pkey")
+	require.True(t, op.Auth)
+	require.Equal(t, op.MaxRecvMsgSize, 1<<20)
+	require.Equal(t, op.Config, "configfile")
+	require.Equal(t, op.TokenFileName, "tokenfile")
+	require.Equal(t, op.Username, "some-username")
+	require.Equal(t, op.Password, "some-password")
+	require.Equal(t, op.Database, "some-db")
+	require.Equal(t, op.StreamChunkSize, 4096)
+	require.True(t, op.DisableIdentityCheck)
+	require.Equal(t, op.Bind(), "127.0.0.1:4321")
+	require.NotEmpty(t, op.String())
+
 }
