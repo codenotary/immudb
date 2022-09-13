@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"path/filepath"
 	"time"
 
@@ -65,6 +66,10 @@ func (db *closedDB) Health() (waitingCount int, lastReleaseAt time.Time) {
 }
 
 func (db *closedDB) CurrentState() (*schema.ImmutableState, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
+func (db *closedDB) CurrentPreCommitState() (*schema.ImmutableState, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -198,6 +203,10 @@ func (db *closedDB) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
 
 func (db *closedDB) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
+}
+
+func (db *closedDB) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
+	return store.ErrAlreadyClosed
 }
 
 func (db *closedDB) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {

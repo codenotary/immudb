@@ -83,6 +83,8 @@ type RemoteStorageOptions struct {
 }
 
 type ReplicationOptions struct {
+	IsReplica        bool
+	SyncFollowers    int
 	MasterAddress    string
 	MasterPort       int
 	FollowerUsername string
@@ -251,7 +253,9 @@ func (o *Options) String() string {
 
 	repOpts := o.ReplicationOptions
 
-	if o.ReplicationOptions != nil {
+	if repOpts == nil || !repOpts.IsReplica {
+		opts = append(opts, rightPad("Sync followers", repOpts.SyncFollowers))
+	} else {
 		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.MasterAddress, repOpts.MasterPort)))
 	}
 
@@ -337,12 +341,12 @@ func (o *Options) WithAdminPassword(adminPassword string) *Options {
 	return o
 }
 
-//GetSystemAdminDBName returns the System database name
+// GetSystemAdminDBName returns the System database name
 func (o *Options) GetSystemAdminDBName() string {
 	return o.systemAdminDBName
 }
 
-//GetDefaultDBName returns the default database name
+// GetDefaultDBName returns the default database name
 func (o *Options) GetDefaultDBName() string {
 	return o.defaultDBName
 }
@@ -464,6 +468,16 @@ func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteS
 }
 
 // ReplicationOptions
+
+func (opts *ReplicationOptions) WithIsReplica(isReplica bool) *ReplicationOptions {
+	opts.IsReplica = isReplica
+	return opts
+}
+
+func (opts *ReplicationOptions) WithSyncFollowers(syncFollowers int) *ReplicationOptions {
+	opts.SyncFollowers = syncFollowers
+	return opts
+}
 
 func (opts *ReplicationOptions) WithMasterAddress(masterAddress string) *ReplicationOptions {
 	opts.MasterAddress = masterAddress

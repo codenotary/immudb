@@ -110,6 +110,12 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to create data dir: %v", err)
 	}
 
+	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
+
+	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
+		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
+	}
+
 	s.remoteStorage, err = s.createRemoteStorageInstance()
 	if err != nil {
 		return logErr(s.Logger, "Unable to open remote storage: %v", err)
@@ -174,12 +180,6 @@ func (s *ImmuServer) Initialize() error {
 		if err != nil {
 			return logErr(s.Logger, "Immudb unable to listen: %v", err)
 		}
-	}
-
-	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDBName())
-
-	if s.UUID, err = getOrSetUUID(dataDir, systemDbRootDir); err != nil {
-		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 
 	if s.remoteStorage != nil {
@@ -576,7 +576,7 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 		WithFollowerPassword(dbOpts.FollowerPassword).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
-	f, err := replication.NewTxReplicator(db, replicatorOpts, s.Logger)
+	f, err := replication.NewTxReplicator(s.UUID, db, replicatorOpts, s.Logger)
 	if err != nil {
 		return err
 	}
