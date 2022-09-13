@@ -129,8 +129,8 @@ test:
 # build FIPS binary from docker image
 .PHONY: test/fips
 test/fips:
-	docker build -t fips:test-build -f build/fips/Dockerfile.build .
-	docker run --rm fips:test-build -c "make test"
+	$(DOCKER) build -t fips:test-build -f build/fips/Dockerfile.build .
+	$(DOCKER) run --rm fips:test-build -c "make test"
 
 .PHONY: test-client
 test-client:
@@ -213,12 +213,12 @@ dist: webconsole dist/binaries dist/fips
 # build FIPS binary from docker image (no arm or non-linux support)
 .PHONY: dist/fips
 dist/fips: clean
-	docker build -t fips:build -f build/fips/Dockerfile.build .
-	docker run -v ${PWD}:/src -it --user root --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
+	$(DOCKER) build -t fips:build -f build/fips/Dockerfile.build .
+	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
 	mv immudb ./dist/immudb-fips-v${VERSION}-linux-amd64
-	docker run -v ${PWD}:/src -it --user root --rm fips:build -c "make immuclient-fips"
+	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuclient-fips"
 	mv immuclient ./dist/immuclient-fips-v${VERSION}-linux-amd64
-	docker run -v ${PWD}:/src -it --user root --rm fips:build -c "make immuadmin-fips"
+	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuadmin-fips"
 	mv immuadmin ./dist/immuadmin-fips-v${VERSION}-linux-amd64
 
 .PHONY: dist/binaries
