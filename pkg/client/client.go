@@ -583,7 +583,7 @@ func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, 
 	return c.ServiceClient.CurrentState(ctx, &empty.Empty{})
 }
 
-// Get ...
+// Get the value of key.
 func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -603,12 +603,12 @@ func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*s
 	return c.ServiceClient.Get(ctx, req)
 }
 
-// GetSince ...
+// GetSince gets the value of key since specified transaction.
 func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
 	return c.Get(ctx, key, SinceTx(tx))
 }
 
-// GetAt ...
+// GetAt gets the value of key at the specified transaction.
 func (c *immuClient) GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
 	return c.Get(ctx, key, AtTx(tx))
 }
@@ -618,7 +618,9 @@ func (c *immuClient) GetAtRevision(ctx context.Context, key []byte, rev int64) (
 	return c.Get(ctx, key, AtRevision(rev))
 }
 
-// VerifiedGet ...
+// VerifiedGet gets the value of key. It also generates proof internally to verify
+// the entry in the transaction, and also verifies the signature of the signed state
+// and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (vi *schema.Entry, err error) {
 	start := time.Now()
 	defer c.Logger.Debugf("VerifiedGet finished in %s", time.Since(start))
@@ -634,17 +636,23 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOpt
 	return c.verifiedGet(ctx, req)
 }
 
-// VerifiedGetSince ...
+// VerifiedGetSince gets the value of key since the specified transaction. It also
+// generates proof internally to verify the entry in the transaction, and also verifies
+// the signature of the signed state and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, SinceTx(tx))
 }
 
-// VerifiedGetAt ...
+// VerifiedGetAt gets the value of key at the specified transaction. It also
+// generates proof internally to verify the entry in the transaction, and also verifies
+// the signature of the signed state and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, AtTx(tx))
 }
 
-// VerifiedGetAtRevision ...
+// VerifiedGetAt gets the value of key at the specified revision. It also
+// generates proof internally to verify the entry in the transaction, and also verifies
+// the signature of the signed state and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, AtRevision(rev))
 }
@@ -769,7 +777,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	return vEntry.Entry, nil
 }
 
-// Scan ...
+// Scan iterates the set of keys incrementally.
 func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -778,7 +786,7 @@ func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 	return c.ServiceClient.Scan(ctx, req)
 }
 
-// ZScan ...
+// ZScan iterates elements of Sorted Set types and their associated scores
 func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -803,7 +811,7 @@ func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 	return c.ServiceClient.CountAll(ctx, new(empty.Empty))
 }
 
-// Set ...
+// Set key to hold the specified value
 func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	return c.set(ctx, key, nil, value)
 }
@@ -825,7 +833,9 @@ func (c *immuClient) set(ctx context.Context, key []byte, md *schema.KVMetadata,
 	return txmd, nil
 }
 
-// VerifiedSet ...
+// VerifiedSet sets key to hold the specified value. It also generates proof internally to
+// verify the entry in the transaction, and also verifies the signature of the signed state
+// and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
@@ -941,6 +951,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	return verifiableTx.Tx.Header, nil
 }
 
+// ExpirableSet sets the key to hold the value and set key to timeout after a given number of seconds.
 func (c *immuClient) ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error) {
 	return c.set(ctx, key, &schema.KVMetadata{Expiration: &schema.Expiration{ExpiresAt: expiresAt.Unix()}}, value)
 }
@@ -1289,12 +1300,14 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	return verifiableTx.Tx.Header, nil
 }
 
-// ZAdd ...
+// ZAdd adds the specified members with the specified scores to the sorted set stored at key.
 func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
 	return c.ZAddAt(ctx, set, score, key, 0)
 }
 
-// ZAddAt ...
+// ZAddAt adds the specified members with the specified scores to the sorted set stored at key
+// in a particular transaction. If a specified member is already a member of the sorted set, the
+// score is updated and the element reinserted at the right position to ensure the correct ordering.
 func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1321,12 +1334,16 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	return txmd, nil
 }
 
-// ZAdd ...
+// VerifiedZAdd adds the specified members with the specified scores to the sorted set stored at key.
+// It also generates proof internally to verify the entry in the transaction, and also verifies the
+// signature of the signed state and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
 	return c.VerifiedZAddAt(ctx, set, score, key, 0)
 }
 
-// VerifiedZAdd ...
+// VerifiedZAddAt adds the specified members with the specified scores to the sorted set stored at key
+// at the specified transaction. It also generates proof internally to verify the entry in the transaction,
+// and also verifies the signature of the signed state and returns an error if the data is corrupted.
 func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
