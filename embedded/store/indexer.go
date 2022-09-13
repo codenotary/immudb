@@ -318,7 +318,7 @@ func (idx *indexer) Pause() {
 }
 
 func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
-	committedTxID := idx.store.lastCommittedTxID()
+	committedTxID := idx.store.LastCommittedTxID()
 	idx.metricsLastCommittedTrx.Set(float64(committedTxID))
 
 	for {
@@ -338,7 +338,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 			time.Sleep(60 * time.Second)
 		}
 
-		committedTxID := idx.store.lastCommittedTxID()
+		committedTxID := idx.store.LastCommittedTxID()
 		idx.metricsLastCommittedTrx.Set(float64(committedTxID))
 
 		txsToIndex := committedTxID - lastIndexedTx

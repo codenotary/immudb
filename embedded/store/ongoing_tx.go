@@ -21,8 +21,8 @@ import (
 	"time"
 )
 
-//OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
-//The snapshot may be locally modified but isolated from other transactions
+// OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
+// The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
 	st   *ImmuStore
 	snap *Snapshot
@@ -60,7 +60,7 @@ func newReadWriteTx(s *ImmuStore) (*OngoingTx, error) {
 		ts:           time.Now(),
 	}
 
-	precommittedTxID := s.lastPreCommittedTxID()
+	precommittedTxID := s.LastPreCommittedTxID()
 
 	err := s.WaitForIndexingUpto(precommittedTxID, nil)
 	if err != nil {

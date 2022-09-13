@@ -2860,10 +2860,130 @@ func BenchmarkSyncedAppend(b *testing.B) {
 		WithSynced(true).
 		WithAHTOptions(DefaultAHTOptions().WithSyncThld(1_000)).
 		WithSyncFrequency(20 * time.Millisecond).
-		WithMaxActiveTransactions(1000)
+		WithMaxActiveTransactions(100)
 
 	immuStore, _ := Open("data_synced_bench", opts)
 	defer os.RemoveAll("data_synced_bench")
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		workerCount := 100
+
+		var wg sync.WaitGroup
+		wg.Add(workerCount)
+
+		for w := 0; w < workerCount; w++ {
+			go func() {
+				txCount := 100
+				eCount := 1
+
+				committed := 0
+
+				for committed < txCount {
+					tx, err := immuStore.NewWriteOnlyTx()
+					if err != nil {
+						panic(err)
+					}
+
+					for j := 0; j < eCount; j++ {
+						k := make([]byte, 8)
+						binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+						v := make([]byte, 8)
+						binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+						err = tx.Set(k, nil, v)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					_, err = tx.AsyncCommit()
+					if err == ErrMaxConcurrencyLimitExceeded || err == ErrMaxActiveTransactionsLimitExceeded {
+						time.Sleep(1 * time.Nanosecond)
+						continue
+					}
+					if err != nil {
+						panic(err)
+					}
+
+					committed++
+				}
+
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
+	}
+}
+
+func BenchmarkAsyncAppend(b *testing.B) {
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(1).
+		WithMaxActiveTransactions(100)
+
+	immuStore, _ := Open("data_async_bench", opts)
+	defer os.RemoveAll("data_async_bench")
+
+	for i := 0; i < b.N; i++ {
+		txCount := 1000
+		eCount := 1000
+
+		for i := 0; i < txCount; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			if err != nil {
+				panic(err)
+			}
+
+			for j := 0; j < eCount; j++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+				err = tx.Set(k, nil, v)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			_, err = tx.Commit()
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
+	opts := DefaultOptions().
+		WithMaxConcurrency(100).
+		WithSynced(true).
+		WithAHTOptions(DefaultAHTOptions().WithSyncThld(1_000)).
+		WithSyncFrequency(20 * time.Millisecond).
+		WithMaxActiveTransactions(1000).
+		WithExternalCommitAllowance(true)
+
+	immuStore, _ := Open("data_synced_bench", opts)
+	defer os.RemoveAll("data_synced_bench")
+
+	go func() {
+		for {
+			err := immuStore.AllowCommitUpto(immuStore.LastPreCommittedTxID())
+			if err == ErrAlreadyClosed {
+				return
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			time.Sleep(time.Duration(5) * time.Millisecond)
+		}
+	}()
 
 	b.ResetTimer()
 
@@ -2900,7 +3020,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 					}
 
 					_, err = tx.AsyncCommit()
-					if err == ErrMaxConcurrencyLimitExceeded {
+					if err == ErrMaxConcurrencyLimitExceeded || err == ErrMaxActiveTransactionsLimitExceeded {
 						time.Sleep(1 * time.Nanosecond)
 						continue
 					}
@@ -2919,10 +3039,29 @@ func BenchmarkSyncedAppend(b *testing.B) {
 	}
 }
 
-func BenchmarkAppend(b *testing.B) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, _ := Open("data_async_bench", opts)
-	defer os.RemoveAll("data_async_bench")
+func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithMaxConcurrency(1).
+		WithMaxActiveTransactions(1000).
+		WithExternalCommitAllowance(true)
+
+	immuStore, _ := Open("data_async_ext_commit_ack_bench", opts)
+	defer os.RemoveAll("data_async_ext_commit_ack_bench")
+
+	go func() {
+		for {
+			err := immuStore.AllowCommitUpto(immuStore.LastPreCommittedTxID())
+			if err == ErrAlreadyClosed {
+				return
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			time.Sleep(time.Duration(5) * time.Millisecond)
+		}
+	}()
 
 	for i := 0; i < b.N; i++ {
 		txCount := 1000
