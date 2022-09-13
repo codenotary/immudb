@@ -42,6 +42,7 @@
     - [ExportTxRequest](#immudb.schema.ExportTxRequest)
     - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
     - [FlushIndexResponse](#immudb.schema.FlushIndexResponse)
+    - [FollowerState](#immudb.schema.FollowerState)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -742,6 +743,8 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
+| includePreCommitted | [bool](#bool) |  |  |
+| followerState | [FollowerState](#immudb.schema.FollowerState) |  |  |
 
 
 
@@ -773,6 +776,23 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.FollowerState"></a>
+
+### FollowerState
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| UUID | [string](#string) |  |  |
+| precommittedTxID | [uint64](#uint64) |  |  |
+| precommittedTxAlh | [bytes](#bytes) |  |  |
 
 
 
@@ -1387,6 +1407,7 @@
 | masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  |  |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  |  |
+| syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
 

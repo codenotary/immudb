@@ -2281,6 +2281,22 @@
         }
       }
     },
+    "schemaFollowerState": {
+      "type": "object",
+      "properties": {
+        "UUID": {
+          "type": "string"
+        },
+        "precommittedTxID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "precommittedTxAlh": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {
@@ -2736,6 +2752,9 @@
         },
         "followerPassword": {
           "$ref": "#/definitions/schemaNullableString"
+        },
+        "syncFollowers": {
+          "$ref": "#/definitions/schemaNullableUint32"
         }
       }
     },
