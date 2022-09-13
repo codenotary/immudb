@@ -18,8 +18,10 @@ package server
 
 import (
 	"bytes"
+	"encoding/binary"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"google.golang.org/grpc/metadata"
 )
 
 func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.ImmuService_ExportTxServer) error {
@@ -28,11 +30,6 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	}
 
 	db, err := s.getDBFromCtx(txsServer.Context(), "ExportTx")
-	if err != nil {
-		return err
-	}
-
-	err = db.WaitForTx(req.Tx, nil)
 	if err != nil {
 		return err
 	}
@@ -48,6 +45,21 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	if err != nil {
 		return err
 	}
+
+	state, err := db.CurrentState()
+	if err != nil {
+		return err
+	}
+
+	var bTxID [8]byte
+	binary.BigEndian.PutUint64(bTxID[:], state.TxId)
+
+	md := metadata.Pairs(
+		"committed_txid-bin", string(bTxID[:]),
+		"committed_alh-bin", string(state.TxHash),
+	)
+
+	txsServer.SetTrailer(md)
 
 	return nil
 }

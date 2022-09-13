@@ -43,6 +43,7 @@ type dbOptions struct {
 	MasterPort       int    `json:"masterPort"`
 	FollowerUsername string `json:"followerUsername"`
 	FollowerPassword string `json:"followerPassword"`
+	SyncFollowers    int    `json:"syncFollowers"`
 
 	// store options
 	FileSize     int `json:"fileSize"`     // permanent
@@ -120,7 +121,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 
 		synced:        s.Options.synced,
 		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
-		Replica:       s.Options.ReplicationOptions != nil,
+		Replica:       s.Options.ReplicationOptions != nil && s.Options.ReplicationOptions.IsReplica,
 
 		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -148,14 +149,18 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		CreatedAt: time.Now(),
 	}
 
-	if dbOpts.Replica && (dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName) {
+	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
 		repOpts := s.Options.ReplicationOptions
 
-		dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb and defaultdb must have the same name as in master
-		dbOpts.MasterAddress = repOpts.MasterAddress
-		dbOpts.MasterPort = repOpts.MasterPort
-		dbOpts.FollowerUsername = repOpts.FollowerUsername
-		dbOpts.FollowerPassword = repOpts.FollowerPassword
+		if dbOpts.Replica {
+			dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb and defaultdb must have the same name as in master
+			dbOpts.MasterAddress = repOpts.MasterAddress
+			dbOpts.MasterPort = repOpts.MasterPort
+			dbOpts.FollowerUsername = repOpts.FollowerUsername
+			dbOpts.FollowerPassword = repOpts.FollowerPassword
+		} else {
+			dbOpts.SyncFollowers = repOpts.SyncFollowers
+		}
 	}
 
 	return dbOpts
@@ -258,6 +263,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			MasterPort:       &schema.NullableUint32{Value: uint32(opts.MasterPort)},
 			FollowerUsername: &schema.NullableString{Value: opts.FollowerUsername},
 			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
+			SyncFollowers:    &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
 		},
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
@@ -398,6 +404,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 		if rs.FollowerPassword != nil {
 			opts.FollowerPassword = rs.FollowerPassword.Value
+		}
+		if rs.SyncFollowers != nil {
+			opts.SyncFollowers = int(rs.SyncFollowers.Value)
 		}
 	}
 
@@ -540,6 +549,10 @@ func (opts *dbOptions) Validate() error {
 			opts.MasterPort > 0 ||
 			opts.FollowerUsername != "" ||
 			opts.FollowerPassword != "") {
+		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
+	}
+
+	if opts.Replica && opts.SyncFollowers > 0 {
 		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
 	}
 
