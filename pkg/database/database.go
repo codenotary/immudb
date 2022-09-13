@@ -66,6 +66,7 @@ type DB interface {
 	// State
 	Health() (waitingCount int, lastReleaseAt time.Time)
 	CurrentState() (*schema.ImmutableState, error)
+	CurrentPreCommitState() (*schema.ImmutableState, error)
 	Size() (uint64, error)
 
 	// Key-Value
@@ -119,6 +120,8 @@ type DB interface {
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(req *schema.ExportTxRequest) ([]byte, error)
 	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
+	AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error
+
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 
@@ -130,7 +133,14 @@ type DB interface {
 	Close() error
 }
 
-//IDB database instance
+type uuid = string
+
+type followerState struct {
+	precommittedTxID uint64
+	precommittedAlh  [sha256.Size]byte
+}
+
+// IDB database instance
 type db struct {
 	st *store.ImmuStore
 
@@ -148,6 +158,8 @@ type db struct {
 	maxResultSize int
 
 	txPool store.TxPool
+
+	followerStates map[uuid]*followerState
 }
 
 // OpenDB Opens an existing Database from disk
@@ -158,12 +170,19 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	log.Infof("Opening database '%s' {replica = %v}...", dbName, op.replica)
 
+	var followerStates map[uuid]*followerState
+	// follower states are only managed in master with synchronous replication
+	if !op.replica && op.syncFollowers > 0 {
+		followerStates = make(map[uuid]*followerState, op.syncFollowers)
+	}
+
 	dbi := &db{
-		Logger:        log,
-		options:       op,
-		name:          dbName,
-		maxResultSize: MaxKeyScanLimit,
-		mutex:         &instrumentedRWMutex{},
+		Logger:         log,
+		options:        op,
+		name:           dbName,
+		followerStates: followerStates,
+		maxResultSize:  MaxKeyScanLimit,
+		mutex:          &instrumentedRWMutex{},
 	}
 
 	dbDir := dbi.Path()
@@ -172,7 +191,11 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		return nil, fmt.Errorf("missing database directories: %s", dbDir)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(log))
+	stOpts := op.GetStoreOptions().
+		WithLogger(log).
+		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
+
+	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -282,12 +305,19 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	log.Infof("Creating database '%s' {replica = %v}...", dbName, op.replica)
 
+	var followerStates map[uuid]*followerState
+	// follower states are only managed in master with synchronous replication
+	if !op.replica && op.syncFollowers > 0 {
+		followerStates = make(map[uuid]*followerState, op.syncFollowers)
+	}
+
 	dbi := &db{
-		Logger:        log,
-		options:       op,
-		name:          dbName,
-		maxResultSize: MaxKeyScanLimit,
-		mutex:         &instrumentedRWMutex{},
+		Logger:         log,
+		options:        op,
+		name:           dbName,
+		followerStates: followerStates,
+		maxResultSize:  MaxKeyScanLimit,
+		mutex:          &instrumentedRWMutex{},
 	}
 
 	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
@@ -301,7 +331,11 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLogger(log))
+	stOpts := op.GetStoreOptions().
+		WithLogger(log).
+		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
+
+	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
@@ -675,6 +709,15 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	}, nil
 }
 
+func (d *db) CurrentPreCommitState() (*schema.ImmutableState, error) {
+	lastPreTxID, lastPreTxAlh := d.st.PreAlh()
+
+	return &schema.ImmutableState{
+		TxId:   lastPreTxID,
+		TxHash: lastPreTxAlh[:],
+	}, nil
+}
+
 // WaitForTx blocks caller until specified tx gets committed
 func (d *db) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
 	return d.st.WaitForTx(txID, cancellation)
@@ -685,7 +728,7 @@ func (d *db) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) erro
 	return d.st.WaitForIndexingUpto(txID, cancellation)
 }
 
-//VerifiableSet ...
+// VerifiableSet ...
 func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -735,7 +778,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	}, nil
 }
 
-//VerifiableGet ...
+// VerifiableGet ...
 func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -881,7 +924,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	return schema.TxHeaderToProto(hdr), nil
 }
 
-//GetAll ...
+// GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	currTxID, _ := d.st.Alh()
 
@@ -921,12 +964,12 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	return list, nil
 }
 
-//Size ...
+// Size ...
 func (d *db) Size() (uint64, error) {
 	return d.st.TxCount(), nil
 }
 
-//Count ...
+// Count ...
 func (d *db) Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
@@ -1145,7 +1188,89 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 	return stx, nil
 }
 
+func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
+	if d.followerStates == nil || newState == nil {
+		return nil
+	}
+
+	// clean up followerStates
+	// it's safe to remove up to latest tx committed in master
+	committedTxID := d.st.LastCommittedTxID()
+
+	for uuid, st := range d.followerStates {
+		if st.precommittedTxID <= committedTxID {
+			delete(d.followerStates, uuid)
+		}
+	}
+
+	// follower pre-committed state should be consistent with master
+	hdr, err := d.st.ReadTxHeader(newState.PrecommittedTxID)
+	if err == store.ErrTxNotFound {
+		return fmt.Errorf("%w: follower is ahead of master", err)
+	}
+	if err != nil {
+		return err
+	}
+
+	newFollowerAlh := schema.DigestFromProto(newState.PrecommittedTxAlh)
+
+	if hdr.Alh() != newFollowerAlh {
+		return fmt.Errorf("%w: follower diverged from master", err)
+	}
+
+	if newState.PrecommittedTxID <= committedTxID {
+		// as far as the master is concerned, nothing really new has happened
+		return nil
+	}
+
+	followerSt, ok := d.followerStates[newState.UUID]
+	if ok {
+		if newState.PrecommittedTxID < followerSt.precommittedTxID {
+			return fmt.Errorf("%w: the newly informed follower state lags behind the previously informed one", ErrIllegalArguments)
+		}
+
+		if newState.PrecommittedTxID == followerSt.precommittedTxID {
+			// as of the last informed follower status update, nothing has changed
+			return nil
+		}
+
+		// actual replication progress is informed by the follower
+		followerSt.precommittedTxID = newState.PrecommittedTxID
+		followerSt.precommittedAlh = newFollowerAlh
+	} else {
+		// follower informs first replication state
+		d.followerStates[newState.UUID] = &followerState{
+			precommittedTxID: newState.PrecommittedTxID,
+			precommittedAlh:  newFollowerAlh,
+		}
+	}
+
+	// check up to which tx enough followers ack replication and it's safe to commit
+	mayCommitUpToTxID := uint64(0)
+	allowances := 0
+
+	// we may clean up followerStates from those who are lag behind commit
+	for _, st := range d.followerStates {
+		if st.precommittedTxID < mayCommitUpToTxID {
+			mayCommitUpToTxID = st.precommittedTxID
+		}
+		allowances++
+	}
+
+	if allowances >= d.options.syncFollowers {
+		err = d.st.AllowCommitUpto(mayCommitUpToTxID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1155,6 +1280,18 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
 		return nil, err
 	}
 	defer d.releaseTx(tx)
+
+	err = d.mayUpdateFollowerState(req.FollowerState)
+	if err != nil {
+		return nil, err
+	}
+
+	if !req.IncludePreCommitted {
+		err = d.WaitForTx(req.Tx, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return d.st.ExportTx(req.Tx, tx)
 }
@@ -1175,7 +1312,33 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 	return schema.TxHeaderToProto(hdr), nil
 }
 
-//VerifiableTxByID ...
+// AllowCommitUpto is used by replicas to commit transactions once committed in master
+func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	if !d.isReplica() {
+		return ErrNotReplica
+	}
+
+	// follower pre-committed state should be consistent with master
+	hdr, err := d.st.ReadTxHeader(txID)
+	if errors.Is(err, store.ErrTxNotFound) {
+		// follower is behind of master
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if hdr.Alh() != alh {
+		return fmt.Errorf("%w: follower diverged from master", ErrIllegalState)
+	}
+
+	return d.st.AllowCommitUpto(txID)
+}
+
+// VerifiableTxByID ...
 func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -1244,7 +1407,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}, nil
 }
 
-//TxScan ...
+// TxScan ...
 func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -1307,7 +1470,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	return txList, nil
 }
 
-//History ...
+// History ...
 func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -1403,7 +1566,7 @@ func (d *db) IsClosed() bool {
 	return d.st.IsClosed()
 }
 
-//Close ...
+// Close ...
 func (d *db) Close() (err error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -1433,7 +1596,7 @@ func (d *db) GetName() string {
 	return d.name
 }
 
-//GetOptions ...
+// GetOptions ...
 func (d *db) GetOptions() *Options {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
