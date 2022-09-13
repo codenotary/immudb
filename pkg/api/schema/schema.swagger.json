@@ -2405,6 +2405,22 @@
         }
       }
     },
+    "schemaFollowerState": {
+      "type": "object",
+      "properties": {
+        "UUID": {
+          "type": "string"
+        },
+        "precommittedTxID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "precommittedTxAlh": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {
@@ -2931,6 +2947,10 @@
         "followerPassword": {
           "$ref": "#/definitions/schemaNullableString",
           "title": "Password of the user with read access of the database to replicate"
+        },
+        "syncFollowers": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Number of fully synchronized followers"
         }
       }
     },

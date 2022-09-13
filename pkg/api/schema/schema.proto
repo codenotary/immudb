@@ -814,6 +814,14 @@ message TxList {
 message ExportTxRequest {
   // Id of transaction to export
   uint64 tx = 1;
+	bool includePreCommitted = 2;
+	FollowerState followerState = 3;
+}
+
+message FollowerState {
+	string UUID = 1;
+	uint64 precommittedTxID = 2;
+	bytes  precommittedTxAlh = 3;
 }
 
 message Database {
@@ -1009,6 +1017,9 @@ message ReplicationNullableSettings {
 
   // Password of the user with read access of the database to replicate
   NullableString followerPassword = 6;
+
+  // Number of fully synchronized followers
+  NullableUint32 syncFollowers = 7;
 }
 
 message IndexNullableSettings {

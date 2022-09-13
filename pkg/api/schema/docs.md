@@ -42,6 +42,7 @@
     - [ExportTxRequest](#immudb.schema.ExportTxRequest)
     - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
     - [FlushIndexResponse](#immudb.schema.FlushIndexResponse)
+    - [FollowerState](#immudb.schema.FollowerState)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -742,6 +743,8 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  | Id of transaction to export |
+| includePreCommitted | [bool](#bool) |  |  |
+| followerState | [FollowerState](#immudb.schema.FollowerState) |  |  |
 
 
 
@@ -773,6 +776,23 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  | Database name |
+
+
+
+
+
+
+<a name="immudb.schema.FollowerState"></a>
+
+### FollowerState
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| UUID | [string](#string) |  |  |
+| precommittedTxID | [uint64](#uint64) |  |  |
+| precommittedTxAlh | [bytes](#bytes) |  |  |
 
 
 
@@ -1389,6 +1409,7 @@ Only succeed if given key was not modified after given transaction
 | masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  | Port of the immudb instance with database to replicate |
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
+| syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of fully synchronized followers |
 
 
 
