@@ -28,16 +28,17 @@ func parseOptions() (options *server.Options, err error) {
 	address := viper.GetString("address")
 	port := viper.GetInt("port")
 
-	replicationEnabled := viper.GetBool("replication-enabled")
+	// TODO: flag name should be changed to something like `replication-is-replica`
+	replicationOptions := (&server.ReplicationOptions{}).WithIsReplica(viper.GetBool("replication-enabled"))
 
-	var replicationOptions *server.ReplicationOptions
-
-	if replicationEnabled {
-		replicationOptions = (&server.ReplicationOptions{}).
+	if replicationOptions.IsReplica {
+		replicationOptions.
 			WithMasterAddress(viper.GetString("replication-master-address")).
 			WithMasterPort(viper.GetInt("replication-master-port")).
 			WithFollowerUsername(viper.GetString("replication-follower-username")).
 			WithFollowerPassword(viper.GetString("replication-follower-password"))
+	} else {
+		replicationOptions.WithSyncFollowers(viper.GetInt("replication-sync-followers"))
 	}
 
 	pidfile := viper.GetString("pidfile")
