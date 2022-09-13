@@ -215,11 +215,11 @@ dist: webconsole dist/binaries dist/fips
 dist/fips: clean
 	$(DOCKER) build -t fips:build -f build/fips/Dockerfile.build .
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
-	mv immudb ./dist/immudb-fips-v${VERSION}-linux-amd64
+	mv immudb ./dist/immudb-v${VERSION}-linux-amd64-fips
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuclient-fips"
-	mv immuclient ./dist/immuclient-fips-v${VERSION}-linux-amd64
+	mv immuclient ./dist/immuclient-v${VERSION}-linux-amd64-fips
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuadmin-fips"
-	mv immuadmin ./dist/immuadmin-fips-v${VERSION}-linux-amd64
+	mv immuadmin ./dist/immuadmin-v${VERSION}-linux-amd64-fips
 
 .PHONY: dist/binaries
 dist/binaries:

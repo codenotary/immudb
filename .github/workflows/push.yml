@@ -84,6 +84,8 @@ jobs:
             selector: '*-linux-amd64'
           - os: ubuntu-latest
             selector: '*-linux-amd64-static'
+          - os: ubuntu-latest
+            selector: '*-linux-amd64-fips'
           - os: macos-latest
             selector: '*-darwin-amd64'
           - os: ubuntu-latest
