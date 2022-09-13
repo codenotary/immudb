@@ -141,12 +141,12 @@ type ImmuStore struct {
 	txLog      appendable.Appendable
 	txLogCache *cache.LRUCache
 
-	cLog    appendable.Appendable
-	cLogBuf []byte
+	cLog appendable.Appendable
 
-	committedTxID      uint64
-	committedAlh       [sha256.Size]byte
-	committedTxLogSize int64
+	cLogBuf *precommitBuffer
+
+	committedTxID uint64
+	committedAlh  [sha256.Size]byte
 
 	preCommittedTxID      uint64
 	preCommittedAlh       [sha256.Size]byte
@@ -171,6 +171,9 @@ type ImmuStore struct {
 	writeTxHeaderVersion int
 
 	timeFunc TimeFunc
+
+	useExternalCommitAllowance bool
+	commitAllowedUpToTxID      uint64
 
 	txPool TxPool
 
@@ -428,7 +431,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		blBuffer = make(chan [sha256.Size]byte, opts.MaxLinearProofLen)
 	}
 
-	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize)
+	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
 	}
@@ -444,9 +447,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		cLog: cLog,
 
-		committedTxID:      committedTxID,
-		committedAlh:       committedAlh,
-		committedTxLogSize: committedTxLogSize,
+		cLogBuf: newPrecommitBuffer(opts.MaxActiveTransactions), // TODO: parse and insert pre-committed txs when using external commit allowance
+
+		committedTxID: committedTxID,
+		committedAlh:  committedAlh,
 
 		preCommittedTxID:      committedTxID,
 		preCommittedAlh:       committedAlh,
@@ -469,6 +473,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
 		timeFunc: opts.TimeFunc,
+
+		useExternalCommitAllowance: opts.UseExternalCommitAllowance,
+		commitAllowedUpToTxID:      committedTxID,
 
 		aht:      aht,
 		blBuffer: blBuffer,
@@ -566,11 +573,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.synced {
-		store.cLogBuf = make([]byte, cLogEntrySize*opts.MaxActiveTransactions)
-
 		go func() {
 			for {
-				committedTxID := store.lastCommittedTxID()
+				committedTxID := store.LastCommittedTxID()
 
 				// passive wait for one new transaction at least
 				store.precommitWHub.WaitFor(committedTxID+1, nil)
@@ -583,7 +588,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 					// give some time for more transactions to be precommitted
 					time.Sleep(store.syncFrequency / 4)
 
-					latestPrecommitedTx := store.lastPreCommittedTxID()
+					latestPrecommitedTx := store.LastPreCommittedTxID()
 
 					if prevLatestPrecommitedTx == latestPrecommitedTx {
 						// avoid waiting if there are no new transactions
@@ -765,7 +770,7 @@ func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
 	return s.committedTxID, s.committedAlh
 }
 
-func (s *ImmuStore) preAlh() (uint64, [sha256.Size]byte) {
+func (s *ImmuStore) PreAlh() (uint64, [sha256.Size]byte) {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
@@ -777,7 +782,7 @@ func (s *ImmuStore) BlInfo() (uint64, error) {
 	defer s.mutex.Unlock()
 
 	alhSize := s.aht.Size()
-	committedTxID := s.lastCommittedTxID()
+	committedTxID := s.LastCommittedTxID()
 
 	// only expose fully committed (durable) information
 	if alhSize < committedTxID {
@@ -1095,7 +1100,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		// about the DB state in any point in time between both checks thus it is still
 		// valid to fail precondition check.
 
-		err = s.WaitForIndexingUpto(s.lastPreCommittedTxID(), nil)
+		err = s.WaitForIndexingUpto(s.LastPreCommittedTxID(), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1114,7 +1119,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		return nil, ErrAlreadyClosed
 	}
 
-	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.lastPreCommittedTxID() {
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= s.LastPreCommittedTxID() {
 		s.mutex.Unlock()
 		return nil, ErrTxReadConflict
 	}
@@ -1130,7 +1135,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		// TxHeader is validated against current store
 
-		currPrecomittedTxID, currPrecommittedAlh := s.preAlh()
+		currPrecomittedTxID, currPrecommittedAlh := s.PreAlh()
 
 		if currPrecomittedTxID >= expectedHeader.ID {
 			return nil, ErrTxAlreadyCommitted
@@ -1214,7 +1219,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 		return nil, ErrAlreadyClosed
 	}
 
-	precommittedTxID := s.lastPreCommittedTxID()
+	precommittedTxID := s.LastPreCommittedTxID()
 
 	var ts int64
 	var blTxID uint64
@@ -1263,14 +1268,14 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 	return tx.Header(), err
 }
 
-func (s *ImmuStore) lastPreCommittedTxID() uint64 {
+func (s *ImmuStore) LastPreCommittedTxID() uint64 {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
 	return s.preCommittedTxID
 }
 
-func (s *ImmuStore) lastCommittedTxID() uint64 {
+func (s *ImmuStore) LastCommittedTxID() uint64 {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
@@ -1426,29 +1431,109 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 
 	s.precommitWHub.DoneUpto(s.preCommittedTxID)
 
-	var cb [cLogEntrySize]byte
-	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
-	binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
+	err = s.cLogBuf.put(s.preCommittedTxID, alh, txOff, txSize)
+	if err != nil {
+		return err
+	}
 
-	if s.synced {
-		copy(s.cLogBuf[int(s.preCommittedTxID-s.committedTxID-1)*cLogEntrySize:], cb[:])
-	} else {
+	if !s.synced {
+		return s.mayCommit()
+	}
+
+	return nil
+}
+
+func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	if !s.useExternalCommitAllowance {
+		return fmt.Errorf("%w: the external commit allowance mode is not enabled", ErrIllegalState)
+	}
+
+	if txID < s.commitAllowedUpToTxID {
+		// once a commit is allowed, it cannot be revoked
+		return nil
+	}
+
+	if s.preCommittedTxID < txID {
+		return fmt.Errorf("%w: commit allowances apply only to pre-committed transactions", ErrTxNotFound)
+	}
+
+	s.commitAllowedUpToTxID = txID
+
+	if !s.synced {
+		return s.mayCommit()
+	}
+
+	return nil
+}
+
+func (s *ImmuStore) commitAllowedUpTo() uint64 {
+	if !s.useExternalCommitAllowance {
+		return s.preCommittedTxID
+	}
+
+	return s.commitAllowedUpToTxID
+}
+
+func (s *ImmuStore) mayCommit() error {
+	commitAllowedUpToTxID := s.commitAllowedUpTo()
+	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
+
+	if txsCountToBeCommitted > 0 {
 		// will overwrite partially written and uncommitted data
-		err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
+		err := s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
 		if err != nil {
 			return err
 		}
 
-		_, _, err = s.cLog.Append(cb[:])
+		var commitUpToTxID uint64
+		var commitUpToTxAlh [sha256.Size]byte
+
+		for i := 0; i < txsCountToBeCommitted; i++ {
+			txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
+			if err != nil {
+				return err
+			}
+
+			var cb [cLogEntrySize]byte
+			binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+			binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
+
+			_, _, err = s.cLog.Append(cb[:])
+			if err != nil {
+				return err
+			}
+
+			commitUpToTxID = txID
+			commitUpToTxAlh = alh
+		}
+
+		if commitUpToTxID != commitAllowedUpToTxID {
+			// added as a safety fuse but this situation should NOT happen
+			return fmt.Errorf("%w: may commit up to %d but actual transaction to be committed is %d",
+				ErrUnexpectedError, commitAllowedUpToTxID, commitUpToTxID)
+		}
+
+		err = s.cLog.Flush()
 		if err != nil {
 			return err
 		}
 
-		s.committedTxID = s.preCommittedTxID
-		s.committedAlh = s.preCommittedAlh
-		s.committedTxLogSize = s.preCommittedTxLogSize
+		err = s.cLogBuf.advanceReader(txsCountToBeCommitted)
+		if err != nil {
+			return err
+		}
 
-		s.commitWHub.DoneUpto(s.committedTxID)
+		s.committedTxID = commitUpToTxID
+		s.committedAlh = commitUpToTxAlh
+
+		s.commitWHub.DoneUpto(commitUpToTxID)
 	}
 
 	return nil
@@ -1517,9 +1602,9 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 	s.indexer.Pause()
 	defer s.indexer.Resume()
 
-	lastPreCommittedTxID := s.lastPreCommittedTxID()
+	LastPreCommittedTxID := s.LastPreCommittedTxID()
 
-	otx.entries, otx.preconditions, err = callback(lastPreCommittedTxID+1, &unsafeIndex{st: s})
+	otx.entries, otx.preconditions, err = callback(LastPreCommittedTxID+1, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
@@ -1538,7 +1623,7 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 		s.indexer.Resume()
 
 		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(lastPreCommittedTxID, nil)
+		err = s.WaitForIndexingUpto(LastPreCommittedTxID, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1948,7 +2033,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 
 func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
-	right := s.lastCommittedTxID()
+	right := s.LastCommittedTxID()
 
 	for left < right {
 		middle := left + (right-left)/2
@@ -1979,7 +2064,7 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 
 func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	left := uint64(1)
-	right := s.lastCommittedTxID()
+	right := s.LastCommittedTxID()
 
 	for left < right {
 		middle := left + ((right-left)+1)/2
@@ -2020,6 +2105,7 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, erro
 		}
 	}
 
+	// TODO: it must resolve txOff and txSize for pre-committed txs using cLogBuf instead of cLog
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return nil, err
@@ -2279,15 +2365,41 @@ func (s *ImmuStore) sync() error {
 		return err
 	}
 
+	commitAllowedUpToTxID := s.commitAllowedUpTo()
+	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
+
 	// will overwrite partially written and uncommitted data
 	err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
 	if err != nil {
 		return err
 	}
 
-	_, _, err = s.cLog.Append(s.cLogBuf[:int(s.preCommittedTxID-s.committedTxID)*cLogEntrySize])
-	if err != nil {
-		return err
+	var commitUpToTxID uint64
+	var commitUpToTxAlh [sha256.Size]byte
+
+	for i := 0; i < txsCountToBeCommitted; i++ {
+		txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
+		if err != nil {
+			return err
+		}
+
+		var cb [cLogEntrySize]byte
+		binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
+
+		_, _, err = s.cLog.Append(cb[:])
+		if err != nil {
+			return err
+		}
+
+		commitUpToTxID = txID
+		commitUpToTxAlh = alh
+	}
+
+	if commitUpToTxID != commitAllowedUpToTxID {
+		// added as a safety fuse but this situation should NOT happen
+		return fmt.Errorf("%w: may commit up to %d but actual transaction to be committed is %d",
+			ErrUnexpectedError, commitAllowedUpToTxID, commitUpToTxID)
 	}
 
 	err = s.cLog.Flush()
@@ -2300,11 +2412,15 @@ func (s *ImmuStore) sync() error {
 		return err
 	}
 
-	s.committedTxID = s.preCommittedTxID
-	s.committedAlh = s.preCommittedAlh
-	s.committedTxLogSize = s.preCommittedTxLogSize
+	err = s.cLogBuf.advanceReader(txsCountToBeCommitted)
+	if err != nil {
+		return err
+	}
 
-	s.commitWHub.DoneUpto(s.committedTxID)
+	s.committedTxID = commitUpToTxID
+	s.committedAlh = commitUpToTxAlh
+
+	s.commitWHub.DoneUpto(commitUpToTxID)
 
 	return nil
 }

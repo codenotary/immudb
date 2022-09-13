@@ -90,6 +90,8 @@ type Options struct {
 
 	TimeFunc TimeFunc
 
+	UseExternalCommitAllowance bool
+
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
 	MaxKeyLen         int
@@ -443,6 +445,11 @@ func (opts *Options) WithMaxWaitees(maxWaitees int) *Options {
 
 func (opts *Options) WithTimeFunc(timeFunc TimeFunc) *Options {
 	opts.TimeFunc = timeFunc
+	return opts
+}
+
+func (opts *Options) WithExternalCommitAllowance(useExternalCommitAllowance bool) *Options {
+	opts.UseExternalCommitAllowance = useExternalCommitAllowance
 	return opts
 }
 
