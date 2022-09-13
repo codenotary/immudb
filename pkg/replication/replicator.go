@@ -18,6 +18,8 @@ package replication
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -28,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/rs/xid"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -36,6 +39,8 @@ var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type TxReplicator struct {
+	uuid xid.ID
+
 	db   database.DB
 	opts *Options
 
@@ -58,12 +63,13 @@ type TxReplicator struct {
 	mutex sync.Mutex
 }
 
-func NewTxReplicator(db database.DB, opts *Options, logger logger.Logger) (*TxReplicator, error) {
+func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.Logger) (*TxReplicator, error) {
 	if db == nil || logger == nil || opts == nil || !opts.Valid() {
 		return nil, ErrIllegalArguments
 	}
 
 	return &TxReplicator{
+		uuid:             uuid,
 		db:               db,
 		opts:             opts,
 		logger:           logger,
@@ -245,13 +251,47 @@ func (txr *TxReplicator) disconnect() {
 }
 
 func (txr *TxReplicator) fetchTX() ([]byte, error) {
-	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{Tx: txr.nextTx})
+	precommitState, err := txr.db.CurrentPreCommitState()
+	if err != nil {
+		return nil, err
+	}
+
+	state := &schema.FollowerState{
+		UUID:              txr.uuid.String(), // TODO: analize if there is any advantage in sending as header
+		PrecommittedTxID:  precommitState.TxId,
+		PrecommittedTxAlh: precommitState.TxHash,
+	}
+
+	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
+		Tx:                  txr.nextTx,
+		FollowerState:       state,
+		IncludePreCommitted: true,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
-	return receiver.ReadFully()
+	bs, err := receiver.ReadFully()
+	if err != nil {
+		return nil, err
+	}
+
+	md := exportTxStream.Trailer()
+
+	if len(md.Get("committed_txid-bin")) > 0 && len(md.Get("committed_alh-bin")) > 0 {
+		committedTxID := binary.BigEndian.Uint64([]byte(md.Get("committed_txid-bin")[0]))
+
+		var committedTxAlh [sha256.Size]byte
+		copy(committedTxAlh[:], []byte(md.Get("committed_alh-bin")[0]))
+
+		err = txr.db.AllowCommitUpto(committedTxID, committedTxAlh)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return bs, nil
 }
 
 func (txr *TxReplicator) Stop() error {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +32,7 @@ func TestReplication(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(path)
 
-	_, err = NewTxReplicator(nil, nil, nil)
+	_, err = NewTxReplicator(xid.New(), nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rOpts := DefaultOptions().
@@ -47,7 +48,7 @@ func TestReplication(t *testing.T) {
 	db, err := database.NewDB("replicated_defaultdb", nil, database.DefaultOption().AsReplica(true).WithDBRootPath(path), logger)
 	require.NoError(t, err)
 
-	txReplicator, err := NewTxReplicator(db, rOpts, logger)
+	txReplicator, err := NewTxReplicator(xid.New(), db, rOpts, logger)
 	require.NoError(t, err)
 
 	err = txReplicator.Stop()
