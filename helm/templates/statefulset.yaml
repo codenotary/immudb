@@ -12,7 +12,7 @@ spec:
   selector:
     matchLabels:
       {{- include "immudb.selectorLabels" . | nindent 6 }}
-  serviceName: {{ include "immudb.fullname" . }}    
+  serviceName: {{ include "immudb.fullname" . }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -72,13 +72,13 @@ spec:
               secretKeyRef:
                 name: {{ include "immudb.fullname" . }}-credentials
                 key: immudb-admin-password
-          {{- end}}      
+          {{- end}}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
           - mountPath: /var/lib/immudb
             name: immudb-storage
-            subpath: immudb
+            subPath: immudb
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
