@@ -1,43 +1,43 @@
+{{- $name := include "immudb.fullname" . }}
+{{- $names := list $name }}
 {{- if gt (.Values.replicaCount | toString | atoi) 1 }}
-{{- fail "At the moment, you can just have 1 instance of immudb. We are working to raise that limit."}}
+  {{- $names = append $names (printf "%s-rr" $name) }}
 {{- end }}
+
+{{- range $names }}
+{{- $isMaster := eq . $name }}
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "immudb.fullname" . }}
+  name: {{ . }}
   labels:
-    {{- include "immudb.labels" . | nindent 4 }}
+    {{- include "immudb.labels" $ | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ $isMaster | ternary 1 (sub $.Values.replicaCount 1) }}
   selector:
     matchLabels:
-      {{- include "immudb.selectorLabels" . | nindent 6 }}
-  serviceName: {{ include "immudb.fullname" . }}    
+      {{- include ($isMaster | ternary "immudb.selectorLabels" "immudb.rrSelectorLabels") $ | nindent 6 }}
+  serviceName: {{ $name }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with $.Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "immudb.selectorLabels" . | nindent 8 }}
+        {{- include ($isMaster | ternary "immudb.selectorLabels" "immudb.rrSelectorLabels") $ | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with $.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      volumes:
-      - name: immudb-storage
-        persistentVolumeClaim:
-          claimName: {{ include "immudb.fullname" . }}
+      securityContext: {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: {{ $.Chart.Name }}
+          securityContext: {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 8080
@@ -57,28 +57,37 @@ spec:
             httpGet:
               path: /readyz
               port: metrics
-          {{- if $.Values.adminPassword }}
           env:
+          {{- if $.Values.adminPassword }}
           - name: IMMUDB_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ include "immudb.fullname" . }}-credentials
+                name: {{ $name }}-credentials
                 key: immudb-admin-password
-          {{- end}}      
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- if (not $isMaster) | and (gt ($.Values.replicaCount | int) 1 )  }}
+          - name: IMMUDB_REPLICATION_ENABLED
+            value: "true"
+          - name: IMMUDB_REPLICATION_FOLLOWER_USERNAME
+            value: {{ $.Values.adminUsername | default "immudb" }}
+          - name: IMMUDB_REPLICATION_FOLLOWER_PASSWORD
+            value: {{ $.Values.adminPassword | default "immudb" }}
+          - name: IMMUDB_REPLICATION_MASTER_ADDRESS
+            value: {{ $name }}-grpc
+          {{- end }}
+          resources: {{- toYaml $.Values.resources | nindent 12 }}
           volumeMounts:
           - mountPath: /var/lib/immudb
             name: immudb-storage
-      {{- with .Values.nodeSelector }}
+      {{- with $.Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with $.Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with $.Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -88,9 +97,10 @@ spec:
     spec:
       accessModes:
       - ReadWriteOnce
-      {{- if .Values.volume.Class }}
-      storageClassName: {{ .Values.volume.Class | quote }}
+      {{- if $.Values.volume.Class }}
+      storageClassName: {{ $.Values.volume.Class | quote }}
       {{- end }}
       resources:
         requests:
-          storage: {{ .Values.volume.size }}
+          storage: {{ $.Values.volume.size }}
+{{- end }}

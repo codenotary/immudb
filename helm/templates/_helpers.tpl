@@ -49,6 +49,10 @@ Selector labels
 app.kubernetes.io/name: {{ include "immudb.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+{{- define "immudb.rrSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "immudb.name" . }}-rr
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
 
 {{/*
 Create the name of the service account to use
