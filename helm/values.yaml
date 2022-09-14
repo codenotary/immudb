@@ -67,3 +67,9 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# by default, we now use a subdirectory inside the volume so that if you are mounting volumes
+# that have a `/lost+found` directory (i.e., ext4), immudb don't get confused assuming that
+# is a database. If you want to disable this, or you have already some data on the root of
+# the volume from an older installation, set it to false.
+volumeSubPath: true
