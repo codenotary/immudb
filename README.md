@@ -119,10 +119,11 @@ helm install immudb/immudb --generate-name
 
 Immudb helm chart creates a persisten volume for storing immudb database. Those database are now placed in a subdirectory.
 That's for compatibility with ext4 volumes that have a `/lost+found` directory that can confuse immudb. If we placed
-database directory on the root of the volume, that `/lost+found` would be treated as a database. So we now create a
-`immudb` subpath for storing that.
+database directory on the root of the volume, that `/lost+found` would be treated as a database. So we now create a subpath
+(usually `immudb`) subpath for storing that.
+
 This is different from what we did on older (<=1.3.1) helm charts, so if you have already some volumes with data you can set
-value volumeSubPath to false (i.e.: `--set volumeSubPath=false`) when upgrading so that the old way is used.
+value volumeSubPath to false (i.e.: `--set volumeSubPath.enabled=false`) when upgrading so that the old way is used.
 
 You can alternatively migrate the data in a `/immudb` directory. You can use this pod as a reference for the job:
 ```yaml
@@ -148,6 +149,10 @@ spec:
         mkdir -p /data/immudb
         ls /data | grep -v -E 'immudb|lost\+found'|while read i; do mv /data/$i /data/immudb/$i; done
 ```
+
+Note that you can also tune the subfolder path using `volumeSubPath.path` value, if you prefer your data on a
+different directory than the default `immudb`.
+
 ### Enabling Amazon S3 storage
 
 immudb can store its data in the Amazon S3 service (or a compatible alternative).
