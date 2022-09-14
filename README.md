@@ -113,7 +113,7 @@ In kubernetes, use helm for an easy deployment: just add our repository and inst
 ```bash
 helm repo add immudb https://packages.codenotary.org/helm
 helm repo update
-helm install immudb --generate-name
+helm install immudb/immudb --generate-name
 ```
 
 ### Enabling Amazon S3 storage
