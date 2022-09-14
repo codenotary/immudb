@@ -72,8 +72,8 @@ spec:
           volumeMounts:
           - mountPath: /var/lib/immudb
             name: immudb-storage
-            {{- if $.Values.volumeSubPath }}
-            subPath: immudb
+            {{- if $.Values.volumeSubPath.enabled }}
+            subPath: {{ $.Values.volumeSubPath.path | quote }}
             {{- end}}
       {{- with .Values.nodeSelector }}
       nodeSelector:
