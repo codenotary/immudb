@@ -115,12 +115,14 @@ helm repo add immudb https://packages.codenotary.org/helm
 helm repo update
 helm install immudb/immudb --generate-name
 ```
-### Migrating data from older helm installation
+### Using subfolders
 
-Immudb helm chart creates a persisten volume for storing immudb database. Those database are now placed in a subdirectory.
-That's for compatibility with ext4 volumes that have a `/lost+found` directory that can confuse immudb. If we placed
-database directory on the root of the volume, that `/lost+found` would be treated as a database. So we now create a subpath
-(usually `immudb`) subpath for storing that.
+Immudb helm chart creates a persistent volume for storing immudb database.
+Those database are now by default placed in a subdirectory.
+
+That's for compatibility with ext4 volumes that have a `/lost+found` directory that can confuse immudb. Some volume providers,
+like EBS or DigitalOcean, are using this kind of volumes. If we placed database directory on the root of the volume,
+that `/lost+found` would be treated as a database. So we now create a subpath (usually `immudb`) subpath for storing that.
 
 This is different from what we did on older (<=1.3.1) helm charts, so if you have already some volumes with data you can set
 value volumeSubPath to false (i.e.: `--set volumeSubPath.enabled=false`) when upgrading so that the old way is used.
@@ -149,8 +151,8 @@ spec:
         mkdir -p /data/immudb
         ls /data | grep -v -E 'immudb|lost\+found'|while read i; do mv /data/$i /data/immudb/$i; done
 ```
-
-Note that you can also tune the subfolder path using `volumeSubPath.path` value, if you prefer your data on a
+As said before, you can totally disable the use of subPath by setting `volumeSubPath.enabled=false`.
+You can also tune the subfolder path using `volumeSubPath.path` value, if you prefer your data on a
 different directory than the default `immudb`.
 
 ### Enabling Amazon S3 storage
