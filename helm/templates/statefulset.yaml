@@ -32,20 +32,12 @@ spec:
       - name: immudb-storage
         persistentVolumeClaim:
           claimName: {{ include "immudb.fullname" . }}
-      initContainers:
-        - command: ["/bin/chown", "-R", "3322:3322", "/data"]
-          image: busybox
-          name: permission-fix
-          volumeMounts:
-          - mountPath: /data
-            name: immudb-storage
-            {{- if $.Values.volumeSubPath }}
-            subPath: immudb
-            {{- end}}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
