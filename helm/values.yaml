@@ -78,4 +78,4 @@ affinity: {}
 # like DigitalOcean or EBS. Disable if you already have some data in the volume root.
 volumeSubPath:
   enabled: true # or false
-  path: /immudb
+  path: immudb
