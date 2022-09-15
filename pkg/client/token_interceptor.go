@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TokenInterceptor inject token from tokenservice if present and if provided context contain no one
+// TokenInterceptor injects authentication token header to outgoing GRPC requests if it has not been set already
 func (c *immuClient) TokenInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	if md, ok := metadata.FromOutgoingContext(ctx); !ok || len(md.Get("authorization")) == 0 {
 		present, err := c.Tkns.IsTokenPresent()

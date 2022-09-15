@@ -33,29 +33,32 @@ const AdminTokenFileSuffix = "_admin"
 // Options client options
 type Options struct {
 	Dir                string
-	Address            string
-	Port               int
-	HealthCheckRetries int
-	MTLs               bool
-	MTLsOptions        MTLsOptions
-	Auth               bool
-	MaxRecvMsgSize     int
-	DialOptions        []grpc.DialOption
-	Config             string
-	TokenFileName      string
-	CurrentDatabase    string
+	Address            string            // Database hostname / ip address
+	Port               int               // Database port number
+	HealthCheckRetries int               // Deprecated: no longer used
+	MTLs               bool              // If set to true, client should use MTLS for authentication
+	MTLsOptions        MTLsOptions       // MTLS settings if used
+	Auth               bool              // Set to false if client does not use authentication
+	MaxRecvMsgSize     int               // Maximum size of received GRPC message
+	DialOptions        []grpc.DialOption // Additional GRPC dial options
+	Config             string            // Filename with additional configuration in toml format
+	TokenFileName      string            // Deprecated: not used for session-based authentication, name of the file with client token
+	CurrentDatabase    string            // Name of the current database
+
 	//--> used by immuclient CLI and sql stdlib package
-	PasswordReader c.PasswordReader
-	Username       string
-	Password       string
-	Database       string
+	PasswordReader c.PasswordReader // Password reader used by the immuclient CLI (TODO: Do not store in immuclient options)
+	Username       string           // Currently used username, used by immuclient CLI and go SQL stdlib (TODO: Do not store in immuclient options)
+	Password       string           // Currently used password, used by immuclient CLI and go SQL stdlib (TODO: Do not store in immuclient options)
+	Database       string           // Currently used database name, used by immuclient CLI and go SQL stdlib (TODO: Do not store in immuclient options)
 	//<--
-	Metrics             bool
-	PidPath             string
-	LogFileName         string
-	ServerSigningPubKey string
-	StreamChunkSize     int
-	HeartBeatFrequency  time.Duration
+
+	Metrics             bool   // Set to true if we should expose metrics, used by immuclient in auditor mode (TODO: Do not store in immuclient options)
+	PidPath             string // Path of the PID file, used by immuclient in auditor mode (TODO: Do not store in immuclient options)
+	LogFileName         string // Name of the log file to use, used by immuclient in auditor mode (TODO: Do not store in immuclient options)
+	ServerSigningPubKey string // Name of the file containing public key for server signature validations
+	StreamChunkSize     int    // Maximum size of a data chunk in bytes for streaming operations (directly affects maximum GRPC packet size)
+
+	HeartBeatFrequency time.Duration // Duration between two consecutive heartbeat calls to the server for session heartbeats
 }
 
 // DefaultOptions ...
@@ -118,7 +121,7 @@ func (o *Options) WithPort(port int) *Options {
 	return o
 }
 
-// WithHealthCheckRetries sets healt check retries
+// WithHealthCheckRetries sets health check retries
 func (o *Options) WithHealthCheckRetries(retries int) *Options {
 	o.HealthCheckRetries = retries
 	return o
@@ -213,6 +216,7 @@ func (o *Options) WithHeartBeatFrequency(heartBeatFrequency time.Duration) *Opti
 	return o
 }
 
+// String converts options object to a json string
 func (o *Options) String() string {
 	optionsJSON, err := json.Marshal(o)
 	if err != nil {

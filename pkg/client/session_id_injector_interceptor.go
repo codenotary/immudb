@@ -23,14 +23,14 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// SessionIDInjectorInterceptor inject sessionID or transactionID into the outgoing context
+// SessionIDInjectorInterceptor is a gRPC interceptor that inject sessionID into the outgoing context
 func (c *immuClient) SessionIDInjectorInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	ctx = c.populateCtx(ctx)
 	ris := invoker(ctx, method, req, reply, cc, opts...)
 	return ris
 }
 
-// ClientStreamInterceptor gRPC client interceptor for streams
+// SessionIDInjectorInterceptor is a gRPC stream interceptor that inject sessionID into the outgoing context
 func (c *immuClient) SessionIDInjectorStreamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 	ctx = c.populateCtx(ctx)
 	return streamer(ctx, desc, cc, method, opts...)

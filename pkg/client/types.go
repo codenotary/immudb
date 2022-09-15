@@ -28,42 +28,49 @@ import (
 	"google.golang.org/grpc"
 )
 
+// WithLogger sets up custom client logger.
 func (c *immuClient) WithLogger(logger logger.Logger) *immuClient {
 	c.Logger = logger
 	return c
 }
 
+// WithStateService sets up the StateService object.
 func (c *immuClient) WithStateService(rs state.StateService) *immuClient {
 	c.StateService = rs
 	return c
 }
 
+// Deprecated: will be removed in future versions.
 func (c *immuClient) WithClientConn(clientConn *grpc.ClientConn) *immuClient {
 	c.clientConn = clientConn
 	return c
 }
 
+// Deprecated: will be removed in future versions.
 func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient {
 	c.ServiceClient = serviceClient
 	return c
 }
 
+// Deprecated: will be removed in future versions.
 func (c *immuClient) WithTokenService(tokenService tokenservice.TokenService) *immuClient {
 	c.Tkns = tokenService
 	return c
 }
 
+// WithServerSigningPubKey sets up public key for server's state validation.
 func (c *immuClient) WithServerSigningPubKey(publicKey *ecdsa.PublicKey) *immuClient {
 	c.serverSigningPubKey = publicKey
 	return c
 }
 
-// WithStreamServiceFactory set stream service factory
+// WithStreamServiceFactory sets up stream factory for the client.
 func (c *immuClient) WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient {
 	c.StreamServiceFactory = ssf
 	return c
 }
 
+// WithOptions sets up client options for the instance.
 func (c *immuClient) WithOptions(options *Options) *immuClient {
 	c.Options = options
 	return c

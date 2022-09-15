@@ -24,12 +24,25 @@ import (
 
 // Errors related to Client connection and health check
 var (
+
+	// ErrIllegalArguments indicates illegal arguments provided to a method
 	ErrIllegalArguments = errors.New("illegal arguments")
 
-	ErrAlreadyConnected   = errors.New("already connected")
-	ErrNotConnected       = errors.New("not connected")
-	ErrHealthCheckFailed  = errors.New("health check failed")
+	// ErrAlreadyConnected is used when trying to establish a new connection with a client that is already connected
+	ErrAlreadyConnected = errors.New("already connected")
+
+	// ErrNotConnected is used when the operation can not be done because the client connection is closed
+	ErrNotConnected = errors.New("not connected")
+
+	// ErrHealthCheckFailed is used to indicate that health check has failed
+	ErrHealthCheckFailed = errors.New("health check failed")
+
+	// ErrServerStateIsOlder is used to inform that the client has newer state than the server.
+	// This could happen if the client connects to an asynchronous replica that did not yet
+	// replicate all transactions from the primary database.
 	ErrServerStateIsOlder = errors.New("server state is older than the client one")
+
+	// ErrSessionAlreadyOpen is used when trying to create a new session but there's a valid session already set up.
 	ErrSessionAlreadyOpen = errors.New("session already opened")
 )
 

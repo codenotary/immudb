@@ -34,25 +34,25 @@ func DefaultMTLsOptions() MTLsOptions {
 	}
 }
 
-// WithServername ...
+// WithServername sets the server name
 func (o MTLsOptions) WithServername(servername string) MTLsOptions {
 	o.Servername = servername
 	return o
 }
 
-// WithPkey ...
+// WithPkey sets the client private key
 func (o MTLsOptions) WithPkey(pkey string) MTLsOptions {
 	o.Pkey = pkey
 	return o
 }
 
-// WithCertificate ...
+// WithCertificate sets the client certificate
 func (o MTLsOptions) WithCertificate(certificate string) MTLsOptions {
 	o.Certificate = certificate
 	return o
 }
 
-// WithClientCAs ...
+// WithClientCAs sets a list of CA certificates
 func (o MTLsOptions) WithClientCAs(clientCAs string) MTLsOptions {
 	o.ClientCAs = clientCAs
 	return o

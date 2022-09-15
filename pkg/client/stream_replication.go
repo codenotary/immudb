@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
+// ExportTx retrieves serialized transaction object.
 func (c *immuClient) ExportTx(ctx context.Context, req *schema.ExportTxRequest) (schema.ImmuService_ExportTxClient, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -34,6 +35,7 @@ func (c *immuClient) ExportTx(ctx context.Context, req *schema.ExportTxRequest) 
 	return c.ServiceClient.ExportTx(ctx, req)
 }
 
+// ReplicateTx sends a previously serialized transaction object replicating it on another database.
 func (c *immuClient) ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected

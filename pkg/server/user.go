@@ -343,15 +343,16 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return nil, err
 	}
 
-	//remove user from loggedin users
+	// remove user from logged in users
 	s.removeUserFromLoginList(targetUser.Username)
+
 	// invalidate the token for this user
 	auth.DropTokenKeys(targetUser.Username)
 
 	return new(empty.Empty), nil
 }
 
-//ChangePermission grant or revoke user permissions on databases
+// ChangePermission grant or revoke user permissions on databases
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
 
@@ -433,7 +434,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	return new(empty.Empty), nil
 }
 
-//SetActiveUser activate or deactivate a user
+// SetActiveUser activate or deactivate a user
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("SetActiveUser")
 

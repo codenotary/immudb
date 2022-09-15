@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This package contains the official implementation of the go client for the immudb database.
+//
+// Please refer to documentation at https://docs.immudb.io for more details on how to use this SDK.
 package client
 
 import (
@@ -49,141 +52,458 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 )
 
-// ImmuClient ...
+// ImmuClient is an interface that represents immudb client.
+// Instances returned from NewClient or NewImmuClient methods implement this interface.
 type ImmuClient interface {
+
+	// Disconnect closes the current connection to the server.
+	//
+	// Deprecated: use NewClient and CloseSession instead.
 	Disconnect() error
+
+	// IsConnected checks whether the client is connected to the server.
 	IsConnected() bool
-	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption
+
+	// WaitForHealthCheck waits for up to Options.HealthCheckRetries seconds to
+	// get a successful HealthCheck response from the server.
+	//
+	// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption.
 	WaitForHealthCheck(ctx context.Context) error
-	// Depreacted: use ServerInfo
+
+	// Get server health information.
+	//
+	// Deprecated: use ServerInfo.
 	HealthCheck(ctx context.Context) error
-	// Deprecated: connection is handled in OpenSession
+
+	// Connect establishes new connection to the server.
+	//
+	// Deprecated: use NewClient and OpenSession instead.
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 
-	// Deprecated: use OpenSession
+	// Login authenticates the user in an established connection.
+	//
+	// Deprecated: use NewClient and OpenSession instead.
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
-	// Deprecated: use CloseSession
+
+	// Logout logs out the user.
+	//
+	// Deprecated: use CloseSession.
 	Logout(ctx context.Context) error
 
+	// OpenSession establishes a new session with the server, this method also opens new
+	// connection to the server.
+	//
+	// Note: it is important to call CloseSession() once the session is no longer needed.
 	OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error)
+
+	// CloseSession closes the current session and the connection to the server,
+	// this call also allows the server to free up all resources allocated for a session
+	// (without explicit call, the server will only free resources after session inactivity timeout).
 	CloseSession(ctx context.Context) error
 
+	// CreateUser creates new user with given credentials and permission.
+	//
+	// Required user permission is SysAdmin or database Admin.
+	//
+	// SysAdmin user can create users with access to any database.
+	//
+	// Admin user can only create users with access to databases where
+	// the user has admin permissions.
+	//
+	// The permission argument is the permission level and can be one of those values:
+	//   - 1 (auth.PermissionR) - read-only access
+	//   - 2 (auth.PermissionRW) - read-write access
+	//   - 254 (auth.PermissionAdmin) - read-write with admin rights
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
+
+	// ListUser returns a list of database users.
+	//
+	// This call requires Admin or SysAdmin permission level.
+	//
+	// When called as a SysAdmin user, all users in the database are returned.
+	// When called as an Admin user, users for currently selected database are returned.
 	ListUsers(ctx context.Context) (*schema.UserList, error)
+
+	// ChangePassword changes password for existing user.
+	//
+	// This call requires Admin or SysAdmin permission level.
+	//
+	// The oldPass argument is only necessary when changing SysAdmin user's password.
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
+
+	// ChangePermission grants or revokes permission to one database for given user.
+	//
+	// This call requires SysAdmin or admin permission to the database where we grant permissions.
+	//
+	// The permission argument is used when granting permission and can be one of those values:
+	//   - 1 (auth.PermissionR) - read-only access
+	//   - 2 (auth.PermissionRW) - read-write access
+	//   - 254 (auth.PermissionAdmin) - read-write with admin rights
+	//
+	// The following restrictions are applied:
+	//  - the user can not change permission for himself
+	//  - can not change permissions of the SysAdmin user
+	//  - the user must be active
+	//  - when the user already had permission to the database, it is overwritten
+	//    by the new permission (even if the user had higher permission before)
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
-	// Deprecated: will be removed in future versions
+
+	// UpdateAuthConfig is no longer supported.
+	//
+	// Deprecated: will be removed in future versions.
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
-	// Deprecated: will be removed in future versions
+
+	// UpdateMTLSConfig is no longer supported.
+	//
+	// Deprecated: will be removed in future versions.
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 
+	// WithOptions sets up client options for the instance.
 	WithOptions(options *Options) *immuClient
+
+	// WithLogger sets up custom client logger.
 	WithLogger(logger logger.Logger) *immuClient
+
+	// WithStateService sets up the StateService object.
 	WithStateService(rs state.StateService) *immuClient
-	// Deprecated: will be removed in future versions
+
+	// Deprecated: will be removed in future versions.
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
-	// Deprecated: will be removed in future versions
+
+	// Deprecated: will be removed in future versions.
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
+
+	// Deprecated: will be removed in future versions.
 	WithTokenService(tokenService tokenservice.TokenService) *immuClient
+
+	// WithServerSigningPubKey sets up public key for server's state validation.
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
+
+	// WithStreamServiceFactory sets up stream factory for the client.
 	WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient
 
+	// GetServiceClient returns low-level GRPC service client.
 	GetServiceClient() schema.ImmuServiceClient
+
+	// GetOptions returns current client options.
 	GetOptions() *Options
+
+	// SetupDialOptions extracts grpc dial options from provided client options.
 	SetupDialOptions(options *Options) []grpc.DialOption
 
+	// Return list of databases the user has access to.
+	//
+	// Deprecated: Use DatabaseListV2.
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+
+	// DatabaseListV2 returns a list of databases the user has access to.
 	DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error)
+
+	// CreateDatabase creates new database.
+	// This call requires SysAdmin permission level.
+	//
+	// Deprecated: Use CreateDatabaseV2.
 	CreateDatabase(ctx context.Context, d *schema.DatabaseSettings) error
+
+	// CreateDatabaseV2 creates a new database.
+	// This call requires SysAdmin permission level.
 	CreateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error)
+
+	// LoadDatabase loads database on the server. A database is not loaded
+	// if it has AutoLoad setting set to false or if it failed to load during
+	// immudb startup.
+	//
+	// This call requires SysAdmin permission level or admin permission to the database.
 	LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error)
+
+	// UnloadDatabase unloads database on the server. Such database becomes inaccessible
+	// by the client and server frees internal resources allocated for that database.
+	//
+	// This call requires SysAdmin permission level or admin permission to the database.
 	UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error)
+
+	// DeleteDatabase removes an unloaded database.
+	// This also removes locally stored files used by the database.
+	//
+	// This call requires SysAdmin permission level or admin permission to the database.
 	DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error)
+
+	// UseDatabase changes the currently selected database.
+	//
+	// This call requires at least read permission level for the target database.
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+
+	// UpdateDatabase updates database settings.
+	//
+	// Deprecated: Use UpdateDatabaseV2.
 	UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error
+
+	// UpdateDatabaseV2 updates database settings.
+	//
+	// Settings can be set selectively - values not set in the settings object
+	// will not be updated.
+	//
+	// The returned value is the list of settings after the update.
+	//
+	// Settings other than those related to replication will only be applied after
+	// immudb restart or unload/load cycle of the database.
 	UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error)
+
+	// Deprecated: Use GetDatabaseSettingsV2.
 	GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error)
+
+	// GetDatabaseSettingsV2 retrieves current persisted database settings.
 	GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error)
 
+	// SetActiveUser activates or deactivates a user.
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
+	// FlushIndex requests a flush operation from the database.
+	// This call requires SysAdmin or Admin permission to given database.
+	//
+	// The cleanupPercentage value is the amount of index nodes data in percent
+	// that will be scanned in order to free up unused disk space.
 	FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error)
+
+	// CompactIndex perform full database compaction.
+	// This call requires SysAdmin or Admin permission to given database.
+	//
+	// Note: Full compaction will greatly affect the performance of the database.
+	// It should also be called only when there's a minimal database activity,
+	// if full compaction collides with a read or write operation, it will be aborted
+	// and may require retry of the whole operation. For that reason it is preferred
+	// to periodically call FlushIndex with a small value of cleanupPercentage or set the
+	// cleanupPercentage database option.
 	CompactIndex(ctx context.Context, req *empty.Empty) error
 
+	// ServerInfo returns information about the server instance.
 	ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error)
+
+	// Health returns Health information about the current database.
+	//
+	// Requires read access to the database.
 	Health(ctx context.Context) (*schema.DatabaseHealthResponse, error)
+
+	// CurrentState returns the current state value from the server for the current database.
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
+	// Set commits a change of a value for a single key.
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
+
+	// VerifiedSet commits a change of a value for a single key.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error)
 
+	// ExpirableSet commits a change of a value for a single key and sets up the expiration
+	// time for that value after which the value will no longer be retrievable.
 	ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error)
 
+	// Get reads a single value for given key.
 	Get(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error)
+
+	// GetSince reads a single value for given key assuming that at least transaction `tx` was indexed.
+	// For more information about getting value with sinceTx constraint see the SinceTx get option.
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+
+	// GetAt reads a single value that was modified at a specific transaction.
+	// For more information about getting value from specific revision see the AtTx get option.
 	GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+
+	// GetAtRevision reads value for given key by its revision.
+	// For more information about the revisions see the AtRevision get option.
 	GetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
+	// Gets reads a single value for given key with additional server-provided proof validation.
 	VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error)
+
+	// VerifiedGetSince reads a single value for given key assuming that at least transaction `tx` was indexed.
+	// For more information about getting value with sinceTx constraint see the SinceTx get option.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+
+	// VerifiedGetAt reads a single value that was modified at a specific transaction.
+	// For more information about getting value from specific revision see the AtTx get option.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+
+	// VerifiedGetAtRevision reads value for given key by its revision.
+	// For more information about the revisions see the AtRevision get option.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error)
 
+	// History returns history for a single key.
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
+	// ZAdd adds a new entry to sorted set.
+	// New entry is a reference to some other key's value with additional score used for ordering set members.
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error)
+
+	// VerifiedZAdd adds a new entry to sorted set.
+	// New entry is a reference to some other key's value
+	// with additional score used for ordering set members.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error)
 
+	// ZAddAt adds a new entry to sorted set.
+	// New entry is a reference to some other key's value at a specific transaction
+	// with additional score used for ordering set members.
 	ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error)
+
+	// VerifiedZAddAt adds a new entry to sorted set.
+	// New entry is a reference to some other key's value at a specific transaction
+	// with additional score used for ordering set members.
+	//
+	// This function also requests a server-generated proof, verifies the entry in the transaction
+	// using the proof and verifies the signature of the signed state.
+	// If verification does not succeed the store.ErrCorruptedData error is returned.
 	VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error)
 
+	// Scan iterates over the set of keys in a topological order.
 	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
+
+	// ZScan iterates over the elements of sorted set ordered by their score.
 	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 
+	// TxByID retrieves all entries (in a raw, unprocessed form) for given transaction.
+	//
+	// Note: In order to read keys and values, it is necessary to parse returned entries
+	// TxByIDWithSpec can be used to read already-parsed values
 	TxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
+
+	// TxByID retrieves all entries (in a raw, unprocessed form) for given transaction
+	// and performs verification of the server-provided proof for the whole transaction.
 	VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
 
+	// TxByIDWithSpec retrieves entries from given transaction according to given spec.
 	TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error)
 
+	// TxScan returns raw entries for a range of transactions.
 	TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error)
 
+	// Count returns count of key-value entries with given prefix.
+	//
+	// Note: This feature is not implemented yet.
 	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
+
+	// Count returns count of all key-value entries.
+	//
+	// Note: This feature is not implemented yet.
 	CountAll(ctx context.Context) (*schema.EntryCount, error)
 
+	// SetAll sets multiple entries in a single transaction.
 	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxHeader, error)
+
+	// GetAll retrieves multiple entries in a single call.
 	GetAll(ctx context.Context, keys [][]byte) (*schema.Entries, error)
 
+	// Delete performs a logical deletion for a list of keys marking them as deleted.
 	Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error)
 
+	// ExecAll performs multiple write operations (values, references, sorted set entries)
+	// in a single transaction.
 	ExecAll(ctx context.Context, in *schema.ExecAllRequest) (*schema.TxHeader, error)
 
+	// SetReference creates a reference to another key's value.
+	//
+	// Note: references can only be created to non-reference keys.
 	SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error)
+
+	// VerifiedSetReference creates a reference to another key's value and verifies server-provided
+	// proof for the write.
+	//
+	// Note: references can only be created to non-reference keys.
 	VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error)
 
+	// SetReference creates a reference to another key's value at a specific transaction.
+	//
+	// Note: references can only be created to non-reference keys.
 	SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxHeader, error)
+
+	// SetReference creates a reference to another key's value at a specific transaction and verifies server-provided
+	// proof for the write.
+	//
+	// Note: references can only be created to non-reference keys.
 	VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxHeader, error)
 
+	// Dump is currently not implemented.
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 
+	// StreamSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams.
 	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxHeader, error)
+
+	// StreamGet retrieves a single entry for a key read from an io.Reader stream.
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
+
+	// StreamVerifiedSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams
+	// with additional verification of server-provided write proof.
 	StreamVerifiedSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxHeader, error)
+
+	// StreamVerifiedGet retrieves a single entry for a key read from an io.Reader stream
+	// with additional verification of server-provided value proof.
 	StreamVerifiedGet(ctx context.Context, k *schema.VerifiableGetRequest) (*schema.Entry, error)
+
+	// StreamScan scans for keys with given prefix, using stream API to overcome limits of large keys and values.
 	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
+
+	// StreamZScan scans entries from given sorted set, using stream API to overcome limits of large keys and values.
 	StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
+
+	// StreamHistory returns a history of given key, using stream API to overcome limits of large keys and values.
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
+
+	// StreamExecAll performs an ExecAll operation (write operation for multiple data types in a single transaction)
+	// using stream API to overcome limits of large keys and values.
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error)
 
+	// ExportTx retrieves serialized transaction object.
 	ExportTx(ctx context.Context, req *schema.ExportTxRequest) (schema.ImmuService_ExportTxClient, error)
+
+	// ReplicateTx sends a previously serialized transaction object replicating it on another database.
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
+	// SQLExec performs a modifying SQL query within the transaction.
+	// Such query does not return SQL result.
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
+
+	// SQLQuery performs a query (read-only) operation.
+	//
+	// The renewSnapshot parameter is deprecated and  is ignored by the server.
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
+
+	// ListTables returns a list of SQL tables.
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
+
+	// Describe table returns a description of a table structure.
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
+	// VerifyRow reads a single row from the database with additional validation of server-provided proof.
+	//
+	// The row parameter should contain row from a single table, either returned from
+	// query or manually assembled. The table parameter contains the name of the table
+	// where the row comes from. The pkVals argument is an array containing values for
+	// the primary key of the row. The row parameter does not have to contain all
+	// columns of the table. Once the row itself is verified, only those columns that
+	// are in the row will be compared against the verified row retrieved from the database.
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error
 
+	// NewTx starts a new transaction.
+	//
+	// Note: Currently such transaction can only be used for SQL operations.
 	NewTx(ctx context.Context) (Tx, error)
 }
 
@@ -204,9 +524,14 @@ type immuClient struct {
 }
 
 // Ensure immuClient implements the ImmuClient interface
-var _ ImmuClient = &immuClient{}
+var _ ImmuClient = (*immuClient)(nil)
 
-// NewClient ...
+// NewClient creates a new instance if immudb client object.
+//
+// The returned object implements the ImmuClient interface.
+//
+// Returned instance is not connected to the database,
+// use OpenSession to establish the connection.
 func NewClient() *immuClient {
 	c := &immuClient{
 		Dir:                  "",
@@ -218,7 +543,8 @@ func NewClient() *immuClient {
 	return c
 }
 
-// NewImmuClient ...
+// NewImmuClient creates a new immudb client object instance and connects to a server.
+//
 // Deprecated: use NewClient instead.
 func NewImmuClient(options *Options) (*immuClient, error) {
 	ctx := context.Background()
@@ -278,6 +604,7 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	return c, nil
 }
 
+// SetupDialOptions extracts grpc dial options from provided client options.
 func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 	opts := options.DialOptions
 	//---------- TLS Setting -----------//
@@ -358,6 +685,8 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 	return opts
 }
 
+// Connect establishes new connection to the server.
+//
 // Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
@@ -367,6 +696,8 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 	return c.clientConn, nil
 }
 
+// Disconnect closes the current connection to the server.
+//
 // Deprecated: use NewClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
 	start := time.Now()
@@ -387,10 +718,15 @@ func (c *immuClient) Disconnect() error {
 	return nil
 }
 
+// IsConnected checks whether the client is connected to the server.
 func (c *immuClient) IsConnected() bool {
 	return c.clientConn != nil && c.ServiceClient != nil
 }
 
+// WaitForHealthCheck waits for up to Options.HealthCheckRetries seconds to
+// get a successful HealthCheck response from the server.
+//
+// Deprecated: grpc retry mechanism can be implemented with WithConnectParams dialOption.
 func (c *immuClient) WaitForHealthCheck(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.HealthCheckRetries+1; i++ {
 		if err = c.HealthCheck(ctx); err == nil {
@@ -414,16 +750,22 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 	return err
 }
 
-// GetServiceClient ...
+// GetServiceClient returns low-level GRPC service client.
 func (c *immuClient) GetServiceClient() schema.ImmuServiceClient {
 	return c.ServiceClient
 }
 
+// GetOptions returns current client options.
 func (c *immuClient) GetOptions() *Options {
 	return c.Options
 }
 
-// Deprecated: use user list instead
+// ListUser returns a list of database users.
+//
+// This call requires Admin or SysAdmin permission level.
+//
+// When called as a SysAdmin user, all users in the database are returned.
+// When called as an Admin user, users for currently selected database are returned.
 func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -432,7 +774,19 @@ func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
-// CreateUser ...
+// CreateUser creates new user with given credentials and permission.
+//
+// Required user permission is SysAdmin or database Admin.
+//
+// SysAdmin user can create users with access to any database.
+//
+// Admin user can only create users with access to databases where
+// the user has admin permissions.
+//
+// The permission argument is the permission level and can be one of those values:
+//   - 1 (auth.PermissionR) - read-only access
+//   - 2 (auth.PermissionRW) - read-write access
+//   - 254 (auth.PermissionAdmin) - read-write with admin rights
 func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error {
 	start := time.Now()
 
@@ -452,7 +806,11 @@ func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, p
 	return err
 }
 
-// ChangePassword ...
+// ChangePassword changes password for existing user.
+//
+// This call requires Admin or SysAdmin permission level.
+//
+// The oldPass argument is only necessary when changing SysAdmin user's password.
 func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error {
 	start := time.Now()
 
@@ -466,11 +824,14 @@ func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []
 		NewPassword: newPass,
 	})
 
-	c.Logger.Debugf("changepassword finished in %s", time.Since(start))
+	c.Logger.Debugf("ChangePassword finished in %s", time.Since(start))
 
 	return err
 }
 
+// UpdateAuthConfig is no longer supported.
+//
+// Deprecated: will be removed in future versions.
 func (c *immuClient) UpdateAuthConfig(ctx context.Context, kind auth.Kind) error {
 	start := time.Now()
 
@@ -482,11 +843,14 @@ func (c *immuClient) UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
 		Kind: uint32(kind),
 	})
 
-	c.Logger.Debugf("updateauthconfig finished in %s", time.Since(start))
+	c.Logger.Debugf("UpdateAuthConfig finished in %s", time.Since(start))
 
 	return err
 }
 
+// UpdateMTLSConfig is no longer supported.
+//
+// Deprecated: will be removed in future versions.
 func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 	start := time.Now()
 
@@ -498,12 +862,14 @@ func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 		Enabled: enabled,
 	})
 
-	c.Logger.Debugf("updatemtlsconfig finished in %s", time.Since(start))
+	c.Logger.Debugf("UpdateMTLSConfig finished in %s", time.Since(start))
 
 	return err
 }
 
-// Login ...
+// Login authenticates the user in an established connection.
+//
+// Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
 	start := time.Now()
 
@@ -528,7 +894,9 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 	return result, nil
 }
 
-// Logout ...
+// Logout logs out the user.
+//
+// Deprecated: use CloseSession.
 func (c *immuClient) Logout(ctx context.Context) error {
 	start := time.Now()
 
@@ -555,6 +923,7 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	return nil
 }
 
+// ServerInfo returns information about the server instance.
 func (c *immuClient) ServerInfo(ctx context.Context, req *schema.ServerInfoRequest) (*schema.ServerInfoResponse, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -563,6 +932,7 @@ func (c *immuClient) ServerInfo(ctx context.Context, req *schema.ServerInfoReque
 	return c.ServiceClient.ServerInfo(ctx, req)
 }
 
+// Health returns Health information about the current database.
 func (c *immuClient) Health(ctx context.Context) (*schema.DatabaseHealthResponse, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -571,7 +941,7 @@ func (c *immuClient) Health(ctx context.Context) (*schema.DatabaseHealthResponse
 	return c.ServiceClient.DatabaseHealth(ctx, &empty.Empty{})
 }
 
-// CurrentState returns current database state
+// CurrentState returns current database state.
 func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -583,7 +953,7 @@ func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, 
 	return c.ServiceClient.CurrentState(ctx, &empty.Empty{})
 }
 
-// Get ...
+// Get reads a single value for given key.
 func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*schema.Entry, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -603,22 +973,25 @@ func (c *immuClient) Get(ctx context.Context, key []byte, opts ...GetOption) (*s
 	return c.ServiceClient.Get(ctx, req)
 }
 
-// GetSince ...
+// GetSince reads a single value for given key assuming that at least transaction `tx` was indexed.
+// For more information about getting value with sinceTx constraint see the SinceTx get option.
 func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
 	return c.Get(ctx, key, SinceTx(tx))
 }
 
-// GetAt ...
+// GetAt reads a single value that was modified at a specific transaction.
+// For more information about getting value from specific revision see the AtTx get option.
 func (c *immuClient) GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
 	return c.Get(ctx, key, AtTx(tx))
 }
 
-// GetAtRevision ...
+// GetAtRevision reads value for given key by its revision.
+// For more information about the revisions see the AtRevision get option.
 func (c *immuClient) GetAtRevision(ctx context.Context, key []byte, rev int64) (*schema.Entry, error) {
 	return c.Get(ctx, key, AtRevision(rev))
 }
 
-// VerifiedGet ...
+// Gets reads a single value for given key with additional server-provided proof validation.
 func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOption) (vi *schema.Entry, err error) {
 	start := time.Now()
 	defer c.Logger.Debugf("VerifiedGet finished in %s", time.Since(start))
@@ -634,17 +1007,32 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...GetOpt
 	return c.verifiedGet(ctx, req)
 }
 
-// VerifiedGetSince ...
+// VerifiedGetSince reads a single value for given key assuming that at least transaction `tx` was indexed.
+// For more information about getting value with sinceTx constraint see the SinceTx get option.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, SinceTx(tx))
 }
 
-// VerifiedGetAt ...
+// VerifiedGetAt reads a single value that was modified at a specific transaction.
+// For more information about getting value from specific revision see the AtTx get option.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, AtTx(tx))
 }
 
-// VerifiedGetAtRevision ...
+// VerifiedGetAtRevision reads value for given key by its revision.
+// For more information about the revisions see the AtRevision get option.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (vi *schema.Entry, err error) {
 	return c.VerifiedGet(ctx, key, AtRevision(rev))
 }
@@ -769,7 +1157,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	return vEntry.Entry, nil
 }
 
-// Scan ...
+// Scan iterates over the set of keys in a topological order.
 func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -778,7 +1166,7 @@ func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 	return c.ServiceClient.Scan(ctx, req)
 }
 
-// ZScan ...
+// ZScan iterates over the elements of sorted set ordered by their score.
 func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -787,7 +1175,9 @@ func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 	return c.ServiceClient.ZScan(ctx, req)
 }
 
-// Count ...
+// Count returns count of key-value entries with given prefix.
+//
+// Note: This feature is not implemented yet.
 func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -795,7 +1185,9 @@ func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.EntryCou
 	return c.ServiceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
 }
 
-// CountAll ...
+// Count returns count of all key-value entries.
+//
+// Note: This feature is not implemented yet.
 func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -803,7 +1195,7 @@ func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 	return c.ServiceClient.CountAll(ctx, new(empty.Empty))
 }
 
-// Set ...
+// Set commits a change of a value for a single key.
 func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	return c.set(ctx, key, nil, value)
 }
@@ -825,7 +1217,11 @@ func (c *immuClient) set(ctx context.Context, key []byte, md *schema.KVMetadata,
 	return txmd, nil
 }
 
-// VerifiedSet ...
+// VerifiedSet commits a change of a value for a single key.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
@@ -941,10 +1337,22 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	return verifiableTx.Tx.Header, nil
 }
 
+// ExpirableSet commits a change of a value for a single key and sets up the expiration
+// time for that value after which the value will no longer be retrievable.
 func (c *immuClient) ExpirableSet(ctx context.Context, key []byte, value []byte, expiresAt time.Time) (*schema.TxHeader, error) {
-	return c.set(ctx, key, &schema.KVMetadata{Expiration: &schema.Expiration{ExpiresAt: expiresAt.Unix()}}, value)
+	return c.set(
+		ctx,
+		key,
+		&schema.KVMetadata{
+			Expiration: &schema.Expiration{
+				ExpiresAt: expiresAt.Unix(),
+			},
+		},
+		value,
+	)
 }
 
+// SetAll sets multiple entries in a single transaction.
 func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -962,7 +1370,8 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 	return txmd, nil
 }
 
-// ExecAll ...
+// ExecAll performs multiple write operations (values, references, sorted set entries)
+// in a single transaction.
 func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -980,7 +1389,7 @@ func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*
 	return txhdr, nil
 }
 
-// GetAll ...
+// GetAll retrieves multiple entries in a single call.
 func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -996,6 +1405,7 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries
 	return c.ServiceClient.GetAll(ctx, keyList)
 }
 
+// Delete performs a logical deletion for a list of keys marking them as deleted.
 func (c *immuClient) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1004,7 +1414,10 @@ func (c *immuClient) Delete(ctx context.Context, req *schema.DeleteKeysRequest) 
 	return c.ServiceClient.Delete(ctx, req)
 }
 
-// TxByID ...
+// TxByID retrieves all entries (in a raw, unprocessed form) for given transaction.
+//
+// Note: In order to read keys and values, it is necessary to parse returned entries
+// TxByIDWithSpec can be used to read already-parsed values.
 func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1026,6 +1439,7 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	return t, err
 }
 
+// TxByIDWithSpec retrieves entries from given transaction according to given spec.
 func (c *immuClient) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1034,7 +1448,8 @@ func (c *immuClient) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) 
 	return c.ServiceClient.TxById(ctx, req)
 }
 
-// VerifiedTxByID returns a verified tx
+// TxByID retrieves all entries (in a raw, unprocessed form) for given transaction
+// and performs verification of the server-provided proof for the whole transaction.
 func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
@@ -1119,7 +1534,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	return vTx.Tx, nil
 }
 
-// TxScan ...
+// TxScan returns raw entries for a range of transactions.
 func (c *immuClient) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1128,7 +1543,7 @@ func (c *immuClient) TxScan(ctx context.Context, req *schema.TxScanRequest) (*sc
 	return c.ServiceClient.TxScan(ctx, req)
 }
 
-// History ...
+// History returns history for a single key.
 func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (sl *schema.Entries, err error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1140,12 +1555,16 @@ func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (s
 	return c.ServiceClient.History(ctx, req)
 }
 
-// SetReference ...
+// SetReference creates a reference to another key's value.
+//
+// Note: references can only be created to non-reference keys.
 func (c *immuClient) SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
 	return c.SetReferenceAt(ctx, key, referencedKey, 0)
 }
 
-// SetReferenceAt ...
+// SetReference creates a reference to another key's value at a specific transaction.
+//
+// Note: references can only be created to non-reference keys.
 func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1171,12 +1590,18 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 	return txhdr, nil
 }
 
-// VerifiedSetReference ...
+// VerifiedSetReference creates a reference to another key's value and verifies server-provided
+// proof for the write.
+//
+// Note: references can only be created to non-reference keys.
 func (c *immuClient) VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
 	return c.VerifiedSetReferenceAt(ctx, key, referencedKey, 0)
 }
 
-// VerifiedSetReferenceAt ...
+// SetReference creates a reference to another key's value at a specific transaction and verifies server-provided
+// proof for the write.
+//
+// Note: references can only be created to non-reference keys.
 func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxHeader, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
@@ -1289,12 +1714,16 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	return verifiableTx.Tx.Header, nil
 }
 
-// ZAdd ...
+// ZAdd adds a new entry to sorted set.
+// New entry is a reference to some other key's value
+// with additional score used for ordering set members.
 func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
 	return c.ZAddAt(ctx, set, score, key, 0)
 }
 
-// ZAddAt ...
+// ZAddAt adds a new entry to sorted set.
+// New entry is a reference to some other key's value at a specific transaction
+// with additional score used for ordering set members.
 func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1321,12 +1750,24 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	return txmd, nil
 }
 
-// ZAdd ...
+// VerifiedZAdd adds a new entry to sorted set.
+// New entry is a reference to some other key's value
+// with additional score used for ordering set members.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
 	return c.VerifiedZAddAt(ctx, set, score, key, 0)
 }
 
-// VerifiedZAdd ...
+// VerifiedZAddAt adds a new entry to sorted set.
+// New entry is a reference to some other key's value at a specific transaction
+// with additional score used for ordering set members.
+//
+// This function also requests a server-generated proof, verifies the entry in the transaction
+// using the proof and verifies the signature of the signed state.
+// If verification does not succeed the store.ErrCorruptedData error is returned.
 func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxHeader, error) {
 	err := c.StateService.CacheLock()
 	if err != nil {
@@ -1444,11 +1885,14 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	return vtx.Tx.Header, nil
 }
 
-// Dump to be used from Immu CLI
+// Dump is currently not implemented.
 func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	return 0, errors.New("Functionality not yet supported")
 }
 
+// Get server health information.
+//
+// Deprecated: use ServerInfo.
 func (c *immuClient) HealthCheck(ctx context.Context) error {
 	start := time.Now()
 
@@ -1477,7 +1921,10 @@ func (c *immuClient) currentDatabase() string {
 	return c.Options.CurrentDatabase
 }
 
-// CreateDatabase create a new database by making a grpc call
+// CreateDatabase creates new database within server instance.
+// This call requires SysAdmin permission level.
+//
+// Deprecated: Use CreateDatabaseV2
 func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
 	start := time.Now()
 
@@ -1492,7 +1939,8 @@ func (c *immuClient) CreateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
-// CreateDatabaseV2 create a new database by making a grpc call
+// CreateDatabaseV2 creates a new database.
+// This call requires SysAdmin permission level.
 func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings *schema.DatabaseNullableSettings) (*schema.CreateDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1513,7 +1961,11 @@ func (c *immuClient) CreateDatabaseV2(ctx context.Context, name string, settings
 	return res, nil
 }
 
-// LoadDatabase open an existent database by making a grpc call
+// LoadDatabase loads database on the server. A database is not loaded
+// if it has AutoLoad setting set to false or if it failed to load during
+// immudb startup.
+//
+// This call requires SysAdmin permission level or admin permission to the database.
 func (c *immuClient) LoadDatabase(ctx context.Context, r *schema.LoadDatabaseRequest) (*schema.LoadDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1528,7 +1980,10 @@ func (c *immuClient) LoadDatabase(ctx context.Context, r *schema.LoadDatabaseReq
 	return res, err
 }
 
-// UnloadDatabase closes an existent database by making a grpc call
+// UnloadDatabase unloads database on the server. Such database becomes inaccessible
+// by the client and server frees internal resources allocated for that database.
+//
+// This call requires SysAdmin permission level or admin permission to the database.
 func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabaseRequest) (*schema.UnloadDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1543,7 +1998,10 @@ func (c *immuClient) UnloadDatabase(ctx context.Context, r *schema.UnloadDatabas
 	return res, err
 }
 
-// DeleteDatabase deletes an existent database by making a grpc call
+// DeleteDatabase removes an unloaded database.
+// This also removes locally stored files used by the database.
+//
+// This call requires SysAdmin permission level or admin permission to the database.
 func (c *immuClient) DeleteDatabase(ctx context.Context, r *schema.DeleteDatabaseRequest) (*schema.DeleteDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1558,7 +2016,9 @@ func (c *immuClient) DeleteDatabase(ctx context.Context, r *schema.DeleteDatabas
 	return res, err
 }
 
-// UseDatabase set database in use by making a grpc call
+// UseDatabase changes the currently selected database.
+//
+// This call requires at least read permission level for the target database.
 func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	start := time.Now()
 
@@ -1584,7 +2044,9 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	return result, errors.FromError(err)
 }
 
-// UpdateDatabase updates database settings
+// UpdateDatabase updates database settings.
+//
+// Deprecated: Use UpdateDatabaseV2.
 func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.DatabaseSettings) error {
 	start := time.Now()
 
@@ -1599,7 +2061,15 @@ func (c *immuClient) UpdateDatabase(ctx context.Context, settings *schema.Databa
 	return err
 }
 
-// UpdateDatabaseV2 updates database settings
+// UpdateDatabaseV2 updates database settings.
+//
+// Settings can be set selectively - values not set in the settings object
+// will not be updated.
+//
+// The returned value is the list of settings after the update.
+//
+// Settings other than those related to replication will only be applied after
+// immudb restart or unload/load cycle of the database.
 func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, settings *schema.DatabaseNullableSettings) (*schema.UpdateDatabaseResponse, error) {
 	start := time.Now()
 
@@ -1620,6 +2090,9 @@ func (c *immuClient) UpdateDatabaseV2(ctx context.Context, database string, sett
 	return res, err
 }
 
+// GetDatabaseSettings returns current database settings.
+//
+// Deprecated: Use GetDatabaseSettingsV2.
 func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseSettings, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -1628,6 +2101,7 @@ func (c *immuClient) GetDatabaseSettings(ctx context.Context) (*schema.DatabaseS
 	return c.ServiceClient.GetDatabaseSettings(ctx, &empty.Empty{})
 }
 
+// GetDatabaseSettingsV2 returns current database settings.
 func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.DatabaseSettingsResponse, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -1641,6 +2115,11 @@ func (c *immuClient) GetDatabaseSettingsV2(ctx context.Context) (*schema.Databas
 	return res, nil
 }
 
+// FlushIndex requests a flush operation from the database.
+// This call requires SysAdmin or Admin permission to given database.
+//
+// The cleanupPercentage value is the amount of index nodes data in percent
+// that will be scanned in order to free up unused disk space.
 func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, synced bool) (*schema.FlushIndexResponse, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1657,6 +2136,15 @@ func (c *immuClient) FlushIndex(ctx context.Context, cleanupPercentage float32, 
 	return res, nil
 }
 
+// CompactIndex perform full database compaction.
+// This call requires SysAdmin or Admin permission to given database.
+//
+// Note: Full compaction will greatly affect the performance of the database.
+// It should also be called only when there's a minimal database activity,
+// if full compaction collides with a read or write operation, it will be aborted
+// and may require retry of the whole operation. For that reason it is preferred
+// to periodically call FlushIndex with a small value of cleanupPercentage or set the
+// cleanupPercentage database option.
 func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
 	start := time.Now()
 
@@ -1671,6 +2159,21 @@ func (c *immuClient) CompactIndex(ctx context.Context, req *empty.Empty) error {
 	return err
 }
 
+// ChangePermission grants or revokes permission to one database for given user.
+//
+// This call requires SysAdmin or admin permission to the database where we grant permissions.
+//
+// The permission argument is used when granting permission and can be one of those values:
+//   - 1 (auth.PermissionR) - read-only access
+//   - 2 (auth.PermissionRW) - read-write access
+//   - 254 (auth.PermissionAdmin) - read-write with admin rights
+//
+// The following restrictions are applied:
+//   - the user can not change permission for himself
+//   - can not change permissions of the SysAdmin user
+//   - the user must be active
+//   - when the user already had permission to the database, it is overwritten
+//     by the new permission (even if the user had higher permission before)
 func (c *immuClient) ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error {
 	start := time.Now()
 
@@ -1692,6 +2195,8 @@ func (c *immuClient) ChangePermission(ctx context.Context, action schema.Permiss
 	return err
 }
 
+// SetActiveUser activates or deactivates a user.
+// This call requires SysAdmin or Admin permission.
 func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error {
 	start := time.Now()
 
@@ -1706,6 +2211,9 @@ func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserR
 	return err
 }
 
+// Return list of databases
+//
+// Deprecated: Use DatabaseListV2
 func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error) {
 	start := time.Now()
 
@@ -1720,6 +2228,7 @@ func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResp
 	return result, err
 }
 
+// DatabaseListV2 returns a list of databases the user has access to.
 func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListResponseV2, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -1728,27 +2237,27 @@ func (c *immuClient) DatabaseListV2(ctx context.Context) (*schema.DatabaseListRe
 	return c.ServiceClient.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
 }
 
-// DEPRECATED: Please use CurrentState
+// Deprecated: Please use CurrentState.
 func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.ImmutableState, error) {
 	return c.CurrentState(ctx)
 }
 
-// DEPRECATED: Please use VerifiedSet
+// Deprecated: Please use VerifiedSet.
 func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxHeader, error) {
 	return c.VerifiedSet(ctx, key, value)
 }
 
-// DEPRECATED: Please use VerifiedGet
+// Deprecated: Please use VerifiedGet.
 func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
 	return c.VerifiedGet(ctx, key)
 }
 
-// DEPRECATED: Please use VerifiedZAdd
+// Deprecated: Please use VerifiedZAdd.
 func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxHeader, error) {
 	return c.VerifiedZAdd(ctx, set, score, key)
 }
 
-// DEPRECATED: Please use VerifiedSetReference
+// Deprecated: Please use VerifiedSetReference.
 func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxHeader, error) {
 	return c.VerifiedSetReference(ctx, key, referencedKey)
 }

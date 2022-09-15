@@ -438,7 +438,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 	return nil
 }
 
-//loadDefaultDatabase
+// loadDefaultDatabase
 func (s *ImmuServer) loadDefaultDatabase(dataDir string, remoteStorage remotestorage.Storage) error {
 	if s.dbList.Length() != 0 {
 		panic("loadDefaultDatabase should be called right after loading systemDatabase")
@@ -643,7 +643,7 @@ func (s *ImmuServer) Stop() error {
 	return s.CloseDatabases()
 }
 
-//CloseDatabases closes all opened databases including the consinstency checker
+// CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
 	for i := 0; i < s.dbList.Length(); i++ {
 		val, err := s.dbList.GetByIndex(i)
@@ -1236,7 +1236,7 @@ func (s *ImmuServer) GetDatabaseSettingsV2(ctx context.Context, _ *schema.Databa
 	}, nil
 }
 
-//DatabaseList returns a list of databases based on the requesting user permissions
+// DatabaseList returns a list of databases based on the requesting user permissions
 func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.DatabaseListResponse, error) {
 	dbsWithSettings, err := s.DatabaseListV2(ctx, &schema.DatabaseListRequestV2{})
 	if err != nil {
@@ -1252,7 +1252,7 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, _ *empty.Empty) (*schema.
 	return resp, nil
 }
 
-//DatabaseList returns a list of databases based on the requesting user permissions
+// DatabaseList returns a list of databases based on the requesting user permissions
 func (s *ImmuServer) DatabaseListV2(ctx context.Context, req *schema.DatabaseListRequestV2) (*schema.DatabaseListResponseV2, error) {
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -1476,7 +1476,7 @@ func isValidDBName(dbName string) error {
 	return nil
 }
 
-//checkMandatoryAuth checks if auth should be madatory for immudb to start
+// checkMandatoryAuth checks if auth should be madatory for immudb to start
 func (s *ImmuServer) mandatoryAuth() bool {
 	if s.Options.GetMaintenance() {
 		return false

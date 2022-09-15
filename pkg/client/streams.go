@@ -32,49 +32,57 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 )
 
-// StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
+// StreamSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams.
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	txMeta, err := c._streamSet(ctx, kvs)
 	return txMeta, errors.FromError(err)
 }
 
-// StreamGet get an *schema.Entry from immudb with a stream
+// StreamGet retrieves a single entry for a key read from an io.Reader stream.
 func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
 	entry, err := c._streamGet(ctx, k)
 	return entry, errors.FromError(err)
 }
 
+// StreamVerifiedSet performs a write operation of a value for a single key retrieving key and value form io.Reader streams
+// with additional verification of server-provided write proof.
 func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	txhdr, err := c._streamVerifiedSet(ctx, kvs)
 	return txhdr, errors.FromError(err)
 }
 
+// StreamVerifiedGet retrieves a single entry for a key read from an io.Reader stream
+// with additional verification of server-provided value proof.
 func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.Entry, error) {
 	entry, err := c._streamVerifiedGet(ctx, req)
 	return entry, errors.FromError(err)
 }
 
+// StreamScan scans for keys with given prefix, using stream API to overcome limits of large keys and values.
 func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	entries, err := c._streamScan(ctx, req)
 	return entries, errors.FromError(err)
 }
 
+// StreamZScan scans entries from given sorted set, using stream API to overcome limits of large keys and values.
 func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	entries, err := c._streamZScan(ctx, req)
 	return entries, errors.FromError(err)
 }
 
+// StreamHistory returns a history of given key, using stream API to overcome limits of large keys and values.
 func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	entries, err := c._streamHistory(ctx, req)
 	return entries, errors.FromError(err)
 }
 
+// StreamExecAll performs an ExecAll operation (write operation for multiple data types in a single transaction)
+// using stream API to overcome limits of large keys and values.
 func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxHeader, error) {
 	txhdr, err := c._streamExecAll(ctx, req)
 	return txhdr, errors.FromError(err)
 }
 
-// StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
 func (c *immuClient) _streamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxHeader, error) {
 	s, err := c.streamSet(ctx)
 	if err != nil {
@@ -93,7 +101,6 @@ func (c *immuClient) _streamSet(ctx context.Context, kvs []*stream.KeyValue) (*s
 	return s.CloseAndRecv()
 }
 
-// StreamGet get an *schema.Entry from immudb with a stream
 func (c *immuClient) _streamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
 	gs, err := c.streamGet(ctx, k)
 	if err != nil {

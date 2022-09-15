@@ -25,11 +25,22 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// Tx represents an open transaction
+//
+// Note: Currently this object only supports SQL transactions
 type Tx interface {
+
+	// Commit commits a transaction.
 	Commit(ctx context.Context) (*schema.CommittedSQLTx, error)
+
+	// Rollback rollbacks a transaction.
 	Rollback(ctx context.Context) error
 
+	// SQLExec performs a modifying SQL query within the transaction.
+	// Such query does not return SQL result.
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) error
+
+	// SQLQuery performs a query (read-only) operation.
 	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
 }
 

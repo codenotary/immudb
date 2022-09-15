@@ -33,6 +33,8 @@ import (
 
 const SQLPrefix byte = 2
 
+// SQLExec performs a modifying SQL query within the transaction.
+// Such query does not return SQL result.
 func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -46,6 +48,9 @@ func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]
 	return c.ServiceClient.SQLExec(ctx, &schema.SQLExecRequest{Sql: sql, Params: namedParams})
 }
 
+// SQLQuery performs a query (read-only) operation.
+//
+// The renewSnapshot parameter is deprecated and  is ignored by the server.
 func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -59,6 +64,7 @@ func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string
 	return c.ServiceClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: sql, Params: namedParams, ReuseSnapshot: !renewSnapshot})
 }
 
+// ListTables returns a list of SQL tables.
 func (c *immuClient) ListTables(ctx context.Context) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -66,6 +72,7 @@ func (c *immuClient) ListTables(ctx context.Context) (*schema.SQLQueryResult, er
 	return c.ServiceClient.ListTables(ctx, &emptypb.Empty{})
 }
 
+// Describe table returns a description of a table structure.
 func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
 		return nil, errors.FromError(ErrNotConnected)
@@ -73,6 +80,14 @@ func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*sche
 	return c.ServiceClient.DescribeTable(ctx, &schema.Table{TableName: tableName})
 }
 
+// VerifyRow reads a single row from the database with additional validation of server-provided proof.
+//
+// The row parameter should contain row from a single table, either returned from
+// query or manually assembled. The table parameter contains the name of the table
+// where the row comes from. The pkVals argument is an array containing values for
+// the primary key of the row. The row parameter does not have to contain all
+// columns of the table. Once the row itself is verified, only those columns that
+// are in the row will be compared against the verified row retrieved from the database.
 func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error {
 	if row == nil || len(table) == 0 || len(pkVals) == 0 {
 		return ErrIllegalArguments

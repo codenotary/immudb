@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -14,6 +15,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+// OpenSession establishes a new session with the server, this method also opens new
+// connection to the server.
+//
+// Note: it is important to call CloseSession() once the session is no longer needed.
 func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, database string) (err error) {
 	if c.IsConnected() {
 		return errors.FromError(ErrSessionAlreadyOpen)
@@ -37,7 +42,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	if err != nil {
 		return err
 	}
-	defer func(){
+	defer func() {
 		if err != nil {
 			_ = clientConn.Close()
 		}
@@ -52,7 +57,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	if err != nil {
 		return errors.FromError(err)
 	}
-	defer func(){
+	defer func() {
 		if err != nil {
 			_, _ = serviceClient.CloseSession(ctx, new(empty.Empty))
 		}
@@ -80,6 +85,9 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	return nil
 }
 
+// CloseSession closes the current session and the connection to the server,
+// this call also allows the server to free up all resources allocated for a session
+// (without explicit call, the server will only free resources after session inactivity timeout).
 func (c *immuClient) CloseSession(ctx context.Context) error {
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
@@ -102,6 +110,7 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	return nil
 }
 
+// GetSessionID returns the current internal session identifier.
 func (c *immuClient) GetSessionID() string {
 	return c.SessionID
 }
