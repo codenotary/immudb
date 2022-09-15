@@ -97,7 +97,23 @@ func TestReplication(t *testing.T) {
 	mmd := metadata.Pairs("authorization", mlr.Token)
 	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
 
-	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionAdmin, "defaultdb")
+	// create database as masterdb in master server
+	_, err = masterClient.CreateDatabaseV2(mctx, "masterdb", &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			Replica:       &schema.NullableBool{Value: false},
+			SyncFollowers: &schema.NullableUint32{Value: 1},
+		},
+	})
+	require.NoError(t, err)
+
+	mdb, err := masterClient.UseDatabase(mctx, &schema.Database{DatabaseName: "masterdb"})
+	require.NoError(t, err)
+	require.NotNil(t, mdb)
+
+	mmd = metadata.Pairs("authorization", mdb.Token)
+	mctx = metadata.NewOutgoingContext(context.Background(), mmd)
+
+	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionAdmin, "masterdb")
 	require.NoError(t, err)
 
 	err = masterClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: "follower"})
@@ -117,9 +133,9 @@ func TestReplication(t *testing.T) {
 
 	// create database as replica in follower server
 	err = followerClient.CreateDatabase(fctx, &schema.DatabaseSettings{
-		DatabaseName:     "replicateddb",
+		DatabaseName:     "replicadb",
 		Replica:          true,
-		MasterDatabase:   "defaultdb",
+		MasterDatabase:   "masterdb",
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       uint32(masterPort),
 		FollowerUsername: "follower",
@@ -130,9 +146,9 @@ func TestReplication(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
-		DatabaseName:     "replicateddb",
+		DatabaseName:     "replicadb",
 		Replica:          true,
-		MasterDatabase:   "defaultdb",
+		MasterDatabase:   "masterdb",
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       uint32(masterPort),
 		FollowerUsername: "follower",
@@ -140,7 +156,7 @@ func TestReplication(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fdb, err := followerClient.UseDatabase(fctx, &schema.Database{DatabaseName: "replicateddb"})
+	fdb, err := followerClient.UseDatabase(fctx, &schema.Database{DatabaseName: "replicadb"})
 	require.NoError(t, err)
 	require.NotNil(t, fdb)
 
@@ -156,9 +172,12 @@ func TestReplication(t *testing.T) {
 	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
+	_, err = masterClient.Set(mctx, []byte("key2"), []byte("value2"))
+	require.NoError(t, err)
+
 	time.Sleep(1 * time.Second)
 
-	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
+	t.Run("key1 should exist in replicadb@follower", func(t *testing.T) {
 		_, err = followerClient.Get(fctx, []byte("key1"))
 		require.NoError(t, err)
 	})

@@ -67,6 +67,8 @@ type DB interface {
 	Health() (waitingCount int, lastReleaseAt time.Time)
 	CurrentState() (*schema.ImmutableState, error)
 	CurrentPreCommitState() (*schema.ImmutableState, error)
+	StateAt(txID uint64) (*schema.ImmutableState, error)
+
 	Size() (uint64, error)
 
 	// Key-Value
@@ -718,6 +720,20 @@ func (d *db) CurrentPreCommitState() (*schema.ImmutableState, error) {
 	}, nil
 }
 
+func (d *db) StateAt(txID uint64) (*schema.ImmutableState, error) {
+	hdr, err := d.st.ReadTxHeader(txID)
+	if err != nil {
+		return nil, err
+	}
+
+	alh := hdr.Alh()
+
+	return &schema.ImmutableState{
+		TxId:   hdr.ID,
+		TxHash: alh[:],
+	}, nil
+}
+
 // WaitForTx blocks caller until specified tx gets committed
 func (d *db) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
 	return d.st.WaitForTx(txID, cancellation)
@@ -1312,7 +1328,7 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 	return schema.TxHeaderToProto(hdr), nil
 }
 
-// AllowCommitUpto is used by replicas to commit transactions once committed in master
+// AllowCommitUpto is used by followers to commit transactions once committed in master
 func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -1323,10 +1339,6 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 
 	// follower pre-committed state should be consistent with master
 	hdr, err := d.st.ReadTxHeader(txID)
-	if errors.Is(err, store.ErrTxNotFound) {
-		// follower is behind of master
-		return nil
-	}
 	if err != nil {
 		return err
 	}

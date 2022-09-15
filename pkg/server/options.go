@@ -122,6 +122,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:   1440,
 		PgsqlServer:          false,
 		PgsqlServerPort:      5432,
+		ReplicationOptions:   &ReplicationOptions{IsReplica: false, SyncFollowers: 0},
 		SessionsOptions:      sessions.DefaultOptions(),
 		PProf:                false,
 	}
