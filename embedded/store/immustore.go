@@ -1460,10 +1460,11 @@ func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 	}
 
 	if s.preCommittedTxID < txID {
-		return fmt.Errorf("%w: commit allowances apply only to pre-committed transactions", ErrTxNotFound)
+		// commit allowances apply only to pre-committed transactions
+		s.commitAllowedUpToTxID = s.preCommittedTxID
+	} else {
+		s.commitAllowedUpToTxID = txID
 	}
-
-	s.commitAllowedUpToTxID = txID
 
 	if !s.synced {
 		return s.mayCommit()
@@ -2027,7 +2028,8 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return nil, ErrIllegalArguments
 	}
 
-	return s.commit(txSpec, hdr, waitForIndexing)
+	//return s.commit(txSpec, hdr, waitForIndexing)
+	return s.precommit(txSpec, hdr, waitForIndexing) //TODO: temporary POC for a non-blocking replicator but it's not waiting durable pre-commit this manner
 }
 
 func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {

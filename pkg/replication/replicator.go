@@ -279,13 +279,13 @@ func (txr *TxReplicator) fetchTX() ([]byte, error) {
 
 	md := exportTxStream.Trailer()
 
-	if len(md.Get("committed_txid-bin")) > 0 && len(md.Get("committed_alh-bin")) > 0 {
-		committedTxID := binary.BigEndian.Uint64([]byte(md.Get("committed_txid-bin")[0]))
+	if len(md.Get("may-commit-up-to-txid-bin")) > 0 && len(md.Get("may-commit-up-to-alh-bin")) > 0 {
+		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
 
-		var committedTxAlh [sha256.Size]byte
-		copy(committedTxAlh[:], []byte(md.Get("committed_alh-bin")[0]))
+		var mayCommitUpToAlh [sha256.Size]byte
+		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
 
-		err = txr.db.AllowCommitUpto(committedTxID, committedTxAlh)
+		err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 		if err != nil {
 			return nil, err
 		}
