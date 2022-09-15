@@ -124,6 +124,9 @@ func DefaultOptions() *Options {
 		PgsqlServerPort:      5432,
 		SessionsOptions:      sessions.DefaultOptions(),
 		PProf:                false,
+		ReplicationOptions: &ReplicationOptions{
+			SyncFollowers: 0,
+		},
 	}
 }
 
