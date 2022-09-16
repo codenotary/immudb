@@ -1008,7 +1008,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				txID, _ := immuStore.Alh()
+				txID, _ := immuStore.CommittedAlh()
 
 				snap, err := immuStore.SnapshotSince(txID)
 				if err != nil {
@@ -1974,7 +1974,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 
-		err = immuStore.WaitForTx(txhdr.ID, nil)
+		err = immuStore.WaitForCommittedTx(txhdr.ID, nil)
 		require.NoError(t, err)
 
 		err = immuStore.WaitForIndexingUpto(txhdr.ID, nil)
@@ -2240,7 +2240,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 
-		currentID, currentAlh := immuStore.Alh()
+		currentID, currentAlh := immuStore.CommittedAlh()
 		require.Equal(t, txhdr.ID, currentID)
 		require.Equal(t, txhdr.Alh(), currentAlh)
 	}
@@ -3204,7 +3204,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	immuStore, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
-	err = immuStore.WaitForIndexingUpto(hdr1.ID, make(<-chan struct{}))
+	err = immuStore.WaitForIndexingUpto(hdr1.ID, nil)
 	require.NoError(t, err)
 
 	valRef, err := immuStore.Get([]byte("key1"))
@@ -3465,7 +3465,7 @@ func TestBlTXOrdering(t *testing.T) {
 	})
 
 	t.Run("verify dual proofs for sequences of transactions", func(t *testing.T) {
-		maxTxID, _ := immuStore.Alh()
+		maxTxID, _ := immuStore.CommittedAlh()
 
 		for i := uint64(1); i < maxTxID; i++ {
 

@@ -800,14 +800,14 @@ func (s *ImmuStore) SetBlErr(err error) {
 	s.blErr = err
 }
 
-func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
+func (s *ImmuStore) CommittedAlh() (uint64, [sha256.Size]byte) {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
 	return s.committedTxID, s.committedAlh
 }
 
-func (s *ImmuStore) PreAlh() (uint64, [sha256.Size]byte) {
+func (s *ImmuStore) PreCommittedAlh() (uint64, [sha256.Size]byte) {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
@@ -865,7 +865,33 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
-func (s *ImmuStore) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+func (s *ImmuStore) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+	s.waiteesMutex.Lock()
+
+	if s.waiteesCount == s.maxWaitees {
+		s.waiteesMutex.Unlock()
+		return watchers.ErrMaxWaitessLimitExceeded
+	}
+
+	s.waiteesCount++
+
+	s.waiteesMutex.Unlock()
+
+	defer func() {
+		s.waiteesMutex.Lock()
+		s.waiteesCount--
+		s.waiteesMutex.Unlock()
+	}()
+
+	// TODO: wait on precommitted but ensuring durability
+	err := s.precommitWHub.WaitFor(txID, cancellation)
+	if err == watchers.ErrAlreadyClosed {
+		return ErrAlreadyClosed
+	}
+	return err
+}
+
+func (s *ImmuStore) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
 	s.waiteesMutex.Lock()
 
 	if s.waiteesCount == s.maxWaitees {
@@ -907,15 +933,6 @@ func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{
 		s.waiteesCount--
 		s.waiteesMutex.Unlock()
 	}()
-
-	// note: this wait is only needed if precommitted transactions are indexed
-	err := s.commitWHub.WaitFor(txID, cancellation)
-	if err == watchers.ErrAlreadyClosed {
-		return ErrAlreadyClosed
-	}
-	if err != nil {
-		return err
-	}
 
 	return s.indexer.WaitForIndexingUpto(txID, cancellation)
 }
@@ -1172,7 +1189,7 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForI
 
 		// TxHeader is validated against current store
 
-		currPrecomittedTxID, currPrecommittedAlh := s.PreAlh()
+		currPrecomittedTxID, currPrecommittedAlh := s.PreCommittedAlh()
 
 		if currPrecomittedTxID >= expectedHeader.ID {
 			return nil, ErrTxAlreadyCommitted
