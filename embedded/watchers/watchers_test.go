@@ -16,6 +16,7 @@ limitations under the License.
 package watchers
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -30,14 +31,10 @@ func TestWatchersHub(t *testing.T) {
 
 	wHub.DoneUpto(0)
 
-	cancellation := make(chan struct{}, 0)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
-	go func(cancel chan<- struct{}) {
-		time.Sleep(100 * time.Millisecond)
-		close(cancel)
-	}(cancellation)
-
-	err := wHub.WaitFor(1, cancellation)
+	err := wHub.WaitFor(1, ctx.Done())
 	require.ErrorIs(t, err, ErrCancellationRequested)
 
 	doneUpto, waiting, err := wHub.Status()
