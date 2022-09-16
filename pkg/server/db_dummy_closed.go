@@ -73,6 +73,10 @@ func (db *closedDB) CurrentPreCommitState() (*schema.ImmutableState, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
+func (db *closedDB) StateAt(txID uint64) (*schema.ImmutableState, error) {
+	return nil, store.ErrAlreadyClosed
+}
+
 func (db *closedDB) Size() (uint64, error) {
 	return 0, store.ErrAlreadyClosed
 }
