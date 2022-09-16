@@ -388,6 +388,44 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		committedAlh = tx.header.Alh()
 	}
 
+	cLogBuf := newPrecommitBuffer(opts.MaxActiveTransactions)
+
+	preCommittedTxID := committedTxID
+	preCommittedAlh := committedAlh
+	preCommittedTxLogSize := committedTxLogSize
+
+	if opts.UseExternalCommitAllowance {
+		// read pre-committed txs from txLog and insert into cLogBuf
+		txReader := appendable.NewReaderFrom(txLog, preCommittedTxLogSize, multiapp.DefaultReadBufferSize)
+
+		tx, _ := txPool.Alloc()
+
+		for {
+			err = tx.readFrom(txReader)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				txPool.Release(tx)
+				return nil, fmt.Errorf("corrupted transaction log: could not read pre-committed transaction: %w", err)
+			}
+
+			preCommittedTxID++
+			preCommittedAlh = tx.header.Alh()
+
+			txSize := int(txReader.Offset() - preCommittedTxLogSize)
+
+			err = cLogBuf.put(preCommittedTxID, preCommittedAlh, preCommittedTxLogSize, txSize)
+			if err != nil {
+				return nil, fmt.Errorf("corrupted transaction log: could not read pre-committed transaction: %w", err)
+			}
+
+			preCommittedTxLogSize += int64(txSize)
+		}
+
+		txPool.Release(tx)
+	}
+
 	vLogsMap := make(map[byte]*refVLog, len(vLogs))
 	vLogUnlockedList := list.New()
 
@@ -446,14 +484,14 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		cLog: cLog,
 
-		cLogBuf: newPrecommitBuffer(opts.MaxActiveTransactions), // TODO: parse and insert pre-committed txs when using external commit allowance
+		cLogBuf: cLogBuf,
 
 		committedTxID: committedTxID,
 		committedAlh:  committedAlh,
 
-		preCommittedTxID:      committedTxID,
-		preCommittedAlh:       committedAlh,
-		preCommittedTxLogSize: committedTxLogSize,
+		preCommittedTxID:      preCommittedTxID,
+		preCommittedAlh:       preCommittedAlh,
+		preCommittedTxLogSize: preCommittedTxLogSize,
 
 		readOnly:              opts.ReadOnly,
 		synced:                opts.Synced,
@@ -1962,7 +2000,7 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForCommit, waitForIndexing bool) (*TxHeader, error) {
 	if len(exportedTx) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -2048,7 +2086,10 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return nil, ErrIllegalArguments
 	}
 
-	//return s.commit(txSpec, hdr, waitForIndexing)
+	if waitForCommit {
+		return s.commit(txSpec, hdr, waitForIndexing)
+	}
+
 	return s.precommit(txSpec, hdr, waitForIndexing) //TODO: temporary POC for a non-blocking replicator but it's not waiting durable pre-commit this manner
 }
 
@@ -2115,6 +2156,13 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 }
 
 func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, error) {
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	if txID > s.preCommittedTxID {
+		return nil, ErrTxNotFound
+	}
+
 	cacheMiss := false
 
 	txbs, err := s.txLogCache.Get(txID)
@@ -2125,9 +2173,6 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, erro
 			return nil, err
 		}
 	}
-
-	s.commitStateRWMutex.Lock()
-	defer s.commitStateRWMutex.Unlock()
 
 	var txOff int64
 	var txSize int
@@ -2153,6 +2198,17 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, erro
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	return s.readTx(txID, tx)
+}
+
+func (s *ImmuStore) readTx(txID uint64, tx *Tx) error {
 	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
 		return err
@@ -2167,6 +2223,13 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 }
 
 func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
 	r, err := s.appendableReaderForTx(txID)
 	if err != nil {
 		return nil, err
@@ -2202,7 +2265,6 @@ func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
 }
 
 func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
-
 	var ret *TxEntry
 
 	r, err := s.appendableReaderForTx(txID)
@@ -2332,7 +2394,6 @@ func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
 }
 
 func (s *ImmuStore) validatePreconditions(preconditions []Precondition) error {
-
 	if len(preconditions) > s.maxTxEntries {
 		return ErrInvalidPreconditionTooMany
 	}

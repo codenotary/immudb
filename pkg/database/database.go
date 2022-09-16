@@ -1341,7 +1341,7 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 		return nil, ErrNotReplica
 	}
 
-	hdr, err := d.st.ReplicateTx(exportedTx, false)
+	hdr, err := d.st.ReplicateTx(exportedTx, false, false)
 	if err != nil {
 		return nil, err
 	}
