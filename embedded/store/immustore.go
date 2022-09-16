@@ -1451,7 +1451,11 @@ func (s *ImmuStore) EnableExternalCommitAllowance() error {
 		return ErrAlreadyClosed
 	}
 
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
 	s.useExternalCommitAllowance = true
+	s.commitAllowedUpToTxID = s.committedTxID
 
 	return nil
 }
@@ -1468,7 +1472,10 @@ func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 		return fmt.Errorf("%w: the external commit allowance mode is not enabled", ErrIllegalState)
 	}
 
-	if txID < s.commitAllowedUpToTxID {
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	if txID <= s.commitAllowedUpToTxID {
 		// once a commit is allowed, it cannot be revoked
 		return nil
 	}
@@ -2120,8 +2127,17 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, erro
 		}
 	}
 
-	// TODO: it must resolve txOff and txSize for pre-committed txs using cLogBuf instead of cLog
-	txOff, txSize, err := s.txOffsetAndSize(txID)
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	var txOff int64
+	var txSize int
+
+	if txID <= s.committedTxID {
+		txOff, txSize, err = s.txOffsetAndSize(txID)
+	} else {
+		_, _, txOff, txSize, err = s.cLogBuf.readAhead(int(txID - s.committedTxID - 1))
+	}
 	if err != nil {
 		return nil, err
 	}

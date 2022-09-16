@@ -1280,6 +1280,10 @@ func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
 
 	// check up to which tx enough followers ack replication and it's safe to commit
 	mayCommitUpToTxID := uint64(0)
+	if len(d.followerStates) > 0 {
+		mayCommitUpToTxID = math.MaxUint64
+	}
+
 	allowances := 0
 
 	// we may clean up followerStates from those who are lag behind commit
