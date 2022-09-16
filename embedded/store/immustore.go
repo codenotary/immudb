@@ -1442,6 +1442,19 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 	return nil
 }
 
+func (s *ImmuStore) EnableExternalCommitAllowance() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	s.useExternalCommitAllowance = true
+
+	return nil
+}
+
 func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
