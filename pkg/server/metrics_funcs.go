@@ -100,7 +100,7 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 			}
 
 			dbName := db.GetName()
-			state, err := db.CurrentState()
+			state, err := db.CurrentCommitState()
 			if err == store.ErrAlreadyClosed {
 				continue
 			}
@@ -120,7 +120,7 @@ func (s *ImmuServer) metricFuncComputeDBEntries() (nbEntriesPerDB map[string]flo
 	// add systemdb
 	if s.sysDB != nil {
 		sysDBName := s.sysDB.GetName()
-		state, err := s.sysDB.CurrentState()
+		state, err := s.sysDB.CurrentCommitState()
 		if err != nil {
 			s.Logger.Errorf(
 				"error getting current state of system db %s to update the number of entries metric: %v",

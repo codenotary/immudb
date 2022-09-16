@@ -2287,11 +2287,19 @@
         "UUID": {
           "type": "string"
         },
+        "committedTxID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "committedAlh": {
+          "type": "string",
+          "format": "byte"
+        },
         "precommittedTxID": {
           "type": "string",
           "format": "uint64"
         },
-        "precommittedTxAlh": {
+        "precommittedAlh": {
           "type": "string",
           "format": "byte"
         }

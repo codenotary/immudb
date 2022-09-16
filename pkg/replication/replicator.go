@@ -90,14 +90,14 @@ func (txr *TxReplicator) Start() error {
 
 	txr.logger.Infof("Initializing replication from '%s' to '%s'...", masterDB, txr.db.GetName())
 
-	st, err := txr.db.CurrentState()
+	precommitState, err := txr.db.CurrentPreCommitState()
 	if err != nil {
 		return err
 	}
 
 	txr.mainContext, txr.cancelFunc = context.WithCancel(context.Background())
 
-	txr.nextTx = st.TxId + 1
+	txr.nextTx = precommitState.TxId + 1
 
 	txr.running = true
 
@@ -275,15 +275,22 @@ func (txr *TxReplicator) disconnect() {
 }
 
 func (txr *TxReplicator) fetchTX() (tx []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
+	commitState, err := txr.db.CurrentCommitState()
+	if err != nil {
+		return nil, 0, mayCommitUpToAlh, err
+	}
+
 	precommitState, err := txr.db.CurrentPreCommitState()
 	if err != nil {
-		return tx, mayCommitUpToTxID, mayCommitUpToAlh, err
+		return nil, 0, mayCommitUpToAlh, err
 	}
 
 	state := &schema.FollowerState{
-		UUID:              txr.uuid.String(), // TODO: analize if there is any advantage in sending as header
-		PrecommittedTxID:  precommitState.TxId,
-		PrecommittedTxAlh: precommitState.TxHash,
+		UUID:             txr.uuid.String(),
+		CommittedTxID:    commitState.TxId,
+		CommittedAlh:     commitState.TxHash,
+		PrecommittedTxID: precommitState.TxId,
+		PrecommittedAlh:  precommitState.TxHash,
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
@@ -292,13 +299,13 @@ func (txr *TxReplicator) fetchTX() (tx []byte, mayCommitUpToTxID uint64, mayComm
 		IncludePreCommitted: true,
 	})
 	if err != nil {
-		return tx, mayCommitUpToTxID, mayCommitUpToAlh, err
+		return nil, 0, mayCommitUpToAlh, err
 	}
 
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
 	tx, err = receiver.ReadFully()
 	if err != nil {
-		return tx, mayCommitUpToTxID, mayCommitUpToAlh, err
+		return nil, 0, mayCommitUpToAlh, err
 	}
 
 	md := exportTxStream.Trailer()

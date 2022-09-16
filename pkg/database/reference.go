@@ -28,7 +28,7 @@ var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a 
 var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be converted into a reference")
 var ErrNoWaitOperationMustBeSelfContained = fmt.Errorf("no wait operation must be self-contained: %w", store.ErrIllegalArguments)
 
-//Reference ...
+// Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	if req == nil || len(req.Key) == 0 || len(req.ReferencedKey) == 0 {
 		return nil, store.ErrIllegalArguments
@@ -45,7 +45,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, ErrIsReplica
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	err := d.st.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
@@ -113,13 +113,13 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	return schema.TxHeaderToProto(hdr), err
 }
 
-//SafeReference ...
+// SafeReference ...
 func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, store.ErrIllegalArguments
 	}

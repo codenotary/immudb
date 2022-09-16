@@ -44,7 +44,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, ErrIllegalState
 	}

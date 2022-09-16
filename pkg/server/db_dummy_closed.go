@@ -65,15 +65,11 @@ func (db *closedDB) Health() (waitingCount int, lastReleaseAt time.Time) {
 	return
 }
 
-func (db *closedDB) CurrentState() (*schema.ImmutableState, error) {
+func (db *closedDB) CurrentCommitState() (*schema.ImmutableState, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
 func (db *closedDB) CurrentPreCommitState() (*schema.ImmutableState, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
-func (db *closedDB) StateAt(txID uint64) (*schema.ImmutableState, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -189,7 +185,11 @@ func (db *closedDB) DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQuery
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
+func (db *closedDB) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+	return store.ErrAlreadyClosed
+}
+
+func (db *closedDB) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
 	return store.ErrAlreadyClosed
 }
 
@@ -201,8 +201,8 @@ func (db *closedDB) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
-	return nil, store.ErrAlreadyClosed
+func (db *closedDB) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
+	return nil, 0, mayCommitUpToAlh, store.ErrAlreadyClosed
 }
 
 func (db *closedDB) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {

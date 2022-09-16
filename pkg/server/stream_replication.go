@@ -34,7 +34,22 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		return err
 	}
 
-	bs, err := db.ExportTxByID(req)
+	bs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(req)
+
+	defer func() {
+		if mayCommitUpToTxID > 0 {
+			var bTxID [8]byte
+			binary.BigEndian.PutUint64(bTxID[:], mayCommitUpToTxID)
+
+			md := metadata.Pairs(
+				"may-commit-up-to-txid-bin", string(bTxID[:]),
+				"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
+			)
+
+			txsServer.SetTrailer(md)
+		}
+	}()
+
 	if err != nil {
 		return err
 	}
@@ -44,40 +59,6 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	err = sender.Send(bytes.NewReader(bs), len(bs))
 	if err != nil {
 		return err
-	}
-
-	if req.FollowerState != nil {
-		// master will provide commit state to the follower so it can commit pre-committed transactions
-		masterCommitState, err := db.CurrentState()
-		if err != nil {
-			return err
-		}
-
-		mayCommitUpToTxID := masterCommitState.TxId
-		mayCommitUpToAlh := masterCommitState.TxHash
-
-		if req.Tx < masterCommitState.TxId {
-			// if follower is behind current commit state in master
-			// return the alh up to the point known by the follower.
-			// That way the follower is able to validate is following the right master.
-			followerPrecommitState, err := db.StateAt(req.FollowerState.PrecommittedTxID)
-			if err != nil {
-				return err
-			}
-
-			mayCommitUpToTxID = followerPrecommitState.TxId
-			mayCommitUpToAlh = followerPrecommitState.TxHash
-		}
-
-		var bTxID [8]byte
-		binary.BigEndian.PutUint64(bTxID[:], mayCommitUpToTxID)
-
-		md := metadata.Pairs(
-			"may-commit-up-to-txid-bin", string(bTxID[:]),
-			"may-commit-up-to-alh-bin", string(mayCommitUpToAlh),
-		)
-
-		txsServer.SetTrailer(md)
 	}
 
 	return nil

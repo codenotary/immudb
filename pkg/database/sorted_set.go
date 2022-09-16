@@ -49,7 +49,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 		return nil, ErrIsReplica
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	err := d.st.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 
 	if req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments
@@ -245,13 +245,13 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	return entries, nil
 }
 
-//VerifiableZAdd ...
+// VerifiableZAdd ...
 func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, store.ErrIllegalArguments
 	}

@@ -39,7 +39,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	waitingCount, _ := cdb.Health()
 	require.Equal(t, 0, waitingCount)
 
-	_, err = cdb.CurrentState()
+	_, err = cdb.CurrentCommitState()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.Size()
@@ -126,7 +126,10 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.DescribeTable("", nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	err = cdb.WaitForTx(0, nil)
+	err = cdb.WaitForCommittedTx(0, nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	err = cdb.WaitForPreCommittedTx(0, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.WaitForIndexingUpto(0, nil)
@@ -135,7 +138,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.TxByID(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ExportTxByID(nil)
+	_, _, _, err = cdb.ExportTxByID(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.ReplicateTx(nil)

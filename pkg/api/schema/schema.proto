@@ -457,8 +457,10 @@ message ExportTxRequest {
 
 message FollowerState {
 	string UUID = 1;
-	uint64 precommittedTxID = 2;
-	bytes  precommittedTxAlh = 3;
+	uint64 committedTxID = 2;
+	bytes  committedAlh = 3;
+	uint64 precommittedTxID = 4;
+	bytes  precommittedAlh = 5;
 }
 
 message Database {
