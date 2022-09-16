@@ -196,6 +196,7 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithDBRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
 		AsReplica(opts.Replica).
+		WithSyncFollowers(opts.SyncFollowers).
 		WithReadTxPoolSize(opts.ReadTxPoolSize)
 }
 
@@ -390,6 +391,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		if rs.Replica != nil {
 			opts.Replica = rs.Replica.Value
 		}
+		if rs.SyncFollowers != nil {
+			opts.SyncFollowers = int(rs.SyncFollowers.Value)
+		}
 		if rs.MasterDatabase != nil {
 			opts.MasterDatabase = rs.MasterDatabase.Value
 		}
@@ -404,9 +408,6 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 		if rs.FollowerPassword != nil {
 			opts.FollowerPassword = rs.FollowerPassword.Value
-		}
-		if rs.SyncFollowers != nil {
-			opts.SyncFollowers = int(rs.SyncFollowers.Value)
 		}
 	}
 
@@ -544,7 +545,8 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 func (opts *dbOptions) Validate() error {
 	if !opts.Replica &&
-		(opts.MasterDatabase != "" ||
+		(opts.SyncFollowers < 0 ||
+			opts.MasterDatabase != "" ||
 			opts.MasterAddress != "" ||
 			opts.MasterPort > 0 ||
 			opts.FollowerUsername != "" ||
@@ -640,6 +642,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.Synced: %v", database, opts.synced)
 	s.Logger.Infof("%s.SyncFrequency: %v", database, opts.SyncFrequency)
 	s.Logger.Infof("%s.Replica: %v", database, opts.Replica)
+	s.Logger.Infof("%s.SyncFollowers: %v", database, opts.SyncFollowers)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)

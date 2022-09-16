@@ -56,8 +56,8 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		mayCommitUpToTxID := masterCommitState.TxId
 		mayCommitUpToAlh := masterCommitState.TxHash
 
-		if req.FollowerState.PrecommittedTxID < masterCommitState.TxId {
-			// if follower pre-commit state is behind current commit stater in master
+		if req.Tx < masterCommitState.TxId {
+			// if follower is behind current commit state in master
 			// return the alh up to the point known by the follower.
 			// That way the follower is able to validate is following the right master.
 			followerPrecommitState, err := db.StateAt(req.FollowerState.PrecommittedTxID)
