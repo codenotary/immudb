@@ -34,7 +34,7 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		return err
 	}
 
-	bs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(req)
+	txbs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(req)
 
 	defer func() {
 		if mayCommitUpToTxID > 0 {
@@ -50,13 +50,17 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		}
 	}()
 
+	if len(txbs) == 0 {
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
 
 	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
 
-	err = sender.Send(bytes.NewReader(bs), len(bs))
+	err = sender.Send(bytes.NewReader(txbs), len(txbs))
 	if err != nil {
 		return err
 	}

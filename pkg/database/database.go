@@ -30,6 +30,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/watchers"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -1315,7 +1316,8 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		if req.FollowerState.CommittedTxID > 0 {
 			// validate follower commit state
 			if req.FollowerState.CommittedTxID > committedTxID {
-				return nil, committedTxID, committedAlh, fmt.Errorf("%w: follower is ahead of master", err)
+				return nil, committedTxID, committedAlh,
+					fmt.Errorf("%w: the follower commit state is ahead of the master", err)
 			}
 
 			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID)
@@ -1326,18 +1328,16 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			followerCommittedAlh := schema.DigestFromProto(req.FollowerState.CommittedAlh)
 
 			if expectedFollowerCommitHdr.Alh() != followerCommittedAlh {
-				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(), fmt.Errorf("%w: follower diverged from master", err)
+				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(),
+					fmt.Errorf("%w: the follower commit state diverged from the master", err)
 			}
 		}
-
-		// master will provide commit state to the follower so it can commit pre-committed transactions
-		mayCommitUpToTxID = committedTxID
-		mayCommitUpToAlh = committedAlh
 
 		if req.FollowerState.PrecommittedTxID > 0 {
 			// validate follower precommit state
 			if req.FollowerState.PrecommittedTxID > preCommittedTxID {
-				return nil, committedTxID, committedAlh, fmt.Errorf("%w: follower is ahead of master", err)
+				return nil, committedTxID, committedAlh,
+					fmt.Errorf("%w: the follower precommit state is ahead of the master", err)
 			}
 
 			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID)
@@ -1348,15 +1348,20 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			followerPreCommittedAlh := schema.DigestFromProto(req.FollowerState.PrecommittedAlh)
 
 			if expectedFollowerPrecommitHdr.Alh() != followerPreCommittedAlh {
-				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(), fmt.Errorf("%w: follower diverged from master", err)
+				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(),
+					fmt.Errorf("%w: the follower precommit state diverged from the master", err)
 			}
 
-			if req.FollowerState.PrecommittedTxID < mayCommitUpToTxID {
+			// master will provide commit state to the follower so it can commit pre-committed transactions
+			if req.FollowerState.PrecommittedTxID < committedTxID {
 				// if follower is behind current commit state in master
 				// return the alh up to the point known by the follower.
 				// That way the follower is able to validate is following the right master.
 				mayCommitUpToTxID = req.FollowerState.PrecommittedTxID
 				mayCommitUpToAlh = followerPreCommittedAlh
+			} else {
+				mayCommitUpToTxID = committedTxID
+				mayCommitUpToAlh = committedAlh
 			}
 		}
 
@@ -1381,6 +1386,9 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		err = d.WaitForPreCommittedTx(req.Tx, ctx.Done())
 	} else {
 		err = d.WaitForCommittedTx(req.Tx, ctx.Done())
+	}
+	if err == watchers.ErrCancellationRequested {
+		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 	}
 	if err != nil {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err

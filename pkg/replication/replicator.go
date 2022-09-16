@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -56,8 +57,6 @@ type TxReplicator struct {
 	delayer        Delayer
 	failedAttempts int
 
-	nextTx uint64
-
 	running bool
 
 	mutex sync.Mutex
@@ -90,14 +89,7 @@ func (txr *TxReplicator) Start() error {
 
 	txr.logger.Infof("Initializing replication from '%s' to '%s'...", masterDB, txr.db.GetName())
 
-	precommitState, err := txr.db.CurrentPreCommitState()
-	if err != nil {
-		return err
-	}
-
 	txr.mainContext, txr.cancelFunc = context.WithCancel(context.Background())
-
-	txr.nextTx = precommitState.TxId + 1
 
 	txr.running = true
 
@@ -110,7 +102,7 @@ func (txr *TxReplicator) Start() error {
 
 		for {
 			if txr.client == nil {
-				err = txr.connect()
+				err := txr.connect()
 				if err == nil {
 					txr.failedAttempts = 0
 					continue
@@ -135,11 +127,9 @@ func (txr *TxReplicator) Start() error {
 				continue
 			}
 
-			txr.logger.Debugf("Replicating transaction %d from '%s' to '%s'...", txr.nextTx, masterDB, txr.db.GetName())
-
-			tx, mayCommitUpToTxID, mayCommitUpToAlh, err := txr.fetchTX()
+			txbs, err := txr.fetchNextTx()
 			if err != nil {
-				txr.logger.Infof("Failed to export transaction %d from '%s' to '%s'. Reason: %v", txr.nextTx, masterDB, txr.db.GetName(), err)
+				txr.logger.Infof("Failed to export transaction from '%s' to '%s'. Reason: %v", masterDB, txr.db.GetName(), err)
 
 				txr.failedAttempts++
 				if txr.failedAttempts == 3 {
@@ -157,58 +147,30 @@ func (txr *TxReplicator) Start() error {
 				continue
 			}
 
-			_, err = txr.db.ReplicateTx(tx)
-			if err != nil {
-				txr.logger.Infof("Failed to replicate transaction %d from '%s' to '%s'. Reason: %v",
-					txr.nextTx,
-					txr.db.GetName(),
-					masterDB,
-					err)
+			if len(txbs) > 0 {
+				_, err = txr.db.ReplicateTx(txbs)
+				if err != nil {
+					txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v",
+						txr.db.GetName(),
+						masterDB,
+						err)
 
-				txr.failedAttempts++
-				if txr.failedAttempts == 3 {
-					txr.disconnect()
+					txr.failedAttempts++
+					if txr.failedAttempts == 3 {
+						txr.disconnect()
+					}
+
+					timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
+					select {
+					case <-txr.mainContext.Done():
+						timer.Stop()
+						return
+					case <-timer.C:
+					}
+
+					continue
 				}
-
-				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-				select {
-				case <-txr.mainContext.Done():
-					timer.Stop()
-					return
-				case <-timer.C:
-				}
-
-				continue
 			}
-
-			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
-			if err != nil {
-				txr.logger.Infof("Failed to commit transaction %d from '%s' to '%s'. Reason: %v",
-					txr.nextTx,
-					txr.db.GetName(),
-					masterDB,
-					err)
-
-				txr.failedAttempts++
-				if txr.failedAttempts == 3 {
-					txr.disconnect()
-				}
-
-				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-				select {
-				case <-txr.mainContext.Done():
-					timer.Stop()
-					return
-				case <-timer.C:
-				}
-
-				continue
-			}
-
-			txr.logger.Debugf("Transaction %d from '%s' to '%s' successfully replicated", txr.nextTx, masterDB, txr.db.GetName())
-
-			txr.nextTx++
-			txr.failedAttempts = 0
 		}
 	}()
 
@@ -274,15 +236,15 @@ func (txr *TxReplicator) disconnect() {
 	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 }
 
-func (txr *TxReplicator) fetchTX() (tx []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
+func (txr *TxReplicator) fetchNextTx() (txbs []byte, err error) {
 	commitState, err := txr.db.CurrentCommitState()
 	if err != nil {
-		return nil, 0, mayCommitUpToAlh, err
+		return nil, err
 	}
 
 	precommitState, err := txr.db.CurrentPreCommitState()
 	if err != nil {
-		return nil, 0, mayCommitUpToAlh, err
+		return nil, err
 	}
 
 	state := &schema.FollowerState{
@@ -294,28 +256,36 @@ func (txr *TxReplicator) fetchTX() (tx []byte, mayCommitUpToTxID uint64, mayComm
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
-		Tx:                  txr.nextTx,
+		Tx:                  precommitState.TxId + 1,
 		FollowerState:       state,
 		IncludePreCommitted: true,
 	})
 	if err != nil {
-		return nil, 0, mayCommitUpToAlh, err
+		return nil, err
 	}
 
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
-	tx, err = receiver.ReadFully()
-	if err != nil {
-		return nil, 0, mayCommitUpToAlh, err
+	txbs, err = receiver.ReadFully()
+
+	if err != nil && err != io.EOF {
+		return nil, err
 	}
 
 	md := exportTxStream.Trailer()
 
 	if len(md.Get("may-commit-up-to-txid-bin")) > 0 && len(md.Get("may-commit-up-to-alh-bin")) > 0 {
-		mayCommitUpToTxID = binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
+		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
+
+		var mayCommitUpToAlh [sha256.Size]byte
 		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
+
+		err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return tx, mayCommitUpToTxID, mayCommitUpToAlh, nil
+	return txbs, nil
 }
 
 func (txr *TxReplicator) Stop() error {
