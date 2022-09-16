@@ -370,7 +370,7 @@ func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 }
 
 func (idx *indexer) indexTx(txID uint64) error {
-	err := idx.store.ReadTx(txID, idx.tx)
+	err := idx.store.readTx(txID, idx.tx)
 	if err != nil {
 		return err
 	}
