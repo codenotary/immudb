@@ -65,9 +65,8 @@ type DB interface {
 
 	// State
 	Health() (waitingCount int, lastReleaseAt time.Time)
-	CurrentState() (*schema.ImmutableState, error)
+	CurrentCommitState() (*schema.ImmutableState, error)
 	CurrentPreCommitState() (*schema.ImmutableState, error)
-	StateAt(txID uint64) (*schema.ImmutableState, error)
 
 	Size() (uint64, error)
 
@@ -116,11 +115,12 @@ type DB interface {
 	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
 
 	// Transactional layer
-	WaitForTx(txID uint64, cancellation <-chan struct{}) error
+	WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error
+	WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
-	ExportTxByID(req *schema.ExportTxRequest) ([]byte, error)
+	ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error)
 	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
 	AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error
 
@@ -528,7 +528,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, err
 	}
 
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 	if req.SinceTx > currTxID {
 		return nil, fmt.Errorf(
 			"%w: SinceTx must not be greater than the current transaction ID",
@@ -718,9 +718,9 @@ func (d *db) Health() (waitingCount int, lastReleaseAt time.Time) {
 	return d.mutex.State()
 }
 
-// CurrentState ...
-func (d *db) CurrentState() (*schema.ImmutableState, error) {
-	lastTxID, lastTxAlh := d.st.Alh()
+// CurrentCommitState ...
+func (d *db) CurrentCommitState() (*schema.ImmutableState, error) {
+	lastTxID, lastTxAlh := d.st.CommittedAlh()
 
 	return &schema.ImmutableState{
 		TxId:   lastTxID,
@@ -729,7 +729,7 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 }
 
 func (d *db) CurrentPreCommitState() (*schema.ImmutableState, error) {
-	lastPreTxID, lastPreTxAlh := d.st.PreAlh()
+	lastPreTxID, lastPreTxAlh := d.st.PreCommittedAlh()
 
 	return &schema.ImmutableState{
 		TxId:   lastPreTxID,
@@ -751,9 +751,14 @@ func (d *db) StateAt(txID uint64) (*schema.ImmutableState, error) {
 	}, nil
 }
 
-// WaitForTx blocks caller until specified tx gets committed
-func (d *db) WaitForTx(txID uint64, cancellation <-chan struct{}) error {
-	return d.st.WaitForTx(txID, cancellation)
+// WaitForCommittedTx blocks caller until specified tx gets committed
+func (d *db) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForCommittedTx(txID, cancellation)
+}
+
+// WaitForPreCommittedTx blocks caller until specified tx gets precommitted
+func (d *db) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+	return d.st.WaitForPreCommittedTx(txID, cancellation)
 }
 
 // WaitForIndexingUpto blocks caller until specified tx gets indexed
@@ -767,7 +772,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, ErrIllegalState
 	}
@@ -817,7 +822,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, ErrIllegalState
 	}
@@ -905,7 +910,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 		return nil, ErrIsReplica
 	}
 
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 
 	if req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments
@@ -959,7 +964,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 
 // GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 
 	if req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments
@@ -1045,7 +1050,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 }
 
 func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 
 	if txID > currTxID {
 		return nil, ErrIllegalArguments
@@ -1221,59 +1226,40 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 	return stx, nil
 }
 
-func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
-	if d.followerStates == nil || newState == nil || newState.PrecommittedTxID == 0 {
-		return nil
-	}
-
+func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *schema.FollowerState) error {
 	// clean up followerStates
 	// it's safe to remove up to latest tx committed in master
-	committedTxID := d.st.LastCommittedTxID()
-
 	for uuid, st := range d.followerStates {
 		if st.precommittedTxID <= committedTxID {
 			delete(d.followerStates, uuid)
 		}
 	}
 
-	// follower pre-committed state should be consistent with master
-	hdr, err := d.st.ReadTxHeader(newState.PrecommittedTxID)
-	if err == store.ErrTxNotFound {
-		return fmt.Errorf("%w: follower is ahead of master", err)
-	}
-	if err != nil {
-		return err
-	}
-
-	newFollowerAlh := schema.DigestFromProto(newState.PrecommittedTxAlh)
-
-	if hdr.Alh() != newFollowerAlh {
-		return fmt.Errorf("%w: follower diverged from master", err)
-	}
-
-	if newState.PrecommittedTxID <= committedTxID {
+	if newFollowerState.PrecommittedTxID <= committedTxID {
 		// as far as the master is concerned, nothing really new has happened
 		return nil
 	}
 
-	followerSt, ok := d.followerStates[newState.UUID]
+	newFollowerAlh := schema.DigestFromProto(newFollowerState.PrecommittedAlh)
+
+	followerSt, ok := d.followerStates[newFollowerState.UUID]
 	if ok {
-		if newState.PrecommittedTxID < followerSt.precommittedTxID {
+		if newFollowerState.PrecommittedTxID < followerSt.precommittedTxID {
 			return fmt.Errorf("%w: the newly informed follower state lags behind the previously informed one", ErrIllegalArguments)
 		}
 
-		if newState.PrecommittedTxID == followerSt.precommittedTxID {
+		if newFollowerState.PrecommittedTxID == followerSt.precommittedTxID {
 			// as of the last informed follower status update, nothing has changed
 			return nil
 		}
 
 		// actual replication progress is informed by the follower
-		followerSt.precommittedTxID = newState.PrecommittedTxID
+		followerSt.precommittedTxID = newFollowerState.PrecommittedTxID
 		followerSt.precommittedAlh = newFollowerAlh
 	} else {
 		// follower informs first replication state
-		d.followerStates[newState.UUID] = &followerState{
-			precommittedTxID: newState.PrecommittedTxID,
+		d.followerStates[newFollowerState.UUID] = &followerState{
+			precommittedTxID: newFollowerState.PrecommittedTxID,
 			precommittedAlh:  newFollowerAlh,
 		}
 	}
@@ -1295,7 +1281,7 @@ func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
 	}
 
 	if allowances >= d.options.syncFollowers {
-		err = d.st.AllowCommitUpto(mayCommitUpToTxID)
+		err := d.st.AllowCommitUpto(mayCommitUpToTxID)
 		if err != nil {
 			return err
 		}
@@ -1304,33 +1290,108 @@ func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
 	return nil
 }
 
-func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
+func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if req == nil {
-		return nil, ErrIllegalArguments
+		return nil, 0, mayCommitUpToAlh, ErrIllegalArguments
+	}
+
+	if d.followerStates == nil && req.FollowerState != nil {
+		return nil, 0, mayCommitUpToAlh, fmt.Errorf("%w: follower state was NOT expected", ErrIllegalState)
 	}
 
 	tx, err := d.allocTx()
 	if err != nil {
-		return nil, err
+		return nil, 0, mayCommitUpToAlh, err
 	}
 	defer d.releaseTx(tx)
 
-	err = d.mayUpdateFollowerState(req.FollowerState)
-	if err != nil {
-		return nil, err
-	}
+	committedTxID, committedAlh := d.st.CommittedAlh()
+	preCommittedTxID, _ := d.st.PreCommittedAlh()
 
-	if !req.IncludePreCommitted {
-		err = d.WaitForTx(req.Tx, nil)
+	if req.FollowerState != nil {
+		if req.FollowerState.CommittedTxID > 0 {
+			// validate follower commit state
+			if req.FollowerState.CommittedTxID > committedTxID {
+				return nil, committedTxID, committedAlh, fmt.Errorf("%w: follower is ahead of master", err)
+			}
+
+			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID)
+			if err != nil {
+				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(), err
+			}
+
+			followerCommittedAlh := schema.DigestFromProto(req.FollowerState.CommittedAlh)
+
+			if expectedFollowerCommitHdr.Alh() != followerCommittedAlh {
+				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(), fmt.Errorf("%w: follower diverged from master", err)
+			}
+		}
+
+		// master will provide commit state to the follower so it can commit pre-committed transactions
+		mayCommitUpToTxID = committedTxID
+		mayCommitUpToAlh = committedAlh
+
+		if req.FollowerState.PrecommittedTxID > 0 {
+			// validate follower precommit state
+			if req.FollowerState.PrecommittedTxID > preCommittedTxID {
+				return nil, committedTxID, committedAlh, fmt.Errorf("%w: follower is ahead of master", err)
+			}
+
+			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID)
+			if err != nil {
+				return nil, committedTxID, committedAlh, err
+			}
+
+			followerPreCommittedAlh := schema.DigestFromProto(req.FollowerState.PrecommittedAlh)
+
+			if expectedFollowerPrecommitHdr.Alh() != followerPreCommittedAlh {
+				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(), fmt.Errorf("%w: follower diverged from master", err)
+			}
+
+			if req.FollowerState.PrecommittedTxID < mayCommitUpToTxID {
+				// if follower is behind current commit state in master
+				// return the alh up to the point known by the follower.
+				// That way the follower is able to validate is following the right master.
+				mayCommitUpToTxID = req.FollowerState.PrecommittedTxID
+				mayCommitUpToAlh = followerPreCommittedAlh
+			}
+		}
+
+		err = d.mayUpdateFollowerState(committedTxID, req.FollowerState)
 		if err != nil {
-			return nil, err
+			return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 		}
 	}
 
-	return d.st.ExportTx(req.Tx, tx)
+	if req.FollowerState != nil && req.Tx > preCommittedTxID && req.FollowerState.CommittedTxID < committedTxID {
+		// follower is up to date with precommitted state but behind in committed state
+		// follower commits are prioritized and passive waits are not performed
+		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
+	}
+
+	// TODO: method signature may be extended to include the parent context
+	// TODO: configurable timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(100)*time.Millisecond)
+	defer cancel()
+
+	if req.IncludePreCommitted {
+		err = d.WaitForPreCommittedTx(req.Tx, ctx.Done())
+	} else {
+		err = d.WaitForCommittedTx(req.Tx, ctx.Done())
+	}
+	if err != nil {
+		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
+	}
+
+	txbs, err = d.st.ExportTx(req.Tx, tx)
+	if err != nil {
+		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
+	}
+
+	return txbs, mayCommitUpToTxID, mayCommitUpToAlh, nil
 }
 
 func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
@@ -1377,7 +1438,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 		return nil, ErrIllegalArguments
 	}
 
-	lastTxID, _ := d.st.Alh()
+	lastTxID, _ := d.st.CommittedAlh()
 	if lastTxID < req.ProveSinceTx {
 		return nil, fmt.Errorf("%w: latest txID=%d is lower than specified as initial tx=%d", ErrIllegalState, lastTxID, req.ProveSinceTx)
 	}
@@ -1514,7 +1575,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			ErrResultSizeLimitExceeded, req.Limit, d.maxResultSize)
 	}
 
-	currTxID, _ := d.st.Alh()
+	currTxID, _ := d.st.CommittedAlh()
 
 	if req.SinceTx > currTxID {
 		return nil, ErrIllegalArguments

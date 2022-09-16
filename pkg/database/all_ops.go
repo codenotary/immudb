@@ -44,7 +44,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	}
 
 	if !req.NoWait {
-		lastTxID, _ := d.st.Alh()
+		lastTxID, _ := d.st.CommittedAlh()
 		err := d.st.WaitForIndexingUpto(lastTxID, nil)
 		if err != nil {
 			return nil, err

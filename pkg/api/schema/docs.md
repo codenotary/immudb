@@ -791,8 +791,10 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | UUID | [string](#string) |  |  |
+| committedTxID | [uint64](#uint64) |  |  |
+| committedAlh | [bytes](#bytes) |  |  |
 | precommittedTxID | [uint64](#uint64) |  |  |
-| precommittedTxAlh | [bytes](#bytes) |  |  |
+| precommittedAlh | [bytes](#bytes) |  |  |
 
 
 
