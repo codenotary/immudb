@@ -194,13 +194,21 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 	}
 
 	stOpts := op.GetStoreOptions().
-		WithLogger(log).
-		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
+		WithLogger(log)
+		// TODO: it's not currently possible to set:
+		// WithExternalCommitAllowance(op.replica || op.syncFollowers > 0) due to sql init steps
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
+
+	// TODO: may be moved to store opts once sql init steps are removed
+	defer func() {
+		if op.replica || op.syncFollowers > 0 {
+			dbi.st.EnableExternalCommitAllowance()
+		}
+	}()
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
@@ -285,6 +293,7 @@ func (d *db) initSQLEngine() error {
 	}
 
 	if err == sql.ErrDatabaseDoesNotExist {
+		// TODO: get rid off this initialization
 		_, _, err = d.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
 		if err != nil {
 			return logErr(d.Logger, "Unable to open store: %s", err)
@@ -333,14 +342,21 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	stOpts := op.GetStoreOptions().
-		WithLogger(log).
-		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
+	stOpts := op.GetStoreOptions().WithLogger(log)
+	// TODO: it's not currently possible to set:
+	// WithExternalCommitAllowance(op.replica || op.syncFollowers > 0) due to sql init steps
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
+
+	// TODO: may be moved to store opts once sql init steps are removed
+	defer func() {
+		if op.replica || op.syncFollowers > 0 {
+			dbi.st.EnableExternalCommitAllowance()
+		}
+	}()
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
 	if err != nil {
@@ -354,6 +370,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 	}
 
 	if !op.replica {
+		// TODO: get rid off this sql initialization
 		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
@@ -1205,7 +1222,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 }
 
 func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
-	if d.followerStates == nil || newState == nil {
+	if d.followerStates == nil || newState == nil || newState.PrecommittedTxID == 0 {
 		return nil
 	}
 
@@ -1284,8 +1301,8 @@ func (d *db) mayUpdateFollowerState(newState *schema.FollowerState) error {
 }
 
 func (d *db) ExportTxByID(req *schema.ExportTxRequest) ([]byte, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	if req == nil {
 		return nil, ErrIllegalArguments
