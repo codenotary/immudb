@@ -1371,21 +1371,34 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		}
 	}
 
-	if req.FollowerState != nil && req.Tx > preCommittedTxID && req.FollowerState.CommittedTxID < committedTxID {
-		// follower is up to date with precommitted state but behind in committed state
-		// follower commits are prioritized and passive waits are not performed
-		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
+	var cancellation <-chan struct{}
+
+	// the follower requested a non-existent or non-ready transaction
+	// follower commits are prioritized over passive waiting for the requested transaction
+	if (req.IncludePreCommitted && req.Tx > preCommittedTxID) ||
+		(!req.IncludePreCommitted && req.Tx > committedTxID) {
+
+		// follower committed state lies behind master committed state
+		if req.FollowerState != nil && req.FollowerState.CommittedTxID < committedTxID {
+			return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
+		}
+
+		// it might be the case master will commit some txs
+		// current timeout it's not a special value but at least a relative one
+		// note: master might also be waiting ack from other followers
+		if (req.FollowerState != nil && req.FollowerState.CommittedTxID < req.FollowerState.PrecommittedTxID) ||
+			(req.IncludePreCommitted && committedTxID < preCommittedTxID) {
+			ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
+			defer cancel()
+			cancellation = ctx.Done()
+		}
+
 	}
 
-	// TODO: method signature may be extended to include the parent context
-	// TODO: configurable timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(100)*time.Millisecond)
-	defer cancel()
-
 	if req.IncludePreCommitted {
-		err = d.WaitForPreCommittedTx(req.Tx, ctx.Done())
+		err = d.WaitForPreCommittedTx(req.Tx, cancellation)
 	} else {
-		err = d.WaitForCommittedTx(req.Tx, ctx.Done())
+		err = d.WaitForCommittedTx(req.Tx, cancellation)
 	}
 	if err == watchers.ErrCancellationRequested {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
