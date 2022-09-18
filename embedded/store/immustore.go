@@ -186,8 +186,9 @@ type ImmuStore struct {
 	blBuffer chan ([sha256.Size]byte)
 	blErr    error
 
-	precommitWHub *watchers.WatchersHub
-	commitWHub    *watchers.WatchersHub
+	precommitWHub        *watchers.WatchersHub
+	durablePrecommitWHub *watchers.WatchersHub
+	commitWHub           *watchers.WatchersHub
 
 	indexer *indexer
 
@@ -517,8 +518,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		aht:      aht,
 		blBuffer: blBuffer,
 
-		precommitWHub: watchers.New(0, 1),                                            // syncer (TODO: indexer may wait here instead)
-		commitWHub:    watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
+		precommitWHub:        watchers.New(0, 1), // syncer (TODO: indexer may wait here instead)
+		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
+		commitWHub:           watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
 
 		txPool: txPool,
 		_kvs:   kvs,
@@ -550,7 +552,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		go store.binaryLinking()
 	}
 
-	err = store.precommitWHub.DoneUpto(committedTxID)
+	err = store.precommitWHub.DoneUpto(preCommittedTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = store.durablePrecommitWHub.DoneUpto(preCommittedTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -883,8 +890,7 @@ func (s *ImmuStore) WaitForPreCommittedTx(txID uint64, cancellation <-chan struc
 		s.waiteesMutex.Unlock()
 	}()
 
-	// TODO: wait on precommitted but ensuring durability
-	err := s.precommitWHub.WaitFor(txID, cancellation)
+	err := s.durablePrecommitWHub.WaitFor(txID, cancellation)
 	if err == watchers.ErrAlreadyClosed {
 		return ErrAlreadyClosed
 	}
@@ -1103,7 +1109,7 @@ func (s *ImmuStore) NewTx() (*OngoingTx, error) {
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
-	hdr, err := s.precommit(otx, expectedHeader, waitForIndexing)
+	hdr, err := s.precommit(otx, expectedHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -1127,7 +1133,7 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	return hdr, nil
 }
 
-func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHeader, error) {
 	if otx == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1491,6 +1497,8 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 	}
 
 	if !s.synced {
+		s.durablePrecommitWHub.DoneUpto(s.preCommittedTxID)
+
 		return s.mayCommit()
 	}
 
@@ -2018,7 +2026,7 @@ func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
 }
 
 func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForCommit, waitForIndexing bool) (*TxHeader, error) {
-	if len(exportedTx) == 0 {
+	if len(exportedTx) == 0 || (!waitForCommit && waitForIndexing) {
 		return nil, ErrIllegalArguments
 	}
 
@@ -2103,11 +2111,37 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForCommit, waitForIndexin
 		return nil, ErrIllegalArguments
 	}
 
-	if waitForCommit {
-		return s.commit(txSpec, hdr, waitForIndexing)
+	txHdr, err := s.precommit(txSpec, hdr)
+	if err != nil {
+		return nil, err
 	}
 
-	return s.precommit(txSpec, hdr, waitForIndexing) //TODO: temporary POC for a non-blocking replicator but it's not waiting durable pre-commit this manner
+	err = s.durablePrecommitWHub.WaitFor(txHdr.ID, nil)
+	if err == watchers.ErrAlreadyClosed {
+		return txHdr, ErrAlreadyClosed
+	}
+	if err != nil {
+		return txHdr, err
+	}
+
+	if waitForCommit {
+		err = s.commitWHub.WaitFor(txHdr.ID, nil)
+		if err == watchers.ErrAlreadyClosed {
+			return txHdr, ErrAlreadyClosed
+		}
+		if err != nil {
+			return txHdr, err
+		}
+
+		if waitForIndexing {
+			err = s.WaitForIndexingUpto(txHdr.ID, nil)
+			if err != nil {
+				return txHdr, err
+			}
+		}
+	}
+
+	return txHdr, nil
 }
 
 func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
@@ -2473,6 +2507,11 @@ func (s *ImmuStore) sync() error {
 		return err
 	}
 
+	err = s.durablePrecommitWHub.DoneUpto(s.preCommittedTxID)
+	if err != nil {
+		return err
+	}
+
 	commitAllowedUpToTxID := s.commitAllowedUpTo()
 	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
 
@@ -2569,6 +2608,9 @@ func (s *ImmuStore) Close() error {
 	}
 
 	err := s.precommitWHub.Close()
+	merr.Append(err)
+
+	err = s.durablePrecommitWHub.Close()
 	merr.Append(err)
 
 	err = s.commitWHub.Close()
