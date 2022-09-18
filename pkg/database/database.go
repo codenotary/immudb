@@ -163,6 +163,7 @@ type db struct {
 	txPool store.TxPool
 
 	followerStates map[uuid]*followerState
+	exportTxMutex  sync.Mutex
 }
 
 // OpenDB Opens an existing Database from disk
@@ -1292,8 +1293,8 @@ func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *sche
 }
 
 func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
+	d.exportTxMutex.Lock()
+	defer d.exportTxMutex.Unlock()
 
 	if req == nil {
 		return nil, 0, mayCommitUpToAlh, ErrIllegalArguments
