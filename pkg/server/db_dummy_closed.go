@@ -53,6 +53,14 @@ func (db *closedDB) IsReplica() bool {
 	return false
 }
 
+func (db *closedDB) EnableExternalCommitAllowance() error {
+	return store.ErrAlreadyClosed
+}
+
+func (db *closedDB) DisableExternalCommitAllowance() error {
+	return store.ErrAlreadyClosed
+}
+
 func (db *closedDB) MaxResultSize() int {
 	return 1000
 }

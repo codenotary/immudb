@@ -61,6 +61,9 @@ type DB interface {
 	AsReplica(asReplica bool)
 	IsReplica() bool
 
+	EnableExternalCommitAllowance() error
+	DisableExternalCommitAllowance() error
+
 	MaxResultSize() int
 	UseTimeFunc(timeFunc store.TimeFunc) error
 
@@ -1736,6 +1739,20 @@ func (d *db) IsReplica() bool {
 
 func (d *db) isReplica() bool {
 	return d.options.replica
+}
+
+func (d *db) EnableExternalCommitAllowance() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.st.EnableExternalCommitAllowance()
+}
+
+func (d *db) DisableExternalCommitAllowance() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.st.DisableExternalCommitAllowance()
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

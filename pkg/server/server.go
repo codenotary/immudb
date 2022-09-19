@@ -419,9 +419,21 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 
 	//sys admin can have an empty array of databases as it has full access
 	if !s.sysDB.IsReplica() {
+		err = s.sysDB.DisableExternalCommitAllowance()
+		if err != nil {
+			return err
+		}
+
 		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 		if err != nil {
 			return logErr(s.Logger, "%v", err)
+		}
+
+		if s.Options.ReplicationOptions.SyncFollowers > 0 {
+			err = s.sysDB.EnableExternalCommitAllowance()
+			if err != nil {
+				return err
+			}
 		}
 
 		s.Logger.Infof("Admin user '%s' successfully created", adminUsername)
