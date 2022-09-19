@@ -1523,6 +1523,22 @@ func (s *ImmuStore) EnableExternalCommitAllowance() error {
 	return nil
 }
 
+func (s *ImmuStore) DisableExternalCommitAllowance() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	s.useExternalCommitAllowance = false
+
+	return nil
+}
+
 func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1569,56 +1585,58 @@ func (s *ImmuStore) mayCommit() error {
 	commitAllowedUpToTxID := s.commitAllowedUpTo()
 	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
 
-	if txsCountToBeCommitted > 0 {
-		// will overwrite partially written and uncommitted data
-		err := s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
-		if err != nil {
-			return err
-		}
-
-		var commitUpToTxID uint64
-		var commitUpToTxAlh [sha256.Size]byte
-
-		for i := 0; i < txsCountToBeCommitted; i++ {
-			txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
-			if err != nil {
-				return err
-			}
-
-			var cb [cLogEntrySize]byte
-			binary.BigEndian.PutUint64(cb[:], uint64(txOff))
-			binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
-
-			_, _, err = s.cLog.Append(cb[:])
-			if err != nil {
-				return err
-			}
-
-			commitUpToTxID = txID
-			commitUpToTxAlh = alh
-		}
-
-		if commitUpToTxID != commitAllowedUpToTxID {
-			// added as a safety fuse but this situation should NOT happen
-			return fmt.Errorf("%w: may commit up to %d but actual transaction to be committed is %d",
-				ErrUnexpectedError, commitAllowedUpToTxID, commitUpToTxID)
-		}
-
-		err = s.cLog.Flush()
-		if err != nil {
-			return err
-		}
-
-		err = s.cLogBuf.advanceReader(txsCountToBeCommitted)
-		if err != nil {
-			return err
-		}
-
-		s.committedTxID = commitUpToTxID
-		s.committedAlh = commitUpToTxAlh
-
-		s.commitWHub.DoneUpto(commitUpToTxID)
+	if txsCountToBeCommitted == 0 {
+		return nil
 	}
+
+	// will overwrite partially written and uncommitted data
+	err := s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
+	if err != nil {
+		return err
+	}
+
+	var commitUpToTxID uint64
+	var commitUpToTxAlh [sha256.Size]byte
+
+	for i := 0; i < txsCountToBeCommitted; i++ {
+		txID, alh, txOff, txSize, err := s.cLogBuf.readAhead(i)
+		if err != nil {
+			return err
+		}
+
+		var cb [cLogEntrySize]byte
+		binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+		binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
+
+		_, _, err = s.cLog.Append(cb[:])
+		if err != nil {
+			return err
+		}
+
+		commitUpToTxID = txID
+		commitUpToTxAlh = alh
+	}
+
+	if commitUpToTxID != commitAllowedUpToTxID {
+		// added as a safety fuse but this situation should NOT happen
+		return fmt.Errorf("%w: may commit up to %d but actual transaction to be committed is %d",
+			ErrUnexpectedError, commitAllowedUpToTxID, commitUpToTxID)
+	}
+
+	err = s.cLog.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = s.cLogBuf.advanceReader(txsCountToBeCommitted)
+	if err != nil {
+		return err
+	}
+
+	s.committedTxID = commitUpToTxID
+	s.committedAlh = commitUpToTxAlh
+
+	s.commitWHub.DoneUpto(commitUpToTxID)
 
 	return nil
 }
@@ -2515,6 +2533,10 @@ func (s *ImmuStore) sync() error {
 
 	commitAllowedUpToTxID := s.commitAllowedUpTo()
 	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
+
+	if txsCountToBeCommitted == 0 {
+		return nil
+	}
 
 	// will overwrite partially written and uncommitted data
 	err = s.cLog.SetOffset(int64(s.committedTxID * cLogEntrySize))
