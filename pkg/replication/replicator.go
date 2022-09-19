@@ -127,9 +127,9 @@ func (txr *TxReplicator) Start() error {
 				continue
 			}
 
-			txbs, err := txr.fetchNextTx()
+			err := txr.nextTx()
 			if err != nil {
-				txr.logger.Infof("Failed to export transaction from '%s' to '%s'. Reason: %v", masterDB, txr.db.GetName(), err)
+				txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", masterDB, txr.db.GetName(), err)
 
 				txr.failedAttempts++
 				if txr.failedAttempts == 3 {
@@ -145,31 +145,6 @@ func (txr *TxReplicator) Start() error {
 				}
 
 				continue
-			}
-
-			if len(txbs) > 0 {
-				_, err = txr.db.ReplicateTx(txbs)
-				if err != nil {
-					txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v",
-						txr.db.GetName(),
-						masterDB,
-						err)
-
-					txr.failedAttempts++
-					if txr.failedAttempts == 3 {
-						txr.disconnect()
-					}
-
-					timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-					select {
-					case <-txr.mainContext.Done():
-						timer.Stop()
-						return
-					case <-timer.C:
-					}
-
-					continue
-				}
 			}
 		}
 	}()
@@ -236,15 +211,15 @@ func (txr *TxReplicator) disconnect() {
 	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 }
 
-func (txr *TxReplicator) fetchNextTx() (txbs []byte, err error) {
+func (txr *TxReplicator) nextTx() error {
 	commitState, err := txr.db.CurrentCommitState()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	precommitState, err := txr.db.CurrentPreCommitState()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	state := &schema.FollowerState{
@@ -261,14 +236,21 @@ func (txr *TxReplicator) fetchNextTx() (txbs []byte, err error) {
 		IncludePreCommitted: true,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
-	txbs, err = receiver.ReadFully()
+	txbs, err := receiver.ReadFully()
 
 	if err != nil && err != io.EOF {
-		return nil, err
+		return err
+	}
+
+	if len(txbs) > 0 {
+		_, err = txr.db.ReplicateTx(txbs)
+		if err != nil {
+			return err
+		}
 	}
 
 	md := exportTxStream.Trailer()
@@ -281,11 +263,22 @@ func (txr *TxReplicator) fetchNextTx() (txbs []byte, err error) {
 
 		err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 		if err != nil {
-			return nil, err
+			return err
+		}
+	} else {
+		// backward compatibility with older immudb servers which only export committed transactions
+		precommitState, err := txr.db.CurrentPreCommitState()
+		if err != nil {
+			return err
+		}
+
+		err = txr.db.AllowCommitUpto(precommitState.TxId, schema.DigestFromProto(precommitState.TxHash))
+		if err != nil {
+			return err
 		}
 	}
 
-	return txbs, nil
+	return nil
 }
 
 func (txr *TxReplicator) Stop() error {
