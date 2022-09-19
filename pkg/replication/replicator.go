@@ -261,9 +261,11 @@ func (txr *TxReplicator) nextTx() error {
 		var mayCommitUpToAlh [sha256.Size]byte
 		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
 
-		err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
-		if err != nil {
-			return err
+		if mayCommitUpToTxID > 0 {
+			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		// backward compatibility with older immudb servers which only export committed transactions
