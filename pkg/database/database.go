@@ -199,21 +199,13 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 	}
 
 	stOpts := op.GetStoreOptions().
-		WithLogger(log)
-		// TODO: it's not currently possible to set:
-		// WithExternalCommitAllowance(op.replica || op.syncFollowers > 0) due to sql init steps
+		WithLogger(log).
+		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 	}
-
-	// TODO: may be moved to store opts once sql init steps are removed
-	defer func() {
-		if op.replica || op.syncFollowers > 0 {
-			dbi.st.EnableExternalCommitAllowance()
-		}
-	}()
 
 	dbi.sqlEngine, err = sql.NewEngine(dbi.st, sql.DefaultOptions().WithPrefix([]byte{SQLPrefix}))
 	if err != nil {
@@ -274,40 +266,14 @@ func (d *db) releaseTx(tx *store.Tx) {
 }
 
 func (d *db) initSQLEngine() error {
-	// Warn about existent SQL data
-	for _, prefix := range []string{
-		"CATALOG.TABLE.",
-		"P.",
-	} {
-		exists, err := d.st.ExistKeyWith(append([]byte{SQLPrefix}, []byte(prefix)...), nil)
-		if err != nil {
-			return err
-		}
-		if exists {
-			d.Logger.Warningf("" +
-				"Existent SQL data won’t be automatically migrated. " +
-				"Please reach out to the immudb maintainers at the Discord channel if you need any assistance.",
-			)
-			break
-		}
-	}
-
 	err := d.sqlEngine.SetCurrentDatabase(dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
 	}
 
 	if err == sql.ErrDatabaseDoesNotExist {
-		// TODO: get rid off this initialization
-		_, _, err = d.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
-		if err != nil {
-			return logErr(d.Logger, "Unable to open store: %s", err)
-		}
-
-		err = d.sqlEngine.SetCurrentDatabase(dbInstanceName)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("automatic SQL initialization of databases created with older versions is now disabled. " +
+			"Please reach out to the immudb maintainers at the Discord channel if you need any assistance")
 	}
 
 	return nil
