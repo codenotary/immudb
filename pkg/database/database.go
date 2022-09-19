@@ -1326,7 +1326,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID)
 			if err != nil {
-				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(), err
+				return nil, committedTxID, committedAlh, err
 			}
 
 			followerCommittedAlh := schema.DigestFromProto(req.FollowerState.CommittedAlh)
