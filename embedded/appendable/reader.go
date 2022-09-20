@@ -27,6 +27,7 @@ type Reader struct {
 	eof       bool
 	readIndex int
 	offset    int64
+	n         int64
 }
 
 func NewReaderFrom(rAt io.ReaderAt, off int64, size int) *Reader {
@@ -45,36 +46,43 @@ func (r *Reader) Reset() {
 	r.eof = false
 	r.readIndex = 0
 	r.offset = 0
+	r.n = 0
 }
 
 func (r *Reader) Offset() int64 {
 	return r.offset
 }
 
+func (r *Reader) ReadCount() int64 {
+	return r.n
+}
+
 func (r *Reader) Read(bs []byte) (n int, err error) {
-	l := 0
+	defer func() {
+		r.n += int64(n)
+	}()
 
 	for {
-		nl := min(r.dataIndex-r.readIndex, len(bs)-l)
+		bn := min(r.dataIndex-r.readIndex, len(bs)-n)
 
-		copy(bs[l:], r.data[r.readIndex:r.readIndex+nl])
-		r.readIndex += nl
+		copy(bs[n:], r.data[r.readIndex:r.readIndex+bn])
+		r.readIndex += bn
 
-		l += nl
+		n += bn
 
-		if l == len(bs) {
+		if n == len(bs) {
 			break
 		}
 
 		if r.eof {
-			return 0, io.EOF
+			return n, io.EOF
 		}
 
-		n, err := r.rAt.ReadAt(r.data, r.offset)
+		rn, err := r.rAt.ReadAt(r.data, r.offset)
 
-		r.dataIndex = n
+		r.dataIndex = rn
 		r.readIndex = 0
-		r.offset += int64(n)
+		r.offset += int64(rn)
 
 		if err == io.EOF {
 			r.eof = true
@@ -82,11 +90,11 @@ func (r *Reader) Read(bs []byte) (n int, err error) {
 		}
 
 		if err != nil {
-			return l + n, err
+			return n, err
 		}
 	}
 
-	return l, nil
+	return n, nil
 }
 
 func (r *Reader) ReadByte() (byte, error) {
