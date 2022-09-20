@@ -193,11 +193,7 @@ func (db *closedDB) DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQuery
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
-	return store.ErrAlreadyClosed
-}
-
-func (db *closedDB) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+func (db *closedDB) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
 	return store.ErrAlreadyClosed
 }
 

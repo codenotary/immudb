@@ -372,7 +372,7 @@ func (idx *indexer) doIndexing() {
 }
 
 func (idx *indexer) indexTx(txID uint64) error {
-	err := idx.store.readTx(txID, idx.tx)
+	err := idx.store.readTx(txID, false, idx.tx)
 	if err != nil {
 		return err
 	}

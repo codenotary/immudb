@@ -813,8 +813,10 @@ message TxList {
 
 message ExportTxRequest {
   // Id of transaction to export
-  uint64 tx = 1;
-	bool includePreCommitted = 2;
+	uint64 tx = 1;
+  // If set to true, non-committed transactions can be exported
+	bool allowPreCommitted = 2;
+  // Used on synchronous replication to notify the master about follower state
 	FollowerState followerState = 3;
 }
 

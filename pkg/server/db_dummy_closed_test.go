@@ -127,10 +127,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.DescribeTable("", nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	err = cdb.WaitForCommittedTx(0, nil)
-	require.ErrorIs(t, err, store.ErrAlreadyClosed)
-
-	err = cdb.WaitForPreCommittedTx(0, nil)
+	err = cdb.WaitForTx(0, true, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.WaitForIndexingUpto(0, nil)

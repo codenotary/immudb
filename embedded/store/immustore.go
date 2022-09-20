@@ -850,7 +850,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.newTxReader(s.aht.Size()+1, false, tx)
+	txReader, err := s.newTxReader(s.aht.Size()+1, false, true, tx)
 	if err != nil {
 		return err
 	}
@@ -877,7 +877,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
-func (s *ImmuStore) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
+func (s *ImmuStore) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
 	s.waiteesMutex.Lock()
 
 	if s.waiteesCount == s.maxWaitees {
@@ -895,32 +895,13 @@ func (s *ImmuStore) WaitForPreCommittedTx(txID uint64, cancellation <-chan struc
 		s.waiteesMutex.Unlock()
 	}()
 
-	err := s.durablePrecommitWHub.WaitFor(txID, cancellation)
-	if err == watchers.ErrAlreadyClosed {
-		return ErrAlreadyClosed
+	var err error
+
+	if allowPrecommitted {
+		err = s.durablePrecommitWHub.WaitFor(txID, cancellation)
+	} else {
+		err = s.commitWHub.WaitFor(txID, cancellation)
 	}
-	return err
-}
-
-func (s *ImmuStore) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
-	s.waiteesMutex.Lock()
-
-	if s.waiteesCount == s.maxWaitees {
-		s.waiteesMutex.Unlock()
-		return watchers.ErrMaxWaitessLimitExceeded
-	}
-
-	s.waiteesCount++
-
-	s.waiteesMutex.Unlock()
-
-	defer func() {
-		s.waiteesMutex.Lock()
-		s.waiteesCount--
-		s.waiteesMutex.Unlock()
-	}()
-
-	err := s.commitWHub.WaitFor(txID, cancellation)
 	if err == watchers.ErrAlreadyClosed {
 		return ErrAlreadyClosed
 	}
@@ -1964,8 +1945,15 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 	return available, nil
 }
 
-func (s *ImmuStore) ExportTx(txID uint64, tx *Tx) ([]byte, error) {
-	err := s.ReadTx(txID, tx)
+func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byte, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	err := s.readTx(txID, allowPrecommitted, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -2229,11 +2217,11 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	return header, nil
 }
 
-func (s *ImmuStore) appendableReaderForTx(txID uint64) (*appendable.Reader, error) {
+func (s *ImmuStore) appendableReaderForTx(txID uint64, allowPrecommitted bool) (*appendable.Reader, error) {
 	s.commitStateRWMutex.Lock()
 	defer s.commitStateRWMutex.Unlock()
 
-	if txID > s.preCommittedTxID {
+	if txID > s.preCommittedTxID || (!allowPrecommitted && txID > s.committedTxID) {
 		return nil, ErrTxNotFound
 	}
 
@@ -2279,11 +2267,11 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		return ErrAlreadyClosed
 	}
 
-	return s.readTx(txID, tx)
+	return s.readTx(txID, false, tx)
 }
 
-func (s *ImmuStore) readTx(txID uint64, tx *Tx) error {
-	r, err := s.appendableReaderForTx(txID)
+func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, tx *Tx) error {
+	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return err
 	}
@@ -2304,7 +2292,7 @@ func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	r, err := s.appendableReaderForTx(txID)
+	r, err := s.appendableReaderForTx(txID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2341,7 +2329,7 @@ func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
 func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
 	var ret *TxEntry
 
-	r, err := s.appendableReaderForTx(txID)
+	r, err := s.appendableReaderForTx(txID, false)
 	if err != nil {
 		return nil, nil, err
 	}

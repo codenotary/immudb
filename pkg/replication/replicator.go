@@ -231,9 +231,9 @@ func (txr *TxReplicator) nextTx() error {
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
-		Tx:                  precommitState.TxId + 1,
-		FollowerState:       state,
-		IncludePreCommitted: true,
+		Tx:                precommitState.TxId + 1,
+		FollowerState:     state,
+		AllowPreCommitted: true,
 	})
 	if err != nil {
 		return err

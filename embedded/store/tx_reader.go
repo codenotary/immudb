@@ -25,6 +25,8 @@ type TxReader struct {
 	InitialTxID uint64
 	Desc        bool
 
+	allowPrecommitted bool
+
 	CurrTxID uint64
 	CurrAlh  [sha256.Size]byte
 
@@ -40,10 +42,10 @@ func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 		return nil, ErrAlreadyClosed
 	}
 
-	return s.newTxReader(initialTxID, desc, tx)
+	return s.newTxReader(initialTxID, desc, false, tx)
 }
 
-func (s *ImmuStore) newTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
+func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool, tx *Tx) (*TxReader, error) {
 	if initialTxID == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -66,7 +68,7 @@ func (txr *TxReader) Read() (*Tx, error) {
 		return nil, ErrNoMoreEntries
 	}
 
-	err := txr.st.ReadTx(txr.CurrTxID, txr._tx)
+	err := txr.st.readTx(txr.CurrTxID, txr.allowPrecommitted, txr._tx)
 	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
 	}

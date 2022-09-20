@@ -743,8 +743,8 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  | Id of transaction to export |
-| includePreCommitted | [bool](#bool) |  |  |
-| followerState | [FollowerState](#immudb.schema.FollowerState) |  |  |
+| allowPreCommitted | [bool](#bool) |  | If set to true, non-committed transactions can be exported |
+| followerState | [FollowerState](#immudb.schema.FollowerState) |  | Used on synchronous replication to notify the master about follower state |
 
 
 
