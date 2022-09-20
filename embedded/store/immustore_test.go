@@ -1974,7 +1974,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 
-		err = immuStore.WaitForCommittedTx(txhdr.ID, nil)
+		err = immuStore.WaitForTx(txhdr.ID, false, nil)
 		require.NoError(t, err)
 
 		err = immuStore.WaitForIndexingUpto(txhdr.ID, nil)
@@ -2543,7 +2543,7 @@ func TestExportAndReplicateTx(t *testing.T) {
 
 	txholder := tempTxHolder(t, masterStore)
 
-	etx, err := masterStore.ExportTx(1, txholder)
+	etx, err := masterStore.ExportTx(1, false, txholder)
 	require.NoError(t, err)
 
 	rhdr, err := replicaStore.ReplicateTx(etx, true, false)
@@ -2589,7 +2589,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	txholder := tempTxHolder(t, masterStore)
 
 	t.Run("prevent replicating broken data", func(t *testing.T) {
-		etx, err := masterStore.ExportTx(1, txholder)
+		etx, err := masterStore.ExportTx(1, false, txholder)
 		require.NoError(t, err)
 
 		for i := range etx {
@@ -2653,7 +2653,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 			require.NotNil(t, hdr)
 
 			txholder := tempTxHolder(t, replicaStore)
-			etx, err := masterStore.ExportTx(hdr.ID, txholder)
+			etx, err := masterStore.ExportTx(hdr.ID, false, txholder)
 			require.NoError(t, err)
 
 			// Replicate the same transactions concurrently, only one must succeed

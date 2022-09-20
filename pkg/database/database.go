@@ -119,8 +119,7 @@ type DB interface {
 	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
 
 	// Transactional layer
-	WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error
-	WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error
+	WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error
 	WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error
 
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
@@ -722,14 +721,9 @@ func (d *db) StateAt(txID uint64) (*schema.ImmutableState, error) {
 	}, nil
 }
 
-// WaitForCommittedTx blocks caller until specified tx gets committed
-func (d *db) WaitForCommittedTx(txID uint64, cancellation <-chan struct{}) error {
-	return d.st.WaitForCommittedTx(txID, cancellation)
-}
-
-// WaitForPreCommittedTx blocks caller until specified tx gets precommitted
-func (d *db) WaitForPreCommittedTx(txID uint64, cancellation <-chan struct{}) error {
-	return d.st.WaitForPreCommittedTx(txID, cancellation)
+// WaitForTx blocks caller until specified tx
+func (d *db) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
+	return d.st.WaitForTx(txID, allowPrecommitted, cancellation)
 }
 
 // WaitForIndexingUpto blocks caller until specified tx gets indexed
@@ -1345,8 +1339,8 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 	// the follower requested a non-existent or non-ready transaction
 	// follower commits are prioritized over passive waiting for the requested transaction
-	if (req.IncludePreCommitted && req.Tx > preCommittedTxID) ||
-		(!req.IncludePreCommitted && req.Tx > committedTxID) {
+	if (req.AllowPreCommitted && req.Tx > preCommittedTxID) ||
+		(!req.AllowPreCommitted && req.Tx > committedTxID) {
 
 		// follower committed state lies behind master committed state
 		if req.FollowerState != nil && req.FollowerState.CommittedTxID < committedTxID {
@@ -1357,7 +1351,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		// current timeout it's not a special value but at least a relative one
 		// note: master might also be waiting ack from other followers
 		if (req.FollowerState != nil && req.FollowerState.CommittedTxID < req.FollowerState.PrecommittedTxID) ||
-			(req.IncludePreCommitted && committedTxID < preCommittedTxID) {
+			(req.AllowPreCommitted && committedTxID < preCommittedTxID) {
 			ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
 			defer cancel()
 			cancellation = ctx.Done()
@@ -1365,11 +1359,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 	}
 
-	if req.IncludePreCommitted {
-		err = d.WaitForPreCommittedTx(req.Tx, cancellation)
-	} else {
-		err = d.WaitForCommittedTx(req.Tx, cancellation)
-	}
+	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, cancellation)
 	if err == watchers.ErrCancellationRequested {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 	}
@@ -1377,7 +1367,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 	}
 
-	txbs, err = d.st.ExportTx(req.Tx, tx)
+	txbs, err = d.st.ExportTx(req.Tx, req.AllowPreCommitted, tx)
 	if err != nil {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 	}

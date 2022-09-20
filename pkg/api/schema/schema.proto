@@ -451,7 +451,7 @@ message TxList {
 
 message ExportTxRequest {
 	uint64 tx = 1;
-	bool includePreCommitted = 2;
+	bool allowPreCommitted = 2;
 	FollowerState followerState = 3;
 }
 

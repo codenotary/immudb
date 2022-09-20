@@ -743,7 +743,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
-| includePreCommitted | [bool](#bool) |  |  |
+| allowPreCommitted | [bool](#bool) |  |  |
 | followerState | [FollowerState](#immudb.schema.FollowerState) |  |  |
 
 
