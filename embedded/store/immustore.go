@@ -419,7 +419,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			preCommittedTxID++
 			preCommittedAlh = tx.header.Alh()
 
-			txSize := int(txReader.Offset() - preCommittedTxLogSize)
+			txSize := int(txReader.ReadCount() - (preCommittedTxLogSize - committedTxLogSize))
 
 			err = cLogBuf.put(preCommittedTxID, preCommittedAlh, preCommittedTxLogSize, txSize)
 			if err != nil {
