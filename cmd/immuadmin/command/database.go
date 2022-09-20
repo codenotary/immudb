@@ -37,7 +37,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
 	c.Flags().String("replication-master-database", "", "set master database to be replicated")
 	c.Flags().String("replication-master-address", "", "set master address")
-	c.Flags().Uint32("replication-master-port", 0, "set master port")
+	c.Flags().Uint32("replication-master-port", 3322, "set master port")
 	c.Flags().String("replication-follower-username", "", "set username used for replication")
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
