@@ -19,6 +19,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/ahtree"
@@ -551,29 +552,55 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 	return nil
 }
 
-func (opts *dbOptions) Validate() error {
-	if !opts.Replica &&
-		(opts.SyncFollowers < 0 ||
+func (opts *dbOptions) validateReplicationOptions() error {
+	if !opts.Replica {
+		if opts.SyncFollowers < 0 ||
 			opts.MasterDatabase != "" ||
 			opts.MasterAddress != "" ||
 			opts.MasterPort > 0 ||
 			opts.FollowerUsername != "" ||
-			opts.FollowerPassword != "") {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'",
-			ErrIllegalArguments, opts.Database)
-	}
-
-	if opts.SyncFollowers == 0 && opts.SyncReplication && !opts.Replica {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'. It is necessary to have at least one follower",
-			ErrIllegalArguments, opts.Database)
+			opts.FollowerPassword != "" {
+			return fmt.Errorf(
+				"%w: invalid replication options for database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+		if opts.SyncFollowers == 0 && opts.SyncReplication {
+			return fmt.Errorf(
+				"%w: invalid replication options for database '%s'. It is necessary to have at least one follower",
+				ErrIllegalArguments, opts.Database)
+		}
 	}
 
 	if opts.SyncFollowers > 0 && (opts.Replica || !opts.SyncReplication) {
 		return fmt.Errorf(
 			"%w: invalid replication options for database '%s'. Sync followers are not expected",
 			ErrIllegalArguments, opts.Database)
+	}
+
+	if opts.Replica {
+		if opts.MasterPort <= 0 {
+			return fmt.Errorf(
+				"%w: invalid replication options for database '%s'. Invalid master port",
+				ErrIllegalArguments, opts.Database)
+		}
+		if opts.MasterDatabase == "" {
+			return fmt.Errorf(
+				"%w: invalid replication options for database '%s'. Master database cannot be empty",
+				ErrIllegalArguments, opts.Database)
+		}
+		if r := net.ParseIP(opts.MasterAddress); r == nil {
+			return fmt.Errorf(
+				"%w: invalid replication options for database '%s'. Invalid master address",
+				ErrIllegalArguments, opts.Database)
+		}
+	}
+	return nil
+}
+
+func (opts *dbOptions) Validate() error {
+	err := opts.validateReplicationOptions()
+	if err != nil {
+		return err
 	}
 
 	if opts.ReadTxPoolSize <= 0 {

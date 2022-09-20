@@ -599,6 +599,8 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 
 	s.replicators[db.GetName()] = f
 
+	s.Logger.Infof("Starting replication for database '%s'", db.GetName())
+
 	return nil
 }
 
@@ -862,8 +864,12 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 	s.logDBOptions(db.GetName(), dbOpts)
 
 	err = s.startReplicationFor(db, dbOpts)
-	if err != nil && err != ErrReplicatorNotNeeded {
-		return nil, fmt.Errorf("%w: while starting replication", err)
+	if err != nil {
+		if err == ErrReplicatorNotNeeded {
+			s.Logger.Infof("Replication for database '%s' is not required.", db.GetName())
+		} else {
+			return nil, fmt.Errorf("%w: while starting replication", err)
+		}
 	}
 
 	return &schema.CreateDatabaseResponse{
@@ -935,8 +941,12 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 
 	if dbOpts.isReplicatorRequired() {
 		err = s.startReplicationFor(db, dbOpts)
-		if err != nil && err != ErrReplicatorNotNeeded {
-			return nil, fmt.Errorf("%w: while starting replication", err)
+		if err != nil {
+			if err == ErrReplicatorNotNeeded {
+				s.Logger.Infof("Replication for database '%s' is not required.", db.GetName())
+			} else {
+				return nil, fmt.Errorf("%w: while starting replication", err)
+			}
 		}
 	}
 
@@ -1169,8 +1179,12 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 
 	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {
 		err = s.startReplicationFor(db, dbOpts)
-		if err != nil && err != ErrReplicatorNotNeeded {
-			return nil, fmt.Errorf("%w: while staring replication", err)
+		if err != nil {
+			if err == ErrReplicatorNotNeeded {
+				s.Logger.Infof("Replication for database '%s' is not required.", db.GetName())
+			} else {
+				return nil, fmt.Errorf("%w: while starting replication", err)
+			}
 		}
 	}
 

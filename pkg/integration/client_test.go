@@ -508,9 +508,13 @@ func TestReplica(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
-		DatabaseName:   "db1",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
+		DatabaseName:     "db1",
+		Replica:          true,
+		MasterDatabase:   "defaultdb",
+		MasterAddress:    "127.0.0.1",
+		MasterPort:       3322,
+		FollowerUsername: "immudb",
+		FollowerPassword: "immudb",
 	})
 	require.NoError(t, err)
 
@@ -521,8 +525,13 @@ func TestReplica(t *testing.T) {
 	require.NotEmpty(t, resp.Token)
 
 	err = client.UpdateDatabase(ctx, &schema.DatabaseSettings{
-		DatabaseName: "db1",
-		Replica:      true,
+		DatabaseName:     "db1",
+		Replica:          true,
+		MasterDatabase:   "defaultdb",
+		MasterAddress:    "127.0.0.1",
+		MasterPort:       3322,
+		FollowerUsername: "immudb",
+		FollowerPassword: "immudb",
 	})
 	require.NoError(t, err)
 

@@ -417,22 +417,29 @@ func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
 	_, err = s.UpdateDatabase(ctx, dbSettings)
 	require.Equal(t, database.ErrDatabaseNotExists, err)
 
-	newdb := &schema.DatabaseSettings{
-		DatabaseName:   "lisbon",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
+	newdb := &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			Replica:         &schema.NullableBool{Value: false},
+			SyncFollowers:   &schema.NullableUint32{Value: 2},
+			SyncReplication: &schema.NullableBool{Value: true},
+		},
 	}
-	_, err = s.CreateDatabaseWith(ctx, newdb)
+	_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+		Name:     "lisbon",
+		Settings: newdb,
+	})
 	require.NoError(t, err)
 
-	newdb.Replica = false
-	newdb.MasterDatabase = ""
-	_, err = s.UpdateDatabase(ctx, newdb)
+	newdb.ReplicationSettings.SyncFollowers = &schema.NullableUint32{Value: 1}
+	_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
+		Database: "lisbon",
+		Settings: newdb,
+	})
 	require.NoError(t, err)
 
 	dbOpts, err := s.loadDBOptions("lisbon", false)
 	require.NoError(t, err)
-	require.Equal(t, false, dbOpts.Replica)
+	require.Equal(t, 1, dbOpts.SyncFollowers)
 }
 
 func TestServerUpdateDatabaseV2AuthDisabled(t *testing.T) {
