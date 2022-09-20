@@ -322,7 +322,7 @@
           },
           {
             "name": "sinceTx",
-            "description": "if 0 (and nowait=false), wait for the index to be up=to-date.",
+            "description": "If 0 (and noWait=false), wait for the index to be up-to-date,\nIf \u003e 0 (and noWait=false), wait for at lest the sinceTx transaction to be indexed.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -330,14 +330,14 @@
           },
           {
             "name": "noWait",
-            "description": "if set to true - do not wait for any indexing update considering only the currently indexed state.",
+            "description": "If set to true - do not wait for any indexing update considering only the currently indexed state.",
             "in": "query",
             "required": false,
             "type": "boolean"
           },
           {
             "name": "atRevision",
-            "description": "if \u003e 0, get the nth version of the value, 1 being the first version, 2 being the second and so on\nif \u003c 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on.",
+            "description": "If \u003e 0, get the nth version of the value, 1 being the first version, 2 being the second and so on\nIf \u003c 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1675,7 +1675,8 @@
           "type": "string",
           "format": "byte"
         }
-      }
+      },
+      "title": "Only succeed if given key exists"
     },
     "PreconditionKeyMustNotExistPrecondition": {
       "type": "object",
@@ -1684,7 +1685,8 @@
           "type": "string",
           "format": "byte"
         }
-      }
+      },
+      "title": "Only succeed if given key does not exists"
     },
     "PreconditionKeyNotModifiedAfterTXPrecondition": {
       "type": "object",
@@ -1697,7 +1699,8 @@
           "type": "string",
           "format": "uint64"
         }
-      }
+      },
+      "title": "Only succeed if given key was not modified after given transaction"
     },
     "protobufAny": {
       "type": "object",
@@ -1973,10 +1976,10 @@
         "excludeCommitTime": {
           "$ref": "#/definitions/schemaNullableBool"
         },
-        "maxConcurrency": {
+        "maxIOConcurrency": {
           "$ref": "#/definitions/schemaNullableUint32"
         },
-        "maxIOConcurrency": {
+        "maxConcurrency": {
           "$ref": "#/definitions/schemaNullableUint32"
         },
         "txLogCacheSize": {
@@ -2112,14 +2115,17 @@
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "List of keys to delete logically"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If 0, wait for index to be up-to-date,\nIf \u003e 0, wait for at least sinceTx transaction to be indexed"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for the indexer to index this operation"
         }
       }
     },
@@ -2160,7 +2166,8 @@
         "linearProof": {
           "$ref": "#/definitions/schemaLinearProof"
         }
-      }
+      },
+      "title": "DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs"
     },
     "schemaEntries": {
       "type": "object",
@@ -2421,11 +2428,13 @@
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "List of keys to query for"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If 0, wait for index to be up-to-date,\nIf \u003e 0, wait for at least sinceTx transaction to be indexed"
         }
       }
     },
@@ -2443,16 +2452,16 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64",
-          "title": "if 0 (and nowait=false), wait for the index to be up=to-date"
+          "title": "If 0 (and noWait=false), wait for the index to be up-to-date,\nIf \u003e 0 (and noWait=false), wait for at lest the sinceTx transaction to be indexed"
         },
         "noWait": {
           "type": "boolean",
-          "title": "if set to true - do not wait for any indexing update considering only the currently indexed state"
+          "title": "If set to true - do not wait for any indexing update considering only the currently indexed state"
         },
         "atRevision": {
           "type": "string",
           "format": "int64",
-          "title": "if \u003e 0, get the nth version of the value, 1 being the first version, 2 being the second and so on\nif \u003c 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on"
+          "title": "If \u003e 0, get the nth version of the value, 1 being the first version, 2 being the second and so on\nIf \u003c 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on"
         }
       }
     },
@@ -2490,7 +2499,8 @@
             "format": "byte"
           }
         }
-      }
+      },
+      "title": "LinearProof contains the linear part of the proof (outside the main Merkle Tree)"
     },
     "schemaLoadDatabaseRequest": {
       "type": "object",
@@ -3103,7 +3113,8 @@
       }
     },
     "schemaTxMetadata": {
-      "type": "object"
+      "type": "object",
+      "title": "TxMetadata contains metadata set to whole transaction"
     },
     "schemaTxMode": {
       "type": "string",

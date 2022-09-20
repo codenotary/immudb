@@ -30,83 +30,88 @@ message Key {
 }
 
 message Permission {
-	string database = 1;
-	uint32 permission = 2;
+	string database = 1;	// Database name
+	uint32 permission = 2;	// Permission, 1 - read permission, 2 - read+write permission, 254 - admin, 255 - sysadmin
 }
 
 message User {
-	bytes user = 1;
-	repeated Permission permissions = 3;
-	string createdby = 4;
-	string createdat = 5;
-	bool active = 6;
+	bytes user = 1;                       // Username
+	repeated Permission permissions = 3;  // List of permissions for the user
+	string createdby = 4;                 // Name of the creator user
+	string createdat = 5;                 // Time when the user was created
+	bool active = 6;                      // Flag indicating whether the user is active or not
 }
 
 message UserList {
-	repeated User users = 1;
+	repeated User users = 1;	// List of users
 }
 
 message CreateUserRequest {
-	bytes user = 1;
-	bytes password = 2;
-	uint32 permission = 3;
-	string database = 4;
+	bytes user = 1;			// Username
+	bytes password = 2;		// Login password
+	uint32 permission = 3;	// Permission, 1 - read permission, 2 - read+write permission, 254 - admin
+	string database = 4;	// Database name
 }
 
 message UserRequest {
-	bytes user = 1;
+	bytes user = 1;		// Username
 }
 
 message ChangePasswordRequest {
-	bytes user = 1;
-	bytes oldPassword = 2;
-	bytes newPassword = 3;
+	bytes user = 1;				// Username
+	bytes oldPassword = 2;		// Old password
+	bytes newPassword = 3;		// New password
 }
 
 message LoginRequest {
-	bytes user = 1;
-	bytes password = 2;
+	bytes user = 1;				// Username
+	bytes password = 2;			// User's password
 }
 
 message LoginResponse {
-	string token = 1;
-	bytes warning = 2;
+	string token = 1;			// Deprecated: use session-based authentication
+	bytes warning = 2;			// Optional: additional warning message sent to the user (e.g. request to change the password)
 }
 
+// DEPRECATED
 message AuthConfig {
-	uint32 kind = 1;
+	uint32 kind = 1;	
 }
 
+// DEPRECATED
 message MTLSConfig {
 	bool enabled = 1;
 }
 
 message OpenSessionRequest {
-	bytes username = 1;
-	bytes password = 2;
-	string databaseName = 3;
+	bytes username = 1;			// Username
+	bytes password = 2;			// Password
+	string databaseName = 3;	// Database name
 }
 
 message OpenSessionResponse {
-	string sessionID = 1;
-	string serverUUID = 2;
+	string sessionID = 1;		// Id of the new session
+	string serverUUID = 2;		// UUID of the server
 }
 
 ////////////////////////////////////////////////////////
 
 message Precondition {
 
+	// Only succeed if given key exists
 	message KeyMustExistPrecondition {
-		bytes key = 1;
+		bytes key = 1;	// key to check
 	}
 
+	// Only succeed if given key does not exists
 	message KeyMustNotExistPrecondition {
-		bytes key = 1;
+		bytes key = 1; // key to check
 	}
 
+	// Only succeed if given key was not modified after given transaction
 	message KeyNotModifiedAfterTXPrecondition {
-		bytes key = 1;
-		uint64 txID = 2;
+		bytes key = 1;		// key to check
+		uint64 txID = 2;	// transaction id to check against
 	}
 
 	oneof precondition {
@@ -123,47 +128,47 @@ message KeyValue {
 }
 
 message Entry {
-	uint64 tx = 1;
-	bytes key = 2;
-	bytes value = 3;
-	Reference referencedBy = 4;
-	KVMetadata metadata = 5;
-	bool expired = 6;
-	uint64 revision = 7;
+	uint64 tx = 1;				// Transaction id at which the target value was set (i.e. not the reference transaction id)
+	bytes key = 2;				// Key of the target value (i.e. not the reference entry)
+	bytes value = 3;			// Value
+	Reference referencedBy = 4;	// If the request was for a reference, this field will keep information about the reference entry
+	KVMetadata metadata = 5;	// Metadata of the target entry (i.e. not the reference entry)
+	bool expired = 6;			// If set to true, this entry has expired and the value is not retrieved
+	uint64 revision = 7;		// Key's revision, in case of GetAt it will be 0
 }
 
 message Reference {
-	uint64 tx = 1;
-	bytes key = 2;
-	uint64 atTx = 3;
-	KVMetadata metadata = 4;
-	uint64 revision = 5;
+	uint64 tx = 1;				// Transaction if when the reference key was set
+	bytes key = 2;				// Reference key
+	uint64 atTx = 3;			// At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference
+	KVMetadata metadata = 4;	// Metadata of the reference entry 
+	uint64 revision = 5;		// Revision of the reference entry
 }
 
 message Op {
 	oneof operation {
-		KeyValue kv = 1;
-		ZAddRequest zAdd = 2;
-		ReferenceRequest ref = 3;
+		KeyValue kv = 1;			// Modify / add simple KV value
+		ZAddRequest zAdd = 2;		// Modify / add sorted set entry
+		ReferenceRequest ref = 3;	// Modify / add reference
 	}
 }
 
 message ExecAllRequest {
-	repeated Op Operations = 1;
-	bool  noWait = 2;
-	repeated Precondition preconditions = 3;
+	repeated Op Operations = 1;					// List of operations to perform
+	bool  noWait = 2;							// If set to true, do not wait for indexing to process this transaction
+	repeated Precondition preconditions = 3;	// Preconditions to check
 }
 
 message Entries {
-	repeated Entry entries = 1;
+	repeated Entry entries = 1;	// List of entries
 }
 
 message ZEntry {
-	bytes set = 1;
-	bytes key = 2;
-	Entry entry = 3;
-	double score = 4;
-	uint64 atTx = 5;
+	bytes set = 1;		// Name of the sorted set
+	bytes key = 2;		// Referenced key
+	Entry entry = 3;	// Referenced entry
+	double score = 4;	// Sorted set element's score
+	uint64 atTx = 5;	// At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference
 }
 
 message ZEntries {
@@ -171,13 +176,13 @@ message ZEntries {
 }
 
 message ScanRequest {
-	bytes seekKey = 1;
-	bytes endKey = 7;
-	bytes prefix = 2;
-	bool desc = 3;
-	uint64 limit = 4;
-	uint64 sinceTx = 5;
-	bool  noWait = 6;
+	bytes seekKey = 1;			// If not empty, continue scan at (when inclusiveSeek == true) or after (when inclusiveSeek == false) that key
+	bytes endKey = 7;			// stop at (when inclusiveEnd == true) or before (when inclusiveEnd == false) that key
+	bytes prefix = 2;			// search for entries with this prefix only
+	bool desc = 3;				// If set to true, sort items in descending order
+	uint64 limit = 4;			// maximum number of entries to get, if not specified, the default value is used
+	uint64 sinceTx = 5;			// If non-zero, only require transactions up to this transaction to be indexed, newer transaction may still be pending
+	bool  noWait = 6;			// If set to true, do not wait for indexing to be done before finishing this call
 	bool inclusiveSeek = 8;		// If set to true, results will include seekKey
 	bool inclusiveEnd = 9;		// If set to true, results will include endKey if needed
 	uint64 offset = 10;			// Specify the initial entry to be returned by excluding the initial set of entries
@@ -199,126 +204,138 @@ message Signature {
 }
 
 message TxHeader {
-	uint64 id = 1;
-	bytes prevAlh = 2;
-	int64 ts = 3;
-	int32 nentries = 4;
-	bytes eH = 5;
-	uint64 blTxId = 6;
-	bytes blRoot = 7;
-	int32 version = 8;
-	TxMetadata metadata = 9;
+	uint64 id = 1;				// Transaction ID
+	bytes prevAlh = 2;			// State value (Accumulative Hash - Alh) of the previous transaction
+	int64 ts = 3;				// Unix timestamp of the transaction (in seconds)
+	int32 nentries = 4;			// Number of entries in a transaction
+	bytes eH = 5;				// Entries Hash - cumulative hash of all entries in the transaction
+	uint64 blTxId = 6;			// Binary linking tree transaction ID (ID of last transaction already in the main Merkle Tree)
+	bytes blRoot = 7;			// Binary linking tree root (Root hash of the Merkle Tree)
+	int32 version = 8;			// Header version
+	TxMetadata metadata = 9;	// Transaction metadata
 }
 
-message TxMetadata {
-}
+// TxMetadata contains metadata set to whole transaction
+message TxMetadata {}
 
+// LinearProof contains the linear part of the proof (outside the main Merkle Tree)
 message LinearProof {
-	uint64 sourceTxId = 1;
-	uint64 TargetTxId = 2;
-	repeated bytes terms = 3;
+	uint64 sourceTxId = 1;		// Starting transaction of the proof
+	uint64 TargetTxId = 2;		// End transaction of the proof
+	repeated bytes terms = 3;	// List of terms (inner hashes of transaction entries)
 }
 
+// DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs
 message DualProof {
-	TxHeader sourceTxHeader = 1;
-	TxHeader targetTxHeader = 2;
+	TxHeader sourceTxHeader = 1;	// Header of the source (earlier) transaction
+	TxHeader targetTxHeader = 2;	// Header of the target (latter) transaction
 
-	repeated bytes inclusionProof = 3;
-	repeated bytes consistencyProof = 4;
+	repeated bytes inclusionProof = 3;		// Inclusion proof of the source transaction hash in the main Merkle Tree
+	repeated bytes consistencyProof = 4;	// Consistency proof between Merkle Trees in the source and target transactions
 
-	bytes targetBlTxAlh = 5;
-	repeated bytes lastInclusionProof = 6;
+	bytes targetBlTxAlh = 5;				// Accumulative hash (Alh) of the last transaction that's part of the target Merkle Tree
+	repeated bytes lastInclusionProof = 6;	// Inclusion proof of the targetBlTxAlh in the target Merkle Tree
 
-	LinearProof linearProof = 7;
+	LinearProof linearProof = 7;	// Linear proof starting from targetBlTxAlh to the final state value
 }
 
 message Tx {
-	TxHeader header = 1;
-	repeated TxEntry entries = 2;
-	repeated Entry  kvEntries = 3;
-	repeated ZEntry zEntries = 4;
+	TxHeader header = 1;			// Transaction header
+	repeated TxEntry entries = 2;	// Raw entry values
+	repeated Entry  kvEntries = 3;	// KV entries in the transaction (parsed)
+	repeated ZEntry zEntries = 4;	// Sorted Set entries in the transaction (parsed)
 }
 
 message TxEntry {
-	bytes key = 1;
-	bytes hValue = 2;
-	int32 vLen = 3;
-	KVMetadata metadata = 4;
-	bytes value = 5; // value must be ignored when len(value) == 0 and vLen > 0. Otherwise, sha256(value) must be equal to hValue
+	bytes key = 1;				// Raw key value (contains 1-byte prefix for kind of the key)
+	bytes hValue = 2;			// Value hash
+	int32 vLen = 3;				// Value length
+	KVMetadata metadata = 4;	// Entry metadata
+	bytes value = 5; 			// value, must be ignored when len(value) == 0 and vLen > 0. Otherwise, sha256(value) must be equal to hValue
 }
 
 message KVMetadata {
-	bool deleted = 1;
-	Expiration expiration = 2;
-	bool nonIndexable = 3;
+	bool deleted = 1;			// True if this entry denotes a logical deletion
+	Expiration expiration = 2;	// Entry expiration information
+	bool nonIndexable = 3;		// If set to true, this entry will not be indexed and will only be accessed through GetAt calls
 }
 
 message Expiration {
-	int64 expiresAt = 1;
+	int64 expiresAt = 1;		// Entry expiration time (unix timestamp in seconds)
 }
 
 message VerifiableTx {
-	Tx tx = 1;
-	DualProof dualProof = 2;
-	Signature signature = 3;
+	Tx tx = 1;					// Transaction to verify
+	DualProof dualProof = 2;	// Proof for the transaction
+	Signature signature = 3;	// Signature for the new state value
 }
 
 //////////////////
 
 message VerifiableEntry {
-	Entry entry = 1;
-	VerifiableTx verifiableTx = 2;
-	InclusionProof inclusionProof = 3;
+	Entry entry = 1;					// Entry to verify
+	VerifiableTx verifiableTx = 2;		// Transaction to verify
+	InclusionProof inclusionProof = 3;	// Proof for inclusion of the entry within the transaction
 }
 
 message InclusionProof {
-	int32 leaf = 1;
-	int32 width = 2;
-	repeated bytes terms = 3;
+	int32 leaf = 1;				// Index of the leaf for which the proof is generated
+	int32 width = 2;			// Width of the tree at the leaf level
+	repeated bytes terms = 3;	// Proof terms (selected hashes from the tree)
 }
 
 message SetRequest {
-	repeated KeyValue KVs = 1;
-	bool  noWait = 2;
-	repeated Precondition preconditions = 3;
+	repeated KeyValue KVs = 1;					// List of KV entries to set
+	bool  noWait = 2;							// If set to true, do not wait for indexer to index ne entries
+	repeated Precondition preconditions = 3;	// Preconditions to be met to perform the write
 }
 
 message KeyRequest {
-	bytes key = 1;
-	uint64 atTx = 2; // if > 0, query for the value exactly at given transaction
+	bytes key = 1;		// Key to query for
+	uint64 atTx = 2;	// If > 0, query for the value exactly at given transaction
 
-
-	// if 0 (and nowait=false), wait for the index to be up=to-date
+	// If 0 (and noWait=false), wait for the index to be up-to-date,
+	// If > 0 (and noWait=false), wait for at lest the sinceTx transaction to be indexed
 	uint64 sinceTx = 3;
 
-	// if set to true - do not wait for any indexing update considering only the currently indexed state
+	// If set to true - do not wait for any indexing update considering only the currently indexed state
 	bool  noWait = 4;
 
-	// if > 0, get the nth version of the value, 1 being the first version, 2 being the second and so on
-	// if < 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on
+	// If > 0, get the nth version of the value, 1 being the first version, 2 being the second and so on
+	// If < 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on
 	int64 atRevision = 5;
 
 }
 
 message KeyListRequest {
+	// List of keys to query for
 	repeated bytes keys = 1;
+
+	// If 0, wait for index to be up-to-date,
+	// If > 0, wait for at least sinceTx transaction to be indexed
 	uint64 sinceTx = 2;
 }
 
 message DeleteKeysRequest {
+	// List of keys to delete logically
 	repeated bytes keys = 1;
+
+	// If 0, wait for index to be up-to-date,
+	// If > 0, wait for at least sinceTx transaction to be indexed
 	uint64 sinceTx = 2;
+
+	// If set to true, do not wait for the indexer to index this operation
 	bool  noWait = 3;
 }
 
 message VerifiableSetRequest {
-	SetRequest setRequest = 1;
-	uint64 proveSinceTx = 2;
+	SetRequest setRequest = 1;	// Keys to set
+	uint64 proveSinceTx = 2;	// When generating the proof, generate consistency proof with state from this transaction
 }
 
 message VerifiableGetRequest {
-	KeyRequest keyRequest = 1;
-	uint64 proveSinceTx = 2;
+	KeyRequest keyRequest = 1;	// Key to read
+	uint64 proveSinceTx = 2;	// When generating the proof, generate consistency proof with state from this transaction
 }
 
 // ServerInfoRequest exists to provide extensibility for rpc ServerInfo.
@@ -331,170 +348,170 @@ message ServerInfoResponse {
 }
 
 message HealthResponse {
-	bool status = 1;
-	string version = 2;
+	bool status = 1;	// If true, server considers itself to be healthy
+	string version = 2;	// The version of the server instance
 }
 
 message DatabaseHealthResponse {
-	uint32 pendingRequests = 1;
-	int64 lastRequestCompletedAt = 2;
+	uint32 pendingRequests = 1;			// Number of requests currently being executed
+	int64 lastRequestCompletedAt = 2;	// Timestamp at which the last request was completed
 }
 
 message ImmutableState {
-	string db = 1;
-	uint64 txId = 2;
-	bytes txHash = 3;
-	Signature signature = 4;
+	string db = 1;				// The db name
+	uint64 txId = 2;			// Id of the most recent transaction 
+	bytes txHash = 3;			// State of the most recent transaction
+	Signature signature = 4;	// Signature of the hash
 }
 
 message ReferenceRequest {
-	bytes key = 1;
-	bytes referencedKey = 2;
-	uint64 atTx = 3;
-	bool boundRef = 4;
-	bool  noWait = 5;
-	repeated Precondition preconditions = 6;
+	bytes key = 1;								// Key for the reference
+	bytes referencedKey = 2;					// Key to be referenced
+	uint64 atTx = 3;							// If boundRef == true, id of transaction to bind with the reference
+	bool boundRef = 4;							// If true, bind the reference to particular transaction, if false, use the most recent value of the key
+	bool noWait = 5;							// If true, do not wait for the indexer to index this write operation
+	repeated Precondition preconditions = 6;	// Preconditions to be met to perform the write
 }
 
 message VerifiableReferenceRequest {
-	ReferenceRequest referenceRequest = 1;
-	uint64 proveSinceTx = 2;
+	ReferenceRequest referenceRequest = 1;	// Reference data
+	uint64 proveSinceTx = 2;				// When generating the proof, generate consistency proof with state from this transaction
 }
 
 message ZAddRequest {
-	bytes set = 1;
-	double score = 2;
-	bytes key = 3;
-	uint64 atTx = 4;
-	bool boundRef = 5;
-	bool  noWait = 6;
+	bytes set = 1;		// Name of the sorted set
+	double score = 2;	// Score of the new entry
+	bytes key = 3;		// Referenced key
+	uint64 atTx = 4;	// If boundRef == true, id of the transaction to bind with the reference
+	bool boundRef = 5;	// If true, bind the reference to particular transaction, if false, use the most recent value of the key
+	bool  noWait = 6;	// If true, do not wait for the indexer to index this write operation
 }
 
 message Score {
-	double score = 1;
+	double score = 1;	// Entry's score value
 }
 
 message ZScanRequest {
-	bytes set = 1;
-	bytes seekKey = 2;
-	double seekScore = 3;
-	uint64 seekAtTx = 4;
-	bool inclusiveSeek = 5;
-	uint64 limit = 6;
-	bool desc = 7;
-	Score minScore = 8;
-	Score maxScore = 9;
-	uint64 sinceTx = 10;
-	bool  noWait = 11;
-	uint64 offset = 12; // Specify the initial entry to be returned by excluding the initial set of entries
+	bytes set = 1;			// Name of the sorted set
+	bytes seekKey = 2;		// Key to continue the search at
+	double seekScore = 3;	// Score of the entry to continue the search at
+	uint64 seekAtTx = 4;	// AtTx of the entry to continue the search at
+	bool inclusiveSeek = 5;	// If true, include the entry given with the `seekXXX` attributes, if false, skip the entry and start after that one
+	uint64 limit = 6;		// Maximum number of entries to return, if 0, the default limit will be used
+	bool desc = 7;			// If true, scan entries in descending order
+	Score minScore = 8;		// Minimum score of entries to scan
+	Score maxScore = 9;		// Maximum score of entries to scan
+	uint64 sinceTx = 10;	// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
+	bool  noWait = 11;		// If set to true, do not wait for the indexer to be up to date
+	uint64 offset = 12;		// Specify the index of initial entry to be returned by excluding the initial set of entries (alternative to seekXXX attributes)
 }
 
 message HistoryRequest {
-	bytes key = 1;
-	uint64 offset = 2; // Specify the initial entry to be returned by excluding the initial set of entries
-	int32 limit = 3;
-	bool desc = 4;
-	uint64 sinceTx = 5;
+	bytes key = 1;		// Name of the key to query for the history
+	uint64 offset = 2;	// Specify the initial entry to be returned by excluding the initial set of entries
+	int32 limit = 3;	// Maximum number of entries to return
+	bool desc = 4;		// If true, search in descending order
+	uint64 sinceTx = 5;	// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
 }
 
 message VerifiableZAddRequest {
-	ZAddRequest zAddRequest = 1;
-	uint64 proveSinceTx = 2;
+	ZAddRequest zAddRequest = 1;	// Data for new sorted set entry
+	uint64 proveSinceTx = 2;		// When generating the proof, generate consistency proof with state from this transaction
 }
 
 message TxRequest {
-	uint64      tx                = 1;
-	EntriesSpec entriesSpec       = 2;
-	uint64      sinceTx           = 3;
-	bool        noWait            = 4;
-	bool        keepReferencesUnresolved = 5;
+	uint64      tx                = 1;			// Transaction id to query for
+	EntriesSpec entriesSpec       = 2;			// Specification for parsing entries, if empty, entries are returned in raw form
+	uint64      sinceTx           = 3;			// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	bool        noWait            = 4;			// If set to true, do not wait for the indexer to be up to date
+	bool        keepReferencesUnresolved = 5;	// If set to true, do not resolve references (avoid looking up final values if not needed)
 }
 
 message EntriesSpec {
-	EntryTypeSpec kvEntriesSpec  = 1;
-	EntryTypeSpec zEntriesSpec   = 2;
-	EntryTypeSpec sqlEntriesSpec = 3;
+	EntryTypeSpec kvEntriesSpec  = 1;		// Specification for parsing KV entries
+	EntryTypeSpec zEntriesSpec   = 2;		// Specification for parsing sorted set entries
+	EntryTypeSpec sqlEntriesSpec = 3;		// Specification for parsing SQL entries
 }
 
 message EntryTypeSpec {
-	EntryTypeAction action = 1;
+	EntryTypeAction action = 1;		// Action to perform on entries
 }
 
 enum EntryTypeAction {
-	EXCLUDE     = 0;
-	ONLY_DIGEST = 1;
-	RAW_VALUE   = 2;
-	RESOLVE     = 3;
+	EXCLUDE     = 0;		// Exclude entries from the result
+	ONLY_DIGEST = 1;		// Provide keys in raw (unparsed) form and only the digest of the value
+	RAW_VALUE   = 2;		// Provide keys and values in raw form
+	RESOLVE     = 3;		// Provide parsed keys and values and resolve values if needed
 }
 
 message VerifiableTxRequest {
-	uint64 tx = 1;
-	uint64 proveSinceTx = 2;
-	EntriesSpec entriesSpec = 3;
-	uint64 sinceTx  = 4;
-	bool   noWait   = 5;
-	bool   keepReferencesUnresolved = 6;
+	uint64 		tx = 1;							// Transaction ID
+	uint64 		proveSinceTx = 2;				// When generating the proof, generate consistency proof with state from this transaction
+	EntriesSpec entriesSpec = 3;				// Specification of how to parse entries
+	uint64 		sinceTx  = 4;					// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	bool   		noWait   = 5;					// If set to true, do not wait for the indexer to be up to date
+	bool   		keepReferencesUnresolved = 6;	// If set to true, do not resolve references (avoid looking up final values if not needed)
 }
 
 message TxScanRequest {
-	uint64 initialTx = 1;
-	uint32 limit = 2;
-    bool   desc = 3;
-	EntriesSpec entriesSpec = 4;
-	uint64 sinceTx  = 5;
-	bool   noWait   = 6;
+	uint64 initialTx = 1;			// ID of the transaction where scanning should start
+	uint32 limit = 2;				// Maximum number of transactions to scan, when not specified the default limit is used
+    bool   desc = 3;				// If set to true, scan transactions in descending order
+	EntriesSpec entriesSpec = 4;	// Specification of how to parse entries
+	uint64 sinceTx  = 5;			// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	bool   noWait   = 6;			// If set to true, do not wait for the indexer to be up to date
 }
 
 message TxList {
-	repeated Tx txs = 1;
+	repeated Tx txs = 1;		// List of transactions
 }
 
 message ExportTxRequest {
-	uint64 tx = 1;
+	uint64 tx = 1;			// Id of transaction to export
 }
 
 message Database {
-	string databaseName = 1;
+	string databaseName = 1;	// Name of the database
 }
 
 message DatabaseSettings {
-	string databaseName = 1;
+	string databaseName = 1;		// Name of the database
 
-	bool   replica = 2;
-	string masterDatabase = 3;
-	string masterAddress = 4;
-	uint32 masterPort = 5;
-	string followerUsername = 6;
-	string followerPassword = 7;
+	bool   replica = 2;				// If set to true, this database is replicating another database
+	string masterDatabase = 3;		// Name of the database to replicate
+	string masterAddress = 4;		// Hostname of the immudb instance with database to replicate
+	uint32 masterPort = 5;			// Port of the immudb instance with database to replicate
+	string followerUsername = 6;	// Username of the user with read access of the database to replicate
+	string followerPassword = 7;	// Password of the user with read access of the database to replicate
 
-	uint32 fileSize = 8;
-	uint32 maxKeyLen = 9;
-	uint32 maxValueLen = 10;
-	uint32 maxTxEntries = 11;
+	uint32 fileSize = 8;			// Size of files stored on disk
+	uint32 maxKeyLen = 9;			// Maximum length of keys
+	uint32 maxValueLen = 10;		// Maximum length of values
+	uint32 maxTxEntries = 11;		// Maximum number of entries in a single transaction
 
-	bool   excludeCommitTime = 12;
+	bool   excludeCommitTime = 12;	// If set to true, do not include commit timestamp in transaction headers
 }
 
 message CreateDatabaseRequest {
-	string name = 1;
-	DatabaseNullableSettings settings = 2;
-	bool ifNotExists = 3;
+	string name = 1;						// Database name
+	DatabaseNullableSettings settings = 2;	// Database settings
+	bool ifNotExists = 3;					// If set to true, do not fail if the database already exists
 }
 
 message CreateDatabaseResponse {
-	string name = 1;
-	DatabaseNullableSettings settings = 2;
-	bool alreadyExisted = 3;
+	string name = 1;						// Database name
+	DatabaseNullableSettings settings = 2;	// Current database settings
+	bool alreadyExisted = 3;				// Set to true if given database already existed
 }
 
 message UpdateDatabaseRequest {
-	string database = 1;
-	DatabaseNullableSettings settings = 2;
+	string database = 1;					// Database name
+	DatabaseNullableSettings settings = 2;	// Updated settings
 }
 
 message UpdateDatabaseResponse {	// Reserved to reply with more advanced response later
-	string database = 1;
-	DatabaseNullableSettings settings = 2;
+	string database = 1;					// Database name
+	DatabaseNullableSettings settings = 2;	// Current database settings
 }
 
 message DatabaseSettingsRequest {
@@ -502,8 +519,8 @@ message DatabaseSettingsRequest {
 }
 
 message DatabaseSettingsResponse {
-	string database = 1;
-	DatabaseNullableSettings settings = 2;
+	string database = 1;					// Database name
+	DatabaseNullableSettings settings = 2;	// Database settings
 }
 
 message NullableUint32 {
@@ -531,176 +548,176 @@ message NullableMilliseconds {
 }
 
 message DatabaseNullableSettings {
-	ReplicationNullableSettings replicationSettings = 2;
+	ReplicationNullableSettings replicationSettings = 2;	// Replication settings
 
-	NullableUint32 fileSize = 8;
-	NullableUint32 maxKeyLen = 9;
-	NullableUint32 maxValueLen = 10;
-	NullableUint32 maxTxEntries = 11;
+	NullableUint32 fileSize = 8;							// Max filesize on disk
+	NullableUint32 maxKeyLen = 9;							// Maximum length of keys
+	NullableUint32 maxValueLen = 10;						// Maximum length of values
+	NullableUint32 maxTxEntries = 11;						// Maximum number of entries in a single transaction
 
-	NullableBool excludeCommitTime = 12;
+	NullableBool excludeCommitTime = 12;					// If set to true, do not include commit timestamp in transaction headers
 
-	NullableUint32 maxConcurrency = 13;
-	NullableUint32 maxIOConcurrency = 14;
+	NullableUint32 maxIOConcurrency = 14;					// Maximum number of simultaneous IO writes
+	NullableUint32 maxConcurrency = 13;						// Maximum number of simultaneous commits prepared for write
 
-	NullableUint32 txLogCacheSize = 15;
-	NullableUint32 vLogMaxOpenedFiles = 16;
-	NullableUint32 txLogMaxOpenedFiles = 17;
-	NullableUint32 commitLogMaxOpenedFiles = 18;
+	NullableUint32 txLogCacheSize = 15;						// Size of the LRU cache for transaction logs
+	NullableUint32 vLogMaxOpenedFiles = 16;					// Maximum number of simultaneous value files opened
+	NullableUint32 txLogMaxOpenedFiles = 17;				// Maximum number of simultaneous transaction log files opened
+	NullableUint32 commitLogMaxOpenedFiles = 18;			// Maximum number of simultaneous commit log files opened
 
-	IndexNullableSettings indexSettings = 19;
+	IndexNullableSettings indexSettings = 19;				// Index settings
 
-	NullableUint32 writeTxHeaderVersion = 20;
+	NullableUint32 writeTxHeaderVersion = 20;				// Version of transaction header to use (limits available features)
 
-	NullableBool autoload = 21;
+	NullableBool autoload = 21;								// If set to true, automatically load the database when starting immudb (true by default)
 
-	NullableUint32 readTxPoolSize = 22;
+	NullableUint32 readTxPoolSize = 22;						// Size of the pool of read buffers
 	
-	NullableMilliseconds syncFrequency = 23;
+	NullableMilliseconds syncFrequency = 23;				// Fsync frequency during commit process
 	
-	NullableUint32 writeBufferSize = 24;
+	NullableUint32 writeBufferSize = 24;					// Size of the in-memory buffer for write operations
 
-	AHTNullableSettings ahtSettings = 25;
+	AHTNullableSettings ahtSettings = 25;					// Settings of Appendable Hash Tree
 }
 
 message ReplicationNullableSettings {
-	NullableBool   replica = 1;
-	NullableString masterDatabase = 2;
-	NullableString masterAddress = 3;
-	NullableUint32 masterPort = 4;
-	NullableString followerUsername = 5;
-	NullableString followerPassword = 6;
+	NullableBool   replica = 1;				// If set to true, this database is replicating another database	
+	NullableString masterDatabase = 2;		// Name of the database to replicate
+	NullableString masterAddress = 3;		// Hostname of the immudb instance with database to replicate
+	NullableUint32 masterPort = 4;			// Port of the immudb instance with database to replicate
+	NullableString followerUsername = 5;	// Username of the user with read access of the database to replicate
+	NullableString followerPassword = 6;	// Password of the user with read access of the database to replicate
 }
 
 message IndexNullableSettings {
-	NullableUint32  flushThreshold = 1;
-	NullableUint32  syncThreshold = 2;
-	NullableUint32  cacheSize = 3;
-	NullableUint32  maxNodeSize = 4;
-	NullableUint32  maxActiveSnapshots = 5;
-	NullableUint64  renewSnapRootAfter = 6;
-	NullableUint32  compactionThld = 7;
-	NullableUint32  delayDuringCompaction = 8;
-	NullableUint32  nodesLogMaxOpenedFiles = 9;
-	NullableUint32  historyLogMaxOpenedFiles = 10;
-	NullableUint32  commitLogMaxOpenedFiles = 11;
-	NullableUint32  flushBufferSize = 12;
-	NullableFloat   cleanupPercentage = 13;
+	NullableUint32  flushThreshold = 1;				// Number of new index entries between disk flushes
+	NullableUint32  syncThreshold = 2;				// Number of new index entries between disk flushes with file sync
+	NullableUint32  cacheSize = 3;					// Size of the Btree node LRU cache
+	NullableUint32  maxNodeSize = 4;				// Max size of a single Btree node in bytes
+	NullableUint32  maxActiveSnapshots = 5;			// Maximum number of active btree snapshots
+	NullableUint64  renewSnapRootAfter = 6;			// Time in milliseconds between the most recent DB snapshot is automatically renewed
+	NullableUint32  compactionThld = 7;				// Minimum number of updates entries in the btree to allow for full compaction
+	NullableUint32  delayDuringCompaction = 8;		// Additional delay added during indexing when full compaction is in progress
+	NullableUint32  nodesLogMaxOpenedFiles = 9;		// Maximum number of simultaneously opened nodes files
+	NullableUint32  historyLogMaxOpenedFiles = 10;	// Maximum number of simultaneously opened node history files
+	NullableUint32  commitLogMaxOpenedFiles = 11;	// Maximum number of simultaneously opened commit log files
+	NullableUint32  flushBufferSize = 12;			// Size of the in-memory flush buffer (in bytes)
+	NullableFloat   cleanupPercentage = 13;			// Percentage of node files cleaned up during each flush
 }
 
 message AHTNullableSettings {
-	NullableUint32 syncThreshold = 1;
-	NullableUint32 writeBufferSize = 2;
+	NullableUint32 syncThreshold = 1;		// Number of new leaves in the tree between synchronous flush to disk
+	NullableUint32 writeBufferSize = 2;		// Size of the in-memory write buffer
 }
 
 message LoadDatabaseRequest {
-	string database = 1;
+	string database = 1;		// Database name
 	// may add createIfNotExist
 }
 
 message LoadDatabaseResponse {
-	string database = 1;
-	// may add setttings
+	string database = 1;	// Database name
+	// may add settings
 }
 
 message UnloadDatabaseRequest {
-	string database = 1;
+	string database = 1;	// Database name
 }
 
 message UnloadDatabaseResponse {
-	string database = 1;
+	string database = 1;	// Database name
 }
 
 message DeleteDatabaseRequest {
-	string database = 1;
+	string database = 1;	// Database name
 }
 
 message DeleteDatabaseResponse {
-	string database = 1;
+	string database = 1;	// Database name
 }
 
 message FlushIndexRequest {
-	float  cleanupPercentage = 1;
-	bool   synced = 2;
+	float  cleanupPercentage = 1;	// Percentage of nodes file to cleanup during flush
+	bool   synced = 2;				// If true, do a full disk sync after the flush
 }
 
 message FlushIndexResponse {
-	string database = 1;
+	string database = 1;	// Database name
 }
 
 message Table {
-	string tableName = 1;
+	string tableName = 1;	// Table name
 }
 
 message SQLGetRequest {
-	string table = 1;
-	repeated SQLValue pkValues = 2;
-    uint64 atTx = 3;
-	uint64 sinceTx = 4;
+	string table = 1;					// Table name
+	repeated SQLValue pkValues = 2;		// Values of the primary key
+    uint64 atTx = 3;					// Id of the transaction at which the row was added / modified
+	uint64 sinceTx = 4;					// If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
 }
 
 message VerifiableSQLGetRequest {
-	SQLGetRequest sqlGetRequest = 1;
-	uint64        proveSinceTx = 2;
+	SQLGetRequest sqlGetRequest = 1;	// Data of row to query
+	uint64        proveSinceTx = 2;		// When generating the proof, generate consistency proof with state from this transaction
 }
 
 message SQLEntry {
-	uint64 tx = 1;
-	bytes  key = 2;
-	bytes  value = 3;
-	KVMetadata metadata = 4;
+	uint64 tx = 1;				// Id of the transaction when the row was added / modified
+	bytes  key = 2;				// Raw key of the row
+	bytes  value = 3;			// Raw value of the row
+	KVMetadata metadata = 4;	// Metadata of the raw value
 }
 
 message VerifiableSQLEntry {
 	reserved 6;
-	SQLEntry sqlEntry = 1;
-	VerifiableTx verifiableTx = 2;
-	InclusionProof inclusionProof = 3;
-	uint32 DatabaseId = 4;
-	uint32 TableId = 5;
-	repeated uint32 PKIDs = 16;
-	map<uint32, string> ColNamesById = 8;
-	map<string, uint32> ColIdsByName = 9;
-	map<uint32, string> ColTypesById = 10;
-	map<uint32, int32> ColLenById = 11;
+	SQLEntry sqlEntry = 1;					// Raw row entry data
+	VerifiableTx verifiableTx = 2;			// Verifiable transaction of the row
+	InclusionProof inclusionProof = 3;		// Inclusion proof of the row in the transaction
+	uint32 DatabaseId = 4;					// Internal ID of the database (used to validate raw entry values)
+	uint32 TableId = 5;						// Internal ID of the table (used to validate raw entry values)
+	repeated uint32 PKIDs = 16;				// Internal IDs of columns for the primary key (used to validate raw entry values)
+	map<uint32, string> ColNamesById = 8;	// Mapping of used column IDs to their names
+	map<string, uint32> ColIdsByName = 9;	// Mapping of column names to their IDS
+	map<uint32, string> ColTypesById = 10;	// Mapping of column IDs to their types
+	map<uint32, int32> ColLenById = 11;		// Mapping of column IDs to their length constraints
 }
 
 message UseDatabaseReply{
-	string token = 1;
+	string token = 1;		// Deprecated: database access token
 }
 
 enum PermissionAction {
-	GRANT = 0;
-	REVOKE = 1;
+	GRANT = 0;				// Grant permission
+	REVOKE = 1;				// Revoke permission
 }
 
 message ChangePermissionRequest {
-	PermissionAction action = 1;
-	string username = 2;
-	string database = 3;
-	uint32 permission = 4;
+	PermissionAction action = 1;	// Action to perform
+	string username = 2;			// Name of the user to update
+	string database = 3;			// Name of the database
+	uint32 permission = 4;			// Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin
 }
 
 message SetActiveUserRequest {
-	bool active = 1;
-	string username = 2;
+	bool active = 1;			// If true, the user is active
+	string username = 2;		// Name of the user to activate / deactivate
 }
 
 message DatabaseListResponse {
-	repeated Database databases = 1;
+	repeated Database databases = 1;	// Database list
 }
 
 message DatabaseListRequestV2 {
 }
 
 message DatabaseListResponseV2 {
-	repeated DatabaseWithSettings databases = 1;
+	repeated DatabaseWithSettings databases = 1;	// Database list with current database settings
 }
 
 message DatabaseWithSettings {
-	string name = 1;
-	DatabaseNullableSettings settings = 2;
-	bool loaded = 3;
+	string name = 1;						// Database name
+	DatabaseNullableSettings settings = 2;	// Current database settings
+	bool loaded = 3;						// If true, this database is currently loaded into memory
 }
 
 message Chunk {
@@ -713,47 +730,47 @@ message UseSnapshotRequest {
 }
 
 message SQLExecRequest {
-	string sql = 1;
-	repeated NamedParam params = 2;
-	bool  noWait = 3;
+	string sql = 1;						// SQL query
+	repeated NamedParam params = 2;		// Named query parameters
+	bool  noWait = 3;					// If true, do not wait for the indexer to index written changes
 }
 
 message SQLQueryRequest {
-	string sql = 1;
-	repeated NamedParam params = 2;
-	bool reuseSnapshot = 3;
+	string sql = 1;						// SQL query
+	repeated NamedParam params = 2;		// Named query parameters
+	bool reuseSnapshot = 3;				// If true, reuse previously opened snapshot
 }
 
 message NamedParam {
-	string name = 1;
-	SQLValue value = 2;
+	string name = 1;		// Parameter name
+	SQLValue value = 2;		// Parameter value
 }
 
 message SQLExecResult {
-	repeated CommittedSQLTx txs = 5;
-	bool ongoingTx = 6;
+	repeated CommittedSQLTx txs = 5;	// List of committed transactions as a result of the exec operation
+	bool ongoingTx = 6;					// If true, there's an ongoing transaction after exec completes
 }
 
 message CommittedSQLTx {
-	TxHeader header = 1;
-	uint32 updatedRows = 2;
-	map<string, SQLValue> lastInsertedPKs = 3;
-	map<string, SQLValue> firstInsertedPKs = 4;
+	TxHeader header = 1;						// Transaction header
+	uint32 updatedRows = 2;						// Number of updated rows
+	map<string, SQLValue> lastInsertedPKs = 3;	// The value of last inserted auto_increment primary key (mapped by table name)
+	map<string, SQLValue> firstInsertedPKs = 4; // The value of first inserted auto_increment primary key (mapped by table name)
 }
 
 message SQLQueryResult {
-	repeated Column columns = 2;
-	repeated Row rows = 1;
+	repeated Column columns = 2;	// Result columns description
+	repeated Row rows = 1;			// Result rows
 }
 
 message Column {
-	string name = 1;
-	string type = 2;
+	string name = 1;	// Column name
+	string type = 2;	// Column type
 }
 
 message Row {
-	repeated string columns = 1;
-	repeated SQLValue values = 2;
+	repeated string columns = 1;	// Column names
+	repeated SQLValue values = 2;	// Column values
 }
 
 message SQLValue {
@@ -768,17 +785,17 @@ message SQLValue {
 }
 
 enum TxMode {
-	ReadOnly = 0;
-	WriteOnly = 1;
-	ReadWrite = 2;
+	ReadOnly = 0;	// Read-only transaction
+	WriteOnly = 1;	// Write-only transaction
+	ReadWrite = 2;	// Read-write transaction
 }
 
 message NewTxRequest {
-	TxMode mode = 1;
+	TxMode mode = 1;	// Transaction mode
 }
 
 message NewTxResponse {
-	string transactionID = 1;
+	string transactionID = 1;	// Internal transaction ID
 }
 
 
@@ -806,16 +823,16 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 message ErrorInfo {
-	string code = 1;
-	string cause = 2;
+	string code = 1;	// Error code
+	string cause = 2;	// Error Description
 }
 
 message DebugInfo {
-	string stack = 1;
+	string stack = 1;	// Stack trace when the error was noticed
 }
 
 message RetryInfo {
-	int32 retry_delay = 1;
+	int32 retry_delay = 1;	// Number of milliseconds after which the request can be retried
 }
 
 // immudb gRPC & REST service

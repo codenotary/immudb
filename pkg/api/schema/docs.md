@@ -155,8 +155,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
+| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new leaves in the tree between synchronous flush to disk |
+| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the in-memory write buffer |
 
 
 
@@ -166,7 +166,7 @@
 <a name="immudb.schema.AuthConfig"></a>
 
 ### AuthConfig
-
+DEPRECATED
 
 
 | Field | Type | Label | Description |
@@ -186,9 +186,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
-| oldPassword | [bytes](#bytes) |  |  |
-| newPassword | [bytes](#bytes) |  |  |
+| user | [bytes](#bytes) |  | Username |
+| oldPassword | [bytes](#bytes) |  | Old password |
+| newPassword | [bytes](#bytes) |  | New password |
 
 
 
@@ -203,10 +203,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| action | [PermissionAction](#immudb.schema.PermissionAction) |  |  |
-| username | [string](#string) |  |  |
-| database | [string](#string) |  |  |
-| permission | [uint32](#uint32) |  |  |
+| action | [PermissionAction](#immudb.schema.PermissionAction) |  | Action to perform |
+| username | [string](#string) |  | Name of the user to update |
+| database | [string](#string) |  | Name of the database |
+| permission | [uint32](#uint32) |  | Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin |
 
 
 
@@ -236,8 +236,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
-| type | [string](#string) |  |  |
+| name | [string](#string) |  | Column name |
+| type | [string](#string) |  | Column type |
 
 
 
@@ -252,10 +252,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| header | [TxHeader](#immudb.schema.TxHeader) |  |  |
-| updatedRows | [uint32](#uint32) |  |  |
-| lastInsertedPKs | [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry) | repeated |  |
-| firstInsertedPKs | [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry) | repeated |  |
+| header | [TxHeader](#immudb.schema.TxHeader) |  | Transaction header |
+| updatedRows | [uint32](#uint32) |  | Number of updated rows |
+| lastInsertedPKs | [CommittedSQLTx.LastInsertedPKsEntry](#immudb.schema.CommittedSQLTx.LastInsertedPKsEntry) | repeated | The value of last inserted auto_increment primary key (mapped by table name) |
+| firstInsertedPKs | [CommittedSQLTx.FirstInsertedPKsEntry](#immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry) | repeated | The value of first inserted auto_increment primary key (mapped by table name) |
 
 
 
@@ -302,9 +302,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
-| ifNotExists | [bool](#bool) |  |  |
+| name | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Database settings |
+| ifNotExists | [bool](#bool) |  | If set to true, do not fail if the database already exists |
 
 
 
@@ -319,9 +319,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
-| alreadyExisted | [bool](#bool) |  |  |
+| name | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Current database settings |
+| alreadyExisted | [bool](#bool) |  | Set to true if given database already existed |
 
 
 
@@ -336,10 +336,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
-| password | [bytes](#bytes) |  |  |
-| permission | [uint32](#uint32) |  |  |
-| database | [string](#string) |  |  |
+| user | [bytes](#bytes) |  | Username |
+| password | [bytes](#bytes) |  | Login password |
+| permission | [uint32](#uint32) |  | Permission, 1 - read permission, 2 - read&#43;write permission, 254 - admin |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -354,7 +354,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databaseName | [string](#string) |  |  |
+| databaseName | [string](#string) |  | Name of the database |
 
 
 
@@ -369,8 +369,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| pendingRequests | [uint32](#uint32) |  |  |
-| lastRequestCompletedAt | [int64](#int64) |  |  |
+| pendingRequests | [uint32](#uint32) |  | Number of requests currently being executed |
+| lastRequestCompletedAt | [int64](#int64) |  | Timestamp at which the last request was completed |
 
 
 
@@ -395,7 +395,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databases | [Database](#immudb.schema.Database) | repeated |  |
+| databases | [Database](#immudb.schema.Database) | repeated | Database list |
 
 
 
@@ -410,7 +410,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databases | [DatabaseWithSettings](#immudb.schema.DatabaseWithSettings) | repeated |  |
+| databases | [DatabaseWithSettings](#immudb.schema.DatabaseWithSettings) | repeated | Database list with current database settings |
 
 
 
@@ -425,25 +425,25 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| replicationSettings | [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings) |  |  |
-| fileSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxKeyLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  |  |
-| maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| indexSettings | [IndexNullableSettings](#immudb.schema.IndexNullableSettings) |  |  |
-| writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| autoload | [NullableBool](#immudb.schema.NullableBool) |  |  |
-| readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| syncFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  |  |
-| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  |  |
+| replicationSettings | [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings) |  | Replication settings |
+| fileSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Max filesize on disk |
+| maxKeyLen | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum length of keys |
+| maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum length of values |
+| maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of entries in a single transaction |
+| excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, do not include commit timestamp in transaction headers |
+| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous IO writes |
+| maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commits prepared for write |
+| txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for transaction logs |
+| vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous value files opened |
+| txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous transaction log files opened |
+| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commit log files opened |
+| indexSettings | [IndexNullableSettings](#immudb.schema.IndexNullableSettings) |  | Index settings |
+| writeTxHeaderVersion | [NullableUint32](#immudb.schema.NullableUint32) |  | Version of transaction header to use (limits available features) |
+| autoload | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, automatically load the database when starting immudb (true by default) |
+| readTxPoolSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the pool of read buffers |
+| syncFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Fsync frequency during commit process |
+| writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the in-memory buffer for write operations |
+| ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 
 
 
@@ -458,18 +458,18 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databaseName | [string](#string) |  |  |
-| replica | [bool](#bool) |  |  |
-| masterDatabase | [string](#string) |  |  |
-| masterAddress | [string](#string) |  |  |
-| masterPort | [uint32](#uint32) |  |  |
-| followerUsername | [string](#string) |  |  |
-| followerPassword | [string](#string) |  |  |
-| fileSize | [uint32](#uint32) |  |  |
-| maxKeyLen | [uint32](#uint32) |  |  |
-| maxValueLen | [uint32](#uint32) |  |  |
-| maxTxEntries | [uint32](#uint32) |  |  |
-| excludeCommitTime | [bool](#bool) |  |  |
+| databaseName | [string](#string) |  | Name of the database |
+| replica | [bool](#bool) |  | If set to true, this database is replicating another database |
+| masterDatabase | [string](#string) |  | Name of the database to replicate |
+| masterAddress | [string](#string) |  | Hostname of the immudb instance with database to replicate |
+| masterPort | [uint32](#uint32) |  | Port of the immudb instance with database to replicate |
+| followerUsername | [string](#string) |  | Username of the user with read access of the database to replicate |
+| followerPassword | [string](#string) |  | Password of the user with read access of the database to replicate |
+| fileSize | [uint32](#uint32) |  | Size of files stored on disk |
+| maxKeyLen | [uint32](#uint32) |  | Maximum length of keys |
+| maxValueLen | [uint32](#uint32) |  | Maximum length of values |
+| maxTxEntries | [uint32](#uint32) |  | Maximum number of entries in a single transaction |
+| excludeCommitTime | [bool](#bool) |  | If set to true, do not include commit timestamp in transaction headers |
 
 
 
@@ -494,8 +494,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+| database | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Database settings |
 
 
 
@@ -510,9 +510,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
-| loaded | [bool](#bool) |  |  |
+| name | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Current database settings |
+| loaded | [bool](#bool) |  | If true, this database is currently loaded into memory |
 
 
 
@@ -527,7 +527,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| stack | [string](#string) |  |  |
+| stack | [string](#string) |  | Stack trace when the error was noticed |
 
 
 
@@ -542,7 +542,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -557,7 +557,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -572,9 +572,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| keys | [bytes](#bytes) | repeated |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
+| keys | [bytes](#bytes) | repeated | List of keys to delete logically |
+| sinceTx | [uint64](#uint64) |  | If 0, wait for index to be up-to-date, If &gt; 0, wait for at least sinceTx transaction to be indexed |
+| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to index this operation |
 
 
 
@@ -584,18 +584,18 @@
 <a name="immudb.schema.DualProof"></a>
 
 ### DualProof
-
+DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; Linear proofs
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sourceTxHeader | [TxHeader](#immudb.schema.TxHeader) |  |  |
-| targetTxHeader | [TxHeader](#immudb.schema.TxHeader) |  |  |
-| inclusionProof | [bytes](#bytes) | repeated |  |
-| consistencyProof | [bytes](#bytes) | repeated |  |
-| targetBlTxAlh | [bytes](#bytes) |  |  |
-| lastInclusionProof | [bytes](#bytes) | repeated |  |
-| linearProof | [LinearProof](#immudb.schema.LinearProof) |  |  |
+| sourceTxHeader | [TxHeader](#immudb.schema.TxHeader) |  | Header of the source (earlier) transaction |
+| targetTxHeader | [TxHeader](#immudb.schema.TxHeader) |  | Header of the target (latter) transaction |
+| inclusionProof | [bytes](#bytes) | repeated | Inclusion proof of the source transaction hash in the main Merkle Tree |
+| consistencyProof | [bytes](#bytes) | repeated | Consistency proof between Merkle Trees in the source and target transactions |
+| targetBlTxAlh | [bytes](#bytes) |  | Accumulative hash (Alh) of the last transaction that&#39;s part of the target Merkle Tree |
+| lastInclusionProof | [bytes](#bytes) | repeated | Inclusion proof of the targetBlTxAlh in the target Merkle Tree |
+| linearProof | [LinearProof](#immudb.schema.LinearProof) |  | Linear proof starting from targetBlTxAlh to the final state value |
 
 
 
@@ -610,7 +610,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| entries | [Entry](#immudb.schema.Entry) | repeated |  |
+| entries | [Entry](#immudb.schema.Entry) | repeated | List of entries |
 
 
 
@@ -625,9 +625,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| kvEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
-| zEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
-| sqlEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  |  |
+| kvEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  | Specification for parsing KV entries |
+| zEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  | Specification for parsing sorted set entries |
+| sqlEntriesSpec | [EntryTypeSpec](#immudb.schema.EntryTypeSpec) |  | Specification for parsing SQL entries |
 
 
 
@@ -642,13 +642,13 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
-| key | [bytes](#bytes) |  |  |
-| value | [bytes](#bytes) |  |  |
-| referencedBy | [Reference](#immudb.schema.Reference) |  |  |
-| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
-| expired | [bool](#bool) |  |  |
-| revision | [uint64](#uint64) |  |  |
+| tx | [uint64](#uint64) |  | Transaction id at which the target value was set (i.e. not the reference transaction id) |
+| key | [bytes](#bytes) |  | Key of the target value (i.e. not the reference entry) |
+| value | [bytes](#bytes) |  | Value |
+| referencedBy | [Reference](#immudb.schema.Reference) |  | If the request was for a reference, this field will keep information about the reference entry |
+| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  | Metadata of the target entry (i.e. not the reference entry) |
+| expired | [bool](#bool) |  | If set to true, this entry has expired and the value is not retrieved |
+| revision | [uint64](#uint64) |  | Key&#39;s revision, in case of GetAt it will be 0 |
 
 
 
@@ -678,7 +678,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| action | [EntryTypeAction](#immudb.schema.EntryTypeAction) |  |  |
+| action | [EntryTypeAction](#immudb.schema.EntryTypeAction) |  | Action to perform on entries |
 
 
 
@@ -693,8 +693,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| code | [string](#string) |  |  |
-| cause | [string](#string) |  |  |
+| code | [string](#string) |  | Error code |
+| cause | [string](#string) |  | Error Description |
 
 
 
@@ -709,9 +709,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| Operations | [Op](#immudb.schema.Op) | repeated |  |
-| noWait | [bool](#bool) |  |  |
-| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
+| Operations | [Op](#immudb.schema.Op) | repeated | List of operations to perform |
+| noWait | [bool](#bool) |  | If set to true, do not wait for indexing to process this transaction |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated | Preconditions to check |
 
 
 
@@ -726,7 +726,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| expiresAt | [int64](#int64) |  |  |
+| expiresAt | [int64](#int64) |  | Entry expiration time (unix timestamp in seconds) |
 
 
 
@@ -741,7 +741,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
+| tx | [uint64](#uint64) |  | Id of transaction to export |
 
 
 
@@ -756,8 +756,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| cleanupPercentage | [float](#float) |  |  |
-| synced | [bool](#bool) |  |  |
+| cleanupPercentage | [float](#float) |  | Percentage of nodes file to cleanup during flush |
+| synced | [bool](#bool) |  | If true, do a full disk sync after the flush |
 
 
 
@@ -772,7 +772,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -787,8 +787,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| status | [bool](#bool) |  |  |
-| version | [string](#string) |  |  |
+| status | [bool](#bool) |  | If true, server considers itself to be healthy |
+| version | [string](#string) |  | The version of the server instance |
 
 
 
@@ -803,11 +803,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
+| key | [bytes](#bytes) |  | Name of the key to query for the history |
 | offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
-| limit | [int32](#int32) |  |  |
-| desc | [bool](#bool) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
+| limit | [int32](#int32) |  | Maximum number of entries to return |
+| desc | [bool](#bool) |  | If true, search in descending order |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed |
 
 
 
@@ -822,10 +822,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| db | [string](#string) |  |  |
-| txId | [uint64](#uint64) |  |  |
-| txHash | [bytes](#bytes) |  |  |
-| signature | [Signature](#immudb.schema.Signature) |  |  |
+| db | [string](#string) |  | The db name |
+| txId | [uint64](#uint64) |  | Id of the most recent transaction |
+| txHash | [bytes](#bytes) |  | State of the most recent transaction |
+| signature | [Signature](#immudb.schema.Signature) |  | Signature of the hash |
 
 
 
@@ -840,9 +840,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| leaf | [int32](#int32) |  |  |
-| width | [int32](#int32) |  |  |
-| terms | [bytes](#bytes) | repeated |  |
+| leaf | [int32](#int32) |  | Index of the leaf for which the proof is generated |
+| width | [int32](#int32) |  | Width of the tree at the leaf level |
+| terms | [bytes](#bytes) | repeated | Proof terms (selected hashes from the tree) |
 
 
 
@@ -857,19 +857,19 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  |  |
-| compactionThld | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| delayDuringCompaction | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| nodesLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| historyLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| flushBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| cleanupPercentage | [NullableFloat](#immudb.schema.NullableFloat) |  |  |
+| flushThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes |
+| syncThreshold | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of new index entries between disk flushes with file sync |
+| cacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the Btree node LRU cache |
+| maxNodeSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Max size of a single Btree node in bytes |
+| maxActiveSnapshots | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of active btree snapshots |
+| renewSnapRootAfter | [NullableUint64](#immudb.schema.NullableUint64) |  | Time in milliseconds between the most recent DB snapshot is automatically renewed |
+| compactionThld | [NullableUint32](#immudb.schema.NullableUint32) |  | Minimum number of updates entries in the btree to allow for full compaction |
+| delayDuringCompaction | [NullableUint32](#immudb.schema.NullableUint32) |  | Additional delay added during indexing when full compaction is in progress |
+| nodesLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneously opened nodes files |
+| historyLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneously opened node history files |
+| commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneously opened commit log files |
+| flushBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the in-memory flush buffer (in bytes) |
+| cleanupPercentage | [NullableFloat](#immudb.schema.NullableFloat) |  | Percentage of node files cleaned up during each flush |
 
 
 
@@ -884,9 +884,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| deleted | [bool](#bool) |  |  |
-| expiration | [Expiration](#immudb.schema.Expiration) |  |  |
-| nonIndexable | [bool](#bool) |  |  |
+| deleted | [bool](#bool) |  | True if this entry denotes a logical deletion |
+| expiration | [Expiration](#immudb.schema.Expiration) |  | Entry expiration information |
+| nonIndexable | [bool](#bool) |  | If set to true, this entry will not be indexed and will only be accessed through GetAt calls |
 
 
 
@@ -916,8 +916,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| keys | [bytes](#bytes) | repeated |  |
-| sinceTx | [uint64](#uint64) |  |  |
+| keys | [bytes](#bytes) | repeated | List of keys to query for |
+| sinceTx | [uint64](#uint64) |  | If 0, wait for index to be up-to-date, If &gt; 0, wait for at least sinceTx transaction to be indexed |
 
 
 
@@ -947,11 +947,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| atTx | [uint64](#uint64) |  | if &gt; 0, query for the value exactly at given transaction |
-| sinceTx | [uint64](#uint64) |  | if 0 (and nowait=false), wait for the index to be up=to-date |
-| noWait | [bool](#bool) |  | if set to true - do not wait for any indexing update considering only the currently indexed state |
-| atRevision | [int64](#int64) |  | if &gt; 0, get the nth version of the value, 1 being the first version, 2 being the second and so on if &lt; 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on |
+| key | [bytes](#bytes) |  | Key to query for |
+| atTx | [uint64](#uint64) |  | If &gt; 0, query for the value exactly at given transaction |
+| sinceTx | [uint64](#uint64) |  | If 0 (and noWait=false), wait for the index to be up-to-date, If &gt; 0 (and noWait=false), wait for at lest the sinceTx transaction to be indexed |
+| noWait | [bool](#bool) |  | If set to true - do not wait for any indexing update considering only the currently indexed state |
+| atRevision | [int64](#int64) |  | If &gt; 0, get the nth version of the value, 1 being the first version, 2 being the second and so on If &lt; 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on |
 
 
 
@@ -978,14 +978,14 @@
 <a name="immudb.schema.LinearProof"></a>
 
 ### LinearProof
-
+LinearProof contains the linear part of the proof (outside the main Merkle Tree)
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sourceTxId | [uint64](#uint64) |  |  |
-| TargetTxId | [uint64](#uint64) |  |  |
-| terms | [bytes](#bytes) | repeated |  |
+| sourceTxId | [uint64](#uint64) |  | Starting transaction of the proof |
+| TargetTxId | [uint64](#uint64) |  | End transaction of the proof |
+| terms | [bytes](#bytes) | repeated | List of terms (inner hashes of transaction entries) |
 
 
 
@@ -1000,7 +1000,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | may add createIfNotExist |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -1015,7 +1015,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | may add setttings |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -1030,8 +1030,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
-| password | [bytes](#bytes) |  |  |
+| user | [bytes](#bytes) |  | Username |
+| password | [bytes](#bytes) |  | User&#39;s password |
 
 
 
@@ -1046,8 +1046,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| token | [string](#string) |  |  |
-| warning | [bytes](#bytes) |  |  |
+| token | [string](#string) |  | Deprecated: use session-based authentication |
+| warning | [bytes](#bytes) |  | Optional: additional warning message sent to the user (e.g. request to change the password) |
 
 
 
@@ -1057,7 +1057,7 @@
 <a name="immudb.schema.MTLSConfig"></a>
 
 ### MTLSConfig
-
+DEPRECATED
 
 
 | Field | Type | Label | Description |
@@ -1077,8 +1077,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
-| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
+| name | [string](#string) |  | Parameter name |
+| value | [SQLValue](#immudb.schema.SQLValue) |  | Parameter value |
 
 
 
@@ -1093,7 +1093,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| mode | [TxMode](#immudb.schema.TxMode) |  |  |
+| mode | [TxMode](#immudb.schema.TxMode) |  | Transaction mode |
 
 
 
@@ -1108,7 +1108,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| transactionID | [string](#string) |  |  |
+| transactionID | [string](#string) |  | Internal transaction ID |
 
 
 
@@ -1213,9 +1213,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
-| zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
-| ref | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
+| kv | [KeyValue](#immudb.schema.KeyValue) |  | Modify / add simple KV value |
+| zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  | Modify / add sorted set entry |
+| ref | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  | Modify / add reference |
 
 
 
@@ -1230,9 +1230,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| username | [bytes](#bytes) |  |  |
-| password | [bytes](#bytes) |  |  |
-| databaseName | [string](#string) |  |  |
+| username | [bytes](#bytes) |  | Username |
+| password | [bytes](#bytes) |  | Password |
+| databaseName | [string](#string) |  | Database name |
 
 
 
@@ -1247,8 +1247,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sessionID | [string](#string) |  |  |
-| serverUUID | [string](#string) |  |  |
+| sessionID | [string](#string) |  | Id of the new session |
+| serverUUID | [string](#string) |  | UUID of the server |
 
 
 
@@ -1263,8 +1263,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
-| permission | [uint32](#uint32) |  |  |
+| database | [string](#string) |  | Database name |
+| permission | [uint32](#uint32) |  | Permission, 1 - read permission, 2 - read&#43;write permission, 254 - admin, 255 - sysadmin |
 
 
 
@@ -1291,12 +1291,12 @@
 <a name="immudb.schema.Precondition.KeyMustExistPrecondition"></a>
 
 ### Precondition.KeyMustExistPrecondition
-
+Only succeed if given key exists
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
+| key | [bytes](#bytes) |  | key to check |
 
 
 
@@ -1306,12 +1306,12 @@
 <a name="immudb.schema.Precondition.KeyMustNotExistPrecondition"></a>
 
 ### Precondition.KeyMustNotExistPrecondition
-
+Only succeed if given key does not exists
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
+| key | [bytes](#bytes) |  | key to check |
 
 
 
@@ -1321,13 +1321,13 @@
 <a name="immudb.schema.Precondition.KeyNotModifiedAfterTXPrecondition"></a>
 
 ### Precondition.KeyNotModifiedAfterTXPrecondition
-
+Only succeed if given key was not modified after given transaction
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| txID | [uint64](#uint64) |  |  |
+| key | [bytes](#bytes) |  | key to check |
+| txID | [uint64](#uint64) |  | transaction id to check against |
 
 
 
@@ -1342,11 +1342,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
-| key | [bytes](#bytes) |  |  |
-| atTx | [uint64](#uint64) |  |  |
-| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
-| revision | [uint64](#uint64) |  |  |
+| tx | [uint64](#uint64) |  | Transaction if when the reference key was set |
+| key | [bytes](#bytes) |  | Reference key |
+| atTx | [uint64](#uint64) |  | At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference |
+| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  | Metadata of the reference entry |
+| revision | [uint64](#uint64) |  | Revision of the reference entry |
 
 
 
@@ -1361,12 +1361,12 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| referencedKey | [bytes](#bytes) |  |  |
-| atTx | [uint64](#uint64) |  |  |
-| boundRef | [bool](#bool) |  |  |
-| noWait | [bool](#bool) |  |  |
-| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
+| key | [bytes](#bytes) |  | Key for the reference |
+| referencedKey | [bytes](#bytes) |  | Key to be referenced |
+| atTx | [uint64](#uint64) |  | If boundRef == true, id of transaction to bind with the reference |
+| boundRef | [bool](#bool) |  | If true, bind the reference to particular transaction, if false, use the most recent value of the key |
+| noWait | [bool](#bool) |  | If true, do not wait for the indexer to index this write operation |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated | Preconditions to be met to perform the write |
 
 
 
@@ -1381,12 +1381,12 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| replica | [NullableBool](#immudb.schema.NullableBool) |  |  |
-| masterDatabase | [NullableString](#immudb.schema.NullableString) |  |  |
-| masterAddress | [NullableString](#immudb.schema.NullableString) |  |  |
-| masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
-| followerUsername | [NullableString](#immudb.schema.NullableString) |  |  |
-| followerPassword | [NullableString](#immudb.schema.NullableString) |  |  |
+| replica | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, this database is replicating another database |
+| masterDatabase | [NullableString](#immudb.schema.NullableString) |  | Name of the database to replicate |
+| masterAddress | [NullableString](#immudb.schema.NullableString) |  | Hostname of the immudb instance with database to replicate |
+| masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  | Port of the immudb instance with database to replicate |
+| followerUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
+| followerPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
 
 
 
@@ -1401,7 +1401,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| retry_delay | [int32](#int32) |  |  |
+| retry_delay | [int32](#int32) |  | Number of milliseconds after which the request can be retried |
 
 
 
@@ -1416,8 +1416,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| columns | [string](#string) | repeated |  |
-| values | [SQLValue](#immudb.schema.SQLValue) | repeated |  |
+| columns | [string](#string) | repeated | Column names |
+| values | [SQLValue](#immudb.schema.SQLValue) | repeated | Column values |
 
 
 
@@ -1432,10 +1432,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
-| key | [bytes](#bytes) |  |  |
-| value | [bytes](#bytes) |  |  |
-| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
+| tx | [uint64](#uint64) |  | Id of the transaction when the row was added / modified |
+| key | [bytes](#bytes) |  | Raw key of the row |
+| value | [bytes](#bytes) |  | Raw value of the row |
+| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  | Metadata of the raw value |
 
 
 
@@ -1450,9 +1450,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sql | [string](#string) |  |  |
-| params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
-| noWait | [bool](#bool) |  |  |
+| sql | [string](#string) |  | SQL query |
+| params | [NamedParam](#immudb.schema.NamedParam) | repeated | Named query parameters |
+| noWait | [bool](#bool) |  | If true, do not wait for the indexer to index written changes |
 
 
 
@@ -1467,8 +1467,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| txs | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) | repeated |  |
-| ongoingTx | [bool](#bool) |  |  |
+| txs | [CommittedSQLTx](#immudb.schema.CommittedSQLTx) | repeated | List of committed transactions as a result of the exec operation |
+| ongoingTx | [bool](#bool) |  | If true, there&#39;s an ongoing transaction after exec completes |
 
 
 
@@ -1483,10 +1483,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| table | [string](#string) |  |  |
-| pkValues | [SQLValue](#immudb.schema.SQLValue) | repeated |  |
-| atTx | [uint64](#uint64) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
+| table | [string](#string) |  | Table name |
+| pkValues | [SQLValue](#immudb.schema.SQLValue) | repeated | Values of the primary key |
+| atTx | [uint64](#uint64) |  | Id of the transaction at which the row was added / modified |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed |
 
 
 
@@ -1501,9 +1501,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sql | [string](#string) |  |  |
-| params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
-| reuseSnapshot | [bool](#bool) |  |  |
+| sql | [string](#string) |  | SQL query |
+| params | [NamedParam](#immudb.schema.NamedParam) | repeated | Named query parameters |
+| reuseSnapshot | [bool](#bool) |  | If true, reuse previously opened snapshot |
 
 
 
@@ -1518,8 +1518,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| columns | [Column](#immudb.schema.Column) | repeated |  |
-| rows | [Row](#immudb.schema.Row) | repeated |  |
+| columns | [Column](#immudb.schema.Column) | repeated | Result columns description |
+| rows | [Row](#immudb.schema.Row) | repeated | Result rows |
 
 
 
@@ -1554,13 +1554,13 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| seekKey | [bytes](#bytes) |  |  |
-| endKey | [bytes](#bytes) |  |  |
-| prefix | [bytes](#bytes) |  |  |
-| desc | [bool](#bool) |  |  |
-| limit | [uint64](#uint64) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
+| seekKey | [bytes](#bytes) |  | If not empty, continue scan at (when inclusiveSeek == true) or after (when inclusiveSeek == false) that key |
+| endKey | [bytes](#bytes) |  | stop at (when inclusiveEnd == true) or before (when inclusiveEnd == false) that key |
+| prefix | [bytes](#bytes) |  | search for entries with this prefix only |
+| desc | [bool](#bool) |  | If set to true, sort items in descending order |
+| limit | [uint64](#uint64) |  | maximum number of entries to get, if not specified, the default value is used |
+| sinceTx | [uint64](#uint64) |  | If non-zero, only require transactions up to this transaction to be indexed, newer transaction may still be pending |
+| noWait | [bool](#bool) |  | If set to true, do not wait for indexing to be done before finishing this call |
 | inclusiveSeek | [bool](#bool) |  | If set to true, results will include seekKey |
 | inclusiveEnd | [bool](#bool) |  | If set to true, results will include endKey if needed |
 | offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
@@ -1578,7 +1578,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| score | [double](#double) |  |  |
+| score | [double](#double) |  | Entry&#39;s score value |
 
 
 
@@ -1618,8 +1618,8 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| active | [bool](#bool) |  |  |
-| username | [string](#string) |  |  |
+| active | [bool](#bool) |  | If true, the user is active |
+| username | [string](#string) |  | Name of the user to activate / deactivate |
 
 
 
@@ -1634,9 +1634,9 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
-| noWait | [bool](#bool) |  |  |
-| preconditions | [Precondition](#immudb.schema.Precondition) | repeated |  |
+| KVs | [KeyValue](#immudb.schema.KeyValue) | repeated | List of KV entries to set |
+| noWait | [bool](#bool) |  | If set to true, do not wait for indexer to index ne entries |
+| preconditions | [Precondition](#immudb.schema.Precondition) | repeated | Preconditions to be met to perform the write |
 
 
 
@@ -1667,7 +1667,7 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tableName | [string](#string) |  |  |
+| tableName | [string](#string) |  | Table name |
 
 
 
@@ -1682,10 +1682,10 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| header | [TxHeader](#immudb.schema.TxHeader) |  |  |
-| entries | [TxEntry](#immudb.schema.TxEntry) | repeated |  |
-| kvEntries | [Entry](#immudb.schema.Entry) | repeated |  |
-| zEntries | [ZEntry](#immudb.schema.ZEntry) | repeated |  |
+| header | [TxHeader](#immudb.schema.TxHeader) |  | Transaction header |
+| entries | [TxEntry](#immudb.schema.TxEntry) | repeated | Raw entry values |
+| kvEntries | [Entry](#immudb.schema.Entry) | repeated | KV entries in the transaction (parsed) |
+| zEntries | [ZEntry](#immudb.schema.ZEntry) | repeated | Sorted Set entries in the transaction (parsed) |
 
 
 
@@ -1700,11 +1700,11 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| hValue | [bytes](#bytes) |  |  |
-| vLen | [int32](#int32) |  |  |
-| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
-| value | [bytes](#bytes) |  | value must be ignored when len(value) == 0 and vLen &gt; 0. Otherwise, sha256(value) must be equal to hValue |
+| key | [bytes](#bytes) |  | Raw key value (contains 1-byte prefix for kind of the key) |
+| hValue | [bytes](#bytes) |  | Value hash |
+| vLen | [int32](#int32) |  | Value length |
+| metadata | [KVMetadata](#immudb.schema.KVMetadata) |  | Entry metadata |
+| value | [bytes](#bytes) |  | value, must be ignored when len(value) == 0 and vLen &gt; 0. Otherwise, sha256(value) must be equal to hValue |
 
 
 
@@ -1719,15 +1719,15 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [uint64](#uint64) |  |  |
-| prevAlh | [bytes](#bytes) |  |  |
-| ts | [int64](#int64) |  |  |
-| nentries | [int32](#int32) |  |  |
-| eH | [bytes](#bytes) |  |  |
-| blTxId | [uint64](#uint64) |  |  |
-| blRoot | [bytes](#bytes) |  |  |
-| version | [int32](#int32) |  |  |
-| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
+| id | [uint64](#uint64) |  | Transaction ID |
+| prevAlh | [bytes](#bytes) |  | State value (Accumulative Hash - Alh) of the previous transaction |
+| ts | [int64](#int64) |  | Unix timestamp of the transaction (in seconds) |
+| nentries | [int32](#int32) |  | Number of entries in a transaction |
+| eH | [bytes](#bytes) |  | Entries Hash - cumulative hash of all entries in the transaction |
+| blTxId | [uint64](#uint64) |  | Binary linking tree transaction ID (ID of last transaction already in the main Merkle Tree) |
+| blRoot | [bytes](#bytes) |  | Binary linking tree root (Root hash of the Merkle Tree) |
+| version | [int32](#int32) |  | Header version |
+| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  | Transaction metadata |
 
 
 
@@ -1742,7 +1742,7 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| txs | [Tx](#immudb.schema.Tx) | repeated |  |
+| txs | [Tx](#immudb.schema.Tx) | repeated | List of transactions |
 
 
 
@@ -1752,7 +1752,7 @@ ServerInfoResponse contains information about the server instance.
 <a name="immudb.schema.TxMetadata"></a>
 
 ### TxMetadata
-
+TxMetadata contains metadata set to whole transaction
 
 
 
@@ -1767,11 +1767,11 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
-| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
-| keepReferencesUnresolved | [bool](#bool) |  |  |
+| tx | [uint64](#uint64) |  | Transaction id to query for |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification for parsing entries, if empty, entries are returned in raw form |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
+| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| keepReferencesUnresolved | [bool](#bool) |  | If set to true, do not resolve references (avoid looking up final values if not needed) |
 
 
 
@@ -1786,12 +1786,12 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| initialTx | [uint64](#uint64) |  |  |
-| limit | [uint32](#uint32) |  |  |
-| desc | [bool](#bool) |  |  |
-| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
+| initialTx | [uint64](#uint64) |  | ID of the transaction where scanning should start |
+| limit | [uint32](#uint32) |  | Maximum number of transactions to scan, when not specified the default limit is used |
+| desc | [bool](#bool) |  | If set to true, scan transactions in descending order |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification of how to parse entries |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
+| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
 
 
 
@@ -1806,7 +1806,7 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -1821,7 +1821,7 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
+| database | [string](#string) |  | Database name |
 
 
 
@@ -1836,8 +1836,8 @@ ServerInfoResponse contains information about the server instance.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+| database | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Updated settings |
 
 
 
@@ -1852,8 +1852,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  |  |
-| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  |  |
+| database | [string](#string) |  | Database name |
+| settings | [DatabaseNullableSettings](#immudb.schema.DatabaseNullableSettings) |  | Current database settings |
 
 
 
@@ -1868,7 +1868,7 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| token | [string](#string) |  |  |
+| token | [string](#string) |  | Deprecated: database access token |
 
 
 
@@ -1899,11 +1899,11 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
-| permissions | [Permission](#immudb.schema.Permission) | repeated |  |
-| createdby | [string](#string) |  |  |
-| createdat | [string](#string) |  |  |
-| active | [bool](#bool) |  |  |
+| user | [bytes](#bytes) |  | Username |
+| permissions | [Permission](#immudb.schema.Permission) | repeated | List of permissions for the user |
+| createdby | [string](#string) |  | Name of the creator user |
+| createdat | [string](#string) |  | Time when the user was created |
+| active | [bool](#bool) |  | Flag indicating whether the user is active or not |
 
 
 
@@ -1918,7 +1918,7 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| users | [User](#immudb.schema.User) | repeated |  |
+| users | [User](#immudb.schema.User) | repeated | List of users |
 
 
 
@@ -1933,7 +1933,7 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
+| user | [bytes](#bytes) |  | Username |
 
 
 
@@ -1948,9 +1948,9 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| entry | [Entry](#immudb.schema.Entry) |  |  |
-| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
-| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| entry | [Entry](#immudb.schema.Entry) |  | Entry to verify |
+| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  | Transaction to verify |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  | Proof for inclusion of the entry within the transaction |
 
 
 
@@ -1965,8 +1965,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| keyRequest | [KeyRequest](#immudb.schema.KeyRequest) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
+| keyRequest | [KeyRequest](#immudb.schema.KeyRequest) |  | Key to read |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 
 
 
@@ -1981,8 +1981,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| referenceRequest | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
+| referenceRequest | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  | Reference data |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 
 
 
@@ -1997,16 +1997,16 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sqlEntry | [SQLEntry](#immudb.schema.SQLEntry) |  |  |
-| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
-| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
-| DatabaseId | [uint32](#uint32) |  |  |
-| TableId | [uint32](#uint32) |  |  |
-| PKIDs | [uint32](#uint32) | repeated |  |
-| ColNamesById | [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry) | repeated |  |
-| ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated |  |
-| ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated |  |
-| ColLenById | [VerifiableSQLEntry.ColLenByIdEntry](#immudb.schema.VerifiableSQLEntry.ColLenByIdEntry) | repeated |  |
+| sqlEntry | [SQLEntry](#immudb.schema.SQLEntry) |  | Raw row entry data |
+| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  | Verifiable transaction of the row |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  | Inclusion proof of the row in the transaction |
+| DatabaseId | [uint32](#uint32) |  | Internal ID of the database (used to validate raw entry values) |
+| TableId | [uint32](#uint32) |  | Internal ID of the table (used to validate raw entry values) |
+| PKIDs | [uint32](#uint32) | repeated | Internal IDs of columns for the primary key (used to validate raw entry values) |
+| ColNamesById | [VerifiableSQLEntry.ColNamesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry) | repeated | Mapping of used column IDs to their names |
+| ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated | Mapping of column names to their IDS |
+| ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated | Mapping of column IDs to their types |
+| ColLenById | [VerifiableSQLEntry.ColLenByIdEntry](#immudb.schema.VerifiableSQLEntry.ColLenByIdEntry) | repeated | Mapping of column IDs to their length constraints |
 
 
 
@@ -2085,8 +2085,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| sqlGetRequest | [SQLGetRequest](#immudb.schema.SQLGetRequest) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
+| sqlGetRequest | [SQLGetRequest](#immudb.schema.SQLGetRequest) |  | Data of row to query |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 
 
 
@@ -2101,8 +2101,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| setRequest | [SetRequest](#immudb.schema.SetRequest) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
+| setRequest | [SetRequest](#immudb.schema.SetRequest) |  | Keys to set |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 
 
 
@@ -2117,9 +2117,9 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [Tx](#immudb.schema.Tx) |  |  |
-| dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
-| signature | [Signature](#immudb.schema.Signature) |  |  |
+| tx | [Tx](#immudb.schema.Tx) |  | Transaction to verify |
+| dualProof | [DualProof](#immudb.schema.DualProof) |  | Proof for the transaction |
+| signature | [Signature](#immudb.schema.Signature) |  | Signature for the new state value |
 
 
 
@@ -2134,12 +2134,12 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| tx | [uint64](#uint64) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
-| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
-| keepReferencesUnresolved | [bool](#bool) |  |  |
+| tx | [uint64](#uint64) |  | Transaction ID |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
+| entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification of how to parse entries |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
+| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| keepReferencesUnresolved | [bool](#bool) |  | If set to true, do not resolve references (avoid looking up final values if not needed) |
 
 
 
@@ -2154,8 +2154,8 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
-| proveSinceTx | [uint64](#uint64) |  |  |
+| zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  | Data for new sorted set entry |
+| proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 
 
 
@@ -2170,12 +2170,12 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| set | [bytes](#bytes) |  |  |
-| score | [double](#double) |  |  |
-| key | [bytes](#bytes) |  |  |
-| atTx | [uint64](#uint64) |  |  |
-| boundRef | [bool](#bool) |  |  |
-| noWait | [bool](#bool) |  |  |
+| set | [bytes](#bytes) |  | Name of the sorted set |
+| score | [double](#double) |  | Score of the new entry |
+| key | [bytes](#bytes) |  | Referenced key |
+| atTx | [uint64](#uint64) |  | If boundRef == true, id of the transaction to bind with the reference |
+| boundRef | [bool](#bool) |  | If true, bind the reference to particular transaction, if false, use the most recent value of the key |
+| noWait | [bool](#bool) |  | If true, do not wait for the indexer to index this write operation |
 
 
 
@@ -2205,11 +2205,11 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| set | [bytes](#bytes) |  |  |
-| key | [bytes](#bytes) |  |  |
-| entry | [Entry](#immudb.schema.Entry) |  |  |
-| score | [double](#double) |  |  |
-| atTx | [uint64](#uint64) |  |  |
+| set | [bytes](#bytes) |  | Name of the sorted set |
+| key | [bytes](#bytes) |  | Referenced key |
+| entry | [Entry](#immudb.schema.Entry) |  | Referenced entry |
+| score | [double](#double) |  | Sorted set element&#39;s score |
+| atTx | [uint64](#uint64) |  | At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference |
 
 
 
@@ -2224,18 +2224,18 @@ Reserved to reply with more advanced response later
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| set | [bytes](#bytes) |  |  |
-| seekKey | [bytes](#bytes) |  |  |
-| seekScore | [double](#double) |  |  |
-| seekAtTx | [uint64](#uint64) |  |  |
-| inclusiveSeek | [bool](#bool) |  |  |
-| limit | [uint64](#uint64) |  |  |
-| desc | [bool](#bool) |  |  |
-| minScore | [Score](#immudb.schema.Score) |  |  |
-| maxScore | [Score](#immudb.schema.Score) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
-| noWait | [bool](#bool) |  |  |
-| offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
+| set | [bytes](#bytes) |  | Name of the sorted set |
+| seekKey | [bytes](#bytes) |  | Key to continue the search at |
+| seekScore | [double](#double) |  | Score of the entry to continue the search at |
+| seekAtTx | [uint64](#uint64) |  | AtTx of the entry to continue the search at |
+| inclusiveSeek | [bool](#bool) |  | If true, include the entry given with the `seekXXX` attributes, if false, skip the entry and start after that one |
+| limit | [uint64](#uint64) |  | Maximum number of entries to return, if 0, the default limit will be used |
+| desc | [bool](#bool) |  | If true, scan entries in descending order |
+| minScore | [Score](#immudb.schema.Score) |  | Minimum score of entries to scan |
+| maxScore | [Score](#immudb.schema.Score) |  | Maximum score of entries to scan |
+| sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed |
+| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| offset | [uint64](#uint64) |  | Specify the index of initial entry to be returned by excluding the initial set of entries (alternative to seekXXX attributes) |
 
 
 
@@ -2251,10 +2251,10 @@ Reserved to reply with more advanced response later
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| EXCLUDE | 0 |  |
-| ONLY_DIGEST | 1 |  |
-| RAW_VALUE | 2 |  |
-| RESOLVE | 3 |  |
+| EXCLUDE | 0 | Exclude entries from the result |
+| ONLY_DIGEST | 1 | Provide keys in raw (unparsed) form and only the digest of the value |
+| RAW_VALUE | 2 | Provide keys and values in raw form |
+| RESOLVE | 3 | Provide parsed keys and values and resolve values if needed |
 
 
 
@@ -2265,8 +2265,8 @@ Reserved to reply with more advanced response later
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| GRANT | 0 |  |
-| REVOKE | 1 |  |
+| GRANT | 0 | Grant permission |
+| REVOKE | 1 | Revoke permission |
 
 
 
@@ -2277,9 +2277,9 @@ Reserved to reply with more advanced response later
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| ReadOnly | 0 |  |
-| WriteOnly | 1 |  |
-| ReadWrite | 2 |  |
+| ReadOnly | 0 | Read-only transaction |
+| WriteOnly | 1 | Write-only transaction |
+| ReadWrite | 2 | Read-write transaction |
 
 
  

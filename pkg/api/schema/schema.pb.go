@@ -42,10 +42,10 @@ const (
 type EntryTypeAction int32
 
 const (
-	EntryTypeAction_EXCLUDE     EntryTypeAction = 0
-	EntryTypeAction_ONLY_DIGEST EntryTypeAction = 1
-	EntryTypeAction_RAW_VALUE   EntryTypeAction = 2
-	EntryTypeAction_RESOLVE     EntryTypeAction = 3
+	EntryTypeAction_EXCLUDE     EntryTypeAction = 0 // Exclude entries from the result
+	EntryTypeAction_ONLY_DIGEST EntryTypeAction = 1 // Provide keys in raw (unparsed) form and only the digest of the value
+	EntryTypeAction_RAW_VALUE   EntryTypeAction = 2 // Provide keys and values in raw form
+	EntryTypeAction_RESOLVE     EntryTypeAction = 3 // Provide parsed keys and values and resolve values if needed
 )
 
 // Enum value maps for EntryTypeAction.
@@ -94,8 +94,8 @@ func (EntryTypeAction) EnumDescriptor() ([]byte, []int) {
 type PermissionAction int32
 
 const (
-	PermissionAction_GRANT  PermissionAction = 0
-	PermissionAction_REVOKE PermissionAction = 1
+	PermissionAction_GRANT  PermissionAction = 0 // Grant permission
+	PermissionAction_REVOKE PermissionAction = 1 // Revoke permission
 )
 
 // Enum value maps for PermissionAction.
@@ -140,9 +140,9 @@ func (PermissionAction) EnumDescriptor() ([]byte, []int) {
 type TxMode int32
 
 const (
-	TxMode_ReadOnly  TxMode = 0
-	TxMode_WriteOnly TxMode = 1
-	TxMode_ReadWrite TxMode = 2
+	TxMode_ReadOnly  TxMode = 0 // Read-only transaction
+	TxMode_WriteOnly TxMode = 1 // Write-only transaction
+	TxMode_ReadWrite TxMode = 2 // Read-write transaction
 )
 
 // Enum value maps for TxMode.
@@ -238,8 +238,8 @@ type Permission struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database   string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	Permission uint32 `protobuf:"varint,2,opt,name=permission,proto3" json:"permission,omitempty"`
+	Database   string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`      // Database name
+	Permission uint32 `protobuf:"varint,2,opt,name=permission,proto3" json:"permission,omitempty"` // Permission, 1 - read permission, 2 - read+write permission, 254 - admin, 255 - sysadmin
 }
 
 func (x *Permission) Reset() {
@@ -293,11 +293,11 @@ type User struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	User        []byte        `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	Permissions []*Permission `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
-	Createdby   string        `protobuf:"bytes,4,opt,name=createdby,proto3" json:"createdby,omitempty"`
-	Createdat   string        `protobuf:"bytes,5,opt,name=createdat,proto3" json:"createdat,omitempty"`
-	Active      bool          `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	User        []byte        `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`               // Username
+	Permissions []*Permission `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"` // List of permissions for the user
+	Createdby   string        `protobuf:"bytes,4,opt,name=createdby,proto3" json:"createdby,omitempty"`     // Name of the creator user
+	Createdat   string        `protobuf:"bytes,5,opt,name=createdat,proto3" json:"createdat,omitempty"`     // Time when the user was created
+	Active      bool          `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`          // Flag indicating whether the user is active or not
 }
 
 func (x *User) Reset() {
@@ -372,7 +372,7 @@ type UserList struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Users []*User `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	Users []*User `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"` // List of users
 }
 
 func (x *UserList) Reset() {
@@ -419,10 +419,10 @@ type CreateUserRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	User       []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	Password   []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	Permission uint32 `protobuf:"varint,3,opt,name=permission,proto3" json:"permission,omitempty"`
-	Database   string `protobuf:"bytes,4,opt,name=database,proto3" json:"database,omitempty"`
+	User       []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`              // Username
+	Password   []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`      // Login password
+	Permission uint32 `protobuf:"varint,3,opt,name=permission,proto3" json:"permission,omitempty"` // Permission, 1 - read permission, 2 - read+write permission, 254 - admin
+	Database   string `protobuf:"bytes,4,opt,name=database,proto3" json:"database,omitempty"`      // Database name
 }
 
 func (x *CreateUserRequest) Reset() {
@@ -490,7 +490,7 @@ type UserRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	User []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	User []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"` // Username
 }
 
 func (x *UserRequest) Reset() {
@@ -537,9 +537,9 @@ type ChangePasswordRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	User        []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	OldPassword []byte `protobuf:"bytes,2,opt,name=oldPassword,proto3" json:"oldPassword,omitempty"`
-	NewPassword []byte `protobuf:"bytes,3,opt,name=newPassword,proto3" json:"newPassword,omitempty"`
+	User        []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`               // Username
+	OldPassword []byte `protobuf:"bytes,2,opt,name=oldPassword,proto3" json:"oldPassword,omitempty"` // Old password
+	NewPassword []byte `protobuf:"bytes,3,opt,name=newPassword,proto3" json:"newPassword,omitempty"` // New password
 }
 
 func (x *ChangePasswordRequest) Reset() {
@@ -600,8 +600,8 @@ type LoginRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	User     []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	Password []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	User     []byte `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`         // Username
+	Password []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"` // User's password
 }
 
 func (x *LoginRequest) Reset() {
@@ -655,8 +655,8 @@ type LoginResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Token   string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	Warning []byte `protobuf:"bytes,2,opt,name=warning,proto3" json:"warning,omitempty"`
+	Token   string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`     // Deprecated: use session-based authentication
+	Warning []byte `protobuf:"bytes,2,opt,name=warning,proto3" json:"warning,omitempty"` // Optional: additional warning message sent to the user (e.g. request to change the password)
 }
 
 func (x *LoginResponse) Reset() {
@@ -705,6 +705,7 @@ func (x *LoginResponse) GetWarning() []byte {
 	return nil
 }
 
+// DEPRECATED
 type AuthConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -752,6 +753,7 @@ func (x *AuthConfig) GetKind() uint32 {
 	return 0
 }
 
+// DEPRECATED
 type MTLSConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -804,9 +806,9 @@ type OpenSessionRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Username     []byte `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Password     []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	DatabaseName string `protobuf:"bytes,3,opt,name=databaseName,proto3" json:"databaseName,omitempty"`
+	Username     []byte `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`         // Username
+	Password     []byte `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`         // Password
+	DatabaseName string `protobuf:"bytes,3,opt,name=databaseName,proto3" json:"databaseName,omitempty"` // Database name
 }
 
 func (x *OpenSessionRequest) Reset() {
@@ -867,8 +869,8 @@ type OpenSessionResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SessionID  string `protobuf:"bytes,1,opt,name=sessionID,proto3" json:"sessionID,omitempty"`
-	ServerUUID string `protobuf:"bytes,2,opt,name=serverUUID,proto3" json:"serverUUID,omitempty"`
+	SessionID  string `protobuf:"bytes,1,opt,name=sessionID,proto3" json:"sessionID,omitempty"`   // Id of the new session
+	ServerUUID string `protobuf:"bytes,2,opt,name=serverUUID,proto3" json:"serverUUID,omitempty"` // UUID of the server
 }
 
 func (x *OpenSessionResponse) Reset() {
@@ -1080,13 +1082,13 @@ type Entry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx           uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	Key          []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value        []byte      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	ReferencedBy *Reference  `protobuf:"bytes,4,opt,name=referencedBy,proto3" json:"referencedBy,omitempty"`
-	Metadata     *KVMetadata `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Expired      bool        `protobuf:"varint,6,opt,name=expired,proto3" json:"expired,omitempty"`
-	Revision     uint64      `protobuf:"varint,7,opt,name=revision,proto3" json:"revision,omitempty"`
+	Tx           uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`                    // Transaction id at which the target value was set (i.e. not the reference transaction id)
+	Key          []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`                   // Key of the target value (i.e. not the reference entry)
+	Value        []byte      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`               // Value
+	ReferencedBy *Reference  `protobuf:"bytes,4,opt,name=referencedBy,proto3" json:"referencedBy,omitempty"` // If the request was for a reference, this field will keep information about the reference entry
+	Metadata     *KVMetadata `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`         // Metadata of the target entry (i.e. not the reference entry)
+	Expired      bool        `protobuf:"varint,6,opt,name=expired,proto3" json:"expired,omitempty"`          // If set to true, this entry has expired and the value is not retrieved
+	Revision     uint64      `protobuf:"varint,7,opt,name=revision,proto3" json:"revision,omitempty"`        // Key's revision, in case of GetAt it will be 0
 }
 
 func (x *Entry) Reset() {
@@ -1175,11 +1177,11 @@ type Reference struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx       uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	Key      []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	AtTx     uint64      `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`
-	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Revision uint64      `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"`
+	Tx       uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`             // Transaction if when the reference key was set
+	Key      []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`            // Reference key
+	AtTx     uint64      `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`         // At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference
+	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`  // Metadata of the reference entry
+	Revision uint64      `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"` // Revision of the reference entry
 }
 
 func (x *Reference) Reset() {
@@ -1327,15 +1329,15 @@ type isOp_Operation interface {
 }
 
 type Op_Kv struct {
-	Kv *KeyValue `protobuf:"bytes,1,opt,name=kv,proto3,oneof"`
+	Kv *KeyValue `protobuf:"bytes,1,opt,name=kv,proto3,oneof"` // Modify / add simple KV value
 }
 
 type Op_ZAdd struct {
-	ZAdd *ZAddRequest `protobuf:"bytes,2,opt,name=zAdd,proto3,oneof"`
+	ZAdd *ZAddRequest `protobuf:"bytes,2,opt,name=zAdd,proto3,oneof"` // Modify / add sorted set entry
 }
 
 type Op_Ref struct {
-	Ref *ReferenceRequest `protobuf:"bytes,3,opt,name=ref,proto3,oneof"`
+	Ref *ReferenceRequest `protobuf:"bytes,3,opt,name=ref,proto3,oneof"` // Modify / add reference
 }
 
 func (*Op_Kv) isOp_Operation() {}
@@ -1349,9 +1351,9 @@ type ExecAllRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Operations    []*Op           `protobuf:"bytes,1,rep,name=Operations,proto3" json:"Operations,omitempty"`
-	NoWait        bool            `protobuf:"varint,2,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	Preconditions []*Precondition `protobuf:"bytes,3,rep,name=preconditions,proto3" json:"preconditions,omitempty"`
+	Operations    []*Op           `protobuf:"bytes,1,rep,name=Operations,proto3" json:"Operations,omitempty"`       // List of operations to perform
+	NoWait        bool            `protobuf:"varint,2,opt,name=noWait,proto3" json:"noWait,omitempty"`              // If set to true, do not wait for indexing to process this transaction
+	Preconditions []*Precondition `protobuf:"bytes,3,rep,name=preconditions,proto3" json:"preconditions,omitempty"` // Preconditions to check
 }
 
 func (x *ExecAllRequest) Reset() {
@@ -1412,7 +1414,7 @@ type Entries struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Entries []*Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	Entries []*Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"` // List of entries
 }
 
 func (x *Entries) Reset() {
@@ -1459,11 +1461,11 @@ type ZEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Set   []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`
-	Key   []byte  `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Entry *Entry  `protobuf:"bytes,3,opt,name=entry,proto3" json:"entry,omitempty"`
-	Score float64 `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`
-	AtTx  uint64  `protobuf:"varint,5,opt,name=atTx,proto3" json:"atTx,omitempty"`
+	Set   []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`       // Name of the sorted set
+	Key   []byte  `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`       // Referenced key
+	Entry *Entry  `protobuf:"bytes,3,opt,name=entry,proto3" json:"entry,omitempty"`   // Referenced entry
+	Score float64 `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"` // Sorted set element's score
+	AtTx  uint64  `protobuf:"varint,5,opt,name=atTx,proto3" json:"atTx,omitempty"`    // At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference
 }
 
 func (x *ZEntry) Reset() {
@@ -1585,13 +1587,13 @@ type ScanRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SeekKey       []byte `protobuf:"bytes,1,opt,name=seekKey,proto3" json:"seekKey,omitempty"`
-	EndKey        []byte `protobuf:"bytes,7,opt,name=endKey,proto3" json:"endKey,omitempty"`
-	Prefix        []byte `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	Desc          bool   `protobuf:"varint,3,opt,name=desc,proto3" json:"desc,omitempty"`
-	Limit         uint64 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	SinceTx       uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait        bool   `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`
+	SeekKey       []byte `protobuf:"bytes,1,opt,name=seekKey,proto3" json:"seekKey,omitempty"`              // If not empty, continue scan at (when inclusiveSeek == true) or after (when inclusiveSeek == false) that key
+	EndKey        []byte `protobuf:"bytes,7,opt,name=endKey,proto3" json:"endKey,omitempty"`                // stop at (when inclusiveEnd == true) or before (when inclusiveEnd == false) that key
+	Prefix        []byte `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`                // search for entries with this prefix only
+	Desc          bool   `protobuf:"varint,3,opt,name=desc,proto3" json:"desc,omitempty"`                   // If set to true, sort items in descending order
+	Limit         uint64 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                 // maximum number of entries to get, if not specified, the default value is used
+	SinceTx       uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`             // If non-zero, only require transactions up to this transaction to be indexed, newer transaction may still be pending
+	NoWait        bool   `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`               // If set to true, do not wait for indexing to be done before finishing this call
 	InclusiveSeek bool   `protobuf:"varint,8,opt,name=inclusiveSeek,proto3" json:"inclusiveSeek,omitempty"` // If set to true, results will include seekKey
 	InclusiveEnd  bool   `protobuf:"varint,9,opt,name=inclusiveEnd,proto3" json:"inclusiveEnd,omitempty"`   // If set to true, results will include endKey if needed
 	Offset        uint64 `protobuf:"varint,10,opt,name=offset,proto3" json:"offset,omitempty"`              // Specify the initial entry to be returned by excluding the initial set of entries
@@ -1853,15 +1855,15 @@ type TxHeader struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id       uint64      `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	PrevAlh  []byte      `protobuf:"bytes,2,opt,name=prevAlh,proto3" json:"prevAlh,omitempty"`
-	Ts       int64       `protobuf:"varint,3,opt,name=ts,proto3" json:"ts,omitempty"`
-	Nentries int32       `protobuf:"varint,4,opt,name=nentries,proto3" json:"nentries,omitempty"`
-	EH       []byte      `protobuf:"bytes,5,opt,name=eH,proto3" json:"eH,omitempty"`
-	BlTxId   uint64      `protobuf:"varint,6,opt,name=blTxId,proto3" json:"blTxId,omitempty"`
-	BlRoot   []byte      `protobuf:"bytes,7,opt,name=blRoot,proto3" json:"blRoot,omitempty"`
-	Version  int32       `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
-	Metadata *TxMetadata `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Id       uint64      `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`             // Transaction ID
+	PrevAlh  []byte      `protobuf:"bytes,2,opt,name=prevAlh,proto3" json:"prevAlh,omitempty"`    // State value (Accumulative Hash - Alh) of the previous transaction
+	Ts       int64       `protobuf:"varint,3,opt,name=ts,proto3" json:"ts,omitempty"`             // Unix timestamp of the transaction (in seconds)
+	Nentries int32       `protobuf:"varint,4,opt,name=nentries,proto3" json:"nentries,omitempty"` // Number of entries in a transaction
+	EH       []byte      `protobuf:"bytes,5,opt,name=eH,proto3" json:"eH,omitempty"`              // Entries Hash - cumulative hash of all entries in the transaction
+	BlTxId   uint64      `protobuf:"varint,6,opt,name=blTxId,proto3" json:"blTxId,omitempty"`     // Binary linking tree transaction ID (ID of last transaction already in the main Merkle Tree)
+	BlRoot   []byte      `protobuf:"bytes,7,opt,name=blRoot,proto3" json:"blRoot,omitempty"`      // Binary linking tree root (Root hash of the Merkle Tree)
+	Version  int32       `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`   // Header version
+	Metadata *TxMetadata `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`  // Transaction metadata
 }
 
 func (x *TxHeader) Reset() {
@@ -1959,6 +1961,7 @@ func (x *TxHeader) GetMetadata() *TxMetadata {
 	return nil
 }
 
+// TxMetadata contains metadata set to whole transaction
 type TxMetadata struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1997,14 +2000,15 @@ func (*TxMetadata) Descriptor() ([]byte, []int) {
 	return file_schema_proto_rawDescGZIP(), []int{27}
 }
 
+// LinearProof contains the linear part of the proof (outside the main Merkle Tree)
 type LinearProof struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SourceTxId uint64   `protobuf:"varint,1,opt,name=sourceTxId,proto3" json:"sourceTxId,omitempty"`
-	TargetTxId uint64   `protobuf:"varint,2,opt,name=TargetTxId,proto3" json:"TargetTxId,omitempty"`
-	Terms      [][]byte `protobuf:"bytes,3,rep,name=terms,proto3" json:"terms,omitempty"`
+	SourceTxId uint64   `protobuf:"varint,1,opt,name=sourceTxId,proto3" json:"sourceTxId,omitempty"` // Starting transaction of the proof
+	TargetTxId uint64   `protobuf:"varint,2,opt,name=TargetTxId,proto3" json:"TargetTxId,omitempty"` // End transaction of the proof
+	Terms      [][]byte `protobuf:"bytes,3,rep,name=terms,proto3" json:"terms,omitempty"`            // List of terms (inner hashes of transaction entries)
 }
 
 func (x *LinearProof) Reset() {
@@ -2060,18 +2064,19 @@ func (x *LinearProof) GetTerms() [][]byte {
 	return nil
 }
 
+// DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs
 type DualProof struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SourceTxHeader     *TxHeader    `protobuf:"bytes,1,opt,name=sourceTxHeader,proto3" json:"sourceTxHeader,omitempty"`
-	TargetTxHeader     *TxHeader    `protobuf:"bytes,2,opt,name=targetTxHeader,proto3" json:"targetTxHeader,omitempty"`
-	InclusionProof     [][]byte     `protobuf:"bytes,3,rep,name=inclusionProof,proto3" json:"inclusionProof,omitempty"`
-	ConsistencyProof   [][]byte     `protobuf:"bytes,4,rep,name=consistencyProof,proto3" json:"consistencyProof,omitempty"`
-	TargetBlTxAlh      []byte       `protobuf:"bytes,5,opt,name=targetBlTxAlh,proto3" json:"targetBlTxAlh,omitempty"`
-	LastInclusionProof [][]byte     `protobuf:"bytes,6,rep,name=lastInclusionProof,proto3" json:"lastInclusionProof,omitempty"`
-	LinearProof        *LinearProof `protobuf:"bytes,7,opt,name=linearProof,proto3" json:"linearProof,omitempty"`
+	SourceTxHeader     *TxHeader    `protobuf:"bytes,1,opt,name=sourceTxHeader,proto3" json:"sourceTxHeader,omitempty"`         // Header of the source (earlier) transaction
+	TargetTxHeader     *TxHeader    `protobuf:"bytes,2,opt,name=targetTxHeader,proto3" json:"targetTxHeader,omitempty"`         // Header of the target (latter) transaction
+	InclusionProof     [][]byte     `protobuf:"bytes,3,rep,name=inclusionProof,proto3" json:"inclusionProof,omitempty"`         // Inclusion proof of the source transaction hash in the main Merkle Tree
+	ConsistencyProof   [][]byte     `protobuf:"bytes,4,rep,name=consistencyProof,proto3" json:"consistencyProof,omitempty"`     // Consistency proof between Merkle Trees in the source and target transactions
+	TargetBlTxAlh      []byte       `protobuf:"bytes,5,opt,name=targetBlTxAlh,proto3" json:"targetBlTxAlh,omitempty"`           // Accumulative hash (Alh) of the last transaction that's part of the target Merkle Tree
+	LastInclusionProof [][]byte     `protobuf:"bytes,6,rep,name=lastInclusionProof,proto3" json:"lastInclusionProof,omitempty"` // Inclusion proof of the targetBlTxAlh in the target Merkle Tree
+	LinearProof        *LinearProof `protobuf:"bytes,7,opt,name=linearProof,proto3" json:"linearProof,omitempty"`               // Linear proof starting from targetBlTxAlh to the final state value
 }
 
 func (x *DualProof) Reset() {
@@ -2160,10 +2165,10 @@ type Tx struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Header    *TxHeader  `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
-	Entries   []*TxEntry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
-	KvEntries []*Entry   `protobuf:"bytes,3,rep,name=kvEntries,proto3" json:"kvEntries,omitempty"`
-	ZEntries  []*ZEntry  `protobuf:"bytes,4,rep,name=zEntries,proto3" json:"zEntries,omitempty"`
+	Header    *TxHeader  `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`       // Transaction header
+	Entries   []*TxEntry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`     // Raw entry values
+	KvEntries []*Entry   `protobuf:"bytes,3,rep,name=kvEntries,proto3" json:"kvEntries,omitempty"` // KV entries in the transaction (parsed)
+	ZEntries  []*ZEntry  `protobuf:"bytes,4,rep,name=zEntries,proto3" json:"zEntries,omitempty"`   // Sorted Set entries in the transaction (parsed)
 }
 
 func (x *Tx) Reset() {
@@ -2231,11 +2236,11 @@ type TxEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key      []byte      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	HValue   []byte      `protobuf:"bytes,2,opt,name=hValue,proto3" json:"hValue,omitempty"`
-	VLen     int32       `protobuf:"varint,3,opt,name=vLen,proto3" json:"vLen,omitempty"`
-	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Value    []byte      `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"` // value must be ignored when len(value) == 0 and vLen > 0. Otherwise, sha256(value) must be equal to hValue
+	Key      []byte      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`           // Raw key value (contains 1-byte prefix for kind of the key)
+	HValue   []byte      `protobuf:"bytes,2,opt,name=hValue,proto3" json:"hValue,omitempty"`     // Value hash
+	VLen     int32       `protobuf:"varint,3,opt,name=vLen,proto3" json:"vLen,omitempty"`        // Value length
+	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"` // Entry metadata
+	Value    []byte      `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`       // value, must be ignored when len(value) == 0 and vLen > 0. Otherwise, sha256(value) must be equal to hValue
 }
 
 func (x *TxEntry) Reset() {
@@ -2310,9 +2315,9 @@ type KVMetadata struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Deleted      bool        `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`
-	Expiration   *Expiration `protobuf:"bytes,2,opt,name=expiration,proto3" json:"expiration,omitempty"`
-	NonIndexable bool        `protobuf:"varint,3,opt,name=nonIndexable,proto3" json:"nonIndexable,omitempty"`
+	Deleted      bool        `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`           // True if this entry denotes a logical deletion
+	Expiration   *Expiration `protobuf:"bytes,2,opt,name=expiration,proto3" json:"expiration,omitempty"`      // Entry expiration information
+	NonIndexable bool        `protobuf:"varint,3,opt,name=nonIndexable,proto3" json:"nonIndexable,omitempty"` // If set to true, this entry will not be indexed and will only be accessed through GetAt calls
 }
 
 func (x *KVMetadata) Reset() {
@@ -2373,7 +2378,7 @@ type Expiration struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ExpiresAt int64 `protobuf:"varint,1,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	ExpiresAt int64 `protobuf:"varint,1,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"` // Entry expiration time (unix timestamp in seconds)
 }
 
 func (x *Expiration) Reset() {
@@ -2420,9 +2425,9 @@ type VerifiableTx struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx        *Tx        `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	DualProof *DualProof `protobuf:"bytes,2,opt,name=dualProof,proto3" json:"dualProof,omitempty"`
-	Signature *Signature `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Tx        *Tx        `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`               // Transaction to verify
+	DualProof *DualProof `protobuf:"bytes,2,opt,name=dualProof,proto3" json:"dualProof,omitempty"` // Proof for the transaction
+	Signature *Signature `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"` // Signature for the new state value
 }
 
 func (x *VerifiableTx) Reset() {
@@ -2483,9 +2488,9 @@ type VerifiableEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Entry          *Entry          `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
-	VerifiableTx   *VerifiableTx   `protobuf:"bytes,2,opt,name=verifiableTx,proto3" json:"verifiableTx,omitempty"`
-	InclusionProof *InclusionProof `protobuf:"bytes,3,opt,name=inclusionProof,proto3" json:"inclusionProof,omitempty"`
+	Entry          *Entry          `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`                   // Entry to verify
+	VerifiableTx   *VerifiableTx   `protobuf:"bytes,2,opt,name=verifiableTx,proto3" json:"verifiableTx,omitempty"`     // Transaction to verify
+	InclusionProof *InclusionProof `protobuf:"bytes,3,opt,name=inclusionProof,proto3" json:"inclusionProof,omitempty"` // Proof for inclusion of the entry within the transaction
 }
 
 func (x *VerifiableEntry) Reset() {
@@ -2546,9 +2551,9 @@ type InclusionProof struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Leaf  int32    `protobuf:"varint,1,opt,name=leaf,proto3" json:"leaf,omitempty"`
-	Width int32    `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
-	Terms [][]byte `protobuf:"bytes,3,rep,name=terms,proto3" json:"terms,omitempty"`
+	Leaf  int32    `protobuf:"varint,1,opt,name=leaf,proto3" json:"leaf,omitempty"`   // Index of the leaf for which the proof is generated
+	Width int32    `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"` // Width of the tree at the leaf level
+	Terms [][]byte `protobuf:"bytes,3,rep,name=terms,proto3" json:"terms,omitempty"`  // Proof terms (selected hashes from the tree)
 }
 
 func (x *InclusionProof) Reset() {
@@ -2609,9 +2614,9 @@ type SetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	KVs           []*KeyValue     `protobuf:"bytes,1,rep,name=KVs,proto3" json:"KVs,omitempty"`
-	NoWait        bool            `protobuf:"varint,2,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	Preconditions []*Precondition `protobuf:"bytes,3,rep,name=preconditions,proto3" json:"preconditions,omitempty"`
+	KVs           []*KeyValue     `protobuf:"bytes,1,rep,name=KVs,proto3" json:"KVs,omitempty"`                     // List of KV entries to set
+	NoWait        bool            `protobuf:"varint,2,opt,name=noWait,proto3" json:"noWait,omitempty"`              // If set to true, do not wait for indexer to index ne entries
+	Preconditions []*Precondition `protobuf:"bytes,3,rep,name=preconditions,proto3" json:"preconditions,omitempty"` // Preconditions to be met to perform the write
 }
 
 func (x *SetRequest) Reset() {
@@ -2672,14 +2677,15 @@ type KeyRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key  []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	AtTx uint64 `protobuf:"varint,2,opt,name=atTx,proto3" json:"atTx,omitempty"` // if > 0, query for the value exactly at given transaction
-	// if 0 (and nowait=false), wait for the index to be up=to-date
+	Key  []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`    // Key to query for
+	AtTx uint64 `protobuf:"varint,2,opt,name=atTx,proto3" json:"atTx,omitempty"` // If > 0, query for the value exactly at given transaction
+	// If 0 (and noWait=false), wait for the index to be up-to-date,
+	// If > 0 (and noWait=false), wait for at lest the sinceTx transaction to be indexed
 	SinceTx uint64 `protobuf:"varint,3,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	// if set to true - do not wait for any indexing update considering only the currently indexed state
+	// If set to true - do not wait for any indexing update considering only the currently indexed state
 	NoWait bool `protobuf:"varint,4,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	// if > 0, get the nth version of the value, 1 being the first version, 2 being the second and so on
-	// if < 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on
+	// If > 0, get the nth version of the value, 1 being the first version, 2 being the second and so on
+	// If < 0, get the historical nth value of the key, -1 being the previous version, -2 being the one before and so on
 	AtRevision int64 `protobuf:"varint,5,opt,name=atRevision,proto3" json:"atRevision,omitempty"`
 }
 
@@ -2755,8 +2761,11 @@ type KeyListRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Keys    [][]byte `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	SinceTx uint64   `protobuf:"varint,2,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
+	// List of keys to query for
+	Keys [][]byte `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	// If 0, wait for index to be up-to-date,
+	// If > 0, wait for at least sinceTx transaction to be indexed
+	SinceTx uint64 `protobuf:"varint,2,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
 }
 
 func (x *KeyListRequest) Reset() {
@@ -2810,9 +2819,13 @@ type DeleteKeysRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Keys    [][]byte `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	SinceTx uint64   `protobuf:"varint,2,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait  bool     `protobuf:"varint,3,opt,name=noWait,proto3" json:"noWait,omitempty"`
+	// List of keys to delete logically
+	Keys [][]byte `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	// If 0, wait for index to be up-to-date,
+	// If > 0, wait for at least sinceTx transaction to be indexed
+	SinceTx uint64 `protobuf:"varint,2,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
+	// If set to true, do not wait for the indexer to index this operation
+	NoWait bool `protobuf:"varint,3,opt,name=noWait,proto3" json:"noWait,omitempty"`
 }
 
 func (x *DeleteKeysRequest) Reset() {
@@ -2873,8 +2886,8 @@ type VerifiableSetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SetRequest   *SetRequest `protobuf:"bytes,1,opt,name=setRequest,proto3" json:"setRequest,omitempty"`
-	ProveSinceTx uint64      `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
+	SetRequest   *SetRequest `protobuf:"bytes,1,opt,name=setRequest,proto3" json:"setRequest,omitempty"`      // Keys to set
+	ProveSinceTx uint64      `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"` // When generating the proof, generate consistency proof with state from this transaction
 }
 
 func (x *VerifiableSetRequest) Reset() {
@@ -2928,8 +2941,8 @@ type VerifiableGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	KeyRequest   *KeyRequest `protobuf:"bytes,1,opt,name=keyRequest,proto3" json:"keyRequest,omitempty"`
-	ProveSinceTx uint64      `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
+	KeyRequest   *KeyRequest `protobuf:"bytes,1,opt,name=keyRequest,proto3" json:"keyRequest,omitempty"`      // Key to read
+	ProveSinceTx uint64      `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"` // When generating the proof, generate consistency proof with state from this transaction
 }
 
 func (x *VerifiableGetRequest) Reset() {
@@ -3071,8 +3084,8 @@ type HealthResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Status  bool   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Status  bool   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`  // If true, server considers itself to be healthy
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // The version of the server instance
 }
 
 func (x *HealthResponse) Reset() {
@@ -3126,8 +3139,8 @@ type DatabaseHealthResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	PendingRequests        uint32 `protobuf:"varint,1,opt,name=pendingRequests,proto3" json:"pendingRequests,omitempty"`
-	LastRequestCompletedAt int64  `protobuf:"varint,2,opt,name=lastRequestCompletedAt,proto3" json:"lastRequestCompletedAt,omitempty"`
+	PendingRequests        uint32 `protobuf:"varint,1,opt,name=pendingRequests,proto3" json:"pendingRequests,omitempty"`               // Number of requests currently being executed
+	LastRequestCompletedAt int64  `protobuf:"varint,2,opt,name=lastRequestCompletedAt,proto3" json:"lastRequestCompletedAt,omitempty"` // Timestamp at which the last request was completed
 }
 
 func (x *DatabaseHealthResponse) Reset() {
@@ -3181,10 +3194,10 @@ type ImmutableState struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Db        string     `protobuf:"bytes,1,opt,name=db,proto3" json:"db,omitempty"`
-	TxId      uint64     `protobuf:"varint,2,opt,name=txId,proto3" json:"txId,omitempty"`
-	TxHash    []byte     `protobuf:"bytes,3,opt,name=txHash,proto3" json:"txHash,omitempty"`
-	Signature *Signature `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
+	Db        string     `protobuf:"bytes,1,opt,name=db,proto3" json:"db,omitempty"`               // The db name
+	TxId      uint64     `protobuf:"varint,2,opt,name=txId,proto3" json:"txId,omitempty"`          // Id of the most recent transaction
+	TxHash    []byte     `protobuf:"bytes,3,opt,name=txHash,proto3" json:"txHash,omitempty"`       // State of the most recent transaction
+	Signature *Signature `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"` // Signature of the hash
 }
 
 func (x *ImmutableState) Reset() {
@@ -3252,12 +3265,12 @@ type ReferenceRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key           []byte          `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	ReferencedKey []byte          `protobuf:"bytes,2,opt,name=referencedKey,proto3" json:"referencedKey,omitempty"`
-	AtTx          uint64          `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`
-	BoundRef      bool            `protobuf:"varint,4,opt,name=boundRef,proto3" json:"boundRef,omitempty"`
-	NoWait        bool            `protobuf:"varint,5,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	Preconditions []*Precondition `protobuf:"bytes,6,rep,name=preconditions,proto3" json:"preconditions,omitempty"`
+	Key           []byte          `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`                     // Key for the reference
+	ReferencedKey []byte          `protobuf:"bytes,2,opt,name=referencedKey,proto3" json:"referencedKey,omitempty"` // Key to be referenced
+	AtTx          uint64          `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`                  // If boundRef == true, id of transaction to bind with the reference
+	BoundRef      bool            `protobuf:"varint,4,opt,name=boundRef,proto3" json:"boundRef,omitempty"`          // If true, bind the reference to particular transaction, if false, use the most recent value of the key
+	NoWait        bool            `protobuf:"varint,5,opt,name=noWait,proto3" json:"noWait,omitempty"`              // If true, do not wait for the indexer to index this write operation
+	Preconditions []*Precondition `protobuf:"bytes,6,rep,name=preconditions,proto3" json:"preconditions,omitempty"` // Preconditions to be met to perform the write
 }
 
 func (x *ReferenceRequest) Reset() {
@@ -3339,8 +3352,8 @@ type VerifiableReferenceRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ReferenceRequest *ReferenceRequest `protobuf:"bytes,1,opt,name=referenceRequest,proto3" json:"referenceRequest,omitempty"`
-	ProveSinceTx     uint64            `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
+	ReferenceRequest *ReferenceRequest `protobuf:"bytes,1,opt,name=referenceRequest,proto3" json:"referenceRequest,omitempty"` // Reference data
+	ProveSinceTx     uint64            `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`        // When generating the proof, generate consistency proof with state from this transaction
 }
 
 func (x *VerifiableReferenceRequest) Reset() {
@@ -3394,12 +3407,12 @@ type ZAddRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Set      []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`
-	Score    float64 `protobuf:"fixed64,2,opt,name=score,proto3" json:"score,omitempty"`
-	Key      []byte  `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
-	AtTx     uint64  `protobuf:"varint,4,opt,name=atTx,proto3" json:"atTx,omitempty"`
-	BoundRef bool    `protobuf:"varint,5,opt,name=boundRef,proto3" json:"boundRef,omitempty"`
-	NoWait   bool    `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`
+	Set      []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`            // Name of the sorted set
+	Score    float64 `protobuf:"fixed64,2,opt,name=score,proto3" json:"score,omitempty"`      // Score of the new entry
+	Key      []byte  `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`            // Referenced key
+	AtTx     uint64  `protobuf:"varint,4,opt,name=atTx,proto3" json:"atTx,omitempty"`         // If boundRef == true, id of the transaction to bind with the reference
+	BoundRef bool    `protobuf:"varint,5,opt,name=boundRef,proto3" json:"boundRef,omitempty"` // If true, bind the reference to particular transaction, if false, use the most recent value of the key
+	NoWait   bool    `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`     // If true, do not wait for the indexer to index this write operation
 }
 
 func (x *ZAddRequest) Reset() {
@@ -3481,7 +3494,7 @@ type Score struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Score float64 `protobuf:"fixed64,1,opt,name=score,proto3" json:"score,omitempty"`
+	Score float64 `protobuf:"fixed64,1,opt,name=score,proto3" json:"score,omitempty"` // Entry's score value
 }
 
 func (x *Score) Reset() {
@@ -3528,18 +3541,18 @@ type ZScanRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Set           []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`
-	SeekKey       []byte  `protobuf:"bytes,2,opt,name=seekKey,proto3" json:"seekKey,omitempty"`
-	SeekScore     float64 `protobuf:"fixed64,3,opt,name=seekScore,proto3" json:"seekScore,omitempty"`
-	SeekAtTx      uint64  `protobuf:"varint,4,opt,name=seekAtTx,proto3" json:"seekAtTx,omitempty"`
-	InclusiveSeek bool    `protobuf:"varint,5,opt,name=inclusiveSeek,proto3" json:"inclusiveSeek,omitempty"`
-	Limit         uint64  `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
-	Desc          bool    `protobuf:"varint,7,opt,name=desc,proto3" json:"desc,omitempty"`
-	MinScore      *Score  `protobuf:"bytes,8,opt,name=minScore,proto3" json:"minScore,omitempty"`
-	MaxScore      *Score  `protobuf:"bytes,9,opt,name=maxScore,proto3" json:"maxScore,omitempty"`
-	SinceTx       uint64  `protobuf:"varint,10,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait        bool    `protobuf:"varint,11,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	Offset        uint64  `protobuf:"varint,12,opt,name=offset,proto3" json:"offset,omitempty"` // Specify the initial entry to be returned by excluding the initial set of entries
+	Set           []byte  `protobuf:"bytes,1,opt,name=set,proto3" json:"set,omitempty"`                      // Name of the sorted set
+	SeekKey       []byte  `protobuf:"bytes,2,opt,name=seekKey,proto3" json:"seekKey,omitempty"`              // Key to continue the search at
+	SeekScore     float64 `protobuf:"fixed64,3,opt,name=seekScore,proto3" json:"seekScore,omitempty"`        // Score of the entry to continue the search at
+	SeekAtTx      uint64  `protobuf:"varint,4,opt,name=seekAtTx,proto3" json:"seekAtTx,omitempty"`           // AtTx of the entry to continue the search at
+	InclusiveSeek bool    `protobuf:"varint,5,opt,name=inclusiveSeek,proto3" json:"inclusiveSeek,omitempty"` // If true, include the entry given with the `seekXXX` attributes, if false, skip the entry and start after that one
+	Limit         uint64  `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`                 // Maximum number of entries to return, if 0, the default limit will be used
+	Desc          bool    `protobuf:"varint,7,opt,name=desc,proto3" json:"desc,omitempty"`                   // If true, scan entries in descending order
+	MinScore      *Score  `protobuf:"bytes,8,opt,name=minScore,proto3" json:"minScore,omitempty"`            // Minimum score of entries to scan
+	MaxScore      *Score  `protobuf:"bytes,9,opt,name=maxScore,proto3" json:"maxScore,omitempty"`            // Maximum score of entries to scan
+	SinceTx       uint64  `protobuf:"varint,10,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`            // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
+	NoWait        bool    `protobuf:"varint,11,opt,name=noWait,proto3" json:"noWait,omitempty"`              // If set to true, do not wait for the indexer to be up to date
+	Offset        uint64  `protobuf:"varint,12,opt,name=offset,proto3" json:"offset,omitempty"`              // Specify the index of initial entry to be returned by excluding the initial set of entries (alternative to seekXXX attributes)
 }
 
 func (x *ZScanRequest) Reset() {
@@ -3663,11 +3676,11 @@ type HistoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key     []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Offset  uint64 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"` // Specify the initial entry to be returned by excluding the initial set of entries
-	Limit   int32  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	Desc    bool   `protobuf:"varint,4,opt,name=desc,proto3" json:"desc,omitempty"`
-	SinceTx uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
+	Key     []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`          // Name of the key to query for the history
+	Offset  uint64 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`   // Specify the initial entry to be returned by excluding the initial set of entries
+	Limit   int32  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`     // Maximum number of entries to return
+	Desc    bool   `protobuf:"varint,4,opt,name=desc,proto3" json:"desc,omitempty"`       // If true, search in descending order
+	SinceTx uint64 `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"` // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
 }
 
 func (x *HistoryRequest) Reset() {
@@ -3742,8 +3755,8 @@ type VerifiableZAddRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ZAddRequest  *ZAddRequest `protobuf:"bytes,1,opt,name=zAddRequest,proto3" json:"zAddRequest,omitempty"`
-	ProveSinceTx uint64       `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
+	ZAddRequest  *ZAddRequest `protobuf:"bytes,1,opt,name=zAddRequest,proto3" json:"zAddRequest,omitempty"`    // Data for new sorted set entry
+	ProveSinceTx uint64       `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"` // When generating the proof, generate consistency proof with state from this transaction
 }
 
 func (x *VerifiableZAddRequest) Reset() {
@@ -3797,11 +3810,11 @@ type TxRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx                       uint64       `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	EntriesSpec              *EntriesSpec `protobuf:"bytes,2,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"`
-	SinceTx                  uint64       `protobuf:"varint,3,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait                   bool         `protobuf:"varint,4,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	KeepReferencesUnresolved bool         `protobuf:"varint,5,opt,name=keepReferencesUnresolved,proto3" json:"keepReferencesUnresolved,omitempty"`
+	Tx                       uint64       `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`                                             // Transaction id to query for
+	EntriesSpec              *EntriesSpec `protobuf:"bytes,2,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"`                            // Specification for parsing entries, if empty, entries are returned in raw form
+	SinceTx                  uint64       `protobuf:"varint,3,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`                                   // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	NoWait                   bool         `protobuf:"varint,4,opt,name=noWait,proto3" json:"noWait,omitempty"`                                     // If set to true, do not wait for the indexer to be up to date
+	KeepReferencesUnresolved bool         `protobuf:"varint,5,opt,name=keepReferencesUnresolved,proto3" json:"keepReferencesUnresolved,omitempty"` // If set to true, do not resolve references (avoid looking up final values if not needed)
 }
 
 func (x *TxRequest) Reset() {
@@ -3876,9 +3889,9 @@ type EntriesSpec struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	KvEntriesSpec  *EntryTypeSpec `protobuf:"bytes,1,opt,name=kvEntriesSpec,proto3" json:"kvEntriesSpec,omitempty"`
-	ZEntriesSpec   *EntryTypeSpec `protobuf:"bytes,2,opt,name=zEntriesSpec,proto3" json:"zEntriesSpec,omitempty"`
-	SqlEntriesSpec *EntryTypeSpec `protobuf:"bytes,3,opt,name=sqlEntriesSpec,proto3" json:"sqlEntriesSpec,omitempty"`
+	KvEntriesSpec  *EntryTypeSpec `protobuf:"bytes,1,opt,name=kvEntriesSpec,proto3" json:"kvEntriesSpec,omitempty"`   // Specification for parsing KV entries
+	ZEntriesSpec   *EntryTypeSpec `protobuf:"bytes,2,opt,name=zEntriesSpec,proto3" json:"zEntriesSpec,omitempty"`     // Specification for parsing sorted set entries
+	SqlEntriesSpec *EntryTypeSpec `protobuf:"bytes,3,opt,name=sqlEntriesSpec,proto3" json:"sqlEntriesSpec,omitempty"` // Specification for parsing SQL entries
 }
 
 func (x *EntriesSpec) Reset() {
@@ -3939,7 +3952,7 @@ type EntryTypeSpec struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Action EntryTypeAction `protobuf:"varint,1,opt,name=action,proto3,enum=immudb.schema.EntryTypeAction" json:"action,omitempty"`
+	Action EntryTypeAction `protobuf:"varint,1,opt,name=action,proto3,enum=immudb.schema.EntryTypeAction" json:"action,omitempty"` // Action to perform on entries
 }
 
 func (x *EntryTypeSpec) Reset() {
@@ -3986,12 +3999,12 @@ type VerifiableTxRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx                       uint64       `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	ProveSinceTx             uint64       `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
-	EntriesSpec              *EntriesSpec `protobuf:"bytes,3,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"`
-	SinceTx                  uint64       `protobuf:"varint,4,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait                   bool         `protobuf:"varint,5,opt,name=noWait,proto3" json:"noWait,omitempty"`
-	KeepReferencesUnresolved bool         `protobuf:"varint,6,opt,name=keepReferencesUnresolved,proto3" json:"keepReferencesUnresolved,omitempty"`
+	Tx                       uint64       `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`                                             // Transaction ID
+	ProveSinceTx             uint64       `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`                         // When generating the proof, generate consistency proof with state from this transaction
+	EntriesSpec              *EntriesSpec `protobuf:"bytes,3,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"`                            // Specification of how to parse entries
+	SinceTx                  uint64       `protobuf:"varint,4,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`                                   // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	NoWait                   bool         `protobuf:"varint,5,opt,name=noWait,proto3" json:"noWait,omitempty"`                                     // If set to true, do not wait for the indexer to be up to date
+	KeepReferencesUnresolved bool         `protobuf:"varint,6,opt,name=keepReferencesUnresolved,proto3" json:"keepReferencesUnresolved,omitempty"` // If set to true, do not resolve references (avoid looking up final values if not needed)
 }
 
 func (x *VerifiableTxRequest) Reset() {
@@ -4073,12 +4086,12 @@ type TxScanRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	InitialTx   uint64       `protobuf:"varint,1,opt,name=initialTx,proto3" json:"initialTx,omitempty"`
-	Limit       uint32       `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	Desc        bool         `protobuf:"varint,3,opt,name=desc,proto3" json:"desc,omitempty"`
-	EntriesSpec *EntriesSpec `protobuf:"bytes,4,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"`
-	SinceTx     uint64       `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
-	NoWait      bool         `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`
+	InitialTx   uint64       `protobuf:"varint,1,opt,name=initialTx,proto3" json:"initialTx,omitempty"`    // ID of the transaction where scanning should start
+	Limit       uint32       `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`            // Maximum number of transactions to scan, when not specified the default limit is used
+	Desc        bool         `protobuf:"varint,3,opt,name=desc,proto3" json:"desc,omitempty"`              // If set to true, scan transactions in descending order
+	EntriesSpec *EntriesSpec `protobuf:"bytes,4,opt,name=entriesSpec,proto3" json:"entriesSpec,omitempty"` // Specification of how to parse entries
+	SinceTx     uint64       `protobuf:"varint,5,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`        // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references
+	NoWait      bool         `protobuf:"varint,6,opt,name=noWait,proto3" json:"noWait,omitempty"`          // If set to true, do not wait for the indexer to be up to date
 }
 
 func (x *TxScanRequest) Reset() {
@@ -4160,7 +4173,7 @@ type TxList struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Txs []*Tx `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"`
+	Txs []*Tx `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"` // List of transactions
 }
 
 func (x *TxList) Reset() {
@@ -4207,7 +4220,7 @@ type ExportTxRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx uint64 `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
+	Tx uint64 `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"` // Id of transaction to export
 }
 
 func (x *ExportTxRequest) Reset() {
@@ -4254,7 +4267,7 @@ type Database struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	DatabaseName string `protobuf:"bytes,1,opt,name=databaseName,proto3" json:"databaseName,omitempty"`
+	DatabaseName string `protobuf:"bytes,1,opt,name=databaseName,proto3" json:"databaseName,omitempty"` // Name of the database
 }
 
 func (x *Database) Reset() {
@@ -4301,18 +4314,18 @@ type DatabaseSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	DatabaseName      string `protobuf:"bytes,1,opt,name=databaseName,proto3" json:"databaseName,omitempty"`
-	Replica           bool   `protobuf:"varint,2,opt,name=replica,proto3" json:"replica,omitempty"`
-	MasterDatabase    string `protobuf:"bytes,3,opt,name=masterDatabase,proto3" json:"masterDatabase,omitempty"`
-	MasterAddress     string `protobuf:"bytes,4,opt,name=masterAddress,proto3" json:"masterAddress,omitempty"`
-	MasterPort        uint32 `protobuf:"varint,5,opt,name=masterPort,proto3" json:"masterPort,omitempty"`
-	FollowerUsername  string `protobuf:"bytes,6,opt,name=followerUsername,proto3" json:"followerUsername,omitempty"`
-	FollowerPassword  string `protobuf:"bytes,7,opt,name=followerPassword,proto3" json:"followerPassword,omitempty"`
-	FileSize          uint32 `protobuf:"varint,8,opt,name=fileSize,proto3" json:"fileSize,omitempty"`
-	MaxKeyLen         uint32 `protobuf:"varint,9,opt,name=maxKeyLen,proto3" json:"maxKeyLen,omitempty"`
-	MaxValueLen       uint32 `protobuf:"varint,10,opt,name=maxValueLen,proto3" json:"maxValueLen,omitempty"`
-	MaxTxEntries      uint32 `protobuf:"varint,11,opt,name=maxTxEntries,proto3" json:"maxTxEntries,omitempty"`
-	ExcludeCommitTime bool   `protobuf:"varint,12,opt,name=excludeCommitTime,proto3" json:"excludeCommitTime,omitempty"`
+	DatabaseName      string `protobuf:"bytes,1,opt,name=databaseName,proto3" json:"databaseName,omitempty"`             // Name of the database
+	Replica           bool   `protobuf:"varint,2,opt,name=replica,proto3" json:"replica,omitempty"`                      // If set to true, this database is replicating another database
+	MasterDatabase    string `protobuf:"bytes,3,opt,name=masterDatabase,proto3" json:"masterDatabase,omitempty"`         // Name of the database to replicate
+	MasterAddress     string `protobuf:"bytes,4,opt,name=masterAddress,proto3" json:"masterAddress,omitempty"`           // Hostname of the immudb instance with database to replicate
+	MasterPort        uint32 `protobuf:"varint,5,opt,name=masterPort,proto3" json:"masterPort,omitempty"`                // Port of the immudb instance with database to replicate
+	FollowerUsername  string `protobuf:"bytes,6,opt,name=followerUsername,proto3" json:"followerUsername,omitempty"`     // Username of the user with read access of the database to replicate
+	FollowerPassword  string `protobuf:"bytes,7,opt,name=followerPassword,proto3" json:"followerPassword,omitempty"`     // Password of the user with read access of the database to replicate
+	FileSize          uint32 `protobuf:"varint,8,opt,name=fileSize,proto3" json:"fileSize,omitempty"`                    // Size of files stored on disk
+	MaxKeyLen         uint32 `protobuf:"varint,9,opt,name=maxKeyLen,proto3" json:"maxKeyLen,omitempty"`                  // Maximum length of keys
+	MaxValueLen       uint32 `protobuf:"varint,10,opt,name=maxValueLen,proto3" json:"maxValueLen,omitempty"`             // Maximum length of values
+	MaxTxEntries      uint32 `protobuf:"varint,11,opt,name=maxTxEntries,proto3" json:"maxTxEntries,omitempty"`           // Maximum number of entries in a single transaction
+	ExcludeCommitTime bool   `protobuf:"varint,12,opt,name=excludeCommitTime,proto3" json:"excludeCommitTime,omitempty"` // If set to true, do not include commit timestamp in transaction headers
 }
 
 func (x *DatabaseSettings) Reset() {
@@ -4436,9 +4449,9 @@ type CreateDatabaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name        string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Settings    *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
-	IfNotExists bool                      `protobuf:"varint,3,opt,name=ifNotExists,proto3" json:"ifNotExists,omitempty"`
+	Name        string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                // Database name
+	Settings    *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`        // Database settings
+	IfNotExists bool                      `protobuf:"varint,3,opt,name=ifNotExists,proto3" json:"ifNotExists,omitempty"` // If set to true, do not fail if the database already exists
 }
 
 func (x *CreateDatabaseRequest) Reset() {
@@ -4499,9 +4512,9 @@ type CreateDatabaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name           string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Settings       *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
-	AlreadyExisted bool                      `protobuf:"varint,3,opt,name=alreadyExisted,proto3" json:"alreadyExisted,omitempty"`
+	Name           string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                      // Database name
+	Settings       *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`              // Current database settings
+	AlreadyExisted bool                      `protobuf:"varint,3,opt,name=alreadyExisted,proto3" json:"alreadyExisted,omitempty"` // Set to true if given database already existed
 }
 
 func (x *CreateDatabaseResponse) Reset() {
@@ -4562,8 +4575,8 @@ type UpdateDatabaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
+	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"` // Updated settings
 }
 
 func (x *UpdateDatabaseRequest) Reset() {
@@ -4617,8 +4630,8 @@ type UpdateDatabaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
+	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"` // Current database settings
 }
 
 func (x *UpdateDatabaseResponse) Reset() {
@@ -4710,8 +4723,8 @@ type DatabaseSettingsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	Database string                    `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
+	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"` // Database settings
 }
 
 func (x *DatabaseSettingsResponse) Reset() {
@@ -5047,25 +5060,25 @@ type DatabaseNullableSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ReplicationSettings     *ReplicationNullableSettings `protobuf:"bytes,2,opt,name=replicationSettings,proto3" json:"replicationSettings,omitempty"`
-	FileSize                *NullableUint32              `protobuf:"bytes,8,opt,name=fileSize,proto3" json:"fileSize,omitempty"`
-	MaxKeyLen               *NullableUint32              `protobuf:"bytes,9,opt,name=maxKeyLen,proto3" json:"maxKeyLen,omitempty"`
-	MaxValueLen             *NullableUint32              `protobuf:"bytes,10,opt,name=maxValueLen,proto3" json:"maxValueLen,omitempty"`
-	MaxTxEntries            *NullableUint32              `protobuf:"bytes,11,opt,name=maxTxEntries,proto3" json:"maxTxEntries,omitempty"`
-	ExcludeCommitTime       *NullableBool                `protobuf:"bytes,12,opt,name=excludeCommitTime,proto3" json:"excludeCommitTime,omitempty"`
-	MaxConcurrency          *NullableUint32              `protobuf:"bytes,13,opt,name=maxConcurrency,proto3" json:"maxConcurrency,omitempty"`
-	MaxIOConcurrency        *NullableUint32              `protobuf:"bytes,14,opt,name=maxIOConcurrency,proto3" json:"maxIOConcurrency,omitempty"`
-	TxLogCacheSize          *NullableUint32              `protobuf:"bytes,15,opt,name=txLogCacheSize,proto3" json:"txLogCacheSize,omitempty"`
-	VLogMaxOpenedFiles      *NullableUint32              `protobuf:"bytes,16,opt,name=vLogMaxOpenedFiles,proto3" json:"vLogMaxOpenedFiles,omitempty"`
-	TxLogMaxOpenedFiles     *NullableUint32              `protobuf:"bytes,17,opt,name=txLogMaxOpenedFiles,proto3" json:"txLogMaxOpenedFiles,omitempty"`
-	CommitLogMaxOpenedFiles *NullableUint32              `protobuf:"bytes,18,opt,name=commitLogMaxOpenedFiles,proto3" json:"commitLogMaxOpenedFiles,omitempty"`
-	IndexSettings           *IndexNullableSettings       `protobuf:"bytes,19,opt,name=indexSettings,proto3" json:"indexSettings,omitempty"`
-	WriteTxHeaderVersion    *NullableUint32              `protobuf:"bytes,20,opt,name=writeTxHeaderVersion,proto3" json:"writeTxHeaderVersion,omitempty"`
-	Autoload                *NullableBool                `protobuf:"bytes,21,opt,name=autoload,proto3" json:"autoload,omitempty"`
-	ReadTxPoolSize          *NullableUint32              `protobuf:"bytes,22,opt,name=readTxPoolSize,proto3" json:"readTxPoolSize,omitempty"`
-	SyncFrequency           *NullableMilliseconds        `protobuf:"bytes,23,opt,name=syncFrequency,proto3" json:"syncFrequency,omitempty"`
-	WriteBufferSize         *NullableUint32              `protobuf:"bytes,24,opt,name=writeBufferSize,proto3" json:"writeBufferSize,omitempty"`
-	AhtSettings             *AHTNullableSettings         `protobuf:"bytes,25,opt,name=ahtSettings,proto3" json:"ahtSettings,omitempty"`
+	ReplicationSettings     *ReplicationNullableSettings `protobuf:"bytes,2,opt,name=replicationSettings,proto3" json:"replicationSettings,omitempty"`          // Replication settings
+	FileSize                *NullableUint32              `protobuf:"bytes,8,opt,name=fileSize,proto3" json:"fileSize,omitempty"`                                // Max filesize on disk
+	MaxKeyLen               *NullableUint32              `protobuf:"bytes,9,opt,name=maxKeyLen,proto3" json:"maxKeyLen,omitempty"`                              // Maximum length of keys
+	MaxValueLen             *NullableUint32              `protobuf:"bytes,10,opt,name=maxValueLen,proto3" json:"maxValueLen,omitempty"`                         // Maximum length of values
+	MaxTxEntries            *NullableUint32              `protobuf:"bytes,11,opt,name=maxTxEntries,proto3" json:"maxTxEntries,omitempty"`                       // Maximum number of entries in a single transaction
+	ExcludeCommitTime       *NullableBool                `protobuf:"bytes,12,opt,name=excludeCommitTime,proto3" json:"excludeCommitTime,omitempty"`             // If set to true, do not include commit timestamp in transaction headers
+	MaxIOConcurrency        *NullableUint32              `protobuf:"bytes,14,opt,name=maxIOConcurrency,proto3" json:"maxIOConcurrency,omitempty"`               // Maximum number of simultaneous IO writes
+	MaxConcurrency          *NullableUint32              `protobuf:"bytes,13,opt,name=maxConcurrency,proto3" json:"maxConcurrency,omitempty"`                   // Maximum number of simultaneous commits prepared for write
+	TxLogCacheSize          *NullableUint32              `protobuf:"bytes,15,opt,name=txLogCacheSize,proto3" json:"txLogCacheSize,omitempty"`                   // Size of the LRU cache for transaction logs
+	VLogMaxOpenedFiles      *NullableUint32              `protobuf:"bytes,16,opt,name=vLogMaxOpenedFiles,proto3" json:"vLogMaxOpenedFiles,omitempty"`           // Maximum number of simultaneous value files opened
+	TxLogMaxOpenedFiles     *NullableUint32              `protobuf:"bytes,17,opt,name=txLogMaxOpenedFiles,proto3" json:"txLogMaxOpenedFiles,omitempty"`         // Maximum number of simultaneous transaction log files opened
+	CommitLogMaxOpenedFiles *NullableUint32              `protobuf:"bytes,18,opt,name=commitLogMaxOpenedFiles,proto3" json:"commitLogMaxOpenedFiles,omitempty"` // Maximum number of simultaneous commit log files opened
+	IndexSettings           *IndexNullableSettings       `protobuf:"bytes,19,opt,name=indexSettings,proto3" json:"indexSettings,omitempty"`                     // Index settings
+	WriteTxHeaderVersion    *NullableUint32              `protobuf:"bytes,20,opt,name=writeTxHeaderVersion,proto3" json:"writeTxHeaderVersion,omitempty"`       // Version of transaction header to use (limits available features)
+	Autoload                *NullableBool                `protobuf:"bytes,21,opt,name=autoload,proto3" json:"autoload,omitempty"`                               // If set to true, automatically load the database when starting immudb (true by default)
+	ReadTxPoolSize          *NullableUint32              `protobuf:"bytes,22,opt,name=readTxPoolSize,proto3" json:"readTxPoolSize,omitempty"`                   // Size of the pool of read buffers
+	SyncFrequency           *NullableMilliseconds        `protobuf:"bytes,23,opt,name=syncFrequency,proto3" json:"syncFrequency,omitempty"`                     // Fsync frequency during commit process
+	WriteBufferSize         *NullableUint32              `protobuf:"bytes,24,opt,name=writeBufferSize,proto3" json:"writeBufferSize,omitempty"`                 // Size of the in-memory buffer for write operations
+	AhtSettings             *AHTNullableSettings         `protobuf:"bytes,25,opt,name=ahtSettings,proto3" json:"ahtSettings,omitempty"`                         // Settings of Appendable Hash Tree
 }
 
 func (x *DatabaseNullableSettings) Reset() {
@@ -5142,16 +5155,16 @@ func (x *DatabaseNullableSettings) GetExcludeCommitTime() *NullableBool {
 	return nil
 }
 
-func (x *DatabaseNullableSettings) GetMaxConcurrency() *NullableUint32 {
+func (x *DatabaseNullableSettings) GetMaxIOConcurrency() *NullableUint32 {
 	if x != nil {
-		return x.MaxConcurrency
+		return x.MaxIOConcurrency
 	}
 	return nil
 }
 
-func (x *DatabaseNullableSettings) GetMaxIOConcurrency() *NullableUint32 {
+func (x *DatabaseNullableSettings) GetMaxConcurrency() *NullableUint32 {
 	if x != nil {
-		return x.MaxIOConcurrency
+		return x.MaxConcurrency
 	}
 	return nil
 }
@@ -5238,12 +5251,12 @@ type ReplicationNullableSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Replica          *NullableBool   `protobuf:"bytes,1,opt,name=replica,proto3" json:"replica,omitempty"`
-	MasterDatabase   *NullableString `protobuf:"bytes,2,opt,name=masterDatabase,proto3" json:"masterDatabase,omitempty"`
-	MasterAddress    *NullableString `protobuf:"bytes,3,opt,name=masterAddress,proto3" json:"masterAddress,omitempty"`
-	MasterPort       *NullableUint32 `protobuf:"bytes,4,opt,name=masterPort,proto3" json:"masterPort,omitempty"`
-	FollowerUsername *NullableString `protobuf:"bytes,5,opt,name=followerUsername,proto3" json:"followerUsername,omitempty"`
-	FollowerPassword *NullableString `protobuf:"bytes,6,opt,name=followerPassword,proto3" json:"followerPassword,omitempty"`
+	Replica          *NullableBool   `protobuf:"bytes,1,opt,name=replica,proto3" json:"replica,omitempty"`                   // If set to true, this database is replicating another database
+	MasterDatabase   *NullableString `protobuf:"bytes,2,opt,name=masterDatabase,proto3" json:"masterDatabase,omitempty"`     // Name of the database to replicate
+	MasterAddress    *NullableString `protobuf:"bytes,3,opt,name=masterAddress,proto3" json:"masterAddress,omitempty"`       // Hostname of the immudb instance with database to replicate
+	MasterPort       *NullableUint32 `protobuf:"bytes,4,opt,name=masterPort,proto3" json:"masterPort,omitempty"`             // Port of the immudb instance with database to replicate
+	FollowerUsername *NullableString `protobuf:"bytes,5,opt,name=followerUsername,proto3" json:"followerUsername,omitempty"` // Username of the user with read access of the database to replicate
+	FollowerPassword *NullableString `protobuf:"bytes,6,opt,name=followerPassword,proto3" json:"followerPassword,omitempty"` // Password of the user with read access of the database to replicate
 }
 
 func (x *ReplicationNullableSettings) Reset() {
@@ -5325,19 +5338,19 @@ type IndexNullableSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FlushThreshold           *NullableUint32 `protobuf:"bytes,1,opt,name=flushThreshold,proto3" json:"flushThreshold,omitempty"`
-	SyncThreshold            *NullableUint32 `protobuf:"bytes,2,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`
-	CacheSize                *NullableUint32 `protobuf:"bytes,3,opt,name=cacheSize,proto3" json:"cacheSize,omitempty"`
-	MaxNodeSize              *NullableUint32 `protobuf:"bytes,4,opt,name=maxNodeSize,proto3" json:"maxNodeSize,omitempty"`
-	MaxActiveSnapshots       *NullableUint32 `protobuf:"bytes,5,opt,name=maxActiveSnapshots,proto3" json:"maxActiveSnapshots,omitempty"`
-	RenewSnapRootAfter       *NullableUint64 `protobuf:"bytes,6,opt,name=renewSnapRootAfter,proto3" json:"renewSnapRootAfter,omitempty"`
-	CompactionThld           *NullableUint32 `protobuf:"bytes,7,opt,name=compactionThld,proto3" json:"compactionThld,omitempty"`
-	DelayDuringCompaction    *NullableUint32 `protobuf:"bytes,8,opt,name=delayDuringCompaction,proto3" json:"delayDuringCompaction,omitempty"`
-	NodesLogMaxOpenedFiles   *NullableUint32 `protobuf:"bytes,9,opt,name=nodesLogMaxOpenedFiles,proto3" json:"nodesLogMaxOpenedFiles,omitempty"`
-	HistoryLogMaxOpenedFiles *NullableUint32 `protobuf:"bytes,10,opt,name=historyLogMaxOpenedFiles,proto3" json:"historyLogMaxOpenedFiles,omitempty"`
-	CommitLogMaxOpenedFiles  *NullableUint32 `protobuf:"bytes,11,opt,name=commitLogMaxOpenedFiles,proto3" json:"commitLogMaxOpenedFiles,omitempty"`
-	FlushBufferSize          *NullableUint32 `protobuf:"bytes,12,opt,name=flushBufferSize,proto3" json:"flushBufferSize,omitempty"`
-	CleanupPercentage        *NullableFloat  `protobuf:"bytes,13,opt,name=cleanupPercentage,proto3" json:"cleanupPercentage,omitempty"`
+	FlushThreshold           *NullableUint32 `protobuf:"bytes,1,opt,name=flushThreshold,proto3" json:"flushThreshold,omitempty"`                      // Number of new index entries between disk flushes
+	SyncThreshold            *NullableUint32 `protobuf:"bytes,2,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`                        // Number of new index entries between disk flushes with file sync
+	CacheSize                *NullableUint32 `protobuf:"bytes,3,opt,name=cacheSize,proto3" json:"cacheSize,omitempty"`                                // Size of the Btree node LRU cache
+	MaxNodeSize              *NullableUint32 `protobuf:"bytes,4,opt,name=maxNodeSize,proto3" json:"maxNodeSize,omitempty"`                            // Max size of a single Btree node in bytes
+	MaxActiveSnapshots       *NullableUint32 `protobuf:"bytes,5,opt,name=maxActiveSnapshots,proto3" json:"maxActiveSnapshots,omitempty"`              // Maximum number of active btree snapshots
+	RenewSnapRootAfter       *NullableUint64 `protobuf:"bytes,6,opt,name=renewSnapRootAfter,proto3" json:"renewSnapRootAfter,omitempty"`              // Time in milliseconds between the most recent DB snapshot is automatically renewed
+	CompactionThld           *NullableUint32 `protobuf:"bytes,7,opt,name=compactionThld,proto3" json:"compactionThld,omitempty"`                      // Minimum number of updates entries in the btree to allow for full compaction
+	DelayDuringCompaction    *NullableUint32 `protobuf:"bytes,8,opt,name=delayDuringCompaction,proto3" json:"delayDuringCompaction,omitempty"`        // Additional delay added during indexing when full compaction is in progress
+	NodesLogMaxOpenedFiles   *NullableUint32 `protobuf:"bytes,9,opt,name=nodesLogMaxOpenedFiles,proto3" json:"nodesLogMaxOpenedFiles,omitempty"`      // Maximum number of simultaneously opened nodes files
+	HistoryLogMaxOpenedFiles *NullableUint32 `protobuf:"bytes,10,opt,name=historyLogMaxOpenedFiles,proto3" json:"historyLogMaxOpenedFiles,omitempty"` // Maximum number of simultaneously opened node history files
+	CommitLogMaxOpenedFiles  *NullableUint32 `protobuf:"bytes,11,opt,name=commitLogMaxOpenedFiles,proto3" json:"commitLogMaxOpenedFiles,omitempty"`   // Maximum number of simultaneously opened commit log files
+	FlushBufferSize          *NullableUint32 `protobuf:"bytes,12,opt,name=flushBufferSize,proto3" json:"flushBufferSize,omitempty"`                   // Size of the in-memory flush buffer (in bytes)
+	CleanupPercentage        *NullableFloat  `protobuf:"bytes,13,opt,name=cleanupPercentage,proto3" json:"cleanupPercentage,omitempty"`               // Percentage of node files cleaned up during each flush
 }
 
 func (x *IndexNullableSettings) Reset() {
@@ -5468,8 +5481,8 @@ type AHTNullableSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SyncThreshold   *NullableUint32 `protobuf:"bytes,1,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`
-	WriteBufferSize *NullableUint32 `protobuf:"bytes,2,opt,name=writeBufferSize,proto3" json:"writeBufferSize,omitempty"`
+	SyncThreshold   *NullableUint32 `protobuf:"bytes,1,opt,name=syncThreshold,proto3" json:"syncThreshold,omitempty"`     // Number of new leaves in the tree between synchronous flush to disk
+	WriteBufferSize *NullableUint32 `protobuf:"bytes,2,opt,name=writeBufferSize,proto3" json:"writeBufferSize,omitempty"` // Size of the in-memory write buffer
 }
 
 func (x *AHTNullableSettings) Reset() {
@@ -5523,7 +5536,7 @@ type LoadDatabaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // may add createIfNotExist
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *LoadDatabaseRequest) Reset() {
@@ -5570,7 +5583,7 @@ type LoadDatabaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // may add setttings
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *LoadDatabaseResponse) Reset() {
@@ -5617,7 +5630,7 @@ type UnloadDatabaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *UnloadDatabaseRequest) Reset() {
@@ -5664,7 +5677,7 @@ type UnloadDatabaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *UnloadDatabaseResponse) Reset() {
@@ -5711,7 +5724,7 @@ type DeleteDatabaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *DeleteDatabaseRequest) Reset() {
@@ -5758,7 +5771,7 @@ type DeleteDatabaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *DeleteDatabaseResponse) Reset() {
@@ -5805,8 +5818,8 @@ type FlushIndexRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	CleanupPercentage float32 `protobuf:"fixed32,1,opt,name=cleanupPercentage,proto3" json:"cleanupPercentage,omitempty"`
-	Synced            bool    `protobuf:"varint,2,opt,name=synced,proto3" json:"synced,omitempty"`
+	CleanupPercentage float32 `protobuf:"fixed32,1,opt,name=cleanupPercentage,proto3" json:"cleanupPercentage,omitempty"` // Percentage of nodes file to cleanup during flush
+	Synced            bool    `protobuf:"varint,2,opt,name=synced,proto3" json:"synced,omitempty"`                        // If true, do a full disk sync after the flush
 }
 
 func (x *FlushIndexRequest) Reset() {
@@ -5860,7 +5873,7 @@ type FlushIndexResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"` // Database name
 }
 
 func (x *FlushIndexResponse) Reset() {
@@ -5907,7 +5920,7 @@ type Table struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TableName string `protobuf:"bytes,1,opt,name=tableName,proto3" json:"tableName,omitempty"`
+	TableName string `protobuf:"bytes,1,opt,name=tableName,proto3" json:"tableName,omitempty"` // Table name
 }
 
 func (x *Table) Reset() {
@@ -5954,10 +5967,10 @@ type SQLGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Table    string      `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
-	PkValues []*SQLValue `protobuf:"bytes,2,rep,name=pkValues,proto3" json:"pkValues,omitempty"`
-	AtTx     uint64      `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`
-	SinceTx  uint64      `protobuf:"varint,4,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`
+	Table    string      `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`       // Table name
+	PkValues []*SQLValue `protobuf:"bytes,2,rep,name=pkValues,proto3" json:"pkValues,omitempty"` // Values of the primary key
+	AtTx     uint64      `protobuf:"varint,3,opt,name=atTx,proto3" json:"atTx,omitempty"`        // Id of the transaction at which the row was added / modified
+	SinceTx  uint64      `protobuf:"varint,4,opt,name=sinceTx,proto3" json:"sinceTx,omitempty"`  // If > 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed
 }
 
 func (x *SQLGetRequest) Reset() {
@@ -6025,8 +6038,8 @@ type VerifiableSQLGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SqlGetRequest *SQLGetRequest `protobuf:"bytes,1,opt,name=sqlGetRequest,proto3" json:"sqlGetRequest,omitempty"`
-	ProveSinceTx  uint64         `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`
+	SqlGetRequest *SQLGetRequest `protobuf:"bytes,1,opt,name=sqlGetRequest,proto3" json:"sqlGetRequest,omitempty"` // Data of row to query
+	ProveSinceTx  uint64         `protobuf:"varint,2,opt,name=proveSinceTx,proto3" json:"proveSinceTx,omitempty"`  // When generating the proof, generate consistency proof with state from this transaction
 }
 
 func (x *VerifiableSQLGetRequest) Reset() {
@@ -6080,10 +6093,10 @@ type SQLEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Tx       uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	Key      []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value    []byte      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Tx       uint64      `protobuf:"varint,1,opt,name=tx,proto3" json:"tx,omitempty"`            // Id of the transaction when the row was added / modified
+	Key      []byte      `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`           // Raw key of the row
+	Value    []byte      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`       // Raw value of the row
+	Metadata *KVMetadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"` // Metadata of the raw value
 }
 
 func (x *SQLEntry) Reset() {
@@ -6151,16 +6164,16 @@ type VerifiableSQLEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SqlEntry       *SQLEntry         `protobuf:"bytes,1,opt,name=sqlEntry,proto3" json:"sqlEntry,omitempty"`
-	VerifiableTx   *VerifiableTx     `protobuf:"bytes,2,opt,name=verifiableTx,proto3" json:"verifiableTx,omitempty"`
-	InclusionProof *InclusionProof   `protobuf:"bytes,3,opt,name=inclusionProof,proto3" json:"inclusionProof,omitempty"`
-	DatabaseId     uint32            `protobuf:"varint,4,opt,name=DatabaseId,proto3" json:"DatabaseId,omitempty"`
-	TableId        uint32            `protobuf:"varint,5,opt,name=TableId,proto3" json:"TableId,omitempty"`
-	PKIDs          []uint32          `protobuf:"varint,16,rep,packed,name=PKIDs,proto3" json:"PKIDs,omitempty"`
-	ColNamesById   map[uint32]string `protobuf:"bytes,8,rep,name=ColNamesById,proto3" json:"ColNamesById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	ColIdsByName   map[string]uint32 `protobuf:"bytes,9,rep,name=ColIdsByName,proto3" json:"ColIdsByName,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
-	ColTypesById   map[uint32]string `protobuf:"bytes,10,rep,name=ColTypesById,proto3" json:"ColTypesById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	ColLenById     map[uint32]int32  `protobuf:"bytes,11,rep,name=ColLenById,proto3" json:"ColLenById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	SqlEntry       *SQLEntry         `protobuf:"bytes,1,opt,name=sqlEntry,proto3" json:"sqlEntry,omitempty"`                                                                                                   // Raw row entry data
+	VerifiableTx   *VerifiableTx     `protobuf:"bytes,2,opt,name=verifiableTx,proto3" json:"verifiableTx,omitempty"`                                                                                           // Verifiable transaction of the row
+	InclusionProof *InclusionProof   `protobuf:"bytes,3,opt,name=inclusionProof,proto3" json:"inclusionProof,omitempty"`                                                                                       // Inclusion proof of the row in the transaction
+	DatabaseId     uint32            `protobuf:"varint,4,opt,name=DatabaseId,proto3" json:"DatabaseId,omitempty"`                                                                                              // Internal ID of the database (used to validate raw entry values)
+	TableId        uint32            `protobuf:"varint,5,opt,name=TableId,proto3" json:"TableId,omitempty"`                                                                                                    // Internal ID of the table (used to validate raw entry values)
+	PKIDs          []uint32          `protobuf:"varint,16,rep,packed,name=PKIDs,proto3" json:"PKIDs,omitempty"`                                                                                                // Internal IDs of columns for the primary key (used to validate raw entry values)
+	ColNamesById   map[uint32]string `protobuf:"bytes,8,rep,name=ColNamesById,proto3" json:"ColNamesById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`  // Mapping of used column IDs to their names
+	ColIdsByName   map[string]uint32 `protobuf:"bytes,9,rep,name=ColIdsByName,proto3" json:"ColIdsByName,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`  // Mapping of column names to their IDS
+	ColTypesById   map[uint32]string `protobuf:"bytes,10,rep,name=ColTypesById,proto3" json:"ColTypesById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // Mapping of column IDs to their types
+	ColLenById     map[uint32]int32  `protobuf:"bytes,11,rep,name=ColLenById,proto3" json:"ColLenById,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`    // Mapping of column IDs to their length constraints
 }
 
 func (x *VerifiableSQLEntry) Reset() {
@@ -6270,7 +6283,7 @@ type UseDatabaseReply struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"` // Deprecated: database access token
 }
 
 func (x *UseDatabaseReply) Reset() {
@@ -6317,10 +6330,10 @@ type ChangePermissionRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Action     PermissionAction `protobuf:"varint,1,opt,name=action,proto3,enum=immudb.schema.PermissionAction" json:"action,omitempty"`
-	Username   string           `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Database   string           `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
-	Permission uint32           `protobuf:"varint,4,opt,name=permission,proto3" json:"permission,omitempty"`
+	Action     PermissionAction `protobuf:"varint,1,opt,name=action,proto3,enum=immudb.schema.PermissionAction" json:"action,omitempty"` // Action to perform
+	Username   string           `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`                                  // Name of the user to update
+	Database   string           `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`                                  // Name of the database
+	Permission uint32           `protobuf:"varint,4,opt,name=permission,proto3" json:"permission,omitempty"`                             // Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin
 }
 
 func (x *ChangePermissionRequest) Reset() {
@@ -6388,8 +6401,8 @@ type SetActiveUserRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Active   bool   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`
-	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Active   bool   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`    // If true, the user is active
+	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"` // Name of the user to activate / deactivate
 }
 
 func (x *SetActiveUserRequest) Reset() {
@@ -6443,7 +6456,7 @@ type DatabaseListResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Databases []*Database `protobuf:"bytes,1,rep,name=databases,proto3" json:"databases,omitempty"`
+	Databases []*Database `protobuf:"bytes,1,rep,name=databases,proto3" json:"databases,omitempty"` // Database list
 }
 
 func (x *DatabaseListResponse) Reset() {
@@ -6528,7 +6541,7 @@ type DatabaseListResponseV2 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Databases []*DatabaseWithSettings `protobuf:"bytes,1,rep,name=databases,proto3" json:"databases,omitempty"`
+	Databases []*DatabaseWithSettings `protobuf:"bytes,1,rep,name=databases,proto3" json:"databases,omitempty"` // Database list with current database settings
 }
 
 func (x *DatabaseListResponseV2) Reset() {
@@ -6575,9 +6588,9 @@ type DatabaseWithSettings struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name     string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
-	Loaded   bool                      `protobuf:"varint,3,opt,name=loaded,proto3" json:"loaded,omitempty"`
+	Name     string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`         // Database name
+	Settings *DatabaseNullableSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"` // Current database settings
+	Loaded   bool                      `protobuf:"varint,3,opt,name=loaded,proto3" json:"loaded,omitempty"`    // If true, this database is currently loaded into memory
 }
 
 func (x *DatabaseWithSettings) Reset() {
@@ -6740,9 +6753,9 @@ type SQLExecRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Sql    string        `protobuf:"bytes,1,opt,name=sql,proto3" json:"sql,omitempty"`
-	Params []*NamedParam `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty"`
-	NoWait bool          `protobuf:"varint,3,opt,name=noWait,proto3" json:"noWait,omitempty"`
+	Sql    string        `protobuf:"bytes,1,opt,name=sql,proto3" json:"sql,omitempty"`        // SQL query
+	Params []*NamedParam `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty"`  // Named query parameters
+	NoWait bool          `protobuf:"varint,3,opt,name=noWait,proto3" json:"noWait,omitempty"` // If true, do not wait for the indexer to index written changes
 }
 
 func (x *SQLExecRequest) Reset() {
@@ -6803,9 +6816,9 @@ type SQLQueryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Sql           string        `protobuf:"bytes,1,opt,name=sql,proto3" json:"sql,omitempty"`
-	Params        []*NamedParam `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty"`
-	ReuseSnapshot bool          `protobuf:"varint,3,opt,name=reuseSnapshot,proto3" json:"reuseSnapshot,omitempty"`
+	Sql           string        `protobuf:"bytes,1,opt,name=sql,proto3" json:"sql,omitempty"`                      // SQL query
+	Params        []*NamedParam `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty"`                // Named query parameters
+	ReuseSnapshot bool          `protobuf:"varint,3,opt,name=reuseSnapshot,proto3" json:"reuseSnapshot,omitempty"` // If true, reuse previously opened snapshot
 }
 
 func (x *SQLQueryRequest) Reset() {
@@ -6866,8 +6879,8 @@ type NamedParam struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name  string    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Value *SQLValue `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Name  string    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`   // Parameter name
+	Value *SQLValue `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"` // Parameter value
 }
 
 func (x *NamedParam) Reset() {
@@ -6921,8 +6934,8 @@ type SQLExecResult struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Txs       []*CommittedSQLTx `protobuf:"bytes,5,rep,name=txs,proto3" json:"txs,omitempty"`
-	OngoingTx bool              `protobuf:"varint,6,opt,name=ongoingTx,proto3" json:"ongoingTx,omitempty"`
+	Txs       []*CommittedSQLTx `protobuf:"bytes,5,rep,name=txs,proto3" json:"txs,omitempty"`              // List of committed transactions as a result of the exec operation
+	OngoingTx bool              `protobuf:"varint,6,opt,name=ongoingTx,proto3" json:"ongoingTx,omitempty"` // If true, there's an ongoing transaction after exec completes
 }
 
 func (x *SQLExecResult) Reset() {
@@ -6976,10 +6989,10 @@ type CommittedSQLTx struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Header           *TxHeader            `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
-	UpdatedRows      uint32               `protobuf:"varint,2,opt,name=updatedRows,proto3" json:"updatedRows,omitempty"`
-	LastInsertedPKs  map[string]*SQLValue `protobuf:"bytes,3,rep,name=lastInsertedPKs,proto3" json:"lastInsertedPKs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	FirstInsertedPKs map[string]*SQLValue `protobuf:"bytes,4,rep,name=firstInsertedPKs,proto3" json:"firstInsertedPKs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Header           *TxHeader            `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`                                                                                                             // Transaction header
+	UpdatedRows      uint32               `protobuf:"varint,2,opt,name=updatedRows,proto3" json:"updatedRows,omitempty"`                                                                                                  // Number of updated rows
+	LastInsertedPKs  map[string]*SQLValue `protobuf:"bytes,3,rep,name=lastInsertedPKs,proto3" json:"lastInsertedPKs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`   // The value of last inserted auto_increment primary key (mapped by table name)
+	FirstInsertedPKs map[string]*SQLValue `protobuf:"bytes,4,rep,name=firstInsertedPKs,proto3" json:"firstInsertedPKs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // The value of first inserted auto_increment primary key (mapped by table name)
 }
 
 func (x *CommittedSQLTx) Reset() {
@@ -7047,8 +7060,8 @@ type SQLQueryResult struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Columns []*Column `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
-	Rows    []*Row    `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
+	Columns []*Column `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"` // Result columns description
+	Rows    []*Row    `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`       // Result rows
 }
 
 func (x *SQLQueryResult) Reset() {
@@ -7102,8 +7115,8 @@ type Column struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Column name
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"` // Column type
 }
 
 func (x *Column) Reset() {
@@ -7157,8 +7170,8 @@ type Row struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Columns []string    `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
-	Values  []*SQLValue `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
+	Columns []string    `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"` // Column names
+	Values  []*SQLValue `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`   // Column values
 }
 
 func (x *Row) Reset() {
@@ -7349,7 +7362,7 @@ type NewTxRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Mode TxMode `protobuf:"varint,1,opt,name=mode,proto3,enum=immudb.schema.TxMode" json:"mode,omitempty"`
+	Mode TxMode `protobuf:"varint,1,opt,name=mode,proto3,enum=immudb.schema.TxMode" json:"mode,omitempty"` // Transaction mode
 }
 
 func (x *NewTxRequest) Reset() {
@@ -7396,7 +7409,7 @@ type NewTxResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TransactionID string `protobuf:"bytes,1,opt,name=transactionID,proto3" json:"transactionID,omitempty"`
+	TransactionID string `protobuf:"bytes,1,opt,name=transactionID,proto3" json:"transactionID,omitempty"` // Internal transaction ID
 }
 
 func (x *NewTxResponse) Reset() {
@@ -7443,8 +7456,8 @@ type ErrorInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Code  string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Cause string `protobuf:"bytes,2,opt,name=cause,proto3" json:"cause,omitempty"`
+	Code  string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`   // Error code
+	Cause string `protobuf:"bytes,2,opt,name=cause,proto3" json:"cause,omitempty"` // Error Description
 }
 
 func (x *ErrorInfo) Reset() {
@@ -7498,7 +7511,7 @@ type DebugInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Stack string `protobuf:"bytes,1,opt,name=stack,proto3" json:"stack,omitempty"`
+	Stack string `protobuf:"bytes,1,opt,name=stack,proto3" json:"stack,omitempty"` // Stack trace when the error was noticed
 }
 
 func (x *DebugInfo) Reset() {
@@ -7545,7 +7558,7 @@ type RetryInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RetryDelay int32 `protobuf:"varint,1,opt,name=retry_delay,json=retryDelay,proto3" json:"retry_delay,omitempty"`
+	RetryDelay int32 `protobuf:"varint,1,opt,name=retry_delay,json=retryDelay,proto3" json:"retry_delay,omitempty"` // Number of milliseconds after which the request can be retried
 }
 
 func (x *RetryInfo) Reset() {
@@ -7587,12 +7600,13 @@ func (x *RetryInfo) GetRetryDelay() int32 {
 	return 0
 }
 
+// Only succeed if given key exists
 type Precondition_KeyMustExistPrecondition struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"` // key to check
 }
 
 func (x *Precondition_KeyMustExistPrecondition) Reset() {
@@ -7634,12 +7648,13 @@ func (x *Precondition_KeyMustExistPrecondition) GetKey() []byte {
 	return nil
 }
 
+// Only succeed if given key does not exists
 type Precondition_KeyMustNotExistPrecondition struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"` // key to check
 }
 
 func (x *Precondition_KeyMustNotExistPrecondition) Reset() {
@@ -7681,13 +7696,14 @@ func (x *Precondition_KeyMustNotExistPrecondition) GetKey() []byte {
 	return nil
 }
 
+// Only succeed if given key was not modified after given transaction
 type Precondition_KeyNotModifiedAfterTXPrecondition struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key  []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	TxID uint64 `protobuf:"varint,2,opt,name=txID,proto3" json:"txID,omitempty"`
+	Key  []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`    // key to check
+	TxID uint64 `protobuf:"varint,2,opt,name=txID,proto3" json:"txID,omitempty"` // transaction id to check against
 }
 
 func (x *Precondition_KeyNotModifiedAfterTXPrecondition) Reset() {
@@ -8368,15 +8384,15 @@ var file_schema_proto_rawDesc = []byte{
 	0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68,
 	0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x42, 0x6f, 0x6f, 0x6c,
 	0x52, 0x11, 0x65, 0x78, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x54,
-	0x69, 0x6d, 0x65, 0x12, 0x45, 0x0a, 0x0e, 0x6d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72,
-	0x72, 0x65, 0x6e, 0x63, 0x79, 0x18, 0x0d, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x69, 0x6d,
-	0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c,
-	0x61, 0x62, 0x6c, 0x65, 0x55, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x52, 0x0e, 0x6d, 0x61, 0x78, 0x43,
-	0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63, 0x79, 0x12, 0x49, 0x0a, 0x10, 0x6d, 0x61,
-	0x78, 0x49, 0x4f, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63, 0x79, 0x18, 0x0e,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63,
-	0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x55, 0x69, 0x6e,
-	0x74, 0x33, 0x32, 0x52, 0x10, 0x6d, 0x61, 0x78, 0x49, 0x4f, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72,
+	0x69, 0x6d, 0x65, 0x12, 0x49, 0x0a, 0x10, 0x6d, 0x61, 0x78, 0x49, 0x4f, 0x43, 0x6f, 0x6e, 0x63,
+	0x75, 0x72, 0x72, 0x65, 0x6e, 0x63, 0x79, 0x18, 0x0e, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e,
+	0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75,
+	0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x55, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x52, 0x10, 0x6d, 0x61,
+	0x78, 0x49, 0x4f, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63, 0x79, 0x12, 0x45,
+	0x0a, 0x0e, 0x6d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63, 0x79,
+	0x18, 0x0d, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e,
+	0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x55,
+	0x69, 0x6e, 0x74, 0x33, 0x32, 0x52, 0x0e, 0x6d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72,
 	0x72, 0x65, 0x6e, 0x63, 0x79, 0x12, 0x45, 0x0a, 0x0e, 0x74, 0x78, 0x4c, 0x6f, 0x67, 0x43, 0x61,
 	0x63, 0x68, 0x65, 0x53, 0x69, 0x7a, 0x65, 0x18, 0x0f, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e,
 	0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75,
@@ -9440,8 +9456,8 @@ var file_schema_proto_depIdxs = []int32{
 	73,  // 59: immudb.schema.DatabaseNullableSettings.maxValueLen:type_name -> immudb.schema.NullableUint32
 	73,  // 60: immudb.schema.DatabaseNullableSettings.maxTxEntries:type_name -> immudb.schema.NullableUint32
 	76,  // 61: immudb.schema.DatabaseNullableSettings.excludeCommitTime:type_name -> immudb.schema.NullableBool
-	73,  // 62: immudb.schema.DatabaseNullableSettings.maxConcurrency:type_name -> immudb.schema.NullableUint32
-	73,  // 63: immudb.schema.DatabaseNullableSettings.maxIOConcurrency:type_name -> immudb.schema.NullableUint32
+	73,  // 62: immudb.schema.DatabaseNullableSettings.maxIOConcurrency:type_name -> immudb.schema.NullableUint32
+	73,  // 63: immudb.schema.DatabaseNullableSettings.maxConcurrency:type_name -> immudb.schema.NullableUint32
 	73,  // 64: immudb.schema.DatabaseNullableSettings.txLogCacheSize:type_name -> immudb.schema.NullableUint32
 	73,  // 65: immudb.schema.DatabaseNullableSettings.vLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
 	73,  // 66: immudb.schema.DatabaseNullableSettings.txLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
