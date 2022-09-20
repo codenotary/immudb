@@ -533,15 +533,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		compactionDisabled: opts.CompactionDisabled,
 	}
 
-	if store.aht.Size() > committedTxID {
-		err = store.aht.ResetSize(committedTxID)
+	if store.aht.Size() > preCommittedTxID {
+		err = store.aht.ResetSize(preCommittedTxID)
 		if err != nil {
 			store.Close()
 			return nil, fmt.Errorf("corrupted commit log: can not truncate aht tree: %w", err)
 		}
 	}
 
-	if store.aht.Size() == store.committedTxID {
+	if store.aht.Size() == store.preCommittedTxID {
 		store.logger.Infof("Binary Linking up to date at '%s'", store.path)
 	} else {
 		err = store.syncBinaryLinking()
@@ -849,7 +849,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
+	txReader, err := s.newTxReader(s.aht.Size()+1, false, tx)
 	if err != nil {
 		return err
 	}
