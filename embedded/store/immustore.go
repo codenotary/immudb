@@ -1818,7 +1818,7 @@ func (s *ImmuStore) DualProof(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualPr
 	}
 
 	if targetTxHdr.BlTxID > 0 {
-		targetBlTxHdr, err := s.ReadTxHeader(targetTxHdr.BlTxID)
+		targetBlTxHdr, err := s.ReadTxHeader(targetTxHdr.BlTxID, false)
 		if err != nil {
 			return nil, err
 		}
@@ -2161,7 +2161,7 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 	for left < right {
 		middle := left + (right-left)/2
 
-		header, err := s.ReadTxHeader(middle)
+		header, err := s.ReadTxHeader(middle, false)
 		if err != nil {
 			return nil, err
 		}
@@ -2173,7 +2173,7 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 		}
 	}
 
-	header, err := s.ReadTxHeader(left)
+	header, err := s.ReadTxHeader(left, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2192,7 +2192,7 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	for left < right {
 		middle := left + ((right-left)+1)/2
 
-		header, err := s.ReadTxHeader(middle)
+		header, err := s.ReadTxHeader(middle, false)
 		if err != nil {
 			return nil, err
 		}
@@ -2204,7 +2204,7 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 		}
 	}
 
-	header, err := s.ReadTxHeader(left)
+	header, err := s.ReadTxHeader(left, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2283,7 +2283,7 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, tx *Tx) error {
 	return err
 }
 
-func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
+func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool) (*TxHeader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -2291,7 +2291,7 @@ func (s *ImmuStore) ReadTxHeader(txID uint64) (*TxHeader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	r, err := s.appendableReaderForTx(txID, false)
+	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return nil, err
 	}
