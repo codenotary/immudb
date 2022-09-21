@@ -280,17 +280,6 @@ func (txr *TxReplicator) nextTx() error {
 				return err
 			}
 		}
-	} else {
-		// backward compatibility with older immudb servers which only export committed transactions
-		precommitState, err := txr.db.CurrentPreCommitState()
-		if err != nil {
-			return err
-		}
-
-		err = txr.db.AllowCommitUpto(precommitState.TxId, schema.DigestFromProto(precommitState.TxHash))
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

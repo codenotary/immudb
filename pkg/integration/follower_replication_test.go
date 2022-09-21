@@ -237,6 +237,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	defer os.RemoveAll(followerDir)
 
 	replicationOpts := &server.ReplicationOptions{
+		IsReplica:        true,
 		MasterAddress:    "127.0.0.1",
 		MasterPort:       masterPort,
 		FollowerUsername: "immudb",

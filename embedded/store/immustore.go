@@ -2036,8 +2036,8 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 	return buf.Bytes(), nil
 }
 
-func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForCommit, waitForIndexing bool) (*TxHeader, error) {
-	if len(exportedTx) == 0 || (!waitForCommit && waitForIndexing) {
+func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {
+	if len(exportedTx) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -2135,7 +2135,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForCommit, waitForIndexin
 		return txHdr, err
 	}
 
-	if waitForCommit {
+	if !s.useExternalCommitAllowance {
 		err = s.commitWHub.WaitFor(txHdr.ID, nil)
 		if err == watchers.ErrAlreadyClosed {
 			return txHdr, ErrAlreadyClosed
