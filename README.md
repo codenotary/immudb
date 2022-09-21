@@ -240,7 +240,7 @@ We already learned about the following use cases from users:
 We have SDKs available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang ([connection guide](https://docs.immudb.io/master/develop/connection.html), [Gorm adapter](https://github.com/codenotary/immugorm))
+2. Golang ([golang sdk](https://pkg.go.dev/github.com/codenotary/immudb/pkg/client), [Gorm adapter](https://github.com/codenotary/immugorm))
 3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
