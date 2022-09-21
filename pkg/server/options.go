@@ -253,22 +253,27 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Data dir", o.Dir))
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
 
-	repOpts := o.ReplicationOptions
-
-	opts = append(opts, rightPad("Sync replication enabled", repOpts != nil && repOpts.SyncReplication))
-
-	if repOpts == nil || !repOpts.IsReplica {
-		opts = append(opts, rightPad("Sync followers", repOpts.SyncFollowers))
-	} else {
-		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.MasterAddress, repOpts.MasterPort)))
-	}
-
 	if o.MetricsServer {
 		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsServerPort)))
 		if o.PProf {
 			opts = append(opts, rightPad("pprof enabled", "true"))
 		}
 	}
+
+	repOpts := o.ReplicationOptions
+	syncReplication := repOpts != nil && repOpts.SyncReplication
+	isReplica := repOpts != nil && repOpts.IsReplica
+
+	opts = append(opts, rightPad("Sync replication", syncReplication))
+
+	if syncReplication && !isReplica {
+		opts = append(opts, rightPad("Sync followers", repOpts.SyncFollowers))
+	}
+
+	if isReplica {
+		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.MasterAddress, repOpts.MasterPort)))
+	}
+
 	if o.Config != "" {
 		opts = append(opts, rightPad("Config file", o.Config))
 	}
