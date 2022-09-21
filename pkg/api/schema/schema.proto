@@ -580,7 +580,8 @@ message ReplicationNullableSettings {
 	NullableUint32 masterPort = 4;
 	NullableString followerUsername = 5;
 	NullableString followerPassword = 6;
-	NullableUint32 syncFollowers = 7;
+	NullableBool   syncReplication = 7;
+	NullableUint32 syncFollowers = 8;
 }
 
 message IndexNullableSettings {

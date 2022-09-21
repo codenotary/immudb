@@ -2761,6 +2761,9 @@
         "followerPassword": {
           "$ref": "#/definitions/schemaNullableString"
         },
+        "syncReplication": {
+          "$ref": "#/definitions/schemaNullableBool"
+        },
         "syncFollowers": {
           "$ref": "#/definitions/schemaNullableUint32"
         }

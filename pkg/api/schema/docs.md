@@ -1409,6 +1409,7 @@
 | masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  |  |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  |  |
+| syncReplication | [NullableBool](#immudb.schema.NullableBool) |  |  |
 | syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  |  |
 
 
