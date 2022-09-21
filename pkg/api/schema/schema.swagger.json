@@ -2491,6 +2491,16 @@
         "signature": {
           "$ref": "#/definitions/schemaSignature",
           "title": "Signature of the hash"
+        },
+        "precommittedTxId": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Id of the most recent precommitted transaction"
+        },
+        "precommittedTxHash": {
+          "type": "string",
+          "format": "byte",
+          "title": "State of the most recent precommitted transaction"
         }
       }
     },

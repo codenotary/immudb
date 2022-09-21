@@ -50,7 +50,7 @@ func (s *ImmuServer) CurrentState(ctx context.Context, _ *empty.Empty) (*schema.
 		return nil, err
 	}
 
-	state, err := db.CurrentCommitState()
+	state, err := db.CurrentState()
 	if err != nil {
 		return nil, err
 	}

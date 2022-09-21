@@ -590,6 +590,14 @@ message ImmutableState {
 
   // Signature of the hash
   Signature signature = 4;
+	
+  // following fields are not part of the signature
+
+  // Id of the most recent precommitted transaction
+	uint64 precommittedTxId = 5;
+
+  // State of the most recent precommitted transaction
+	bytes precommittedTxHash = 6;
 }
 
 message ReferenceRequest {

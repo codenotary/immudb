@@ -77,11 +77,7 @@ func (db *closedDB) Health() (waitingCount int, lastReleaseAt time.Time) {
 	return
 }
 
-func (db *closedDB) CurrentCommitState() (*schema.ImmutableState, error) {
-	return nil, store.ErrAlreadyClosed
-}
-
-func (db *closedDB) CurrentPreCommitState() (*schema.ImmutableState, error) {
+func (db *closedDB) CurrentState() (*schema.ImmutableState, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

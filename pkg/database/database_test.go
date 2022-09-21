@@ -421,7 +421,7 @@ func TestDelete(t *testing.T) {
 	require.Empty(t, tx.KvEntries)
 }
 
-func TestCurrentCommitState(t *testing.T) {
+func TestCurrentState(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
@@ -432,7 +432,7 @@ func TestCurrentCommitState(t *testing.T) {
 
 		time.Sleep(1 * time.Second)
 
-		state, err := db.CurrentCommitState()
+		state, err := db.CurrentState()
 		require.NoError(t, err)
 		require.Equal(t, uint64(ind+2), state.TxId)
 	}
@@ -442,7 +442,7 @@ func TestSafeSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	state, err := db.CurrentCommitState()
+	state, err := db.CurrentState()
 	require.NoError(t, err)
 
 	_, err = db.VerifiableSet(nil)
@@ -917,7 +917,7 @@ func TestTxScan(t *testing.T) {
 
 	db.maxResultSize = len(kvs)
 
-	initialState, err := db.CurrentCommitState()
+	initialState, err := db.CurrentState()
 	require.NoError(t, err)
 
 	for _, val := range kvs {

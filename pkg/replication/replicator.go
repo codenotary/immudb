@@ -212,31 +212,28 @@ func (txr *TxReplicator) disconnect() {
 }
 
 func (txr *TxReplicator) nextTx() error {
-	commitState, err := txr.db.CurrentCommitState()
+	commitState, err := txr.db.CurrentState()
 	if err != nil {
 		return err
 	}
 
-	var state *schema.FollowerState
-	nextTx := commitState.TxId + 1
-
 	syncReplicationEnabled := txr.db.IsSyncReplicationEnabled()
 
-	if syncReplicationEnabled {
-		precommitState, err := txr.db.CurrentPreCommitState()
-		if err != nil {
-			return err
-		}
+	var nextTx uint64
+	var state *schema.FollowerState
 
-		nextTx = precommitState.TxId + 1
+	if syncReplicationEnabled {
+		nextTx = commitState.PrecommittedTxId + 1
 
 		state = &schema.FollowerState{
 			UUID:             txr.uuid.String(),
 			CommittedTxID:    commitState.TxId,
 			CommittedAlh:     commitState.TxHash,
-			PrecommittedTxID: precommitState.TxId,
-			PrecommittedAlh:  precommitState.TxHash,
+			PrecommittedTxID: commitState.PrecommittedTxId,
+			PrecommittedAlh:  commitState.PrecommittedTxHash,
 		}
+	} else {
+		nextTx = commitState.TxId + 1
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{

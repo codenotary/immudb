@@ -848,6 +848,8 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | txId | [uint64](#uint64) |  | Id of the most recent transaction |
 | txHash | [bytes](#bytes) |  | State of the most recent transaction |
 | signature | [Signature](#immudb.schema.Signature) |  | Signature of the hash |
+| precommittedTxId | [uint64](#uint64) |  | Id of the most recent precommitted transaction |
+| precommittedTxHash | [bytes](#bytes) |  | State of the most recent precommitted transaction |
 
 
 
