@@ -38,6 +38,7 @@ type dbOptions struct {
 
 	// replication options
 	Replica          bool   `json:"replica"`
+	SyncReplication  bool   `json:"syncReplication"`
 	MasterDatabase   string `json:"masterDatabase"`
 	MasterAddress    string `json:"masterAddress"`
 	MasterPort       int    `json:"masterPort"`
@@ -152,6 +153,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
 		repOpts := s.Options.ReplicationOptions
 
+		dbOpts.SyncReplication = repOpts.SyncReplication
+
 		if dbOpts.Replica {
 			dbOpts.MasterDatabase = dbOpts.Database // replica of systemdb and defaultdb must have the same name as in master
 			dbOpts.MasterAddress = repOpts.MasterAddress
@@ -196,6 +199,7 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithDBRootPath(s.Options.Dir).
 		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
 		AsReplica(opts.Replica).
+		WithSyncReplication(opts.SyncReplication).
 		WithSyncFollowers(opts.SyncFollowers).
 		WithReadTxPoolSize(opts.ReadTxPoolSize)
 }
@@ -259,6 +263,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 	return &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:          &schema.NullableBool{Value: opts.Replica},
+			SyncReplication:  &schema.NullableBool{Value: opts.SyncReplication},
 			MasterDatabase:   &schema.NullableString{Value: opts.MasterDatabase},
 			MasterAddress:    &schema.NullableString{Value: opts.MasterAddress},
 			MasterPort:       &schema.NullableUint32{Value: uint32(opts.MasterPort)},
@@ -390,6 +395,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 		if rs.Replica != nil {
 			opts.Replica = rs.Replica.Value
+		}
+		if rs.SyncReplication != nil {
+			opts.SyncReplication = rs.SyncReplication.Value
 		}
 		if rs.SyncFollowers != nil {
 			opts.SyncFollowers = int(rs.SyncFollowers.Value)
@@ -551,11 +559,21 @@ func (opts *dbOptions) Validate() error {
 			opts.MasterPort > 0 ||
 			opts.FollowerUsername != "" ||
 			opts.FollowerPassword != "") {
-		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
+		return fmt.Errorf(
+			"%w: invalid replication options for database '%s'",
+			ErrIllegalArguments, opts.Database)
 	}
 
-	if opts.Replica && opts.SyncFollowers > 0 {
-		return fmt.Errorf("%w: invalid replication options for database '%s'", ErrIllegalArguments, opts.Database)
+	if opts.SyncFollowers == 0 && opts.SyncReplication && !opts.Replica {
+		return fmt.Errorf(
+			"%w: invalid replication options for database '%s'. It is necessary to have at least one follower",
+			ErrIllegalArguments, opts.Database)
+	}
+
+	if opts.SyncFollowers > 0 && (opts.Replica || !opts.SyncReplication) {
+		return fmt.Errorf(
+			"%w: invalid replication options for database '%s'. Sync followers are not expected",
+			ErrIllegalArguments, opts.Database)
 	}
 
 	if opts.ReadTxPoolSize <= 0 {
@@ -642,6 +660,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.Synced: %v", database, opts.synced)
 	s.Logger.Infof("%s.SyncFrequency: %v", database, opts.SyncFrequency)
 	s.Logger.Infof("%s.Replica: %v", database, opts.Replica)
+	s.Logger.Infof("%s.SyncReplication: %v", database, opts.SyncReplication)
 	s.Logger.Infof("%s.SyncFollowers: %v", database, opts.SyncFollowers)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)

@@ -276,7 +276,7 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
 		if err != nil {
 			return nil, err
 		}

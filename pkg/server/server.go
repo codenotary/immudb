@@ -419,7 +419,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 
 	//sys admin can have an empty array of databases as it has full access
 	if !s.sysDB.IsReplica() {
-		err = s.sysDB.DisableExternalCommitAllowance()
+		err = s.sysDB.DisableSyncReplication()
 		if err != nil {
 			return err
 		}
@@ -429,8 +429,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 			return logErr(s.Logger, "%v", err)
 		}
 
-		if s.Options.ReplicationOptions.SyncFollowers > 0 {
-			err = s.sysDB.EnableExternalCommitAllowance()
+		if s.Options.ReplicationOptions.SyncReplication {
+			err = s.sysDB.EnableSyncReplication()
 			if err != nil {
 				return err
 			}

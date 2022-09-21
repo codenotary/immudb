@@ -29,6 +29,7 @@ func TestDefaultOptions(t *testing.T) {
 	require.Equal(t, op.GetDBRootPath(), DefaultOption().dbRootPath)
 	require.False(t, op.GetCorruptionChecker())
 	require.Equal(t, op.GetTxPoolSize(), DefaultOption().readTxPoolSize)
+	require.False(t, op.syncReplication)
 
 	rootpath := "rootpath"
 	storeOpts := store.DefaultOptions()
@@ -37,11 +38,13 @@ func TestDefaultOptions(t *testing.T) {
 		WithDBRootPath(rootpath).
 		WithCorruptionChecker(true).
 		WithStoreOptions(storeOpts).
-		WithReadTxPoolSize(789)
+		WithReadTxPoolSize(789).
+		WithSyncReplication(true)
 
 	require.Equal(t, op.GetDBRootPath(), rootpath)
 	require.True(t, op.GetCorruptionChecker())
 	require.Equal(t, op.GetTxPoolSize(), 789)
+	require.True(t, op.syncReplication)
 
 	require.Equal(t, storeOpts, op.storeOpts)
 }

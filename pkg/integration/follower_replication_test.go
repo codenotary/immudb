@@ -100,8 +100,8 @@ func TestReplication(t *testing.T) {
 	// create database as masterdb in master server
 	_, err = masterClient.CreateDatabaseV2(mctx, "masterdb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			Replica:       &schema.NullableBool{Value: false},
-			SyncFollowers: &schema.NullableUint32{Value: 1},
+			SyncReplication: &schema.NullableBool{Value: true},
+			SyncFollowers:   &schema.NullableUint32{Value: 1},
 		},
 	})
 	require.NoError(t, err)
@@ -132,27 +132,25 @@ func TestReplication(t *testing.T) {
 	fctx := metadata.NewOutgoingContext(context.Background(), fmd)
 
 	// create database as replica in follower server
-	err = followerClient.CreateDatabase(fctx, &schema.DatabaseSettings{
-		DatabaseName:     "replicadb",
-		Replica:          true,
-		MasterDatabase:   "masterdb",
-		MasterAddress:    "127.0.0.1",
-		MasterPort:       uint32(masterPort),
-		FollowerUsername: "follower",
-		FollowerPassword: "wrongPassword",
+	_, err = followerClient.CreateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			Replica:          &schema.NullableBool{Value: true},
+			SyncReplication:  &schema.NullableBool{Value: true},
+			MasterDatabase:   &schema.NullableString{Value: "masterdb"},
+			MasterAddress:    &schema.NullableString{Value: "127.0.0.1"},
+			MasterPort:       &schema.NullableUint32{Value: uint32(masterPort)},
+			FollowerUsername: &schema.NullableString{Value: "follower"},
+			FollowerPassword: &schema.NullableString{Value: "wrongPassword"},
+		},
 	})
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
-	err = followerClient.UpdateDatabase(fctx, &schema.DatabaseSettings{
-		DatabaseName:     "replicadb",
-		Replica:          true,
-		MasterDatabase:   "masterdb",
-		MasterAddress:    "127.0.0.1",
-		MasterPort:       uint32(masterPort),
-		FollowerUsername: "follower",
-		FollowerPassword: "follower1Pwd!",
+	_, err = followerClient.UpdateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
+		ReplicationSettings: &schema.ReplicationNullableSettings{
+			FollowerPassword: &schema.NullableString{Value: "follower1Pwd!"},
+		},
 	})
 	require.NoError(t, err)
 

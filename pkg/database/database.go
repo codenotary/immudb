@@ -61,8 +61,9 @@ type DB interface {
 	AsReplica(asReplica bool)
 	IsReplica() bool
 
-	EnableExternalCommitAllowance() error
-	DisableExternalCommitAllowance() error
+	IsSyncReplicationEnabled() bool
+	EnableSyncReplication() error
+	DisableSyncReplication() error
 
 	MaxResultSize() int
 	UseTimeFunc(timeFunc store.TimeFunc) error
@@ -199,7 +200,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	stOpts := op.GetStoreOptions().
 		WithLogger(log).
-		WithExternalCommitAllowance(op.replica || op.syncFollowers > 0)
+		WithExternalCommitAllowance(op.syncReplication)
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
@@ -314,7 +315,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	stOpts := op.GetStoreOptions().WithLogger(log)
 	// TODO: it's not currently possible to set:
-	// WithExternalCommitAllowance(op.replica || op.syncFollowers > 0) due to sql init steps
+	// WithExternalCommitAllowance(op.syncReplication) due to sql init steps
 
 	dbi.st, err = store.Open(dbDir, stOpts)
 	if err != nil {
@@ -323,7 +324,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	// TODO: may be moved to store opts once sql init steps are removed
 	defer func() {
-		if op.replica || op.syncFollowers > 0 {
+		if op.syncReplication {
 			dbi.st.EnableExternalCommitAllowance()
 		}
 	}()
@@ -707,20 +708,6 @@ func (d *db) CurrentPreCommitState() (*schema.ImmutableState, error) {
 	}, nil
 }
 
-func (d *db) StateAt(txID uint64) (*schema.ImmutableState, error) {
-	hdr, err := d.st.ReadTxHeader(txID)
-	if err != nil {
-		return nil, err
-	}
-
-	alh := hdr.Alh()
-
-	return &schema.ImmutableState{
-		TxId:   hdr.ID,
-		TxHash: alh[:],
-	}, nil
-}
-
 // WaitForTx blocks caller until specified tx
 func (d *db) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
 	return d.st.WaitForTx(txID, allowPrecommitted, cancellation)
@@ -764,7 +751,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -825,7 +812,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1284,7 +1271,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 					fmt.Errorf("%w: the follower commit state is ahead of the master", err)
 			}
 
-			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID)
+			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID, false)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1304,7 +1291,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 					fmt.Errorf("%w: the follower precommit state is ahead of the master", err)
 			}
 
-			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID)
+			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID, true)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1401,7 +1388,7 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 	}
 
 	// follower pre-committed state should be consistent with master
-	hdr, err := d.st.ReadTxHeader(txID)
+	hdr, err := d.st.ReadTxHeader(txID, true)
 	if err != nil {
 		return err
 	}
@@ -1452,7 +1439,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = reqTx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1697,18 +1684,39 @@ func (d *db) isReplica() bool {
 	return d.options.replica
 }
 
-func (d *db) EnableExternalCommitAllowance() error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+func (d *db) IsSyncReplicationEnabled() bool {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
-	return d.st.EnableExternalCommitAllowance()
+	return d.options.syncReplication
 }
 
-func (d *db) DisableExternalCommitAllowance() error {
+func (d *db) EnableSyncReplication() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.st.DisableExternalCommitAllowance()
+	err := d.st.EnableExternalCommitAllowance()
+	if err != nil {
+		return err
+	}
+
+	d.options.syncReplication = true
+
+	return nil
+}
+
+func (d *db) DisableSyncReplication() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	err := d.st.DisableExternalCommitAllowance()
+	if err != nil {
+		return err
+	}
+
+	d.options.syncReplication = false
+
+	return nil
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

@@ -29,9 +29,9 @@ type Options struct {
 
 	storeOpts *store.Options
 
-	replica bool
-
-	syncFollowers int
+	replica         bool
+	syncReplication bool
+	syncFollowers   int // only if !replica
 
 	corruptionChecker bool
 
@@ -83,6 +83,11 @@ func (o *Options) GetStoreOptions() *store.Options {
 // AsReplica sets if the database is a replica
 func (o *Options) AsReplica(replica bool) *Options {
 	o.replica = replica
+	return o
+}
+
+func (o *Options) WithSyncReplication(syncReplication bool) *Options {
+	o.syncReplication = syncReplication
 	return o
 }
 

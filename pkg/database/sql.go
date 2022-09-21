@@ -128,7 +128,7 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
 		if err != nil {
 			return nil, err
 		}
