@@ -3470,10 +3470,10 @@ func TestBlTXOrdering(t *testing.T) {
 
 		for i := uint64(1); i < maxTxID; i++ {
 
-			srcTxHeader, err := immuStore.ReadTxHeader(i)
+			srcTxHeader, err := immuStore.ReadTxHeader(i, false)
 			require.NoError(t, err)
 
-			dstTxHeader, err := immuStore.ReadTxHeader(i + 1)
+			dstTxHeader, err := immuStore.ReadTxHeader(i+1, false)
 			require.NoError(t, err)
 
 			require.LessOrEqual(t, srcTxHeader.BlTxID, dstTxHeader.BlTxID)
