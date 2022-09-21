@@ -70,8 +70,7 @@ type DB interface {
 
 	// State
 	Health() (waitingCount int, lastReleaseAt time.Time)
-	CurrentCommitState() (*schema.ImmutableState, error)
-	CurrentPreCommitState() (*schema.ImmutableState, error)
+	CurrentState() (*schema.ImmutableState, error)
 
 	Size() (uint64, error)
 
@@ -689,22 +688,16 @@ func (d *db) Health() (waitingCount int, lastReleaseAt time.Time) {
 	return d.mutex.State()
 }
 
-// CurrentCommitState ...
-func (d *db) CurrentCommitState() (*schema.ImmutableState, error) {
+// CurrentState ...
+func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	lastTxID, lastTxAlh := d.st.CommittedAlh()
-
-	return &schema.ImmutableState{
-		TxId:   lastTxID,
-		TxHash: lastTxAlh[:],
-	}, nil
-}
-
-func (d *db) CurrentPreCommitState() (*schema.ImmutableState, error) {
 	lastPreTxID, lastPreTxAlh := d.st.PreCommittedAlh()
 
 	return &schema.ImmutableState{
-		TxId:   lastPreTxID,
-		TxHash: lastPreTxAlh[:],
+		TxId:               lastTxID,
+		TxHash:             lastTxAlh[:],
+		PrecommittedTxId:   lastPreTxID,
+		PrecommittedTxHash: lastPreTxAlh[:],
 	}, nil
 }
 

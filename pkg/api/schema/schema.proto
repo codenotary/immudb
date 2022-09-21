@@ -345,6 +345,9 @@ message ImmutableState {
 	uint64 txId = 2;
 	bytes txHash = 3;
 	Signature signature = 4;
+	// following fields are not part of the signature
+	uint64 precommittedTxId = 5;
+	bytes precommittedTxHash = 6;
 }
 
 message ReferenceRequest {

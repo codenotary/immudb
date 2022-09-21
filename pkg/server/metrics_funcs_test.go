@@ -34,14 +34,14 @@ import (
 type dbMock struct {
 	database.DB
 
-	currentCommitStateF func() (*schema.ImmutableState, error)
-	getOptionsF         func() *database.Options
-	getNameF            func() string
+	currentStateF func() (*schema.ImmutableState, error)
+	getOptionsF   func() *database.Options
+	getNameF      func() string
 }
 
-func (dbm dbMock) CurrentCommitState() (*schema.ImmutableState, error) {
-	if dbm.currentCommitStateF != nil {
-		return dbm.currentCommitStateF()
+func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
+	if dbm.currentStateF != nil {
+		return dbm.currentStateF()
 	}
 	return &schema.ImmutableState{TxId: 99}, nil
 }
@@ -62,7 +62,7 @@ func (dbm dbMock) GetName() string {
 
 func TestMetricFuncComputeDBEntries(t *testing.T) {
 
-	currentCommitStateSuccessfulOnce := func(callCounter *int) (*schema.ImmutableState, error) {
+	currentStateSuccessfulOnce := func(callCounter *int) (*schema.ImmutableState, error) {
 		*callCounter++
 		if *callCounter == 1 {
 			return &schema.ImmutableState{TxId: 99}, nil
@@ -75,8 +75,8 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 	currentStateCounter := 0
 	dbList := database.NewDatabaseList()
 	dbList.Put(dbMock{
-		currentCommitStateF: func() (*schema.ImmutableState, error) {
-			return currentCommitStateSuccessfulOnce(&currentStateCounter)
+		currentStateF: func() (*schema.ImmutableState, error) {
+			return currentStateSuccessfulOnce(&currentStateCounter)
 		},
 	})
 
@@ -88,8 +88,8 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 		getOptionsF: func() *database.Options {
 			return database.DefaultOption()
 		},
-		currentCommitStateF: func() (*schema.ImmutableState, error) {
-			return currentCommitStateSuccessfulOnce(&currentStateCountersysDB)
+		currentStateF: func() (*schema.ImmutableState, error) {
+			return currentStateSuccessfulOnce(&currentStateCountersysDB)
 		},
 	}
 

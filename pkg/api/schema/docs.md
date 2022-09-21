@@ -848,6 +848,8 @@
 | txId | [uint64](#uint64) |  |  |
 | txHash | [bytes](#bytes) |  |  |
 | signature | [Signature](#immudb.schema.Signature) |  |  |
+| precommittedTxId | [uint64](#uint64) |  | following fields are not part of the signature |
+| precommittedTxHash | [bytes](#bytes) |  |  |
 
 
 

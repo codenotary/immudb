@@ -2356,6 +2356,15 @@
         },
         "signature": {
           "$ref": "#/definitions/schemaSignature"
+        },
+        "precommittedTxId": {
+          "type": "string",
+          "format": "uint64",
+          "title": "following fields are not part of the signature"
+        },
+        "precommittedTxHash": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

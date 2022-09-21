@@ -39,7 +39,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	waitingCount, _ := cdb.Health()
 	require.Equal(t, 0, waitingCount)
 
-	_, err = cdb.CurrentCommitState()
+	_, err = cdb.CurrentState()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.Size()
