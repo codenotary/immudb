@@ -2546,14 +2546,14 @@ func TestExportAndReplicateTx(t *testing.T) {
 	etx, err := masterStore.ExportTx(1, false, txholder)
 	require.NoError(t, err)
 
-	rhdr, err := replicaStore.ReplicateTx(etx, true, false)
+	rhdr, err := replicaStore.ReplicateTx(etx, false)
 	require.NoError(t, err)
 	require.NotNil(t, rhdr)
 
 	require.Equal(t, hdr.ID, rhdr.ID)
 	require.Equal(t, hdr.Alh(), rhdr.Alh())
 
-	_, err = replicaStore.ReplicateTx(nil, true, false)
+	_, err = replicaStore.ReplicateTx(nil, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
@@ -2605,7 +2605,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 				copy(brokenEtx, etx)
 				brokenEtx[i]++
 
-				_, err = replicaStore.ReplicateTx(brokenEtx, true, false)
+				_, err = replicaStore.ReplicateTx(brokenEtx, false)
 				require.Error(t, err)
 
 				if !errors.Is(err, ErrIllegalArguments) &&
@@ -2663,7 +2663,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 				wg.Add(1)
 				go func(j int) {
 					defer wg.Done()
-					_, errors[j] = replicaStore.ReplicateTx(etx, true, false)
+					_, errors[j] = replicaStore.ReplicateTx(etx, false)
 				}(j)
 			}
 			wg.Wait()
