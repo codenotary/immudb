@@ -53,11 +53,15 @@ func (db *closedDB) IsReplica() bool {
 	return false
 }
 
-func (db *closedDB) EnableExternalCommitAllowance() error {
+func (db *closedDB) IsSyncReplicationEnabled() bool {
+	return false
+}
+
+func (db *closedDB) EnableSyncReplication() error {
 	return store.ErrAlreadyClosed
 }
 
-func (db *closedDB) DisableExternalCommitAllowance() error {
+func (db *closedDB) DisableSyncReplication() error {
 	return store.ErrAlreadyClosed
 }
 

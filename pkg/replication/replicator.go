@@ -217,21 +217,30 @@ func (txr *TxReplicator) nextTx() error {
 		return err
 	}
 
-	precommitState, err := txr.db.CurrentPreCommitState()
-	if err != nil {
-		return err
-	}
+	var state *schema.FollowerState
+	nextTx := commitState.TxId + 1
 
-	state := &schema.FollowerState{
-		UUID:             txr.uuid.String(),
-		CommittedTxID:    commitState.TxId,
-		CommittedAlh:     commitState.TxHash,
-		PrecommittedTxID: precommitState.TxId,
-		PrecommittedAlh:  precommitState.TxHash,
+	syncReplicationEnabled := txr.db.IsSyncReplicationEnabled()
+
+	if syncReplicationEnabled {
+		precommitState, err := txr.db.CurrentPreCommitState()
+		if err != nil {
+			return err
+		}
+
+		nextTx = precommitState.TxId + 1
+
+		state = &schema.FollowerState{
+			UUID:             txr.uuid.String(),
+			CommittedTxID:    commitState.TxId,
+			CommittedAlh:     commitState.TxHash,
+			PrecommittedTxID: precommitState.TxId,
+			PrecommittedAlh:  precommitState.TxHash,
+		}
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
-		Tx:                precommitState.TxId + 1,
+		Tx:                nextTx,
 		FollowerState:     state,
 		AllowPreCommitted: true,
 	})
@@ -253,9 +262,13 @@ func (txr *TxReplicator) nextTx() error {
 		}
 	}
 
-	md := exportTxStream.Trailer()
+	if syncReplicationEnabled {
+		md := exportTxStream.Trailer()
 
-	if len(md.Get("may-commit-up-to-txid-bin")) > 0 && len(md.Get("may-commit-up-to-alh-bin")) > 0 {
+		if len(md.Get("may-commit-up-to-txid-bin")) == 0 || len(md.Get("may-commit-up-to-alh-bin")) == 0 {
+			return fmt.Errorf("master is not running with synchronous replication")
+		}
+
 		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
 
 		var mayCommitUpToAlh [sha256.Size]byte

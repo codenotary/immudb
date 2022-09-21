@@ -84,11 +84,12 @@ type RemoteStorageOptions struct {
 
 type ReplicationOptions struct {
 	IsReplica        bool
-	SyncFollowers    int
-	MasterAddress    string
-	MasterPort       int
-	FollowerUsername string
-	FollowerPassword string
+	SyncReplication  bool
+	SyncFollowers    int    // only if !IsReplica && SyncReplication
+	MasterAddress    string // only if IsReplica
+	MasterPort       int    // only if IsReplica
+	FollowerUsername string // only if IsReplica
+	FollowerPassword string // only if IsReplica
 }
 
 // DefaultOptions returns default server options
@@ -253,6 +254,8 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
 
 	repOpts := o.ReplicationOptions
+
+	opts = append(opts, rightPad("Sync replication enabled", repOpts != nil && repOpts.SyncReplication))
 
 	if repOpts == nil || !repOpts.IsReplica {
 		opts = append(opts, rightPad("Sync followers", repOpts.SyncFollowers))
@@ -472,6 +475,11 @@ func (opts *RemoteStorageOptions) WithS3PathPrefix(s3PathPrefix string) *RemoteS
 
 func (opts *ReplicationOptions) WithIsReplica(isReplica bool) *ReplicationOptions {
 	opts.IsReplica = isReplica
+	return opts
+}
+
+func (opts *ReplicationOptions) WithSyncReplication(syncReplication bool) *ReplicationOptions {
+	opts.SyncReplication = syncReplication
 	return opts
 }
 
