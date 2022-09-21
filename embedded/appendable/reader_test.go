@@ -39,9 +39,8 @@ func TestReader(t *testing.T) {
 	r := NewReaderFrom(a, 0, 1024)
 	require.NotNil(t, r)
 
-	r.Reset()
-
-	require.Equal(t, int64(0), r.Offset())
+	require.Zero(t, r.Offset())
+	require.Zero(t, r.ReadCount())
 
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
@@ -56,6 +55,7 @@ func TestReader(t *testing.T) {
 	b, err := r.ReadByte()
 	require.NoError(t, err)
 	require.Equal(t, byte(127), b)
+	require.Equal(t, int64(1), r.ReadCount())
 
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		binary.BigEndian.PutUint32(bs, 256)
@@ -64,6 +64,7 @@ func TestReader(t *testing.T) {
 	n32, err := r.ReadUint32()
 	require.NoError(t, err)
 	require.Equal(t, uint32(256), n32)
+	require.Equal(t, int64(5), r.ReadCount())
 
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		binary.BigEndian.PutUint64(bs, 1024)
@@ -72,6 +73,12 @@ func TestReader(t *testing.T) {
 	n64, err := r.ReadUint64()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1024), n64)
+	require.Equal(t, int64(13), r.ReadCount())
+
+	r.Reset()
+
+	require.Zero(t, r.Offset())
+	require.Zero(t, r.ReadCount())
 }
 
 func TestMockedReader(t *testing.T) {
