@@ -2956,6 +2956,10 @@
           "$ref": "#/definitions/schemaNullableString",
           "title": "Password of the user with read access of the database to replicate"
         },
+        "syncReplication": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Enable synchronous replication"
+        },
         "syncFollowers": {
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Number of fully synchronized followers"

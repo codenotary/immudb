@@ -1411,6 +1411,7 @@ Only succeed if given key was not modified after given transaction
 | masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  | Port of the immudb instance with database to replicate |
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
+| syncReplication | [NullableBool](#immudb.schema.NullableBool) |  | Enable synchronous replication |
 | syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of fully synchronized followers |
 
 

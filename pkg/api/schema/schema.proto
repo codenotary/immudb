@@ -1022,8 +1022,11 @@ message ReplicationNullableSettings {
   // Password of the user with read access of the database to replicate
   NullableString followerPassword = 6;
 
+  // Enable synchronous replication
+  NullableBool syncReplication = 7;
+
   // Number of fully synchronized followers
-  NullableUint32 syncFollowers = 7;
+  NullableUint32 syncFollowers = 8;
 }
 
 message IndexNullableSettings {
