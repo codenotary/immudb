@@ -31,11 +31,15 @@ type precommittedEntry struct {
 	txSize int
 }
 
+// precommitBuffer is a read-ahead circular buffer
+// this buffer is used to hold a portion of the clog in memory:
+//   - entries put into the buffer as they are precommitted
+//   - entries are removed from the buffer as they are committed (content was successfully written into clog)
 type precommitBuffer struct {
 	buf []*precommittedEntry
 
-	rpos int
-	wpos int
+	rpos int // buf read position
+	wpos int // buf write position
 
 	full bool
 
@@ -86,10 +90,6 @@ func (b *precommitBuffer) put(txID uint64, alh [sha256.Size]byte, txOff int64, t
 	b.full = b.rpos == b.wpos
 
 	return nil
-}
-
-func (b *precommitBuffer) isEmpty() bool {
-	return b.freeSlots() == len(b.buf)
 }
 
 func (b *precommitBuffer) readAhead(n int) (txID uint64, alh [sha256.Size]byte, txOff int64, txSize int, err error) {
