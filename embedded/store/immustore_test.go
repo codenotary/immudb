@@ -3488,3 +3488,125 @@ func TestBlTXOrdering(t *testing.T) {
 
 	})
 }
+
+func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
+	dir, err := ioutil.TempDir("", "data_ext_commit_allowance")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithExternalCommitAllowance(true)
+
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+
+	defer immustoreClose(t, immuStore)
+
+	txCount := 10
+	eCount := 10
+
+	var wg sync.WaitGroup
+	wg.Add(txCount)
+
+	for i := 0; i < txCount; i++ {
+		go func() {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			for i := 0; i < eCount; i++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i))
+
+				err = tx.Set(k, nil, v)
+				require.NoError(t, err)
+			}
+
+			_, err = tx.Commit()
+			require.NoError(t, err)
+
+			wg.Done()
+		}()
+	}
+
+	err = immuStore.WaitForTx(uint64(txCount), true, nil)
+	require.NoError(t, err)
+
+	go func() {
+		for i := 0; i < txCount; i++ {
+			require.Less(t, immuStore.LastCommittedTxID(), uint64(i+1))
+
+			err = immuStore.AllowCommitUpto(uint64(i + 1))
+			require.NoError(t, err)
+
+			time.Sleep(time.Duration(10) * time.Millisecond)
+		}
+	}()
+
+	wg.Wait()
+
+	require.Equal(t, uint64(txCount), immuStore.LastCommittedTxID())
+}
+
+func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
+	dir, err := ioutil.TempDir("", "data_precommitted_tx_loading")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithExternalCommitAllowance(true)
+
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+
+	txCount := 10
+	eCount := 10
+
+	var wg sync.WaitGroup
+	wg.Add(txCount)
+
+	for i := 0; i < txCount; i++ {
+		go func() {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			for i := 0; i < eCount; i++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i))
+
+				err = tx.Set(k, nil, v)
+				require.NoError(t, err)
+			}
+
+			wg.Done()
+
+			_, err = tx.Commit()
+			require.ErrorIs(t, err, ErrAlreadyClosed)
+		}()
+	}
+
+	err = immuStore.WaitForTx(uint64(txCount), true, nil)
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	immuStore, err = Open(dir, opts)
+	require.NoError(t, err)
+
+	err = immuStore.AllowCommitUpto(uint64(txCount))
+	require.NoError(t, err)
+
+	err = immuStore.WaitForTx(uint64(txCount), false, nil)
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
