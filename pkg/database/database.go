@@ -1217,7 +1217,7 @@ func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *sche
 
 	allowances := 0
 
-	// we may clean up followerStates from those who are lag behind commit
+	// we may clean up followerStates from those who are lagging behind commit
 	for _, st := range d.followerStates {
 		if st.precommittedTxID < mayCommitUpToTxID {
 			mayCommitUpToTxID = st.precommittedTxID
