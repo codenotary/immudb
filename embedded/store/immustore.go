@@ -1525,6 +1525,41 @@ func (s *ImmuStore) DisableExternalCommitAllowance() error {
 	return nil
 }
 
+// DiscardPrecommittedTxsAfter discard precommitted txs
+// No truncation is made into txLog which means, if the store is reopened
+// some precommitted transactions may be reloaded.
+// Discarding may need to be redone after re-opening the store.
+func (s *ImmuStore) DiscardPrecommittedTxsAfter(txID uint64) (int, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	if txID < s.committedTxID {
+		return 0, fmt.Errorf("%w: only precommitted transactions can be discarded", ErrIllegalArguments)
+	}
+
+	if txID >= s.preCommittedTxID {
+		return 0, nil
+	}
+
+	txsToDiscard := int(s.preCommittedTxID - txID)
+
+	err := s.cLogBuf.recedeWriter(txsToDiscard)
+	if err != nil {
+		return 0, err
+	}
+
+	s.preCommittedTxID = txID
+
+	return txsToDiscard, nil
+}
+
 func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

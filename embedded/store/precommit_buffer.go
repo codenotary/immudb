@@ -18,11 +18,13 @@ package store
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"sync"
 )
 
 var ErrBufferIsFull = errors.New("buffer is full")
 var ErrBufferFullyConsumed = errors.New("buffer fully consumed")
+var ErrNotEnoughData = fmt.Errorf("%w: not enough data", ErrBufferFullyConsumed)
 
 type precommittedEntry struct {
 	txID   uint64
@@ -92,6 +94,26 @@ func (b *precommitBuffer) put(txID uint64, alh [sha256.Size]byte, txOff int64, t
 	return nil
 }
 
+func (b *precommitBuffer) recedeWriter(n int) error {
+	if n <= 0 {
+		return ErrIllegalArguments
+	}
+
+	if len(b.buf)-b.freeSlots() < n {
+		return ErrNotEnoughData
+	}
+
+	if b.wpos < n {
+		b.wpos = len(b.buf) - (n - b.wpos)
+	} else {
+		b.wpos = b.wpos - n
+	}
+
+	b.full = false
+
+	return nil
+}
+
 func (b *precommitBuffer) readAhead(n int) (txID uint64, alh [sha256.Size]byte, txOff int64, txSize int, err error) {
 	b.mux.Lock()
 	defer b.mux.Unlock()
@@ -102,7 +124,7 @@ func (b *precommitBuffer) readAhead(n int) (txID uint64, alh [sha256.Size]byte, 
 	}
 
 	if len(b.buf)-b.freeSlots() <= n {
-		err = ErrBufferFullyConsumed
+		err = ErrNotEnoughData
 		return
 	}
 
@@ -124,7 +146,7 @@ func (b *precommitBuffer) advanceReader(n int) error {
 	}
 
 	if len(b.buf)-b.freeSlots() < n {
-		return ErrBufferFullyConsumed
+		return ErrNotEnoughData
 	}
 
 	b.rpos = (b.rpos + n) % len(b.buf)
