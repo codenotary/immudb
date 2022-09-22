@@ -28,7 +28,7 @@ type Reader struct {
 	eof       bool
 	readIndex int
 	offset    int64
-	n         int64
+	readCount int64 // total number of read bytes
 }
 
 func NewReaderFrom(rAt io.ReaderAt, off int64, size int) *Reader {
@@ -47,7 +47,7 @@ func (r *Reader) Reset() {
 	r.eof = false
 	r.readIndex = 0
 	r.offset = 0
-	r.n = 0
+	r.readCount = 0
 }
 
 func (r *Reader) Offset() int64 {
@@ -55,12 +55,12 @@ func (r *Reader) Offset() int64 {
 }
 
 func (r *Reader) ReadCount() int64 {
-	return r.n
+	return r.readCount
 }
 
 func (r *Reader) Read(bs []byte) (n int, err error) {
 	defer func() {
-		r.n += int64(n)
+		r.readCount += int64(n)
 	}()
 
 	for {

@@ -1689,9 +1689,9 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 	s.indexer.Pause()
 	defer s.indexer.Resume()
 
-	LastPreCommittedTxID := s.LastPreCommittedTxID()
+	lastPreCommittedTxID := s.LastPreCommittedTxID()
 
-	otx.entries, otx.preconditions, err = callback(LastPreCommittedTxID+1, &unsafeIndex{st: s})
+	otx.entries, otx.preconditions, err = callback(lastPreCommittedTxID+1, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
@@ -1710,7 +1710,7 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 		s.indexer.Resume()
 
 		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(LastPreCommittedTxID, nil)
+		err = s.WaitForIndexingUpto(lastPreCommittedTxID, nil)
 		if err != nil {
 			return nil, err
 		}
