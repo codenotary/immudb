@@ -1560,6 +1560,7 @@ func (s *ImmuStore) AllowCommitUpto(txID uint64) error {
 	return nil
 }
 
+// commitAllowedUpTo requires the caller to have already acquired the commitStateRWMutex lock
 func (s *ImmuStore) commitAllowedUpTo() uint64 {
 	if !s.useExternalCommitAllowance {
 		return s.preCommittedTxID
@@ -1568,6 +1569,7 @@ func (s *ImmuStore) commitAllowedUpTo() uint64 {
 	return s.commitAllowedUpToTxID
 }
 
+// commitAllowedUpTo requires the caller to have already acquired the commitStateRWMutex lock
 func (s *ImmuStore) mayCommit() error {
 	commitAllowedUpToTxID := s.commitAllowedUpTo()
 	txsCountToBeCommitted := int(commitAllowedUpToTxID - s.committedTxID)
@@ -1636,7 +1638,7 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*En
 
 	// note: durability is ensured only if the store is in sync mode
 	err = s.commitWHub.WaitFor(hdr.ID, nil)
-	if err == watchers.ErrAlreadyClosed {
+	if errors.Is(err, watchers.ErrAlreadyClosed) {
 		return hdr, ErrAlreadyClosed
 	}
 	if err != nil {
