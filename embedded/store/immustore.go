@@ -413,6 +413,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			}
 
 			if tx.header.ID != preCommittedTxID+1 || tx.header.PrevAlh != preCommittedAlh {
+				txPool.Release(tx)
 				return nil, fmt.Errorf("%w: while reading pre-committed transaction: %d", ErrCorruptedData, preCommittedTxID+1)
 			}
 
@@ -423,6 +424,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 			err = cLogBuf.put(preCommittedTxID, preCommittedAlh, preCommittedTxLogSize, txSize)
 			if err != nil {
+				txPool.Release(tx)
 				return nil, fmt.Errorf("%w: while reading pre-committed transaction: %v", ErrCorruptedData, err)
 			}
 
