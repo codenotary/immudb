@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -342,6 +343,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	txLog := &mocked.MockedAppendable{
 		CloseFn: func() error { return nil },
+		ReadAtFn: func(bs []byte, off int64) (int, error) {
+			return 0, io.EOF
+		},
 	}
 
 	cLog := &mocked.MockedAppendable{
@@ -574,6 +578,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		dir, err := ioutil.TempDir("", "edge_cases")
 		require.NoError(t, err)
 		defer os.RemoveAll(dir)
+
+		txLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+			return 0, io.EOF
+		}
 
 		cLog.SizeFn = func() (int64, error) {
 			return 0, nil
@@ -3186,16 +3194,23 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	// Truncate the commit log - it must discard the last transaction but other than
+	// Truncate the commit and tx logs - it must discard the last transaction but other than
 	// that the immudb should work correctly
 	// Note: This may change once the truthly appendable interface is implemented
 	//       (https://github.com/codenotary/immudb/issues/858)
 
-	txFile := filepath.Join(dir, "commit/00000000.txi")
-	stat, err := os.Stat(txFile)
+	cLogFile := filepath.Join(dir, "commit/00000000.txi")
+	stat, err := os.Stat(cLogFile)
 	require.NoError(t, err)
 
-	err = os.Truncate(txFile, stat.Size()-1)
+	err = os.Truncate(cLogFile, stat.Size()-1)
+	require.NoError(t, err)
+
+	txLogFile := filepath.Join(dir, "tx/00000000.tx")
+	stat, err = os.Stat(txLogFile)
+	require.NoError(t, err)
+
+	err = os.Truncate(txLogFile, stat.Size()-1)
 	require.NoError(t, err)
 
 	// Remove the index, it does not support truncation of commits now
