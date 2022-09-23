@@ -271,6 +271,7 @@
         "parameters": [
           {
             "name": "cleanupPercentage",
+            "description": "Percentage of nodes file to cleanup during flush.",
             "in": "query",
             "required": false,
             "type": "number",
@@ -278,6 +279,7 @@
           },
           {
             "name": "synced",
+            "description": "If true, do a full disk sync after the flush.",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -308,6 +310,7 @@
         "parameters": [
           {
             "name": "key",
+            "description": "Key to query for",
             "in": "path",
             "required": true,
             "type": "string",
@@ -315,6 +318,7 @@
           },
           {
             "name": "atTx",
+            "description": "If \u003e 0, query for the value exactly at given transaction.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -887,6 +891,7 @@
         "parameters": [
           {
             "name": "tx",
+            "description": "Transaction id to query for",
             "in": "path",
             "required": true,
             "type": "string",
@@ -894,6 +899,7 @@
           },
           {
             "name": "entriesSpec.kvEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -907,6 +913,7 @@
           },
           {
             "name": "entriesSpec.zEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -920,6 +927,7 @@
           },
           {
             "name": "entriesSpec.sqlEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -933,6 +941,7 @@
           },
           {
             "name": "sinceTx",
+            "description": "If \u003e 0, do not wait for the indexer to index all entries, only require\nentries up to sinceTx to be indexed, will affect resolving references.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -940,12 +949,14 @@
           },
           {
             "name": "noWait",
+            "description": "If set to true, do not wait for the indexer to be up to date.",
             "in": "query",
             "required": false,
             "type": "boolean"
           },
           {
             "name": "keepReferencesUnresolved",
+            "description": "If set to true, do not resolve references (avoid looking up final values if not needed).",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -1073,6 +1084,7 @@
         "parameters": [
           {
             "name": "databaseName",
+            "description": "Name of the database",
             "in": "path",
             "required": true,
             "type": "string"
@@ -1231,6 +1243,7 @@
         "parameters": [
           {
             "name": "tx",
+            "description": "Transaction ID",
             "in": "path",
             "required": true,
             "type": "string",
@@ -1238,6 +1251,7 @@
           },
           {
             "name": "proveSinceTx",
+            "description": "When generating the proof, generate consistency proof with state from this\ntransaction.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1245,6 +1259,7 @@
           },
           {
             "name": "entriesSpec.kvEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1258,6 +1273,7 @@
           },
           {
             "name": "entriesSpec.zEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1271,6 +1287,7 @@
           },
           {
             "name": "entriesSpec.sqlEntriesSpec.action",
+            "description": "Action to perform on entries.\n\n - EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1284,6 +1301,7 @@
           },
           {
             "name": "sinceTx",
+            "description": "If \u003e 0, do not wait for the indexer to index all entries, only require\nentries up to sinceTx to be indexed, will affect resolving references.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -1291,12 +1309,14 @@
           },
           {
             "name": "noWait",
+            "description": "If set to true, do not wait for the indexer to be up to date.",
             "in": "query",
             "required": false,
             "type": "boolean"
           },
           {
             "name": "keepReferencesUnresolved",
+            "description": "If set to true, do not resolve references (avoid looking up final values if not needed).",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -1673,7 +1693,8 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "key to check"
         }
       },
       "title": "Only succeed if given key exists"
@@ -1683,7 +1704,8 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "key to check"
         }
       },
       "title": "Only succeed if given key does not exists"
@@ -1693,11 +1715,13 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "key to check"
         },
         "txID": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "transaction id to check against"
         }
       },
       "title": "Only succeed if given key was not modified after given transaction"
@@ -1775,10 +1799,12 @@
       "type": "object",
       "properties": {
         "syncThreshold": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Number of new leaves in the tree between synchronous flush to disk"
         },
         "writeBufferSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the in-memory write buffer"
         }
       }
     },
@@ -1787,15 +1813,18 @@
       "properties": {
         "user": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Username"
         },
         "oldPassword": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Old password"
         },
         "newPassword": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "New password"
         }
       }
     },
@@ -1803,17 +1832,21 @@
       "type": "object",
       "properties": {
         "action": {
-          "$ref": "#/definitions/schemaPermissionAction"
+          "$ref": "#/definitions/schemaPermissionAction",
+          "title": "Action to perform"
         },
         "username": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the user to update"
         },
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the database"
         },
         "permission": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Permission to grant / revoke: 1 - read only, 2 - read/write, 254 - admin"
         }
       }
     },
@@ -1830,10 +1863,12 @@
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "title": "Column name"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "title": "Column type"
         }
       }
     },
@@ -1841,23 +1876,27 @@
       "type": "object",
       "properties": {
         "header": {
-          "$ref": "#/definitions/schemaTxHeader"
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Transaction header"
         },
         "updatedRows": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Number of updated rows"
         },
         "lastInsertedPKs": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/schemaSQLValue"
-          }
+          },
+          "title": "The value of last inserted auto_increment primary key (mapped by table name)"
         },
         "firstInsertedPKs": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/schemaSQLValue"
-          }
+          },
+          "title": "The value of first inserted auto_increment primary key (mapped by table name)"
         }
       }
     },
@@ -1865,13 +1904,16 @@
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Database settings"
         },
         "ifNotExists": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not fail if the database already exists"
         }
       }
     },
@@ -1879,13 +1921,16 @@
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Current database settings"
         },
         "alreadyExisted": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "Set to true if given database already existed"
         }
       }
     },
@@ -1894,18 +1939,22 @@
       "properties": {
         "user": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Username"
         },
         "password": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Login password"
         },
         "permission": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Permission, 1 - read permission, 2 - read+write permission, 254 - admin"
         },
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -1913,7 +1962,8 @@
       "type": "object",
       "properties": {
         "databaseName": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the database"
         }
       }
     },
@@ -1922,11 +1972,13 @@
       "properties": {
         "pendingRequests": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Number of requests currently being executed"
         },
         "lastRequestCompletedAt": {
           "type": "string",
-          "format": "int64"
+          "format": "int64",
+          "title": "Timestamp at which the last request was completed"
         }
       }
     },
@@ -1940,7 +1992,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaDatabase"
-          }
+          },
+          "title": "Database list"
         }
       }
     },
@@ -1951,7 +2004,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaDatabaseWithSettings"
-          }
+          },
+          "title": "Database list with current database settings"
         }
       }
     },
@@ -1959,61 +2013,80 @@
       "type": "object",
       "properties": {
         "replicationSettings": {
-          "$ref": "#/definitions/schemaReplicationNullableSettings"
+          "$ref": "#/definitions/schemaReplicationNullableSettings",
+          "title": "Replication settings"
         },
         "fileSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Max filesize on disk"
         },
         "maxKeyLen": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum length of keys"
         },
         "maxValueLen": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum length of values"
         },
         "maxTxEntries": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of entries in a single transaction"
         },
         "excludeCommitTime": {
-          "$ref": "#/definitions/schemaNullableBool"
-        },
-        "maxIOConcurrency": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "If set to true, do not include commit timestamp in transaction headers"
         },
         "maxConcurrency": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneous commits prepared for write"
+        },
+        "maxIOConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneous IO writes"
         },
         "txLogCacheSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the LRU cache for transaction logs"
         },
         "vLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneous value files opened"
         },
         "txLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneous transaction log files opened"
         },
         "commitLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneous commit log files opened"
         },
         "indexSettings": {
-          "$ref": "#/definitions/schemaIndexNullableSettings"
+          "$ref": "#/definitions/schemaIndexNullableSettings",
+          "title": "Index settings"
         },
         "writeTxHeaderVersion": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Version of transaction header to use (limits available features)"
         },
         "autoload": {
-          "$ref": "#/definitions/schemaNullableBool"
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "If set to true, automatically load the database when starting immudb (true by default)"
         },
         "readTxPoolSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the pool of read buffers"
         },
         "syncFrequency": {
-          "$ref": "#/definitions/schemaNullableMilliseconds"
+          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "title": "Fsync frequency during commit process"
         },
         "writeBufferSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the in-memory buffer for write operations"
         },
         "ahtSettings": {
-          "$ref": "#/definitions/schemaAHTNullableSettings"
+          "$ref": "#/definitions/schemaAHTNullableSettings",
+          "title": "Settings of Appendable Hash Tree"
         }
       }
     },
@@ -2021,45 +2094,57 @@
       "type": "object",
       "properties": {
         "databaseName": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the database"
         },
         "replica": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, this database is replicating another database"
         },
         "masterDatabase": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the database to replicate"
         },
         "masterAddress": {
-          "type": "string"
+          "type": "string",
+          "title": "Hostname of the immudb instance with database to replicate"
         },
         "masterPort": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Port of the immudb instance with database to replicate"
         },
         "followerUsername": {
-          "type": "string"
+          "type": "string",
+          "title": "Username of the user with read access of the database to replicate"
         },
         "followerPassword": {
-          "type": "string"
+          "type": "string",
+          "title": "Password of the user with read access of the database to replicate"
         },
         "fileSize": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Size of files stored on disk"
         },
         "maxKeyLen": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Maximum length of keys"
         },
         "maxValueLen": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Maximum length of values"
         },
         "maxTxEntries": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Maximum number of entries in a single transaction"
         },
         "excludeCommitTime": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not include commit timestamp in transaction headers"
         }
       }
     },
@@ -2070,10 +2155,12 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Database settings"
         }
       }
     },
@@ -2081,13 +2168,16 @@
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Current database settings"
         },
         "loaded": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, this database is currently loaded into memory"
         }
       }
     },
@@ -2095,7 +2185,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -2103,7 +2194,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -2133,38 +2225,45 @@
       "type": "object",
       "properties": {
         "sourceTxHeader": {
-          "$ref": "#/definitions/schemaTxHeader"
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Header of the source (earlier) transaction"
         },
         "targetTxHeader": {
-          "$ref": "#/definitions/schemaTxHeader"
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Header of the target (latter) transaction"
         },
         "inclusionProof": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "Inclusion proof of the source transaction hash in the main Merkle Tree"
         },
         "consistencyProof": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "Consistency proof between Merkle Trees in the source and target transactions"
         },
         "targetBlTxAlh": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Accumulative hash (Alh) of the last transaction that's part of the target Merkle Tree"
         },
         "lastInclusionProof": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "Inclusion proof of the targetBlTxAlh in the target Merkle Tree"
         },
         "linearProof": {
-          "$ref": "#/definitions/schemaLinearProof"
+          "$ref": "#/definitions/schemaLinearProof",
+          "title": "Linear proof starting from targetBlTxAlh to the final state value"
         }
       },
       "title": "DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs"
@@ -2176,7 +2275,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaEntry"
-          }
+          },
+          "title": "List of entries"
         }
       }
     },
@@ -2184,13 +2284,16 @@
       "type": "object",
       "properties": {
         "kvEntriesSpec": {
-          "$ref": "#/definitions/schemaEntryTypeSpec"
+          "$ref": "#/definitions/schemaEntryTypeSpec",
+          "title": "Specification for parsing KV entries"
         },
         "zEntriesSpec": {
-          "$ref": "#/definitions/schemaEntryTypeSpec"
+          "$ref": "#/definitions/schemaEntryTypeSpec",
+          "title": "Specification for parsing sorted set entries"
         },
         "sqlEntriesSpec": {
-          "$ref": "#/definitions/schemaEntryTypeSpec"
+          "$ref": "#/definitions/schemaEntryTypeSpec",
+          "title": "Specification for parsing SQL entries"
         }
       }
     },
@@ -2199,28 +2302,35 @@
       "properties": {
         "tx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Transaction id at which the target value was set (i.e. not the reference transaction id)"
         },
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Key of the target value (i.e. not the reference entry)"
         },
         "value": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Value"
         },
         "referencedBy": {
-          "$ref": "#/definitions/schemaReference"
+          "$ref": "#/definitions/schemaReference",
+          "title": "If the request was for a reference, this field will keep information about the reference entry"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaKVMetadata"
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Metadata of the target entry (i.e. not the reference entry)"
         },
         "expired": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, this entry has expired and the value is not retrieved"
         },
         "revision": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Key's revision, in case of GetAt it will be 0"
         }
       }
     },
@@ -2241,13 +2351,15 @@
         "RAW_VALUE",
         "RESOLVE"
       ],
-      "default": "EXCLUDE"
+      "default": "EXCLUDE",
+      "title": "- EXCLUDE: Exclude entries from the result\n - ONLY_DIGEST: Provide keys in raw (unparsed) form and only the digest of the value\n - RAW_VALUE: Provide keys and values in raw form\n - RESOLVE: Provide parsed keys and values and resolve values if needed"
     },
     "schemaEntryTypeSpec": {
       "type": "object",
       "properties": {
         "action": {
-          "$ref": "#/definitions/schemaEntryTypeAction"
+          "$ref": "#/definitions/schemaEntryTypeAction",
+          "title": "Action to perform on entries"
         }
       }
     },
@@ -2258,16 +2370,19 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaOp"
-          }
+          },
+          "title": "List of operations to perform"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for indexing to process this transaction"
         },
         "preconditions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaPrecondition"
-          }
+          },
+          "title": "Preconditions to check"
         }
       }
     },
@@ -2276,7 +2391,8 @@
       "properties": {
         "expiresAt": {
           "type": "string",
-          "format": "int64"
+          "format": "int64",
+          "title": "Entry expiration time (unix timestamp in seconds)"
         }
       }
     },
@@ -2284,7 +2400,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -2292,10 +2409,12 @@
       "type": "object",
       "properties": {
         "status": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, server considers itself to be healthy"
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "title": "The version of the server instance"
         }
       }
     },
@@ -2304,22 +2423,27 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Name of the key to query for the history"
         },
         "offset": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Specify the initial entry to be returned by excluding the initial set of\nentries"
         },
         "limit": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Maximum number of entries to return"
         },
         "desc": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, search in descending order"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If \u003e 0, do not wait for the indexer to index all entries, only require\nentries up to sinceTx to be indexed"
         }
       }
     },
@@ -2327,18 +2451,22 @@
       "type": "object",
       "properties": {
         "db": {
-          "type": "string"
+          "type": "string",
+          "title": "The db name"
         },
         "txId": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Id of the most recent transaction"
         },
         "txHash": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "State of the most recent transaction"
         },
         "signature": {
-          "$ref": "#/definitions/schemaSignature"
+          "$ref": "#/definitions/schemaSignature",
+          "title": "Signature of the hash"
         }
       }
     },
@@ -2347,18 +2475,21 @@
       "properties": {
         "leaf": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Index of the leaf for which the proof is generated"
         },
         "width": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Width of the tree at the leaf level"
         },
         "terms": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "Proof terms (selected hashes from the tree)"
         }
       }
     },
@@ -2366,43 +2497,56 @@
       "type": "object",
       "properties": {
         "flushThreshold": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Number of new index entries between disk flushes"
         },
         "syncThreshold": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Number of new index entries between disk flushes with file sync"
         },
         "cacheSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the Btree node LRU cache"
         },
         "maxNodeSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Max size of a single Btree node in bytes"
         },
         "maxActiveSnapshots": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of active btree snapshots"
         },
         "renewSnapRootAfter": {
-          "$ref": "#/definitions/schemaNullableUint64"
+          "$ref": "#/definitions/schemaNullableUint64",
+          "title": "Time in milliseconds between the most recent DB snapshot is automatically renewed"
         },
         "compactionThld": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Minimum number of updates entries in the btree to allow for full compaction"
         },
         "delayDuringCompaction": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Additional delay added during indexing when full compaction is in progress"
         },
         "nodesLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneously opened nodes files"
         },
         "historyLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneously opened node history files"
         },
         "commitLogMaxOpenedFiles": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of simultaneously opened commit log files"
         },
         "flushBufferSize": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the in-memory flush buffer (in bytes)"
         },
         "cleanupPercentage": {
-          "$ref": "#/definitions/schemaNullableFloat"
+          "$ref": "#/definitions/schemaNullableFloat",
+          "title": "Percentage of node files cleaned up during each flush"
         }
       }
     },
@@ -2410,13 +2554,16 @@
       "type": "object",
       "properties": {
         "deleted": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "True if this entry denotes a logical deletion"
         },
         "expiration": {
-          "$ref": "#/definitions/schemaExpiration"
+          "$ref": "#/definitions/schemaExpiration",
+          "title": "Entry expiration information"
         },
         "nonIndexable": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, this entry will not be indexed and will only be accessed through GetAt calls"
         }
       }
     },
@@ -2443,11 +2590,13 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Key to query for"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If \u003e 0, query for the value exactly at given transaction"
         },
         "sinceTx": {
           "type": "string",
@@ -2486,18 +2635,21 @@
       "properties": {
         "sourceTxId": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Starting transaction of the proof"
         },
         "TargetTxId": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "End transaction of the proof"
         },
         "terms": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
-          }
+          },
+          "title": "List of terms (inner hashes of transaction entries)"
         }
       },
       "title": "LinearProof contains the linear part of the proof (outside the main Merkle Tree)"
@@ -2514,7 +2666,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -2523,11 +2676,13 @@
       "properties": {
         "user": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Username"
         },
         "password": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "User's password"
         }
       }
     },
@@ -2535,11 +2690,13 @@
       "type": "object",
       "properties": {
         "token": {
-          "type": "string"
+          "type": "string",
+          "title": "Deprecated: use session-based authentication"
         },
         "warning": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Optional: additional warning message sent to the user (e.g. request to change the password)"
         }
       }
     },
@@ -2547,10 +2704,12 @@
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "title": "Parameter name"
         },
         "value": {
-          "$ref": "#/definitions/schemaSQLValue"
+          "$ref": "#/definitions/schemaSQLValue",
+          "title": "Parameter value"
         }
       }
     },
@@ -2558,7 +2717,8 @@
       "type": "object",
       "properties": {
         "transactionID": {
-          "type": "string"
+          "type": "string",
+          "title": "Internal transaction ID"
         }
       }
     },
@@ -2618,13 +2778,16 @@
       "type": "object",
       "properties": {
         "kv": {
-          "$ref": "#/definitions/schemaKeyValue"
+          "$ref": "#/definitions/schemaKeyValue",
+          "title": "Modify / add simple KV value"
         },
         "zAdd": {
-          "$ref": "#/definitions/schemaZAddRequest"
+          "$ref": "#/definitions/schemaZAddRequest",
+          "title": "Modify / add sorted set entry"
         },
         "ref": {
-          "$ref": "#/definitions/schemaReferenceRequest"
+          "$ref": "#/definitions/schemaReferenceRequest",
+          "title": "Modify / add reference"
         }
       }
     },
@@ -2632,10 +2795,12 @@
       "type": "object",
       "properties": {
         "sessionID": {
-          "type": "string"
+          "type": "string",
+          "title": "Id of the new session"
         },
         "serverUUID": {
-          "type": "string"
+          "type": "string",
+          "title": "UUID of the server"
         }
       }
     },
@@ -2643,11 +2808,13 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "permission": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Permission, 1 - read permission, 2 - read+write permission, 254 - admin, 255 - sysadmin"
         }
       }
     },
@@ -2657,7 +2824,8 @@
         "GRANT",
         "REVOKE"
       ],
-      "default": "GRANT"
+      "default": "GRANT",
+      "title": "- GRANT: Grant permission\n - REVOKE: Revoke permission"
     },
     "schemaPrecondition": {
       "type": "object",
@@ -2678,22 +2846,27 @@
       "properties": {
         "tx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Transaction if when the reference key was set"
         },
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Reference key"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "At which transaction the key is bound, 0 if reference is not bound and should read the most recent reference"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaKVMetadata"
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Metadata of the reference entry"
         },
         "revision": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Revision of the reference entry"
         }
       }
     },
@@ -2702,27 +2875,33 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Key for the reference"
         },
         "referencedKey": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Key to be referenced"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If boundRef == true, id of transaction to bind with the reference"
         },
         "boundRef": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, bind the reference to particular transaction,\nif false, use the most recent value of the key"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, do not wait for the indexer to index this write operation"
         },
         "preconditions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaPrecondition"
-          }
+          },
+          "title": "Preconditions to be met to perform the write"
         }
       }
     },
@@ -2730,22 +2909,28 @@
       "type": "object",
       "properties": {
         "replica": {
-          "$ref": "#/definitions/schemaNullableBool"
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "If set to true, this database is replicating another database"
         },
         "masterDatabase": {
-          "$ref": "#/definitions/schemaNullableString"
+          "$ref": "#/definitions/schemaNullableString",
+          "title": "Name of the database to replicate"
         },
         "masterAddress": {
-          "$ref": "#/definitions/schemaNullableString"
+          "$ref": "#/definitions/schemaNullableString",
+          "title": "Hostname of the immudb instance with database to replicate"
         },
         "masterPort": {
-          "$ref": "#/definitions/schemaNullableUint32"
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Port of the immudb instance with database to replicate"
         },
         "followerUsername": {
-          "$ref": "#/definitions/schemaNullableString"
+          "$ref": "#/definitions/schemaNullableString",
+          "title": "Username of the user with read access of the database to replicate"
         },
         "followerPassword": {
-          "$ref": "#/definitions/schemaNullableString"
+          "$ref": "#/definitions/schemaNullableString",
+          "title": "Password of the user with read access of the database to replicate"
         }
       }
     },
@@ -2756,13 +2941,15 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "title": "Column names"
         },
         "values": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaSQLValue"
-          }
+          },
+          "title": "Column values"
         }
       }
     },
@@ -2771,18 +2958,22 @@
       "properties": {
         "tx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Id of the transaction when the row was added / modified"
         },
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Raw key of the row"
         },
         "value": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Raw value of the row"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaKVMetadata"
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Metadata of the raw value"
         }
       }
     },
@@ -2790,16 +2981,19 @@
       "type": "object",
       "properties": {
         "sql": {
-          "type": "string"
+          "type": "string",
+          "title": "SQL query"
         },
         "params": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaNamedParam"
-          }
+          },
+          "title": "Named query parameters"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, do not wait for the indexer to index written changes"
         }
       }
     },
@@ -2810,10 +3004,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaCommittedSQLTx"
-          }
+          },
+          "title": "List of committed transactions as a result of the exec operation"
         },
         "ongoingTx": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, there's an ongoing transaction after exec completes"
         }
       }
     },
@@ -2821,21 +3017,25 @@
       "type": "object",
       "properties": {
         "table": {
-          "type": "string"
+          "type": "string",
+          "title": "Table name"
         },
         "pkValues": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaSQLValue"
-          }
+          },
+          "title": "Values of the primary key"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Id of the transaction at which the row was added / modified"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If \u003e 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed"
         }
       }
     },
@@ -2843,16 +3043,19 @@
       "type": "object",
       "properties": {
         "sql": {
-          "type": "string"
+          "type": "string",
+          "title": "SQL query"
         },
         "params": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaNamedParam"
-          }
+          },
+          "title": "Named query parameters"
         },
         "reuseSnapshot": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, reuse previously opened snapshot"
         }
       }
     },
@@ -2863,13 +3066,15 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaColumn"
-          }
+          },
+          "title": "Result columns description"
         },
         "rows": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaRow"
-          }
+          },
+          "title": "Result rows"
         }
       }
     },
@@ -2904,39 +3109,49 @@
       "properties": {
         "seekKey": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "If not empty, continue scan at (when inclusiveSeek == true)\nor after (when inclusiveSeek == false) that key"
         },
         "endKey": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "stop at (when inclusiveEnd == true)\nor before (when inclusiveEnd == false) that key"
         },
         "prefix": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "search for entries with this prefix only"
         },
         "desc": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, sort items in descending order"
         },
         "limit": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "maximum number of entries to get, if not specified, the default value is used"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If non-zero, only require transactions up to this transaction to be\nindexed, newer transaction may still be pending"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for indexing to be done before finishing this call"
         },
         "inclusiveSeek": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, results will include seekKey"
         },
         "inclusiveEnd": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, results will include endKey if needed"
         },
         "offset": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Specify the initial entry to be returned by excluding the initial set of entries"
         }
       }
     },
@@ -2945,7 +3160,8 @@
       "properties": {
         "score": {
           "type": "number",
-          "format": "double"
+          "format": "double",
+          "title": "Entry's score value"
         }
       }
     },
@@ -2963,10 +3179,12 @@
       "type": "object",
       "properties": {
         "active": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, the user is active"
         },
         "username": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the user to activate / deactivate"
         }
       }
     },
@@ -2977,16 +3195,19 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaKeyValue"
-          }
+          },
+          "title": "List of KV entries to set"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for indexer to index ne entries"
         },
         "preconditions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaPrecondition"
-          }
+          },
+          "title": "Preconditions to be met to perform the write"
         }
       }
     },
@@ -3007,7 +3228,8 @@
       "type": "object",
       "properties": {
         "tableName": {
-          "type": "string"
+          "type": "string",
+          "title": "Table name"
         }
       }
     },
@@ -3015,25 +3237,29 @@
       "type": "object",
       "properties": {
         "header": {
-          "$ref": "#/definitions/schemaTxHeader"
+          "$ref": "#/definitions/schemaTxHeader",
+          "title": "Transaction header"
         },
         "entries": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaTxEntry"
-          }
+          },
+          "title": "Raw entry values"
         },
         "kvEntries": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaEntry"
-          }
+          },
+          "title": "KV entries in the transaction (parsed)"
         },
         "zEntries": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaZEntry"
-          }
+          },
+          "title": "Sorted Set entries in the transaction (parsed)"
         }
       }
     },
@@ -3042,22 +3268,27 @@
       "properties": {
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Raw key value (contains 1-byte prefix for kind of the key)"
         },
         "hValue": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Value hash"
         },
         "vLen": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Value length"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaKVMetadata"
+          "$ref": "#/definitions/schemaKVMetadata",
+          "title": "Entry metadata"
         },
         "value": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "description": "value, must be ignored when len(value) == 0 and vLen \u003e 0.\nOtherwise sha256(value) must be equal to hValue."
         }
       }
     },
@@ -3066,38 +3297,47 @@
       "properties": {
         "id": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Transaction ID"
         },
         "prevAlh": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "State value (Accumulative Hash - Alh) of the previous transaction"
         },
         "ts": {
           "type": "string",
-          "format": "int64"
+          "format": "int64",
+          "title": "Unix timestamp of the transaction (in seconds)"
         },
         "nentries": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Number of entries in a transaction"
         },
         "eH": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Entries Hash - cumulative hash of all entries in the transaction"
         },
         "blTxId": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Binary linking tree transaction ID\n(ID of last transaction already in the main Merkle Tree)"
         },
         "blRoot": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Binary linking tree root (Root hash of the Merkle Tree)"
         },
         "version": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "Header version"
         },
         "metadata": {
-          "$ref": "#/definitions/schemaTxMetadata"
+          "$ref": "#/definitions/schemaTxMetadata",
+          "title": "Transaction metadata"
         }
       }
     },
@@ -3108,7 +3348,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaTx"
-          }
+          },
+          "title": "List of transactions"
         }
       }
     },
@@ -3123,31 +3364,38 @@
         "WriteOnly",
         "ReadWrite"
       ],
-      "default": "ReadOnly"
+      "default": "ReadOnly",
+      "title": "- ReadOnly: Read-only transaction\n - WriteOnly: Write-only transaction\n - ReadWrite: Read-write transaction"
     },
     "schemaTxScanRequest": {
       "type": "object",
       "properties": {
         "initialTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "ID of the transaction where scanning should start"
         },
         "limit": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Maximum number of transactions to scan, when not specified the default limit is used"
         },
         "desc": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, scan transactions in descending order"
         },
         "entriesSpec": {
-          "$ref": "#/definitions/schemaEntriesSpec"
+          "$ref": "#/definitions/schemaEntriesSpec",
+          "title": "Specification of how to parse entries"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If \u003e 0, do not wait for the indexer to index all entries, only require\nentries up to sinceTx to be indexed, will affect resolving references"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for the indexer to be up to date"
         }
       }
     },
@@ -3155,7 +3403,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -3163,7 +3412,8 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         }
       }
     },
@@ -3171,10 +3421,12 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Updated settings"
         }
       }
     },
@@ -3182,18 +3434,22 @@
       "type": "object",
       "properties": {
         "database": {
-          "type": "string"
+          "type": "string",
+          "title": "Database name"
         },
         "settings": {
-          "$ref": "#/definitions/schemaDatabaseNullableSettings"
+          "$ref": "#/definitions/schemaDatabaseNullableSettings",
+          "title": "Current database settings"
         }
-      }
+      },
+      "title": "Reserved to reply with more advanced response later"
     },
     "schemaUseDatabaseReply": {
       "type": "object",
       "properties": {
         "token": {
-          "type": "string"
+          "type": "string",
+          "title": "Deprecated: database access token"
         }
       }
     },
@@ -3202,22 +3458,27 @@
       "properties": {
         "user": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Username"
         },
         "permissions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaPermission"
-          }
+          },
+          "title": "List of permissions for the user"
         },
         "createdby": {
-          "type": "string"
+          "type": "string",
+          "title": "Name of the creator user"
         },
         "createdat": {
-          "type": "string"
+          "type": "string",
+          "title": "Time when the user was created"
         },
         "active": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "Flag indicating whether the user is active or not"
         }
       }
     },
@@ -3228,7 +3489,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaUser"
-          }
+          },
+          "title": "List of users"
         }
       }
     },
@@ -3236,13 +3498,16 @@
       "type": "object",
       "properties": {
         "entry": {
-          "$ref": "#/definitions/schemaEntry"
+          "$ref": "#/definitions/schemaEntry",
+          "title": "Entry to verify"
         },
         "verifiableTx": {
-          "$ref": "#/definitions/schemaVerifiableTx"
+          "$ref": "#/definitions/schemaVerifiableTx",
+          "title": "Transaction to verify"
         },
         "inclusionProof": {
-          "$ref": "#/definitions/schemaInclusionProof"
+          "$ref": "#/definitions/schemaInclusionProof",
+          "title": "Proof for inclusion of the entry within the transaction"
         }
       }
     },
@@ -3250,11 +3515,13 @@
       "type": "object",
       "properties": {
         "keyRequest": {
-          "$ref": "#/definitions/schemaKeyRequest"
+          "$ref": "#/definitions/schemaKeyRequest",
+          "title": "Key to read"
         },
         "proveSinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "When generating the proof, generate consistency proof with state from this transaction"
         }
       }
     },
@@ -3262,11 +3529,13 @@
       "type": "object",
       "properties": {
         "referenceRequest": {
-          "$ref": "#/definitions/schemaReferenceRequest"
+          "$ref": "#/definitions/schemaReferenceRequest",
+          "title": "Reference data"
         },
         "proveSinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "When generating the proof, generate consistency proof with state from this\ntransaction"
         }
       }
     },
@@ -3274,54 +3543,64 @@
       "type": "object",
       "properties": {
         "sqlEntry": {
-          "$ref": "#/definitions/schemaSQLEntry"
+          "$ref": "#/definitions/schemaSQLEntry",
+          "title": "Raw row entry data"
         },
         "verifiableTx": {
-          "$ref": "#/definitions/schemaVerifiableTx"
+          "$ref": "#/definitions/schemaVerifiableTx",
+          "title": "Verifiable transaction of the row"
         },
         "inclusionProof": {
-          "$ref": "#/definitions/schemaInclusionProof"
+          "$ref": "#/definitions/schemaInclusionProof",
+          "title": "Inclusion proof of the row in the transaction"
         },
         "DatabaseId": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Internal ID of the database (used to validate raw entry values)"
         },
         "TableId": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Internal ID of the table (used to validate raw entry values)"
         },
         "PKIDs": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int64"
-          }
+          },
+          "title": "Internal IDs of columns for the primary key (used to validate raw entry values)"
         },
         "ColNamesById": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "title": "Mapping of used column IDs to their names"
         },
         "ColIdsByName": {
           "type": "object",
           "additionalProperties": {
             "type": "integer",
             "format": "int64"
-          }
+          },
+          "title": "Mapping of column names to their IDS"
         },
         "ColTypesById": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "title": "Mapping of column IDs to their types"
         },
         "ColLenById": {
           "type": "object",
           "additionalProperties": {
             "type": "integer",
             "format": "int32"
-          }
+          },
+          "title": "Mapping of column IDs to their length constraints"
         }
       }
     },
@@ -3329,11 +3608,13 @@
       "type": "object",
       "properties": {
         "sqlGetRequest": {
-          "$ref": "#/definitions/schemaSQLGetRequest"
+          "$ref": "#/definitions/schemaSQLGetRequest",
+          "title": "Data of row to query"
         },
         "proveSinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "When generating the proof, generate consistency proof with state from this transaction"
         }
       }
     },
@@ -3341,11 +3622,13 @@
       "type": "object",
       "properties": {
         "setRequest": {
-          "$ref": "#/definitions/schemaSetRequest"
+          "$ref": "#/definitions/schemaSetRequest",
+          "title": "Keys to set"
         },
         "proveSinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "When generating the proof, generate consistency proof with state from this transaction"
         }
       }
     },
@@ -3353,13 +3636,16 @@
       "type": "object",
       "properties": {
         "tx": {
-          "$ref": "#/definitions/schemaTx"
+          "$ref": "#/definitions/schemaTx",
+          "title": "Transaction to verify"
         },
         "dualProof": {
-          "$ref": "#/definitions/schemaDualProof"
+          "$ref": "#/definitions/schemaDualProof",
+          "title": "Proof for the transaction"
         },
         "signature": {
-          "$ref": "#/definitions/schemaSignature"
+          "$ref": "#/definitions/schemaSignature",
+          "title": "Signature for the new state value"
         }
       }
     },
@@ -3367,11 +3653,13 @@
       "type": "object",
       "properties": {
         "zAddRequest": {
-          "$ref": "#/definitions/schemaZAddRequest"
+          "$ref": "#/definitions/schemaZAddRequest",
+          "title": "Data for new sorted set entry"
         },
         "proveSinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "When generating the proof, generate consistency proof with state from this transaction"
         }
       }
     },
@@ -3380,25 +3668,31 @@
       "properties": {
         "set": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Name of the sorted set"
         },
         "score": {
           "type": "number",
-          "format": "double"
+          "format": "double",
+          "title": "Score of the new entry"
         },
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Referenced key"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If boundRef == true, id of the transaction to bind with the reference"
         },
         "boundRef": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, bind the reference to particular transaction, if false, use the\nmost recent value of the key"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, do not wait for the indexer to index this write operation"
         }
       }
     },
@@ -3418,22 +3712,27 @@
       "properties": {
         "set": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Name of the sorted set"
         },
         "key": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Referenced key"
         },
         "entry": {
-          "$ref": "#/definitions/schemaEntry"
+          "$ref": "#/definitions/schemaEntry",
+          "title": "Referenced entry"
         },
         "score": {
           "type": "number",
-          "format": "double"
+          "format": "double",
+          "title": "Sorted set element's score"
         },
         "atTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "At which transaction the key is bound,\n0 if reference is not bound and should read the most recent reference"
         }
       }
     },
@@ -3442,46 +3741,58 @@
       "properties": {
         "set": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Name of the sorted set"
         },
         "seekKey": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Key to continue the search at"
         },
         "seekScore": {
           "type": "number",
-          "format": "double"
+          "format": "double",
+          "title": "Score of the entry to continue the search at"
         },
         "seekAtTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "AtTx of the entry to continue the search at"
         },
         "inclusiveSeek": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, include the entry given with the `seekXXX` attributes, if false,\nskip the entry and start after that one"
         },
         "limit": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Maximum number of entries to return, if 0, the default limit will be used"
         },
         "desc": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If true, scan entries in descending order"
         },
         "minScore": {
-          "$ref": "#/definitions/schemaScore"
+          "$ref": "#/definitions/schemaScore",
+          "title": "Minimum score of entries to scan"
         },
         "maxScore": {
-          "$ref": "#/definitions/schemaScore"
+          "$ref": "#/definitions/schemaScore",
+          "title": "Maximum score of entries to scan"
         },
         "sinceTx": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "If \u003e 0, do not wait for the indexer to index all entries, only require\nentries up to sinceTx to be indexed"
         },
         "noWait": {
-          "type": "boolean"
+          "type": "boolean",
+          "title": "If set to true, do not wait for the indexer to be up to date"
         },
         "offset": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Specify the index of initial entry to be returned by excluding the initial\nset of entries (alternative to seekXXX attributes)"
         }
       }
     }

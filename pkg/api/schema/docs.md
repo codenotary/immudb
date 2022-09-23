@@ -431,8 +431,8 @@ DEPRECATED
 | maxValueLen | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum length of values |
 | maxTxEntries | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of entries in a single transaction |
 | excludeCommitTime | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, do not include commit timestamp in transaction headers |
-| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous IO writes |
 | maxConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous commits prepared for write |
+| maxIOConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous IO writes |
 | txLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for transaction logs |
 | vLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous value files opened |
 | txLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneous transaction log files opened |
@@ -995,12 +995,12 @@ LinearProof contains the linear part of the proof (outside the main Merkle Tree)
 <a name="immudb.schema.LoadDatabaseRequest"></a>
 
 ### LoadDatabaseRequest
-
+Database name
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | Database name |
+| database | [string](#string) |  | may add createIfNotExist |
 
 
 
@@ -1015,7 +1015,9 @@ LinearProof contains the linear part of the proof (outside the main Merkle Tree)
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| database | [string](#string) |  | Database name |
+| database | [string](#string) |  | Database name
+
+may add settings |
 
 
 
@@ -1704,7 +1706,7 @@ ServerInfoResponse contains information about the server instance.
 | hValue | [bytes](#bytes) |  | Value hash |
 | vLen | [int32](#int32) |  | Value length |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  | Entry metadata |
-| value | [bytes](#bytes) |  | value, must be ignored when len(value) == 0 and vLen &gt; 0. Otherwise, sha256(value) must be equal to hValue |
+| value | [bytes](#bytes) |  | value, must be ignored when len(value) == 0 and vLen &gt; 0. Otherwise sha256(value) must be equal to hValue. |
 
 
 
