@@ -3625,3 +3625,77 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 }
+
+func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
+	dir, err := ioutil.TempDir("", "data_precommitted_tx_discarding")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions().
+		WithSynced(false).
+		WithExternalCommitAllowance(true)
+
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+
+	txCount := 10
+	eCount := 10
+
+	var wg sync.WaitGroup
+	wg.Add(txCount)
+
+	for i := 0; i < txCount; i++ {
+		go func() {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			for i := 0; i < eCount; i++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i))
+
+				err = tx.Set(k, nil, v)
+				require.NoError(t, err)
+			}
+
+			wg.Done()
+
+			_, err = tx.Commit()
+			require.ErrorIs(t, err, ErrAlreadyClosed)
+		}()
+	}
+
+	err = immuStore.WaitForTx(uint64(txCount), true, nil)
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	immuStore, err = Open(dir, opts)
+	require.NoError(t, err)
+
+	n, err := immuStore.DiscardPrecommittedTxsSince(0)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+	require.Zero(t, n)
+
+	err = immuStore.AllowCommitUpto(uint64(txCount / 2))
+	require.NoError(t, err)
+
+	n, err = immuStore.DiscardPrecommittedTxsSince(1)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+	require.Zero(t, n)
+
+	err = immuStore.WaitForTx(uint64(txCount/2), false, nil)
+	require.NoError(t, err)
+
+	n, err = immuStore.DiscardPrecommittedTxsSince(uint64(txCount/2) + 1)
+	require.NoError(t, err)
+	require.Equal(t, txCount/2, n)
+
+	require.Equal(t, uint64(txCount/2), immuStore.LastPreCommittedTxID())
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
