@@ -6,6 +6,6 @@ metadata:
   labels: 
     app: immudb
 spec:
-  url: https://raw.githubusercontent.com/codenotary/immudb/master/tools/monitoring/grafana-dashboard.json
+  url: https://raw.githubusercontent.com/codenotary/immudb/{{- .Values.grafanaDashboard.version | default (printf "v%s" .Chart.AppVersion) -}}/tools/monitoring/grafana-dashboard.json
 {{- end -}}
 

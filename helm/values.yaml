@@ -69,4 +69,6 @@ tolerations: []
 
 affinity: {}
 
-grafanaDashboard: false
+grafanaDashboard:
+  enabled: false
+  version:
