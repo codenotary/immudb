@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,8 @@ type TxReplicator struct {
 
 	db   database.DB
 	opts *Options
+
+	masterDB string
 
 	logger logger.Logger
 
@@ -72,6 +75,7 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		db:               db,
 		opts:             opts,
 		logger:           logger,
+		masterDB:         fullAddress(opts.masterDatabase, opts.masterAddress, opts.masterPort),
 		streamSrvFactory: stream.NewStreamServiceFactory(opts.streamChunkSize),
 		delayer:          opts.delayer,
 	}, nil
@@ -85,9 +89,7 @@ func (txr *TxReplicator) Start() error {
 		return ErrAlreadyRunning
 	}
 
-	masterDB := fullAddress(txr.opts.masterDatabase, txr.opts.masterAddress, txr.opts.masterPort)
-
-	txr.logger.Infof("Initializing replication from '%s' to '%s'...", masterDB, txr.db.GetName())
+	txr.logger.Infof("Initializing replication from '%s' to '%s'...", txr.masterDB, txr.db.GetName())
 
 	txr.mainContext, txr.cancelFunc = context.WithCancel(context.Background())
 
@@ -111,7 +113,7 @@ func (txr *TxReplicator) Start() error {
 				txr.failedAttempts++
 
 				txr.logger.Infof("Failed to connect with '%s' for database '%s' (%d failed attempts). Reason: %v",
-					masterDB,
+					txr.masterDB,
 					txr.db.GetName(),
 					txr.failedAttempts,
 					err)
@@ -129,7 +131,7 @@ func (txr *TxReplicator) Start() error {
 
 			err := txr.nextTx()
 			if err != nil {
-				txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", masterDB, txr.db.GetName(), err)
+				txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", txr.masterDB, txr.db.GetName(), err)
 
 				txr.failedAttempts++
 				if txr.failedAttempts == 3 {
@@ -149,7 +151,7 @@ func (txr *TxReplicator) Start() error {
 		}
 	}()
 
-	txr.logger.Infof("Replication from '%s' to '%s' succesfully initialized", masterDB, txr.db.GetName())
+	txr.logger.Infof("Replication from '%s' to '%s' succesfully initialized", txr.masterDB, txr.db.GetName())
 
 	return nil
 }
@@ -242,7 +244,20 @@ func (txr *TxReplicator) nextTx() error {
 		AllowPreCommitted: true,
 	})
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "the follower precommit state diverged from the master") {
+			// TODO: check if tx discarding is enabled in the follower
+			txr.logger.Infof("discarding precommitted txs since %d from '%s'...",
+				nextTx, txr.db.GetName(), err)
+
+			err = txr.db.DiscardPrecommittedTxsSince(commitState.TxId + 1)
+			if err != nil {
+				return err
+			}
+
+			txr.logger.Infof("precommitted txs successfully discarded from '%s'", txr.db.GetName())
+		} else {
+			return err
+		}
 	}
 
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)

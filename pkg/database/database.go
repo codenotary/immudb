@@ -126,6 +126,7 @@ type DB interface {
 	ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error)
 	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
 	AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error
+	DiscardPrecommittedTxsSince(txID uint64) error
 
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
@@ -1391,6 +1392,15 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 	}
 
 	return d.st.AllowCommitUpto(txID)
+}
+
+func (d *db) DiscardPrecommittedTxsSince(txID uint64) error {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	_, err := d.st.DiscardPrecommittedTxsSince(txID)
+
+	return err
 }
 
 // VerifiableTxByID ...

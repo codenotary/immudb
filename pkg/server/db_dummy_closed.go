@@ -217,6 +217,10 @@ func (db *closedDB) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 	return store.ErrAlreadyClosed
 }
 
+func (db *closedDB) DiscardPrecommittedTxsSince(txID uint64) error {
+	return store.ErrAlreadyClosed
+}
+
 func (db *closedDB) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
