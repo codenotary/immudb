@@ -76,7 +76,7 @@ func (b *precommitBuffer) put(txID uint64, alh [sha256.Size]byte, txOff int64, t
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
-	if b.freeSlots() == 0 {
+	if b.full {
 		return ErrBufferIsFull
 	}
 
@@ -103,11 +103,7 @@ func (b *precommitBuffer) recedeWriter(n int) error {
 		return ErrNotEnoughData
 	}
 
-	if b.wpos < n {
-		b.wpos = len(b.buf) - (n - b.wpos)
-	} else {
-		b.wpos = b.wpos - n
-	}
+	b.wpos = (b.wpos + len(b.buf) - n) % len(b.buf)
 
 	b.full = false
 
