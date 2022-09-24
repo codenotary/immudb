@@ -1341,7 +1341,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	}
 
 	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, cancellation)
-	if err == watchers.ErrCancellationRequested {
+	if errors.Is(err, watchers.ErrCancellationRequested) {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 	}
 	if err != nil {
