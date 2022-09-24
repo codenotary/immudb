@@ -330,3 +330,25 @@ func (tx *OngoingTx) checkPreconditions(idx KeyIndex) error {
 	}
 	return nil
 }
+
+func (tx *OngoingTx) validateAgainst(hdr *TxHeader) error {
+	if hdr == nil {
+		return nil
+	}
+
+	if len(tx.entries) != hdr.NEntries {
+		return fmt.Errorf("%w: number of entries differs", ErrIllegalArguments)
+	}
+
+	if tx.metadata != nil {
+		if !tx.metadata.Equal(hdr.Metadata) {
+			return fmt.Errorf("%w: metadata differs", ErrIllegalArguments)
+		}
+	} else if hdr.Metadata != nil {
+		if !hdr.Metadata.Equal(tx.metadata) {
+			return fmt.Errorf("%w: metadata differs", ErrIllegalArguments)
+		}
+	}
+
+	return nil
+}

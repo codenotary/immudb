@@ -2579,7 +2579,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(replicaDir)
 
-	replicaStore, err := Open(replicaDir, DefaultOptions())
+	replicaStore, err := Open(replicaDir, DefaultOptions().WithMaxActiveTransactions(1))
 	require.NoError(t, err)
 	defer immustoreClose(t, replicaStore)
 
@@ -2618,6 +2618,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 				require.Error(t, err)
 
 				if !errors.Is(err, ErrIllegalArguments) &&
+					!errors.Is(err, ErrMaxActiveTransactionsLimitExceeded) &&
 					!errors.Is(err, ErrCorruptedData) &&
 					!errors.Is(err, ErrNewerVersionOrCorruptedData) {
 					require.Failf(t, "Incorrect error", "Incorrect error received from validation: %v", err)
@@ -2689,6 +2690,69 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 			require.EqualValues(t, i+1, replicaStore.TxCount())
 		})
 	}
+}
+
+func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
+	masterDir, err := ioutil.TempDir("", "data_master_export_replicate_disordered_replication")
+	require.NoError(t, err)
+	defer os.RemoveAll(masterDir)
+
+	masterStore, err := Open(masterDir, DefaultOptions())
+	require.NoError(t, err)
+	defer immustoreClose(t, masterStore)
+
+	replicaDir, err := ioutil.TempDir("", "data_master_export_replicate_disordered_replication")
+	require.NoError(t, err)
+	defer os.RemoveAll(replicaDir)
+
+	replicaOpts := DefaultOptions().WithMaxConcurrency(100)
+	replicaStore, err := Open(replicaDir, replicaOpts)
+	require.NoError(t, err)
+	defer immustoreClose(t, replicaStore)
+
+	const txCount = 15
+
+	etxs := make(chan []byte, txCount)
+
+	txholder := tempTxHolder(t, replicaStore)
+
+	for i := 0; i < txCount; i++ {
+		tx, err := masterStore.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		tx.WithMetadata(NewTxMetadata())
+
+		err = tx.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+		require.NoError(t, err)
+
+		hdr, err := tx.Commit()
+		require.NoError(t, err)
+		require.NotNil(t, hdr)
+
+		etx, err := masterStore.ExportTx(hdr.ID, false, txholder)
+		require.NoError(t, err)
+
+		etxs <- etx
+	}
+
+	close(etxs)
+
+	rand.Seed(time.Now().UnixNano())
+
+	const replicatorsCount = 3
+	for r := 0; r < replicatorsCount; r++ {
+		go func(replicatorID int) {
+			for etx := range etxs {
+				time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+
+				_, err = replicaStore.ReplicateTx(etx, false)
+				require.NoError(t, err)
+			}
+		}(r)
+	}
+
+	err = replicaStore.WaitForTx(uint64(txCount), false, nil)
+	require.NoError(t, err)
 }
 
 var errEmulatedAppendableError = errors.New("emulated appendable error")

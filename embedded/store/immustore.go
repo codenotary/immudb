@@ -187,6 +187,7 @@ type ImmuStore struct {
 	blBuffer chan ([sha256.Size]byte)
 	blErr    error
 
+	ahtWHub              *watchers.WatchersHub
 	precommitWHub        *watchers.WatchersHub
 	durablePrecommitWHub *watchers.WatchersHub
 	commitWHub           *watchers.WatchersHub
@@ -524,7 +525,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		aht:      aht,
 		blBuffer: blBuffer,
 
-		precommitWHub:        watchers.New(0, 1), // syncer (TODO: indexer may wait here instead)
+		ahtWHub:              watchers.New(0, opts.MaxActiveTransactions),
+		precommitWHub:        watchers.New(0, opts.MaxActiveTransactions+1), // syncer (TODO: indexer may wait here instead)
 		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
 		commitWHub:           watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
 
@@ -791,12 +793,14 @@ func (s *ImmuStore) binaryLinking() {
 		select {
 		case alh := <-s.blBuffer:
 			{
-				_, _, err := s.aht.Append(alh[:])
+				n, _, err := s.aht.Append(alh[:])
 				if err != nil {
 					s.SetBlErr(err)
 					s.logger.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
 					return
 				}
+
+				s.ahtWHub.DoneUpto(n)
 			}
 		case <-s.blDone:
 			{
@@ -1120,12 +1124,17 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	return hdr, nil
 }
 
-func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHeader, error) {
+func (s *ImmuStore) precommit(otx *OngoingTx, hdr *TxHeader) (*TxHeader, error) {
 	if otx == nil {
-		return nil, ErrIllegalArguments
+		return nil, fmt.Errorf("%w: no transaction", ErrIllegalArguments)
 	}
 
-	err := s.validateEntries(otx.entries)
+	err := otx.validateAgainst(hdr)
+	if err != nil {
+		return nil, fmt.Errorf("%w: transaction does not validate against header", err)
+	}
+
+	err = s.validateEntries(otx.entries)
 	if err != nil {
 		return nil, err
 	}
@@ -1173,52 +1182,6 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHead
 
 	s.mutex.Unlock()
 
-	var version int
-
-	if expectedHeader == nil {
-		version = s.writeTxHeaderVersion
-	} else {
-		version = expectedHeader.Version
-
-		// TxHeader is validated against current store
-
-		currPrecomittedTxID, currPrecommittedAlh := s.PreCommittedAlh()
-
-		if currPrecomittedTxID >= expectedHeader.ID {
-			return nil, ErrTxAlreadyCommitted
-		}
-
-		var blRoot [sha256.Size]byte
-
-		if expectedHeader.BlTxID >= expectedHeader.ID {
-			return nil, ErrIllegalArguments
-		}
-
-		if expectedHeader.BlTxID > 0 {
-			blRoot, err = s.aht.RootAt(expectedHeader.BlTxID)
-			if err != nil && err != ahtree.ErrEmptyTree {
-				return nil, err
-			}
-		}
-
-		if otx.metadata != nil {
-			if !otx.metadata.Equal(expectedHeader.Metadata) {
-				return nil, ErrIllegalArguments
-			}
-		} else if expectedHeader.Metadata != nil {
-			if !expectedHeader.Metadata.Equal(otx.metadata) {
-				return nil, ErrIllegalArguments
-			}
-		}
-
-		if currPrecomittedTxID != expectedHeader.ID-1 ||
-			currPrecommittedAlh != expectedHeader.PrevAlh ||
-			blRoot != expectedHeader.BlRoot ||
-			len(otx.entries) != expectedHeader.NEntries {
-			return nil, ErrIllegalArguments
-		}
-	}
-
 	tx, err := s.fetchAllocTx()
 	if err != nil {
 		return nil, err
@@ -1228,7 +1191,12 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHead
 	appendableCh := make(chan appendableResult)
 	go s.appendData(otx.entries, appendableCh)
 
-	tx.header.Version = version
+	if hdr == nil {
+		tx.header.Version = s.writeTxHeaderVersion
+	} else {
+		tx.header.Version = hdr.Version
+	}
+
 	tx.header.Metadata = otx.metadata
 
 	tx.header.NEntries = len(otx.entries)
@@ -1247,16 +1215,56 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHead
 		return nil, err
 	}
 
-	// TxHeader is validated against current store
-	if expectedHeader != nil && tx.header.Eh != expectedHeader.Eh {
-		<-appendableCh // wait for data to be written
-		return nil, ErrIllegalArguments
-	}
-
 	r := <-appendableCh // wait for data to be written
 	err = r.err
 	if err != nil {
 		return nil, err
+	}
+
+	if hdr != nil {
+		if tx.header.Eh != hdr.Eh {
+			return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
+		}
+
+		lastPreCommittedTxID := s.LastPreCommittedTxID()
+
+		if lastPreCommittedTxID >= hdr.ID {
+			return nil, ErrTxAlreadyCommitted
+		}
+
+		if hdr.ID > lastPreCommittedTxID+uint64(s.maxActiveTransactions) {
+			return nil, ErrMaxActiveTransactionsLimitExceeded
+		}
+
+		// ensure tx is committed in the expected order
+		err = s.precommitWHub.WaitFor(hdr.ID-1, nil)
+		if err == watchers.ErrAlreadyClosed {
+			return nil, ErrAlreadyClosed
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		var blRoot [sha256.Size]byte
+
+		if hdr.BlTxID > 0 {
+			err = s.ahtWHub.WaitFor(hdr.BlTxID, nil)
+			if err == watchers.ErrAlreadyClosed {
+				return nil, ErrAlreadyClosed
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			blRoot, err = s.aht.RootAt(hdr.BlTxID)
+			if err != nil && err != ahtree.ErrEmptyTree {
+				return nil, err
+			}
+		}
+
+		if blRoot != hdr.BlRoot {
+			return nil, fmt.Errorf("%w: attempt to commit a tx with invalid blRoot", ErrIllegalArguments)
+		}
 	}
 
 	s.mutex.Lock()
@@ -1266,33 +1274,41 @@ func (s *ImmuStore) precommit(otx *OngoingTx, expectedHeader *TxHeader) (*TxHead
 		return nil, ErrAlreadyClosed
 	}
 
-	precommittedTxID := s.LastPreCommittedTxID()
+	currPrecomittedTxID, currPrecommittedAlh := s.PreCommittedAlh()
 
 	var ts int64
 	var blTxID uint64
-	if expectedHeader == nil {
+	if hdr == nil {
 		ts = s.timeFunc().Unix()
 		blTxID = s.aht.Size()
 	} else {
-		ts = expectedHeader.Ts
-		blTxID = expectedHeader.BlTxID
+		ts = hdr.Ts
+		blTxID = hdr.BlTxID
 
 		// currTxID and currAlh were already checked before,
 		// but we have to add an additional check once the commit mutex
 		// is locked to ensure that those constraints are still valid
 		// in case of simultaneous writers
-		if precommittedTxID != expectedHeader.ID-1 {
+		if currPrecomittedTxID > hdr.ID-1 {
 			return nil, ErrTxAlreadyCommitted
+		}
+
+		if currPrecomittedTxID < hdr.ID-1 {
+			return nil, fmt.Errorf("%w: attempt to commit a tx in wrong order", ErrUnexpectedError)
+		}
+
+		if currPrecommittedAlh != hdr.PrevAlh {
+			return nil, fmt.Errorf("%w: attempt to commit a tx with invalid prevAlh", ErrIllegalArguments)
 		}
 	}
 
-	if !otx.IsWriteOnly() && otx.snap.Ts() <= precommittedTxID {
+	if !otx.IsWriteOnly() && otx.snap.Ts() <= currPrecomittedTxID {
 		return nil, ErrTxReadConflict
 	}
 
 	if otx.hasPreconditions() {
 		// Preconditions must be executed with up-to-date tree
-		err = s.WaitForIndexingUpto(precommittedTxID, nil)
+		err = s.WaitForIndexingUpto(currPrecomittedTxID, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1468,6 +1484,8 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 		if err != nil {
 			return err
 		}
+
+		s.ahtWHub.DoneUpto(s.preCommittedTxID)
 	} else {
 		s.blBuffer <- alh
 	}
@@ -2664,7 +2682,10 @@ func (s *ImmuStore) Close() error {
 		close(s.blBuffer)
 	}
 
-	err := s.precommitWHub.Close()
+	err := s.ahtWHub.Close()
+	merr.Append(err)
+
+	err = s.precommitWHub.Close()
 	merr.Append(err)
 
 	err = s.durablePrecommitWHub.Close()
