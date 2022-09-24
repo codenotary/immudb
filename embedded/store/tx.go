@@ -172,6 +172,10 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 	hdr.ID = binary.BigEndian.Uint64(b[i:])
 	i += txIDSize
 
+	if hdr.ID < 1 {
+		return fmt.Errorf("%w: invalid tx ID", ErrIllegalArguments)
+	}
+
 	copy(hdr.PrevAlh[:], b[i:])
 	i += sha256.Size
 
@@ -219,12 +223,20 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 		}
 	}
 
+	if hdr.NEntries < 1 {
+		return fmt.Errorf("%w: invalid number of entries", ErrIllegalArguments)
+	}
+
 	// following records are currently common in versions 0 and 1
 	copy(hdr.Eh[:], b[i:])
 	i += sha256.Size
 
 	hdr.BlTxID = binary.BigEndian.Uint64(b[i:])
 	i += txIDSize
+
+	if hdr.BlTxID >= hdr.ID {
+		return fmt.Errorf("%w: invalid BlTxID", ErrIllegalArguments)
+	}
 
 	copy(hdr.BlRoot[:], b[i:])
 	i += sha256.Size
