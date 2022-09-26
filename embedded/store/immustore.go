@@ -560,6 +560,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		go store.binaryLinking()
 	}
 
+	err = store.ahtWHub.DoneUpto(preCommittedTxID)
+	if err != nil {
+		return nil, err
+	}
+
 	err = store.precommitWHub.DoneUpto(preCommittedTxID)
 	if err != nil {
 		return nil, err
@@ -828,7 +833,15 @@ func (s *ImmuStore) PreCommittedAlh() (uint64, [sha256.Size]byte) {
 	s.commitStateRWMutex.RLock()
 	defer s.commitStateRWMutex.RUnlock()
 
-	return s.preCommittedTxID, s.preCommittedAlh
+	durableUptoTxID, _, _ := s.durablePrecommitWHub.Status()
+
+	if s.preCommittedTxID == durableUptoTxID {
+		return s.preCommittedTxID, s.preCommittedAlh
+	}
+
+	txID, alh, _, _, _ := s.cLogBuf.readAhead(int(durableUptoTxID - s.committedTxID - 1))
+
+	return txID, alh
 }
 
 func (s *ImmuStore) BlInfo() (uint64, error) {
@@ -1485,7 +1498,7 @@ func (s *ImmuStore) performPreCommit(tx *Tx, ts int64, blTxID uint64) error {
 			return err
 		}
 
-		s.ahtWHub.DoneUpto(s.preCommittedTxID)
+		s.ahtWHub.DoneUpto(tx.header.ID)
 	} else {
 		s.blBuffer <- alh
 	}
