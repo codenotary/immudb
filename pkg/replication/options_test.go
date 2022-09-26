@@ -40,8 +40,8 @@ func TestOptions(t *testing.T) {
 		WithFollowerUsername("immudbUsr").
 		WithFollowerPassword("immdubPwd").
 		WithStreamChunkSize(DefaultChunkSize).
-		WithTxBufferSizeSize(DefaultTxBufferSize).
-		WithReplicationConcurrency(DefaultReplicationConcurrency).
+		WithPrefetchTxBufferSize(DefaultPrefetchTxBufferSize).
+		WithReplicationCommitConcurrency(DefaultReplicationCommitConcurrency).
 		WithDelayer(delayer)
 
 	require.Equal(t, "defaultdb", opts.masterDatabase)
@@ -50,8 +50,8 @@ func TestOptions(t *testing.T) {
 	require.Equal(t, "immudbUsr", opts.followerUsername)
 	require.Equal(t, "immdubPwd", opts.followerPassword)
 	require.Equal(t, DefaultChunkSize, opts.streamChunkSize)
-	require.Equal(t, DefaultTxBufferSize, opts.txBufferSize)
-	require.Equal(t, DefaultReplicationConcurrency, opts.replicationConcurrency)
+	require.Equal(t, DefaultPrefetchTxBufferSize, opts.prefetchTxBufferSize)
+	require.Equal(t, DefaultReplicationCommitConcurrency, opts.replicationCommitConcurrency)
 	require.Equal(t, delayer, opts.delayer)
 
 	require.True(t, opts.Valid())

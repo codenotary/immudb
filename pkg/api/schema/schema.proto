@@ -1035,6 +1035,12 @@ message ReplicationNullableSettings {
 
   // Number of fully synchronized followers
   NullableUint32 syncFollowers = 8;
+
+  // Maximun number of prefeched transactions
+  NullableUint32 prefetchTxBufferSize = 9;
+
+  // Number of concurrent replications
+  NullableUint32 replicationCommitConcurrency = 10;
 }
 
 message IndexNullableSettings {

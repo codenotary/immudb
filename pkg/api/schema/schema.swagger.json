@@ -2973,6 +2973,14 @@
         "syncFollowers": {
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Number of fully synchronized followers"
+        },
+        "prefetchTxBufferSize": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximun number of prefeched transactions"
+        },
+        "replicationCommitConcurrency": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Number of concurrent replications"
         }
       }
     },

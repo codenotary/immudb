@@ -36,6 +36,9 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Int("replication-master-port", 3322, "master port (if replica=true)")
 	cmd.Flags().String("replication-follower-username", "", "username used for replication of systemdb and defaultdb")
 	cmd.Flags().String("replication-follower-password", "", "password used for replication of systemdb and defaultdb")
+	cmd.Flags().Int("replication-prefetch-tx-buffer-size", options.ReplicationOptions.PrefetchTxBufferSize, "maximum number of prefeched transactions")
+	cmd.Flags().Int("replication-commit-concurrency", options.ReplicationOptions.ReplicationCommitConcurrency, "number of concurrent replications")
+
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename e.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename e.g. /tmp/immudb/immudb.log")

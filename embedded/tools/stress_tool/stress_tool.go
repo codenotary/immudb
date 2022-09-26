@@ -40,7 +40,7 @@ func main() {
 	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
 	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
-	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
+	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximum number of opened files per each log type")
 
 	mode := flag.String("mode", "", "interactive|auto")
 

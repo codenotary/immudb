@@ -60,7 +60,7 @@ type TxReplicator struct {
 
 	lastTx uint64
 
-	txBuffer               chan []byte // buffered channel of exported txs
+	prefetchTxBuffer       chan []byte // buffered channel of exported txs
 	replicationConcurrency int
 
 	delayer             Delayer
@@ -83,8 +83,8 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		logger:                 logger,
 		masterDB:               fullAddress(opts.masterDatabase, opts.masterAddress, opts.masterPort),
 		streamSrvFactory:       stream.NewStreamServiceFactory(opts.streamChunkSize),
-		txBuffer:               make(chan []byte, opts.txBufferSize),
-		replicationConcurrency: opts.replicationConcurrency,
+		prefetchTxBuffer:       make(chan []byte, opts.prefetchTxBufferSize),
+		replicationConcurrency: opts.replicationCommitConcurrency,
 		delayer:                opts.delayer,
 	}, nil
 }
@@ -150,7 +150,7 @@ func (txr *TxReplicator) Start() error {
 
 	for i := 0; i < txr.replicationConcurrency; i++ {
 		go func() {
-			for etx := range txr.txBuffer {
+			for etx := range txr.prefetchTxBuffer {
 				consecutiveFailures := 0
 
 				// replication must be retried as many times as necessary
@@ -344,7 +344,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 	if len(etx) > 0 {
 		// in some cases the transaction is not provided but only the master commit state
-		txr.txBuffer <- etx
+		txr.prefetchTxBuffer <- etx
 		txr.lastTx++
 	}
 
@@ -365,7 +365,7 @@ func (txr *TxReplicator) Stop() error {
 		txr.cancelFunc()
 	}
 
-	close(txr.txBuffer)
+	close(txr.prefetchTxBuffer)
 
 	txr.disconnect()
 

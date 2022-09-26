@@ -83,13 +83,15 @@ type RemoteStorageOptions struct {
 }
 
 type ReplicationOptions struct {
-	IsReplica        bool
-	SyncReplication  bool
-	SyncFollowers    int    // only if !IsReplica && SyncReplication
-	MasterAddress    string // only if IsReplica
-	MasterPort       int    // only if IsReplica
-	FollowerUsername string // only if IsReplica
-	FollowerPassword string // only if IsReplica
+	IsReplica                    bool
+	SyncReplication              bool
+	SyncFollowers                int    // only if !IsReplica && SyncReplication
+	MasterAddress                string // only if IsReplica
+	MasterPort                   int    // only if IsReplica
+	FollowerUsername             string // only if IsReplica
+	FollowerPassword             string // only if IsReplica
+	PrefetchTxBufferSize         int    // only if IsReplica
+	ReplicationCommitConcurrency int    // only if IsReplica
 }
 
 // DefaultOptions returns default server options
@@ -510,5 +512,15 @@ func (opts *ReplicationOptions) WithFollowerUsername(followerUsername string) *R
 
 func (opts *ReplicationOptions) WithFollowerPassword(followerPassword string) *ReplicationOptions {
 	opts.FollowerPassword = followerPassword
+	return opts
+}
+
+func (opts *ReplicationOptions) WithPrefetchTxBufferSize(prefetchTxBufferSize int) *ReplicationOptions {
+	opts.PrefetchTxBufferSize = prefetchTxBufferSize
+	return opts
+}
+
+func (opts *ReplicationOptions) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *ReplicationOptions {
+	opts.ReplicationCommitConcurrency = replicationCommitConcurrency
 	return opts
 }

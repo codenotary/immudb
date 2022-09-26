@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/replication"
 )
 
 type Milliseconds int64
@@ -37,14 +38,16 @@ type dbOptions struct {
 	SyncFrequency Milliseconds `json:"syncFrequency"` // ms
 
 	// replication options
-	Replica          bool   `json:"replica"`
-	SyncReplication  bool   `json:"syncReplication"`
-	MasterDatabase   string `json:"masterDatabase"`
-	MasterAddress    string `json:"masterAddress"`
-	MasterPort       int    `json:"masterPort"`
-	FollowerUsername string `json:"followerUsername"`
-	FollowerPassword string `json:"followerPassword"`
-	SyncFollowers    int    `json:"syncFollowers"`
+	Replica                      bool   `json:"replica"`
+	SyncReplication              bool   `json:"syncReplication"`
+	MasterDatabase               string `json:"masterDatabase"`
+	MasterAddress                string `json:"masterAddress"`
+	MasterPort                   int    `json:"masterPort"`
+	FollowerUsername             string `json:"followerUsername"`
+	FollowerPassword             string `json:"followerPassword"`
+	SyncFollowers                int    `json:"syncFollowers"`
+	PrefetchTxBufferSize         int    `json:"prefetchTxBufferSize"`
+	ReplicationCommitConcurrency int    `json:"replicationCommitConcurrency"`
 
 	// store options
 	FileSize     int `json:"fileSize"`     // permanent
@@ -120,9 +123,11 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 	dbOpts := &dbOptions{
 		Database: dbName,
 
-		synced:        s.Options.synced,
-		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
-		Replica:       s.Options.ReplicationOptions != nil && s.Options.ReplicationOptions.IsReplica,
+		synced:                       s.Options.synced,
+		SyncFrequency:                Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
+		Replica:                      s.Options.ReplicationOptions != nil && s.Options.ReplicationOptions.IsReplica,
+		PrefetchTxBufferSize:         replication.DefaultPrefetchTxBufferSize,
+		ReplicationCommitConcurrency: replication.DefaultReplicationCommitConcurrency,
 
 		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -161,6 +166,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 			dbOpts.MasterPort = repOpts.MasterPort
 			dbOpts.FollowerUsername = repOpts.FollowerUsername
 			dbOpts.FollowerPassword = repOpts.FollowerPassword
+			dbOpts.PrefetchTxBufferSize = repOpts.PrefetchTxBufferSize
+			dbOpts.ReplicationCommitConcurrency = repOpts.ReplicationCommitConcurrency
 		} else {
 			dbOpts.SyncFollowers = repOpts.SyncFollowers
 		}
@@ -262,14 +269,16 @@ func (opts *dbOptions) storeOptions() *store.Options {
 func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettings {
 	return &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			Replica:          &schema.NullableBool{Value: opts.Replica},
-			SyncReplication:  &schema.NullableBool{Value: opts.SyncReplication},
-			MasterDatabase:   &schema.NullableString{Value: opts.MasterDatabase},
-			MasterAddress:    &schema.NullableString{Value: opts.MasterAddress},
-			MasterPort:       &schema.NullableUint32{Value: uint32(opts.MasterPort)},
-			FollowerUsername: &schema.NullableString{Value: opts.FollowerUsername},
-			FollowerPassword: &schema.NullableString{Value: opts.FollowerPassword},
-			SyncFollowers:    &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
+			Replica:                      &schema.NullableBool{Value: opts.Replica},
+			SyncReplication:              &schema.NullableBool{Value: opts.SyncReplication},
+			MasterDatabase:               &schema.NullableString{Value: opts.MasterDatabase},
+			MasterAddress:                &schema.NullableString{Value: opts.MasterAddress},
+			MasterPort:                   &schema.NullableUint32{Value: uint32(opts.MasterPort)},
+			FollowerUsername:             &schema.NullableString{Value: opts.FollowerUsername},
+			FollowerPassword:             &schema.NullableString{Value: opts.FollowerPassword},
+			SyncFollowers:                &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
+			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
+			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
 		},
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
@@ -417,6 +426,12 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		if rs.FollowerPassword != nil {
 			opts.FollowerPassword = rs.FollowerPassword.Value
 		}
+		if rs.PrefetchTxBufferSize != nil {
+			opts.PrefetchTxBufferSize = int(rs.PrefetchTxBufferSize.Value)
+		}
+		if rs.ReplicationCommitConcurrency != nil {
+			opts.ReplicationCommitConcurrency = int(rs.ReplicationCommitConcurrency.Value)
+		}
 	}
 
 	// store options
@@ -558,7 +573,16 @@ func (opts *dbOptions) Validate() error {
 			opts.MasterAddress != "" ||
 			opts.MasterPort > 0 ||
 			opts.FollowerUsername != "" ||
-			opts.FollowerPassword != "") {
+			opts.FollowerPassword != "" ||
+			opts.PrefetchTxBufferSize > 0 ||
+			opts.ReplicationCommitConcurrency > 0) {
+		return fmt.Errorf(
+			"%w: invalid replication options for database '%s'",
+			ErrIllegalArguments, opts.Database)
+	}
+
+	if opts.Replica &&
+		(opts.PrefetchTxBufferSize <= 0 || opts.ReplicationCommitConcurrency <= 0) {
 		return fmt.Errorf(
 			"%w: invalid replication options for database '%s'",
 			ErrIllegalArguments, opts.Database)

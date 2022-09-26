@@ -60,7 +60,7 @@ func parseConfig() (c cfg) {
 	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
 	flag.BoolVar(&c.synced, "synced", false, "strict sync mode - no data lost")
-	flag.IntVar(&c.openedLogFiles, "openedLogFiles", 10, "number of maximun number of opened files per each log type")
+	flag.IntVar(&c.openedLogFiles, "openedLogFiles", 10, "number of maximum number of opened files per each log type")
 
 	flag.IntVar(&c.committers, "committers", 10, "number of concurrent committers")
 	flag.IntVar(&c.kvCount, "kvCount", 1_000, "number of kv entries per tx")

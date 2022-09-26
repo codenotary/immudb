@@ -19,8 +19,8 @@ package replication
 import "time"
 
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
-const DefaultTxBufferSize int = 100
-const DefaultReplicationConcurrency int = 10
+const DefaultPrefetchTxBufferSize int = 100
+const DefaultReplicationCommitConcurrency int = 10
 
 type Options struct {
 	masterDatabase   string
@@ -31,8 +31,8 @@ type Options struct {
 
 	streamChunkSize int
 
-	txBufferSize           int
-	replicationConcurrency int
+	prefetchTxBufferSize         int
+	replicationCommitConcurrency int
 
 	delayer Delayer
 }
@@ -46,18 +46,18 @@ func DefaultOptions() *Options {
 	}
 
 	return &Options{
-		delayer:                delayer,
-		streamChunkSize:        DefaultChunkSize,
-		txBufferSize:           DefaultTxBufferSize,
-		replicationConcurrency: DefaultReplicationConcurrency,
+		delayer:                      delayer,
+		streamChunkSize:              DefaultChunkSize,
+		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
+		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
 	}
 }
 
 func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.streamChunkSize > 0 &&
-		opts.txBufferSize > 0 &&
-		opts.replicationConcurrency > 0 &&
+		opts.prefetchTxBufferSize > 0 &&
+		opts.replicationCommitConcurrency > 0 &&
 		opts.delayer != nil
 }
 
@@ -97,15 +97,15 @@ func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 	return o
 }
 
-// WithTxBufferSizeSize sets tx buffer size
-func (o *Options) WithTxBufferSizeSize(txBufferSize int) *Options {
-	o.txBufferSize = txBufferSize
+// WithPrefetchTxBufferSize sets tx buffer size
+func (o *Options) WithPrefetchTxBufferSize(prefetchTxBufferSize int) *Options {
+	o.prefetchTxBufferSize = prefetchTxBufferSize
 	return o
 }
 
-// WithReplicationConcurrency sets the number of goroutines doing replication
-func (o *Options) WithReplicationConcurrency(replicationConcurrency int) *Options {
-	o.replicationConcurrency = replicationConcurrency
+// WithReplicationCommitConcurrency sets the number of goroutines doing replication
+func (o *Options) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *Options {
+	o.replicationCommitConcurrency = replicationCommitConcurrency
 	return o
 }
 

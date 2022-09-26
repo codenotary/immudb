@@ -403,6 +403,16 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
+	ret.ReplicationSettings.PrefetchTxBufferSize, err = condUInt32("replication-prefetch-tx-buffer-size")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.ReplicationCommitConcurrency, err = condUInt32("replication-commit-concurrency")
+	if err != nil {
+		return nil, err
+	}
+
 	ret.WriteTxHeaderVersion, err = condUInt32("write-tx-header-version")
 	if err != nil {
 		return nil, err
