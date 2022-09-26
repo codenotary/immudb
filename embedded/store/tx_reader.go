@@ -55,11 +55,12 @@ func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool
 	}
 
 	return &TxReader{
-		InitialTxID: initialTxID,
-		Desc:        desc,
-		CurrTxID:    initialTxID,
-		st:          s,
-		_tx:         tx,
+		InitialTxID:       initialTxID,
+		Desc:              desc,
+		CurrTxID:          initialTxID,
+		allowPrecommitted: allowPrecommitted,
+		st:                s,
+		_tx:               tx,
 	}, nil
 }
 
