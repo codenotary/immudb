@@ -692,7 +692,7 @@ func (d *db) Health() (waitingCount int, lastReleaseAt time.Time) {
 // CurrentState ...
 func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	lastTxID, lastTxAlh := d.st.CommittedAlh()
-	lastPreTxID, lastPreTxAlh := d.st.PreCommittedAlh()
+	lastPreTxID, lastPreTxAlh := d.st.PrecommittedAlh()
 
 	return &schema.ImmutableState{
 		TxId:               lastTxID,
@@ -1255,7 +1255,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	defer d.releaseTx(tx)
 
 	committedTxID, committedAlh := d.st.CommittedAlh()
-	preCommittedTxID, _ := d.st.PreCommittedAlh()
+	preCommittedTxID, _ := d.st.PrecommittedAlh()
 
 	if req.FollowerState != nil {
 		if req.FollowerState.CommittedTxID > 0 {

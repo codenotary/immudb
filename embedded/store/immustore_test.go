@@ -3046,7 +3046,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 
 	go func() {
 		for {
-			err := immuStore.AllowCommitUpto(immuStore.LastPreCommittedTxID())
+			err := immuStore.AllowCommitUpto(immuStore.lastPrecommittedTxID())
 			if err == ErrAlreadyClosed {
 				return
 			}
@@ -3124,7 +3124,7 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 
 	go func() {
 		for {
-			err := immuStore.AllowCommitUpto(immuStore.LastPreCommittedTxID())
+			err := immuStore.AllowCommitUpto(immuStore.lastPrecommittedTxID())
 			if err == ErrAlreadyClosed {
 				return
 			}
@@ -3758,7 +3758,7 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, txCount/2, n)
 
-	require.Equal(t, uint64(txCount/2), immuStore.LastPreCommittedTxID())
+	require.Equal(t, uint64(txCount/2), immuStore.lastPrecommittedTxID())
 
 	err = immuStore.Close()
 	require.NoError(t, err)

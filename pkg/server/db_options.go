@@ -119,15 +119,11 @@ const DefaultMaxValueLen = 1 << 25   //32Mb
 const DefaultStoreFileSize = 1 << 29 //512Mb
 
 func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
-
 	dbOpts := &dbOptions{
 		Database: dbName,
 
-		synced:                       s.Options.synced,
-		SyncFrequency:                Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
-		Replica:                      s.Options.ReplicationOptions != nil && s.Options.ReplicationOptions.IsReplica,
-		PrefetchTxBufferSize:         replication.DefaultPrefetchTxBufferSize,
-		ReplicationCommitConcurrency: replication.DefaultReplicationCommitConcurrency,
+		synced:        s.Options.synced,
+		SyncFrequency: Milliseconds(store.DefaultSyncFrequency.Milliseconds()),
 
 		FileSize:     DefaultStoreFileSize,
 		MaxKeyLen:    store.DefaultMaxKeyLen,
@@ -157,6 +153,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
 		repOpts := s.Options.ReplicationOptions
+
+		dbOpts.Replica = repOpts != nil && repOpts.IsReplica
 
 		dbOpts.SyncReplication = repOpts.SyncReplication
 
@@ -428,9 +426,15 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 		if rs.PrefetchTxBufferSize != nil {
 			opts.PrefetchTxBufferSize = int(rs.PrefetchTxBufferSize.Value)
+		} else if opts.Replica && opts.PrefetchTxBufferSize == 0 {
+			// set default value when it's not set
+			opts.PrefetchTxBufferSize = replication.DefaultPrefetchTxBufferSize
 		}
 		if rs.ReplicationCommitConcurrency != nil {
 			opts.ReplicationCommitConcurrency = int(rs.ReplicationCommitConcurrency.Value)
+		} else if opts.Replica && opts.ReplicationCommitConcurrency == 0 {
+			// set default value when it's not set
+			opts.ReplicationCommitConcurrency = replication.DefaultReplicationCommitConcurrency
 		}
 	}
 

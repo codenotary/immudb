@@ -61,7 +61,7 @@ func newReadWriteTx(s *ImmuStore) (*OngoingTx, error) {
 		ts:           time.Now(),
 	}
 
-	precommittedTxID := s.LastPreCommittedTxID()
+	precommittedTxID := s.lastPrecommittedTxID()
 
 	err := s.WaitForIndexingUpto(precommittedTxID, nil)
 	if err != nil {
