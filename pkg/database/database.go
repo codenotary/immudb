@@ -1262,7 +1262,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			// validate follower commit state
 			if req.FollowerState.CommittedTxID > committedTxID {
 				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: the follower commit state is ahead of the master", err)
+					fmt.Errorf("%w: follower commit state diverged from master's", err)
 			}
 
 			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID, false)
@@ -1274,7 +1274,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 			if expectedFollowerCommitHdr.Alh() != followerCommittedAlh {
 				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(),
-					fmt.Errorf("%w: the follower commit state diverged from the master", err)
+					fmt.Errorf("%w: follower commit state diverged from master's", err)
 			}
 		}
 
@@ -1282,7 +1282,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			// validate follower precommit state
 			if req.FollowerState.PrecommittedTxID > preCommittedTxID {
 				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: the follower precommit state is ahead of the master", err)
+					fmt.Errorf("%w: follower precommit state diverged from master's", err)
 			}
 
 			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID, true)
@@ -1294,7 +1294,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 			if expectedFollowerPrecommitHdr.Alh() != followerPreCommittedAlh {
 				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(),
-					fmt.Errorf("%w: the follower precommit state diverged from the master", err)
+					fmt.Errorf("%w: follower precommit state diverged from master's", err)
 			}
 
 			// master will provide commit state to the follower so it can commit pre-committed transactions
@@ -1388,7 +1388,7 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 	}
 
 	if hdr.Alh() != alh {
-		return fmt.Errorf("%w: follower diverged from master", ErrIllegalState)
+		return fmt.Errorf("%w: follower commit state diverged from master's", ErrIllegalState)
 	}
 
 	return d.st.AllowCommitUpto(txID)

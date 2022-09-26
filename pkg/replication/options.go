@@ -19,6 +19,8 @@ package replication
 import "time"
 
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
+const DefaultTxBufferSize int = 100
+const DefaultReplicationConcurrency int = 10
 
 type Options struct {
 	masterDatabase   string
@@ -28,6 +30,9 @@ type Options struct {
 	followerPassword string
 
 	streamChunkSize int
+
+	txBufferSize           int
+	replicationConcurrency int
 
 	delayer Delayer
 }
@@ -41,14 +46,18 @@ func DefaultOptions() *Options {
 	}
 
 	return &Options{
-		delayer:         delayer,
-		streamChunkSize: DefaultChunkSize,
+		delayer:                delayer,
+		streamChunkSize:        DefaultChunkSize,
+		txBufferSize:           DefaultTxBufferSize,
+		replicationConcurrency: DefaultReplicationConcurrency,
 	}
 }
 
 func (opts *Options) Valid() bool {
 	return opts != nil &&
 		opts.streamChunkSize > 0 &&
+		opts.txBufferSize > 0 &&
+		opts.replicationConcurrency > 0 &&
 		opts.delayer != nil
 }
 
@@ -85,6 +94,18 @@ func (o *Options) WithFollowerPassword(followerPassword string) *Options {
 // WithStreamChunkSize sets streaming chunk size
 func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 	o.streamChunkSize = streamChunkSize
+	return o
+}
+
+// WithTxBufferSizeSize sets tx buffer size
+func (o *Options) WithTxBufferSizeSize(txBufferSize int) *Options {
+	o.txBufferSize = txBufferSize
+	return o
+}
+
+// WithReplicationConcurrency sets the number of goroutines doing replication
+func (o *Options) WithReplicationConcurrency(replicationConcurrency int) *Options {
+	o.replicationConcurrency = replicationConcurrency
 	return o
 }
 

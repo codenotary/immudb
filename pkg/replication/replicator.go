@@ -39,6 +39,7 @@ import (
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
+var ErrFollowerDivergedFromMaster = errors.New("follower diverged from master")
 
 type TxReplicator struct {
 	uuid xid.ID
@@ -57,8 +58,13 @@ type TxReplicator struct {
 	client           client.ImmuClient
 	clientContext    context.Context
 
-	delayer        Delayer
-	failedAttempts int
+	lastTx uint64
+
+	txBuffer               chan []byte // buffered channel of exported txs
+	replicationConcurrency int
+
+	delayer             Delayer
+	consecutiveFailures int
 
 	running bool
 
@@ -71,14 +77,46 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 	}
 
 	return &TxReplicator{
-		uuid:             uuid,
-		db:               db,
-		opts:             opts,
-		logger:           logger,
-		masterDB:         fullAddress(opts.masterDatabase, opts.masterAddress, opts.masterPort),
-		streamSrvFactory: stream.NewStreamServiceFactory(opts.streamChunkSize),
-		delayer:          opts.delayer,
+		uuid:                   uuid,
+		db:                     db,
+		opts:                   opts,
+		logger:                 logger,
+		masterDB:               fullAddress(opts.masterDatabase, opts.masterAddress, opts.masterPort),
+		streamSrvFactory:       stream.NewStreamServiceFactory(opts.streamChunkSize),
+		txBuffer:               make(chan []byte, opts.txBufferSize),
+		replicationConcurrency: opts.replicationConcurrency,
+		delayer:                opts.delayer,
 	}, nil
+}
+
+func (txr *TxReplicator) handleError(err error) {
+	txr.mutex.Lock()
+	defer txr.mutex.Unlock()
+
+	if err == nil {
+		txr.consecutiveFailures = 0
+		return
+	}
+
+	txr.consecutiveFailures++
+
+	txr.logger.Infof("Replication error on database '%s' from '%s' (%d consecutive failures). Reason: %v",
+		txr.db.GetName(),
+		txr.masterDB,
+		txr.consecutiveFailures,
+		err)
+
+	timer := time.NewTimer(txr.delayer.DelayAfter(txr.consecutiveFailures))
+	select {
+	case <-txr.mainContext.Done():
+		timer.Stop()
+		return
+	case <-timer.C:
+	}
+
+	if txr.consecutiveFailures >= 3 {
+		txr.disconnect()
+	}
 }
 
 func (txr *TxReplicator) Start() error {
@@ -96,60 +134,54 @@ func (txr *TxReplicator) Start() error {
 	txr.running = true
 
 	go func() {
-		defer func() {
-			if txr.client != nil {
-				txr.disconnect()
-			}
-		}()
-
 		for {
-			if txr.client == nil {
-				err := txr.connect()
-				if err == nil {
-					txr.failedAttempts = 0
-					continue
-				}
-
-				txr.failedAttempts++
-
-				txr.logger.Infof("Failed to connect with '%s' for database '%s' (%d failed attempts). Reason: %v",
-					txr.masterDB,
-					txr.db.GetName(),
-					txr.failedAttempts,
-					err)
-
-				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-				select {
-				case <-txr.mainContext.Done():
-					timer.Stop()
-					return
-				case <-timer.C:
-				}
-
-				continue
+			err := txr.fetchNextTx()
+			if err == ErrAlreadyStopped {
+				return
+			}
+			if err == ErrFollowerDivergedFromMaster {
+				txr.Stop()
+				return
 			}
 
-			err := txr.nextTx()
-			if err != nil {
-				txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", txr.masterDB, txr.db.GetName(), err)
-
-				txr.failedAttempts++
-				if txr.failedAttempts == 3 {
-					txr.disconnect()
-				}
-
-				timer := time.NewTimer(txr.delayer.DelayAfter(txr.failedAttempts))
-				select {
-				case <-txr.mainContext.Done():
-					timer.Stop()
-					return
-				case <-timer.C:
-				}
-
-				continue
-			}
+			txr.handleError(err)
 		}
 	}()
+
+	for i := 0; i < txr.replicationConcurrency; i++ {
+		go func() {
+			for etx := range txr.txBuffer {
+				consecutiveFailures := 0
+
+				// replication must be retried as many times as necessary
+				for {
+					_, err := txr.db.ReplicateTx(etx)
+					if err == nil {
+						break // transaction successfully replicated
+					}
+					if err == ErrAlreadyStopped {
+						return
+					}
+
+					if strings.Contains(err.Error(), "tx already committed") {
+						break // transaction successfully replicated
+					}
+
+					txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", txr.masterDB, txr.db.GetName(), err)
+
+					consecutiveFailures++
+
+					timer := time.NewTimer(txr.delayer.DelayAfter(consecutiveFailures))
+					select {
+					case <-txr.mainContext.Done():
+						timer.Stop()
+						return
+					case <-timer.C:
+					}
+				}
+			}
+		}()
+	}
 
 	txr.logger.Infof("Replication from '%s' to '%s' succesfully initialized", txr.masterDB, txr.db.GetName())
 
@@ -161,9 +193,6 @@ func fullAddress(db, address string, port int) string {
 }
 
 func (txr *TxReplicator) connect() error {
-	txr.mutex.Lock()
-	defer txr.mutex.Unlock()
-
 	txr.logger.Infof("Connecting to '%s':'%d' for database '%s'...",
 		txr.opts.masterAddress,
 		txr.opts.masterPort,
@@ -200,8 +229,9 @@ func (txr *TxReplicator) connect() error {
 }
 
 func (txr *TxReplicator) disconnect() {
-	txr.mutex.Lock()
-	defer txr.mutex.Unlock()
+	if txr.client == nil {
+		return
+	}
 
 	txr.logger.Infof("Disconnecting from '%s':'%d' for database '%s'...", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 
@@ -213,7 +243,21 @@ func (txr *TxReplicator) disconnect() {
 	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
 }
 
-func (txr *TxReplicator) nextTx() error {
+func (txr *TxReplicator) fetchNextTx() error {
+	txr.mutex.Lock()
+	defer txr.mutex.Unlock()
+
+	if !txr.running {
+		return ErrAlreadyStopped
+	}
+
+	if txr.client == nil {
+		err := txr.connect()
+		if err != nil {
+			return err
+		}
+	}
+
 	commitState, err := txr.db.CurrentState()
 	if err != nil {
 		return err
@@ -221,12 +265,15 @@ func (txr *TxReplicator) nextTx() error {
 
 	syncReplicationEnabled := txr.db.IsSyncReplicationEnabled()
 
-	var nextTx uint64
+	if txr.lastTx == 0 {
+		txr.lastTx = commitState.PrecommittedTxId
+	}
+
+	nextTx := txr.lastTx + 1
+
 	var state *schema.FollowerState
 
 	if syncReplicationEnabled {
-		nextTx = commitState.PrecommittedTxId + 1
-
 		state = &schema.FollowerState{
 			UUID:             txr.uuid.String(),
 			CommittedTxID:    commitState.TxId,
@@ -234,8 +281,6 @@ func (txr *TxReplicator) nextTx() error {
 			PrecommittedTxID: commitState.PrecommittedTxId,
 			PrecommittedAlh:  commitState.PrecommittedTxHash,
 		}
-	} else {
-		nextTx = commitState.TxId + 1
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
@@ -244,7 +289,7 @@ func (txr *TxReplicator) nextTx() error {
 		AllowPreCommitted: true,
 	})
 	if err != nil {
-		if strings.Contains(err.Error(), "the follower precommit state diverged from the master") {
+		if strings.Contains(err.Error(), "follower precommit state diverged from master's") {
 			// TODO: check if tx discarding is enabled in the follower
 			txr.logger.Infof("discarding precommitted txs since %d from '%s'...",
 				nextTx, txr.db.GetName(), err)
@@ -255,23 +300,21 @@ func (txr *TxReplicator) nextTx() error {
 			}
 
 			txr.logger.Infof("precommitted txs successfully discarded from '%s'", txr.db.GetName())
-		} else {
-			return err
 		}
-	}
 
-	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
-	txbs, err := receiver.ReadFully()
+		if strings.Contains(err.Error(), "follower commit state diverged from master's") {
+			txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
+			return ErrFollowerDivergedFromMaster
+		}
 
-	if err != nil && err != io.EOF {
 		return err
 	}
 
-	if len(txbs) > 0 {
-		_, err = txr.db.ReplicateTx(txbs)
-		if err != nil {
-			return err
-		}
+	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
+	etx, err := receiver.ReadFully()
+
+	if err != nil && err != io.EOF {
+		return err
 	}
 
 	if syncReplicationEnabled {
@@ -289,9 +332,20 @@ func (txr *TxReplicator) nextTx() error {
 		if mayCommitUpToTxID > 0 {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 			if err != nil {
+				if strings.Contains(err.Error(), "follower commit state diverged from master's") {
+					txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
+					return ErrFollowerDivergedFromMaster
+				}
+
 				return err
 			}
 		}
+	}
+
+	if len(etx) > 0 {
+		// in some cases the transaction is not provided but only the master commit state
+		txr.txBuffer <- etx
+		txr.lastTx++
 	}
 
 	return nil
@@ -310,6 +364,10 @@ func (txr *TxReplicator) Stop() error {
 	if txr.cancelFunc != nil {
 		txr.cancelFunc()
 	}
+
+	close(txr.txBuffer)
+
+	txr.disconnect()
 
 	txr.running = false
 
