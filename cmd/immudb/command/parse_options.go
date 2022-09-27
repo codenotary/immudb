@@ -40,7 +40,8 @@ func parseOptions() (options *server.Options, err error) {
 			WithFollowerUsername(viper.GetString("replication-follower-username")).
 			WithFollowerPassword(viper.GetString("replication-follower-password")).
 			WithPrefetchTxBufferSize(viper.GetInt("replication-prefetch-tx-buffer-size")).
-			WithReplicationCommitConcurrency(viper.GetInt("replication-commit-concurrency"))
+			WithReplicationCommitConcurrency(viper.GetInt("replication-commit-concurrency")).
+			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding"))
 	} else {
 		replicationOptions.WithSyncFollowers(viper.GetInt("replication-sync-followers"))
 	}

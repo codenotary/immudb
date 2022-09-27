@@ -48,6 +48,7 @@ type dbOptions struct {
 	SyncFollowers                int    `json:"syncFollowers"`
 	PrefetchTxBufferSize         int    `json:"prefetchTxBufferSize"`
 	ReplicationCommitConcurrency int    `json:"replicationCommitConcurrency"`
+	AllowTxDiscarding            bool   `json:"allowTxDiscarding"`
 
 	// store options
 	FileSize     int `json:"fileSize"`     // permanent
@@ -166,6 +167,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 			dbOpts.FollowerPassword = repOpts.FollowerPassword
 			dbOpts.PrefetchTxBufferSize = repOpts.PrefetchTxBufferSize
 			dbOpts.ReplicationCommitConcurrency = repOpts.ReplicationCommitConcurrency
+			dbOpts.AllowTxDiscarding = repOpts.AllowTxDiscarding
 		} else {
 			dbOpts.SyncFollowers = repOpts.SyncFollowers
 		}
@@ -277,6 +279,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			SyncFollowers:                &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
+			AllowTxDiscarding:            &schema.NullableBool{Value: opts.AllowTxDiscarding},
 		},
 
 		SyncFrequency: &schema.NullableMilliseconds{Value: int64(opts.SyncFrequency)},
@@ -436,6 +439,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 			// set default value when it's not set
 			opts.ReplicationCommitConcurrency = replication.DefaultReplicationCommitConcurrency
 		}
+		if rs.AllowTxDiscarding != nil {
+			opts.AllowTxDiscarding = rs.AllowTxDiscarding.Value
+		}
 	}
 
 	// store options
@@ -579,7 +585,8 @@ func (opts *dbOptions) Validate() error {
 			opts.FollowerUsername != "" ||
 			opts.FollowerPassword != "" ||
 			opts.PrefetchTxBufferSize > 0 ||
-			opts.ReplicationCommitConcurrency > 0) {
+			opts.ReplicationCommitConcurrency > 0 ||
+			opts.AllowTxDiscarding) {
 		return fmt.Errorf(
 			"%w: invalid replication options for database '%s'",
 			ErrIllegalArguments, opts.Database)

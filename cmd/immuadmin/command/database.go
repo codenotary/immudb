@@ -44,6 +44,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().String("replication-follower-password", "", "set password used for replication")
 	c.Flags().Uint32("replication-prefetch-tx-buffer-size", uint32(replication.DefaultPrefetchTxBufferSize), "maximum number of prefeched transactions")
 	c.Flags().Uint32("replication-commit-concurrency", uint32(replication.DefaultReplicationCommitConcurrency), "number of concurrent replications")
+	c.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the follower diverges from the master")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
 	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
@@ -412,6 +413,11 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 	}
 
 	ret.ReplicationSettings.ReplicationCommitConcurrency, err = condUInt32("replication-commit-concurrency")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.AllowTxDiscarding, err = condBool("replication-allow-tx-discarding")
 	if err != nil {
 		return nil, err
 	}

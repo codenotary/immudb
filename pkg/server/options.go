@@ -92,6 +92,7 @@ type ReplicationOptions struct {
 	FollowerPassword             string // only if IsReplica
 	PrefetchTxBufferSize         int    // only if IsReplica
 	ReplicationCommitConcurrency int    // only if IsReplica
+	AllowTxDiscarding            bool   // only if IsReplica
 }
 
 // DefaultOptions returns default server options
@@ -522,5 +523,10 @@ func (opts *ReplicationOptions) WithPrefetchTxBufferSize(prefetchTxBufferSize in
 
 func (opts *ReplicationOptions) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *ReplicationOptions {
 	opts.ReplicationCommitConcurrency = replicationCommitConcurrency
+	return opts
+}
+
+func (opts *ReplicationOptions) WithAllowTxDiscarding(allowTxDiscarding bool) *ReplicationOptions {
+	opts.AllowTxDiscarding = allowTxDiscarding
 	return opts
 }

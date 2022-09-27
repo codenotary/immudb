@@ -2981,6 +2981,10 @@
         "replicationCommitConcurrency": {
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Number of concurrent replications"
+        },
+        "AllowTxDiscarding": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Allow precommitted transactions to be discarded if the follower diverges from the master"
         }
       }
     },

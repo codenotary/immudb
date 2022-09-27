@@ -63,6 +63,8 @@ type TxReplicator struct {
 	prefetchTxBuffer       chan []byte // buffered channel of exported txs
 	replicationConcurrency int
 
+	allowTxDiscarding bool
+
 	delayer             Delayer
 	consecutiveFailures int
 
@@ -85,6 +87,7 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		streamSrvFactory:       stream.NewStreamServiceFactory(opts.streamChunkSize),
 		prefetchTxBuffer:       make(chan []byte, opts.prefetchTxBufferSize),
 		replicationConcurrency: opts.replicationCommitConcurrency,
+		allowTxDiscarding:      opts.allowTxDiscarding,
 		delayer:                opts.delayer,
 	}, nil
 }
@@ -289,22 +292,27 @@ func (txr *TxReplicator) fetchNextTx() error {
 		AllowPreCommitted: syncReplicationEnabled,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "follower commit state diverged from master's") {
+			txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
+			return ErrFollowerDivergedFromMaster
+		}
+
 		if strings.Contains(err.Error(), "follower precommit state diverged from master's") {
-			// TODO: check if tx discarding is enabled in the follower
-			txr.logger.Infof("discarding precommitted txs since %d from '%s'...",
-				nextTx, txr.db.GetName(), err)
+
+			if !txr.allowTxDiscarding {
+				txr.logger.Errorf("follower precommit state at '%s' diverged from master's", txr.db.GetName())
+				return ErrFollowerDivergedFromMaster
+			}
+
+			txr.logger.Infof("discarding precommit txs since %d from '%s'...", nextTx, txr.db.GetName(), err)
 
 			err = txr.db.DiscardPrecommittedTxsSince(commitState.TxId + 1)
 			if err != nil {
 				return err
 			}
 
-			txr.logger.Infof("precommitted txs successfully discarded from '%s'", txr.db.GetName())
-		}
+			txr.logger.Infof("precommit txs successfully discarded from '%s'", txr.db.GetName())
 
-		if strings.Contains(err.Error(), "follower commit state diverged from master's") {
-			txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
-			return ErrFollowerDivergedFromMaster
 		}
 
 		return err

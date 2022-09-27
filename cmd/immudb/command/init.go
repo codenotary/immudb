@@ -21,6 +21,7 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -39,6 +40,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("replication-follower-password", "", "password used for replication of systemdb and defaultdb")
 	cmd.Flags().Int("replication-prefetch-tx-buffer-size", options.ReplicationOptions.PrefetchTxBufferSize, "maximum number of prefeched transactions")
 	cmd.Flags().Int("replication-commit-concurrency", options.ReplicationOptions.ReplicationCommitConcurrency, "number of concurrent replications")
+	cmd.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the follower diverges from the master")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename e.g. /var/run/immudb.pid")

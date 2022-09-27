@@ -21,6 +21,7 @@ import "time"
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 const DefaultPrefetchTxBufferSize int = 100
 const DefaultReplicationCommitConcurrency int = 10
+const DefaultAllowTxDiscarding = false
 
 type Options struct {
 	masterDatabase   string
@@ -33,6 +34,8 @@ type Options struct {
 
 	prefetchTxBufferSize         int
 	replicationCommitConcurrency int
+
+	allowTxDiscarding bool
 
 	delayer Delayer
 }
@@ -50,6 +53,7 @@ func DefaultOptions() *Options {
 		streamChunkSize:              DefaultChunkSize,
 		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
 		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
+		allowTxDiscarding:            DefaultAllowTxDiscarding,
 	}
 }
 
@@ -106,6 +110,12 @@ func (o *Options) WithPrefetchTxBufferSize(prefetchTxBufferSize int) *Options {
 // WithReplicationCommitConcurrency sets the number of goroutines doing replication
 func (o *Options) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *Options {
 	o.replicationCommitConcurrency = replicationCommitConcurrency
+	return o
+}
+
+// WithAllowTxDiscarding enable auto discarding of precommitted transactions
+func (o *Options) WithAllowTxDiscarding(allowTxDiscarding bool) *Options {
+	o.allowTxDiscarding = allowTxDiscarding
 	return o
 }
 

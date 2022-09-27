@@ -1041,6 +1041,9 @@ message ReplicationNullableSettings {
 
   // Number of concurrent replications
   NullableUint32 replicationCommitConcurrency = 10;
+
+  // Allow precommitted transactions to be discarded if the follower diverges from the master
+  NullableBool AllowTxDiscarding = 11;
 }
 
 message IndexNullableSettings {
