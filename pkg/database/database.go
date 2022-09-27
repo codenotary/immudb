@@ -154,7 +154,8 @@ type db struct {
 	sqlInitCancel chan (struct{})
 	sqlInit       sync.WaitGroup
 
-	mutex *instrumentedRWMutex
+	mutex        *instrumentedRWMutex
+	closingMutex sync.Mutex
 
 	Logger  logger.Logger
 	options *Options
@@ -1625,16 +1626,16 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 }
 
 func (d *db) IsClosed() bool {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
+	d.closingMutex.Lock()
+	defer d.closingMutex.Unlock()
 
 	return d.st.IsClosed()
 }
 
 // Close ...
 func (d *db) Close() (err error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.closingMutex.Lock()
+	defer d.closingMutex.Unlock()
 
 	d.Logger.Infof("Closing database '%s'...", d.name)
 

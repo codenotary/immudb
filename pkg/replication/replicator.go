@@ -92,13 +92,13 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 	}, nil
 }
 
-func (txr *TxReplicator) handleError(err error) {
+func (txr *TxReplicator) handleError(err error) (terminate bool) {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
 	if err == nil {
 		txr.consecutiveFailures = 0
-		return
+		return false
 	}
 
 	txr.consecutiveFailures++
@@ -113,13 +113,15 @@ func (txr *TxReplicator) handleError(err error) {
 	select {
 	case <-txr.mainContext.Done():
 		timer.Stop()
-		return
+		return true
 	case <-timer.C:
 	}
 
 	if txr.consecutiveFailures >= 3 {
 		txr.disconnect()
 	}
+
+	return false
 }
 
 func (txr *TxReplicator) Start() error {
@@ -147,7 +149,9 @@ func (txr *TxReplicator) Start() error {
 				return
 			}
 
-			txr.handleError(err)
+			if txr.handleError(err) {
+				return
+			}
 		}
 	}()
 
@@ -360,6 +364,10 @@ func (txr *TxReplicator) fetchNextTx() error {
 }
 
 func (txr *TxReplicator) Stop() error {
+	if txr.cancelFunc != nil {
+		txr.cancelFunc()
+	}
+
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
@@ -367,10 +375,6 @@ func (txr *TxReplicator) Stop() error {
 
 	if !txr.running {
 		return ErrAlreadyStopped
-	}
-
-	if txr.cancelFunc != nil {
-		txr.cancelFunc()
 	}
 
 	close(txr.prefetchTxBuffer)
