@@ -2030,13 +2030,6 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byte, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	err := s.readTx(txID, allowPrecommitted, tx)
 	if err != nil {
 		return nil, err
