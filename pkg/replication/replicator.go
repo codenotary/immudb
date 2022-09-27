@@ -286,7 +286,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 	exportTxStream, err := txr.client.ExportTx(txr.clientContext, &schema.ExportTxRequest{
 		Tx:                nextTx,
 		FollowerState:     state,
-		AllowPreCommitted: true,
+		AllowPreCommitted: syncReplicationEnabled,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "follower precommit state diverged from master's") {
