@@ -181,8 +181,10 @@ type ImmuStore struct {
 	waiteesMutex sync.Mutex
 	waiteesCount int // current number of go-routines waiting for a tx to be indexed or committed
 
-	_txbs []byte       // pre-allocated buffer to support tx serialization
-	_kvs  []*tbtree.KV //pre-allocated for indexing
+	_txbs     []byte       // pre-allocated buffer to support tx serialization
+	_kvs      []*tbtree.KV //pre-allocated for indexing
+	_valBs    []byte       // pre-allocated buffer to support tx exportation
+	_valBsMux sync.Mutex
 
 	aht      *ahtree.AHtree
 	blBuffer chan ([sha256.Size]byte)
@@ -534,6 +536,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		txPool: txPool,
 		_kvs:   kvs,
 		_txbs:  txbs,
+		_valBs: make([]byte, maxValueLen),
 
 		compactionDisabled: opts.CompactionDisabled,
 	}
@@ -2054,14 +2057,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 		return nil, err
 	}
 
-	valBs := make([]byte, s.maxValueLen)
-
 	for _, e := range tx.Entries() {
-		_, err = s.readValueAt(valBs[:e.vLen], e.vOff, e.hVal)
-		if err != nil {
-			return nil, err
-		}
-
 		var blen [lszSize]byte
 
 		// kLen
@@ -2104,10 +2100,20 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 		}
 
 		// val
-		_, err = buf.Write(valBs[:e.vLen])
+		// TODO: improve value reading implementation, get rid of _valBs
+		s._valBsMux.Lock()
+		_, err = s.readValueAt(s._valBs[:e.vLen], e.vOff, e.hVal)
 		if err != nil {
+			s._valBsMux.Unlock()
 			return nil, err
 		}
+
+		_, err = buf.Write(s._valBs[:e.vLen])
+		if err != nil {
+			s._valBsMux.Unlock()
+			return nil, err
+		}
+		s._valBsMux.Unlock()
 	}
 
 	return buf.Bytes(), nil
