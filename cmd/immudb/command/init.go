@@ -31,6 +31,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().Bool("replication-enabled", false, "set systemdb and defaultdb as replica") // TODO: flag name should be changed to something like `replication-is-replica`
+	cmd.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	cmd.Flags().Int("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
 	cmd.Flags().String("replication-master-address", "", "master address (if replica=true)")
 	cmd.Flags().Int("replication-master-port", 3322, "master port (if replica=true)")

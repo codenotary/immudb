@@ -31,7 +31,7 @@ func parseOptions() (options *server.Options, err error) {
 	// TODO: flag name should be changed to something like `replication-is-replica`
 	replicationOptions := (&server.ReplicationOptions{}).WithIsReplica(viper.GetBool("replication-enabled"))
 
-	replicationOptions.WithSyncReplication(viper.GetBool("replication-sync-replication"))
+	replicationOptions.WithSyncReplication(viper.GetBool("replication-sync-enabled"))
 
 	if replicationOptions.IsReplica {
 		replicationOptions.

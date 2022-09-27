@@ -35,7 +35,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
 	c.Flags().Bool("replication-enabled", false, "set database as a replica") // TODO: flag name should be changed to something like `replication-is-replica`
-	c.Flags().Bool("replication-sync-replication", false, "enable synchronous replication")
+	c.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	c.Flags().Uint32("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
 	c.Flags().String("replication-master-database", "", "set master database to be replicated")
 	c.Flags().String("replication-master-address", "", "set master address")
@@ -371,7 +371,7 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.ReplicationSettings.SyncReplication, err = condBool("replication-sync-replication")
+	ret.ReplicationSettings.SyncReplication, err = condBool("replication-sync-enabled")
 	if err != nil {
 		return nil, err
 	}
