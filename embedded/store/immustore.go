@@ -1591,6 +1591,8 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 		return 0, nil
 	}
 
+	// TODO: complete this logic, it's not yet covering durable precommitted transactions
+
 	txsToDiscard := int(s.inmemPrecommittedTxID + 1 - txID)
 
 	err := s.cLogBuf.recedeWriter(txsToDiscard)
@@ -1599,6 +1601,7 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 	}
 
 	s.inmemPrecommittedTxID = txID - 1
+	// TODO: set correct hash
 
 	return txsToDiscard, nil
 }
