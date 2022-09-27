@@ -1594,17 +1594,30 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 		return 0, nil
 	}
 
-	// TODO: complete this logic, it's not yet covering durable precommitted transactions
-
 	txsToDiscard := int(s.inmemPrecommittedTxID + 1 - txID)
 
+	// s.cLogBuf inludes all precommitted transactions (even durable ones)
 	err := s.cLogBuf.recedeWriter(txsToDiscard)
 	if err != nil {
 		return 0, err
 	}
 
+	if txID-1 == s.committedTxID {
+		s.inmemPrecommittedTxID = s.committedTxID
+		s.inmemPrecommittedAlh = s.committedAlh
+		return txsToDiscard, nil
+	}
+
+	tx, alh, _, _, err := s.cLogBuf.readAhead(int(s.inmemPrecommittedTxID-s.committedTxID-1) - txsToDiscard)
+	if err != nil || tx != txID-1 {
+		s.inmemPrecommittedTxID = s.committedTxID
+		s.inmemPrecommittedAlh = s.committedAlh
+		s.logger.Warningf("precommitted transactions has been discarded due to unexpected error in cLogBuf")
+		return 0, err
+	}
+
 	s.inmemPrecommittedTxID = txID - 1
-	// TODO: set correct hash
+	s.inmemPrecommittedAlh = alh
 
 	return txsToDiscard, nil
 }

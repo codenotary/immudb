@@ -3754,9 +3754,17 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 	err = immuStore.WaitForTx(uint64(txCount/2), false, nil)
 	require.NoError(t, err)
 
-	n, err = immuStore.DiscardPrecommittedTxsSince(uint64(txCount/2) + 1)
+	// discard all expect one precommitted tx
+	n, err = immuStore.DiscardPrecommittedTxsSince(uint64(txCount/2 + 2))
 	require.NoError(t, err)
-	require.Equal(t, txCount/2, n)
+	require.Equal(t, txCount/2-1, n)
+
+	require.Equal(t, uint64(txCount/2+1), immuStore.lastPrecommittedTxID())
+
+	// discard latest precommitted one
+	n, err = immuStore.DiscardPrecommittedTxsSince(uint64(txCount/2 + 1))
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
 
 	require.Equal(t, uint64(txCount/2), immuStore.lastPrecommittedTxID())
 
