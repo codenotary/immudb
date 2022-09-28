@@ -528,8 +528,7 @@ func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
 		Database: "lisbon",
 		Settings: &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
-				Replica:        &schema.NullableBool{Value: false},
-				MasterDatabase: &schema.NullableString{Value: ""},
+				Replica: &schema.NullableBool{Value: false},
 			},
 		},
 	}

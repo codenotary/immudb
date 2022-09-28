@@ -419,33 +419,49 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 		if rs.SyncFollowers != nil {
 			opts.SyncFollowers = int(rs.SyncFollowers.Value)
+		} else if opts.Replica {
+			opts.SyncFollowers = 0
 		}
 		if rs.MasterDatabase != nil {
 			opts.MasterDatabase = rs.MasterDatabase.Value
+		} else if !opts.Replica {
+			opts.MasterDatabase = ""
 		}
 		if rs.MasterAddress != nil {
 			opts.MasterAddress = rs.MasterAddress.Value
+		} else if !opts.Replica {
+			opts.MasterAddress = ""
 		}
 		if rs.MasterPort != nil {
 			opts.MasterPort = int(rs.MasterPort.Value)
+		} else if !opts.Replica {
+			opts.MasterPort = 0
 		}
 		if rs.FollowerUsername != nil {
 			opts.FollowerUsername = rs.FollowerUsername.Value
+		} else if !opts.Replica {
+			opts.FollowerUsername = ""
 		}
 		if rs.FollowerPassword != nil {
 			opts.FollowerPassword = rs.FollowerPassword.Value
+		} else if !opts.Replica {
+			opts.FollowerPassword = ""
 		}
 		if rs.PrefetchTxBufferSize != nil {
 			opts.PrefetchTxBufferSize = int(rs.PrefetchTxBufferSize.Value)
 		} else if opts.Replica && opts.PrefetchTxBufferSize == 0 {
 			// set default value when it's not set
 			opts.PrefetchTxBufferSize = replication.DefaultPrefetchTxBufferSize
+		} else if !opts.Replica {
+			opts.PrefetchTxBufferSize = 0
 		}
 		if rs.ReplicationCommitConcurrency != nil {
 			opts.ReplicationCommitConcurrency = int(rs.ReplicationCommitConcurrency.Value)
 		} else if opts.Replica && opts.ReplicationCommitConcurrency == 0 {
 			// set default value when it's not set
 			opts.ReplicationCommitConcurrency = replication.DefaultReplicationCommitConcurrency
+		} else if !opts.Replica {
+			opts.ReplicationCommitConcurrency = 0
 		}
 		if rs.AllowTxDiscarding != nil {
 			opts.AllowTxDiscarding = rs.AllowTxDiscarding.Value
@@ -603,6 +619,7 @@ func (opts *dbOptions) Validate() error {
 				"%w: invalid value for replication option SyncFollowers ReplicationCommitConcurrency on database '%s'",
 				ErrIllegalArguments, opts.Database)
 		}
+
 	} else {
 		if opts.SyncFollowers < 0 {
 			return fmt.Errorf(
@@ -757,6 +774,9 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.Replica: %v", database, opts.Replica)
 	s.Logger.Infof("%s.SyncReplication: %v", database, opts.SyncReplication)
 	s.Logger.Infof("%s.SyncFollowers: %v", database, opts.SyncFollowers)
+	s.Logger.Infof("%s.PrefetchTxBufferSize: %v", database, opts.PrefetchTxBufferSize)
+	s.Logger.Infof("%s.ReplicationCommitConcurrency: %v", database, opts.ReplicationCommitConcurrency)
+	s.Logger.Infof("%s.AllowTxDiscarding: %v", database, opts.AllowTxDiscarding)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)
