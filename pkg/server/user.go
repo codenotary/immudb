@@ -611,6 +611,11 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int, *auth
 		if e != nil {
 			return 0, nil, e
 		}
+
+		if sess.GetDatabase().GetName() == SystemDBName {
+			return sysDBIndex, sess.GetUser(), nil
+		}
+
 		return s.dbList.GetId(sess.GetDatabase().GetName()), sess.GetUser(), nil
 	}
 	jsUser, err := auth.GetLoggedInUser(ctx)

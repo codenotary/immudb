@@ -345,19 +345,27 @@ func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.D
 		return nil
 	}
 
+	repSettings := &schema.ReplicationNullableSettings{
+		Replica:          &schema.NullableBool{Value: settings.Replica},
+		MasterDatabase:   &schema.NullableString{Value: settings.MasterDatabase},
+		MasterAddress:    &schema.NullableString{Value: settings.MasterAddress},
+		MasterPort:       &schema.NullableUint32{Value: settings.MasterPort},
+		FollowerUsername: &schema.NullableString{Value: settings.FollowerUsername},
+		FollowerPassword: &schema.NullableString{Value: settings.FollowerPassword},
+	}
+
+	if !settings.Replica {
+		repSettings.SyncFollowers = &schema.NullableUint32{}
+		repSettings.PrefetchTxBufferSize = &schema.NullableUint32{}
+		repSettings.ReplicationCommitConcurrency = &schema.NullableUint32{}
+	}
+
 	ret := &schema.DatabaseNullableSettings{
-		ReplicationSettings: &schema.ReplicationNullableSettings{
-			Replica:          &schema.NullableBool{Value: settings.Replica},
-			MasterDatabase:   &schema.NullableString{Value: settings.MasterDatabase},
-			MasterAddress:    &schema.NullableString{Value: settings.MasterAddress},
-			MasterPort:       &schema.NullableUint32{Value: settings.MasterPort},
-			FollowerUsername: &schema.NullableString{Value: settings.FollowerUsername},
-			FollowerPassword: &schema.NullableString{Value: settings.FollowerPassword},
-		},
-		FileSize:     nullableUInt32(settings.FileSize),
-		MaxKeyLen:    nullableUInt32(settings.MaxKeyLen),
-		MaxValueLen:  nullableUInt32(settings.MaxValueLen),
-		MaxTxEntries: nullableUInt32(settings.MaxTxEntries),
+		ReplicationSettings: repSettings,
+		FileSize:            nullableUInt32(settings.FileSize),
+		MaxKeyLen:           nullableUInt32(settings.MaxKeyLen),
+		MaxValueLen:         nullableUInt32(settings.MaxValueLen),
+		MaxTxEntries:        nullableUInt32(settings.MaxTxEntries),
 	}
 
 	return ret
@@ -577,38 +585,90 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 }
 
 func (opts *dbOptions) Validate() error {
-	if !opts.Replica &&
-		(opts.SyncFollowers < 0 ||
-			opts.MasterDatabase != "" ||
-			opts.MasterAddress != "" ||
-			opts.MasterPort > 0 ||
-			opts.FollowerUsername != "" ||
-			opts.FollowerPassword != "" ||
-			opts.PrefetchTxBufferSize > 0 ||
-			opts.ReplicationCommitConcurrency > 0 ||
-			opts.AllowTxDiscarding) {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'",
-			ErrIllegalArguments, opts.Database)
-	}
+	if opts.Replica {
+		if opts.PrefetchTxBufferSize <= 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option PrefetchTxBufferSize on replica database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
 
-	if opts.Replica &&
-		(opts.PrefetchTxBufferSize <= 0 || opts.ReplicationCommitConcurrency <= 0) {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'",
-			ErrIllegalArguments, opts.Database)
-	}
+		if opts.ReplicationCommitConcurrency <= 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option ReplicationCommitConcurrency on replica database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
 
-	if opts.SyncFollowers == 0 && opts.SyncReplication && !opts.Replica {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'. It is necessary to have at least one follower",
-			ErrIllegalArguments, opts.Database)
-	}
+		if opts.SyncFollowers > 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option SyncFollowers ReplicationCommitConcurrency on database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+	} else {
+		if opts.SyncFollowers < 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option SyncFollowers on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
 
-	if opts.SyncFollowers > 0 && (opts.Replica || !opts.SyncReplication) {
-		return fmt.Errorf(
-			"%w: invalid replication options for database '%s'. Sync followers are not expected",
-			ErrIllegalArguments, opts.Database)
+		if opts.MasterDatabase != "" {
+			return fmt.Errorf(
+				"%w: invalid value for replication option MasterDatabase on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.MasterAddress != "" {
+			return fmt.Errorf(
+				"%w: invalid value for replication option MasterAddress on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.MasterPort > 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option MasterPort on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.FollowerUsername != "" {
+			return fmt.Errorf(
+				"%w: invalid value for replication option FollowerUsername on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.FollowerPassword != "" {
+			return fmt.Errorf(
+				"%w: invalid value for replication option FollowerPassword on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.PrefetchTxBufferSize > 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option PrefetchTxBufferSize on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.ReplicationCommitConcurrency > 0 {
+			return fmt.Errorf(
+				"%w: invalid value for replication option ReplicationCommitConcurrency on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.AllowTxDiscarding {
+			return fmt.Errorf(
+				"%w: invalid value for replication option AllowTxDiscarding on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if opts.SyncReplication && opts.SyncFollowers == 0 {
+			return fmt.Errorf(
+				"%w: invalid replication options for master database '%s'. It is necessary to have at least one sync follower",
+				ErrIllegalArguments, opts.Database)
+		}
+
+		if !opts.SyncReplication && opts.SyncFollowers > 0 {
+			return fmt.Errorf(
+				"%w: invalid replication options for master database '%s'. Sync followers are not expected",
+				ErrIllegalArguments, opts.Database)
+		}
 	}
 
 	if opts.ReadTxPoolSize <= 0 {
