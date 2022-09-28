@@ -22,7 +22,7 @@ func TestSyncTestSuite(t *testing.T) {
 // this function executes before the test suite begins execution
 func (suite *SyncTestSuite) SetupSuite() {
 	suite.baseReplicationTestSuite.SetupSuite()
-	suite.SetupCluster(3, 3)
+	suite.SetupCluster(2, 2)
 }
 
 func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
@@ -59,8 +59,6 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 
 	tx, err := client.Set(ctx, []byte("key3"), []byte("value3"))
 	require.NoError(suite.T(), err)
-
-	time.Sleep(time.Second)
 
 	for i := 0; i < suite.GetFollowersCount(); i++ {
 		ctx, client, cleanup := suite.ClientForReplica(i)
