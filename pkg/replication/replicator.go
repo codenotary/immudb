@@ -141,10 +141,10 @@ func (txr *TxReplicator) Start() error {
 	go func() {
 		for {
 			err := txr.fetchNextTx()
-			if err == ErrAlreadyStopped {
+			if errors.Is(err, ErrAlreadyStopped) {
 				return
 			}
-			if err == ErrFollowerDivergedFromMaster {
+			if errors.Is(err, ErrFollowerDivergedFromMaster) {
 				txr.Stop()
 				return
 			}
@@ -166,7 +166,7 @@ func (txr *TxReplicator) Start() error {
 					if err == nil {
 						break // transaction successfully replicated
 					}
-					if err == ErrAlreadyStopped {
+					if errors.Is(err, ErrAlreadyStopped) {
 						return
 					}
 
@@ -325,7 +325,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
 	etx, err := receiver.ReadFully()
 
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 
