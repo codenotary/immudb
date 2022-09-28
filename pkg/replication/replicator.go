@@ -341,7 +341,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		var mayCommitUpToAlh [sha256.Size]byte
 		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
 
-		if mayCommitUpToTxID > 0 {
+		if mayCommitUpToTxID > commitState.TxId {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 			if err != nil {
 				if strings.Contains(err.Error(), "follower commit state diverged from master's") {

@@ -1382,7 +1382,17 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 		return ErrNotReplica
 	}
 
-	// follower pre-committed state should be consistent with master
+	// follower pre-committed state must be consistent with master
+
+	committedTxID, committedAlh := d.st.CommittedAlh()
+	// handling a particular case in an optimized manner
+	if committedTxID == txID {
+		if committedAlh != alh {
+			return fmt.Errorf("%w: follower commit state diverged from master's", ErrIllegalState)
+		}
+		return nil
+	}
+
 	hdr, err := d.st.ReadTxHeader(txID, true)
 	if err != nil {
 		return err
