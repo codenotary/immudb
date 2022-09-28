@@ -2737,9 +2737,13 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 
 	close(etxs)
 
+	const replicatorsCount = 3
+
+	var wg sync.WaitGroup
+	wg.Add(replicatorsCount)
+
 	rand.Seed(time.Now().UnixNano())
 
-	const replicatorsCount = 3
 	for r := 0; r < replicatorsCount; r++ {
 		go func(replicatorID int) {
 			for etx := range etxs {
@@ -2748,8 +2752,13 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 				_, err = replicaStore.ReplicateTx(etx, false)
 				require.NoError(t, err)
 			}
+
+			wg.Done()
 		}(r)
 	}
+
+	// it's needed to avoid getting 'already closed' error if the store is closed fast enough
+	wg.Wait()
 
 	err = replicaStore.WaitForTx(uint64(txCount), false, nil)
 	require.NoError(t, err)
