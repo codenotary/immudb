@@ -17,6 +17,7 @@ build
 resources
 /immudata
 /Dockerfile*
+pkg/integration/replication
 
 # Allow FIPS build checker
 !build/fips/check-fips.sh
