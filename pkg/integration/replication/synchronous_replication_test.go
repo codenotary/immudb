@@ -3,9 +3,11 @@ package replication
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -40,6 +42,9 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 			ctx, client, cleanup := suite.ClientForReplica(i)
 			defer cleanup()
 
+			// Tests are flaky because it takes time to index the
+			// precommited, so this function just ensures the state
+			// is in sync between master and follower
 			suite.WaitForCommittedTx(ctx, client, tx2.Id, time.Second)
 
 			val, err := client.GetAt(ctx, []byte("key1"), tx1.Id)
@@ -66,12 +71,70 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 		ctx, client, cleanup := suite.ClientForReplica(i)
 		defer cleanup()
 
+		// Tests are flaky because it takes time to index the
+		// precommited, so this function just ensures the state
+		// is in sync between master and follower
 		suite.WaitForCommittedTx(ctx, client, tx.Id, time.Second)
 
 		val, err := client.GetAt(ctx, []byte("key3"), tx.Id)
 		require.NoError(suite.T(), err)
 		require.Equal(suite.T(), []byte("value3"), val.Value)
 	}
+}
+
+// TestPrecommitStateSync checks if the precommit state at master
+// and its followers are in sync during synchronous replication
+func (suite *SyncTestSuite) TestPrecommitStateSync() {
+	var (
+		masterState *schema.ImmutableState
+		err         error
+		startCh     = make(chan bool)
+	)
+
+	ctx, client, cleanup := suite.ClientForMaser()
+	defer cleanup()
+
+	// Create goroutines for client waiting to query the state
+	// of the followers. This is initialised before to avoid
+	// spending time initialising the follower client for faster
+	// state access
+	var wg sync.WaitGroup
+	for i := 0; i < suite.GetFollowersCount(); i++ {
+		wg.Add(1)
+		go func(followerID int) {
+			defer wg.Done()
+			ctx, client, cleanup := suite.ClientForReplica(followerID)
+			defer cleanup()
+			for {
+				select {
+				case <-startCh:
+					suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
+						state, err := client.CurrentState(ctx)
+						require.NoError(suite.T(), err)
+						suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
+						suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
+					})
+					return
+				}
+			}
+		}(i)
+	}
+
+	// add multiple keys to make update the master's state quickly
+	for i := 10; i < 30; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value := fmt.Sprintf("value%d", i)
+		_, err = client.Set(ctx, []byte(key), []byte(value))
+		require.NoError(suite.T(), err)
+	}
+
+	// get the current precommit txn id state of master
+	masterState, err = client.CurrentState(ctx)
+	require.NoError(suite.T(), err)
+
+	// close will unblock all goroutines
+	close(startCh)
+	wg.Wait()
 }
 
 type FailSyncTestSuite struct {
