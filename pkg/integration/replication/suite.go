@@ -205,9 +205,16 @@ func (suite *baseReplicationTestSuite) WaitForCommittedTx(
 
 func (suite *baseReplicationTestSuite) SetupCluster(replicas int, syncFollowers int) {
 	suite.StartMaster(syncFollowers)
+
+	wg := sync.WaitGroup{}
 	for i := 0; i < replicas; i++ {
-		suite.AddFollower(syncFollowers > 0)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			suite.AddFollower(syncFollowers > 0)
+		}()
 	}
+	wg.Wait()
 }
 
 // SetupSuite initializes the suite
