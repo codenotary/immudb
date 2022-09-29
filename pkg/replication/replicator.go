@@ -61,6 +61,7 @@ type TxReplicator struct {
 
 	prefetchTxBuffer       chan []byte // buffered channel of exported txs
 	replicationConcurrency int
+	waitForIndexing        bool
 
 	allowTxDiscarding bool
 
@@ -86,6 +87,7 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		streamSrvFactory:       stream.NewStreamServiceFactory(opts.streamChunkSize),
 		prefetchTxBuffer:       make(chan []byte, opts.prefetchTxBufferSize),
 		replicationConcurrency: opts.replicationCommitConcurrency,
+		waitForIndexing:        opts.waitForIndexing,
 		allowTxDiscarding:      opts.allowTxDiscarding,
 		delayer:                opts.delayer,
 	}, nil
@@ -163,7 +165,7 @@ func (txr *TxReplicator) Start() error {
 
 				// replication must be retried as many times as necessary
 				for {
-					_, err := txr.db.ReplicateTx(etx)
+					_, err := txr.db.ReplicateTx(etx, txr.waitForIndexing)
 					if err == nil {
 						break // transaction successfully replicated
 					}

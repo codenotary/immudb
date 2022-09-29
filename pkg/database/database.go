@@ -124,7 +124,7 @@ type DB interface {
 
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error)
-	ReplicateTx(exportedTx []byte) (*schema.TxHeader, error)
+	ReplicateTx(exportedTx []byte, waitForIndexing bool) (*schema.TxHeader, error)
 	AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error
 	DiscardPrecommittedTxsSince(txID uint64) error
 
@@ -1357,7 +1357,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	return txbs, mayCommitUpToTxID, mayCommitUpToAlh, nil
 }
 
-func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
+func (d *db) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*schema.TxHeader, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -1365,7 +1365,7 @@ func (d *db) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
 		return nil, ErrNotReplica
 	}
 
-	hdr, err := d.st.ReplicateTx(exportedTx, false)
+	hdr, err := d.st.ReplicateTx(exportedTx, waitForIndexing)
 	if err != nil {
 		return nil, err
 	}

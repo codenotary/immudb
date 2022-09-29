@@ -48,6 +48,7 @@ type dbOptions struct {
 	SyncFollowers                int    `json:"syncFollowers"`
 	PrefetchTxBufferSize         int    `json:"prefetchTxBufferSize"`
 	ReplicationCommitConcurrency int    `json:"replicationCommitConcurrency"`
+	WaitForIndexing              bool   `json:"waitForIndexing"`
 	AllowTxDiscarding            bool   `json:"allowTxDiscarding"`
 
 	// store options
@@ -167,6 +168,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 			dbOpts.FollowerPassword = repOpts.FollowerPassword
 			dbOpts.PrefetchTxBufferSize = repOpts.PrefetchTxBufferSize
 			dbOpts.ReplicationCommitConcurrency = repOpts.ReplicationCommitConcurrency
+			dbOpts.WaitForIndexing = repOpts.WaitForIndexing
 			dbOpts.AllowTxDiscarding = repOpts.AllowTxDiscarding
 		} else {
 			dbOpts.SyncFollowers = repOpts.SyncFollowers
@@ -279,6 +281,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			SyncFollowers:                &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
+			WaitForIndexing:              &schema.NullableBool{Value: opts.WaitForIndexing},
 			AllowTxDiscarding:            &schema.NullableBool{Value: opts.AllowTxDiscarding},
 		},
 
@@ -358,6 +361,7 @@ func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.D
 		repSettings.SyncFollowers = &schema.NullableUint32{}
 		repSettings.PrefetchTxBufferSize = &schema.NullableUint32{}
 		repSettings.ReplicationCommitConcurrency = &schema.NullableUint32{}
+		repSettings.WaitForIndexing = &schema.NullableBool{}
 	}
 
 	ret := &schema.DatabaseNullableSettings{
@@ -462,6 +466,11 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 			opts.ReplicationCommitConcurrency = replication.DefaultReplicationCommitConcurrency
 		} else if !opts.Replica {
 			opts.ReplicationCommitConcurrency = 0
+		}
+		if rs.WaitForIndexing != nil {
+			opts.WaitForIndexing = rs.WaitForIndexing.Value
+		} else if !opts.Replica {
+			opts.WaitForIndexing = false
 		}
 		if rs.AllowTxDiscarding != nil {
 			opts.AllowTxDiscarding = rs.AllowTxDiscarding.Value
@@ -669,6 +678,12 @@ func (opts *dbOptions) Validate() error {
 				ErrIllegalArguments, opts.Database)
 		}
 
+		if opts.WaitForIndexing {
+			return fmt.Errorf(
+				"%w: invalid value for replication option WaitForIndexing on master database '%s'",
+				ErrIllegalArguments, opts.Database)
+		}
+
 		if opts.AllowTxDiscarding {
 			return fmt.Errorf(
 				"%w: invalid value for replication option AllowTxDiscarding on master database '%s'",
@@ -776,6 +791,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.SyncFollowers: %v", database, opts.SyncFollowers)
 	s.Logger.Infof("%s.PrefetchTxBufferSize: %v", database, opts.PrefetchTxBufferSize)
 	s.Logger.Infof("%s.ReplicationCommitConcurrency: %v", database, opts.ReplicationCommitConcurrency)
+	s.Logger.Infof("%s.WaitForIndexing: %v", database, opts.WaitForIndexing)
 	s.Logger.Infof("%s.AllowTxDiscarding: %v", database, opts.AllowTxDiscarding)
 	s.Logger.Infof("%s.FileSize: %v", database, opts.FileSize)
 	s.Logger.Infof("%s.MaxKeyLen: %v", database, opts.MaxKeyLen)

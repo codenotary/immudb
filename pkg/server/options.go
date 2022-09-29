@@ -92,6 +92,7 @@ type ReplicationOptions struct {
 	FollowerPassword             string // only if IsReplica
 	PrefetchTxBufferSize         int    // only if IsReplica
 	ReplicationCommitConcurrency int    // only if IsReplica
+	WaitForIndexing              bool   // only if IsReplica
 	AllowTxDiscarding            bool   // only if IsReplica
 }
 
@@ -523,6 +524,11 @@ func (opts *ReplicationOptions) WithPrefetchTxBufferSize(prefetchTxBufferSize in
 
 func (opts *ReplicationOptions) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *ReplicationOptions {
 	opts.ReplicationCommitConcurrency = replicationCommitConcurrency
+	return opts
+}
+
+func (opts *ReplicationOptions) WithWaitForIndexing(waitForIndexing bool) *ReplicationOptions {
+	opts.WaitForIndexing = waitForIndexing
 	return opts
 }
 

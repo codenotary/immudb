@@ -42,6 +42,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("replication-follower-password", "", "password used for replication of systemdb and defaultdb")
 	cmd.Flags().Int("replication-prefetch-tx-buffer-size", options.ReplicationOptions.PrefetchTxBufferSize, "maximum number of prefeched transactions")
 	cmd.Flags().Int("replication-commit-concurrency", options.ReplicationOptions.ReplicationCommitConcurrency, "number of concurrent replications")
+	cmd.Flags().Bool("replication-wait-for-indexing", replication.DefaultWaitForIndexing, "wait for indexing during replication")
 	cmd.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the follower diverges from the master")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")

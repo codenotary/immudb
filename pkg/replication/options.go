@@ -21,6 +21,7 @@ import "time"
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 const DefaultPrefetchTxBufferSize int = 100
 const DefaultReplicationCommitConcurrency int = 10
+const DefaultWaitForIndexing = false
 const DefaultAllowTxDiscarding = false
 
 type Options struct {
@@ -34,6 +35,7 @@ type Options struct {
 
 	prefetchTxBufferSize         int
 	replicationCommitConcurrency int
+	waitForIndexing              bool
 
 	allowTxDiscarding bool
 
@@ -53,6 +55,7 @@ func DefaultOptions() *Options {
 		streamChunkSize:              DefaultChunkSize,
 		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
 		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
+		waitForIndexing:              DefaultWaitForIndexing,
 		allowTxDiscarding:            DefaultAllowTxDiscarding,
 	}
 }
@@ -110,6 +113,12 @@ func (o *Options) WithPrefetchTxBufferSize(prefetchTxBufferSize int) *Options {
 // WithReplicationCommitConcurrency sets the number of goroutines doing replication
 func (o *Options) WithReplicationCommitConcurrency(replicationCommitConcurrency int) *Options {
 	o.replicationCommitConcurrency = replicationCommitConcurrency
+	return o
+}
+
+// WithWaitForIndexing instruct to replication goroutines to wait for indexing
+func (o *Options) WithWaitForIndexing(waitForIndexing bool) *Options {
+	o.waitForIndexing = waitForIndexing
 	return o
 }
 

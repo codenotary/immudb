@@ -42,6 +42,7 @@ func TestOptions(t *testing.T) {
 		WithStreamChunkSize(DefaultChunkSize).
 		WithPrefetchTxBufferSize(DefaultPrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(DefaultReplicationCommitConcurrency).
+		WithWaitForIndexing(DefaultWaitForIndexing).
 		WithAllowTxDiscarding(true).
 		WithDelayer(delayer)
 
@@ -53,6 +54,7 @@ func TestOptions(t *testing.T) {
 	require.Equal(t, DefaultChunkSize, opts.streamChunkSize)
 	require.Equal(t, DefaultPrefetchTxBufferSize, opts.prefetchTxBufferSize)
 	require.Equal(t, DefaultReplicationCommitConcurrency, opts.replicationCommitConcurrency)
+	require.Equal(t, DefaultWaitForIndexing, opts.waitForIndexing)
 	require.True(t, opts.allowTxDiscarding)
 	require.Equal(t, delayer, opts.delayer)
 

@@ -209,7 +209,7 @@ func (db *closedDB) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayC
 	return nil, 0, mayCommitUpToAlh, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
+func (db *closedDB) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

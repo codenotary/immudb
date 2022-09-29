@@ -1417,7 +1417,8 @@ Only succeed if given key was not modified after given transaction
 | syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of fully synchronized followers |
 | prefetchTxBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximun number of prefeched transactions |
 | replicationCommitConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of concurrent replications |
-| AllowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the follower diverges from the master |
+| waitForIndexing | [NullableBool](#immudb.schema.NullableBool) |  | Wait for indexing during replication |
+| allowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the follower diverges from the master |
 
 
 

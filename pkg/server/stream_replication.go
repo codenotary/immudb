@@ -89,7 +89,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return err
 	}
 
-	md, err := db.ReplicateTx(bs)
+	md, err := db.ReplicateTx(bs, false)
 	if err != nil {
 		return err
 	}

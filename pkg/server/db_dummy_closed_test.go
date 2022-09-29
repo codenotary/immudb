@@ -147,7 +147,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, _, _, err = cdb.ExportTxByID(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ReplicateTx(nil)
+	_, err = cdb.ReplicateTx(nil, false)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.VerifiableTxByID(nil)

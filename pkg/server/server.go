@@ -588,6 +588,7 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 		WithFollowerPassword(dbOpts.FollowerPassword).
 		WithPrefetchTxBufferSize(dbOpts.PrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(dbOpts.ReplicationCommitConcurrency).
+		WithWaitForIndexing(dbOpts.WaitForIndexing).
 		WithAllowTxDiscarding(dbOpts.AllowTxDiscarding).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 

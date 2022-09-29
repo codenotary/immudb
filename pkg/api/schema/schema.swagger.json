@@ -2982,7 +2982,11 @@
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Number of concurrent replications"
         },
-        "AllowTxDiscarding": {
+        "waitForIndexing": {
+          "$ref": "#/definitions/schemaNullableBool",
+          "title": "Wait for indexing during replication"
+        },
+        "allowTxDiscarding": {
           "$ref": "#/definitions/schemaNullableBool",
           "title": "Allow precommitted transactions to be discarded if the follower diverges from the master"
         }

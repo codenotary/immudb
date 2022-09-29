@@ -2231,7 +2231,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 		return txHdr, err
 	}
 
-	if !s.useExternalCommitAllowance {
+	if waitForIndexing {
 		err = s.commitWHub.WaitFor(txHdr.ID, nil)
 		if err == watchers.ErrAlreadyClosed {
 			return txHdr, ErrAlreadyClosed
@@ -2240,11 +2240,9 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 			return txHdr, err
 		}
 
-		if waitForIndexing {
-			err = s.WaitForIndexingUpto(txHdr.ID, nil)
-			if err != nil {
-				return txHdr, err
-			}
+		err = s.WaitForIndexingUpto(txHdr.ID, nil)
+		if err != nil {
+			return txHdr, err
 		}
 	}
 
