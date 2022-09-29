@@ -42,8 +42,8 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 			ctx, client, cleanup := suite.ClientForReplica(i)
 			defer cleanup()
 
-			// Tests are flaky because it takes time to index the
-			// precommited, so this function just ensures the state
+			// Tests are flaky because it takes time to commit the
+			// precommitted TX, so this function just ensures the state
 			// is in sync between master and follower
 			suite.WaitForCommittedTx(ctx, client, tx2.Id, time.Second)
 
@@ -59,27 +59,47 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 }
 
 func (suite *SyncTestSuite) TestMasterRestart() {
-	suite.RestartMaster()
+	var txBeforeRestart *schema.TxHeader
+	suite.Run("commit before restarting primary", func() {
 
-	ctx, client, cleanup := suite.ClientForMaser()
-	defer cleanup()
-
-	tx, err := client.Set(ctx, []byte("key3"), []byte("value3"))
-	require.NoError(suite.T(), err)
-
-	for i := 0; i < suite.GetFollowersCount(); i++ {
-		ctx, client, cleanup := suite.ClientForReplica(i)
+		ctx, client, cleanup := suite.ClientForMaser()
 		defer cleanup()
 
-		// Tests are flaky because it takes time to index the
-		// precommited, so this function just ensures the state
-		// is in sync between master and follower
-		suite.WaitForCommittedTx(ctx, client, tx.Id, time.Second)
-
-		val, err := client.GetAt(ctx, []byte("key3"), tx.Id)
+		tx, err := client.Set(ctx, []byte("key-before-restart"), []byte("value-before-restart"))
 		require.NoError(suite.T(), err)
-		require.Equal(suite.T(), []byte("value3"), val.Value)
-	}
+
+		txBeforeRestart = tx
+	})
+
+	suite.RestartMaster()
+
+	suite.Run("commit after restarting master", func() {
+		ctx, client, cleanup := suite.ClientForMaser()
+		defer cleanup()
+
+		tx, err := client.Set(ctx, []byte("key3"), []byte("value3"))
+		require.NoError(suite.T(), err)
+
+		for i := 0; i < suite.GetFollowersCount(); i++ {
+			suite.Run(fmt.Sprintf("check follower %d", i), func() {
+				ctx, client, cleanup := suite.ClientForReplica(i)
+				defer cleanup()
+
+				// Tests are flaky because it takes time to commit the
+				// precommitted TX, so this function just ensures the state
+				// is in sync between master and follower
+				suite.WaitForCommittedTx(ctx, client, tx.Id, 30*time.Second) // Longer time since replica must reestablish connection to the primary
+
+				val, err := client.GetAt(ctx, []byte("key3"), tx.Id)
+				require.NoError(suite.T(), err)
+				require.Equal(suite.T(), []byte("value3"), val.Value)
+
+				val, err = client.GetAt(ctx, []byte("key-before-restart"), txBeforeRestart.Id)
+				require.NoError(suite.T(), err)
+				require.Equal(suite.T(), []byte("value-before-restart"), val.Value)
+			})
+		}
+	})
 }
 
 // TestPrecommitStateSync checks if the precommit state at master
