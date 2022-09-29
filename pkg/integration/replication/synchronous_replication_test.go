@@ -196,7 +196,4 @@ func (suite *FailSyncTestSuite) TestSyncFailureWithLessFollowers() {
 	assert.Greater(suite.T(), time.Since(t1), timeout)
 	assert.Error(suite.T(), err)
 	assert.Contains(suite.T(), err.Error(), "context deadline exceeded")
-
-	// TODO: This is a workaround for the server to shutdown cleanly, remove it when no longer needed
-	suite.StartFollower(0)
 }
