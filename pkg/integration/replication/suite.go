@@ -44,8 +44,9 @@ type baseReplicationTestSuite struct {
 	mu sync.Mutex
 
 	// server settings
-	master    TestServer
-	followers []TestServer
+	master           TestServer
+	followers        []TestServer
+	followersRunning []bool
 }
 
 func (suite *baseReplicationTestSuite) GetFollowersCount() int {
@@ -63,6 +64,7 @@ func (suite *baseReplicationTestSuite) AddFollower(sync bool) int {
 
 	followerNum := len(suite.followers)
 	suite.followers = append(suite.followers, follower)
+	suite.followersRunning = append(suite.followersRunning, true)
 
 	fctx, followerClient, cleanup := suite.internalClientFor(follower, client.DefaultDB)
 	defer cleanup()
@@ -94,6 +96,7 @@ func (suite *baseReplicationTestSuite) StopFollower(followerNum int) {
 
 	f := suite.followers[followerNum]
 	f.Shutdown(suite.T())
+	suite.followersRunning[followerNum] = false
 }
 
 func (suite *baseReplicationTestSuite) StartFollower(followerNum int) {
@@ -102,6 +105,7 @@ func (suite *baseReplicationTestSuite) StartFollower(followerNum int) {
 
 	f := suite.followers[followerNum]
 	f.Start(suite.T())
+	suite.followersRunning[followerNum] = true
 }
 
 func (suite *baseReplicationTestSuite) StartMaster(syncFollowers int) {
@@ -222,8 +226,10 @@ func (suite *baseReplicationTestSuite) TearDownSuite() {
 	defer suite.mu.Unlock()
 
 	// stop followers
-	for _, srv := range suite.followers {
-		srv.Shutdown(suite.T())
+	for i, srv := range suite.followers {
+		if suite.followersRunning[i] {
+			srv.Shutdown(suite.T())
+		}
 	}
 
 	// stop master
