@@ -116,7 +116,9 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 	case <-timer.C:
 	}
 
-	if txr.consecutiveFailures >= 3 {
+	retryableError := !strings.Contains(err.Error(), "no session found")
+
+	if txr.consecutiveFailures >= 3 || !retryableError {
 		txr.disconnect()
 	}
 
