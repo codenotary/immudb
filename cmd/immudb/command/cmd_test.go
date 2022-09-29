@@ -250,3 +250,29 @@ func TestExecute(t *testing.T) {
 	Execute()
 	assert.Equal(t, quitCode, 1)
 }
+
+func TestImmudbCommandReplicationFlagsParser(t *testing.T) {
+	var options *server.Options
+	var err error
+	cmd := &cobra.Command{
+		Use: "immudb",
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			options, err = parseOptions()
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cl := Commandline{}
+	cl.setupFlags(cmd, server.DefaultOptions())
+
+	err = viper.BindPFlags(cmd.Flags())
+	assert.Nil(t, err)
+
+	setupDefaults(server.DefaultOptions())
+
+	_, err = executeCommand(cmd, "--replication-is-replica")
+	assert.NoError(t, err)
+	assert.True(t, options.ReplicationOptions.IsReplica)
+}

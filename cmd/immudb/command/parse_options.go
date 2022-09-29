@@ -28,9 +28,11 @@ func parseOptions() (options *server.Options, err error) {
 	address := viper.GetString("address")
 	port := viper.GetInt("port")
 
-	replicationOptions := (&server.ReplicationOptions{}).WithIsReplica(viper.GetBool("replication-is-replica"))
+	replicationOptions := &server.ReplicationOptions{}
 
-	replicationOptions.WithSyncReplication(viper.GetBool("replication-sync-enabled"))
+	replicationOptions.
+		WithIsReplica(viper.GetBool("replication-is-replica")).
+		WithSyncReplication(viper.GetBool("replication-sync-enabled"))
 
 	if replicationOptions.IsReplica {
 		replicationOptions.
@@ -42,7 +44,8 @@ func parseOptions() (options *server.Options, err error) {
 			WithReplicationCommitConcurrency(viper.GetInt("replication-commit-concurrency")).
 			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding"))
 	} else {
-		replicationOptions.WithSyncFollowers(viper.GetInt("replication-sync-followers"))
+		replicationOptions.
+			WithSyncFollowers(viper.GetInt("replication-sync-followers"))
 	}
 
 	pidfile := viper.GetString("pidfile")
