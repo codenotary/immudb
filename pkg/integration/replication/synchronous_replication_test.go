@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -218,45 +217,4 @@ func (suite *SyncTestMinimumFollowersSuite) TestMinimumFollowers() {
 		_, err := client.Set(ctxTimeout, []byte("key4"), []byte("value4"))
 		require.NoError(suite.T(), err)
 	})
-}
-
-type FailSyncTestSuite struct {
-	baseReplicationTestSuite
-}
-
-func TestFailSyncTestSuite(t *testing.T) {
-	suite.Run(t, &FailSyncTestSuite{})
-}
-
-func (suite *FailSyncTestSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
-	suite.SetupCluster(1, 1)
-}
-
-func (suite *FailSyncTestSuite) TestSyncFailureWithLessFollowers() {
-	ctx, client, cleanup := suite.ClientForMaser()
-	defer cleanup()
-
-	_, err := client.Set(
-		ctx,
-		[]byte("key5"), []byte("value5"),
-	)
-	require.NoError(suite.T(), err)
-
-	suite.StopFollower(0)
-
-	const timeout = time.Second
-
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	t1 := time.Now()
-	_, err = client.Set(
-		ctxWithTimeout,
-		[]byte("key5"), []byte("value5"),
-	)
-
-	assert.Greater(suite.T(), time.Since(t1), timeout)
-	assert.Error(suite.T(), err)
-	assert.Contains(suite.T(), err.Error(), "context deadline exceeded")
 }
