@@ -217,4 +217,39 @@ func (suite *SyncTestMinimumFollowersSuite) TestMinimumFollowers() {
 		_, err := client.Set(ctxTimeout, []byte("key4"), []byte("value4"))
 		require.NoError(suite.T(), err)
 	})
+
+	suite.Run("should recover with all replicas replaced", func() {
+		suite.StopFollower(0)
+		suite.StopFollower(3)
+
+		suite.AddFollower(true)
+		suite.AddFollower(true)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err := client.Set(ctxTimeout, []byte("key5"), []byte("value5"))
+		require.NoError(suite.T(), err)
+	})
+
+	suite.Run("ensure correct data is in the database after all changes", func() {
+
+		primaryState, err := client.CurrentState(ctx)
+		require.NoError(suite.T(), err)
+
+		for i := 4; i < 6; i++ {
+			suite.Run(fmt.Sprintf("replica %d", i), func() {
+				ctx, client, cleanup := suite.ClientForReplica(i)
+				defer cleanup()
+
+				suite.WaitForCommittedTx(ctx, client, primaryState.TxId, time.Second)
+
+				for i := 1; i <= 5; i++ {
+					val, err := client.Get(ctx, []byte(fmt.Sprintf("key%d", i)))
+					require.NoError(suite.T(), err)
+					require.Equal(suite.T(), []byte(fmt.Sprintf("value%d", i)), val.Value)
+				}
+			})
+		}
+	})
 }
