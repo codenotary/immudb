@@ -235,5 +235,6 @@ func (suite *baseReplicationTestSuite) TearDownSuite() {
 	// stop master
 	if suite.master != nil {
 		suite.master.Shutdown(suite.T())
+		suite.master = nil
 	}
 }
