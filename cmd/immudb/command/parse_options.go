@@ -28,8 +28,7 @@ func parseOptions() (options *server.Options, err error) {
 	address := viper.GetString("address")
 	port := viper.GetInt("port")
 
-	// TODO: flag name should be changed to something like `replication-is-replica`
-	replicationOptions := (&server.ReplicationOptions{}).WithIsReplica(viper.GetBool("replication-enabled"))
+	replicationOptions := (&server.ReplicationOptions{}).WithIsReplica(viper.GetBool("replication-is-replica"))
 
 	replicationOptions.WithSyncReplication(viper.GetBool("replication-sync-enabled"))
 

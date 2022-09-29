@@ -34,7 +34,8 @@ import (
 func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("exclude-commit-time", false,
 		"do not include server-side timestamps in commit checksums, useful when reproducibility is a desired feature")
-	c.Flags().Bool("replication-enabled", false, "set database as a replica") // TODO: flag name should be changed to something like `replication-is-replica`
+	c.Flags().Bool("replication-enabled", false, "set database as a replica") // deprecated, use replication-is-replica instead
+	c.Flags().Bool("replication-is-replica", false, "set database as a replica")
 	c.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	c.Flags().Uint32("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
 	c.Flags().String("replication-master-database", "", "set master database to be replicated")
@@ -51,6 +52,13 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("write-buffer-size", store.DefaultWriteBufferSize, "set the size of in-memory buffers for file abstractions")
 	c.Flags().Uint32("read-tx-pool-size", database.DefaultReadTxPoolSize, "set transaction read pool size (used for reading transaction objects)")
 	c.Flags().Bool("autoload", true, "enable database autoloading")
+
+	c.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "replication-enabled" {
+			name = "replication-is-replica"
+		}
+		return pflag.NormalizedName(name)
+	})
 }
 
 func (cl *commandline) database(cmd *cobra.Command) {
@@ -367,7 +375,7 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.ReplicationSettings.Replica, err = condBool("replication-enabled")
+	ret.ReplicationSettings.Replica, err = condBool("replication-is-replica")
 	if err != nil {
 		return nil, err
 	}

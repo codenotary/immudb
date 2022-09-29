@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -31,7 +32,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
-	cmd.Flags().Bool("replication-enabled", false, "set systemdb and defaultdb as replica") // TODO: flag name should be changed to something like `replication-is-replica`
+	cmd.Flags().Bool("replication-enabled", false, "set systemdb and defaultdb as replica") // deprecated, use replication-is-replica instead
+	cmd.Flags().Bool("replication-is-replica", false, "set systemdb and defaultdb as replica")
 	cmd.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	cmd.Flags().Int("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
 	cmd.Flags().String("replication-master-address", "", "master address (if replica=true)")
@@ -80,6 +82,13 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Duration("session-timeout", 2*time.Minute, "session timeout is a duration after which an inactive session is forcibly closed by the server")
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
+
+	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "replication-enabled" {
+			name = "replication-is-replica"
+		}
+		return pflag.NormalizedName(name)
+	})
 }
 
 func setupDefaults(options *server.Options) {
