@@ -40,6 +40,8 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 			ctx, client, cleanup := suite.ClientForReplica(i)
 			defer cleanup()
 
+			suite.WaitForCommittedTx(ctx, client, tx2.Id, time.Second)
+
 			val, err := client.GetAt(ctx, []byte("key1"), tx1.Id)
 			require.NoError(suite.T(), err)
 			suite.Require().Equal([]byte("value1"), val.Value)
@@ -63,6 +65,8 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 	for i := 0; i < suite.GetFollowersCount(); i++ {
 		ctx, client, cleanup := suite.ClientForReplica(i)
 		defer cleanup()
+
+		suite.WaitForCommittedTx(ctx, client, tx.Id, time.Second)
 
 		val, err := client.GetAt(ctx, []byte("key3"), tx.Id)
 		require.NoError(suite.T(), err)
