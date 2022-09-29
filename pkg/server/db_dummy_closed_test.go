@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/sha256"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -148,6 +149,12 @@ func TestDummyClosedDatabase(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.ReplicateTx(nil)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	err = cdb.AllowCommitUpto(1, sha256.Sum256(nil))
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+
+	err = cdb.DiscardPrecommittedTxsSince(1)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.VerifiableTxByID(nil)

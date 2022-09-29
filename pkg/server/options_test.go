@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptions(t *testing.T) {
@@ -59,8 +60,45 @@ func TestOptions(t *testing.T) {
 	}
 }
 
+func TestReplicationOptions(t *testing.T) {
+	repOpts := &ReplicationOptions{}
+	repOpts.
+		WithIsReplica(true).
+		WithSyncReplication(false).
+		WithSyncFollowers(0).
+		WithMasterAddress("localhost").
+		WithMasterPort(3322).
+		WithFollowerUsername("follower-user").
+		WithFollowerPassword("follower-pwd").
+		WithPrefetchTxBufferSize(100).
+		WithReplicationCommitConcurrency(5).
+		WithAllowTxDiscarding(true)
+
+	require.True(t, repOpts.IsReplica)
+	require.False(t, repOpts.SyncReplication)
+	require.Zero(t, repOpts.SyncFollowers)
+	require.Equal(t, "localhost", repOpts.MasterAddress)
+	require.Equal(t, 3322, repOpts.MasterPort)
+	require.Equal(t, "follower-user", repOpts.FollowerUsername)
+	require.Equal(t, "follower-pwd", repOpts.FollowerPassword)
+	require.Equal(t, 100, repOpts.PrefetchTxBufferSize)
+	require.Equal(t, 5, repOpts.ReplicationCommitConcurrency)
+	require.True(t, repOpts.AllowTxDiscarding)
+
+	// master-related settings
+	repOpts.
+		WithIsReplica(false).
+		WithSyncReplication(true).
+		WithSyncFollowers(1)
+
+	require.False(t, repOpts.IsReplica)
+	require.True(t, repOpts.SyncReplication)
+	require.Equal(t, 1, repOpts.SyncFollowers)
+}
+
 func TestSetOptions(t *testing.T) {
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{}}
+
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
 		WithAddress("localhost").WithPort(2048).
 		WithPidfile("immu.pid").WithAuth(false).
