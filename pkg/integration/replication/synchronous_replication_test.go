@@ -157,6 +157,69 @@ func (suite *SyncTestSuite) TestPrecommitStateSync() {
 	wg.Wait()
 }
 
+type SyncTestMinimumFollowersSuite struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestMinimumFollowersSuite(t *testing.T) {
+	suite.Run(t, &SyncTestMinimumFollowersSuite{})
+}
+
+// this function executes before the test suite begins execution
+func (suite *SyncTestMinimumFollowersSuite) SetupSuite() {
+	suite.baseReplicationTestSuite.SetupSuite()
+	suite.SetupCluster(4, 2)
+}
+
+// TestMinimumFollowers ensures the primary can operate as long as the minimum
+// number of replicas send their confirmations
+func (suite *SyncTestMinimumFollowersSuite) TestMinimumFollowers() {
+
+	ctx, client, cleanup := suite.ClientForMaser()
+	defer cleanup()
+
+	suite.Run("should commit successfully without one replica", func() {
+		suite.StopFollower(0)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err := client.Set(ctxTimeout, []byte("key1"), []byte("value1"))
+		require.NoError(suite.T(), err)
+	})
+
+	suite.Run("should commit successfully without two replicas", func() {
+		suite.StopFollower(1)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err := client.Set(ctxTimeout, []byte("key2"), []byte("value2"))
+		require.NoError(suite.T(), err)
+	})
+
+	suite.Run("should not commit without three replicas", func() {
+		suite.StopFollower(2)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err := client.Set(ctxTimeout, []byte("key3"), []byte("value3"))
+		require.Error(suite.T(), err)
+		require.Contains(suite.T(), err.Error(), "deadline")
+	})
+
+	suite.Run("should commit again once first replica is back online", func() {
+		suite.StartFollower(0)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err := client.Set(ctxTimeout, []byte("key4"), []byte("value4"))
+		require.NoError(suite.T(), err)
+	})
+}
+
 type FailSyncTestSuite struct {
 	baseReplicationTestSuite
 }
