@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -182,6 +183,20 @@ func (suite *baseReplicationTestSuite) ClientForReplica(replicaNum int) (fctx co
 	defer suite.mu.Unlock()
 
 	return suite.internalClientFor(suite.followers[replicaNum], replicaDBName)
+}
+
+func (suite *baseReplicationTestSuite) WaitForCommittedTx(
+	ctx context.Context,
+	client client.ImmuClient,
+	txID uint64,
+	timeout time.Duration,
+) {
+	require.Eventually(suite.T(), func() bool {
+		state, err := client.CurrentState(ctx)
+		require.NoError(suite.T(), err)
+
+		return state.TxId >= txID
+	}, timeout, time.Millisecond*10)
 }
 
 func (suite *baseReplicationTestSuite) SetupCluster(replicas int, syncFollowers int) {
