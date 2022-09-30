@@ -75,7 +75,7 @@ func (suite *baseReplicationTestSuite) AddFollower(sync bool) int {
 	settings := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:          &schema.NullableBool{Value: true},
-			SyncReplication:  &schema.NullableBool{Value: true},
+			SyncReplication:  &schema.NullableBool{Value: sync},
 			MasterDatabase:   &schema.NullableString{Value: masterDBName},
 			MasterAddress:    &schema.NullableString{Value: masterHost},
 			MasterPort:       &schema.NullableUint32{Value: uint32(masterPort)},
@@ -214,17 +214,27 @@ func (suite *baseReplicationTestSuite) WaitForCommittedTx(
 	}
 }
 
-func (suite *baseReplicationTestSuite) SetupCluster(replicas int, syncFollowers int) {
-	suite.StartMaster(syncFollowers)
+func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyncReplicas int) {
+	suite.StartMaster(syncAcks)
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < replicas; i++ {
+
+	for i := 0; i < syncReplicas; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			suite.AddFollower(syncFollowers > 0)
+			suite.AddFollower(true)
 		}()
 	}
+
+	for i := 0; i < asyncReplicas; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			suite.AddFollower(false)
+		}()
+	}
+
 	wg.Wait()
 }
 

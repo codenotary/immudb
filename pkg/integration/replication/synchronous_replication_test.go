@@ -24,7 +24,7 @@ func TestSyncTestSuite(t *testing.T) {
 // this function executes before the test suite begins execution
 func (suite *SyncTestSuite) SetupSuite() {
 	suite.baseReplicationTestSuite.SetupSuite()
-	suite.SetupCluster(2, 2)
+	suite.SetupCluster(2, 2, 0)
 }
 
 func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
@@ -168,7 +168,7 @@ func TestSyncTestMinimumFollowersSuite(t *testing.T) {
 // this function executes before the test suite begins execution
 func (suite *SyncTestMinimumFollowersSuite) SetupSuite() {
 	suite.baseReplicationTestSuite.SetupSuite()
-	suite.SetupCluster(4, 2)
+	suite.SetupCluster(4, 2, 0)
 }
 
 // TestMinimumFollowers ensures the primary can operate as long as the minimum
@@ -265,7 +265,7 @@ func TestSyncTestRecoverySpeedSuite(t *testing.T) {
 
 func (suite *SyncTestRecoverySpeedSuite) SetupSuite() {
 	suite.baseReplicationTestSuite.SetupSuite()
-	suite.SetupCluster(2, 1)
+	suite.SetupCluster(2, 1, 0)
 }
 
 func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
@@ -380,6 +380,95 @@ func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
 				val, err := client.GetAt(ctx, []byte("key-after-recovery"), tx.Id)
 				suite.NoError(err)
 				suite.Equal([]byte("value-after-recovery"), val.Value)
+			})
+		}
+	})
+
+}
+
+type SyncTestWithAsyncFollowersSuite struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestWithAsyncFollowersSuite(t *testing.T) {
+	suite.Run(t, &SyncTestWithAsyncFollowersSuite{})
+}
+
+func (suite *SyncTestWithAsyncFollowersSuite) SetupSuite() {
+	suite.baseReplicationTestSuite.SetupSuite()
+	suite.SetupCluster(2, 1, 1)
+}
+
+func (suite *SyncTestWithAsyncFollowersSuite) TestSyncReplicationAlongWithAsyncFollowers() {
+	const parallelWriters = 30
+	const samplingTime = time.Second * 5
+
+	var txWritten uint64
+
+	suite.Run("Write transactions for 5 seconds at maximum speed", func() {
+		start := make(chan bool)
+		stop := make(chan bool)
+		wgStart := sync.WaitGroup{}
+		wgFinish := sync.WaitGroup{}
+
+		// Run multiple clients in parallel - let's try to hammer the DB as much as possible
+		for i := 0; i < parallelWriters; i++ {
+			wgStart.Add(1)
+			wgFinish.Add(1)
+			go func(i int) {
+				defer wgFinish.Done()
+
+				ctx, client, cleanup := suite.ClientForMaser()
+				defer cleanup()
+
+				// Wait for the start signal
+				wgStart.Done()
+				<-start
+
+				for j := 0; ; j++ {
+					select {
+					case <-stop:
+						atomic.AddUint64(&txWritten, uint64(j))
+						return
+					default:
+					}
+
+					_, err := client.Set(ctx,
+						[]byte(fmt.Sprintf("client-%d-%d", i, j)),
+						[]byte(fmt.Sprintf("value-%d-%d", i, j)),
+					)
+					suite.Require().NoError(err)
+				}
+			}(i)
+		}
+
+		// Ready, steady...
+		wgStart.Wait()
+
+		// Go...
+		close(start)
+		time.Sleep(samplingTime)
+		close(stop)
+
+		wgFinish.Wait()
+
+		fmt.Println("Total TX written:", txWritten)
+	})
+
+	suite.Run("Ensure the data is available in all the replicas", func() {
+		ctx, client, cleanup := suite.ClientForMaser()
+		defer cleanup()
+
+		state, err := client.CurrentState(ctx)
+		suite.Require().NoError(err)
+		suite.Require().Greater(state.TxId, txWritten, "Ensure enough TXs were written")
+
+		for i := 0; i < suite.GetFollowersCount(); i++ {
+			suite.Run(fmt.Sprintf("replica %d", i), func() {
+				ctx, client, cleanup := suite.ClientForReplica(i)
+				defer cleanup()
+
+				suite.WaitForCommittedTx(ctx, client, state.TxId, 5*time.Second)
 			})
 		}
 	})
