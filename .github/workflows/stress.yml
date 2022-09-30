@@ -3,6 +3,8 @@ on:
   pull_request:
     branches:
     - '**'
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   stress-build:
@@ -17,14 +19,34 @@ jobs:
       run: |
         go build embedded/tools/stress_tool/stress_tool.go
     - name: "| Entries: 1M | Workers: 20  | Batch: 1k | Batches: 50 |"
+      id: e_1m_w_20_b_1k_bs_50
       run: |
         rm -rf data
         ./stress_tool -mode auto -committers 20 -kvCount 1000 -txCount 50 -txRead -synced
     - name: "| Entries: 1M | Workers: 50  | Batch: 1k | Batches: 20 |"
+      id: e_1m_w_50_b_1k_bs_20
       run: |
         rm -rf data
         ./stress_tool -mode auto -committers 50 -kvCount 1000 -txCount 20 -txRead -synced
     - name: "| Entries: 1M | Workers: 100 | Batch: 1k | Batches: 10 |"
+      id: e_1m_w_100_b_1k_bs_10
       run: |
         rm -rf data
         ./stress_tool -mode auto -committers 100 -kvCount 1000 -txCount 10 -txRead -synced
+    - name: Create the Mattermost message
+      if: github.event.schedule == '0 0 * * *'
+      run: >
+        echo "{\"text\":\"### Results for scheduled daily run on branch ${{ github.base_ref }}\n
+        | Step | Result |\n
+        | ---- | ------ |\n
+        | Entries: 1M - Workers: 20 - Batch: 1k - Batches: 50 | ${{ steps.e_1m_w_20_b_1k_bs_50.outcome }} |
+        | Entries: 1M - Workers: 50 - Batch: 1k - Batches: 20 | ${{ steps.e_1m_w_50_b_1k_bs_20.outcome }} |
+        | Entries: 1M - Workers: 100 - Batch: 1k - Batches: 10 | ${{ steps.e_1m_w_100_b_1k_bs_10.outcome }} |
+        **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+        \"}" > mattermost.json
+    - name: Notify on immudb channel on Mattermost
+      if: github.event.schedule == '0 0 * * *'
+      uses: mattermost/action-mattermost-notify@master
+      env:
+        MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+        MATTERMOST_CHANNEL: 'immudb'

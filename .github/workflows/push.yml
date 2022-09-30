@@ -11,6 +11,8 @@ on:
       - release/v*
     tags:
       - 'v*'
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
 
@@ -213,13 +215,34 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v3
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
-      - run: ./perf-test-suite $ARG_DURATION > perf-test-results.json
+      - name: Run performance tests
+        id: performance
+        run: |
+          ./perf-test-suite $ARG_DURATION > perf-test-results.json 2>console_output.txt
+          cat console_output.txt
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
           name: Performance Test Results (${{ matrix.target.name }})
           path: perf-test-results.json
           retention-days: 30
+      - name: Create the Mattermost message
+        if: github.event.schedule == '0 0 * * *'
+        run: >
+          echo "{\"text\":\"### Results for scheduled daily run on branch ${{ github.base_ref }}\n
+          **Result**: ${{ steps.performance.outcome }}\n
+          #### Benchmark Write TX/s \n
+          $(cat console_output.txt | grep "Results:" | sed -n 1p) \n
+          #### Benchmark Write KV/s \n
+          $(cat console_output.txt | grep "Results:" | sed -n 2p) \n
+          **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+          \"}" > mattermost.json
+      - name: Notify on immudb channel on Mattermost
+        if: github.event.schedule == '0 0 * * *'
+        uses: mattermost/action-mattermost-notify@master
+        env:
+          MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+          MATTERMOST_CHANNEL: 'immudb'
 
   performance-test-suite-upload-s3:
     needs:
