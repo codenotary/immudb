@@ -36,6 +36,8 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/remotestorage"
+	"github.com/codenotary/immudb/pkg/util/chain"
+	"github.com/codenotary/immudb/pkg/util/retry"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -61,6 +63,8 @@ type RemoteStorageAppendable struct {
 	retryMaxDelay time.Duration
 	retryDelayExp float64
 	retryJitter   float64
+
+	backoff retry.Backoff
 
 	mainContext           context.Context
 	mainCancelFunc        context.CancelFunc
@@ -104,6 +108,7 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 		mainCancelFunc:  mainCancelFunc,
 		uploadThrottler: make(chan struct{}, opts.parallelUploads),
 	}
+	ret.backoff = retry.NewBackoff(3, retry.NewExponentialRetrier(ret.retryMinDelay, ret.retryMaxDelay, ret.retryDelayExp, ret.retryJitter))
 	ret.chunkUploadFinished = sync.NewCond(&ret.mutex)
 	ret.chunkDownloadFinished = sync.NewCond(&ret.mutex)
 
@@ -130,16 +135,6 @@ func Open(path string, remotePath string, storage remotestorage.Storage, opts *O
 
 func chunkIdFromName(filename string) (int64, error) {
 	return strconv.ParseInt(strings.TrimSuffix(filename, filepath.Ext(filename)), 10, 64)
-}
-
-func (r *RemoteStorageAppendable) chunkedProcess(ctx context.Context) *chunkedProcess {
-	return &chunkedProcess{
-		ctx:           ctx,
-		retryMinDelay: r.retryMinDelay,
-		retryMaxDelay: r.retryMaxDelay,
-		retryDelayExp: r.retryDelayExp,
-		retryJitter:   r.retryJitter,
-	}
 }
 
 func (r *RemoteStorageAppendable) uploadFinished(chunkID int64, state chunkState) {
@@ -187,12 +182,12 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 		defer metricsUploadFinished.Inc()
 
 		var newApp appendable.Appendable
-		cp := r.chunkedProcess(ctx)
+		cp := chain.New().WithContext(ctx).WithBackoff(r.backoff)
 
 		// Chunk data was already flushed when changing the active appendable
 
 		// Update size stats after flush
-		cp.Step(func() error {
+		cp.Next(func() error {
 			fi, err := os.Stat(fileName)
 			if err == nil {
 				r.mutex.Lock()
@@ -200,45 +195,39 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 				r.mutex.Unlock()
 			}
 			return nil
-		})
-
-		// Upload the chunk
-		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+		}).NextWithRetry(func() error { // Upload the chunk
 			defer prometheus.NewTimer(metricsUploadTime).ObserveDuration()
 			err := r.rStorage.Put(ctx, r.remotePath+appName, fileName)
 			if err == nil {
-				return false, nil
+				return nil
 			}
 
 			metricsUploadRetried.Inc()
-			return true, nil
-		})
-
-		// Wait for the chunk to become ready
-		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+			return err
+		}).NextWithRetry(func() error { // Wait for the chunk to become ready
 			exists, err := r.rStorage.Exists(ctx, r.remotePath+appName)
-			if err == nil && exists {
-				return false, nil
+			if err != nil {
+				metricsUploadRetried.Inc()
+				return err
 			}
 
-			metricsUploadRetried.Inc()
-			return true, nil
-		})
+			if !exists {
+				// Retry since there may be some asynchronous processing on the remote
+				// storage and we want to ensure that the new object is already visible.
+				return retry.ErrRetryAgain
+			}
 
-		// Open new appendable from the remote storage
-		cp.RetryableStep(func(retries int, delay time.Duration) (bool, error) {
+			return nil
+		}).NextWithRetry(func() error { // Open new appendable from the remote storage
 			app, err := r.openRemoteAppendableReader(appName)
 			if err == nil {
 				newApp = app
-				return false, nil
+				return nil
 			}
 
 			metricsUploadRetried.Inc()
-			return true, nil
-		})
-
-		// Replace the cached instance of appendable for the chunk
-		cp.Step(func() error {
+			return err
+		}).Next(func() error { // Replace the cached instance of appendable for the chunk
 			oldApp, err := r.ReplaceCachedChunk(chunkID, newApp)
 			if err != nil && err != cache.ErrKeyNotFound {
 				// Couldn't replace the cache entry? Can't continue with the cleanup
@@ -251,10 +240,7 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 				}
 			}
 			return nil
-		})
-
-		// Cleanup the chunk
-		cp.Step(func() error {
+		}).Next(func() error { // Cleanup the chunk
 			if dontRemoveFile {
 				return nil
 			}
@@ -275,8 +261,8 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 			return
 		}
 
-		if cp.Err() != nil {
-			log.Printf("Uploading chunk %d failed: %v", chunkID, cp.Err())
+		if cp.Error() != nil {
+			log.Printf("Uploading chunk %d failed: %v", chunkID, cp.Error())
 			r.uploadFinished(chunkID, chunkState_UploadError)
 			metricsUploadFailed.Inc()
 			return
@@ -324,36 +310,39 @@ func (r *RemoteStorageAppendable) downloadChunk(chunkID int64) {
 		var flTmp *os.File
 		defer func() { flTmp.Close() }()
 
-		cp := r.chunkedProcess(ctx)
-		cp.RetryableStep(func(retries int, delay time.Duration) (retryNeeded bool, err error) {
-
+		cp := chain.New().WithContext(ctx).WithBackoff(r.backoff).WithRetriable(func(err error) bool {
+			switch {
+			case err == retry.ErrNoRetry:
+				return false
+			default:
+				return true
+			}
+		})
+		cp.NextWithRetry(func() (err error) {
 			data, err := r.rStorage.Get(ctx, r.remotePath+r.appendableName(chunkID), 0, -1)
 			if err != nil {
 				metricsDownloadRetried.Inc()
-				return true, nil
+				return err
 			}
 			defer data.Close()
 
 			flTmp, err = os.OpenFile(fileNameTmp, os.O_CREATE|os.O_RDWR, r.fileMode)
 			if err != nil {
 				// Couldn't create temporary local file, something is broken on local FS
-				return false, err
+				return retry.ErrNoRetry
 			}
 
 			_, err = io.Copy(flTmp, data)
 			if err != nil {
 				metricsDownloadRetried.Inc()
-				return true, nil
+				return nil
 			}
-			return false, nil
-		})
-		cp.Step(func() error {
+			return nil
+		}).Next(func() error {
 			return flTmp.Sync()
-		})
-		cp.Step(func() error {
+		}).Next(func() error {
 			return flTmp.Close()
-		})
-		cp.Step(func() error {
+		}).Next(func() error {
 			return os.Rename(fileNameTmp, fileName)
 		})
 
@@ -364,8 +353,8 @@ func (r *RemoteStorageAppendable) downloadChunk(chunkID int64) {
 			return
 		}
 
-		if cp.Err() != nil {
-			log.Printf("Downloading chunk %d failed: %v", chunkID, cp.Err())
+		if cp.Error() != nil {
+			log.Printf("Downloading chunk %d failed: %v", chunkID, cp.Error())
 			metricsDownloadFailed.Inc()
 			r.downloadFinished(chunkID, chunkState_DownloadError)
 			return
