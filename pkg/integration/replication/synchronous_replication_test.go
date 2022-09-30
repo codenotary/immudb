@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -252,4 +253,135 @@ func (suite *SyncTestMinimumFollowersSuite) TestMinimumFollowers() {
 			})
 		}
 	})
+}
+
+type SyncTestRecoverySpeedSuite struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestRecoverySpeedSuite(t *testing.T) {
+	suite.Run(t, &SyncTestRecoverySpeedSuite{})
+}
+
+func (suite *SyncTestRecoverySpeedSuite) SetupSuite() {
+	suite.baseReplicationTestSuite.SetupSuite()
+	suite.SetupCluster(2, 1)
+}
+
+func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
+
+	const parallelWriters = 30
+	const samplingTime = time.Second * 5
+
+	// Stop the follower, we don't replicate any transactions to it now
+	// but we can still commit using the second replica
+	suite.StopFollower(0)
+
+	var txWritten uint64
+
+	suite.Run("Write transactions for 5 seconds at maximum speed", func() {
+		start := make(chan bool)
+		stop := make(chan bool)
+		wgStart := sync.WaitGroup{}
+		wgFinish := sync.WaitGroup{}
+
+		// Run multiple clients in parallel - let's try to hammer the DB as much as possible
+		for i := 0; i < parallelWriters; i++ {
+			wgStart.Add(1)
+			wgFinish.Add(1)
+			go func(i int) {
+				defer wgFinish.Done()
+
+				ctx, client, cleanup := suite.ClientForMaser()
+				defer cleanup()
+
+				// Wait for the start signal
+				wgStart.Done()
+				<-start
+
+				for j := 0; ; j++ {
+
+					select {
+					case <-stop:
+						atomic.AddUint64(&txWritten, uint64(j))
+						return
+					default:
+					}
+
+					_, err := client.Set(ctx,
+						[]byte(fmt.Sprintf("client-%d-%d", i, j)),
+						[]byte(fmt.Sprintf("value-%d-%d", i, j)),
+					)
+					suite.Require().NoError(err)
+				}
+			}(i)
+		}
+
+		// Ready, steady...
+		wgStart.Wait()
+
+		// Go...
+		close(start)
+		time.Sleep(samplingTime)
+		close(stop)
+
+		wgFinish.Wait()
+
+		fmt.Println("Total TX written:", txWritten)
+	})
+
+	var tx *schema.TxHeader
+
+	suite.Run("Ensure replica can recover in reasonable amount of time", func() {
+
+		// Stop the second follower, now the DB is locked
+		suite.StopFollower(1)
+
+		ctx, client, cleanup := suite.ClientForMaser()
+		defer cleanup()
+
+		state, err := client.CurrentState(ctx)
+		suite.Require().NoError(err)
+		suite.Require().Greater(state.TxId, txWritten, "Ensure enough TXs were written")
+
+		// Check if we can recover the cluster and perform write within the same amount of time
+		// that was needed for initial sampling. The replica that was initially stopped and now
+		// started has the same amount of transaction to grab from master as the other one
+		// which should take the same amount of time as the initial write period or less
+		// (since the primary is not persisting data this time).
+		ctxTimeout, cancel := context.WithTimeout(ctx, samplingTime)
+		defer cancel()
+
+		suite.StartFollower(0) // 1 down
+
+		tx, err = client.Set(ctxTimeout, []byte("key-after-recovery"), []byte("value-after-recovery"))
+		suite.NoError(err)
+	})
+
+	suite.Run("Ensure the data is readable from replicas", func() {
+		suite.StartFollower(1)
+
+		suite.Run("primary", func() {
+			ctx, client, cleanup := suite.ClientForMaser()
+			defer cleanup()
+
+			val, err := client.GetAt(ctx, []byte("key-after-recovery"), tx.Id)
+			suite.NoError(err)
+			suite.Equal([]byte("value-after-recovery"), val.Value)
+		})
+
+		for i := 0; i < suite.GetFollowersCount(); i++ {
+			suite.Run(fmt.Sprintf("replica %d", i), func() {
+				ctx, client, cleanup := suite.ClientForReplica(i)
+				defer cleanup()
+
+				suite.WaitForCommittedTx(ctx, client, tx.Id, 5*time.Second)
+
+				val, err := client.GetAt(ctx, []byte("key-after-recovery"), tx.Id)
+				suite.NoError(err)
+				suite.Equal([]byte("value-after-recovery"), val.Value)
+			})
+		}
+	})
+
 }

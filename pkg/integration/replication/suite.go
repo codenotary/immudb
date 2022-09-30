@@ -9,6 +9,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -195,12 +196,22 @@ func (suite *baseReplicationTestSuite) WaitForCommittedTx(
 	txID uint64,
 	timeout time.Duration,
 ) {
-	require.Eventually(suite.T(), func() bool {
-		state, err := client.CurrentState(ctx)
+	var state *schema.ImmutableState
+	var err error
+	if !assert.Eventually(suite.T(), func() bool {
+		state, err = client.CurrentState(ctx)
 		require.NoError(suite.T(), err)
 
 		return state.TxId >= txID
-	}, timeout, time.Millisecond*10)
+
+	}, timeout, time.Millisecond*10) {
+
+		require.FailNowf(suite.T(),
+			"Failed to get up to transaction",
+			"Failed to get up to transaction %d, precommitted tx: %d, committed tx: %d",
+			txID, state.PrecommittedTxId, state.TxId,
+		)
+	}
 }
 
 func (suite *baseReplicationTestSuite) SetupCluster(replicas int, syncFollowers int) {
