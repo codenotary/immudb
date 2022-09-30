@@ -661,11 +661,14 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 				// ensure durability
 				err := store.sync()
-				if err == ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+				if errors.Is(err, ErrAlreadyClosed) ||
+					errors.Is(err, multiapp.ErrAlreadyClosed) ||
+					errors.Is(err, singleapp.ErrAlreadyClosed) ||
+					errors.Is(err, watchers.ErrAlreadyClosed) {
 					return
 				}
 				if err != nil {
-					store.notify(Error, true, "%w: while syncing transactions", err)
+					store.notify(Error, true, "%s: while syncing transactions", err)
 				}
 			}
 		}()
