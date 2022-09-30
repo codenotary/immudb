@@ -574,6 +574,7 @@ func (s *ImmuServer) replicationInProgressFor(db string) bool {
 
 func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) error {
 	if !dbOpts.isReplicatorRequired() {
+		s.Logger.Infof("Replication for database '%s' is not required.", db.GetName())
 		return ErrReplicatorNotNeeded
 	}
 
