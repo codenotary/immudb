@@ -46,7 +46,7 @@ func (db *closedDB) Path() string {
 	return filepath.Join(db.opts.GetDBRootPath(), db.GetName())
 }
 
-func (db *closedDB) AsReplica(asReplica bool) {
+func (db *closedDB) AsReplica(asReplica bool, syncFollowers int) {
 }
 
 func (db *closedDB) IsReplica() bool {
