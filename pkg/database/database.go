@@ -166,8 +166,8 @@ type db struct {
 
 	txPool store.TxPool
 
-	followerStates map[uuid]*followerState
-	exportTxMutex  sync.Mutex
+	followerStates      map[uuid]*followerState
+	followerStatesMutex sync.Mutex
 }
 
 // OpenDB Opens an existing Database from disk
@@ -1174,6 +1174,9 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 }
 
 func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *schema.FollowerState) error {
+	d.followerStatesMutex.Lock()
+	defer d.followerStatesMutex.Unlock()
+
 	// clean up followerStates
 	// it's safe to remove up to latest tx committed in master
 	for uuid, st := range d.followerStates {
@@ -1238,8 +1241,6 @@ func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *sche
 }
 
 func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
-	d.exportTxMutex.Lock()
-	defer d.exportTxMutex.Unlock()
 
 	if req == nil {
 		return nil, 0, mayCommitUpToAlh, ErrIllegalArguments
