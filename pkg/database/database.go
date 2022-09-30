@@ -58,7 +58,7 @@ type DB interface {
 
 	Path() string
 
-	AsReplica(asReplica bool)
+	AsReplica(asReplica bool, syncFollowers int)
 	IsReplica() bool
 
 	IsSyncReplicationEnabled() bool
@@ -1681,11 +1681,21 @@ func (d *db) GetOptions() *Options {
 	return d.options
 }
 
-func (d *db) AsReplica(asReplica bool) {
+func (d *db) AsReplica(asReplica bool, syncFollowers int) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	d.options.replica = asReplica
+	d.options.syncFollowers = syncFollowers
+
+	d.followerStatesMutex.Lock()
+	defer d.followerStatesMutex.Unlock()
+
+	if asReplica {
+		d.followerStates = nil
+	} else if syncFollowers > 0 {
+		d.followerStates = make(map[uuid]*followerState, syncFollowers)
+	}
 }
 
 func (d *db) IsReplica() bool {
