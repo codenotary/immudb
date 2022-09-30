@@ -20,17 +20,14 @@ adminPassword: ""
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
-
-securityContext:
+podSecurityContext:
    runAsNonRoot: true
    runAsUser: 3322
    runAsGroup: 3322
    fsGroup: 3322
    fsGroupChangePolicy: "OnRootMismatch"
 
-podSecurityContext:
+securityContext:
    readOnlyRootFilesystem: true
    capabilities:
      drop:
