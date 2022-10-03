@@ -45,7 +45,7 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 			// Tests are flaky because it takes time to commit the
 			// precommitted TX, so this function just ensures the state
 			// is in sync between master and follower
-			suite.WaitForCommittedTx(ctx, client, tx2.Id, time.Second)
+			suite.WaitForCommittedTx(ctx, client, tx2.Id, time.Duration(3)*time.Second)
 
 			val, err := client.GetAt(ctx, []byte("key1"), tx1.Id)
 			require.NoError(suite.T(), err)
