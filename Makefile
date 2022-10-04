@@ -124,7 +124,7 @@ vendor:
 .PHONY: test
 test:
 	$(GO) vet ./...
-	LOG_LEVEL=error $(GO) test -v -failfast ./... ${GO_TEST_FLAGS}
+	LOG_LEVEL=error $(GO) test -timeout 2m -v -failfast ./pkg/integration/replication/ ${GO_TEST_FLAGS}
 
 # build FIPS binary from docker image
 .PHONY: test/fips

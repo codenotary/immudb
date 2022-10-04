@@ -8,35 +8,35 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            go: "1.15"
+          # - os: ubuntu-latest
+          #   go: "1.15"
 
-          - os: ubuntu-latest
-            go: "1.16"
+          # - os: ubuntu-latest
+          #   go: "1.16"
 
-          - os: ubuntu-latest
-            go: "1.17"
+          # - os: ubuntu-latest
+          #   go: "1.17"
 
-          - os: ubuntu-latest
-            go: "1.18"
-            testWithMinio: true
+          # - os: ubuntu-latest
+          #   go: "1.18"
+          #   testWithMinio: true
 
-          - os: ubuntu-latest
-            go: "1.18"
-            testWithFips: true
+          # - os: ubuntu-latest
+          #   go: "1.18"
+          #   testWithFips: true
 
           - os: ubuntu-latest
             go: "1.19"
             test: true
 
-          - os: windows-latest
-            go: "1.18"
-            testClientOnly: true
-            noWebconsole: true
+          # - os: windows-latest
+          #   go: "1.18"
+          #   testClientOnly: true
+          #   noWebconsole: true
 
-          - os: macos-latest
-            go: "1.18"
-            testClientOnly: true
+          # - os: macos-latest
+          #   go: "1.18"
+          #   testClientOnly: true
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -81,120 +81,120 @@ jobs:
         if: matrix.testClientOnly
         shell: bash
 
-      - name: Build with webconsole
-        run: |
-          sudo apt update && sudo apt install curl -y
-          WEBCONSOLE=default make all
-        if: "!matrix.noWebconsole"
+      # - name: Build with webconsole
+      #   run: |
+      #     sudo apt update && sudo apt install curl -y
+      #     WEBCONSOLE=default make all
+      #   if: "!matrix.noWebconsole"
 
-      - name: Build without webconsole
-        run: make all
-        if: matrix.noWebconsole
+      # - name: Build without webconsole
+      #   run: make all
+      #   if: matrix.noWebconsole
 
-      - name: Make binaries executable
-        run: chmod +x immudb immuclient immuadmin
-        if: runner.os != 'Windows'
+      # - name: Make binaries executable
+      #   run: chmod +x immudb immuclient immuadmin
+      #   if: runner.os != 'Windows'
 
-      - name: Testing immudb operations
-        run: |
-          IMMUCLIENT=./immuclient*
-          IMMUADMIN=./immuadmin*
-          IMMUDB=./immudb*
+      # - name: Testing immudb operations
+      #   run: |
+      #     IMMUCLIENT=./immuclient*
+      #     IMMUADMIN=./immuadmin*
+      #     IMMUDB=./immudb*
 
-          # Run immuclient before a server starts, make sure it fails
-          set -euxo pipefail
-          ${IMMUCLIENT} || echo "Test #1 OK - immuclient failed to connect (no server started)"
-          ${IMMUDB} -d
-          ${IMMUCLIENT} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
-          echo -n "immudb" | ${IMMUCLIENT} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
-          ${IMMUCLIENT} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
-          sg=$(${IMMUCLIENT} safeget test3)
-          grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
-          grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
-          grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
-        shell: bash
+      #     # Run immuclient before a server starts, make sure it fails
+      #     set -euxo pipefail
+      #     ${IMMUCLIENT} || echo "Test #1 OK - immuclient failed to connect (no server started)"
+      #     ${IMMUDB} -d
+      #     ${IMMUCLIENT} login --username immudb --password immudb || { echo "Test #2 Login (Default credentials) Failed"; exit 1; }
+      #     echo -n "immudb" | ${IMMUCLIENT} login --username immudb || { echo "Test #3 Login (Default credentials from stdin) Failed"; exit 1; }
+      #     ${IMMUCLIENT} safeset test3 githubaction || { echo "Test #4 Failed to safeset simple values"; exit 1; }
+      #     sg=$(${IMMUCLIENT} safeget test3)
+      #     grep -q "githubaction" <<< $sg || { echo "Test #5 Failed safeget responded with $sg"; exit 1; }
+      #     grep -q  "verified" <<< $sg || { echo "Test #6 Failed safeset didn't get verified"; exit 1; }
+      #     grep -q "true" <<< $sg || { echo "Test #7 Failed safeset didn't get verified"; exit 1; }
+      #   shell: bash
 
-      - name: Testing immudb webconsole
-        if: "!matrix.noWebconsole"
-        run: |
-          # Find <title>immudb webconsole</title>
-          webconsole_page=$(curl -s localhost:8080) || { echo "Test #8 web console unreachable"; exit 1; }
-          grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #9 Failed, web console reachable but title not found"; exit 1; }
+      # - name: Testing immudb webconsole
+      #   if: "!matrix.noWebconsole"
+      #   run: |
+      #     # Find <title>immudb webconsole</title>
+      #     webconsole_page=$(curl -s localhost:8080) || { echo "Test #8 web console unreachable"; exit 1; }
+      #     grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || { echo "Test #9 Failed, web console reachable but title not found"; exit 1; }
 
-  coveralls:
-    name: Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.18"
-      - uses: actions/checkout@v3
-      - run: |
-          # Spawn minio docker container in the background
-          docker run -d -t -p 9000:9000 --name minio \
-            -e "MINIO_ACCESS_KEY=minioadmin" \
-            -e "MINIO_SECRET_KEY=minioadmin" \
-            minio/minio server /data
+  # coveralls:
+  #   name: Coverage
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: "1.18"
+  #     - uses: actions/checkout@v3
+  #     - run: |
+  #         # Spawn minio docker container in the background
+  #         docker run -d -t -p 9000:9000 --name minio \
+  #           -e "MINIO_ACCESS_KEY=minioadmin" \
+  #           -e "MINIO_SECRET_KEY=minioadmin" \
+  #           minio/minio server /data
 
-          # Create immudb bucket
-          docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
-            mc alias set local http://localhost:9000 minioadmin minioadmin &&
-            mc mb local/immudb
-          "
+  #         # Create immudb bucket
+  #         docker run --net=host -t --entrypoint /bin/sh minio/mc -c "
+  #           mc alias set local http://localhost:9000 minioadmin minioadmin &&
+  #           mc mb local/immudb
+  #         "
 
-          export PATH=$PATH:$(go env GOPATH)/bin
-          set -o pipefail
-          ./scripts/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
-          cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
-          ./scripts/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
+  #         export PATH=$PATH:$(go env GOPATH)/bin
+  #         set -o pipefail
+  #         ./scripts/go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version,tools --tags minio || true
+  #         cat coverage.txt | grep -v "schema.pb" | grep -v "schema_grpc.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" | grep -v "tools" > coverage.out
+  #         ./scripts/goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
-          # Stop minio
-          docker rm -f minio
-      - name: Analyze with SonarCloud
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #         # Stop minio
+  #         docker rm -f minio
+  #     - name: Analyze with SonarCloud
+  #       uses: sonarsource/sonarcloud-github-action@master
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  performance-test-suite-detect-runners:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.detect-runners.outputs.matrix }}
-    env:
-      PERF_TEST_RUNS_ON: ${{ secrets.PERF_TEST_RUNS_ON }}
-      PERF_TEST_RUNS_ON_DEFAULT: |
-        {
-          "targets": [
-            {
-              "name": "github-ubuntu-latest",
-              "runs-on": "ubuntu-latest"
-            }
-          ]
-        }
-    steps:
-      - id: detect-runners
-        run: |
-          RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
-          echo "Detected targets:"
-          echo "$RES" | jq .
-          echo "::set-output name=matrix::${RES}"
+  # performance-test-suite-detect-runners:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     matrix: ${{ steps.detect-runners.outputs.matrix }}
+  #   env:
+  #     PERF_TEST_RUNS_ON: ${{ secrets.PERF_TEST_RUNS_ON }}
+  #     PERF_TEST_RUNS_ON_DEFAULT: |
+  #       {
+  #         "targets": [
+  #           {
+  #             "name": "github-ubuntu-latest",
+  #             "runs-on": "ubuntu-latest"
+  #           }
+  #         ]
+  #       }
+  #   steps:
+  #     - id: detect-runners
+  #       run: |
+  #         RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
+  #         echo "Detected targets:"
+  #         echo "$RES" | jq .
+  #         echo "::set-output name=matrix::${RES}"
 
-  performance-test-suite:
-    needs: performance-test-suite-detect-runners
-    strategy:
-      matrix:
-        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
-    name: Performance Test Suite (${{ matrix.target.name }})
-    runs-on: ${{ matrix.target.runs-on }}
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.18"
-      - uses: actions/checkout@v3
-      - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
-      - run: ./perf-test-suite > perf-test-results.json
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: Performance Test Results (${{ matrix.target.name }})
-          path: perf-test-results.json
+  # performance-test-suite:
+  #   needs: performance-test-suite-detect-runners
+  #   strategy:
+  #     matrix:
+  #       target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
+  #   name: Performance Test Suite (${{ matrix.target.name }})
+  #   runs-on: ${{ matrix.target.runs-on }}
+  #   steps:
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: "1.18"
+  #     - uses: actions/checkout@v3
+  #     - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
+  #     - run: ./perf-test-suite > perf-test-results.json
+  #     - name: Upload test results
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: Performance Test Results (${{ matrix.target.name }})
+  #         path: perf-test-results.json
