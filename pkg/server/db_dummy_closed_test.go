@@ -139,11 +139,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 
 	require.False(t, cdb.IsSyncReplicationEnabled())
 
-	err = cdb.EnableSyncReplication()
-	require.ErrorIs(t, err, store.ErrAlreadyClosed)
-
-	err = cdb.DisableSyncReplication()
-	require.ErrorIs(t, err, store.ErrAlreadyClosed)
+	cdb.SetSyncReplication(true)
 
 	_, _, _, err = cdb.ExportTxByID(nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)

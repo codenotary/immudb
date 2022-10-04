@@ -50,12 +50,12 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		}
 	}()
 
-	if len(txbs) == 0 {
-		return nil
-	}
-
 	if err != nil {
 		return err
+	}
+
+	if len(txbs) == 0 {
+		return nil
 	}
 
 	sender := s.StreamServiceFactory.NewMsgSender(txsServer)
