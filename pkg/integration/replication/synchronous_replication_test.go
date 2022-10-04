@@ -22,8 +22,8 @@ func TestSyncTestSuite(t *testing.T) {
 }
 
 // this function executes before the test suite begins execution
-func (suite *SyncTestSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
+func (suite *SyncTestSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
 }
 
@@ -166,8 +166,8 @@ func TestSyncTestMinimumFollowersSuite(t *testing.T) {
 }
 
 // this function executes before the test suite begins execution
-func (suite *SyncTestMinimumFollowersSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
+func (suite *SyncTestMinimumFollowersSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(4, 2, 0)
 }
 
@@ -263,8 +263,8 @@ func TestSyncTestRecoverySpeedSuite(t *testing.T) {
 	suite.Run(t, &SyncTestRecoverySpeedSuite{})
 }
 
-func (suite *SyncTestRecoverySpeedSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
+func (suite *SyncTestRecoverySpeedSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 1, 0)
 }
 
@@ -394,8 +394,8 @@ func TestSyncTestWithAsyncFollowersSuite(t *testing.T) {
 	suite.Run(t, &SyncTestWithAsyncFollowersSuite{})
 }
 
-func (suite *SyncTestWithAsyncFollowersSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
+func (suite *SyncTestWithAsyncFollowersSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 1, 1)
 }
 
@@ -483,8 +483,8 @@ func TestSyncTestChangingMasterSuite(t *testing.T) {
 	suite.Run(t, &SyncTestChangingMasterSuite{})
 }
 
-func (suite *SyncTestChangingMasterSuite) SetupSuite() {
-	suite.baseReplicationTestSuite.SetupSuite()
+func (suite *SyncTestChangingMasterSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 1, 0)
 }
 

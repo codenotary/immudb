@@ -52,6 +52,8 @@ type baseReplicationTestSuite struct {
 	followers        []TestServer
 	followersDBName  []string
 	followersRunning []bool
+
+	_initialSyncReplicas, _initialSyncAcks, _initialAsyncReplicas int
 }
 
 func (suite *baseReplicationTestSuite) GetFollowersCount() int {
@@ -307,8 +309,8 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 	wg.Wait()
 }
 
-// SetupSuite initializes the suite
-func (suite *baseReplicationTestSuite) SetupSuite() {
+// SetupTest initializes the suite
+func (suite *baseReplicationTestSuite) SetupTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
@@ -318,7 +320,7 @@ func (suite *baseReplicationTestSuite) SetupSuite() {
 }
 
 // this function executes after all tests executed
-func (suite *baseReplicationTestSuite) TearDownSuite() {
+func (suite *baseReplicationTestSuite) TearDownTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
