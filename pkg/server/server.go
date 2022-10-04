@@ -420,10 +420,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 
 	//sys admin can have an empty array of databases as it has full access
 	if !s.sysDB.IsReplica() {
-		err = s.sysDB.DisableSyncReplication()
-		if err != nil {
-			return err
-		}
+		s.sysDB.SetSyncReplication(false)
 
 		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 		if err != nil {
@@ -431,10 +428,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 		}
 
 		if s.Options.ReplicationOptions.SyncReplication {
-			err = s.sysDB.EnableSyncReplication()
-			if err != nil {
-				return err
-			}
+			s.sysDB.SetSyncReplication(true)
 		}
 
 		s.Logger.Infof("Admin user '%s' successfully created", adminUsername)
@@ -1169,7 +1163,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	s.logDBOptions(db.GetName(), dbOpts)
 
 	if !db.IsClosed() {
-		db.AsReplica(dbOpts.Replica, dbOpts.SyncFollowers)
+		db.AsReplica(dbOpts.Replica, dbOpts.SyncReplication, dbOpts.SyncFollowers)
 	}
 
 	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {

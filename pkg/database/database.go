@@ -48,6 +48,7 @@ var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrIllegalState = store.ErrIllegalState
 var ErrIsReplica = errors.New("database is read-only because it's a replica")
 var ErrNotReplica = errors.New("database is NOT a replica")
+var ErrFollowerDivergedFromMaster = errors.New("follower diverged from master")
 var ErrInvalidRevision = errors.New("invalid key revision number")
 
 type DB interface {
@@ -58,12 +59,11 @@ type DB interface {
 
 	Path() string
 
-	AsReplica(asReplica bool, syncFollowers int)
+	AsReplica(asReplica, syncReplication bool, syncFollowers int)
 	IsReplica() bool
 
 	IsSyncReplicationEnabled() bool
-	EnableSyncReplication() error
-	DisableSyncReplication() error
+	SetSyncReplication(enabled bool)
 
 	MaxResultSize() int
 	UseTimeFunc(timeFunc store.TimeFunc) error
@@ -325,9 +325,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	// TODO: may be moved to store opts once sql init steps are removed
 	defer func() {
-		if op.syncReplication {
-			dbi.st.EnableExternalCommitAllowance()
-		}
+		dbi.st.SetExternalCommitAllowance(op.syncReplication)
 	}()
 
 	txPool, err := dbi.st.NewTxHolderPool(op.readTxPoolSize, false)
@@ -1264,7 +1262,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			// validate follower commit state
 			if req.FollowerState.CommittedTxID > committedTxID {
 				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: follower commit state diverged from master's", err)
+					fmt.Errorf("%w: follower commit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 
 			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID, false)
@@ -1276,7 +1274,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 			if expectedFollowerCommitHdr.Alh() != followerCommittedAlh {
 				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(),
-					fmt.Errorf("%w: follower commit state diverged from master's", err)
+					fmt.Errorf("%w: follower commit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 		}
 
@@ -1284,7 +1282,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			// validate follower precommit state
 			if req.FollowerState.PrecommittedTxID > preCommittedTxID {
 				return nil, committedTxID, committedAlh,
-					fmt.Errorf("%w: follower precommit state diverged from master's", err)
+					fmt.Errorf("%w: follower precommit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 
 			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID, true)
@@ -1296,7 +1294,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 			if expectedFollowerPrecommitHdr.Alh() != followerPreCommittedAlh {
 				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(),
-					fmt.Errorf("%w: follower precommit state diverged from master's", err)
+					fmt.Errorf("%w: follower precommit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 
 			// master will provide commit state to the follower so it can commit pre-committed transactions
@@ -1681,21 +1679,24 @@ func (d *db) GetOptions() *Options {
 	return d.options
 }
 
-func (d *db) AsReplica(asReplica bool, syncFollowers int) {
+func (d *db) AsReplica(asReplica, syncReplication bool, syncFollowers int) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	d.options.replica = asReplica
-	d.options.syncFollowers = syncFollowers
-
 	d.followerStatesMutex.Lock()
 	defer d.followerStatesMutex.Unlock()
+
+	d.options.replica = asReplica
+	d.options.syncFollowers = syncFollowers
+	d.options.syncReplication = syncReplication
 
 	if asReplica {
 		d.followerStates = nil
 	} else if syncFollowers > 0 {
 		d.followerStates = make(map[uuid]*followerState, syncFollowers)
 	}
+
+	d.st.SetExternalCommitAllowance(syncReplication)
 }
 
 func (d *db) IsReplica() bool {
@@ -1716,32 +1717,13 @@ func (d *db) IsSyncReplicationEnabled() bool {
 	return d.options.syncReplication
 }
 
-func (d *db) EnableSyncReplication() error {
+func (d *db) SetSyncReplication(enabled bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	err := d.st.EnableExternalCommitAllowance()
-	if err != nil {
-		return err
-	}
+	d.st.SetExternalCommitAllowance(enabled)
 
-	d.options.syncReplication = true
-
-	return nil
-}
-
-func (d *db) DisableSyncReplication() error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	err := d.st.DisableExternalCommitAllowance()
-	if err != nil {
-		return err
-	}
-
-	d.options.syncReplication = false
-
-	return nil
+	d.options.syncReplication = enabled
 }
 
 func logErr(log logger.Logger, formattedMessage string, err error) error {

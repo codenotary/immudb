@@ -1537,37 +1537,15 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 	return nil
 }
 
-func (s *ImmuStore) EnableExternalCommitAllowance() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
+func (s *ImmuStore) SetExternalCommitAllowance(enabled bool) {
 	s.commitStateRWMutex.Lock()
 	defer s.commitStateRWMutex.Unlock()
 
-	s.useExternalCommitAllowance = true
-	s.commitAllowedUpToTxID = s.committedTxID
+	s.useExternalCommitAllowance = enabled
 
-	return nil
-}
-
-func (s *ImmuStore) DisableExternalCommitAllowance() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
+	if enabled {
+		s.commitAllowedUpToTxID = s.committedTxID
 	}
-
-	s.commitStateRWMutex.Lock()
-	defer s.commitStateRWMutex.Unlock()
-
-	s.useExternalCommitAllowance = false
-
-	return nil
 }
 
 // DiscardPrecommittedTxsSince discard precommitted txs

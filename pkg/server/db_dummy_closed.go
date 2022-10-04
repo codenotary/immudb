@@ -46,7 +46,7 @@ func (db *closedDB) Path() string {
 	return filepath.Join(db.opts.GetDBRootPath(), db.GetName())
 }
 
-func (db *closedDB) AsReplica(asReplica bool, syncFollowers int) {
+func (db *closedDB) AsReplica(asReplica, syncReplication bool, syncFollowers int) {
 }
 
 func (db *closedDB) IsReplica() bool {
@@ -57,12 +57,7 @@ func (db *closedDB) IsSyncReplicationEnabled() bool {
 	return false
 }
 
-func (db *closedDB) EnableSyncReplication() error {
-	return store.ErrAlreadyClosed
-}
-
-func (db *closedDB) DisableSyncReplication() error {
-	return store.ErrAlreadyClosed
+func (db *closedDB) SetSyncReplication(enabled bool) {
 }
 
 func (db *closedDB) MaxResultSize() int {

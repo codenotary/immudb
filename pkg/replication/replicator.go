@@ -283,6 +283,13 @@ func (txr *TxReplicator) fetchNextTx() error {
 		AllowPreCommitted: syncReplicationEnabled,
 	})
 	if err != nil {
+		return err
+	}
+
+	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
+	etx, err := receiver.ReadFully()
+
+	if err != nil && !errors.Is(err, io.EOF) {
 		if strings.Contains(err.Error(), "follower commit state diverged from master's") {
 			txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
 			return ErrFollowerDivergedFromMaster
@@ -306,13 +313,6 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 		}
 
-		return err
-	}
-
-	receiver := txr.streamSrvFactory.NewMsgReceiver(exportTxStream)
-	etx, err := receiver.ReadFully()
-
-	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 
