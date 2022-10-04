@@ -58,7 +58,7 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 	}
 }
 
-func (suite *SyncTestSuite) TestMasterRestart() {
+func (suite *SyncTestSuite) _TestMasterRestart() {
 	var txBeforeRestart *schema.TxHeader
 	suite.Run("commit before restarting primary", func() {
 
@@ -104,7 +104,7 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 
 // TestPrecommitStateSync checks if the precommit state at master
 // and its followers are in sync during synchronous replication
-func (suite *SyncTestSuite) TestPrecommitStateSync() {
+func (suite *SyncTestSuite) _TestPrecommitStateSync() {
 	var (
 		masterState *schema.ImmutableState
 		err         error
