@@ -16,8 +16,8 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=1.3.2
-DEFAULT_WEBCONSOLE_VERSION=1.0.17
+VERSION=1.4.0-RC1
+DEFAULT_WEBCONSOLE_VERSION=1.0.18
 SERVICES=immudb immuadmin immuclient
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/arm64 freebsd/amd64 darwin/arm64
 
