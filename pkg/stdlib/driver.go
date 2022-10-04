@@ -99,7 +99,9 @@ func UnregisterConnConfig(connStr string) {
 	immuDriver.unregisterConnConfig(connStr)
 }
 func (d *Driver) getNewConnByOptions(ctx context.Context, cliOptions *client.Options) (*Conn, error) {
-	immuClient := client.NewClient().WithOptions(cliOptions)
+	var immuClient client.ImmuClient
+	immuClient = client.NewClient().WithOptions(cliOptions)
+	immuClient = client.NewClientMiddleware(immuClient)
 
 	name := GetUri(cliOptions)
 
