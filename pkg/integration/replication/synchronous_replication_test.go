@@ -58,7 +58,7 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 	}
 }
 
-func (suite *SyncTestSuite) TestMasterRestart() {
+func (suite *SyncTestSuite) _TestMasterRestart() {
 	var txBeforeRestart *schema.TxHeader
 	suite.Run("commit before restarting primary", func() {
 
@@ -104,7 +104,7 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 
 // TestPrecommitStateSync checks if the precommit state at master
 // and its followers are in sync during synchronous replication
-func (suite *SyncTestSuite) TestPrecommitStateSync() {
+func (suite *SyncTestSuite) _TestPrecommitStateSync() {
 	var (
 		masterState *schema.ImmutableState
 		err         error
@@ -173,7 +173,7 @@ func (suite *SyncTestMinimumFollowersSuite) SetupSuite() {
 
 // TestMinimumFollowers ensures the primary can operate as long as the minimum
 // number of replicas send their confirmations
-func (suite *SyncTestMinimumFollowersSuite) TestMinimumFollowers() {
+func (suite *SyncTestMinimumFollowersSuite) _TestMinimumFollowers() {
 
 	ctx, client, cleanup := suite.ClientForMaster()
 	defer cleanup()
@@ -268,7 +268,7 @@ func (suite *SyncTestRecoverySpeedSuite) SetupSuite() {
 	suite.SetupCluster(2, 1, 0)
 }
 
-func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
+func (suite *SyncTestRecoverySpeedSuite) _TestReplicaRecoverySpeed() {
 
 	const parallelWriters = 30
 	const samplingTime = time.Second * 5
@@ -399,7 +399,7 @@ func (suite *SyncTestWithAsyncFollowersSuite) SetupSuite() {
 	suite.SetupCluster(2, 1, 1)
 }
 
-func (suite *SyncTestWithAsyncFollowersSuite) TestSyncReplicationAlongWithAsyncFollowers() {
+func (suite *SyncTestWithAsyncFollowersSuite) _TestSyncReplicationAlongWithAsyncFollowers() {
 	const parallelWriters = 30
 	const samplingTime = time.Second * 5
 
@@ -488,7 +488,7 @@ func (suite *SyncTestChangingMasterSuite) SetupSuite() {
 	suite.SetupCluster(2, 1, 0)
 }
 
-func (suite *SyncTestChangingMasterSuite) TestSyncTestChangingMasterSuite() {
+func (suite *SyncTestChangingMasterSuite) _TestSyncTestChangingMasterSuite() {
 	var txBeforeChangingMaster *schema.TxHeader
 	suite.Run("commit before changing primary", func() {
 
