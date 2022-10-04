@@ -1577,8 +1577,13 @@ func (s *ImmuStore) DiscardPrecommittedTxsSince(txID uint64) (int, error) {
 
 	txsToDiscard := int(s.inmemPrecommittedTxID + 1 - txID)
 
+	err := s.aht.ResetSize(s.aht.Size() - uint64(txsToDiscard))
+	if err != nil {
+		return 0, err
+	}
+
 	// s.cLogBuf inludes all precommitted transactions (even durable ones)
-	err := s.cLogBuf.recedeWriter(txsToDiscard)
+	err = s.cLogBuf.recedeWriter(txsToDiscard)
 	if err != nil {
 		return 0, err
 	}

@@ -302,15 +302,18 @@ func (txr *TxReplicator) fetchNextTx() error {
 				return ErrFollowerDivergedFromMaster
 			}
 
-			txr.logger.Infof("discarding precommit txs since %d from '%s'...", nextTx, txr.db.GetName(), err)
+			txr.logger.Infof("discarding precommit txs since %d from '%s' due to %v", nextTx, txr.db.GetName(), err)
 
 			err = txr.db.DiscardPrecommittedTxsSince(commitState.TxId + 1)
 			if err != nil {
 				return err
 			}
 
+			txr.lastTx = commitState.TxId
+
 			txr.logger.Infof("precommit txs successfully discarded from '%s'", txr.db.GetName())
 
+			return nil
 		}
 
 		return err
