@@ -102,11 +102,11 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 
 	txr.consecutiveFailures++
 
-	txr.logger.Infof("Replication error on database '%s' from '%s' (%d consecutive failures). Reason: %v",
+	txr.logger.Infof("Replication error on database '%s' from '%s' (%d consecutive failures). Reason: %s",
 		txr.db.GetName(),
 		txr._masterDB,
 		txr.consecutiveFailures,
-		err)
+		err.Error())
 
 	timer := time.NewTimer(txr.delayer.DelayAfter(txr.consecutiveFailures))
 	select {
@@ -175,7 +175,7 @@ func (txr *TxReplicator) Start() error {
 						break // transaction successfully replicated
 					}
 
-					txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %v", txr._masterDB, txr.db.GetName(), err)
+					txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %s", txr._masterDB, txr.db.GetName(), err.Error())
 
 					consecutiveFailures++
 
@@ -302,7 +302,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 				return ErrFollowerDivergedFromMaster
 			}
 
-			txr.logger.Infof("discarding precommit txs since %d from '%s' due to %v", nextTx, txr.db.GetName(), err)
+			txr.logger.Infof("discarding precommit txs since %d from '%s'. Reason: %s", nextTx, txr.db.GetName(), err.Error())
 
 			err = txr.db.DiscardPrecommittedTxsSince(commitState.TxId + 1)
 			if err != nil {
