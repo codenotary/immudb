@@ -11,8 +11,6 @@ on:
       - release/v*
     tags:
       - 'v*'
-  schedule:
-    - cron: '0 0 * * *'
 
 jobs:
 
@@ -174,111 +172,15 @@ jobs:
           -total-entries-written 300000 \
           -total-entries-read 10000
 
-  performance-test-suite-detect-runners:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.detect-runners.outputs.matrix }}
-    env:
-      PERF_TEST_RUNS_ON: ${{ secrets.PERF_TEST_RUNS_ON }}
-      PERF_TEST_RUNS_ON_DEFAULT: |
-        {
-          "targets": [
-            {
-              "name": "github-ubuntu-latest",
-              "runs-on": "ubuntu-latest"
-            }
-          ]
-        }
-    steps:
-      - id: detect-runners
-        run: |
-          RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
-          echo "Detected targets:"
-          echo "$RES" | jq .
-          echo "::set-output name=matrix::${RES}"
-
-  performance-test-suite:
-    name: Performance Test Suite (${{ matrix.target.name }})
+  performance-tests:
+    name: Performance tests
     needs:
       - gosec
       - old-go
-      - performance-test-suite-detect-runners
-    strategy:
-      matrix:
-        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
-    runs-on: ${{ matrix.target.runs-on }}
-    env:
-      ARG_DURATION: "${{ startsWith(github.ref, 'refs/tags/v') && '-d 10m' || '' }}"
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-      - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
-      - name: Run performance tests
-        id: performance
-        run: |
-          ./perf-test-suite $ARG_DURATION > perf-test-results.json 2>console_output.txt
-          cat console_output.txt
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: Performance Test Results (${{ matrix.target.name }})
-          path: perf-test-results.json
-          retention-days: 30
-      - name: Create the Mattermost message
-        if: github.event.schedule == '0 0 * * *'
-        run: >
-          echo "{\"text\":\"### Results for scheduled daily run on branch ${{ github.base_ref }}\n
-          **Result**: ${{ steps.performance.outcome }}\n
-          #### Benchmark Write TX/s \n
-          $(cat console_output.txt | grep "Results:" | sed -n 1p) \n
-          #### Benchmark Write KV/s \n
-          $(cat console_output.txt | grep "Results:" | sed -n 2p) \n
-          **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
-          \"}" > mattermost.json
-      - name: Notify on immudb channel on Mattermost
-        if: github.event.schedule == '0 0 * * *'
-        uses: mattermost/action-mattermost-notify@master
-        env:
-          MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
-          MATTERMOST_CHANNEL: 'immudb'
-
-  performance-test-suite-upload-s3:
-    needs:
-      - performance-test-suite
-      - performance-test-suite-detect-runners
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: ${{ fromJson(needs.performance-test-suite-detect-runners.outputs.matrix) }}
-    env:
-      PERF_TEST_AWS_REGION: ${{ secrets.PERF_TEST_AWS_REGION }}
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download test results
-        if: "${{ env.PERF_TEST_AWS_REGION }}"
-        uses: actions/download-artifact@v3
-        with:
-          name: Performance Test Results (${{ matrix.target.name }})
-
-      - name: Configure AWS credentials
-        if: "${{ env.PERF_TEST_AWS_REGION }}"
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: "${{ secrets.PERF_TEST_AWS_ACCESS_KEY_ID }}"
-          aws-secret-access-key: "${{ secrets.PERF_TEST_AWS_SECRET_ACCESS_KEY }}"
-          aws-region: "${{ secrets.PERF_TEST_AWS_REGION }}"
-
-
-      - name: Upload perf results to S3
-        if: "${{ env.PERF_TEST_AWS_REGION }}"
-        run: |
-          GIT_COMMIT_NAME="$(git show -s --format=%cd --date="format:%Y-%m-%d--%H-%I-%S")--$(git rev-parse HEAD)"
-          aws s3 cp \
-            perf-test-results.json \
-            "s3://${{ secrets.PERF_TEST_AWS_BUCKET_PREFIX }}/${{ github.ref_name }}/${GIT_COMMIT_NAME}/${{ matrix.target.name }}.json"
+    uses: ./.github/workflows/performance.yml
+    secrets: inherit
+    with:
+      go-version: ${{ env.GO_VERSION }}
 
   notarize-binaries:
       name: Notarize binaries
