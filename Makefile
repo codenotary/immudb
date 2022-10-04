@@ -130,7 +130,7 @@ test:
 .PHONY: test/fips
 test/fips:
 	$(DOCKER) build -t fips:test-build -f build/fips/Dockerfile.build .
-	$(DOCKER) run --rm fips:test-build -c "make test"
+	$(DOCKER) run --rm fips:test-build -c "GO_TEST_FLAGS='-tags fips' make test"
 
 .PHONY: test-client
 test-client:
