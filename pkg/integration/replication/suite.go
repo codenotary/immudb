@@ -307,8 +307,8 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 	wg.Wait()
 }
 
-// SetupSuite initializes the suite
-func (suite *baseReplicationTestSuite) SetupSuite() {
+// SetupTest initializes the suite
+func (suite *baseReplicationTestSuite) SetupTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
@@ -318,7 +318,7 @@ func (suite *baseReplicationTestSuite) SetupSuite() {
 }
 
 // this function executes after all tests executed
-func (suite *baseReplicationTestSuite) TearDownSuite() {
+func (suite *baseReplicationTestSuite) TearDownTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
@@ -328,10 +328,12 @@ func (suite *baseReplicationTestSuite) TearDownSuite() {
 			srv.Shutdown(suite.T())
 		}
 	}
+	suite.followers = []TestServer{}
 
 	// stop master
 	if suite.master != nil {
 		suite.master.Shutdown(suite.T())
 		suite.master = nil
 	}
+	suite.master = nil
 }
