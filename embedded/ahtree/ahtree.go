@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/cache"
@@ -37,7 +38,7 @@ var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
 var ErrorPathIsNotADirectory = errors.New("ahtree: path is not a directory")
 var ErrorCorruptedData = errors.New("ahtree: data log is corrupted")
 var ErrorCorruptedDigests = errors.New("ahtree: hash log is corrupted")
-var ErrAlreadyClosed = errors.New("ahtree: already closed")
+var ErrAlreadyClosed = fmt.Errorf("ahtree: %w", embedded.ErrAlreadyClosed)
 var ErrEmptyTree = errors.New("ahtree: empty tree")
 var ErrReadOnly = errors.New("ahtree: read-only mode")
 var ErrUnexistentData = errors.New("ahtree: attempt to read unexistent data")

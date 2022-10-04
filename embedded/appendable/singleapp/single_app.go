@@ -30,13 +30,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded"
 	"github.com/codenotary/immudb/embedded/appendable"
 )
 
 var ErrorPathIsNotADirectory = errors.New("singleapp: path is not a directory")
 var ErrIllegalArguments = errors.New("singleapp: illegal arguments")
 var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrAlreadyClosed = errors.New("singleapp: already closed")
+var ErrAlreadyClosed = fmt.Errorf("singleapp: %w", embedded.ErrAlreadyClosed)
 var ErrReadOnly = errors.New("singleapp: read-only mode")
 var ErrCorruptedMetadata = errors.New("singleapp: corrupted metadata")
 var ErrBufferFull = errors.New("singleapp: buffer full")

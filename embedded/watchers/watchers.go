@@ -18,11 +18,14 @@ package watchers
 
 import (
 	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/codenotary/immudb/embedded"
 )
 
 var ErrMaxWaitessLimitExceeded = errors.New("watchers: max waiting limit exceeded")
-var ErrAlreadyClosed = errors.New("watchers: already closed")
+var ErrAlreadyClosed = fmt.Errorf("watchers: %w", embedded.ErrAlreadyClosed)
 var ErrCancellationRequested = errors.New("watchers: cancellation requested")
 
 type WatchersHub struct {

@@ -28,6 +28,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
@@ -36,7 +37,7 @@ import (
 var ErrorPathIsNotADirectory = errors.New("multiapp: path is not a directory")
 var ErrIllegalArguments = errors.New("multiapp: illegal arguments")
 var ErrInvalidOptions = fmt.Errorf("%w: invalid options", ErrIllegalArguments)
-var ErrAlreadyClosed = errors.New("multiapp: already closed")
+var ErrAlreadyClosed = fmt.Errorf("multiapp: %w", embedded.ErrAlreadyClosed)
 var ErrReadOnly = errors.New("multiapp: read-only mode")
 
 const (
