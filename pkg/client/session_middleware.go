@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func (c *client) OpenSession(ctx context.Context, user []byte, pass []byte, data
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.connectionOpener = func() error {
-		log.Println("try to reconnect")
+		log.Printf("try to reconnect user %s pass %s database %s", string(user), string(pass), database)
 		_ = c.next.CloseSession(ctx)
 		return c.next.OpenSession(ctx, user, pass, database)
 	}
@@ -697,22 +698,27 @@ func (c *client) NewTx(ctx context.Context) (t Tx, err error) {
 }
 
 func (c *client) execute(f func() error) error {
+	log.Println("executor middleware")
 	for i := 0; i < maxBadConnRetries; i++ {
 		c.mutex.RLock()
 		err := f()
 		if err == nil {
 			c.mutex.RUnlock()
+			log.Println("executor middleware Success")
 			return nil
 		}
 		c.mutex.RUnlock()
-		if err != sessions.ErrSessionNotFound && err != ErrNotConnected {
+		if err != sessions.ErrSessionNotFound && err != ErrNotConnected && !strings.Contains(err.Error(), "session not found") {
+			log.Printf("Unable to retry connection from executor middleware, error %v", err)
 			return err
 		}
 
+		log.Printf("Session Not Found error, try to reOpen session, iteration %d, error %v", i, err)
 		c.mutex.Lock()
 		_ = c.connectionOpener()
 		c.mutex.Unlock()
 	}
 
+	log.Println("CRITICAL Err Max conn retries")
 	return ErrMaxRetries
 }
