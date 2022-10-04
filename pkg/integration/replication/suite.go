@@ -330,10 +330,12 @@ func (suite *baseReplicationTestSuite) TearDownTest() {
 			srv.Shutdown(suite.T())
 		}
 	}
+	suite.followers = []TestServer{}
 
 	// stop master
 	if suite.master != nil {
 		suite.master.Shutdown(suite.T())
 		suite.master = nil
 	}
+	suite.master = nil
 }
