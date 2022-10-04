@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
@@ -31,10 +30,6 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 			return e
 		}
 		c.WithServerSigningPubKey(pk)
-	}
-
-	if c.clientConn != nil {
-		log.Printf("OpenSession current client conn state before re dial, %v", c.clientConn.GetState())
 	}
 
 	if c.Options.StreamChunkSize < stream.MinChunkSize {
@@ -99,7 +94,6 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	}
 
 	defer func() {
-		log.Printf("CloseSession current client conn state before re dial, %v", c.clientConn.GetState())
 		c.SessionID = ""
 		c.clientConn = nil
 	}()

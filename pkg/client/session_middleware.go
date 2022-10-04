@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"io"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -68,7 +67,6 @@ func (c *client) OpenSession(ctx context.Context, user []byte, pass []byte, data
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.connectionOpener = func() error {
-		log.Printf("try to reconnect user %s pass %s database %s", string(user), string(pass), database)
 		_ = c.next.CloseSession(ctx)
 		return c.next.OpenSession(ctx, user, pass, database)
 	}
@@ -268,7 +266,6 @@ func (c *client) Get(ctx context.Context, key []byte, opts ...GetOption) (e *sch
 }
 
 func (c *client) GetSince(ctx context.Context, key []byte, tx uint64) (e *schema.Entry, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.GetSince(ctx, key, tx)
 		return err
@@ -278,7 +275,6 @@ func (c *client) GetSince(ctx context.Context, key []byte, tx uint64) (e *schema
 }
 
 func (c *client) GetAt(ctx context.Context, key []byte, tx uint64) (e *schema.Entry, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.GetAt(ctx, key, tx)
 		return err
@@ -328,7 +324,6 @@ func (c *client) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (e *s
 }
 
 func (c *client) VerifiedGetAtRevision(ctx context.Context, key []byte, rev int64) (e *schema.Entry, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.VerifiedGetAtRevision(ctx, key, rev)
 		return err
@@ -347,7 +342,6 @@ func (c *client) History(ctx context.Context, req *schema.HistoryRequest) (e *sc
 }
 
 func (c *client) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (h *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		h, err = c.next.ZAdd(ctx, set, score, key)
 		return err
@@ -366,7 +360,6 @@ func (c *client) VerifiedZAdd(ctx context.Context, set []byte, score float64, ke
 }
 
 func (c *client) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (h *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		h, err = c.next.ZAddAt(ctx, set, score, key, atTx)
 		return err
@@ -376,7 +369,6 @@ func (c *client) ZAddAt(ctx context.Context, set []byte, score float64, key []by
 }
 
 func (c *client) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (h *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		h, err = c.next.VerifiedZAddAt(ctx, set, score, key, atTx)
 		return err
@@ -395,7 +387,6 @@ func (c *client) Scan(ctx context.Context, req *schema.ScanRequest) (e *schema.E
 }
 
 func (c *client) ZScan(ctx context.Context, req *schema.ZScanRequest) (e *schema.ZEntries, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.ZScan(ctx, req)
 		return err
@@ -405,7 +396,6 @@ func (c *client) ZScan(ctx context.Context, req *schema.ZScanRequest) (e *schema
 }
 
 func (c *client) TxByID(ctx context.Context, tx uint64) (t *schema.Tx, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.TxByID(ctx, tx)
 		return err
@@ -415,7 +405,6 @@ func (c *client) TxByID(ctx context.Context, tx uint64) (t *schema.Tx, err error
 }
 
 func (c *client) VerifiedTxByID(ctx context.Context, tx uint64) (t *schema.Tx, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.VerifiedTxByID(ctx, tx)
 		return err
@@ -425,7 +414,6 @@ func (c *client) VerifiedTxByID(ctx context.Context, tx uint64) (t *schema.Tx, e
 }
 
 func (c *client) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (t *schema.Tx, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.TxByIDWithSpec(ctx, req)
 		return err
@@ -435,7 +423,6 @@ func (c *client) TxByIDWithSpec(ctx context.Context, req *schema.TxRequest) (t *
 }
 
 func (c *client) TxScan(ctx context.Context, req *schema.TxScanRequest) (t *schema.TxList, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.TxScan(ctx, req)
 		return err
@@ -462,7 +449,6 @@ func (c *client) SetAll(ctx context.Context, kvList *schema.SetRequest) (t *sche
 }
 
 func (c *client) GetAll(ctx context.Context, keys [][]byte) (e *schema.Entries, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.GetAll(ctx, keys)
 		return err
@@ -472,7 +458,6 @@ func (c *client) GetAll(ctx context.Context, keys [][]byte) (e *schema.Entries, 
 }
 
 func (c *client) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.Delete(ctx, req)
 		return err
@@ -482,7 +467,6 @@ func (c *client) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (t *
 }
 
 func (c *client) ExecAll(ctx context.Context, in *schema.ExecAllRequest) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.ExecAll(ctx, in)
 		return err
@@ -492,7 +476,6 @@ func (c *client) ExecAll(ctx context.Context, in *schema.ExecAllRequest) (t *sch
 }
 
 func (c *client) SetReference(ctx context.Context, key []byte, referencedKey []byte) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.SetReference(ctx, key, referencedKey)
 		return err
@@ -502,7 +485,6 @@ func (c *client) SetReference(ctx context.Context, key []byte, referencedKey []b
 }
 
 func (c *client) VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.VerifiedSetReference(ctx, key, referencedKey)
 		return err
@@ -512,7 +494,6 @@ func (c *client) VerifiedSetReference(ctx context.Context, key []byte, reference
 }
 
 func (c *client) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.SetReferenceAt(ctx, key, referencedKey, atTx)
 		return err
@@ -522,7 +503,6 @@ func (c *client) SetReferenceAt(ctx context.Context, key []byte, referencedKey [
 }
 
 func (c *client) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.VerifiedSetReferenceAt(ctx, key, referencedKey, atTx)
 		return err
@@ -532,7 +512,6 @@ func (c *client) VerifiedSetReferenceAt(ctx context.Context, key []byte, referen
 }
 
 func (c *client) Dump(ctx context.Context, writer io.WriteSeeker) (d int64, err error) {
-	//TODO implement me
 	fn := func() error {
 		d, err = c.next.Dump(ctx, writer)
 		return err
@@ -542,7 +521,6 @@ func (c *client) Dump(ctx context.Context, writer io.WriteSeeker) (d int64, err 
 }
 
 func (c *client) StreamSet(ctx context.Context, kv []*stream.KeyValue) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.StreamSet(ctx, kv)
 		return err
@@ -552,7 +530,6 @@ func (c *client) StreamSet(ctx context.Context, kv []*stream.KeyValue) (t *schem
 }
 
 func (c *client) StreamGet(ctx context.Context, k *schema.KeyRequest) (e *schema.Entry, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.StreamGet(ctx, k)
 		return err
@@ -562,7 +539,6 @@ func (c *client) StreamGet(ctx context.Context, k *schema.KeyRequest) (e *schema
 }
 
 func (c *client) StreamVerifiedSet(ctx context.Context, kv []*stream.KeyValue) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.StreamVerifiedSet(ctx, kv)
 		return err
@@ -572,7 +548,6 @@ func (c *client) StreamVerifiedSet(ctx context.Context, kv []*stream.KeyValue) (
 }
 
 func (c *client) StreamVerifiedGet(ctx context.Context, k *schema.VerifiableGetRequest) (e *schema.Entry, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.StreamVerifiedGet(ctx, k)
 		return err
@@ -582,7 +557,6 @@ func (c *client) StreamVerifiedGet(ctx context.Context, k *schema.VerifiableGetR
 }
 
 func (c *client) StreamScan(ctx context.Context, req *schema.ScanRequest) (e *schema.Entries, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.StreamScan(ctx, req)
 		return err
@@ -592,7 +566,6 @@ func (c *client) StreamScan(ctx context.Context, req *schema.ScanRequest) (e *sc
 }
 
 func (c *client) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (e *schema.ZEntries, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.StreamZScan(ctx, req)
 		return err
@@ -602,7 +575,6 @@ func (c *client) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (e *
 }
 
 func (c *client) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (e *schema.Entries, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.StreamHistory(ctx, req)
 		return err
@@ -612,7 +584,6 @@ func (c *client) StreamHistory(ctx context.Context, req *schema.HistoryRequest) 
 }
 
 func (c *client) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (t *schema.TxHeader, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.StreamExecAll(ctx, req)
 		return err
@@ -622,7 +593,6 @@ func (c *client) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) 
 }
 
 func (c *client) ExportTx(ctx context.Context, req *schema.ExportTxRequest) (t schema.ImmuService_ExportTxClient, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.ExportTx(ctx, req)
 		return err
@@ -632,7 +602,6 @@ func (c *client) ExportTx(ctx context.Context, req *schema.ExportTxRequest) (t s
 }
 
 func (c *client) ReplicateTx(ctx context.Context) (t schema.ImmuService_ReplicateTxClient, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.ReplicateTx(ctx)
 		return err
@@ -642,7 +611,6 @@ func (c *client) ReplicateTx(ctx context.Context) (t schema.ImmuService_Replicat
 }
 
 func (c *client) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (e *schema.SQLExecResult, err error) {
-	//TODO implement me
 	fn := func() error {
 		e, err = c.next.SQLExec(ctx, sql, params)
 		return err
@@ -652,7 +620,6 @@ func (c *client) SQLExec(ctx context.Context, sql string, params map[string]inte
 }
 
 func (c *client) SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (s *schema.SQLQueryResult, err error) {
-	//TODO implement me
 	fn := func() error {
 		s, err = c.next.SQLQuery(ctx, sql, params, renewSnapshot)
 		return err
@@ -662,7 +629,6 @@ func (c *client) SQLQuery(ctx context.Context, sql string, params map[string]int
 }
 
 func (c *client) ListTables(ctx context.Context) (s *schema.SQLQueryResult, err error) {
-	//TODO implement me
 	fn := func() error {
 		s, err = c.next.ListTables(ctx)
 		return err
@@ -672,7 +638,6 @@ func (c *client) ListTables(ctx context.Context) (s *schema.SQLQueryResult, err 
 }
 
 func (c *client) DescribeTable(ctx context.Context, tableName string) (s *schema.SQLQueryResult, err error) {
-	//TODO implement me
 	fn := func() error {
 		s, err = c.next.DescribeTable(ctx, tableName)
 		return err
@@ -682,13 +647,11 @@ func (c *client) DescribeTable(ctx context.Context, tableName string) (s *schema
 }
 
 func (c *client) VerifyRow(ctx context.Context, row *schema.Row, table string, pkVals []*schema.SQLValue) error {
-	//TODO implement me
 	fn := func() error { return c.next.VerifyRow(ctx, row, table, pkVals) }
 	return c.execute(fn)
 }
 
 func (c *client) NewTx(ctx context.Context) (t Tx, err error) {
-	//TODO implement me
 	fn := func() error {
 		t, err = c.next.NewTx(ctx)
 		return err
@@ -698,27 +661,24 @@ func (c *client) NewTx(ctx context.Context) (t Tx, err error) {
 }
 
 func (c *client) execute(f func() error) error {
-	log.Println("executor middleware")
 	for i := 0; i < maxBadConnRetries; i++ {
 		c.mutex.RLock()
 		err := f()
 		if err == nil {
 			c.mutex.RUnlock()
-			log.Println("executor middleware Success")
 			return nil
 		}
 		c.mutex.RUnlock()
 		if err != sessions.ErrSessionNotFound && err != ErrNotConnected && !strings.Contains(err.Error(), "session not found") {
-			log.Printf("Unable to retry connection from executor middleware, error %v", err)
 			return err
 		}
 
-		log.Printf("Session Not Found error, try to reOpen session, iteration %d, error %v", i, err)
+		time.Sleep(time.Millisecond * 200)
+
 		c.mutex.Lock()
 		_ = c.connectionOpener()
 		c.mutex.Unlock()
 	}
 
-	log.Println("CRITICAL Err Max conn retries")
 	return ErrMaxRetries
 }
