@@ -60,8 +60,10 @@ type Driver struct {
 }
 
 func (d *Driver) Open(name string) (driver.Conn, error) {
+	fmt.Printf("Driver OPEN %s \n", name)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Ensure eventual timeout
 	defer cancel()
+	defer fmt.Printf("Driver OPEN %s exit\n", name)
 
 	connector, err := d.OpenConnector(name)
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"time"
 
@@ -689,6 +690,7 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 //
 // Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
+	log.Println("Client Connect")
 	if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err != nil {
 		c.Logger.Debugf("dialed %v", c.Options)
 		return nil, err
@@ -700,11 +702,14 @@ func (c *immuClient) Connect(ctx context.Context) (clientConn *grpc.ClientConn, 
 //
 // Deprecated: use NewClient and CloseSession instead.
 func (c *immuClient) Disconnect() error {
+	log.Println("Client Disconnect")
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return errors.FromError(ErrNotConnected)
 	}
+
+	log.Printf("Disconnect current client conn state before re dial, %v", c.clientConn.GetState())
 
 	if err := c.clientConn.Close(); err != nil {
 		return err
@@ -871,6 +876,7 @@ func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 //
 // Deprecated: use NewClient and OpenSession instead.
 func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
+	log.Println("Client Login")
 	start := time.Now()
 
 	if !c.IsConnected() {
@@ -898,6 +904,7 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 //
 // Deprecated: use CloseSession.
 func (c *immuClient) Logout(ctx context.Context) error {
+	log.Println("Client Logout")
 	start := time.Now()
 
 	if !c.IsConnected() {

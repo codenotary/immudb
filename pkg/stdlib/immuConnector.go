@@ -23,7 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-type immuConnector struct {
+type immuConnector struct { // @TODO
 	cliOptions *client.Options
 	driver     *Driver
 }

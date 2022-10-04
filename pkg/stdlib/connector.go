@@ -21,7 +21,7 @@ import (
 	"database/sql/driver"
 )
 
-type driverConnector struct {
+type driverConnector struct { // @TODO
 	name   string
 	driver *Driver
 }
