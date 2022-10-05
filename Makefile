@@ -29,6 +29,7 @@ DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
 
+
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
 V_BUILT_BY := $(shell git config user.email)
@@ -44,6 +45,9 @@ V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -extldflags "-static"
 V_LDFLAGS_FIPS_BUILD = ${V_LDFLAGS_BUILD} \
 				  -X github.com/codenotary/immudb/cmd/version.FIPSEnabled=true
+V_GO_ENV_FLAGS := GOOS=$(GOOS) GOARCH=$(GOARCH)
+V_BUILD_NAME ?= ""
+V_BUILD_FLAG = -o $(V_BUILD_NAME)
 
 GRPC_GATEWAY_VERSION := $(shell go list -m -versions github.com/grpc-ecosystem/grpc-gateway | awk -F ' ' '{print $$NF}')
 WEBCONSOLE_BUILDTAG=
@@ -79,15 +83,15 @@ webconsole/default:
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
-immudb: webconsole
-	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
+immudb: build webconsole
+	$(V_GO_ENV_FLAGS) $(GO) build $(V_BUILD_FLAG) $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immutest
 immutest:
@@ -95,7 +99,7 @@ immutest:
 
 .PHONY: immuclient-static
 immuclient-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
 
 .PHONY: immuclient-fips
 immuclient-fips:
@@ -104,7 +108,7 @@ immuclient-fips:
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
 
 .PHONY: immuadmin-fips
 immuadmin-fips:
@@ -113,7 +117,7 @@ immuadmin-fips:
 
 .PHONY: immudb-static
 immudb-static: webconsole
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
+	$(V_GO_ENV_FLAGS) CGO_ENABLED=0 $(GO) build $(V_BUILD_FLAG) $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
 
 .PHONY: immudb-fips
 immudb-fips: webconsole
@@ -231,9 +235,9 @@ dist/binaries:
     		for os_arch in ${TARGETS}; do \
     			goos=`echo $$os_arch|sed 's|/.*||'`; \
     			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
-    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
+				GOOS=$$goos GOARCH=$$goarch V_BUILD_NAME=./dist/$$service-v${VERSION}-$$goos-$$goarch make $$service ; \
     		done; \
-    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC}' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
+			CGO_ENABLED=0 GOOS=linux GOARCH=amd64 V_BUILD_NAME=./dist/$$service-v${VERSION}-linux-amd64-static make $$service-static ; \
     		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
     	done
 
