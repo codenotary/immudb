@@ -39,6 +39,8 @@ var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
 var ErrFollowerDivergedFromMaster = errors.New("follower diverged from master")
+var ErrNoSynchronousReplicationOnMaster = errors.New("master is not running with synchronous replication")
+var ErrInvalidReplicationMetadata = errors.New("invalid replication metadata retrieved")
 
 type TxReplicator struct {
 	uuid xid.ID
@@ -329,7 +331,11 @@ func (txr *TxReplicator) fetchNextTx() error {
 		md := exportTxStream.Trailer()
 
 		if len(md.Get("may-commit-up-to-txid-bin")) == 0 || len(md.Get("may-commit-up-to-alh-bin")) == 0 {
-			return fmt.Errorf("master is not running with synchronous replication")
+			return ErrNoSynchronousReplicationOnMaster
+		}
+
+		if len(md.Get("may-commit-up-to-txid-bin")[0]) != 8 || len(md.Get("may-commit-up-to-alh-bin")[0]) != sha256.Size {
+			return ErrInvalidReplicationMetadata
 		}
 
 		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
