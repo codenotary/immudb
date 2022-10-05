@@ -482,7 +482,7 @@ func TestSyncTestChangingMasterSuite(t *testing.T) {
 
 func (suite *SyncTestChangingMasterSuite) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
-	suite.SetupCluster(2, 1, 0)
+	suite.SetupCluster(2, 2, 0)
 }
 
 func (suite *SyncTestChangingMasterSuite) TestSyncTestChangingMasterSuite() {
@@ -498,6 +498,7 @@ func (suite *SyncTestChangingMasterSuite) TestSyncTestChangingMasterSuite() {
 		txBeforeChangingMaster = tx
 	})
 
+	// it's possible to promote any replica as new master because ack from all replicas is required by master
 	suite.PromoteFollower(1, 1)
 
 	suite.Run("commit after changing master", func() {
