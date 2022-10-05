@@ -122,15 +122,15 @@ func (suite *SyncTestSuite) TestPrecommitStateSync() {
 			defer wg.Done()
 			ctx, client, cleanup := suite.ClientForReplica(followerID)
 			defer cleanup()
-			for range startCh {
-				suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
-					state, err := client.CurrentState(ctx)
-					require.NoError(suite.T(), err)
-					suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
-					suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
-				})
-				return
-			}
+
+			<-startCh
+
+			suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
+				state, err := client.CurrentState(ctx)
+				require.NoError(suite.T(), err)
+				suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
+				suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
+			})
 		}(i)
 	}
 
