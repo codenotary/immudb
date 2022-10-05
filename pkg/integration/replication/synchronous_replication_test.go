@@ -13,21 +13,21 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type SyncTestSuite struct {
+type SyncTestSuiteMasterToAllFollowers struct {
 	baseReplicationTestSuite
 }
 
-func TestSyncTestSuite(t *testing.T) {
-	suite.Run(t, &SyncTestSuite{})
+func TestSyncTestSuiteMasterToAllFollowers(t *testing.T) {
+	suite.Run(t, &SyncTestSuiteMasterToAllFollowers{})
 }
 
 // this function executes before the test suite begins execution
-func (suite *SyncTestSuite) SetupTest() {
+func (suite *SyncTestSuiteMasterToAllFollowers) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
 }
 
-func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
+func (suite *SyncTestSuiteMasterToAllFollowers) TestSyncFromMasterToAllFollowers() {
 	ctx, client, cleanup := suite.ClientForMaster()
 	defer cleanup()
 
@@ -58,7 +58,21 @@ func (suite *SyncTestSuite) TestSyncFromMasterToAllFollowers() {
 	}
 }
 
-func (suite *SyncTestSuite) TestMasterRestart() {
+type SyncTestSuiteMasterRestart struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestSuiteMasterRestart(t *testing.T) {
+	suite.Run(t, &SyncTestSuiteMasterRestart{})
+}
+
+// this function executes before the test suite begins execution
+func (suite *SyncTestSuiteMasterRestart) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
+	suite.SetupCluster(2, 2, 0)
+}
+
+func (suite *SyncTestSuiteMasterRestart) TestMasterRestart() {
 	var txBeforeRestart *schema.TxHeader
 	suite.Run("commit before restarting primary", func() {
 
@@ -102,9 +116,23 @@ func (suite *SyncTestSuite) TestMasterRestart() {
 	})
 }
 
+type SyncTestSuitePrecommitStateSync struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestSuitePrecommitStateSync(t *testing.T) {
+	suite.Run(t, &SyncTestSuitePrecommitStateSync{})
+}
+
+// this function executes before the test suite begins execution
+func (suite *SyncTestSuitePrecommitStateSync) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
+	suite.SetupCluster(2, 2, 0)
+}
+
 // TestPrecommitStateSync checks if the precommit state at master
 // and its followers are in sync during synchronous replication
-func (suite *SyncTestSuite) TestPrecommitStateSync() {
+func (suite *SyncTestSuitePrecommitStateSync) TestPrecommitStateSync() {
 	var (
 		masterState *schema.ImmutableState
 		err         error
