@@ -499,6 +499,11 @@ func (suite *SyncTestChangingMasterSuite) TestSyncTestChangingMasterSuite() {
 	})
 
 	// it's possible to promote any replica as new master because ack from all replicas is required by master
+	// ensure the replica to be promoted is up to date with master's commit state
+	ctx, client, cleanup := suite.ClientForReplica(1)
+	suite.WaitForCommittedTx(ctx, client, txBeforeChangingMaster.Id, 1*time.Second)
+	cleanup()
+
 	suite.PromoteFollower(1, 1)
 
 	suite.Run("commit after changing master", func() {
