@@ -9,6 +9,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -25,6 +26,8 @@ const (
 type TestServer interface {
 	// Get the host and port under which the server can be accessed
 	Address(t *testing.T) (host string, port int)
+
+	UUID(t *testing.T) xid.ID
 
 	// shutdown the server
 	Shutdown(t *testing.T)
@@ -305,6 +308,20 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 	}
 
 	wg.Wait()
+
+	uuids := make(map[string]struct{}, 1+suite.GetFollowersCount())
+
+	uuids[suite.master.UUID(suite.T()).String()] = struct{}{}
+
+	for _, f := range suite.followers {
+		uuid := f.UUID(suite.T()).String()
+
+		if _, ok := uuids[uuid]; ok {
+			panic("duplicated uuid")
+		}
+
+		uuids[uuid] = struct{}{}
+	}
 }
 
 // SetupTest initializes the suite

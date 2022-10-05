@@ -11,6 +11,7 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,6 +46,10 @@ type dockerTestServer struct {
 
 func (s *dockerTestServer) Address(t *testing.T) (string, int) {
 	return getLocalIP(), s.port
+}
+
+func (s *dockerTestServer) UUID(t *testing.T) xid.ID {
+	panic("UUID unsupported in dockerTestServer")
 }
 
 func (s *dockerTestServer) Shutdown(t *testing.T) {
