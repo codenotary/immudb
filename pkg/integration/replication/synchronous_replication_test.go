@@ -111,9 +111,6 @@ func (suite *SyncTestSuite) TestPrecommitStateSync() {
 		startCh     = make(chan bool)
 	)
 
-	ctx, client, cleanup := suite.ClientForMaster()
-	defer cleanup()
-
 	// Create goroutines for client waiting to query the state
 	// of the followers. This is initialised before to avoid
 	// spending time initialising the follower client for faster
@@ -125,20 +122,20 @@ func (suite *SyncTestSuite) TestPrecommitStateSync() {
 			defer wg.Done()
 			ctx, client, cleanup := suite.ClientForReplica(followerID)
 			defer cleanup()
-			for {
-				select {
-				case <-startCh:
-					suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
-						state, err := client.CurrentState(ctx)
-						require.NoError(suite.T(), err)
-						suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
-						suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
-					})
-					return
-				}
+			for range startCh {
+				suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
+					state, err := client.CurrentState(ctx)
+					require.NoError(suite.T(), err)
+					suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
+					suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
+				})
+				return
 			}
 		}(i)
 	}
+
+	ctx, client, cleanup := suite.ClientForMaster()
+	defer cleanup()
 
 	// add multiple keys to make update the master's state quickly
 	for i := 10; i < 30; i++ {
