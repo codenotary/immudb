@@ -92,8 +92,8 @@ immuclient-static:
 
 .PHONY: immuclient-fips
 immuclient-fips:
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GO) build -tags=fips -a -o immuclient -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immuclient/fips
-	./build/fips/check-fips.sh immuclient
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GO) build -tags=fips -a -o immuclient-fips -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immuclient/fips
+	./build/fips/check-fips.sh immuclient-fips
 
 .PHONY: immuadmin-static
 immuadmin-static:
@@ -101,8 +101,8 @@ immuadmin-static:
 
 .PHONY: immuadmin-fips
 immuadmin-fips:
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GO) build -tags=fips -a -o immuadmin -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immuadmin/fips
-	./build/fips/check-fips.sh immuadmin
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GO) build -tags=fips -a -o immuadmin-fips -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immuadmin/fips
+	./build/fips/check-fips.sh immuadmin-fips
 
 .PHONY: immudb-static
 immudb-static: webconsole
@@ -110,8 +110,8 @@ immudb-static: webconsole
 
 .PHONY: immudb-fips
 immudb-fips: webconsole
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 WEBCONSOLE=default $(GO) build -tags=webconsole,fips -a -o immudb -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immudb/fips
-	./build/fips/check-fips.sh immudb
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 WEBCONSOLE=default $(GO) build -tags=webconsole,fips -a -o immudb-fips -ldflags '$(V_LDFLAGS_FIPS_BUILD)' ./cmd/immudb/fips
+	./build/fips/check-fips.sh immudb-fips
 
 .PHONY: immutest-static
 immutest-static:
@@ -215,11 +215,11 @@ dist: webconsole dist/binaries dist/fips
 dist/fips: clean
 	$(DOCKER) build -t fips:build -f build/fips/Dockerfile.build .
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "WEBCONSOLE=default make immudb-fips"
-	mv immudb ./dist/immudb-v${VERSION}-linux-amd64-fips
+	mv immudb-fips ./dist/immudb-v${VERSION}-linux-amd64-fips
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuclient-fips"
-	mv immuclient ./dist/immuclient-v${VERSION}-linux-amd64-fips
+	mv immuclient-fips ./dist/immuclient-v${VERSION}-linux-amd64-fips
 	$(DOCKER) run -v ${PWD}:/src --user root --rm fips:build -c "make immuadmin-fips"
-	mv immuadmin ./dist/immuadmin-v${VERSION}-linux-amd64-fips
+	mv immuadmin-fips ./dist/immuadmin-v${VERSION}-linux-amd64-fips
 
 .PHONY: dist/binaries
 dist/binaries:
@@ -228,7 +228,7 @@ dist/binaries:
     		for os_arch in ${TARGETS}; do \
     			goos=`echo $$os_arch|sed 's|/.*||'`; \
     			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
-    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
+    		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
     		done; \
     		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC}' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
     		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
