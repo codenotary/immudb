@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,6 +40,10 @@ func (s *inProcessTestServer) Shutdown(t *testing.T) {
 	require.NotNil(t, s.srv)
 	s.srv.Stop()
 	s.srv = nil
+}
+
+func (s *inProcessTestServer) UUID(t *testing.T) xid.ID {
+	return s.srv.UUID
 }
 
 func (s *inProcessTestServer) Start(t *testing.T) {
