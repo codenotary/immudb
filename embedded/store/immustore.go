@@ -842,10 +842,15 @@ func (s *ImmuStore) PrecommittedAlh() (uint64, [sha256.Size]byte) {
 
 	durablePrecommittedTxID, _, _ := s.durablePrecommitWHub.Status()
 
-	if s.inmemPrecommittedTxID == durablePrecommittedTxID {
+	if durablePrecommittedTxID == s.committedTxID {
+		return s.committedTxID, s.committedAlh
+	}
+
+	if durablePrecommittedTxID == s.inmemPrecommittedTxID {
 		return s.inmemPrecommittedTxID, s.inmemPrecommittedAlh
 	}
 
+	// fetch latest precommitted (durable) transaction from s.cLogBuf
 	txID, alh, _, _, _ := s.cLogBuf.readAhead(int(durablePrecommittedTxID - s.committedTxID - 1))
 
 	return txID, alh
