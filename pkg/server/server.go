@@ -611,6 +611,9 @@ func (s *ImmuServer) stopReplicationFor(db string) error {
 	}
 
 	err := replicator.Stop()
+	if err == replication.ErrAlreadyStopped {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

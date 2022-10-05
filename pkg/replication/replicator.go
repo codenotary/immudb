@@ -100,6 +100,10 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 		return false
 	}
 
+	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrFollowerDivergedFromMaster) {
+		return true
+	}
+
 	txr.consecutiveFailures++
 
 	txr.logger.Infof("Replication error on database '%s' from '%s' (%d consecutive failures). Reason: %s",
@@ -140,19 +144,21 @@ func (txr *TxReplicator) Start() error {
 	txr.running = true
 
 	go func() {
+		txr.logger.Infof("Replication for '%s' started fetching transaction from '%s'...", txr.db.GetName(), txr._masterDB)
+
+		var err error
+
 		for {
 			err := txr.fetchNextTx()
-			if errors.Is(err, ErrAlreadyStopped) {
-				return
-			}
-			if errors.Is(err, ErrFollowerDivergedFromMaster) {
-				txr.Stop()
-				return
-			}
-
 			if txr.handleError(err) {
-				return
+				break
 			}
+		}
+
+		txr.logger.Infof("Replication for '%s' stopped fetching transaction from '%s'", txr.db.GetName(), txr._masterDB)
+
+		if errors.Is(err, ErrFollowerDivergedFromMaster) {
+			txr.Stop()
 		}
 	}()
 
@@ -361,11 +367,11 @@ func (txr *TxReplicator) Stop() error {
 	txr.mutex.Lock()
 	defer txr.mutex.Unlock()
 
-	txr.logger.Infof("Stopping replication of database '%s'...", txr.db.GetName())
-
 	if !txr.running {
 		return ErrAlreadyStopped
 	}
+
+	txr.logger.Infof("Stopping replication of database '%s'...", txr.db.GetName())
 
 	close(txr.prefetchTxBuffer)
 
