@@ -3,12 +3,14 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/errors"
 	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/state"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -84,6 +86,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.HeartBeater.KeepAlive(context.Background())
 
 	c.WithStateService(stateService)
+	c.WithErrorHandler(c.keepAliveErrorHandler)
 
 	c.Options.CurrentDatabase = database
 
@@ -122,4 +125,12 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 // GetSessionID returns the current internal session identifier.
 func (c *immuClient) GetSessionID() string {
 	return c.SessionID
+}
+
+func (c *immuClient) keepAliveErrorHandler(sessionID string, err error) {
+	if err != sessions.ErrSessionNotFound && err != ErrNotConnected && !strings.Contains(err.Error(), "session not found") {
+		c.Logger.Errorf("heartbeater KeepAlive error, sessionID %s error %v", sessionID, err)
+
+		panic(fmt.Errorf("heartbeater KeepAlive error, sessionID %s error %v", sessionID, err))
+	}
 }

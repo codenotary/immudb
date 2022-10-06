@@ -622,6 +622,7 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	}
 
 	c.WithStateService(stateService)
+	c.WithErrorHandler(c.keepAliveErrorHandler)
 
 	return c, nil
 }
