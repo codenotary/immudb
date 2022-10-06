@@ -22,10 +22,11 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 )
+
+type ErrorHandler func(sessionID string, err error)
 
 type heartBeater struct {
 	sessionID     string
@@ -33,7 +34,7 @@ type heartBeater struct {
 	serviceClient schema.ImmuServiceClient
 	done          chan struct{}
 	t             *time.Ticker
-	errorHandler  client.ErrorHandler
+	errorHandler  ErrorHandler
 }
 
 type HeartBeater interface {
@@ -41,7 +42,7 @@ type HeartBeater interface {
 	Stop()
 }
 
-func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, h client.ErrorHandler) *heartBeater {
+func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInterval time.Duration, h ErrorHandler) *heartBeater {
 	return &heartBeater{
 		sessionID:     sessionID,
 		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),

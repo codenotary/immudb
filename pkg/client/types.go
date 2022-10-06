@@ -19,6 +19,7 @@ package client
 import (
 	"crypto/ecdsa"
 
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -76,7 +77,7 @@ func (c *immuClient) WithOptions(options *Options) *immuClient {
 	return c
 }
 
-func (c *immuClient) WithErrorHandler(handler ErrorHandler) *immuClient {
+func (c *immuClient) WithErrorHandler(handler heartbeater.ErrorHandler) *immuClient {
 	c.errorHandler = handler
 	return c
 }

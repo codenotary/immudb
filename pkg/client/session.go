@@ -82,11 +82,11 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.Options.DialOptions = dialOptions
 	c.SessionID = resp.GetSessionID()
 
+	c.WithErrorHandler(c.keepAliveErrorHandler)
 	c.HeartBeater = heartbeater.NewHeartBeater(c.SessionID, c.ServiceClient, c.Options.HeartBeatFrequency, c.errorHandler)
 	c.HeartBeater.KeepAlive(context.Background())
 
 	c.WithStateService(stateService)
-	c.WithErrorHandler(c.keepAliveErrorHandler)
 
 	c.Options.CurrentDatabase = database
 
@@ -128,7 +128,7 @@ func (c *immuClient) GetSessionID() string {
 }
 
 func (c *immuClient) keepAliveErrorHandler(sessionID string, err error) {
-	if err != sessions.ErrSessionNotFound && err != ErrNotConnected && !strings.Contains(err.Error(), "session not found") {
+	if err == sessions.ErrSessionNotFound || err == ErrNotConnected || strings.Contains(err.Error(), "session not found") {
 		c.Logger.Errorf("heartbeater KeepAlive error, sessionID %s error %v", sessionID, err)
 
 		panic(fmt.Errorf("heartbeater KeepAlive error, sessionID %s error %v", sessionID, err))
