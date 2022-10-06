@@ -1316,7 +1316,12 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		}
 	}
 
-	var cancellation <-chan struct{}
+	// it might be the case master will commit some txs
+	// current timeout it's not a special value but at least a relative one
+	// note: master might also be waiting ack from any follower (even this follower may do progress)
+	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
+	defer cancel()
+	cancellation := ctx.Done()
 
 	// the follower requested a non-existent or non-ready transaction
 	// follower commits are prioritized over passive waiting for the requested transaction
@@ -1327,17 +1332,6 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		if req.FollowerState != nil && req.FollowerState.CommittedTxID < committedTxID {
 			return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 		}
-
-		// it might be the case master will commit some txs
-		// current timeout it's not a special value but at least a relative one
-		// note: master might also be waiting ack from other followers
-		if (req.FollowerState != nil && req.FollowerState.CommittedTxID < req.FollowerState.PrecommittedTxID) ||
-			(req.AllowPreCommitted && committedTxID < preCommittedTxID) {
-			ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
-			defer cancel()
-			cancellation = ctx.Done()
-		}
-
 	}
 
 	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, cancellation)
