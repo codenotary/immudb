@@ -140,7 +140,9 @@ func (suite *SyncTestSuitePrecommitStateSync) TestPrecommitStateSync() {
 	for i := 10; i < 30; i++ {
 		key := fmt.Sprintf("key%d", i)
 		value := fmt.Sprintf("value%d", i)
+		fmt.Printf("Before setting the key %d", i)
 		_, err := client.Set(ctx, []byte(key), []byte(value))
+		fmt.Printf("After setting the key %d", i)
 		require.NoError(suite.T(), err)
 	}
 
