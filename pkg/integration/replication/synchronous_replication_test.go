@@ -25,6 +25,7 @@ func TestSyncTestSuiteMasterToAllFollowers(t *testing.T) {
 func (suite *SyncTestSuiteMasterToAllFollowers) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
+	suite.ValidateClusterSetup()
 }
 
 func (suite *SyncTestSuiteMasterToAllFollowers) TestSyncFromMasterToAllFollowers() {
@@ -70,6 +71,7 @@ func TestSyncTestSuiteMasterRestart(t *testing.T) {
 func (suite *SyncTestSuiteMasterRestart) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
+	suite.ValidateClusterSetup()
 }
 
 func (suite *SyncTestSuiteMasterRestart) TestMasterRestart() {
@@ -128,37 +130,60 @@ func TestSyncTestSuitePrecommitStateSync(t *testing.T) {
 func (suite *SyncTestSuitePrecommitStateSync) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
+	suite.ValidateClusterSetup()
 }
 
 // TestPrecommitStateSync checks if the precommit state at master
 // and its followers are in sync during synchronous replication
 func (suite *SyncTestSuitePrecommitStateSync) TestPrecommitStateSync() {
+	var (
+		masterState *schema.ImmutableState
+		err         error
+		startCh     = make(chan bool)
+	)
+
 	ctx, client, cleanup := suite.ClientForMaster()
 	defer cleanup()
+
+	// Create goroutines for client waiting to query the state
+	// of the followers. This is initialised before to avoid
+	// spending time initialising the follower client for faster
+	// state access
+	var wg sync.WaitGroup
+	for i := 0; i < suite.GetFollowersCount(); i++ {
+		wg.Add(1)
+		go func(followerID int) {
+			defer wg.Done()
+			ctx, client, cleanup := suite.ClientForReplica(followerID)
+			defer cleanup()
+
+			<-startCh
+
+			suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
+				state, err := client.CurrentState(ctx)
+				require.NoError(suite.T(), err)
+				suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
+				suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
+			})
+		}(i)
+	}
 
 	// add multiple keys to make update the master's state quickly
 	for i := 10; i < 30; i++ {
 		key := fmt.Sprintf("key%d", i)
 		value := fmt.Sprintf("value%d", i)
-		_, err := client.Set(ctx, []byte(key), []byte(value))
+		_, err = client.Set(ctx, []byte(key), []byte(value))
 		require.NoError(suite.T(), err)
 	}
 
 	// get the current precommit txn id state of master
-	masterState, err := client.CurrentState(ctx)
+	masterState, err = client.CurrentState(ctx)
 	require.NoError(suite.T(), err)
 
-	for i := 0; i < suite.GetFollowersCount(); i++ {
-		ctx, client, cleanup := suite.ClientForReplica(i)
-		defer cleanup()
+	// close will unblock all goroutines
+	close(startCh)
 
-		suite.Run(fmt.Sprintf("test replica sync state %d", i), func() {
-			state, err := client.CurrentState(ctx)
-			require.NoError(suite.T(), err)
-			suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
-			suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
-		})
-	}
+	wg.Wait()
 }
 
 type SyncTestMinimumFollowersSuite struct {
@@ -173,6 +198,7 @@ func TestSyncTestMinimumFollowersSuite(t *testing.T) {
 func (suite *SyncTestMinimumFollowersSuite) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(4, 2, 0)
+	suite.ValidateClusterSetup()
 }
 
 // TestMinimumFollowers ensures the primary can operate as long as the minimum
@@ -270,6 +296,7 @@ func TestSyncTestRecoverySpeedSuite(t *testing.T) {
 func (suite *SyncTestRecoverySpeedSuite) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 1, 0)
+	suite.ValidateClusterSetup()
 }
 
 func (suite *SyncTestRecoverySpeedSuite) TestReplicaRecoverySpeed() {
@@ -401,6 +428,7 @@ func TestSyncTestWithAsyncFollowersSuite(t *testing.T) {
 func (suite *SyncTestWithAsyncFollowersSuite) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 1, 1)
+	suite.ValidateClusterSetup()
 }
 
 func (suite *SyncTestWithAsyncFollowersSuite) TestSyncReplicationAlongWithAsyncFollowers() {
@@ -490,6 +518,7 @@ func TestSyncTestChangingMasterSuite(t *testing.T) {
 func (suite *SyncTestChangingMasterSuite) SetupTest() {
 	suite.baseReplicationTestSuite.SetupTest()
 	suite.SetupCluster(2, 2, 0)
+	suite.ValidateClusterSetup()
 }
 
 func (suite *SyncTestChangingMasterSuite) TestSyncTestChangingMasterSuite() {
