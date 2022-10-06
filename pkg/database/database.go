@@ -1319,6 +1319,9 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	// it might be the case master will commit some txs
 	// current timeout it's not a special value but at least a relative one
 	// note: master might also be waiting ack from any follower (even this follower may do progress)
+
+	// TODO: under some circustances, follower might not be able to do further progress until master
+	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
 	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
 	defer cancel()
 	cancellation := ctx.Done()
