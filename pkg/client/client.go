@@ -201,6 +201,7 @@ type immuClient struct {
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
+	sessionRenewal       func(ctx context.Context) error
 }
 
 // Ensure immuClient implements the ImmuClient interface
@@ -348,10 +349,13 @@ func (c *immuClient) SetupDialOptions(options *Options) []grpc.DialOption {
 		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
 			// todo here is possible to remove ClientUnaryInterceptor and use only tokenInterceptor
-			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)), grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
+			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
+			opts = append(opts, grpc.WithStreamInterceptor(c.SessionIDInjectorStreamInterceptor))
+
 		}
 	}
 	uic = append(uic, c.SessionIDInjectorInterceptor)
+	uic = append(uic, c.SessionRecoverInterceptor)
 
 	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
