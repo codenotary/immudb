@@ -189,10 +189,15 @@ type ImmuClient interface {
 
 const DefaultDB = "defaultdb"
 
+type creds struct {
+	user, pass []byte
+	database   string
+}
+
 type immuClient struct {
 	Dir                  string
 	Logger               logger.Logger
-	Options              *Options
+	Options              *Options // @TODO: Error Handler as an option
 	clientConn           *grpc.ClientConn
 	ServiceClient        schema.ImmuServiceClient
 	StateService         state.StateService
@@ -201,7 +206,7 @@ type immuClient struct {
 	StreamServiceFactory stream.ServiceFactory
 	SessionID            string
 	HeartBeater          heartbeater.HeartBeater
-	sessionRenewal       func(ctx context.Context) error
+	credentials          *creds
 }
 
 // Ensure immuClient implements the ImmuClient interface

@@ -77,13 +77,16 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.WithStateService(stateService)
 
 	c.Options.CurrentDatabase = database
-	if c.sessionRenewal != nil {
+	if c.credentials != nil { // @TODO: Thread safety concerns
 		return nil
 	}
-	c.sessionRenewal = func(ctx context.Context) error {
-		_ = c.CloseSession(ctx)
-		return c.OpenSession(ctx, user, pass, database)
+
+	c.credentials = &creds{
+		user:     user,
+		pass:     pass,
+		database: database,
 	}
+
 	return nil
 }
 
