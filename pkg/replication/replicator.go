@@ -369,18 +369,26 @@ func (txr *TxReplicator) fetchNextTx() error {
 	if syncReplicationEnabled {
 		md := exportTxStream.Trailer()
 
-		if len(md.Get("may-commit-up-to-txid-bin")) == 0 || len(md.Get("may-commit-up-to-alh-bin")) == 0 {
+		if len(md.Get("may-commit-up-to-txid-bin")) == 0 ||
+			len(md.Get("may-commit-up-to-alh-bin")) == 0 ||
+			len(md.Get("committed-txid-bin")) == 0 {
 			return ErrNoSynchronousReplicationOnMaster
 		}
 
-		if len(md.Get("may-commit-up-to-txid-bin")[0]) != 8 || len(md.Get("may-commit-up-to-alh-bin")[0]) != sha256.Size {
+		if len(md.Get("may-commit-up-to-txid-bin")[0]) != 8 ||
+			len(md.Get("may-commit-up-to-alh-bin")[0]) != sha256.Size ||
+			len(md.Get("committed-txid-bin")[0]) != 8 {
 			return ErrInvalidReplicationMetadata
 		}
 
 		mayCommitUpToTxID := binary.BigEndian.Uint64([]byte(md.Get("may-commit-up-to-txid-bin")[0]))
+		committedTxID := binary.BigEndian.Uint64([]byte(md.Get("committed-txid-bin")[0]))
 
 		var mayCommitUpToAlh [sha256.Size]byte
 		copy(mayCommitUpToAlh[:], []byte(md.Get("may-commit-up-to-alh-bin")[0]))
+
+		txr.metrics.primaryCommittedTxID.Set(float64(committedTxID))
+		txr.metrics.allowCommitUpToTxID.Set(float64(mayCommitUpToTxID))
 
 		if mayCommitUpToTxID > commitState.TxId {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)

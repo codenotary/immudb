@@ -38,12 +38,19 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 
 	defer func() {
 		if req.FollowerState != nil {
-			var bTxID [8]byte
-			binary.BigEndian.PutUint64(bTxID[:], mayCommitUpToTxID)
+			var bMayCommitUpToTxID [8]byte
+			binary.BigEndian.PutUint64(bMayCommitUpToTxID[:], mayCommitUpToTxID)
+
+			var bCommittedTxID [8]byte
+			state, err := db.CurrentState()
+			if err == nil {
+				binary.BigEndian.PutUint64(bCommittedTxID[:], state.TxId)
+			}
 
 			md := metadata.Pairs(
-				"may-commit-up-to-txid-bin", string(bTxID[:]),
+				"may-commit-up-to-txid-bin", string(bMayCommitUpToTxID[:]),
 				"may-commit-up-to-alh-bin", string(mayCommitUpToAlh[:]),
+				"committed-txid-bin", string(bCommittedTxID[:]),
 			)
 
 			txsServer.SetTrailer(md)
