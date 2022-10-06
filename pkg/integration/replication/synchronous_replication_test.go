@@ -133,35 +133,6 @@ func (suite *SyncTestSuitePrecommitStateSync) SetupTest() {
 // TestPrecommitStateSync checks if the precommit state at master
 // and its followers are in sync during synchronous replication
 func (suite *SyncTestSuitePrecommitStateSync) TestPrecommitStateSync() {
-	var (
-		masterState *schema.ImmutableState
-		err         error
-		startCh     = make(chan bool)
-	)
-
-	// Create goroutines for client waiting to query the state
-	// of the followers. This is initialised before to avoid
-	// spending time initialising the follower client for faster
-	// state access
-	var wg sync.WaitGroup
-	for i := 0; i < suite.GetFollowersCount(); i++ {
-		wg.Add(1)
-		go func(followerID int) {
-			defer wg.Done()
-			ctx, client, cleanup := suite.ClientForReplica(followerID)
-			defer cleanup()
-
-			<-startCh
-
-			suite.Run(fmt.Sprintf("test replica sync state %d", followerID), func() {
-				state, err := client.CurrentState(ctx)
-				require.NoError(suite.T(), err)
-				suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
-				suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
-			})
-		}(i)
-	}
-
 	ctx, client, cleanup := suite.ClientForMaster()
 	defer cleanup()
 
@@ -169,17 +140,25 @@ func (suite *SyncTestSuitePrecommitStateSync) TestPrecommitStateSync() {
 	for i := 10; i < 30; i++ {
 		key := fmt.Sprintf("key%d", i)
 		value := fmt.Sprintf("value%d", i)
-		_, err = client.Set(ctx, []byte(key), []byte(value))
+		_, err := client.Set(ctx, []byte(key), []byte(value))
 		require.NoError(suite.T(), err)
 	}
 
 	// get the current precommit txn id state of master
-	masterState, err = client.CurrentState(ctx)
+	masterState, err := client.CurrentState(ctx)
 	require.NoError(suite.T(), err)
 
-	// close will unblock all goroutines
-	close(startCh)
-	wg.Wait()
+	for i := 0; i < suite.GetFollowersCount(); i++ {
+		ctx, client, cleanup := suite.ClientForReplica(i)
+		defer cleanup()
+
+		suite.Run(fmt.Sprintf("test replica sync state %d", i), func() {
+			state, err := client.CurrentState(ctx)
+			require.NoError(suite.T(), err)
+			suite.Require().Equal(state.PrecommittedTxId, masterState.TxId)
+			suite.Require().Equal(state.PrecommittedTxHash, masterState.TxHash)
+		})
+	}
 }
 
 type SyncTestMinimumFollowersSuite struct {
