@@ -1316,33 +1316,31 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		}
 	}
 
-	// it might be the case master will commit some txs
-	// current timeout it's not a special value but at least a relative one
-	// note: master might also be waiting ack from any follower (even this follower may do progress)
-
-	// TODO: under some circustances, follower might not be able to do further progress until master
-	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
-	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
-	defer cancel()
-	cancellation := ctx.Done()
-
 	// the follower requested a non-existent or non-ready transaction
-	// follower commits are prioritized over passive waiting for the requested transaction
-	if (req.AllowPreCommitted && req.Tx > preCommittedTxID) ||
-		(!req.AllowPreCommitted && req.Tx > committedTxID) {
-
+	if (req.AllowPreCommitted && req.Tx > preCommittedTxID) || (!req.AllowPreCommitted && req.Tx > committedTxID) {
+		// follower commits are prioritized over passive waiting for the requested transaction
 		// follower committed state lies behind master committed state
+		// TODO: evaluate if it's better to remove this special case and just wait for the requested tx (faster replication)
 		if req.FollowerState != nil && req.FollowerState.CommittedTxID < committedTxID {
 			return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 		}
-	}
 
-	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, cancellation)
-	if errors.Is(err, watchers.ErrCancellationRequested) {
-		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
-	}
-	if err != nil {
-		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
+		// it might be the case master will commit some txs
+		// current timeout it's not a special value but at least a relative one
+		// note: master might also be waiting ack from any follower (even this follower may do progress)
+
+		// TODO: under some circustances, follower might not be able to do further progress until master
+		// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
+		ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
+		defer cancel()
+
+		err = d.WaitForTx(req.Tx, req.AllowPreCommitted, ctx.Done())
+		if errors.Is(err, watchers.ErrCancellationRequested) {
+			return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
+		}
+		if err != nil {
+			return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
+		}
 	}
 
 	txbs, err = d.st.ExportTx(req.Tx, req.AllowPreCommitted, tx)
