@@ -308,7 +308,9 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 	}
 
 	wg.Wait()
+}
 
+func (suite *baseReplicationTestSuite) ValidateClusterSetup() {
 	uuids := make(map[string]struct{}, 1+suite.GetFollowersCount())
 
 	uuids[suite.master.UUID(suite.T()).String()] = struct{}{}
@@ -317,7 +319,7 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 		uuid := f.UUID(suite.T()).String()
 
 		if _, ok := uuids[uuid]; ok {
-			panic("duplicated uuid")
+			require.FailNowf(suite.T(), "duplicated uuid", "duplicated uuid '%s'", uuid)
 		}
 
 		uuids[uuid] = struct{}{}
