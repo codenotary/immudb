@@ -75,13 +75,16 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 		return nil
 	}
 
+	waitingLeft := w.waiting
+
 	for i := w.doneUpto + 1; i <= t; i++ {
-		if w.waiting == 0 {
+		if waitingLeft == 0 {
 			break
 		}
 
 		wp, waiting := w.wpoints[i]
 		if waiting {
+			waitingLeft -= wp.count
 			close(wp.ch)
 			delete(w.wpoints, i)
 		}
@@ -94,19 +97,17 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 
 func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 	w.mutex.Lock()
+	defer w.mutex.Unlock()
 
 	if w.closed {
-		w.mutex.Unlock()
 		return ErrAlreadyClosed
 	}
 
 	if w.doneUpto >= t {
-		w.mutex.Unlock()
 		return nil
 	}
 
 	if w.waiting == w.maxWaiting {
-		w.mutex.Unlock()
 		return ErrMaxWaitessLimitExceeded
 	}
 
@@ -119,41 +120,28 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 	wp.count++
 	w.waiting++
 
+	defer func() {
+		w.waiting--
+		wp.count--
+	}()
+
 	w.mutex.Unlock()
 
-	if cancellation == nil {
-		<-wp.ch
-	} else {
-		select {
-		case <-wp.ch:
-			{
-				break
-			}
-		case <-cancellation:
-			{
-				w.mutex.Lock()
-				defer w.mutex.Unlock()
-
-				w.waiting--
-				wp.count--
-
-				if w.closed {
-					return ErrAlreadyClosed
-				}
-
-				return ErrCancellationRequested
-			}
-		}
+	cancelled := false
+	select {
+	case <-wp.ch:
+	case <-cancellation:
+		cancelled = true
 	}
 
 	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	w.waiting--
-	wp.count--
 
 	if w.closed {
 		return ErrAlreadyClosed
+	}
+
+	if cancelled {
+		return ErrCancellationRequested
 	}
 
 	return nil
