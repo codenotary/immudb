@@ -83,8 +83,6 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 		wp, waiting := w.wpoints[i]
 		if waiting {
 			close(wp.ch)
-			w.waiting -= wp.count
-			wp.count = 0
 			delete(w.wpoints, i)
 		}
 	}
@@ -136,17 +134,11 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 				w.mutex.Lock()
 				defer w.mutex.Unlock()
 
+				w.waiting--
+				wp.count--
+
 				if w.closed {
 					return ErrAlreadyClosed
-				}
-
-				if wp.count == 1 {
-					close(wp.ch)
-					delete(w.wpoints, t)
-				}
-
-				if wp.count > 0 {
-					w.waiting--
 				}
 
 				return ErrCancellationRequested
@@ -156,6 +148,9 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+
+	w.waiting--
+	wp.count--
 
 	if w.closed {
 		return ErrAlreadyClosed
