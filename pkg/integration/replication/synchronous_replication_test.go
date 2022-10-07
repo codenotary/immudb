@@ -500,7 +500,7 @@ func (suite *SyncTestWithAsyncFollowersSuite) TestSyncReplicationAlongWithAsyncF
 				ctx, client, cleanup := suite.ClientForReplica(i)
 				defer cleanup()
 
-				suite.WaitForCommittedTx(ctx, client, state.TxId, 5*time.Second)
+				suite.WaitForCommittedTx(ctx, client, state.TxId, 20*time.Second)
 			})
 		}
 	})
