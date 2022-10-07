@@ -18,7 +18,7 @@ $(
     for f in $1*; do
         ff="$(basename $f)"
 		shm_id="$(sha256sum "$f" | awk '{print $1}')"
-		printf "[$ff](https://github.com/vchain-us/immudb/releases/download/v${VERSION}/$ff) | $shm_id \n"
+		printf "[$ff](https://github.com/codenotary/immudb/releases/download/v${VERSION}/$ff) | $shm_id \n"
     done
 )
 EOF
