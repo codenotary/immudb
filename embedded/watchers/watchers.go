@@ -86,7 +86,6 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 		if waiting {
 			waitingLeft -= wp.count
 			close(wp.ch)
-			delete(w.wpoints, i)
 		}
 	}
 
@@ -123,11 +122,16 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 	defer func() {
 		w.waiting--
 		wp.count--
+
+		if wp.count == 0 {
+			delete(w.wpoints, t)
+		}
 	}()
 
 	w.mutex.Unlock()
 
 	cancelled := false
+
 	select {
 	case <-wp.ch:
 	case <-cancellation:
@@ -159,8 +163,6 @@ func (w *WatchersHub) Close() error {
 
 	for _, wp := range w.wpoints {
 		close(wp.ch)
-		w.waiting -= wp.count
-		wp.count = 0
 	}
 
 	return nil
