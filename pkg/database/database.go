@@ -1322,10 +1322,16 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 
 	// TODO: under some circustances, follower might not be able to do further progress until master
 	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
-	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
-	defer cancel()
+	var cancellation <-chan struct{}
 
-	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, ctx.Done())
+	if req.FollowerState != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
+		defer cancel()
+
+		cancellation = ctx.Done()
+	}
+
+	err = d.WaitForTx(req.Tx, req.AllowPreCommitted, cancellation)
 	if errors.Is(err, watchers.ErrCancellationRequested) {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 	}
