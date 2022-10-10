@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.4.0-RC2"></a>
+## [v1.4.0-RC2] - 2022-10-06
+### Bug Fixes
+- **build:** Use correct binary download links
+- **embedded/store:** edge-case calculation of precommitted tx
+- **embedded/watchers:** Fix invariant breakage in watchers
+- **embedded/watchers:** Fix invariant breakage in watchers
+- **pkg/database:** any follower can do progress due to its prefech buffer
+- **pkg/replication:** Do not crash on invalid tx metadata
+- **pkg/replication:** handle replication already closed case
+- **pkg/replication:** discard precommitted txs and continue from latest committed one
+- **pkg/replication:** solve issues when follower diverged from master
+- **wmbedded/watchers:** Correctly fix the original implementation
+
+### Changes
+- **embedded/watchers:** Simplify and document cancellation path
+- **embedded/watchers:** Simplify mutex locking code
+- **embedded/watchers:** single-point for init and cleanup
+- **pkg/database:** wait for tx when a non-existent or non-ready transaction is requested
+- **pkg/database:** add TODO comment on replication passive waiting
+- **pkg/database:** simplify follower's wait
+- **pkg/replication:** Add TX gap metrics
+- **pkg/replication:** Add basic replication metrics
+- **pkg/replication:** improve replication logging
+
+
 <a name="v1.4.0-RC1"></a>
 ## [v1.4.0-RC1] - 2022-10-04
 ### Bug Fixes
@@ -3055,7 +3081,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...HEAD
+[v1.4.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC1...v1.4.0-RC2
 [v1.4.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.2...v1.4.0-RC1
 [v1.3.2]: https://github.com/vchain-us/immudb/compare/v1.3.2-RC1...v1.3.2
 [v1.3.2-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.1...v1.3.2-RC1
