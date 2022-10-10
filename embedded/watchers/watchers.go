@@ -138,14 +138,19 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 
 	if cancelled {
 
-		if wp.count == 1 {
-			close(wp.ch)
-			delete(w.wpoints, t)
-		}
-
+		// `wp.count` will be zeroed if the `t` point was already processed in
+		// `DoneUpTo` call (a situation when both cancellation and call to `DoneUpTo`
+		// happen simultaneously), otherwise its necessary to cleanup after we stopped waiting.
 		if wp.count > 0 {
 			w.waiting--
 			wp.count--
+
+			if wp.count == 0 {
+				// This was the last `WaitFor`` caller waiting for the point `t``,
+				// cleanup the `w.wpoints` array to avoid holding idle entries there.
+				close(wp.ch)
+				delete(w.wpoints, t)
+			}
 		}
 
 		return ErrCancellationRequested
