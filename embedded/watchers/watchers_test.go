@@ -18,10 +18,12 @@ package watchers
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -134,4 +136,50 @@ func TestWatchersHub(t *testing.T) {
 
 	err = wHub.Close()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
+}
+
+func TestSimultaneousCancellationAndNotification(t *testing.T) {
+	wHub := New(0, 30)
+
+	const maxIterations = 100
+
+	wg := sync.WaitGroup{}
+	// Spawn waitees
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			for j := uint64(0); j < maxIterations; j++ {
+				func() {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+					defer cancel()
+
+					doneUpTo, _, err := wHub.Status()
+					require.NoError(t, err)
+
+					err = wHub.WaitFor(j, ctx.Done())
+					if errors.Is(err, ErrCancellationRequested) {
+						// Check internal invariant of the wHub
+						// Since we got cancel request it must only happen
+						// as long as we did not already cross the waiting point
+						require.Less(t, doneUpTo, j)
+					} else {
+						require.NoError(t, err)
+					}
+				}()
+			}
+		}(i)
+	}
+
+	// Producer
+	for j := uint64(1); j < maxIterations; j++ {
+		wHub.DoneUpto(j)
+		time.Sleep(time.Millisecond)
+	}
+
+	wg.Wait()
+
+	assert.Zero(t, wHub.waiting)
+	assert.Empty(t, wHub.wpoints)
 }
