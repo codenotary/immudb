@@ -586,3 +586,75 @@ func (suite *SyncTestChangingPrimarySuite) TestSyncTestChangingPrimarySuite() {
 		}
 	})
 }
+
+type SyncTestChangingMasterSettingsSuite struct {
+	baseReplicationTestSuite
+}
+
+func TestSyncTestChangingMasterSettingsSuite(t *testing.T) {
+	suite.Run(t, &SyncTestChangingMasterSettingsSuite{})
+}
+
+func (suite *SyncTestChangingMasterSettingsSuite) SetupTest() {
+	suite.baseReplicationTestSuite.SetupTest()
+	suite.SetupCluster(1, 1, 0)
+	suite.ValidateClusterSetup()
+}
+
+func (suite *SyncTestChangingMasterSettingsSuite) TestSyncTestChangingMasterSuite() {
+	suite.Run("get one locked writer due to insufficient confirmations", func() {
+		ctx, mc, cleanup := suite.ClientForMaster()
+		defer cleanup()
+		_, err := mc.UpdateDatabaseV2(ctx, suite.masterDBName, &schema.DatabaseNullableSettings{
+			ReplicationSettings: &schema.ReplicationNullableSettings{
+				SyncFollowers: &schema.NullableUint32{
+					Value: 2,
+				},
+			},
+		})
+		suite.Require().NoError(err)
+
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err = mc.Set(ctxWithTimeout, []byte("key"), []byte("value"))
+		suite.Require().Error(err)
+		suite.Require().Contains(err.Error(), context.DeadlineExceeded.Error())
+	})
+
+	suite.Run("recover from locked write by changing database settings", func() {
+		ctx, mc, cleanup := suite.ClientForMaster()
+		defer cleanup()
+
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		_, err := mc.UpdateDatabaseV2(ctxWithTimeout, suite.masterDBName, &schema.DatabaseNullableSettings{
+			ReplicationSettings: &schema.ReplicationNullableSettings{
+				SyncFollowers: &schema.NullableUint32{
+					Value: 1,
+				},
+			},
+		})
+		suite.Require().NoError(err)
+
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		_, err = mc.Set(ctxWithTimeout, []byte("key2"), []byte("value2"))
+		suite.Require().NoError(err)
+	})
+
+	suite.Run("ensure all commits are correctly persisted", func() {
+		ctx, mc, cleanup := suite.ClientForMaster()
+		defer cleanup()
+
+		val, err := mc.Get(ctx, []byte("key"))
+		suite.Require().NoError(err)
+		suite.Require().Equal([]byte("value"), val.Value)
+
+		val, err = mc.Get(ctx, []byte("key2"))
+		suite.Require().NoError(err)
+		suite.Require().Equal([]byte("value2"), val.Value)
+	})
+}
