@@ -76,7 +76,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	c.SessionID = resp.GetSessionID()
 
 	c.HeartBeater = heartbeater.NewHeartBeater(c.SessionID, c.ServiceClient, c.Options.HeartBeatFrequency)
-	c.HeartBeater.KeepAlive(ctx)
+	c.HeartBeater.KeepAlive(context.Background())
 
 	c.WithStateService(stateService)
 
