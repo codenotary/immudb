@@ -71,7 +71,7 @@ func (c *immuClient) OpenSession(ctx context.Context, user []byte, pass []byte, 
 	}
 
 	c.clientConn = clientConn
-	c.ServiceClient = serviceClient
+	c.ServiceClient = serviceClient // @TODO: Coupling point
 	c.Options.DialOptions = dialOptions
 	c.SessionID = resp.GetSessionID()
 

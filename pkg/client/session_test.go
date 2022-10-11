@@ -19,10 +19,13 @@ package client
 import (
 	"context"
 	"net"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client/heartbeater"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
@@ -83,6 +86,67 @@ func TestImmuClient_OpenSession_StateServiceError(t *testing.T) {
 	}
 	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
+}
+
+func TestImmuClient_OpenSession_DoesNotPropagateContextCancelationToHeartBeaterKeepAlives(t *testing.T) {
+	c := NewClient().WithOptions(DefaultOptions().WithDir("false"))
+	var receivedContext context.Context
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	mu := sync.Mutex{}
+
+	serviceClient := &immuServiceClientMock{
+		OpenSessionF: func(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error) {
+			return &schema.OpenSessionResponse{
+				SessionID: "test",
+			}, nil
+		},
+		KeepAliveF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			receivedContext = ctx
+			wg.Done()
+			return new(empty.Empty), nil
+		},
+	}
+	c.ServiceClient = serviceClient
+
+	mu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	err := c.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb") // @TODO: Open Session replaces original Service Client indeed
+	require.NoError(t, err)
+	c.ServiceClient = serviceClient // @TODO: Race condition, it's used from HeartBeater goroutine
+	mu.Unlock()
+	c.HeartBeater.Stop()
+
+	c.Options.HeartBeatFrequency = time.Second * 2
+	c.HeartBeater = heartbeater.NewHeartBeater(c.SessionID, serviceClient, c.Options.HeartBeatFrequency)
+	c.HeartBeater.KeepAlive(context.Background()) // @TODO: Needs to be cancelled before moving ahead
+
+	cancel()
+
+	// wait until KeepAliveF has been called
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second * 5):
+		t.Fatal("timeout waiting completion")
+	}
+
+	if receivedContext == nil {
+		t.Fatal("received context is nil")
+	}
+
+	select {
+	case <-receivedContext.Done(): // @TODO: Context with 3 seconds timeout scope
+		t.Fatal("parent context canceled")
+	case <-ctx.Done():
+	}
 }
 
 type immuServiceClientMock struct {
