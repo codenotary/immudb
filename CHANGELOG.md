@@ -4,8 +4,20 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.4.0"></a>
+## [v1.4.0] - 2022-10-12
+### Bug Fixes
+- **build:** Do not publish official non-dev images on RC tags
+- **pkg/client:** replace keepAlive context from the original one to the background, avoiding parent expiration
+
+### Changes
+- Rename sync-followers to sync-acks
+- **cmd/immuclient:** include precommit state when quering status
+- **pkg/server:** Better error message when validating replication options
+
+
 <a name="v1.4.0-RC2"></a>
-## [v1.4.0-RC2] - 2022-10-06
+## [v1.4.0-RC2] - 2022-10-10
 ### Bug Fixes
 - **build:** Use correct binary download links
 - **embedded/store:** edge-case calculation of precommitted tx
@@ -3081,7 +3093,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.0...HEAD
+[v1.4.0]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...v1.4.0
 [v1.4.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC1...v1.4.0-RC2
 [v1.4.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.2...v1.4.0-RC1
 [v1.3.2]: https://github.com/vchain-us/immudb/compare/v1.3.2-RC1...v1.3.2
