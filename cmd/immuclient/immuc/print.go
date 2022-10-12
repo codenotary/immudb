@@ -82,9 +82,17 @@ func PrintState(root *schema.ImmutableState) string {
 
 	str := strings.Builder{}
 
-	str.WriteString(fmt.Sprintf("database:	%s\n", root.Db))
-	str.WriteString(fmt.Sprintf("txID:		%d\n", root.TxId))
-	str.WriteString(fmt.Sprintf("hash:		%x\n", root.TxHash))
+	if root.PrecommittedTxId == 0 {
+		str.WriteString(fmt.Sprintf("database:  %s\n", root.Db))
+		str.WriteString(fmt.Sprintf("txID:      %d\n", root.TxId))
+		str.WriteString(fmt.Sprintf("hash:      %x\n", root.TxHash))
+	} else {
+		str.WriteString(fmt.Sprintf("database:         %s\n", root.Db))
+		str.WriteString(fmt.Sprintf("txID:             %d\n", root.TxId))
+		str.WriteString(fmt.Sprintf("hash:             %x\n", root.TxHash))
+		str.WriteString(fmt.Sprintf("precommittedTxID: %d\n", root.PrecommittedTxId))
+		str.WriteString(fmt.Sprintf("precommittedHash: %x\n", root.PrecommittedTxHash))
+	}
 
 	return str.String()
 }
