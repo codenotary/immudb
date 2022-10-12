@@ -31,7 +31,7 @@ type Options struct {
 
 	replica         bool
 	syncReplication bool
-	syncFollowers   int // only if !replica
+	syncAcks        int // only if !replica
 
 	corruptionChecker bool
 
@@ -91,8 +91,8 @@ func (o *Options) WithSyncReplication(syncReplication bool) *Options {
 	return o
 }
 
-func (o *Options) WithSyncFollowers(syncFollowers int) *Options {
-	o.syncFollowers = syncFollowers
+func (o *Options) WithSyncAcks(syncAcks int) *Options {
+	o.syncAcks = syncAcks
 	return o
 }
 

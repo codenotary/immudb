@@ -55,11 +55,11 @@ func TestReplicaOptions(t *testing.T) {
 
 	opts.PrefetchTxBufferSize = replication.DefaultPrefetchTxBufferSize
 	opts.ReplicationCommitConcurrency = replication.DefaultReplicationCommitConcurrency
-	opts.SyncFollowers = 0
+	opts.SyncAcks = 0
 
 	require.NoError(t, opts.Validate())
 
-	opts.SyncFollowers = 1
+	opts.SyncAcks = 1
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.ReplicationCommitConcurrency = 0
@@ -84,11 +84,11 @@ func TestMasterOptions(t *testing.T) {
 	require.NoError(t, opts.Validate())
 
 	opts.SyncReplication = false
-	opts.SyncFollowers = 1
+	opts.SyncAcks = 1
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.SyncReplication = true
-	opts.SyncFollowers = 0
+	opts.SyncAcks = 0
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.AllowTxDiscarding = true
@@ -115,6 +115,6 @@ func TestMasterOptions(t *testing.T) {
 	opts.MasterDatabase = "masterdb"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.SyncFollowers = -1
+	opts.SyncAcks = -1
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 }

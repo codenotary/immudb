@@ -1166,7 +1166,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 	s.logDBOptions(db.GetName(), dbOpts)
 
 	if !db.IsClosed() {
-		db.AsReplica(dbOpts.Replica, dbOpts.SyncReplication, dbOpts.SyncFollowers)
+		db.AsReplica(dbOpts.Replica, dbOpts.SyncReplication, dbOpts.SyncAcks)
 	}
 
 	if req.Settings.ReplicationSettings != nil && !db.IsClosed() {

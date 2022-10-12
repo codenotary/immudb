@@ -45,7 +45,7 @@ func parseOptions() (options *server.Options, err error) {
 			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding"))
 	} else {
 		replicationOptions.
-			WithSyncFollowers(viper.GetInt("replication-sync-followers"))
+			WithSyncAcks(viper.GetInt("replication-sync-acks"))
 	}
 
 	pidfile := viper.GetString("pidfile")

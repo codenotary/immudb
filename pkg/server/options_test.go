@@ -65,7 +65,7 @@ func TestReplicationOptions(t *testing.T) {
 	repOpts.
 		WithIsReplica(true).
 		WithSyncReplication(false).
-		WithSyncFollowers(0).
+		WithSyncAcks(0).
 		WithMasterAddress("localhost").
 		WithMasterPort(3322).
 		WithFollowerUsername("follower-user").
@@ -76,7 +76,7 @@ func TestReplicationOptions(t *testing.T) {
 
 	require.True(t, repOpts.IsReplica)
 	require.False(t, repOpts.SyncReplication)
-	require.Zero(t, repOpts.SyncFollowers)
+	require.Zero(t, repOpts.SyncAcks)
 	require.Equal(t, "localhost", repOpts.MasterAddress)
 	require.Equal(t, 3322, repOpts.MasterPort)
 	require.Equal(t, "follower-user", repOpts.FollowerUsername)
@@ -89,11 +89,11 @@ func TestReplicationOptions(t *testing.T) {
 	repOpts.
 		WithIsReplica(false).
 		WithSyncReplication(true).
-		WithSyncFollowers(1)
+		WithSyncAcks(1)
 
 	require.False(t, repOpts.IsReplica)
 	require.True(t, repOpts.SyncReplication)
-	require.Equal(t, 1, repOpts.SyncFollowers)
+	require.Equal(t, 1, repOpts.SyncAcks)
 }
 
 func TestSetOptions(t *testing.T) {
@@ -179,7 +179,7 @@ Data dir         : ./data
 Address          : 0.0.0.0:3322
 Metrics address  : 0.0.0.0:9497/metrics
 Sync replication : true
-Sync followers   : 1
+Sync acks        : 1
 Config file      : configs/immudb.toml
 PID file         : immu.pid
 Log file         : immu.log
@@ -201,7 +201,7 @@ Superadmin default credentials
 
 	op.ReplicationOptions.
 		WithSyncReplication(true).
-		WithSyncFollowers(1)
+		WithSyncAcks(1)
 
 	assert.Equal(t, expected, op.String())
 }

@@ -2970,13 +2970,13 @@
           "$ref": "#/definitions/schemaNullableBool",
           "title": "Enable synchronous replication"
         },
-        "syncFollowers": {
+        "syncAcks": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Number of fully synchronized followers"
+          "title": "Number of confirmations from synchronous replicas required to commit a transaction"
         },
         "prefetchTxBufferSize": {
           "$ref": "#/definitions/schemaNullableUint32",
-          "title": "Maximun number of prefeched transactions"
+          "title": "Maximum number of prefetched transactions"
         },
         "replicationCommitConcurrency": {
           "$ref": "#/definitions/schemaNullableUint32",

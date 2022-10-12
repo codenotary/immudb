@@ -59,7 +59,7 @@ type DB interface {
 
 	Path() string
 
-	AsReplica(asReplica, syncReplication bool, syncFollowers int)
+	AsReplica(asReplica, syncReplication bool, syncAcks int)
 	IsReplica() bool
 
 	IsSyncReplicationEnabled() bool
@@ -180,8 +180,8 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 	var followerStates map[uuid]*followerState
 	// follower states are only managed in master with synchronous replication
-	if !op.replica && op.syncFollowers > 0 {
-		followerStates = make(map[uuid]*followerState, op.syncFollowers)
+	if !op.replica && op.syncAcks > 0 {
+		followerStates = make(map[uuid]*followerState, op.syncAcks)
 	}
 
 	dbi := &db{
@@ -290,8 +290,8 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	var followerStates map[uuid]*followerState
 	// follower states are only managed in master with synchronous replication
-	if !op.replica && op.syncFollowers > 0 {
-		followerStates = make(map[uuid]*followerState, op.syncFollowers)
+	if !op.replica && op.syncAcks > 0 {
+		followerStates = make(map[uuid]*followerState, op.syncAcks)
 	}
 
 	dbi := &db{
@@ -1228,7 +1228,7 @@ func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *sche
 		allowances++
 	}
 
-	if allowances >= d.options.syncFollowers {
+	if allowances >= d.options.syncAcks {
 		err := d.st.AllowCommitUpto(mayCommitUpToTxID)
 		if err != nil {
 			return err
@@ -1664,7 +1664,7 @@ func (d *db) GetOptions() *Options {
 	return d.options
 }
 
-func (d *db) AsReplica(asReplica, syncReplication bool, syncFollowers int) {
+func (d *db) AsReplica(asReplica, syncReplication bool, syncAcks int) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -1672,13 +1672,13 @@ func (d *db) AsReplica(asReplica, syncReplication bool, syncFollowers int) {
 	defer d.followerStatesMutex.Unlock()
 
 	d.options.replica = asReplica
-	d.options.syncFollowers = syncFollowers
+	d.options.syncAcks = syncAcks
 	d.options.syncReplication = syncReplication
 
 	if asReplica {
 		d.followerStates = nil
-	} else if syncFollowers > 0 {
-		d.followerStates = make(map[uuid]*followerState, syncFollowers)
+	} else if syncAcks > 0 {
+		d.followerStates = make(map[uuid]*followerState, syncAcks)
 	}
 
 	d.st.SetExternalCommitAllowance(syncReplication)

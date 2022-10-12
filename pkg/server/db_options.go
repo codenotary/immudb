@@ -45,7 +45,7 @@ type dbOptions struct {
 	MasterPort                   int    `json:"masterPort"`
 	FollowerUsername             string `json:"followerUsername"`
 	FollowerPassword             string `json:"followerPassword"`
-	SyncFollowers                int    `json:"syncFollowers"`
+	SyncAcks                     int    `json:"syncAcks"`
 	PrefetchTxBufferSize         int    `json:"prefetchTxBufferSize"`
 	ReplicationCommitConcurrency int    `json:"replicationCommitConcurrency"`
 	AllowTxDiscarding            bool   `json:"allowTxDiscarding"`
@@ -169,7 +169,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 			dbOpts.ReplicationCommitConcurrency = repOpts.ReplicationCommitConcurrency
 			dbOpts.AllowTxDiscarding = repOpts.AllowTxDiscarding
 		} else {
-			dbOpts.SyncFollowers = repOpts.SyncFollowers
+			dbOpts.SyncAcks = repOpts.SyncAcks
 		}
 	}
 
@@ -207,7 +207,7 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		WithStoreOptions(s.storeOptionsForDB(opts.Database, s.remoteStorage, opts.storeOptions())).
 		AsReplica(opts.Replica).
 		WithSyncReplication(opts.SyncReplication).
-		WithSyncFollowers(opts.SyncFollowers).
+		WithSyncAcks(opts.SyncAcks).
 		WithReadTxPoolSize(opts.ReadTxPoolSize)
 }
 
@@ -276,7 +276,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			MasterPort:                   &schema.NullableUint32{Value: uint32(opts.MasterPort)},
 			FollowerUsername:             &schema.NullableString{Value: opts.FollowerUsername},
 			FollowerPassword:             &schema.NullableString{Value: opts.FollowerPassword},
-			SyncFollowers:                &schema.NullableUint32{Value: uint32(opts.SyncFollowers)},
+			SyncAcks:                     &schema.NullableUint32{Value: uint32(opts.SyncAcks)},
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
 			AllowTxDiscarding:            &schema.NullableBool{Value: opts.AllowTxDiscarding},
@@ -355,7 +355,7 @@ func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.D
 	}
 
 	if !settings.Replica {
-		repSettings.SyncFollowers = &schema.NullableUint32{}
+		repSettings.SyncAcks = &schema.NullableUint32{}
 		repSettings.PrefetchTxBufferSize = &schema.NullableUint32{}
 		repSettings.ReplicationCommitConcurrency = &schema.NullableUint32{}
 	}
@@ -417,10 +417,10 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		if rs.SyncReplication != nil {
 			opts.SyncReplication = rs.SyncReplication.Value
 		}
-		if rs.SyncFollowers != nil {
-			opts.SyncFollowers = int(rs.SyncFollowers.Value)
+		if rs.SyncAcks != nil {
+			opts.SyncAcks = int(rs.SyncAcks.Value)
 		} else if opts.Replica {
-			opts.SyncFollowers = 0
+			opts.SyncAcks = 0
 		}
 		if rs.MasterDatabase != nil {
 			opts.MasterDatabase = rs.MasterDatabase.Value
@@ -614,16 +614,16 @@ func (opts *dbOptions) Validate() error {
 				ErrIllegalArguments, opts.Database)
 		}
 
-		if opts.SyncFollowers > 0 {
+		if opts.SyncAcks > 0 {
 			return fmt.Errorf(
-				"%w: invalid value for replication option SyncFollowers ReplicationCommitConcurrency on database '%s'",
+				"%w: invalid value for replication option SyncAcks ReplicationCommitConcurrency on database '%s'",
 				ErrIllegalArguments, opts.Database)
 		}
 
 	} else {
-		if opts.SyncFollowers < 0 {
+		if opts.SyncAcks < 0 {
 			return fmt.Errorf(
-				"%w: invalid value for replication option SyncFollowers on master database '%s'",
+				"%w: invalid value for replication option SyncAcks on master database '%s'",
 				ErrIllegalArguments, opts.Database)
 		}
 
@@ -675,15 +675,15 @@ func (opts *dbOptions) Validate() error {
 				ErrIllegalArguments, opts.Database)
 		}
 
-		if opts.SyncReplication && opts.SyncFollowers == 0 {
+		if opts.SyncReplication && opts.SyncAcks == 0 {
 			return fmt.Errorf(
 				"%w: invalid replication options for master database '%s'. It is necessary to have at least one sync follower",
 				ErrIllegalArguments, opts.Database)
 		}
 
-		if !opts.SyncReplication && opts.SyncFollowers > 0 {
+		if !opts.SyncReplication && opts.SyncAcks > 0 {
 			return fmt.Errorf(
-				"%w: invalid replication options for master database '%s'. Sync followers are not expected",
+				"%w: invalid replication options for master database '%s'. Sync acks is not expected",
 				ErrIllegalArguments, opts.Database)
 		}
 	}
@@ -773,7 +773,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.SyncFrequency: %v", database, opts.SyncFrequency)
 	s.Logger.Infof("%s.Replica: %v", database, opts.Replica)
 	s.Logger.Infof("%s.SyncReplication: %v", database, opts.SyncReplication)
-	s.Logger.Infof("%s.SyncFollowers: %v", database, opts.SyncFollowers)
+	s.Logger.Infof("%s.SyncAcks: %v", database, opts.SyncAcks)
 	s.Logger.Infof("%s.PrefetchTxBufferSize: %v", database, opts.PrefetchTxBufferSize)
 	s.Logger.Infof("%s.ReplicationCommitConcurrency: %v", database, opts.ReplicationCommitConcurrency)
 	s.Logger.Infof("%s.AllowTxDiscarding: %v", database, opts.AllowTxDiscarding)

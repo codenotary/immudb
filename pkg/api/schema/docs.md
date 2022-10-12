@@ -1414,8 +1414,8 @@ Only succeed if given key was not modified after given transaction
 | followerUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
 | followerPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
 | syncReplication | [NullableBool](#immudb.schema.NullableBool) |  | Enable synchronous replication |
-| syncFollowers | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of fully synchronized followers |
-| prefetchTxBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximun number of prefeched transactions |
+| syncAcks | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of confirmations from synchronous replicas required to commit a transaction |
+| prefetchTxBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of prefetched transactions |
 | replicationCommitConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of concurrent replications |
 | AllowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the follower diverges from the master |
 

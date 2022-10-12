@@ -101,7 +101,7 @@ func TestReplication(t *testing.T) {
 	_, err = masterClient.CreateDatabaseV2(mctx, "masterdb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			SyncReplication: &schema.NullableBool{Value: true},
-			SyncFollowers:   &schema.NullableUint32{Value: 1},
+			SyncAcks:        &schema.NullableUint32{Value: 1},
 		},
 	})
 	require.NoError(t, err)

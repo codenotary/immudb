@@ -37,7 +37,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("replication-enabled", false, "set database as a replica") // deprecated, use replication-is-replica instead
 	c.Flags().Bool("replication-is-replica", false, "set database as a replica")
 	c.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
-	c.Flags().Uint32("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
+	c.Flags().Uint32("replication-sync-acks", 0, "set a minimum number of replica acknowledgements required before transactions can be committed")
 	c.Flags().String("replication-master-database", "", "set master database to be replicated")
 	c.Flags().String("replication-master-address", "", "set master address")
 	c.Flags().Uint32("replication-master-port", 0, "set master port")
@@ -385,7 +385,7 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.ReplicationSettings.SyncFollowers, err = condUInt32("replication-sync-followers")
+	ret.ReplicationSettings.SyncAcks, err = condUInt32("replication-sync-acks")
 	if err != nil {
 		return nil, err
 	}

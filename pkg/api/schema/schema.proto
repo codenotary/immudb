@@ -1033,10 +1033,10 @@ message ReplicationNullableSettings {
   // Enable synchronous replication
   NullableBool syncReplication = 7;
 
-  // Number of fully synchronized followers
-  NullableUint32 syncFollowers = 8;
+  // Number of confirmations from synchronous replicas required to commit a transaction
+  NullableUint32 syncAcks = 8;
 
-  // Maximun number of prefeched transactions
+  // Maximum number of prefetched transactions
   NullableUint32 prefetchTxBufferSize = 9;
 
   // Number of concurrent replications

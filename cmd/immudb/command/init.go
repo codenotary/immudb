@@ -35,7 +35,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("replication-enabled", false, "set systemdb and defaultdb as replica") // deprecated, use replication-is-replica instead
 	cmd.Flags().Bool("replication-is-replica", false, "set systemdb and defaultdb as replica")
 	cmd.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
-	cmd.Flags().Int("replication-sync-followers", 0, "set a minimum number of followers for ack replication before transactions can be committed")
+	cmd.Flags().Int("replication-sync-acks", 0, "set a minimum number of replica acknowledgements required before transactions can be committed")
 	cmd.Flags().String("replication-master-address", "", "master address (if replica=true)")
 	cmd.Flags().Int("replication-master-port", 3322, "master port (if replica=true)")
 	cmd.Flags().String("replication-follower-username", "", "username used for replication of systemdb and defaultdb")

@@ -85,7 +85,7 @@ type RemoteStorageOptions struct {
 type ReplicationOptions struct {
 	IsReplica                    bool
 	SyncReplication              bool
-	SyncFollowers                int    // only if !IsReplica && SyncReplication
+	SyncAcks                     int    // only if !IsReplica && SyncReplication
 	MasterAddress                string // only if IsReplica
 	MasterPort                   int    // only if IsReplica
 	FollowerUsername             string // only if IsReplica
@@ -126,7 +126,7 @@ func DefaultOptions() *Options {
 		TokenExpiryTimeMin:   1440,
 		PgsqlServer:          false,
 		PgsqlServerPort:      5432,
-		ReplicationOptions:   &ReplicationOptions{IsReplica: false, SyncFollowers: 0},
+		ReplicationOptions:   &ReplicationOptions{IsReplica: false, SyncAcks: 0},
 		SessionsOptions:      sessions.DefaultOptions(),
 		PProf:                false,
 	}
@@ -270,7 +270,7 @@ func (o *Options) String() string {
 	opts = append(opts, rightPad("Sync replication", syncReplication))
 
 	if syncReplication && !isReplica {
-		opts = append(opts, rightPad("Sync followers", repOpts.SyncFollowers))
+		opts = append(opts, rightPad("Sync acks", repOpts.SyncAcks))
 	}
 
 	if isReplica {
@@ -491,8 +491,8 @@ func (opts *ReplicationOptions) WithSyncReplication(syncReplication bool) *Repli
 	return opts
 }
 
-func (opts *ReplicationOptions) WithSyncFollowers(syncFollowers int) *ReplicationOptions {
-	opts.SyncFollowers = syncFollowers
+func (opts *ReplicationOptions) WithSyncAcks(syncAcks int) *ReplicationOptions {
+	opts.SyncAcks = syncAcks
 	return opts
 }
 

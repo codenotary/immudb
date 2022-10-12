@@ -117,7 +117,7 @@ func (suite *baseReplicationTestSuite) StartFollower(followerNum int) {
 	suite.followersRunning[followerNum] = true
 }
 
-func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncFollowers int) {
+func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncAcks int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
@@ -131,8 +131,8 @@ func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncFollower
 	_, err := mClient.UpdateDatabaseV2(mctx, suite.masterDBName, &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:         &schema.NullableBool{Value: false},
-			SyncReplication: &schema.NullableBool{Value: syncFollowers > 0},
-			SyncFollowers:   &schema.NullableUint32{Value: uint32(syncFollowers)},
+			SyncReplication: &schema.NullableBool{Value: syncAcks > 0},
+			SyncAcks:        &schema.NullableUint32{Value: uint32(syncAcks)},
 		},
 	})
 	require.NoError(suite.T(), err)
@@ -167,7 +167,7 @@ func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncFollower
 	}
 }
 
-func (suite *baseReplicationTestSuite) StartMaster(syncFollowers int) {
+func (suite *baseReplicationTestSuite) StartMaster(syncAcks int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
@@ -182,10 +182,10 @@ func (suite *baseReplicationTestSuite) StartMaster(syncFollowers int) {
 
 	settings := &schema.DatabaseNullableSettings{}
 
-	if syncFollowers > 0 {
+	if syncAcks > 0 {
 		settings.ReplicationSettings = &schema.ReplicationNullableSettings{
 			SyncReplication: &schema.NullableBool{Value: true},
-			SyncFollowers:   &schema.NullableUint32{Value: uint32(syncFollowers)},
+			SyncAcks:        &schema.NullableUint32{Value: uint32(syncAcks)},
 		}
 	}
 
