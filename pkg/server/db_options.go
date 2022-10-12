@@ -683,7 +683,7 @@ func (opts *dbOptions) Validate() error {
 
 		if !opts.SyncReplication && opts.SyncAcks > 0 {
 			return fmt.Errorf(
-				"%w: invalid replication options for master database '%s'. Sync acks is not expected",
+				"%w: invalid replication options for master database '%s'. SyncAcks should be set to 0",
 				ErrIllegalArguments, opts.Database)
 		}
 	}
