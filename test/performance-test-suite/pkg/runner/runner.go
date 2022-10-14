@@ -17,6 +17,7 @@ limitations under the License.
 package runner
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -93,6 +94,7 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 		close(done)
 		wg.Wait()
 
+		result.Summary = fmt.Sprint(res)
 		result.EndTime = time.Now()
 		result.Duration = Duration(result.EndTime.Sub(result.StartTime))
 		result.RequestedDuration = Duration(d)

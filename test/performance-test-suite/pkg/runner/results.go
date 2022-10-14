@@ -32,6 +32,7 @@ type BenchmarkTimelineEntry struct {
 
 type BenchmarkRunResult struct {
 	Name              string                   `json:"name"`
+	Summary           string                   `json:"summary"`
 	StartTime         time.Time                `json:"startTime"`
 	EndTime           time.Time                `json:"endTime"`
 	Duration          Duration                 `json:"duration"`
