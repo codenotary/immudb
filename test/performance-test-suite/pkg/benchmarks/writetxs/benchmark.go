@@ -117,7 +117,11 @@ func (b *benchmark) Warmup() error {
 	}
 	defer os.RemoveAll(dirName)
 
-	options := server.DefaultOptions().WithDir(dirName)
+	options := server.
+		DefaultOptions().
+		WithDir(dirName).
+		WithLogFormat(logger.LogFormatJSON)
+
 	b.server = servertest.NewBufconnServer(options)
 	b.server.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
 
