@@ -18,6 +18,7 @@ package runner
 
 import (
 	"log"
+	"sync"
 	"time"
 )
 
@@ -48,7 +49,11 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 
 		// Start probing goroutine
 		done := make(chan bool)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
 
@@ -86,6 +91,7 @@ func RunAllBenchmarks(d time.Duration, seed uint64) (*BenchmarkSuiteResult, erro
 
 		// Notify that we're done probing
 		close(done)
+		wg.Wait()
 
 		result.EndTime = time.Now()
 		result.Duration = Duration(result.EndTime.Sub(result.StartTime))
