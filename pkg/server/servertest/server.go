@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/rs/xid"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/server"
@@ -53,13 +54,27 @@ type BufconnServer struct {
 func NewBufconnServer(options *server.Options) *BufconnServer {
 	options.Port = 0
 	immuserver := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
+
+	uuidContext := server.NewUUIDContext(xid.New())
+
 	bs := &BufconnServer{
 		quit:    make(chan struct{}),
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
 		GrpcServer: grpc.NewServer(
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(server.ErrorMapper, immuserver.KeepAliveSessionInterceptor, auth.ServerUnaryInterceptor, immuserver.SessionAuthInterceptor)),
-			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(server.ErrorMapperStream, immuserver.KeepALiveSessionStreamInterceptor, auth.ServerStreamInterceptor)),
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+				server.ErrorMapper,
+				immuserver.KeepAliveSessionInterceptor,
+				uuidContext.UUIDContextSetter,
+				auth.ServerUnaryInterceptor,
+				immuserver.SessionAuthInterceptor,
+			)),
+			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+				server.ErrorMapperStream,
+				immuserver.KeepALiveSessionStreamInterceptor,
+				uuidContext.UUIDStreamContextSetter,
+				auth.ServerStreamInterceptor,
+			)),
 		),
 		immuServer: immuserver,
 		Server:     &ServerMock{Srv: immuserver},
