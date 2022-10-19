@@ -253,7 +253,10 @@ func (txr *TxReplicator) connect() error {
 		txr.opts.primaryPort,
 		txr.db.GetName())
 
-	opts := client.DefaultOptions().WithAddress(txr.opts.primaryHost).WithPort(txr.opts.primaryPort)
+	opts := client.DefaultOptions().
+		WithAddress(txr.opts.primaryHost).
+		WithPort(txr.opts.primaryPort).
+		WithDisableIdentityCheck(true)
 	txr.client = client.NewClient().WithOptions(opts)
 
 	err := txr.client.OpenSession(
