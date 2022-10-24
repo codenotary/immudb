@@ -61,7 +61,7 @@ jobs:
       - name: Create the Mattermost message
         if: github.event.schedule == '0 0 * * *'
         run: >
-          echo "{\"text\":\"### Results for scheduled daily run on branch ${{ github.base_ref }} and runner ${{ matrix.target.name }}\n
+          echo "{\"text\":\"### Performance tests results for scheduled daily run on branch ${{ github.ref_name }} and runner ${{ matrix.target.name }}\n
           **Result**: ${{ steps.performance.outcome }}\n
           $(jq -r '.benchmarks[] | .name + "\n" + .summary' perf-test-results.json) \n
           **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**

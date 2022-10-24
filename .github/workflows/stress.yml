@@ -36,12 +36,12 @@ jobs:
     - name: Create the Mattermost message
       if: github.event.schedule == '0 0 * * *'
       run: >
-        echo "{\"text\":\"### Results for scheduled daily run on branch ${{ github.base_ref }}\n
+        echo "{\"text\":\"### Stress tests results for scheduled daily run on branch ${{ github.ref_name }}\n
         | Step | Result |\n
         | ---- | ------ |\n
-        | Entries: 1M - Workers: 20 - Batch: 1k - Batches: 50 | ${{ steps.e_1m_w_20_b_1k_bs_50.outcome }} |
-        | Entries: 1M - Workers: 50 - Batch: 1k - Batches: 20 | ${{ steps.e_1m_w_50_b_1k_bs_20.outcome }} |
-        | Entries: 1M - Workers: 100 - Batch: 1k - Batches: 10 | ${{ steps.e_1m_w_100_b_1k_bs_10.outcome }} |
+        | Entries: 1M - Workers: 20 - Batch: 1k - Batches: 50 | ${{ steps.e_1m_w_20_b_1k_bs_50.outcome }} |\n
+        | Entries: 1M - Workers: 50 - Batch: 1k - Batches: 20 | ${{ steps.e_1m_w_50_b_1k_bs_20.outcome }} |\n
+        | Entries: 1M - Workers: 100 - Batch: 1k - Batches: 10 | ${{ steps.e_1m_w_100_b_1k_bs_10.outcome }} |\n
         **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
         \"}" > mattermost.json
     - name: Notify on immudb channel on Mattermost
