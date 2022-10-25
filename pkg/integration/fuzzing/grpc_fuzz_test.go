@@ -21,7 +21,6 @@ package fuzzing
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -45,22 +44,19 @@ func addCorpus(f *testing.F, request byte, msg proto.Message) {
 }
 
 func FuzzGRPCProtocol(f *testing.F) {
-	tmpDir, err := os.MkdirTemp("", "immudb-fuzz")
-	require.NoError(f, err)
-	defer os.RemoveAll(tmpDir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(tmpDir)
+	options := server.DefaultOptions().WithDir(f.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	clientOpts := immudb.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	clientOpts := immudb.
+		DefaultOptions().
+		WithDir(f.TempDir()).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 	client := immudb.NewClient().WithOptions(clientOpts)
 
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(f, err)
 
 	// Add few execall requests

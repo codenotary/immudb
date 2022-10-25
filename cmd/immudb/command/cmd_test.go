@@ -18,7 +18,7 @@ package immudb
 
 import (
 	"bytes"
-	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,7 +104,6 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 // 4. config file
 func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	defer viper.Reset()
-	defer tearDown()
 
 	o := DefaultTestOptions()
 	var options *server.Options
@@ -140,7 +139,7 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
 	// 3. env. variables
-	os.Setenv("IMMUDB_LOGFILE", "EnvironmentVars")
+	t.Setenv("IMMUDB_LOGFILE", "EnvironmentVars")
 	_, err = executeCommand(cmd)
 	assert.NoError(t, err)
 	assert.Equal(t, "EnvironmentVars", options.Logfile)
@@ -171,14 +170,11 @@ func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, out
 	return c, buf.String(), err
 }
 
-func tearDown() {
-	os.Unsetenv("IMMUDB_LOGFILE")
-}
-
 func TestImmudb(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
+	setupDefaults(server.DefaultOptions())
 
 	cl := Commandline{}
 
@@ -194,6 +190,8 @@ func TestImmudbDetached(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
+	setupDefaults(server.DefaultOptions())
+
 	viper.Set("detached", true)
 
 	cl := Commandline{P: plauncherMock{}}
@@ -209,6 +207,8 @@ func TestImmudbMtls(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
+	setupDefaults(server.DefaultOptions())
+
 	viper.Set("mtls", true)
 	viper.Set("pkey", "../../../test/mtls_certs/ca.key.pem")
 	viper.Set("certificate", "../../../test/mtls_certs/ca.cert.pem")
@@ -227,8 +227,9 @@ func TestImmudbLogFile(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
-	viper.Set("logfile", "override")
-	defer os.Remove("override")
+	setupDefaults(server.DefaultOptions())
+
+	viper.Set("logfile", filepath.Join(t.TempDir(), "override"))
 
 	cl := Commandline{}
 
@@ -250,7 +251,8 @@ func TestNewCommand(t *testing.T) {
 
 func TestExecute(t *testing.T) {
 	quitCode := 0
-	os.Setenv("IMMUDB_ADDRESS", "999.999.999.999")
+	t.Setenv("IMMUDB_ADDRESS", "999.999.999.999")
+	t.Setenv("IMMUDB_DIR", t.TempDir())
 	helper.OverrideQuitter(func(q int) {
 		quitCode = q
 	})

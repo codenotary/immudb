@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -35,8 +34,9 @@ func TestConn(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
 
-	opts := client.DefaultOptions()
-	opts.WithPort(port)
+	opts := client.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithPort(port)
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
@@ -89,16 +89,14 @@ func TestConnErr(t *testing.T) {
 }
 
 func TestConn_QueryContextErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
+	opts := client.DefaultOptions().WithDir(t.TempDir())
 
-	opts := client.DefaultOptions()
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
@@ -122,8 +120,7 @@ func TestConn_QueryContext(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
 
-	opts := client.DefaultOptions()
-	opts.WithPort(port)
+	opts := client.DefaultOptions().WithDir(t.TempDir()).WithPort(port)
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
@@ -176,8 +173,7 @@ func TestConn_QueryContextEmptyTable(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
 
-	opts := client.DefaultOptions()
-	opts.WithPort(port)
+	opts := client.DefaultOptions().WithDir(t.TempDir()).WithPort(port)
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"

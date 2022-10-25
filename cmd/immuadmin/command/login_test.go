@@ -21,7 +21,6 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
@@ -59,21 +58,18 @@ var pwReaderMock = &clienttest.PasswordReaderMock{
 
 func TestCommandLine_Connect(t *testing.T) {
 	log.Println("TestCommandLine_Connect")
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	err := bs.Start()
 	require.NoError(t, err)
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	opts := Options()
-	opts.DialOptions = dialOptions
+	opts := Options().
+		WithDir(t.TempDir()).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		})
 	cmdl := commandline{
 		context: context.Background(),
 		options: opts,
@@ -84,23 +80,20 @@ func TestCommandLine_Connect(t *testing.T) {
 
 func TestCommandLine_Disconnect(t *testing.T) {
 	log.Println("TestCommandLine_Disconnect")
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	cliopt := Options()
-	cliopt.DialOptions = dialOptions
+	opts := Options().
+		WithDir(t.TempDir()).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		})
 	tkf := cmdtest.RandString()
 	cmdl := commandline{
-		options:        cliopt,
+		options:        opts,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
@@ -138,21 +131,20 @@ func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte)
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	cliopt := Options().WithDialOptions(dialOptions)
+
+	cliopt := Options().
+		WithDir(t.TempDir()).
+		WithDialOptions([]grpc.DialOption{
+			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		})
 
 	tkf := cmdtest.RandString()
 	cmdl := commandline{
@@ -210,14 +202,11 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 }
 
 func TestCommandLine_CheckLoggedIn(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
 
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()
@@ -230,7 +219,9 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cmd.SetArgs([]string{"login", "immudb"})
 	cmd.Execute()
 
-	cl.options = Options()
+	tempDir := t.TempDir()
+
+	cl.options = Options().WithDir(tempDir)
 	cl.options.DialOptions = dialOptions
 	cl.login(cmd)
 
@@ -244,7 +235,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 
-	cl1.options = Options()
+	cl1.options = Options().WithDir(tempDir)
 	cl1.options.DialOptions = dialOptions1
 	err := cl1.checkLoggedIn(&cmd1, nil)
 	assert.NoError(t, err)

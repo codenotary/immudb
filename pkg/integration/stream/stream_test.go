@@ -21,9 +21,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"io/ioutil"
-
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
@@ -41,37 +38,36 @@ import (
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
-func TestImmuClient_SetGetStream(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
+func setupTestWithSignatures(t *testing.T, privKey string, pubKey string) (*servertest.BufconnServer, ic.ImmuClient) {
+	options := server.DefaultOptions().WithDir(t.TempDir())
+	if privKey != "" {
+		options = options.WithSigningKey("./../../../test/signer/" + privKey)
+	}
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
-	defer bs.Stop()
+	t.Cleanup(func() { bs.Stop() })
 
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
+	cliOpts := ic.DefaultOptions().WithDir(t.TempDir())
+	if pubKey != "" {
+		cliOpts = cliOpts.WithServerSigningPubKey("./../../../test/signer/" + pubKey)
+	}
+	client, err := bs.NewAuthenticatedClient(cliOpts)
 	require.NoError(t, err)
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
+	t.Cleanup(func() { client.CloseSession(context.Background()) })
 
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	return bs, client
+}
+
+func setupTest(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient) {
+	return setupTestWithSignatures(t, "", "")
+}
+
+func TestImmuClient_SetGetStream(t *testing.T) {
+	_, client := setupTest(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1_000_000)
 	require.NoError(t, err)
@@ -86,52 +82,22 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 	tmpFile.Seek(0, io.SeekStart)
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	entry, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
 	newSha := sha256.Sum256(entry.Value)
-
-	client.Disconnect()
-
 	require.Equal(t, oriSha, newSha[:])
 }
 
 func TestImmuClient_Set32MBStream(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
@@ -139,48 +105,19 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	_, err = client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 32<<20)
 	require.NoError(t, err)
@@ -188,42 +125,15 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	_, err = client.StreamSet(ctx, kvs)
+	_, err = client.StreamSet(context.Background(), kvs)
 	require.Equal(t, stream.ErrMaxValueLenExceeded, err.Error())
 	require.Equal(t, errors.CodDataException, err.(errors.ImmuError).Code())
 }
 
 func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 16<<20)
 	require.NoError(t, err)
@@ -241,42 +151,15 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	defer os.Remove(tmpFile3.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name(), tmpFile3.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	_, err = client.StreamSet(ctx, kvs)
+	_, err = client.StreamSet(context.Background(), kvs)
 	require.Equal(t, stream.ErrMaxTxValuesLenExceeded, err.(errors.ImmuError).Error())
 	require.Equal(t, errors.CodDataException, err.(errors.ImmuError).Code())
 }
 
 func TestImmuClient_SetGetSmallMessage(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1)
 	require.NoError(t, err)
@@ -291,52 +174,22 @@ func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 	tmpFile.Seek(0, io.SeekStart)
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	entry, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
 	newSha := sha256.Sum256(entry.Value)
-
-	client.Disconnect()
-
 	require.Equal(t, oriSha, newSha[:])
 }
 
 func TestImmuClient_SetMultipleKeys(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	key1 := []byte("key1")
 	val1 := []byte("val1")
@@ -364,52 +217,25 @@ func TestImmuClient_SetMultipleKeys(t *testing.T) {
 	}
 
 	kvs := []*stream.KeyValue{kv1, kv2}
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: key1})
+	entry1, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: key1})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 	require.Equal(t, val1, entry1.Value)
 
 	require.Equal(t, sha256.Sum256(val1), sha256.Sum256(entry1.Value))
 
-	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: key2})
+	entry2, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: key2})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 	require.Equal(t, val2, entry2.Value)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 1<<14)
 	require.NoError(t, err)
@@ -433,52 +259,25 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name())
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile1.Name())})
+	entry1, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile1.Name())})
 	require.NoError(t, err)
 
 	newSha1 := sha256.Sum256(entry1.Value)
 	require.Equal(t, oriSha1, newSha1[:])
 
-	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile2.Name())})
+	entry2, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile2.Name())})
 	require.NoError(t, err)
 
 	newSha2 := sha256.Sum256(entry2.Value)
 	require.Equal(t, oriSha2, newSha2[:])
-
-	client.Disconnect()
 }
 
 func TestImmuClient_SetMultipleKeysLoop(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	kvs := []*stream.KeyValue{}
 
@@ -496,46 +295,19 @@ func TestImmuClient_SetMultipleKeysLoop(t *testing.T) {
 		kvs = append(kvs, kv)
 	}
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
 	for i := 1; i <= 100; i++ {
-		_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(fmt.Sprintf("key-%d", i))})
+		_, err = client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(fmt.Sprintf("key-%d", i))})
 		require.NoError(t, err)
 		require.NotNil(t, hdr)
 	}
-
-	client.Disconnect()
 }
 
 func TestImmuClient_StreamScan(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	kvs := []*stream.KeyValue{}
 
@@ -553,47 +325,20 @@ func TestImmuClient_StreamScan(t *testing.T) {
 		kvs = append(kvs, kv)
 	}
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	scanResp, err := client.StreamScan(ctx, &schema.ScanRequest{
+	scanResp, err := client.StreamScan(context.Background(), &schema.ScanRequest{
 		Prefix:  []byte("key"),
 		SinceTx: hdr.Id,
 	})
-
-	client.Disconnect()
 
 	require.Len(t, scanResp.Entries, 100)
 }
 
 func TestImmuClient_SetEmptyReader(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	kv1 := &stream.KeyValue{
 		Key: &stream.ValueSize{
@@ -618,40 +363,14 @@ func TestImmuClient_SetEmptyReader(t *testing.T) {
 	}
 
 	kvs := []*stream.KeyValue{kv1, kv2}
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.Equal(t, stream.ErrReaderIsEmpty, err.Error())
 	require.Equal(t, errors.CodInvalidParameterValue, err.(errors.ImmuError).Code())
 	require.Nil(t, hdr)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_SetSizeTooLarge(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	kv1 := &stream.KeyValue{
 		Key: &stream.ValueSize{
@@ -665,40 +384,13 @@ func TestImmuClient_SetSizeTooLarge(t *testing.T) {
 	}
 
 	kvs := []*stream.KeyValue{kv1}
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, hdr)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	f, _ := streamtest.GenerateDummyFile("myFile", 20_000_000)
 	defer f.Close()
@@ -707,7 +399,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs1, err := streamutils.GetKeyValuesFromFiles(f.Name())
 	kvs1[0].Value.Size = 22_000_000
 
-	hdr, err := client.StreamSet(ctx, kvs1)
+	hdr, err := client.StreamSet(context.Background(), kvs1)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, hdr)
 
@@ -721,40 +413,13 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	kvs2, err := streamutils.GetKeyValuesFromFiles(f1.Name(), f2.Name())
 	kvs2[1].Value.Size = 12_000_000
 
-	hdr, err = client.StreamSet(ctx, kvs2)
+	hdr, err = client.StreamSet(context.Background(), kvs2)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err.Error())
 	require.Nil(t, hdr)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_ExecAll(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	aOps := &stream.ExecAllRequest{
 		Operations: []*stream.Op{
@@ -811,62 +476,23 @@ func TestImmuClient_ExecAll(t *testing.T) {
 		},
 	}
 
-	hdr, err := client.StreamExecAll(ctx, aOps)
+	hdr, err := client.StreamExecAll(context.Background(), aOps)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(`exec-all-key`)})
+	entry1, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(`exec-all-key`)})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`exec-all-val`), entry1.Value)
 
-	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(`exec-all-key2`)})
+	entry2, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(`exec-all-key2`)})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`exec-all-val2`), entry2.Value)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_StreamWithSignature(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client := setupTestWithSignatures(t, "ec1.key", "ec1.pub")
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../../test/signer/ec1.key")
-
-	bs := servertest.NewBufconnServer(options)
-
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer bs.Stop()
-
-	ts := tokenservice.NewInmemoryTokenService()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../../test/signer/ec1.pub")
-
-	client, err := ic.NewImmuClient(cliOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client.WithTokenService(ts)
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -878,53 +504,14 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 	}})
 	require.NoError(t, err)
 
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
-
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
 	require.NoError(t, err)
 }
 
 func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client := setupTestWithSignatures(t, "ec1.key", "ec3.pub")
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../../test/signer/ec1.key")
-
-	bs := servertest.NewBufconnServer(options)
-
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer bs.Stop()
-
-	ts := tokenservice.NewInmemoryTokenService()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
-
-	client, err := ic.NewImmuClient(cliOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client.WithTokenService(ts)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -936,51 +523,14 @@ func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
 	}})
 	require.Error(t, err)
 
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
 	require.Error(t, err)
 }
 
 func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client := setupTestWithSignatures(t, "", "ec3.pub")
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer bs.Stop()
-
-	ts := tokenservice.NewInmemoryTokenService()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
-
-	client, err := ic.NewImmuClient(cliOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client.WithTokenService(ts)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -992,53 +542,15 @@ func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
 	}})
 	require.Error(t, err)
 
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
 	require.Error(t, err)
 }
 
 func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
 	// first set and get needed to create a state and avoid that execution will be break by current state signature verification
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../../test/signer/ec3.key")
+	bs, client := setupTestWithSignatures(t, "ec3.key", "ec3.pub")
 
-	bs := servertest.NewBufconnServer(options)
-
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer bs.Stop()
-
-	ts := tokenservice.NewInmemoryTokenService()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../../test/signer/ec3.pub")
-
-	client, err := ic.NewImmuClient(cliOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client.WithTokenService(ts)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err := client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -1048,28 +560,26 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 			Size:    len([]byte(`val`)),
 		},
 	}})
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	require.NoError(t, err)
 
-	client.Disconnect()
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	require.NoError(t, err)
 
-	ts = tokenservice.NewInmemoryTokenService()
-	client, err = ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithServerSigningPubKey("./../../../test/signer/ec1.pub"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	client.WithTokenService(ts)
-	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
+	err = client.CloseSession(context.Background())
+	require.NoError(t, err)
 
-	md = metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
+	// Crete client that verifies using different public key
+	client, err = bs.NewAuthenticatedClient(ic.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithServerSigningPubKey("./../../../test/signer/ec1.pub"),
+	)
+	require.NoError(t, err)
 
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
-	require.Error(t, err)
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	require.ErrorContains(t, err, "signature doesn't match")
 
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err = client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -1079,29 +589,15 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 			Size:    len([]byte(`val`)),
 		},
 	}})
-	require.Error(t, err)
-
-	client.Disconnect()
+	require.ErrorContains(t, err, "signature doesn't match")
 }
 
 func TestImmuClient_StreamerServiceErrors(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	err := bs.Start()
+	require.NoError(t, err)
 	defer bs.Stop()
 
 	sfm := DefaultServiceFactoryMock()
@@ -1140,22 +636,11 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		return stream.NewExecAllStreamSender(str)
 	}
 
-	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	if err != nil {
-		log.Fatal(err)
-	}
-	client.WithStreamServiceFactory(sfm).WithTokenService(ts)
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	client.WithStreamServiceFactory(sfm)
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+	_, err = client.StreamVerifiedSet(context.Background(), []*stream.KeyValue{{
 		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
 			Size:    len([]byte(`key`)),
@@ -1167,8 +652,8 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	}})
 	require.Error(t, err)
 
-	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
-	require.Error(t, err)
+	_, err = client.StreamVerifiedGet(context.Background(), &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	require.ErrorContains(t, err, "custom one")
 
 	key := []byte("key3")
 	val := []byte("val3")
@@ -1184,13 +669,13 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		},
 	}
 
-	_, err = client.StreamSet(ctx, []*stream.KeyValue{kv})
+	_, err = client.StreamSet(context.Background(), []*stream.KeyValue{kv})
 	require.Error(t, err)
 
-	_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: key})
+	_, err = client.StreamGet(context.Background(), &schema.KeyRequest{Key: key})
 	require.Error(t, err)
 
-	_, err = client.StreamExecAll(ctx, &stream.ExecAllRequest{
+	_, err = client.StreamExecAll(context.Background(), &stream.ExecAllRequest{
 		Operations: []*stream.Op{
 			{
 				Operation: &stream.Op_ZAdd{
@@ -1206,29 +691,14 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		},
 	})
 	require.Error(t, err)
-
-	client.Disconnect()
-
 }
 
 func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
-	err = bs.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	err := bs.Start()
+	require.NoError(t, err)
 	defer bs.Stop()
 
 	sfm := DefaultServiceFactoryMock()
@@ -1254,57 +724,19 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 		return stream.NewZStreamReceiver(msr, 4096)
 	}
 
-	ts := tokenservice.NewInmemoryTokenService()
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	if err != nil {
-		log.Fatal(err)
-	}
-	client.WithStreamServiceFactory(sfm).WithTokenService(ts)
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
+	require.NoError(t, err)
+	client.WithStreamServiceFactory(sfm)
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.StreamZScan(ctx, &schema.ZScanRequest{Set: []byte(`key`)})
+	_, err = client.StreamZScan(context.Background(), &schema.ZScanRequest{Set: []byte(`key`)})
 	require.Error(t, err)
 
-	_, err = client.StreamHistory(ctx, &schema.HistoryRequest{Key: []byte(`key`)})
+	_, err = client.StreamHistory(context.Background(), &schema.HistoryRequest{Key: []byte(`key`)})
 	require.Error(t, err)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_ChunkToChunkGetStream(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client := setupTest(t)
 
 	file_size := 1_000_000
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", file_size)
@@ -1315,16 +747,15 @@ func TestImmuClient_ChunkToChunkGetStream(t *testing.T) {
 	tmpFile.Seek(0, io.SeekStart)
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	hdr, err := client.StreamSet(ctx, kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
 	sc := client.GetServiceClient()
-	gs, err := sc.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	gs, err := sc.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	require.NoError(t, err)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), stream.DefaultChunkSize)
 
@@ -1343,8 +774,6 @@ func TestImmuClient_ChunkToChunkGetStream(t *testing.T) {
 		}
 		l += r
 	}
-
-	client.Disconnect()
 
 	require.Equal(t, file_size, l)
 }
@@ -1411,28 +840,7 @@ func DefaultServiceFactoryMock() *ServiceFactoryMock {
 }
 
 func TestImmuClient_SessionSetGetStream(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
+	_, client := setupTest(t)
 
 	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1_000_000)
 	require.NoError(t, err)
@@ -1447,21 +855,19 @@ func TestImmuClient_SessionSetGetStream(t *testing.T) {
 	tmpFile.Seek(0, io.SeekStart)
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	hdr, err := client.StreamSet(context.TODO(), kvs)
+	hdr, err := client.StreamSet(context.Background(), kvs)
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	entry, err := client.StreamGet(context.TODO(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	entry, err := client.StreamGet(context.Background(), &schema.KeyRequest{Key: []byte(tmpFile.Name())})
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
 	newSha := sha256.Sum256(entry.Value)
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 
 	require.Equal(t, oriSha, newSha[:])

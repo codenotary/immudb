@@ -3,7 +3,6 @@ package tbtree
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -108,9 +107,8 @@ func TestConsistencyFailure(t *testing.T) {
 	}
 
 	t.Run("no flush", func(t *testing.T) {
-		tbtree, err := Open("test_tree_consistency_error_no_flush", DefaultOptions())
+		tbtree, err := Open(t.TempDir(), DefaultOptions())
 		require.NoError(t, err)
-		defer os.RemoveAll("test_tree_consistency_error_no_flush")
 		defer tbtree.Close()
 
 		for _, d := range dataset {
@@ -127,9 +125,8 @@ func TestConsistencyFailure(t *testing.T) {
 	})
 
 	t.Run("with flush", func(t *testing.T) {
-		tbtree, err := Open("test_tree_consistency_error_with_flush", DefaultOptions())
+		tbtree, err := Open(t.TempDir(), DefaultOptions())
 		require.NoError(t, err)
-		defer os.RemoveAll("test_tree_consistency_error_with_flush")
 		defer tbtree.Close()
 
 		for _, d := range dataset {

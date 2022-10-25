@@ -23,6 +23,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -39,41 +40,39 @@ import (
 )
 
 func TestOpenInllegalArguments(t *testing.T) {
-	app, err := Open("testdata", "", memory.Open(), nil)
+	dir := t.TempDir()
+	app, err := Open(dir, "", memory.Open(), nil)
 	require.Equal(t, ErrIllegalArguments, err)
 	require.Nil(t, app)
 
-	app, err = Open("testdata", "", nil, DefaultOptions())
+	app, err = Open(dir, "", nil, DefaultOptions())
 	require.Equal(t, ErrIllegalArguments, err)
 	require.Nil(t, app)
 
-	app, err = Open("testdata", "remotepath", memory.Open(), DefaultOptions())
+	app, err = Open(dir, "remotepath", memory.Open(), DefaultOptions())
 	require.Equal(t, ErrIllegalArguments, err, "remotePath must end with '/'")
 	require.Nil(t, app)
 
-	app, err = Open("testdata", "/remotepath/", memory.Open(), DefaultOptions())
+	app, err = Open(dir, "/remotepath/", memory.Open(), DefaultOptions())
 	require.Equal(t, ErrIllegalArguments, err, "remotePath must not start with '/'")
 	require.Nil(t, app)
 
-	app, err = Open("testdata", "remote//path/", memory.Open(), DefaultOptions())
+	app, err = Open(dir, "remote//path/", memory.Open(), DefaultOptions())
 	require.Equal(t, ErrIllegalArguments, err, "remote path must not contain '//'")
 	require.Nil(t, app)
 }
 
 func TestOpenMultiappError(t *testing.T) {
-	require.NoError(t, ioutil.WriteFile("testfile", []byte{}, 0777))
-	defer os.Remove("testfile")
+	fl := filepath.Join(t.TempDir(), "testfile")
+	require.NoError(t, ioutil.WriteFile(fl, []byte{}, 0777))
 
-	app, err := Open("testfile", "", memory.Open(), DefaultOptions())
+	app, err := Open(fl, "", memory.Open(), DefaultOptions())
 	require.NotNil(t, err)
 	require.Nil(t, app)
 }
 
 func TestOpenRemoteStorageAppendable(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-
-	app, err := Open("testdata", "", memory.Open(), DefaultOptions())
+	app, err := Open(t.TempDir(), "", memory.Open(), DefaultOptions())
 	require.NoError(t, err)
 
 	err = app.Close()
@@ -84,23 +83,17 @@ func TestOpenRemoteStorageAppendable(t *testing.T) {
 }
 
 func TestOpenRemoteStorageAppendableCompression(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-
 	opts := DefaultOptions()
 	opts.WithCompressionFormat(appendable.FlateCompression).
 		WithCompresionLevel(appendable.BestCompression)
 
-	app, err := Open("testdata", "", memory.Open(), opts)
+	app, err := Open(t.TempDir(), "", memory.Open(), opts)
 	require.Equal(t, err, ErrCompressionNotSupported)
 	require.Nil(t, app)
 }
 
 func TestRemoteStorageOpenAppendableInvalidName(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-
-	app, err := Open("testdata", "", memory.Open(), DefaultOptions())
+	app, err := Open(t.TempDir(), "", memory.Open(), DefaultOptions())
 	require.NoError(t, err)
 
 	subApp, err := app.OpenAppendable(singleapp.DefaultOptions(), "invalid-app-name", false)
@@ -175,9 +168,7 @@ func waitForFile(fileName string, maxWait time.Duration) bool {
 }
 
 func TestWritePastFirstChunk(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	opts := DefaultOptions()
 	opts.WithFileSize(10)

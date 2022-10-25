@@ -55,6 +55,8 @@ type baseReplicationTestSuite struct {
 	followers        []TestServer
 	followersDBName  []string
 	followersRunning []bool
+
+	clientStateDir string
 }
 
 func (suite *baseReplicationTestSuite) GetFollowersCount() int {
@@ -230,6 +232,7 @@ func (suite *baseReplicationTestSuite) internalClientFor(srv TestServer, dbName 
 
 	opts := client.
 		DefaultOptions().
+		WithDir(suite.clientStateDir).
 		WithAddress(host).
 		WithPort(port)
 
@@ -330,6 +333,8 @@ func (suite *baseReplicationTestSuite) ValidateClusterSetup() {
 func (suite *baseReplicationTestSuite) SetupTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
+
+	suite.clientStateDir = suite.T().TempDir()
 
 	if suite.srvProvider == nil {
 		suite.srvProvider = &inProcessTestServerProvider{}

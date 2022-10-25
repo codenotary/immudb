@@ -19,37 +19,30 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
-	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
 	"github.com/codenotary/immudb/cmd/helper"
-
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLogin(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
-
 	bs.Start()
-	defer bs.Stop()
+	t.Cleanup(func() { bs.Stop() })
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
+
 	ic.Connect(bs.Dialer)
-	ic.WithTokenFileService(ts)
+
 	cmdl := commandline{
 		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
@@ -68,19 +61,15 @@ func TestLogin(t *testing.T) {
 	innercmd.PersistentPostRun = nil
 
 	err := cmd.Execute()
+	require.NoError(t, err)
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(msg), "Successfully logged in") {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.Contains(t, string(msg), "Successfully logged in")
 
-	cmd, _ = cmdl.NewCmd()
+	cmd, err = cmdl.NewCmd()
+	require.NoError(t, err)
+
 	cmdl.logout(cmd)
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"logout"})
@@ -91,11 +80,8 @@ func TestLogin(t *testing.T) {
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	_, err = ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }

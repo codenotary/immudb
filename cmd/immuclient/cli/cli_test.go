@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/fs"
 
@@ -41,31 +40,34 @@ func TestInit(t *testing.T) {
 		t.Fatal("cli help failed")
 	}
 }
-func TestRunCommand(t *testing.T) {
+
+func setupTest(t *testing.T) *cli {
 	cli := new(cli)
 	cli.commands = make(map[string]*command, 0)
 	cli.commandsList = make([]*command, 0)
 	cli.initCommands()
 	cli.helpInit()
 
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
-	defer bs.Stop()
+	t.Cleanup(func() { bs.Stop() })
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	cli.immucl = ic.Imc
+
+	return cli
+}
+
+func TestRunCommand(t *testing.T) {
+	cli := setupTest(t)
 
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value"})
@@ -76,30 +78,7 @@ func TestRunCommand(t *testing.T) {
 }
 
 func TestRunCommandExtraArgs(t *testing.T) {
-	cli := new(cli)
-	cli.commands = make(map[string]*command, 0)
-	cli.commandsList = make([]*command, 0)
-	cli.initCommands()
-	cli.helpInit()
-
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli.immucl = ic.Imc
+	cli := setupTest(t)
 
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value", "value"})
@@ -109,30 +88,7 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	}
 }
 func TestRunMissingArgs(t *testing.T) {
-	cli := new(cli)
-	cli.commands = make(map[string]*command, 0)
-	cli.commandsList = make([]*command, 0)
-	cli.initCommands()
-	cli.helpInit()
-
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli.immucl = ic.Imc
+	cli := setupTest(t)
 
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key"})
@@ -143,30 +99,8 @@ func TestRunMissingArgs(t *testing.T) {
 }
 
 func TestRunWrongCommand(t *testing.T) {
-	cli := new(cli)
-	cli.commands = make(map[string]*command, 0)
-	cli.commandsList = make([]*command, 0)
-	cli.initCommands()
-	cli.helpInit()
+	cli := setupTest(t)
 
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli.immucl = ic.Imc
 	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"fet", "key"})
 	})
@@ -176,30 +110,8 @@ func TestRunWrongCommand(t *testing.T) {
 }
 
 func TestCheckCommand(t *testing.T) {
-	cli := new(cli)
-	cli.commands = make(map[string]*command, 0)
-	cli.commandsList = make([]*command, 0)
-	cli.initCommands()
-	cli.helpInit()
+	cli := setupTest(t)
 
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli.immucl = ic.Imc
 	l := liner.NewLiner()
 	msg := test.CaptureStdout(func() {
 		cli.checkCommand([]string{"--help"}, l)
@@ -232,34 +144,25 @@ func TestCheckCommandErrors(t *testing.T) {
 }
 
 func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
-	stateFileDir := path.Join(os.TempDir(), "testStates")
-	dir := path.Join(os.TempDir(), "data")
-	dirAtTx3 := path.Join(os.TempDir(), "dataTx3")
+	stateFileDir := path.Join(t.TempDir(), "testStates")
+	dir := path.Join(t.TempDir(), "data")
+	dirAtTx3 := path.Join(t.TempDir(), "dataTx3")
 
-	defer os.RemoveAll(dir)
-	defer os.RemoveAll(dirAtTx3)
-	defer os.RemoveAll(stateFileDir)
-
-	os.RemoveAll(dir)
-	os.RemoveAll(dirAtTx3)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(dir)
+	options := server.DefaultOptions().WithDir(dir)
 	bs := servertest.NewBufconnServer(options)
 
 	err := bs.Start()
 	require.NoError(t, err)
 
-	cliOpts := client.DefaultOptions()
+	cliOpts := client.
+		DefaultOptions().
+		WithDir(stateFileDir)
 	cliOpts.CurrentDatabase = client.DefaultDB
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-
-	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
+	}, ts, cliOpts)
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -268,7 +171,11 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	cl.immucl = ic.Imc
 
 	_, err = cl.safeset([]string{"key1", "val"})
+	require.NoError(t, err)
+
 	_, err = cl.safeset([]string{"key2", "val"})
+	require.NoError(t, err)
+
 	_, err = cl.safeset([]string{"key3", "val"})
 	require.NoError(t, err)
 
@@ -280,16 +187,17 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	require.NoError(t, err)
 
 	bs = servertest.NewBufconnServer(options)
+	require.NoError(t, err)
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = client.DefaultOptions()
+	cliOpts = client.
+		DefaultOptions().
+		WithDir(stateFileDir)
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-
-	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
+	}, ts, cliOpts)
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -298,7 +206,11 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	cl.immucl = ic.Imc
 
 	_, err = cl.safeset([]string{"key1", "val"})
+	require.NoError(t, err)
+
 	_, err = cl.safeset([]string{"key2", "val"})
+	require.NoError(t, err)
+
 	_, err = cl.safeset([]string{"key3", "val"})
 	require.NoError(t, err)
 
@@ -310,16 +222,17 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	require.NoError(t, err)
 
 	bs = servertest.NewBufconnServer(options)
+	require.NoError(t, err)
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = client.DefaultOptions()
+	cliOpts = client.
+		DefaultOptions().
+		WithDir(stateFileDir)
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-
-	ic.Options.WithImmudbClientOptions(cliOpts.WithDir(stateFileDir))
+	}, ts, cliOpts)
 
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")

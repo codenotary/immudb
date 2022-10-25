@@ -121,14 +121,12 @@ func TestMetricFuncServerUptimeCounter(t *testing.T) {
 }
 
 func TestMetricFuncComputeDBSizes(t *testing.T) {
-	dataDir := "TestDBSizesData"
+	dataDir := filepath.Join(t.TempDir(), "TestDBSizesData")
 	defaultDBName := "TestDBSizesDefaultDB"
 
 	//--> create the data dir with subdir for each db
 	var fullPermissions os.FileMode = 0777
 	require.NoError(t, os.MkdirAll(dataDir, fullPermissions))
-	defer os.RemoveAll(dataDir)
-
 	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, defaultDBName), fullPermissions))
 	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemDBName), fullPermissions))
 	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemDBName, "some-dir"), fullPermissions))

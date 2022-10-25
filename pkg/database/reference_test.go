@@ -29,8 +29,7 @@ import (
 )
 
 func TestStoreReference(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	txhdr, err := db.Set(req)
@@ -105,8 +104,7 @@ func TestStoreReference(t *testing.T) {
 }
 
 func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	set, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`value1`)}}})
 	require.NoError(t, err)
@@ -124,8 +122,7 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 }
 
 func TestStoreInvalidReferenceToReference(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	txhdr, err := db.Set(req)
@@ -141,8 +138,7 @@ func TestStoreInvalidReferenceToReference(t *testing.T) {
 }
 
 func TestStoreReferenceAsyncCommit(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	firstIndex, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}})
 	require.NoError(t, err)
@@ -199,8 +195,7 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 }
 
 func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx0, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}})
 	require.NoError(t, err)
@@ -259,8 +254,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 }
 
 func TestStoreIndexReference(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx1, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	require.NoError(t, err)
@@ -286,15 +280,13 @@ func TestStoreIndexReference(t *testing.T) {
 }
 
 func TestStoreReferenceKeyNotProvided(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 	_, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), AtTx: 123, BoundRef: true})
 	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
 func TestStore_GetOnReferenceOnSameKeyReturnsAlwaysLastValue(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx1, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	require.NoError(t, err)
@@ -320,24 +312,21 @@ func TestStore_GetOnReferenceOnSameKeyReturnsAlwaysLastValue(t *testing.T) {
 }
 
 func TestStore_ReferenceIllegalArgument(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.SetReference(nil)
 	require.Equal(t, err, store.ErrIllegalArguments)
 }
 
 func TestStore_ReferencedItemNotFound(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`notExists`)})
 	require.Equal(t, store.ErrKeyNotFound, err)
 }
 
 func TestStoreVerifiableReference(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.VerifiableSetReference(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
@@ -389,8 +378,7 @@ func TestStoreVerifiableReference(t *testing.T) {
 }
 
 func TestStoreReferenceWithPreconditions(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
 		Key:   []byte("key"),

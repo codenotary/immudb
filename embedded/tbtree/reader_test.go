@@ -19,16 +19,14 @@ package tbtree
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
-	tbtree, err := Open("test_tree_empty", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_empty")
 
 	snapshot, err := tbtree.Snapshot()
 	require.NotNil(t, snapshot)
@@ -46,9 +44,8 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 }
 
 func TestReaderWithInvalidSpec(t *testing.T) {
-	tbtree, err := Open("test_tree_rinv", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rinv")
 
 	snapshot, err := tbtree.Snapshot()
 	require.NotNil(t, snapshot)
@@ -66,9 +63,8 @@ func TestReaderAscendingScan(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rasc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rasc")
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
@@ -118,9 +114,8 @@ func TestReaderAscendingScanWithEndingKey(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rasc_ending", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rasc_ending")
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
@@ -177,9 +172,8 @@ func TestReaderAscendingScanAsBefore(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rasc_as_before", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rasc_as_before")
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
@@ -230,9 +224,8 @@ func TestReaderAsBefore(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_as_before", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_as_before")
 
 	key := []byte{0, 0, 0, 250}
 
@@ -275,9 +268,8 @@ func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rsasc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rsasc")
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
@@ -327,9 +319,8 @@ func TestReaderDescendingScan(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rdesc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rdesc")
 
 	keyCount := 1024
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -377,9 +368,8 @@ func TestReaderDescendingScanAsBefore(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rdesc_as_before", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rdesc_as_before")
 
 	keyCount := 1024
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -432,9 +422,8 @@ func TestReaderDescendingWithoutSeekKeyScan(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_rsdesc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_rsdesc")
 
 	keyCount := 1024
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -473,9 +462,9 @@ func TestReaderDescendingWithoutSeekKeyScan(t *testing.T) {
 }
 
 func TestFullScanAscendingOrder(t *testing.T) {
-	tbtree, err := Open("test_tree_asc", DefaultOptions())
+	dir := t.TempDir()
+	tbtree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_asc")
 
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)
@@ -483,7 +472,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_asc", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	snapshot, err := tbtree.Snapshot()
@@ -518,9 +507,8 @@ func TestFullScanAscendingOrder(t *testing.T) {
 }
 
 func TestFullScanDescendingOrder(t *testing.T) {
-	tbtree, err := Open("test_tree_desc", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_desc")
 
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)

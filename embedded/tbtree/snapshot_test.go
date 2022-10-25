@@ -18,7 +18,6 @@ package tbtree
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,11 +26,8 @@ import (
 func TestSnapshotSerialization(t *testing.T) {
 	insertionCountThld := 10_000
 
-	tbtree, err := Open("test_tree_w", DefaultOptions().
-		WithFlushThld(insertionCountThld))
-
+	tbtree, err := Open(t.TempDir(), DefaultOptions().WithFlushThld(insertionCountThld))
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_w")
 
 	keyCount := insertionCountThld
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -93,9 +89,8 @@ func TestSnapshotSerialization(t *testing.T) {
 }
 
 func TestSnapshotClosing(t *testing.T) {
-	tbtree, err := Open("test_tree_closing", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_closing")
 
 	snapshot, err := tbtree.Snapshot()
 	require.NoError(t, err)
@@ -129,9 +124,8 @@ func TestSnapshotClosing(t *testing.T) {
 }
 
 func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open("test_tree_r", DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
+	tbtree, err := Open(t.TempDir(), DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_r")
 
 	keyCount := 1_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -152,9 +146,8 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 }
 
 func TestSnapshotIsolation(t *testing.T) {
-	tbtree, err := Open("test_tree_snap_isolation", DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
+	tbtree, err := Open(t.TempDir(), DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_snap_isolation")
 
 	err = tbtree.Insert([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)

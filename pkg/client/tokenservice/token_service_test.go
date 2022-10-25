@@ -18,6 +18,7 @@ package tokenservice
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client/homedir"
@@ -26,7 +27,7 @@ import (
 )
 
 func TestTokenSevice_setToken(t *testing.T) {
-	fn := "deleteme"
+	fn := filepath.Join(t.TempDir(), "token")
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "")
 	require.Equal(t, ErrEmptyTokenProvided, err)
@@ -42,7 +43,7 @@ func TestTokenSevice_setToken(t *testing.T) {
 }
 
 func TestTokenService_IsTokenPresent(t *testing.T) {
-	fn := "deleteme"
+	fn := filepath.Join(t.TempDir(), "token")
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 }
 
 func TestTokenService_DeleteToken(t *testing.T) {
-	fn := "deleteme"
+	fn := filepath.Join(t.TempDir(), "token")
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.NoError(t, err)

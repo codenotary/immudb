@@ -34,10 +34,9 @@ func TestStandardOS(t *testing.T) {
 	os := NewStandardOS()
 
 	// Create
-	filename := "os_test_file"
+	filename := filepath.Join(t.TempDir(), "os_test_file")
 	f, err := os.Create(filename)
 	require.NoError(t, err)
-	defer stdos.Remove(filename)
 	require.NotNil(t, f)
 	createFOK := os.CreateF
 	errCreate := errors.New("Create error")
@@ -62,9 +61,8 @@ func TestStandardOS(t *testing.T) {
 	os.GetwdF = getwdFOK
 
 	// Mkdir
-	dirname := "os_test_dir"
+	dirname := filepath.Join(t.TempDir(), "os_test_dir")
 	require.NoError(t, os.Mkdir(dirname, 0755))
-	defer stdos.Remove(dirname)
 	mkdirFOK := os.MkdirF
 	errMkdir := errors.New("Mkdir error")
 	os.MkdirF = func(name string, perm stdos.FileMode) error {
@@ -74,9 +72,8 @@ func TestStandardOS(t *testing.T) {
 	os.MkdirF = mkdirFOK
 
 	// MkdirAll
-	dirname2 := "os_test_dir2"
+	dirname2 := filepath.Join(t.TempDir(), "os_test_dir2")
 	require.NoError(t, os.MkdirAll(filepath.Join(dirname2, "os_test_subdir"), 0755))
-	defer stdos.RemoveAll(dirname2)
 	mkdirAllFOK := os.MkdirAllF
 	errMkdirAll := errors.New("MkdirAll error")
 	os.MkdirAllF = func(path string, perm stdos.FileMode) error {
@@ -88,7 +85,6 @@ func TestStandardOS(t *testing.T) {
 	// Rename
 	filename2 := filename + "_renamed"
 	require.NoError(t, os.Rename(filename, filename2))
-	defer stdos.Remove(filename2)
 	renameFOK := os.RenameF
 	errRename := errors.New("Rename error")
 	os.RenameF = func(oldpath, newpath string) error {
@@ -232,10 +228,10 @@ func TestStandardOSIoutilEmbedded(t *testing.T) {
 	os := NewStandardOS()
 
 	// ReadFile ...
-	filename := "test-standard-os-ioutil-embedded-readfile"
+	filename := filepath.Join(t.TempDir(), "test-standard-os-ioutil-embedded-readfile")
 	content := strings.ReplaceAll(filename, "-", " ")
 	require.NoError(t, ioutil.WriteFile(filename, []byte(content), 0644))
-	defer os.Remove(filename)
+
 	readBytes, err := os.ReadFile(filename)
 	require.NoError(t, err)
 	require.Equal(t, content, string(readBytes))

@@ -17,7 +17,6 @@ limitations under the License.
 package immuc_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
@@ -29,20 +28,17 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-		})
+		}).WithDir(t.TempDir())
 	imc, err := Init(opts)
 	if err != nil {
 		t.Fatal(err)

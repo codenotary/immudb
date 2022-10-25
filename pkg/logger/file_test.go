@@ -17,9 +17,7 @@ limitations under the License.
 package logger
 
 import (
-	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -27,12 +25,13 @@ import (
 )
 
 func TestFileLogger(t *testing.T) {
-	os.Setenv("LOG_LEVEL", "error")
-	defer os.Unsetenv("LOG_LEVEL")
-	name := "test-file-logger"
+	t.Setenv("LOG_LEVEL", "error")
+
+	name := t.TempDir()
+
 	outputFile := filepath.Join(name, "test-file-logger.log")
-	fl, _, err := NewFileLogger(fmt.Sprintf("%s ", name), outputFile)
-	defer os.RemoveAll(name)
+	fl, _, err := NewFileLogger(name, outputFile)
+
 	require.NoError(t, err)
 	fl.Debugf("some debug %d", 1)
 	fl.Infof("some info %d", 1)
@@ -49,7 +48,7 @@ func TestFileLogger(t *testing.T) {
 	require.NoError(t, fl.Close())
 
 	outputFile3 := filepath.Join(name, "test-file-logger-with-level.log")
-	fl3, err := NewFileLoggerWithLevel(fmt.Sprintf("%s ", name), outputFile3, LogWarn)
+	fl3, err := NewFileLoggerWithLevel(name, outputFile3, LogWarn)
 	require.NoError(t, err)
 	fl3.Debugf("some debug %d", 3)
 	fl3.Infof("some info %d", 3)

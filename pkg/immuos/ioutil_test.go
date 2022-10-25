@@ -17,7 +17,7 @@ limitations under the License.
 package immuos
 
 import (
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,10 +26,9 @@ import (
 
 func TestStandardIoutil(t *testing.T) {
 	sio := NewStandardIoutil()
-	filename := "test-standard-ioutil"
+	filename := filepath.Join(t.TempDir(), "test-standard-ioutil")
 	content := strings.ReplaceAll(filename, "-", " ")
 	require.NoError(t, sio.WriteFile(filename, []byte(content), 0644))
-	defer os.Remove(filename)
 	readBytes, err := sio.ReadFile(filename)
 	require.NoError(t, err)
 	require.Equal(t, content, string(readBytes))

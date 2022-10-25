@@ -18,43 +18,41 @@ package integration
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/errors"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 func TestGRPCError(t *testing.T) {
 	os.Setenv("LOG_LEVEL", "debug")
 	defer os.Unsetenv("LOG_LEVEL")
 
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	bs, cli, _ := setupTestServerAndClientWithToken(t)
 
-	defer os.Remove(".state-")
+	t.Run("errors with token-based auth", func(t *testing.T) {
 
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+		_, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
 
-	bs.Start()
-	defer bs.Stop()
+		require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
+		require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+		require.Equal(t, err.(errors.ImmuError).Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
+		require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
+		require.NotNil(t, err.(errors.ImmuError).Stack())
 
-	cli, _ := client.NewImmuClient(client.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	})
 
-	_, err = cli.Login(context.TODO(), []byte(`immudb`), []byte(`wrong`))
+	t.Run("errors with session-based auth", func(t *testing.T) {
+		cli := bs.NewClient(client.DefaultOptions())
 
-	require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
-	require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
-	require.Equal(t, err.(errors.ImmuError).Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
-	require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
-	require.NotNil(t, err.(errors.ImmuError).Stack())
+		err := cli.OpenSession(context.Background(), []byte(`immudb`), []byte(`wrong`), "defaultdb")
+
+		require.Equal(t, err.(errors.ImmuError).Error(), "invalid user name or password")
+		require.Equal(t, err.(errors.ImmuError).Cause(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
+		require.Equal(t, err.(errors.ImmuError).Code(), errors.CodSqlserverRejectedEstablishmentOfSqlconnection)
+		require.Equal(t, int32(0), err.(errors.ImmuError).RetryDelay())
+		require.NotNil(t, err.(errors.ImmuError).Stack())
+	})
 }

@@ -238,7 +238,6 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		return
 	}
 	fmt.Fprintf(os.Stdout, "%v \n", result)
-	return
 }
 
 func (cli *cli) singleCommandHelp(cmdName string) (string, error) {

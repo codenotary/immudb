@@ -17,37 +17,14 @@ limitations under the License.
 package integration
 
 import (
-	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	immudb "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 func TestCreateDatabase(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	clientOpts := immudb.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client := immudb.NewClient().WithOptions(clientOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	dbSettings := &schema.DatabaseSettings{
 		DatabaseName:      "db1",
@@ -58,13 +35,13 @@ func TestCreateDatabase(t *testing.T) {
 		MaxTxEntries:      100,
 		ExcludeCommitTime: false,
 	}
-	err = client.CreateDatabase(context.Background(), dbSettings)
+	err := client.CreateDatabase(ctx, dbSettings)
 	require.NoError(t, err)
 
-	_, err = client.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db1"})
+	_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
 	require.NoError(t, err)
 
-	settings, err := client.GetDatabaseSettings(context.Background())
+	settings, err := client.GetDatabaseSettings(ctx)
 	require.NoError(t, err)
 	require.Equal(t, dbSettings.DatabaseName, settings.DatabaseName)
 	require.Equal(t, dbSettings.Replica, settings.Replica)
@@ -76,23 +53,7 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestCreateDatabaseV2(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	clientOpts := immudb.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client := immudb.NewClient().WithOptions(clientOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	dbNullableSettings := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
@@ -130,13 +91,13 @@ func TestCreateDatabaseV2(t *testing.T) {
 			WriteBufferSize: &schema.NullableUint32{Value: 8000},
 		},
 	}
-	_, err = client.CreateDatabaseV2(context.Background(), "db1", dbNullableSettings)
+	_, err := client.CreateDatabaseV2(ctx, "db1", dbNullableSettings)
 	require.NoError(t, err)
 
-	_, err = client.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db1"})
+	_, err = client.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
 	require.NoError(t, err)
 
-	res, err := client.GetDatabaseSettingsV2(context.Background())
+	res, err := client.GetDatabaseSettingsV2(ctx)
 	require.NoError(t, err)
 	require.Equal(t, dbNullableSettings.ReplicationSettings.Replica.Value, res.Settings.ReplicationSettings.Replica.Value)
 	require.Equal(t, dbNullableSettings.FileSize.Value, res.Settings.FileSize.Value)
@@ -169,6 +130,6 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.AhtSettings.SyncThreshold.Value, res.Settings.AhtSettings.SyncThreshold.Value)
 	require.Equal(t, dbNullableSettings.AhtSettings.WriteBufferSize.Value, res.Settings.AhtSettings.WriteBufferSize.Value)
 
-	_, err = client.UpdateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{})
+	_, err = client.UpdateDatabaseV2(ctx, "db1", &schema.DatabaseNullableSettings{})
 	require.NoError(t, err)
 }

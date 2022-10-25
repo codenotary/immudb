@@ -18,6 +18,7 @@ package logger
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -86,7 +87,7 @@ func TestNewLoggerWithFile(t *testing.T) {
 				opts: &Options{
 					Name:      "foo",
 					LogFormat: "json",
-					LogFile:   "log_json.log",
+					LogFile:   filepath.Join(t.TempDir(), "log_json.log"),
 				},
 			},
 			wantLoggerType: &JsonLogger{},
@@ -98,7 +99,7 @@ func TestNewLoggerWithFile(t *testing.T) {
 				opts: &Options{
 					Name:      "foo",
 					LogFormat: LogFormatText,
-					LogFile:   "log_text.log",
+					LogFile:   filepath.Join(t.TempDir(), "log_text.log"),
 				},
 			},
 			wantLoggerType: &FileLogger{},

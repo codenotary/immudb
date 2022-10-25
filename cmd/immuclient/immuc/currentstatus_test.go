@@ -17,34 +17,35 @@ limitations under the License.
 package immuc_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestCurrentRoot(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+func setupTest(t *testing.T) *test.ClientTest {
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
-	defer bs.Stop()
+	t.Cleanup(func() { bs.Stop() })
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
+
+	return ic
+}
+
+func TestCurrentRoot(t *testing.T) {
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 	msg, err := ic.Imc.CurrentState([]string{""})

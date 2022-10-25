@@ -19,8 +19,6 @@ package stdlib
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -31,20 +29,13 @@ import (
 )
 
 func TestRegisterConnConfig(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
+	opts := client.DefaultOptions().WithDir(t.TempDir())
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
@@ -58,7 +49,7 @@ func TestRegisterConnConfig(t *testing.T) {
 	defer UnregisterConnConfig(connStr)
 
 	db = Open(connStr)
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", "myTable"))
 	require.NoError(t, err)
 
 }

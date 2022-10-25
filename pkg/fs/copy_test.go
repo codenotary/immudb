@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -29,51 +28,47 @@ import (
 )
 
 func TestCopyFile(t *testing.T) {
-	src := "test-copy-file-source.txt"
-	require.NoError(
-		t, ioutil.WriteFile(src, []byte("test CopyFile file content"), 0644))
-	defer os.Remove(src)
-	dst := "test-copy-file-destination.txt"
-	defer os.Remove(dst)
+	src := filepath.Join(t.TempDir(), "test-copy-file-source.txt")
+	err := ioutil.WriteFile(src, []byte("test CopyFile file content"), 0644)
+	require.NoError(t, err)
+
+	dst := filepath.Join(t.TempDir(), "test-copy-file-destination.txt")
 	copier := NewStandardCopier()
-	require.NoError(t, copier.CopyFile(src, dst))
+	err = copier.CopyFile(src, dst)
+	require.NoError(t, err)
 }
 
 func TestCopyFileSrcNonExistent(t *testing.T) {
-	testSrcNonExistent(t, func() error {
-		copier := NewStandardCopier()
-		return copier.CopyFile("non-existent-copy-file-src", "non-existent-copy-file-dst")
-	})
+	copier := NewStandardCopier()
+	err := copier.CopyFile(
+		filepath.Join(t.TempDir(), "non-existent-copy-file-src"),
+		filepath.Join(t.TempDir(), "non-existent-copy-file-dst"),
+	)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestCopyFileSrcIsDir(t *testing.T) {
-	src := "test-copy-file-source-is-dir"
-	defer os.RemoveAll(src)
-	require.NoError(t, os.MkdirAll(src, 0755))
+	src := t.TempDir()
 	copier := NewStandardCopier()
-	err := copier.CopyFile(src, "test-copy-file-source-is-dir-dst")
-	if err == nil || !strings.Contains(err.Error(), "is a directory") {
-		t.Errorf("want 'is a directory' error, got %v", err)
-	}
+	err := copier.CopyFile(src, filepath.Join(t.TempDir(), "test-copy-file-source-is-dir-dst"))
+	require.ErrorContains(t, err, "is a directory")
 }
 
 func TestCopyFileOpenDstError(t *testing.T) {
-	src := "test-copy-file-open-dst-error-src"
-	require.NoError(
-		t, ioutil.WriteFile(src, []byte("test CopyFile open dst error src file content"), 0644))
-	defer os.Remove(src)
+	src := filepath.Join(t.TempDir(), "test-copy-file-open-dst-error-src")
+	err := ioutil.WriteFile(src, []byte("test CopyFile open dst error src file content"), 0644)
+	require.NoError(t, err)
 	copier := NewStandardCopier()
 	errOpenFile := errors.New("OpenFile error")
 	copier.OS.(*immuos.StandardOS).OpenFileF = func(name string, flag int, perm os.FileMode) (*os.File, error) {
 		return nil, errOpenFile
 	}
-	err := copier.CopyFile(src, "test-copy-file-open-dst-error-dst")
+	err = copier.CopyFile(src, filepath.Join(t.TempDir(), "test-copy-file-open-dst-error-dst"))
 	require.Equal(t, errOpenFile, err)
 }
 
 func TestCopyDir(t *testing.T) {
-	srcDir := "test-copy-dir-source"
-	defer os.RemoveAll(srcDir)
+	srcDir := t.TempDir()
 
 	srcSubDir1 := filepath.Join(srcDir, "dir1")
 	srcSubDir2 := filepath.Join(srcDir, "dir2")
@@ -87,8 +82,7 @@ func TestCopyDir(t *testing.T) {
 	require.NoError(t, ioutil.WriteFile(file1[0], []byte(file1[1]), 0644))
 	require.NoError(t, ioutil.WriteFile(file2[0], []byte(file2[1]), 0644))
 
-	dst := "test-copy-dir-destination"
-	defer os.RemoveAll(dst)
+	dst := filepath.Join(t.TempDir(), "dst")
 
 	copier := NewStandardCopier()
 	require.NoError(t, copier.CopyDir(srcDir, dst))
@@ -105,42 +99,34 @@ func TestCopyDir(t *testing.T) {
 }
 
 func TestCopyDirSrcNonExistent(t *testing.T) {
-	testSrcNonExistent(t, func() error {
-		copier := NewStandardCopier()
-		return copier.CopyDir("non-existent-copy-file-src", "non-existent-copy-file-dst")
-	})
+	copier := NewStandardCopier()
+	err := copier.CopyDir(
+		filepath.Join(t.TempDir(), "non-existent-copy-file-src"),
+		filepath.Join(t.TempDir(), "non-existent-copy-file-dst"),
+	)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestCopyDirSrcNotDir(t *testing.T) {
-	src := "test-copy-dir-src-not-dir-src"
-	defer os.Remove(src)
+	src := filepath.Join(t.TempDir(), "test-copy-dir-src-not-dir-src")
 	require.NoError(t, ioutil.WriteFile(src, []byte(src), 0644))
 	copier := NewStandardCopier()
-	err := copier.CopyDir(src, "test-copy-dir-src-not-dir-dst")
-	if err == nil || !strings.Contains(err.Error(), "is not a directory") {
-		t.Errorf("want 'is not a directory' error, got %v", err)
-	}
+	err := copier.CopyDir(src, filepath.Join(t.TempDir(), "test-copy-dir-src-not-dir-dst"))
+	require.ErrorContains(t, err, "is not a directory")
 }
 
 func TestCopyDirDstAlreadyExists(t *testing.T) {
-	src := "test-copy-dir-dst-already-exists-src"
-	require.NoError(t, os.Mkdir(src, 0755))
-	defer os.Remove(src)
-	dst := "test-copy-dir-dst-already-exists-dst"
-	require.NoError(t, os.Mkdir(dst, 0755))
-	defer os.Remove(dst)
+	src := t.TempDir()
+	dst := t.TempDir()
 	copier := NewStandardCopier()
 	err := copier.CopyDir(src, dst)
 	require.Error(t, err)
-	require.Truef(
-		t, errors.Is(err, os.ErrExist), "expected: ErrExist, actual: %v", err)
+	require.ErrorIs(t, err, os.ErrExist)
 }
 
 func TestCopyDirDstStatError(t *testing.T) {
-	src := "test-copy-dir-dst-stat-error-src"
-	require.NoError(t, os.Mkdir(src, 0755))
-	defer os.Remove(src)
-	dst := "test-copy-dir-dst-stat-error-dst"
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "test-copy-dir-dst-stat-error-dst")
 	copier := NewStandardCopier()
 	errDstStat := errors.New("dst Stat error")
 	copier.OS.(*immuos.StandardOS).StatF = func(name string) (os.FileInfo, error) {
@@ -154,13 +140,13 @@ func TestCopyDirDstStatError(t *testing.T) {
 }
 
 func TestCopyDirWalkError(t *testing.T) {
-	src := "test-copy-dir-walk-error-src"
+	src := t.TempDir()
 	srcSub := filepath.Join(src, "subdir")
 	require.NoError(t, os.MkdirAll(srcSub, 0755))
-	defer os.RemoveAll(src)
-	dst := "test-copy-dir-walk-error-dst"
-	defer os.RemoveAll(dst)
+
+	dst := filepath.Join(t.TempDir(), "test-copy-dir-walk-error-dst")
 	copier := NewStandardCopier()
+
 	errWalk := errors.New("walk error")
 	copier.OS.(*immuos.StandardOS).WalkF = func(root string, walkFn filepath.WalkFunc) error {
 		return walkFn("", nil, errWalk)

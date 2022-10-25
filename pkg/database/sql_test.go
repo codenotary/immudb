@@ -26,8 +26,7 @@ import (
 )
 
 func TestSQLExecAndQuery(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	db.maxResultSize = 2
 
@@ -182,8 +181,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 }
 
 func TestVerifiableSQLGet(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
 	require.Error(t, err)

@@ -75,8 +75,7 @@ func execAll(db DB, req *schema.ExecAllRequest, timeout time.Duration) error {
 }
 
 func TestConcurrentCompactIndex(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	done := make(chan struct{})
 	ack := make(chan struct{})
@@ -137,8 +136,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 }
 
 func TestSetBatch(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	batchSize := 100
 
@@ -192,8 +190,7 @@ func TestSetBatch(t *testing.T) {
 }
 
 func TestSetBatchInvalidKvKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -206,8 +203,7 @@ func TestSetBatchInvalidKvKey(t *testing.T) {
 }
 
 func TestSetBatchDuplicatedKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -225,8 +221,7 @@ func TestSetBatchDuplicatedKey(t *testing.T) {
 }
 
 func TestExecAllOps(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.ExecAll(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
@@ -291,8 +286,7 @@ func TestExecAllOps(t *testing.T) {
 }
 
 func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx, _ := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -351,8 +345,7 @@ func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 }
 
 func TestExecAllOpsEmptyList(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{},
@@ -362,8 +355,7 @@ func TestExecAllOpsEmptyList(t *testing.T) {
 }
 
 func TestExecAllOpsInvalidKvKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -448,8 +440,7 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 }
 
 func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -471,8 +462,7 @@ func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	bOps := make([]*schema.Op, 1)
 	bOps[0] = &schema.Op{
@@ -490,8 +480,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 }
 
 func TestSetOperationNilElementFound(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -505,8 +494,7 @@ func TestSetOperationNilElementFound(t *testing.T) {
 }
 
 func TestExecAllOpsUnexpectedType(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -520,8 +508,7 @@ func TestExecAllOpsUnexpectedType(t *testing.T) {
 }
 
 func TestExecAllOpsDuplicatedKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -557,8 +544,7 @@ func TestExecAllOpsDuplicatedKey(t *testing.T) {
 }
 
 func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -594,8 +580,7 @@ func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 }
 
 func TestStore_ExecAllOpsConcurrent(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	wg := sync.WaitGroup{}
 	wg.Add(10)
@@ -663,8 +648,7 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 }
 
 func TestExecAllNoWait(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	t.Run("ExecAll with NoWait should be self-contained", func(t *testing.T) {
 		aOps := &schema.ExecAllRequest{
@@ -1104,8 +1088,7 @@ func TestExecAllOpsMonotoneTsRange(t *testing.T) {
 */
 
 func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx0, _ := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
@@ -1192,8 +1175,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 }
 
 func TestOps_Preconditions(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{{

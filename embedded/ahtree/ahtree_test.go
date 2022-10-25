@@ -21,8 +21,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -135,7 +135,7 @@ func (t *EdgeCasesTestSuite) SetupTest() {
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailOnIllegalArguments() {
-	_, err := Open("ahtree_test", nil)
+	_, err := Open(t.T().TempDir(), nil)
 	t.Require().ErrorIs(err, ErrInvalidOptions)
 	t.Require().ErrorIs(err, ErrIllegalArguments)
 
@@ -423,12 +423,12 @@ func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidPath() {
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidCacheSize() {
-	_, err := Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
+	_, err := Open(t.T().TempDir(), DefaultOptions().WithDataCacheSlots(-1))
 	t.Require().ErrorIs(err, ErrInvalidOptions)
 }
 
 func (t *EdgeCasesTestSuite) TestShouldFailDueToInvalidDigestsCacheSize() {
-	_, err := Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
+	_, err := Open(t.T().TempDir(), DefaultOptions().WithDigestsCacheSlots(-1))
 	t.Require().ErrorIs(err, ErrInvalidOptions)
 }
 
@@ -505,16 +505,14 @@ func (t *EdgeCasesTestSuite) TestFailAfterClose() {
 }
 
 func TestReadOnly(t *testing.T) {
-	_, err := Open("ahtree_test", DefaultOptions().WithReadOnly(true))
-	defer os.RemoveAll("ahtree_test")
-	require.Error(t, err)
+	dir := t.TempDir()
 
-	tree, err := Open("ahtree_test", DefaultOptions().WithReadOnly(false))
+	tree, err := Open(dir, DefaultOptions().WithReadOnly(false))
 	require.NoError(t, err)
 	err = tree.Close()
 	require.NoError(t, err)
 
-	tree, err = Open("ahtree_test", DefaultOptions().WithReadOnly(true))
+	tree, err = Open(dir, DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	_, _, err = tree.Append(nil)
@@ -532,9 +530,7 @@ func TestAppend(t *testing.T) {
 		WithDigestsCacheSlots(100).
 		WithDataCacheSlots(100)
 
-	tree, err := Open("ahtree_test", opts)
-	require.NoError(t, err)
-	defer os.RemoveAll("ahtree_test")
+	tree, err := Open(t.TempDir(), opts)
 
 	N := 100
 
@@ -577,9 +573,7 @@ func TestAppend(t *testing.T) {
 }
 
 func TestIntegrity(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("ahtree_test")
+	tree, err := Open(t.TempDir(), DefaultOptions())
 
 	N := 1024
 
@@ -615,15 +609,18 @@ func TestIntegrity(t *testing.T) {
 func TestOpenFail(t *testing.T) {
 	_, err := Open("/dev/null", DefaultOptions())
 	require.Error(t, err)
-	os.Mkdir("ro_dir1", 0500)
-	defer os.RemoveAll("ro_dir1")
-	_, err = Open("ro_dir/bla", DefaultOptions())
+
+	roDir := filepath.Join(t.TempDir(), "ro_dir1")
+	os.Mkdir(roDir, 0500)
+	_, err = Open(filepath.Join(roDir, "bla"), DefaultOptions())
 	require.Error(t, err)
+
 	_, err = Open("wrongdir\000", DefaultOptions())
 	require.Error(t, err)
-	defer os.RemoveAll("tt1")
 
-	_, err = Open("tt1", DefaultOptions().WithAppFactory(
+	tt1Dir := os.TempDir()
+
+	_, err = Open(tt1Dir, DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "tree" {
 				e = errors.New("simulated error")
@@ -632,7 +629,7 @@ func TestOpenFail(t *testing.T) {
 		}))
 	require.Error(t, err)
 
-	_, err = Open("tt1", DefaultOptions().WithAppFactory(
+	_, err = Open(tt1Dir, DefaultOptions().WithAppFactory(
 		func(rootPath, subPath string, opts *multiapp.Options) (a appendable.Appendable, e error) {
 			if subPath == "commit" {
 				e = errors.New("simulated error")
@@ -643,11 +640,7 @@ func TestOpenFail(t *testing.T) {
 }
 
 func TestInclusionAndConsistencyProofs(t *testing.T) {
-	path, err := ioutil.TempDir("", "ahtree_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	tree, err := Open(path, DefaultOptions())
+	tree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
 	N := 1024
@@ -717,13 +710,13 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 }
 
 func TestReOpenningImmudbStore(t *testing.T) {
-	defer os.RemoveAll("ahtree_test")
+	dir := t.TempDir()
 
 	ItCount := 5
 	ACount := 100
 
 	for it := 0; it < ItCount; it++ {
-		tree, err := Open("ahtree_test", DefaultOptions())
+		tree, err := Open(dir, DefaultOptions())
 		require.NoError(t, err)
 
 		for i := 0; i < ACount; i++ {
@@ -737,7 +730,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree, err := Open("ahtree_test", DefaultOptions())
+	tree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	for i := 1; i <= ItCount*ACount; i++ {
@@ -759,9 +752,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	path, err := ioutil.TempDir("", "ahtree_test_reset")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	tree, err := Open(path, DefaultOptions())
 	require.NoError(t, err)
@@ -988,8 +979,7 @@ func BenchmarkAppend(b *testing.B) {
 		WithSyncThld(100_000).
 		WithFileSize(1 << 29)
 
-	tree, _ := Open("ahtree_test", opts)
-	defer os.RemoveAll("ahtree_test")
+	tree, _ := Open(b.TempDir(), opts)
 
 	var bs [32]byte
 

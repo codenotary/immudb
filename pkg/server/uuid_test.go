@@ -21,85 +21,61 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/xid"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
 func TestNewUUID(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
-	if err != nil {
-		t.Fatalf("error creating UUID, %v", err)
-	}
-	defer os.RemoveAll(IDENTIFIER_FNAME)
-
-	if !fileExists(IDENTIFIER_FNAME) {
-		t.Errorf("uuid file not created, %s", err)
-	}
+	dir := t.TempDir()
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
 
 	uuid := NewUUIDContext(id)
-	if id.Compare(uuid.UUID) != 0 {
-		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
-	}
+	require.Equal(t, uuid.UUID, id)
 }
 
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
-	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID("./", "./defaultDb")
-	if err != nil {
-		t.Fatalf("error creating UUID, %v", err)
-	}
-	defer os.RemoveAll(IDENTIFIER_FNAME)
+	dir := t.TempDir()
+	ioutil.WriteFile(filepath.Join(dir, IDENTIFIER_FNAME), x.Bytes(), os.ModePerm)
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	require.NoError(t, err)
 
-	if !fileExists(IDENTIFIER_FNAME) {
-		t.Errorf("uuid file not created, %s", err)
-	}
+	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
 
 	uuid := NewUUIDContext(id)
-	if id.Compare(uuid.UUID) != 0 {
-		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
-	}
+	require.Equal(t, uuid.UUID, id)
 }
 
 func TestMigrateUUID(t *testing.T) {
-	defaultDbDir := "defaultDb"
-	if err := os.Mkdir(defaultDbDir, os.ModePerm); err != nil {
-		t.Fatalf("error in creating default db dir")
-	}
-	defer os.Remove(defaultDbDir)
+	dir := t.TempDir()
+	defaultDbDir := filepath.Join(dir, "defaultDb")
+	err := os.Mkdir(defaultDbDir, os.ModePerm)
+	require.NoError(t, err)
 
 	fileInDefaultDbDir := path.Join(defaultDbDir, IDENTIFIER_FNAME)
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(fileInDefaultDbDir, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUUID("./", defaultDbDir)
-	if err != nil {
-		t.Fatalf("error creating UUID, %v", err)
-	}
-	defer os.RemoveAll(fileInDefaultDbDir)
-	defer os.RemoveAll(IDENTIFIER_FNAME)
+	id, err := getOrSetUUID(dir, defaultDbDir)
+	require.NoError(t, err)
 
-	if !fileExists(IDENTIFIER_FNAME) {
-		t.Errorf("uuid file not created, %s", err)
-	}
-	if fileExists(fileInDefaultDbDir) {
-		t.Errorf("uuid file not moved, %s", err)
-	}
+	require.FileExists(t, filepath.Join(dir, IDENTIFIER_FNAME))
+	require.NoFileExists(t, fileInDefaultDbDir, "uuid file not moved, %s", err)
 
 	uuid := NewUUIDContext(id)
-	if id.Compare(uuid.UUID) != 0 {
-		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
-	}
+	require.Equal(t, id, uuid.UUID)
 }
 
 func TestUUIDContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
-	if err != nil {
-		t.Fatalf("error creating UUID, %v", err)
-	}
-	defer os.RemoveAll(IDENTIFIER_FNAME)
+	dir := t.TempDir()
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	require.NoError(t, err)
 
 	uuid := NewUUIDContext(id)
 	transportStream := &mockServerTransportStream{}
@@ -108,17 +84,12 @@ func TestUUIDContextSetter(t *testing.T) {
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 
 		ctxUUID, ok := transportStream.SentHeader[SERVER_UUID_HEADER]
-		if !ok {
-			t.Fatalf("error setting uuid")
-		}
+		require.True(t, ok, "error setting uuid")
 
 		x, err := xid.FromString(ctxUUID[0])
-		if err != nil {
-			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
-		}
-		if uuid.UUID.Compare(x) != 0 {
-			t.Fatalf("set uuid does is not equal to transmitted uuid")
-		}
+		require.NoError(t, err)
+		require.Equal(t, uuid.UUID, x)
+
 		return req, nil
 	}
 
@@ -126,17 +97,13 @@ func TestUUIDContextSetter(t *testing.T) {
 	ctx := grpc.NewContextWithServerTransportStream(context.Background(), transportStream)
 
 	_, err = uuid.UUIDContextSetter(ctx, req, srv, handler)
-	if err != nil {
-		t.Fatalf("error setting uuid UUID, %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestUUIDStreamContextSetter(t *testing.T) {
-	id, err := getOrSetUUID("./", "./defaultDb")
-	if err != nil {
-		t.Fatalf("error creating UUID, %v", err)
-	}
-	defer os.RemoveAll(IDENTIFIER_FNAME)
+	dir := t.TempDir()
+	id, err := getOrSetUUID(dir, filepath.Join(dir, "defaultDb"))
+	require.NoError(t, err)
 
 	uuid := NewUUIDContext(id)
 	srv := grpc.StreamServerInfo{}
@@ -144,18 +111,11 @@ func TestUUIDStreamContextSetter(t *testing.T) {
 
 	handler := func(srv interface{}, stream grpc.ServerStream) error {
 		ctxUUID, ok := ss.SentHeader[SERVER_UUID_HEADER]
-		if !ok {
-			t.Fatalf("error setting uuid")
-		}
+		require.True(t, ok, "error setting uuid")
 
 		x, err := xid.FromString(ctxUUID[0])
-		if err != nil {
-			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
-		}
-
-		if uuid.UUID.Compare(x) != 0 {
-			t.Fatalf("set uuid does is not equal to transmitted uuid")
-		}
+		require.NoError(t, err)
+		require.Equal(t, uuid.UUID, x)
 
 		return nil
 	}
@@ -163,9 +123,7 @@ func TestUUIDStreamContextSetter(t *testing.T) {
 	var req interface{}
 
 	err = uuid.UUIDStreamContextSetter(req, &ss, &srv, handler)
-	if err != nil {
-		t.Fatalf("error setting uuid UUID, %v", err)
-	}
+	require.NoError(t, err)
 }
 
 // implement ServerTransportStream

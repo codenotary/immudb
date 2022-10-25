@@ -17,33 +17,24 @@ limitations under the License.
 package immuc_test
 
 import (
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
 
 func TestLogin(t *testing.T) {
-	viper.Set("tokenfile", "token")
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
 
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
@@ -52,7 +43,8 @@ func TestLogin(t *testing.T) {
 		}).
 		WithPasswordReader(&immuclienttest.PasswordReader{
 			Pass: []string{"immudb"},
-		})
+		}).
+		WithDir(t.TempDir())
 
 	imc, err := Init(opts)
 	if err != nil {
@@ -62,6 +54,7 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	imc.WithFileTokenService(tokenservice.NewInmemoryTokenService())
 
 	msg, err := imc.Login([]string{"immudb"})
 	if err != nil {
@@ -71,16 +64,13 @@ func TestLogin(t *testing.T) {
 		t.Fatal("Login error")
 	}
 }
+
 func TestLogout(t *testing.T) {
-	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
 
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
@@ -89,7 +79,8 @@ func TestLogout(t *testing.T) {
 		}).
 		WithPasswordReader(&immuclienttest.PasswordReader{
 			Pass: []string{"immudb"},
-		})
+		}).
+		WithDir(t.TempDir())
 
 	imc, err := Init(opts)
 	if err != nil {
@@ -99,6 +90,8 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	imc.WithFileTokenService(tokenservice.NewInmemoryTokenService())
+
 	_, err = imc.Logout([]string{""})
 	if err != nil {
 		t.Fatal(err)
@@ -106,43 +99,16 @@ func TestLogout(t *testing.T) {
 }
 
 func TestUserList(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, err := ic.Imc.UserList([]string{""})
 	if err != nil {
 		t.Fatal("Userlist fail", err)
 	}
 }
+
 func TestUserCreate(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	icMain := setupTest(t)
 
 	var userCreateTests = []struct {
 		name     string
@@ -159,8 +125,8 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts)
-				ic.Connect(bs.Dialer)
+				}, icMain.Ts, icMain.Options.GetImmudbClientOptions())
+				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
@@ -179,8 +145,8 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts)
-				ic.Connect(bs.Dialer)
+				}, icMain.Ts, icMain.Options.GetImmudbClientOptions())
+				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
@@ -199,8 +165,8 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts)
-				ic.Connect(bs.Dialer)
+				}, icMain.Ts, icMain.Options.GetImmudbClientOptions())
+				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
@@ -219,8 +185,8 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts)
-				ic.Connect(bs.Dialer)
+				}, icMain.Ts, icMain.Options.GetImmudbClientOptions())
+				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
@@ -239,8 +205,8 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Ts)
-				ic.Connect(bs.Dialer)
+				}, icMain.Ts, icMain.Options.GetImmudbClientOptions())
+				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
 				if err == nil {
@@ -263,23 +229,7 @@ func TestUserCreate(t *testing.T) {
 }
 
 func TestUserChangePassword(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	var userCreateTests = []struct {
 		name     string
@@ -297,7 +247,7 @@ func TestUserChangePassword(t *testing.T) {
 				ic.Pr = &test.PasswordReader{
 					Pass: []string{"immudb", password, password},
 				}
-				ic.Connect(bs.Dialer)
+				ic.Connect(ic.Dialer)
 				msg, err := ic.Imc.ChangeUserPassword(args)
 				if err != nil {
 					t.Fatal("TestUserChangePassword fail", err)
@@ -316,13 +266,13 @@ func TestUserChangePassword(t *testing.T) {
 				ic.Pr = &test.PasswordReader{
 					Pass: []string{password},
 				}
-				ic.Connect(bs.Dialer)
+				ic.Connect(ic.Dialer)
 				ic.Login("immudb")
 
 				ic.Pr = &test.PasswordReader{
 					Pass: []string{"pass", password, password},
 				}
-				ic.Connect(bs.Dialer)
+				ic.Connect(ic.Dialer)
 				msg, err := ic.Imc.ChangeUserPassword(args)
 				if err == nil {
 					t.Fatal("TestUserChangePassword fail", err)
@@ -341,28 +291,12 @@ func TestUserChangePassword(t *testing.T) {
 }
 
 func TestUserSetActive(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	ic.Pr = &test.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
 	}
-	ic.Connect(bs.Dialer)
+	ic.Connect(ic.Dialer)
 
 	_, err := ic.Imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
@@ -414,27 +348,12 @@ func TestUserSetActive(t *testing.T) {
 }
 
 func TestSetUserPermission(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	ic.Pr = &test.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
 	}
-	ic.Connect(bs.Dialer)
+	ic.Connect(ic.Dialer)
 	_, err := ic.Imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)

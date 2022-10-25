@@ -17,14 +17,11 @@ limitations under the License.
 package cli
 
 import (
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
-	"github.com/codenotary/immudb/pkg/auth"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -32,20 +29,16 @@ import (
 )
 
 func TestLogin(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 	ic.Connect(bs.Dialer)
 
 	cli := new(cli)

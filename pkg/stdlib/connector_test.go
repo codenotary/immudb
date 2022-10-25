@@ -18,39 +18,17 @@ package stdlib
 
 import (
 	"database/sql"
-	"net"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDriverConnector_Connect(t *testing.T) {
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0)
+	port, cleanup := testServer(t)
+	defer cleanup()
 
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
-
-	connStr := RegisterConnConfig(client.DefaultOptions().WithPort(port))
+	connStr := RegisterConnConfig(client.DefaultOptions().WithPort(port).WithDir(t.TempDir()))
 
 	db, err := sql.Open("immudb", connStr)
 	require.NoError(t, err)

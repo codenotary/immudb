@@ -19,36 +19,40 @@ package sservice
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
-func TestManpageService_InstallManPages(t *testing.T) {
-	rootCmd := &cobra.Command{Use: "test"}
-	versionCmd := &cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {}}
-	rootCmd.AddCommand(versionCmd)
+func TestManpageService(t *testing.T) {
 
-	mps := manpageService{}
+	manDir := filepath.Join(t.TempDir(), "man_dir_test")
 
-	manDir := "./man_dir_test"
+	t.Run("install", func(t *testing.T) {
+		rootCmd := &cobra.Command{Use: "test"}
+		versionCmd := &cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {}}
+		rootCmd.AddCommand(versionCmd)
 
-	require.NoError(t, mps.InstallManPages(manDir, "test", rootCmd))
-	manFiles, err := ioutil.ReadDir(manDir)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(manFiles))
-}
+		mps := manpageService{}
 
-func TestManpageService_UninstallManPages(t *testing.T) {
-	mps := manpageService{}
+		require.NoError(t, mps.InstallManPages(manDir, "test", rootCmd))
+		manFiles, err := ioutil.ReadDir(manDir)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(manFiles))
+	})
 
-	manDir := "./man_dir_test"
-	_, err := ioutil.ReadDir(manDir)
+	t.Run("uninstall", func(t *testing.T) {
+		mps := manpageService{}
 
-	require.NoError(t, mps.UninstallManPages(manDir, "test"))
-	manFiles, err := ioutil.ReadDir(manDir)
-	require.NoError(t, err)
-	require.Empty(t, manFiles)
-	os.RemoveAll(manDir)
+		_, err := ioutil.ReadDir(manDir)
+		require.NoError(t, err)
+
+		require.NoError(t, mps.UninstallManPages(manDir, "test"))
+		manFiles, err := ioutil.ReadDir(manDir)
+		require.NoError(t, err)
+		require.Empty(t, manFiles)
+		os.RemoveAll(manDir)
+	})
 }

@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -74,7 +75,6 @@ func testServer(opts *Options) (*ImmuServer, func()) {
 		if s.Listener != nil {
 			s.Listener.Close()
 		}
-		os.RemoveAll(s.Options.Dir)
 	}
 }
 
@@ -88,10 +88,7 @@ func TestLogErr(t *testing.T) {
 }
 
 func TestServerDefaultDatabaseLoad(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	opts := DefaultOptions().WithDir(dir)
 
 	s, closer := testServer(opts)
@@ -100,24 +97,20 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	options := database.DefaultOption().WithDBRootPath(dir)
 	dbRootpath := options.GetDBRootPath()
 
-	err = s.loadDefaultDatabase(dbRootpath, nil)
+	err := s.loadDefaultDatabase(dbRootpath, nil)
 	require.NoError(t, err)
 	require.DirExists(t, path.Join(dbRootpath, DefaultDBName))
 }
 
 func TestServerReOpen(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	serverOptions := DefaultOptions().WithDir(dir)
+	serverOptions := DefaultOptions().WithDir(t.TempDir())
 	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDBRootPath()
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -138,18 +131,14 @@ func TestServerReOpen(t *testing.T) {
 }
 
 func TestServerSystemDatabaseLoad(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	serverOptions := DefaultOptions().WithDir(dir)
+	serverOptions := DefaultOptions().WithDir(t.TempDir())
 	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDBRootPath()
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -159,69 +148,53 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 }
 
 func TestServerWithEmptyAdminPassword(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword("")
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	assert.ErrorIs(t, err, ErrEmptyAdminPassword)
 }
 
 func TestServerWithInvalidAdminPassword(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword("enc:*")
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	assert.Error(t, err)
 }
 
 func TestServerErrChunkSizeTooSmall(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithStreamChunkSize(4095)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
-	assert.Equal(t, stream.ErrChunkTooSmall, err.Error())
+	err := s.Initialize()
+	assert.ErrorContains(t, err, stream.ErrChunkTooSmall)
 }
 
 func TestServerCreateDatabase(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -255,19 +228,15 @@ func TestServerCreateDatabase(t *testing.T) {
 }
 
 func TestServerCreateDatabaseCaseError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -295,19 +264,15 @@ func TestServerCreateDatabaseCaseError(t *testing.T) {
 }
 
 func TestServerCreateMultipleDatabases(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -353,12 +318,8 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 }
 
 func TestServerUpdateDatabaseAuthDisabled(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithAuth(false)
@@ -366,7 +327,7 @@ func TestServerUpdateDatabaseAuthDisabled(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	_, err = s.UpdateDatabase(context.Background(), &schema.DatabaseSettings{})
@@ -374,12 +335,8 @@ func TestServerUpdateDatabaseAuthDisabled(t *testing.T) {
 }
 
 func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithAuth(true)
@@ -387,7 +344,7 @@ func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -437,12 +394,8 @@ func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
 }
 
 func TestServerUpdateDatabaseV2AuthDisabled(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithAuth(false)
@@ -450,7 +403,7 @@ func TestServerUpdateDatabaseV2AuthDisabled(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -460,12 +413,8 @@ func TestServerUpdateDatabaseV2AuthDisabled(t *testing.T) {
 }
 
 func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithAuth(true)
@@ -473,7 +422,7 @@ func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -550,19 +499,15 @@ func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
 }
 
 func TestServerLoaduserDatabase(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -592,12 +537,12 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	}
 }
 
-func TestServerLoadUserDatabases(t *testing.T) {
-	os.RemoveAll("./data_v1.1.0")
+func TestServerLoadUserDatabasesImmudb_1_1_0(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data_v1.1.0")
 	copier := fs.NewStandardCopier()
-	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", "data_v1.1.0"))
+	require.NoError(t, copier.CopyDir("../../test/data_v1.1.0", dir))
 
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithDir("./data_v1.1.0")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithDir(dir)
 	s, closer := testServer(serverOptions)
 	defer closer()
 
@@ -1129,12 +1074,8 @@ func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func TestServerDbOperations(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword).
 		WithSigningKey("./../../test/signer/ec1.key")
@@ -1142,7 +1083,7 @@ func TestServerDbOperations(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -1199,16 +1140,10 @@ func TestServerDbOperations(t *testing.T) {
 }
 
 func TestServerUpdateConfigItem(t *testing.T) {
-	dataDir := "test-server-update-config-item-config"
+	dataDir := filepath.Join(t.TempDir(), "test-server-update-config-item-config")
 	configFile := fmt.Sprintf("%s.toml", dataDir)
-	s, closer := testServer(DefaultOptions().
-		WithAuth(false).
-		WithMaintenance(false).
-		WithDir(dataDir))
-	defer func() {
-		closer()
-		os.Remove(configFile)
-	}()
+	s, closer := testServer(DefaultOptions().WithAuth(false).WithMaintenance(false).WithDir(dataDir))
+	defer closer()
 
 	// Config file path empty
 	s.Options.Config = ""
@@ -1249,36 +1184,29 @@ func TestServerUpdateConfigItem(t *testing.T) {
 }
 
 func TestServerPID(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	op := DefaultOptions().
-		WithDir(dir).
+		WithDir(filepath.Join(dir, "data")).
 		WithAuth(false).
-		WithMaintenance(false).WithPidfile("pidfile")
+		WithMaintenance(false).WithPidfile(filepath.Join(dir, "pidfile"))
 	s, closer := testServer(op)
 	defer closer()
-	defer os.Remove("pidfile")
 
-	err = s.setupPidFile()
+	err := s.setupPidFile()
 	require.NoError(t, err)
 }
 
 func TestServerErrors(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	adminCtx := context.Background()
@@ -1741,19 +1669,15 @@ func TestServerErrors(t *testing.T) {
 }
 
 func TestServerGetUserAndUserExists(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -1813,19 +1737,15 @@ func TestServerIsValidDBName(t *testing.T) {
 }
 
 func TestServerMandatoryAuth(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -1850,19 +1770,15 @@ func TestServerMandatoryAuth(t *testing.T) {
 }
 
 func TestServerLoginAttempWithEmptyPassword(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithAdminPassword(auth.SysAdminPassword)
 
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
@@ -1876,12 +1792,8 @@ func TestServerLoginAttempWithEmptyPassword(t *testing.T) {
 }
 
 func TestServerMaintenanceMode(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	serverOptions := DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithMetricsServer(false).
 		WithMaintenance(true).
 		WithAuth(false)
@@ -1889,7 +1801,7 @@ func TestServerMaintenanceMode(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 
 	_, err = s.CreateUser(context.Background(), nil)

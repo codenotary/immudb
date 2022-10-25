@@ -19,37 +19,38 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/auth"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestCurrentState(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+func setupTest(t *testing.T) *test.ClientTest {
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	defer bs.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-	defer os.Remove("testTokenFile")
+	t.Cleanup(func() { bs.Stop() })
 
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
+	ts := tokenservice.NewInmemoryTokenService()
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
+
+	return ic
+}
+
+func TestCurrentState(t *testing.T) {
+	ic := setupTest(t)
 
 	cmdl := commandline{
 		config: helper.Config{Name: "immuclient"},

@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,12 +48,59 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
-	dir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+type mockHomedir struct {
+	files map[string][]byte
+	m     sync.RWMutex
+}
 
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+func newMockHomedir() homedir.HomedirService {
+	return &mockHomedir{
+		files: make(map[string][]byte),
+	}
+}
+
+func (h *mockHomedir) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
+	h.m.Lock()
+	defer h.m.Unlock()
+
+	h.files[pathToFile] = content
+	return nil
+}
+
+func (h *mockHomedir) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
+	h.m.RLock()
+	defer h.m.RUnlock()
+
+	_, exists := h.files[pathToFile]
+	return exists, nil
+}
+
+func (h *mockHomedir) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
+	h.m.RLock()
+	defer h.m.RUnlock()
+
+	data, exists := h.files[pathToFile]
+	if !exists {
+		return "", os.ErrNotExist
+	}
+
+	return string(data), nil
+}
+
+func (h *mockHomedir) DeleteFileFromUserHomeDir(pathToFile string) error {
+	h.m.Lock()
+	defer h.m.Unlock()
+
+	delete(h.files, pathToFile)
+	return nil
+}
+
+func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
+	bs := servertest.NewBufconnServer(server.
+		DefaultOptions().
+		WithDir(t.TempDir()),
+	)
+
 	bs.Start()
 	defer bs.Stop()
 
@@ -60,14 +108,10 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 
-	var clientConn *grpc.ClientConn
-	clientConn, err = grpc.Dial("add", ds...)
+	clientConn, err := grpc.Dial("add", ds...)
 	require.NoError(t, err)
-	serviceClient := schema.NewImmuServiceClient(clientConn)
 
-	auditorDir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(auditorDir)
+	serviceClient := schema.NewImmuServiceClient(clientConn)
 
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
@@ -80,10 +124,11 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		auditor.AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
-		cache.NewHistoryFileCache(auditorDir),
+		cache.NewHistoryFileCache(t.TempDir()),
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
-		nil)
+		nil,
+	)
 	require.NoError(t, err)
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
@@ -105,11 +150,10 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 }
 
 func TestDefaultAuditorRunOnDb(t *testing.T) {
-	dir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+	bs := servertest.NewBufconnServer(server.
+		DefaultOptions().
+		WithDir(t.TempDir()),
+	)
 	bs.Start()
 	defer bs.Stop()
 
@@ -122,14 +166,23 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
+	ts := tokenservice.
+		NewFileTokenService().
+		WithTokenFileName(tkf).
+		WithHds(newMockHomedir())
+	cliopt := client.
+		DefaultOptions().
+		WithDialOptions(dialOptions).
+		WithPasswordReader(pr).
+		WithDir(t.TempDir())
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions
 
-	cli, _ := client.NewImmuClient(cliopt)
+	cli, err := client.NewImmuClient(cliopt)
+	require.NoError(t, err)
 	cli.WithTokenService(ts)
+
 	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
 	require.NoError(t, err)
 
@@ -177,11 +230,12 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 }
 
 func TestRepeatedAuditorRunOnDb(t *testing.T) {
-	dir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dir).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
+	bs := servertest.NewBufconnServer(
+		server.DefaultOptions().
+			WithDir(t.TempDir()).
+			WithAuth(true).
+			WithAdminPassword(auth.SysAdminPassword),
+	)
 	bs.Start()
 	defer bs.Stop()
 
@@ -194,13 +248,20 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
+	ts := tokenservice.
+		NewFileTokenService().
+		WithTokenFileName(tkf).
+		WithHds(newMockHomedir())
+	cliopt := client.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithDialOptions(dialOptions).
+		WithPasswordReader(pr)
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions
 
-	cli, _ := client.NewImmuClient(cliopt)
+	cli, err := client.NewImmuClient(cliopt)
+	require.NoError(t, err)
 	cli.WithTokenService(ts)
 	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
 	require.NoError(t, err)
@@ -277,14 +338,10 @@ func TestDefaultAuditorRunOnDbWithSignatureFromState(t *testing.T) {
 }
 
 func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
-	dir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	pKeyPath := "./../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(
 		server.DefaultOptions().
-			WithDir(dir).
+			WithDir(t.TempDir()).
 			WithAuth(true).
 			WithSigningKey(pKeyPath).
 			WithAdminPassword(auth.SysAdminPassword))
@@ -300,8 +357,15 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf).WithHds(homedir.NewHomedirService())
-	cliopt := client.DefaultOptions().WithDialOptions(dialOptions).WithPasswordReader(pr)
+	ts := tokenservice.
+		NewFileTokenService().
+		WithTokenFileName(tkf).
+		WithHds(newMockHomedir())
+	cliopt := client.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithDialOptions(dialOptions).
+		WithPasswordReader(pr)
 
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = dialOptions

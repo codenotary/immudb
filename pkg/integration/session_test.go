@@ -19,9 +19,7 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -37,28 +35,9 @@ import (
 )
 
 func TestSession_OpenCloseSession(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, _ := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithWebServer(false).
-		WithPgsqlServer(false)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.ErrorIs(t, err, ic.ErrSessionAlreadyOpen)
 
 	client.Set(context.TODO(), []byte("myKey"), []byte("myValue"))
@@ -79,12 +58,6 @@ func TestSession_OpenCloseSession(t *testing.T) {
 }
 
 func TestSession_OpenCloseSessionMulti(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
 	sessOptions := sessions.DefaultOptions().
 		WithSessionGuardCheckInterval(time.Millisecond * 100).
 		WithMaxSessionInactivityTime(time.Millisecond * 2000).
@@ -92,14 +65,14 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 		WithTimeout(time.Millisecond * 2000)
 
 	options := server.DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithSessionOptions(sessOptions).
 		WithWebServer(false).
 		WithPgsqlServer(false)
 
 	bs := servertest.NewBufconnServer(options)
 
-	err = bs.Start()
+	err := bs.Start()
 	require.NoError(t, err)
 	defer bs.Stop()
 
@@ -107,63 +80,30 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 	for i := 0; i < store.DefaultMaxConcurrency; i++ {
 		wg.Add(1)
 		go func(i int) {
-			client := ic.NewClient().WithOptions(ic.DefaultOptions().
+			defer wg.Done()
+
+			client := ic.NewClient().WithOptions(ic.
+				DefaultOptions().
+				WithDir(t.TempDir()).
 				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-				WithHeartBeatFrequency(time.Millisecond * 100))
-			if err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb"); err != nil {
-				t.Error(err)
-			}
+				WithHeartBeatFrequency(time.Millisecond * 100),
+			)
+			err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			require.NoError(t, err)
 
 			min := 10
 			max := 100
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(max-min)+min))
 
-			if _, err := client.Set(context.TODO(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i))); err != nil {
-				t.Error(err)
-			}
-			if err := client.CloseSession(context.TODO()); err != nil {
-				t.Error(err)
-			}
-			wg.Done()
+			_, err = client.Set(context.Background(), []byte(fmt.Sprintf("%d", i)), []byte(fmt.Sprintf("%d", i)))
+			require.NoError(t, err)
+
+			err = client.CloseSession(context.Background())
+			require.NoError(t, err)
 		}(i)
 	}
 	wg.Wait()
 	require.Equal(t, 0, bs.Server.Srv.SessManager.SessionCount())
-}
-
-func TestSession_OpenCloseSessionWithStateSigner(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key").
-		WithWebServer(false).
-		WithPgsqlServer(false)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec1.pub")
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
-
-	_, err = client.Set(context.TODO(), []byte("my"), []byte("session"))
-	require.NoError(t, err)
-
-	err = client.CloseSession(context.TODO())
-	require.NoError(t, err)
 }
 
 func TestSession_OpenSessionNotConnected(t *testing.T) {
@@ -173,12 +113,6 @@ func TestSession_OpenSessionNotConnected(t *testing.T) {
 }
 
 func TestSession_ExpireSessions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
 	sessOptions := sessions.DefaultOptions().
 		WithSessionGuardCheckInterval(time.Millisecond * 100).
 		WithMaxSessionInactivityTime(time.Millisecond * 200).
@@ -186,12 +120,12 @@ func TestSession_ExpireSessions(t *testing.T) {
 		WithTimeout(time.Millisecond * 100)
 
 	options := server.DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithSessionOptions(sessOptions)
 
 	bs := servertest.NewBufconnServer(options)
 
-	err = bs.Start()
+	err := bs.Start()
 	require.NoError(t, err)
 
 	defer bs.Stop()
@@ -201,54 +135,37 @@ func TestSession_ExpireSessions(t *testing.T) {
 	for i := 1; i <= 100; i++ {
 		wg.Add(1)
 		go func() {
-			client := ic.NewClient().WithOptions(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+			defer wg.Done()
+			client := ic.NewClient().WithOptions(ic.
+				DefaultOptions().
+				WithDir(t.TempDir()).
+				WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}),
+			)
 
-			err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+			err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 			require.NoError(t, err)
 
-			tx, err := client.NewTx(context.TODO())
+			tx, err := client.NewTx(context.Background())
 			require.NoError(t, err)
 
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
 
-			th, err := tx.Commit(context.TODO())
+			th, err := tx.Commit(context.Background())
 			require.NoError(t, err)
 			require.Nil(t, th.Header)
 			require.Equal(t, uint32(0), th.UpdatedRows)
 
-			err = client.CloseSession(context.TODO())
+			err = client.CloseSession(context.Background())
 			require.NoError(t, err)
-			wg.Done()
 		}()
 	}
 	wg.Wait()
 }
 
 func TestSession_CreateDBFromSQLStmts(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithWebServer(false).
-		WithPgsqlServer(false)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
-
-	_, err = client.SQLExec(context.TODO(), `
+	_, err := client.SQLExec(ctx, `
 		CREATE DATABASE db1;
 		USE db1;
 		
