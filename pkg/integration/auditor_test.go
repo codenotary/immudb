@@ -84,10 +84,10 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 type PasswordReader struct {
@@ -171,9 +171,9 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestRepeatedAuditorRunOnDb(t *testing.T) {
@@ -345,11 +345,11 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

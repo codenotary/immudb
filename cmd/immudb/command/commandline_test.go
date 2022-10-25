@@ -43,7 +43,7 @@ func TestCommandline_ConfigChain(t *testing.T) {
 	cmd.Flags().StringVar(&c.config.CfgFn, "config", "", "config file")
 	cc := c.ConfigChain(f)
 	err := cc(cmd, []string{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandline_ConfigChainErr(t *testing.T) {

@@ -684,7 +684,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	err = client.Disconnect()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.False(t, client.IsConnected())
 
@@ -868,7 +868,7 @@ func TestWaitForHealthCheck(t *testing.T) {
 	require.NoError(t, err)
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	err = client.WaitForHealthCheck(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
@@ -943,7 +943,7 @@ func TestUserManagement(t *testing.T) {
 		auth.PermissionRW,
 		testDBName,
 	)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = client.ChangePermission(
 		ctx,
@@ -952,7 +952,7 @@ func TestUserManagement(t *testing.T) {
 		testDBName,
 		auth.PermissionRW,
 	)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = client.SetActiveUser(
 		ctx,
@@ -960,7 +960,7 @@ func TestUserManagement(t *testing.T) {
 			Active:   true,
 			Username: userName,
 		})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = client.ChangePassword(
 		ctx,
@@ -968,7 +968,7 @@ func TestUserManagement(t *testing.T) {
 		[]byte(userPassword),
 		[]byte(userNewPassword),
 	)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	usrList, err = client.ListUsers(ctx)
 	require.NoError(t, err)
@@ -1072,7 +1072,7 @@ func TestImmuClient_History(t *testing.T) {
 		SinceTx: txmd.Id,
 	})
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, sil.Entries, 2)
 	client.Disconnect()
 }
@@ -1283,7 +1283,7 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 
 	idx, err := client.ExecAll(ctx, aOps)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, idx)
 
 	client.Disconnect()
@@ -1319,7 +1319,7 @@ func TestImmuClient_Scan(t *testing.T) {
 	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key"), SinceTx: 3})
 
 	require.IsType(t, &schema.Entries{}, entries)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, entries.Entries, 2)
 	client.Disconnect()
 }
@@ -1357,7 +1357,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 		InitialTx: 2,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
@@ -1366,7 +1366,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 		Desc:      true,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, txls.Txs, 3)
 
 	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
@@ -1375,7 +1375,7 @@ func TestImmuClient_TxScan(t *testing.T) {
 		Desc:      true,
 	})
 	require.IsType(t, &schema.TxList{}, txls)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, txls.Txs, 1)
 	require.Equal(t, database.TrimPrefix(txls.Txs[0].Entries[0].Key), []byte(`key1`))
 }
@@ -1414,7 +1414,7 @@ func TestImmuClient_Logout(t *testing.T) {
 	}
 	tokenServices := []tokenservice.TokenService{ts1, ts2, &ts3}
 	expectations := []func(error){
-		func(err error) { require.Nil(t, err) },
+		func(err error) { require.NoError(t, err) },
 		func(err error) {
 			require.NotNil(t, err)
 			require.Contains(t, err.Error(), "some IsTokenPresent error")
@@ -1743,7 +1743,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	)
 	// step 1: create test database
 	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// step 2: create test user with read write permissions to the test db
 	err = client.CreateUser(
@@ -1753,7 +1753,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		auth.PermissionRW,
 		testDBName,
 	)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// setp 3: create test client and context
 	lr, err = client.Login(context.TODO(), []byte(userName), []byte(userPassword))
@@ -1768,7 +1768,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 
 	// step 4: successfully access the test db using the test client
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// step 5: using admin client change the test user password
 	err = client.ChangePassword(
@@ -1777,7 +1777,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		[]byte(userPassword),
 		[]byte(userNewPassword),
 	)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// step 6: access the test db again using the test client which should give an error
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
@@ -1814,7 +1814,7 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 	item, err := client.CurrentState(ctx)
 
 	require.IsType(t, &schema.ImmutableState{}, item)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestImmuClient_VerifiedGetAt(t *testing.T) {

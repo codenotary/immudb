@@ -89,7 +89,7 @@ func TestSservice_NewDaemon(t *testing.T) {
 	mps := manpageService{}
 	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
 	d, err := ss.NewDaemon("test", "", "")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	dc, _ := daem.New("test", "", "")
 	assert.IsType(t, d, dc)
 }
@@ -114,7 +114,7 @@ func TestSservice_InstallSetup_immudb(t *testing.T) {
 	if err != nil {
 		t.Logf("TestSservice_InstallSetup_immudb: %s", err)
 	}
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSservice_UninstallSetup_immudb(t *testing.T) {
@@ -129,7 +129,7 @@ func TestSservice_UninstallSetup_immudb(t *testing.T) {
 	mps := immudbcmdtest.ManpageServiceMock{}
 	ss := sservice{osMock, c, op, mps}
 	err := ss.UninstallSetup("immudb")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSservice_getDefaultExecPath(t *testing.T) {
@@ -148,7 +148,7 @@ func TestSservice_CopyExecInOsDefault(t *testing.T) {
 	mps := manpageService{}
 	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
 	_, err := ss.CopyExecInOsDefault("immutest")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSservice_EraseData_immudb(t *testing.T) {
@@ -160,5 +160,5 @@ func TestSservice_EraseData_immudb(t *testing.T) {
 
 	ss := sservice{osMock, c, op, mps}
 	err := ss.EraseData("immudb")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }

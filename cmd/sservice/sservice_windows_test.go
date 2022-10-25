@@ -29,7 +29,7 @@ import (
 func TestSserviceWin_NewDaemon(t *testing.T) {
 	ss := NewSService(&Option{})
 	d, err := ss.NewDaemon("test", "", "")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	dc, _ := daem.New("test", "", "")
 	assert.IsType(t, d, dc)
 }

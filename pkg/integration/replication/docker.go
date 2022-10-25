@@ -25,7 +25,7 @@ type dockerTestServerProvider struct {
 
 func (p *dockerTestServerProvider) AddServer(t *testing.T) TestServer {
 	pool, err := dockertest.NewPool("")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ret := &dockerTestServer{
 		pool: pool,
@@ -117,7 +117,7 @@ func (s *dockerTestServer) Start(t *testing.T) {
 	})
 
 	port, err := strconv.Atoi(container.GetPort("3322/tcp"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	s.srv = container
 	s.port = port

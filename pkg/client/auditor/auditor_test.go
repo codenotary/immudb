@@ -59,7 +59,7 @@ func TestDefaultAuditor(t *testing.T) {
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, &defaultAuditor{}, da)
 }
 
@@ -364,13 +364,13 @@ func testDefaultAuditorRunOnDbWithInvalidSignature(t *testing.T, pk *ecdsa.Publi
 		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout),
 		nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestPublishAuditNotification(t *testing.T) {

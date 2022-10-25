@@ -58,7 +58,7 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
@@ -88,7 +88,7 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
@@ -126,7 +126,7 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
@@ -184,7 +184,7 @@ func TestImmudb(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 }
 
@@ -200,7 +200,7 @@ func TestImmudbDetached(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestImmudbMtls(t *testing.T) {
@@ -218,7 +218,7 @@ func TestImmudbMtls(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestImmudbLogFile(t *testing.T) {
@@ -234,7 +234,7 @@ func TestImmudbLogFile(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 type plauncherMock struct{}
@@ -275,7 +275,7 @@ func TestImmudbCommandReplicationFlagsParser(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 

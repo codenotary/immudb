@@ -26,7 +26,7 @@ import (
 func TestInit(t *testing.T) {
 	args := []string{"help"}
 	err := Init(args, &cobra.Command{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInitWrongArg(t *testing.T) {

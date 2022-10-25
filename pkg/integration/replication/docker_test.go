@@ -13,7 +13,7 @@ package replication
 
 // func TestImmudb(t *testing.T) {
 // 	resource, err := pool.Run("codenotary/immudb", "latest", []string{})
-// 	require.Nil(t, err)
+// 	require.NoError(t, err)
 
 // 	assert.NotEmpty(t, resource.GetPort("3322/tcp"))
 // 	assert.NotEmpty(t, resource.GetBoundIP("3322/tcp"))

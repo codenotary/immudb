@@ -48,17 +48,17 @@ func TestNewHistoryFileCacheSet(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 2, TxHash: []byte{2}})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	root, err := fc.Get("uuid", "dbName")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, &schema.ImmutableState{}, root)
 
 	_, err = fc.Get("uuid1", "dbName")
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestNewHistoryFileCacheGet(t *testing.T) {
@@ -70,7 +70,7 @@ func TestNewHistoryFileCacheGet(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	root, err := fc.Get("uuid", "dbName")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, &schema.ImmutableState{}, root)
 }
 
@@ -85,7 +85,7 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 	iface, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, []interface{}{interface{}(nil)}, iface)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
@@ -93,12 +93,12 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 		TxHash:    []byte(`hash`),
 		Signature: nil,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	iface, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, []interface{}{interface{}(nil)}, iface)
 }
 
@@ -232,6 +232,6 @@ func TestHistoryFileCache_unmarshalRootEmptyFile(t *testing.T) {
 	}
 	fc := &historyFileCache{}
 	state, err := fc.unmarshalRoot(tmpFile.Name(), "db")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Nil(t, state)
 }

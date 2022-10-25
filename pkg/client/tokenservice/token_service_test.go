@@ -31,12 +31,12 @@ func TestTokenSevice_setToken(t *testing.T) {
 	err := ts.SetToken("db1", "")
 	require.Equal(t, ErrEmptyTokenProvided, err)
 	err = ts.SetToken("db1", "toooooken")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	database, err := ts.GetDatabase()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "db1", database)
 	token, err := ts.GetToken()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "toooooken", token)
 	os.Remove(fn)
 }
@@ -45,9 +45,9 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 	fn := "deleteme"
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ok, err := ts.IsTokenPresent()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.True(t, ok)
 }
 
@@ -55,7 +55,7 @@ func TestTokenService_DeleteToken(t *testing.T) {
 	fn := "deleteme"
 	ts := file{tokenFileName: fn, hds: homedir.NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = ts.DeleteToken()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

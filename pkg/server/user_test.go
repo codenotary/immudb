@@ -363,7 +363,7 @@ func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T
 	if err != nil {
 		t.Fatalf("error changing permission, got %v", err.Error())
 	}
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func testServerDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {

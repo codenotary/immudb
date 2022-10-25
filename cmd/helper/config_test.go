@@ -70,7 +70,7 @@ func TestConfig_Load(t *testing.T) {
 	cmd := cobra.Command{}
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file")
 	err := o.LoadConfig(&cmd)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestConfig_LoadError(t *testing.T) {

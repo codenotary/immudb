@@ -30,7 +30,7 @@ import (
 func TestNewCmd(t *testing.T) {
 	cl := Commandline{}
 	cmd, err := cl.NewRootCmd(server.DefaultServer())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.IsType(t, &cobra.Command{}, cmd)
 }
 
