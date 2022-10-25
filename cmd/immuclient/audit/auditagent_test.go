@@ -180,6 +180,8 @@ defer bs.Stop()
 }
 
 func TestOptions(t *testing.T) {
+	defer viper.Reset()
+
 	viper.Set("immudb-port", "30000")
 	viper.Set("immudb-address", "127.0.0.1")
 	viper.Set("tokenfile", "tokenfile")

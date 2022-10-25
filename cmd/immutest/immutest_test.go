@@ -32,6 +32,8 @@ import (
 var homedirContent []byte
 
 func TestImmutest(t *testing.T) {
+	defer viper.Reset()
+
 	viper.Set("database", "defaultdb")
 	viper.Set("user", "immudb")
 	data := map[string]string{}

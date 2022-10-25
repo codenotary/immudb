@@ -32,6 +32,8 @@ import (
 )
 
 func TestInitAgent(t *testing.T) {
+	defer viper.Reset()
+
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()

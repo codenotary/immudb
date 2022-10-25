@@ -24,6 +24,8 @@ import (
 )
 
 func TestInitErrors(t *testing.T) {
+	defer viper.Reset()
+
 	ic := immuc{
 		options: &Options{},
 	}

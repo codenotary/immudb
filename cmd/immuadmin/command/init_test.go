@@ -30,8 +30,8 @@ func TestOptions(t *testing.T) {
 }
 
 func TestOptionsMtls(t *testing.T) {
+	defer viper.Reset()
 	viper.Set("mtls", true)
 	opts := Options()
 	assert.IsType(t, &client.Options{}, opts)
-	viper.Reset()
 }

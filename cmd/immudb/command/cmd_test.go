@@ -68,6 +68,8 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 }
 
 func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
+	defer viper.Reset()
+
 	viper.Set("mtls", true)
 	o := DefaultTestOptions()
 
@@ -93,7 +95,6 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 
 	assert.Error(t, err)
-	viper.Set("mtls", false)
 }
 
 // Priority:
@@ -102,7 +103,9 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 // 3. env. variables
 // 4. config file
 func TestImmudbCommandFlagParserPriority(t *testing.T) {
+	defer viper.Reset()
 	defer tearDown()
+
 	o := DefaultTestOptions()
 	var options *server.Options
 	var err error
@@ -186,6 +189,8 @@ func TestImmudb(t *testing.T) {
 }
 
 func TestImmudbDetached(t *testing.T) {
+	defer viper.Reset()
+
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
@@ -196,10 +201,11 @@ func TestImmudbDetached(t *testing.T) {
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
-	viper.Set("detached", false)
 }
 
 func TestImmudbMtls(t *testing.T) {
+	defer viper.Reset()
+
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
@@ -213,10 +219,11 @@ func TestImmudbMtls(t *testing.T) {
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
-	viper.Set("mtls", false)
 }
 
 func TestImmudbLogFile(t *testing.T) {
+	defer viper.Reset()
+
 	var config string
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
