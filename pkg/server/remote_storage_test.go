@@ -266,8 +266,7 @@ func TestInitializeRemoteStorageDownloadIdentifierErrorOnGet(t *testing.T) {
 }
 
 func TestInitializeRemoteStorageDownloadIdentifierErrorOnStore(t *testing.T) {
-	require.NoError(t, os.MkdirAll("data_uuiderr/immudb.identifier", 0777))
-	defer os.RemoveAll("data_uuiderr")
+	require.NoError(t, os.MkdirAll(filepath.Join(t.TempDir(), "data_uuiderr", "immudb.identifier"), 0777))
 
 	s := DefaultServer()
 	m := memory.Open()

@@ -30,21 +30,13 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	dir, err := ioutil.TempDir("", "indexertest")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	indexer, err := newIndexer(dir, nil, nil, 0)
+	indexer, err := newIndexer(t.TempDir(), nil, nil, 0)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 }
 
 func TestClosedIndexerFailures(t *testing.T) {
-	d, err := ioutil.TempDir("", "indexertest")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
-	store, err := Open(d, DefaultOptions().WithIndexOptions(
+	store, err := Open(t.TempDir(), DefaultOptions().WithIndexOptions(
 		DefaultIndexOptions().WithCompactionThld(1),
 	))
 	require.NoError(t, err)
@@ -88,11 +80,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 }
 
 func TestMaxIndexWaitees(t *testing.T) {
-	d, err := ioutil.TempDir("", "indexertest")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
-	store, err := Open(d, DefaultOptions().WithMaxWaitees(1).WithMaxActiveTransactions(1))
+	store, err := Open(t.TempDir(), DefaultOptions().WithMaxWaitees(1).WithMaxActiveTransactions(1))
 	require.NoError(t, err)
 
 	// Grab errors from waiters
@@ -171,10 +159,7 @@ func TestRestartIndexCornerCases(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			d, err := ioutil.TempDir("", "indexertest")
-			require.NoError(t, err)
-			defer os.RemoveAll(d)
-
+			d := t.TempDir()
 			store, err := Open(d, DefaultOptions())
 			require.NoError(t, err)
 			defer store.Close()

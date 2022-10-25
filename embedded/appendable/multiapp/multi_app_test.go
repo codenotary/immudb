@@ -33,8 +33,7 @@ func TestMultiApp(t *testing.T) {
 	md := appendable.NewMetadata(nil)
 	md.PutInt("mkey1", 1)
 
-	a, err := Open("testdata", DefaultOptions().WithMetadata(md.Bytes()))
-	defer os.RemoveAll("testdata")
+	a, err := Open(t.TempDir(), DefaultOptions().WithMetadata(md.Bytes()))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -97,8 +96,7 @@ func TestMultiApp(t *testing.T) {
 }
 
 func TestMultiApOffsetAndLRUCacheEviction(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
-	defer os.RemoveAll("testdata")
+	a, err := Open(t.TempDir(), DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
 	require.NoError(t, err)
 
 	off, n, err := a.Append([]byte{0, 1, 2, 3, 4, 5, 6, 7})
@@ -124,9 +122,7 @@ func TestMultiApOffsetAndLRUCacheEviction(t *testing.T) {
 }
 
 func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	a, err := Open(path, DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
 	require.NoError(t, err)
@@ -154,11 +150,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 }
 
 func TestMultiAppClosedFiles(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	a, err := Open(path, DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(2))
+	a, err := Open(t.TempDir(), DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(2))
 	require.NoError(t, err)
 
 	_, _, err = a.Append([]byte{0, 1, 2})
@@ -174,9 +166,7 @@ func TestMultiAppClosedFiles(t *testing.T) {
 }
 
 func TestMultiAppReOpening(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	a, err := Open(path, DefaultOptions().WithFileSize(1))
 	require.NoError(t, err)
@@ -191,9 +181,7 @@ func TestMultiAppReOpening(t *testing.T) {
 	require.Equal(t, int64(2), off)
 	require.Equal(t, 1, n)
 
-	copyPath, err := ioutil.TempDir(os.TempDir(), "testdata_copy")
-	require.NoError(t, err)
-	defer os.RemoveAll(copyPath)
+	copyPath := t.TempDir()
 
 	err = a.Copy(copyPath)
 	require.NoError(t, err)
@@ -233,11 +221,9 @@ func TestMultiAppReOpening(t *testing.T) {
 }
 
 func TestMultiAppEdgeCases(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
-	_, err = Open(path, nil)
+	_, err := Open(path, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = Open("multi_app_test.go", DefaultOptions())
@@ -288,9 +274,7 @@ func TestMultiAppEdgeCases(t *testing.T) {
 }
 
 func TestMultiAppCompression(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	a, err := Open(path, DefaultOptions().WithCompressionFormat(appendable.ZLibCompression))
 	require.NoError(t, err)
@@ -312,9 +296,7 @@ func TestMultiAppCompression(t *testing.T) {
 }
 
 func TestMultiAppAppendableForCurrentChunk(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testdata")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	a, err := Open(path, DefaultOptions().WithFileSize(10))
 	require.NoError(t, err)
@@ -332,27 +314,27 @@ func TestMultiAppAppendableForCurrentChunk(t *testing.T) {
 }
 
 func TestMultiappOpenIncorrectPath(t *testing.T) {
-	require.NoError(t, ioutil.WriteFile("testfile", []byte{}, 0777))
-	defer os.Remove("testfile")
+	testfile := filepath.Join(t.TempDir(), "testfile")
+	require.NoError(t, ioutil.WriteFile(testfile, []byte{}, 0777))
 
-	a, err := Open("testfile", DefaultOptions())
+	a, err := Open(testfile, DefaultOptions())
 	require.Error(t, err)
 	require.Nil(t, a)
 }
 
 func TestMultiappOpenFolderWithBogusFiles(t *testing.T) {
-	require.NoError(t, os.MkdirAll("test_bogus_dir", 0777))
-	defer os.RemoveAll("test_bogus_dir")
-	require.NoError(t, ioutil.WriteFile("test_bogus_dir/bogus_file", []byte{}, 0777))
+	dir := filepath.Join(t.TempDir(), "test_bogus_dir")
+	require.NoError(t, os.MkdirAll(dir, 0777))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "bogus_file"), []byte{}, 0777))
 
-	a, err := Open("test_bogus_dir", DefaultOptions())
+	a, err := Open(dir, DefaultOptions())
 	require.Error(t, err)
 	require.Nil(t, a)
 }
 
 func TestMultiAppDiscard(t *testing.T) {
-	a, err := Open("testdata_discard", DefaultOptions().WithFileSize(1))
-	defer os.RemoveAll("testdata_discard")
+	dir := t.TempDir()
+	a, err := Open(dir, DefaultOptions().WithFileSize(1))
 	require.NoError(t, err)
 
 	err = a.DiscardUpto(0)
@@ -383,7 +365,7 @@ func TestMultiAppDiscard(t *testing.T) {
 	err = a.DiscardUpto(1)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	a, err = Open("testdata_discard", DefaultOptions().WithFileSize(1))
+	a, err = Open(dir, DefaultOptions().WithFileSize(1))
 	require.NoError(t, err)
 
 	off2, n2, err := a.Append([]byte{5})

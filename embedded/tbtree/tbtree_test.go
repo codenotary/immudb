@@ -39,11 +39,9 @@ import (
 )
 
 func TestEdgeCases(t *testing.T) {
-	path, err := ioutil.TempDir("", "test_tree_edge_cases")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
-	_, err = Open(path, nil)
+	_, err := Open(path, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = OpenWith(path, nil, nil, nil, nil)
@@ -525,31 +523,27 @@ func TestInvalidOpening(t *testing.T) {
 	_, err = Open("invalid\x00_dir_name", DefaultOptions())
 	require.EqualError(t, err, "stat invalid\x00_dir_name: invalid argument")
 
-	require.NoError(t, os.MkdirAll("ro_path", 0500))
-	defer os.RemoveAll("ro_path")
+	roPath := filepath.Join(t.TempDir(), "ro_path")
+	require.NoError(t, os.MkdirAll(roPath, 0500))
 
-	_, err = Open("ro_path/subpath", DefaultOptions())
-	require.EqualError(t, err, "mkdir ro_path/subpath: permission denied")
+	_, err = Open(filepath.Join(roPath, "subpath"), DefaultOptions())
+	require.ErrorContains(t, err, "subpath: permission denied")
 
 	for _, brokenPath := range []string{"nodes", "history", "commit"} {
 		t.Run("error opening "+brokenPath, func(t *testing.T) {
-			err = os.MkdirAll("test_broken_path", 0777)
-			require.NoError(t, err)
-			defer os.RemoveAll("test_broken_path")
+			path := t.TempDir()
 
-			err = ioutil.WriteFile("test_broken_path/"+brokenPath, []byte{}, 0666)
+			err = ioutil.WriteFile(filepath.Join(path, brokenPath), []byte{}, 0666)
 			require.NoError(t, err)
 
-			_, err = Open("test_broken_path", DefaultOptions())
+			_, err = Open(path, DefaultOptions())
 			require.ErrorIs(t, err, multiapp.ErrorPathIsNotADirectory)
 		})
 	}
 }
 
 func TestSnapshotRecovery(t *testing.T) {
-	d, err := ioutil.TempDir("", "test_tree_recovery")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
+	d := t.TempDir()
 
 	// Starting with some historical garbage
 	hpath := filepath.Join(d, historyFolder)
@@ -675,14 +669,11 @@ func TestSnapshotRecovery(t *testing.T) {
 }
 
 func TestTBTreeSplitTooBigKeys(t *testing.T) {
-	d, err := ioutil.TempDir("", "test_tree_split_too_big_keys")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
+	d := t.TempDir()
 	opts := DefaultOptions()
 
 	opts.WithMaxKeySize(opts.maxNodeSize / 2)
-	_, err = Open(d, opts)
+	_, err := Open(d, opts)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	opts.WithMaxKeySize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize) - 1)
@@ -691,13 +682,9 @@ func TestTBTreeSplitTooBigKeys(t *testing.T) {
 }
 
 func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
-	d, err := ioutil.TempDir("", "test_tree_split_key_updates")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
 	opts := DefaultOptions()
 
-	tree, err := Open(d, opts)
+	tree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	for i := byte(0); i < 14; i++ {
@@ -729,14 +716,10 @@ func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
 }
 
 func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
-	d, err := ioutil.TempDir("", "test_tree_multi_leaf_split")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
 	opts := DefaultOptions()
 	opts.WithMaxKeySize(opts.maxNodeSize / 4)
 
-	tree, err := Open(d, opts)
+	tree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	for i := byte(1); i < 4; i++ {
@@ -774,11 +757,7 @@ func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
 }
 
 func TestTBTreeCompactionEdgeCases(t *testing.T) {
-	d, err := ioutil.TempDir("", "test_tree_compaction_edge_cases")
-	require.NoError(t, err)
-	defer os.RemoveAll(d)
-
-	tree, err := Open(d, DefaultOptions())
+	tree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
 	err = tree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
@@ -894,9 +873,9 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 
 func TestTBTreeHistory(t *testing.T) {
 	opts := DefaultOptions().WithFlushThld(100)
-	tbtree, err := Open("test_tree_history", opts)
+	dir := t.TempDir()
+	tbtree, err := Open(dir, opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_history")
 
 	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
 	require.NoError(t, err)
@@ -904,7 +883,7 @@ func TestTBTreeHistory(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_history", opts)
+	tbtree, err = Open(dir, opts)
 	require.NoError(t, err)
 
 	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v00")}})
@@ -913,7 +892,7 @@ func TestTBTreeHistory(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_history", opts)
+	tbtree, err = Open(dir, opts)
 	require.NoError(t, err)
 
 	tss, hCount, err := tbtree.History([]byte("k0"), 0, false, 10)
@@ -924,9 +903,9 @@ func TestTBTreeHistory(t *testing.T) {
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	opts := DefaultOptions().WithFlushThld(100)
-	tbtree, err := Open("test_tree_iasc", opts)
+	dir := t.TempDir()
+	tbtree, err := Open(dir, opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_iasc")
 
 	require.Equal(t, opts, tbtree.GetOptions())
 
@@ -986,7 +965,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, err = tbtree.Compact()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	tbtree, err = Open("test_tree_iasc", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	require.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -995,9 +974,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
-	tbtree, err := Open("test_tree_idesc", DefaultOptions())
+	dir := t.TempDir()
+	tbtree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_idesc")
 
 	itCount := 10
 	keyCount := 1000
@@ -1007,7 +986,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_idesc", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	require.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -1067,9 +1046,8 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	opts := DefaultOptions().WithCacheSize(1000)
-	tbtree, err := Open("test_tree_irnd", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_irnd")
 
 	randomInsertions(t, tbtree, 10_000, true)
 
@@ -1079,9 +1057,8 @@ func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 
 func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 	opts := DefaultOptions().WithCacheSize(1000)
-	tbtree, err := Open("test_tree_c", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_c")
 
 	keyCount := 1000
 
@@ -1140,10 +1117,9 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 }
 
 func TestTBTreeReOpen(t *testing.T) {
-	tbtree, err := Open("test_tree_reopen", DefaultOptions())
+	dir := t.TempDir()
+	tbtree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
-
-	defer os.RemoveAll("test_tree_reopen")
 
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
@@ -1158,7 +1134,7 @@ func TestTBTreeReOpen(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("reopening btree after gracefully close should read all data", func(t *testing.T) {
-		tbtree, err := Open("test_tree_reopen", DefaultOptions())
+		tbtree, err := Open(dir, DefaultOptions())
 		require.NoError(t, err)
 
 		_, _, _, err = tbtree.Get([]byte("k0"))
@@ -1173,10 +1149,9 @@ func TestTBTreeReOpen(t *testing.T) {
 }
 
 func TestTBTreeSelfHealingHistory(t *testing.T) {
-	tbtree, err := Open("test_tree_self_healing_history", DefaultOptions())
+	dir := t.TempDir()
+	tbtree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
-
-	defer os.RemoveAll("test_tree_self_healing_history")
 
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
@@ -1184,9 +1159,9 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	os.RemoveAll("test_tree_self_healing_history/history")
+	os.RemoveAll(filepath.Join(dir, "history"))
 
-	tbtree, err = Open("test_tree_self_healing_history", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	_, _, _, err = tbtree.Get([]byte("k0"))
@@ -1195,7 +1170,7 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_self_healing_history", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	err = tbtree.Close()
@@ -1203,10 +1178,9 @@ func TestTBTreeSelfHealingHistory(t *testing.T) {
 }
 
 func TestTBTreeSelfHealingNodes(t *testing.T) {
-	tbtree, err := Open("test_tree_self_healing_nodes", DefaultOptions())
+	dir := t.TempDir()
+	tbtree, err := Open(dir, DefaultOptions())
 	require.NoError(t, err)
-
-	defer os.RemoveAll("test_tree_self_healing_nodes")
 
 	err = tbtree.Insert([]byte("k0"), []byte("v0"))
 	require.NoError(t, err)
@@ -1214,9 +1188,9 @@ func TestTBTreeSelfHealingNodes(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	os.RemoveAll("test_tree_self_healing_nodes/nodes")
+	os.RemoveAll(filepath.Join(dir, "nodes"))
 
-	tbtree, err = Open("test_tree_self_healing_nodes", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	_, _, _, err = tbtree.Get([]byte("k0"))
@@ -1225,7 +1199,7 @@ func TestTBTreeSelfHealingNodes(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree_self_healing_nodes", DefaultOptions())
+	tbtree, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
 	err = tbtree.Close()
@@ -1233,10 +1207,8 @@ func TestTBTreeSelfHealingNodes(t *testing.T) {
 }
 
 func TestTBTreeIncreaseTs(t *testing.T) {
-	tbtree, err := Open("test_tree_increase_ts", DefaultOptions().WithFlushThld(2))
+	tbtree, err := Open(t.TempDir(), DefaultOptions().WithFlushThld(2))
 	require.NoError(t, err)
-
-	defer os.RemoveAll("test_tree_increase_ts")
 
 	require.Equal(t, uint64(0), tbtree.Ts())
 
@@ -1276,8 +1248,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 			WithFlushThld(100_000).
 			WithSyncThld(1_000_000)
 
-		tbtree, _ := Open("test_tree_brnd", opts)
-		defer os.RemoveAll("test_tree_brnd")
+		tbtree, _ := Open(b.TempDir(), opts)
 
 		kCount := 1_000_000
 
@@ -1303,8 +1274,8 @@ func BenchmarkRandomRead(b *testing.B) {
 		WithCacheSize(100_000).
 		WithFlushThld(100_000)
 
-	tbtree, _ := Open("test_tree_brnd", opts)
-	defer os.RemoveAll("test_tree_brnd")
+	tbtree, err := Open(b.TempDir(), opts)
+	require.NoError(b, err)
 
 	kCount := 1_000_000
 
@@ -1335,14 +1306,10 @@ func BenchmarkAscendingBulkInsertion(b *testing.B) {
 		WithFlushThld(100_000).
 		WithSyncThld(1_000_000)
 
-	tbtree, err := Open("bench_tree_asc", opts)
-	if err != nil {
-		panic(err)
-	}
+	tbtree, err := Open(b.TempDir(), opts)
+	require.NoError(b, err)
 
 	defer tbtree.Close()
-
-	defer os.RemoveAll("bench_tree_asc")
 
 	kBulkCount := 1000
 	kBulkSize := 1000
@@ -1350,9 +1317,7 @@ func BenchmarkAscendingBulkInsertion(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		err = bulkInsert(tbtree, kBulkCount, kBulkSize, ascMode)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -1362,14 +1327,10 @@ func BenchmarkDescendingBulkInsertion(b *testing.B) {
 		WithFlushThld(100_000).
 		WithSyncThld(1_000_000)
 
-	tbtree, err := Open("bench_tree_asc", opts)
-	if err != nil {
-		panic(err)
-	}
+	tbtree, err := Open(b.TempDir(), opts)
+	require.NoError(b, err)
 
 	defer tbtree.Close()
-
-	defer os.RemoveAll("bench_tree_asc")
 
 	kBulkCount := 1000
 	kBulkSize := 1000
@@ -1377,9 +1338,7 @@ func BenchmarkDescendingBulkInsertion(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		err = bulkInsert(tbtree, kBulkCount, kBulkSize, ascMode)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(b, err)
 	}
 }
 
@@ -1424,12 +1383,8 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 			WithSyncThld(1_000_000).
 			WithFlushBufferSize(DefaultFlushBufferSize * 4)
 
-		tbtree, err := Open("test_tree_brnd", opts)
-		if err != nil {
-			panic(err)
-		}
-
-		defer os.RemoveAll("test_tree_brnd")
+		tbtree, err := Open(b.TempDir(), opts)
+		require.NoError(b, err)
 
 		kBulkCount := 1000
 		kBulkSize := 1000
@@ -1448,9 +1403,7 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 			}
 
 			err = tbtree.BulkInsert(kvs)
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 
 		tbtree.Close()
@@ -1458,10 +1411,8 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 }
 
 func TestLastUpdateBetween(t *testing.T) {
-	tbtree, err := Open("test_tree_last_update", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-
-	defer os.RemoveAll("test_tree_last_update")
 
 	keyUpdatesCount := 32
 

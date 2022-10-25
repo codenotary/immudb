@@ -22,7 +22,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func _TestInitCommands(t *testing.T) {
+func TestInitCommands(t *testing.T) {
+	t.SkipNow()
+
 	cli := new(cli)
 	cli.commands = make(map[string]*command)
 	cli.commandsList = make([]*command, 0)

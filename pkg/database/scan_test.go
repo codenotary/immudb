@@ -26,8 +26,7 @@ import (
 )
 
 func TestStoreScan(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	db.maxResultSize = 3
 
@@ -95,8 +94,7 @@ func TestStoreScan(t *testing.T) {
 }
 
 func TestStoreScanPrefix(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix1`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix2`), Value: []byte(`item2`)}}})
@@ -136,8 +134,7 @@ func TestStoreScanPrefix(t *testing.T) {
 }
 
 func TestStoreScanDesc(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`item2`)}}})
@@ -201,8 +198,7 @@ func TestStoreScanDesc(t *testing.T) {
 }
 
 func TestStoreScanEndKey(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	for i := 1; i < 100; i++ {
 		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{

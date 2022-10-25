@@ -17,38 +17,13 @@ limitations under the License.
 package cli
 
 import (
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
-	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
 func TestZScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	cli := setupTest(t)
 
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -69,25 +44,8 @@ func TestZScan(t *testing.T) {
 }
 
 func TestScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	cli := setupTest(t)
 
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -102,27 +60,11 @@ func TestScan(t *testing.T) {
 	}
 }
 
-func _TestCount(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+func TestCount(t *testing.T) {
+	t.SkipNow()
 
-	bs.Start()
-	defer bs.Stop()
+	cli := setupTest(t)
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)

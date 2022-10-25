@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -42,10 +41,25 @@ func closeStore(t *testing.T, st *store.ImmuStore) {
 	}
 }
 
-func TestCreateDatabase(t *testing.T) {
-	defer os.RemoveAll("sqldata_create_db")
+func setupCommonTest(t *testing.T) *Engine {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
 
-	st, err := store.Open("sqldata_create_db", store.DefaultOptions())
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
+	require.NoError(t, err)
+
+	return engine
+}
+
+func TestCreateDatabase(t *testing.T) {
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -69,9 +83,7 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestUseDatabase(t *testing.T) {
-	defer os.RemoveAll("sqldata_use_db")
-
-	st, err := store.Open("sqldata_use_db", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -103,9 +115,7 @@ func TestUseDatabase(t *testing.T) {
 }
 
 func TestCreateTable(t *testing.T) {
-	defer os.RemoveAll("sqldata_create_table")
-
-	st, err := store.Open("sqldata_create_table", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -147,22 +157,9 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestTimestampType(t *testing.T) {
-	defer os.RemoveAll("timestamp")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("timestamp", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	sel := EncodeSelector("", "db1", "timestamp_table", "ts")
@@ -250,22 +247,9 @@ func TestTimestampType(t *testing.T) {
 }
 
 func TestTimestampIndex(t *testing.T) {
-	defer os.RemoveAll("timestamp_index")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("timestamp_index", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_index (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_index (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON timestamp_index(ts)", nil, nil)
@@ -291,22 +275,9 @@ func TestTimestampIndex(t *testing.T) {
 }
 
 func TestTimestampCasts(t *testing.T) {
-	defer os.RemoveAll("timestamp_casts")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("timestamp_casts", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS timestamp_table (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	sel := EncodeSelector("", "db1", "timestamp_table", "ts")
@@ -388,22 +359,9 @@ func TestTimestampCasts(t *testing.T) {
 }
 
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
-	defer os.RemoveAll("tx_timestamp")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("tx_timestamp", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE tx_timestamp (id INTEGER AUTO_INCREMENT, ts TIMESTAMP, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	currentTs := time.Now()
@@ -442,11 +400,10 @@ func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
 }
 
 func TestAddColumn(t *testing.T) {
-	defer os.RemoveAll("sqldata_add_column")
+	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-
-		st, err := store.Open("sqldata_add_column", store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions())
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -513,7 +470,7 @@ func TestAddColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open("sqldata_add_column", store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions())
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -542,10 +499,10 @@ func TestAddColumn(t *testing.T) {
 }
 
 func TestRenameColumn(t *testing.T) {
-	defer os.RemoveAll("sqldata_rename_column")
+	dir := t.TempDir()
 
 	t.Run("create-store", func(t *testing.T) {
-		st, err := store.Open("sqldata_rename_column", store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions())
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -614,7 +571,7 @@ func TestRenameColumn(t *testing.T) {
 	})
 
 	t.Run("reopen-store", func(t *testing.T) {
-		st, err := store.Open("sqldata_rename_column", store.DefaultOptions())
+		st, err := store.Open(dir, store.DefaultOptions())
 		require.NoError(t, err)
 		defer closeStore(t, st)
 
@@ -654,22 +611,9 @@ func TestRenameColumn(t *testing.T) {
 }
 
 func TestCreateIndex(t *testing.T) {
-	defer os.RemoveAll("sqldata_create_index")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_create_index", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[256], age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(name)", nil, nil)
@@ -710,9 +654,7 @@ func TestCreateIndex(t *testing.T) {
 }
 
 func TestUpsertInto(t *testing.T) {
-	defer os.RemoveAll("sqldata_upsert")
-
-	st, err := store.Open("sqldata_upsert", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -864,22 +806,9 @@ func TestUpsertInto(t *testing.T) {
 }
 
 func TestInsertIntoEdgeCases(t *testing.T) {
-	defer os.RemoveAll("sqldata_insert")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_insert", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1 (title)", nil, nil)
@@ -937,23 +866,10 @@ func TestInsertIntoEdgeCases(t *testing.T) {
 }
 
 func TestAutoIncrementPK(t *testing.T) {
-	defer os.RemoveAll("sqldata_auto_inc")
-
-	st, err := store.Open("sqldata_auto_inc", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
 	t.Run("invalid use of auto-increment", func(t *testing.T) {
-		_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, nil)
+		_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR AUTO_INCREMENT, PRIMARY KEY id)", nil, nil)
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 
 		_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER AUTO_INCREMENT, PRIMARY KEY id)", nil, nil)
@@ -963,7 +879,7 @@ func TestAutoIncrementPK(t *testing.T) {
 		require.ErrorIs(t, err, ErrLimitedAutoIncrement)
 	})
 
-	_, _, err = engine.Exec(`
+	_, _, err := engine.Exec(`
 			CREATE TABLE table1 (
 				id INTEGER NOT NULL AUTO_INCREMENT,
 				title VARCHAR,
@@ -1032,9 +948,7 @@ func TestAutoIncrementPK(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	defer os.RemoveAll("sqldata_delete")
-
-	st, err := store.Open("sqldata_delete", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1130,22 +1044,9 @@ func TestDelete(t *testing.T) {
 }
 
 func TestErrorDuringDelete(t *testing.T) {
-	defer os.RemoveAll("err_during_delete")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("err_during_delete", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec(`
+	_, _, err := engine.Exec(`
 		create table mytable(name varchar[30], primary key name);
 		insert into mytable(name) values('name1');
 	`, nil, nil)
@@ -1159,9 +1060,7 @@ func TestErrorDuringDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	defer os.RemoveAll("sqldata_update")
-
-	st, err := store.Open("sqldata_update", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1254,22 +1153,9 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestTransactions(t *testing.T) {
-	defer os.RemoveAll("sqldata_tx")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_tx", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec(`CREATE TABLE table1 (
+	_, _, err := engine.Exec(`CREATE TABLE table1 (
 									id INTEGER,
 									title VARCHAR,
 									PRIMARY KEY id
@@ -1314,9 +1200,7 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestTransactionsEdgeCases(t *testing.T) {
-	defer os.RemoveAll("sqldata_tx_edge_cases")
-
-	st, err := store.Open("sqldata_tx_edge_cases", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1386,22 +1270,9 @@ func TestTransactionsEdgeCases(t *testing.T) {
 }
 
 func TestUseSnapshot(t *testing.T) {
-	defer os.RemoveAll("sqldata_snap")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_snap", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("USE SNAPSHOT SINCE TX 1", nil, nil)
@@ -1569,9 +1440,7 @@ func TestEncodeValue(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	defer os.RemoveAll("sqldata_q")
-
-	st, err := store.Open("sqldata_q", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1921,12 +1790,10 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryCornerCases(t *testing.T) {
-	defer os.RemoveAll("sqldata_query_corner_cases")
-
 	opts := store.DefaultOptions()
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(1))
 
-	st, err := store.Open("sqldata_query_corner_cases", opts)
+	st, err := store.Open(t.TempDir(), opts)
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -1982,9 +1849,7 @@ func TestQueryCornerCases(t *testing.T) {
 }
 
 func TestQueryDistinct(t *testing.T) {
-	defer os.RemoveAll("sqldata_qd")
-
-	st, err := store.Open("sqldata_qd", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2216,22 +2081,9 @@ func TestQueryDistinct(t *testing.T) {
 }
 
 func TestIndexing(t *testing.T) {
-	defer os.RemoveAll("sqldata_indexing")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_indexing", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec(`CREATE TABLE table1 (
+	_, _, err := engine.Exec(`CREATE TABLE table1 (
 								id INTEGER AUTO_INCREMENT,
 								ts INTEGER,
 								title VARCHAR[20],
@@ -2751,9 +2603,7 @@ func TestIndexing(t *testing.T) {
 }
 
 func TestExecCornerCases(t *testing.T) {
-	defer os.RemoveAll("sqldata_q")
-
-	st, err := store.Open("sqldata_q", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2767,22 +2617,9 @@ func TestExecCornerCases(t *testing.T) {
 }
 
 func TestQueryWithNullables(t *testing.T) {
-	defer os.RemoveAll("sqldata_nullable")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_nullable", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, ts TIMESTAMP, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("INSERT INTO table1 (id, ts, title) VALUES (1, TIME(), 'title1')", nil, nil)
@@ -2820,9 +2657,7 @@ func TestQueryWithNullables(t *testing.T) {
 }
 
 func TestOrderBy(t *testing.T) {
-	defer os.RemoveAll("sqldata_orderby")
-
-	st, err := store.Open("sqldata_orderby", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -2993,22 +2828,9 @@ func TestOrderBy(t *testing.T) {
 }
 
 func TestQueryWithRowFiltering(t *testing.T) {
-	defer os.RemoveAll("sqldata_where")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_where", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -3121,22 +2943,9 @@ func TestQueryWithRowFiltering(t *testing.T) {
 }
 
 func TestQueryWithInClause(t *testing.T) {
-	defer os.RemoveAll("sqldata_where_in")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_where_in", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[50], active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
@@ -3269,22 +3078,9 @@ func TestQueryWithInClause(t *testing.T) {
 }
 
 func TestAggregations(t *testing.T) {
-	defer os.RemoveAll("sqldata_agg")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_agg", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(age)", nil, nil)
@@ -3368,22 +3164,9 @@ func TestAggregations(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	defer os.RemoveAll("sqldata_agg")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_agg", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE t1(id INTEGER AUTO_INCREMENT, val1 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON t1(val1)", nil, nil)
@@ -3426,22 +3209,9 @@ func TestCount(t *testing.T) {
 }
 
 func TestGroupByHaving(t *testing.T) {
-	defer os.RemoveAll("sqldata_having")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_having", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(active)", nil, nil)
@@ -3556,22 +3326,9 @@ func TestGroupByHaving(t *testing.T) {
 }
 
 func TestJoins(t *testing.T) {
-	defer os.RemoveAll("sqldata_innerjoin")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_innerjoin", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3675,22 +3432,9 @@ func TestJoins(t *testing.T) {
 }
 
 func TestJoinsWithNullIndexes(t *testing.T) {
-	defer os.RemoveAll("sqldata_join_nullable_index")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_join_nullable_index", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec(`
+	_, _, err := engine.Exec(`
 		CREATE TABLE table1 (id INTEGER, fkid2 INTEGER, PRIMARY KEY id);
 		CREATE TABLE table2 (id INTEGER, id2 INTEGER, val INTEGER, PRIMARY KEY id);
 		CREATE INDEX ON table2(id2);
@@ -3730,22 +3474,9 @@ func TestJoinsWithNullIndexes(t *testing.T) {
 }
 
 func TestJoinsWithJointTable(t *testing.T) {
-	defer os.RemoveAll("sqldata_innerjoin_joint")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_innerjoin_joint", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, amount INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3797,22 +3528,9 @@ func TestJoinsWithJointTable(t *testing.T) {
 }
 
 func TestNestedJoins(t *testing.T) {
-	defer os.RemoveAll("sqldata_nestedjoins")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_nestedjoins", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)", nil, nil)
@@ -3863,19 +3581,17 @@ func TestNestedJoins(t *testing.T) {
 }
 
 func TestReOpening(t *testing.T) {
-	defer os.RemoveAll("sqldata_reopening")
-
-	st, err := store.Open("sqldata_reopening", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
-	defer closeStore(t, st)
+	t.Cleanup(func() { closeStore(t, st) })
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
+	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
 	require.NoError(t, err)
 
-	err = engine.SetCurrentDatabase("db1")
+	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, name VARCHAR[30], PRIMARY KEY id)", nil, nil)
@@ -3898,22 +3614,9 @@ func TestReOpening(t *testing.T) {
 }
 
 func TestSubQuery(t *testing.T) {
-	defer os.RemoveAll("sqldata_subq")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("sqldata_subq", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -3972,9 +3675,7 @@ func TestSubQuery(t *testing.T) {
 }
 
 func TestJoinsWithSubquery(t *testing.T) {
-	defer os.RemoveAll("sqldata_subq")
-
-	st, err := store.Open("sqldata_subq", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4060,9 +3761,7 @@ func TestJoinsWithSubquery(t *testing.T) {
 }
 
 func TestInferParameters(t *testing.T) {
-	defer os.RemoveAll("catalog_infer_params")
-
-	st, err := store.Open("catalog_infer_params", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -4228,20 +3927,7 @@ func TestInferParameters(t *testing.T) {
 }
 
 func TestInferParametersPrepared(t *testing.T) {
-	defer os.RemoveAll("catalog_infer_params_prepared")
-
-	st, err := store.Open("catalog_infer_params_prepared", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
 	stmts, err := Parse(strings.NewReader("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)"))
 	require.NoError(t, err)
@@ -4256,22 +3942,9 @@ func TestInferParametersPrepared(t *testing.T) {
 }
 
 func TestInferParametersUnbounded(t *testing.T) {
-	defer os.RemoveAll("catalog_infer_params_unbounded")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("catalog_infer_params_unbounded", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	params, err := engine.InferParameters("SELECT * FROM mytable WHERE @param1 = @param2", nil)
@@ -4308,22 +3981,9 @@ func TestInferParametersUnbounded(t *testing.T) {
 }
 
 func TestInferParametersInvalidCases(t *testing.T) {
-	defer os.RemoveAll("catalog_infer_params_invalid")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("catalog_infer_params_invalid", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE mytable(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)", nil)
@@ -4768,20 +4428,7 @@ func TestEncodeAsKeyEdgeCases(t *testing.T) {
 }
 
 func TestIndexingNullableColumns(t *testing.T) {
-	defer os.RemoveAll("catalog_indexing_nullable")
-
-	st, err := store.Open("catalog_indexing_nullable", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
 	exec := func(t *testing.T, stmt string) *SQLTx {
 		ret, _, err := engine.Exec(stmt, nil, nil)
@@ -4998,22 +4645,9 @@ func TestIndexingNullableColumns(t *testing.T) {
 }
 
 func TestTemporalQueries(t *testing.T) {
-	defer os.RemoveAll("temporal_queries")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("temporal_queries", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
@@ -5140,22 +4774,9 @@ func TestTemporalQueries(t *testing.T) {
 }
 
 func TestUnionOperator(t *testing.T) {
-	defer os.RemoveAll("union_queries")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("union_queries", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(title)", nil, nil)
@@ -5279,22 +4900,9 @@ func TestUnionOperator(t *testing.T) {
 }
 
 func TestTemporalQueriesEdgeCases(t *testing.T) {
-	defer os.RemoveAll("temporal_queries_edge_cases")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("temporal_queries_edge_cases", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	edgeCases := []struct {
@@ -5404,22 +5012,9 @@ func TestTemporalQueriesEdgeCases(t *testing.T) {
 }
 
 func TestTemporalQueriesDeletedRows(t *testing.T) {
-	defer os.RemoveAll("temporal_queries_deleted_rows")
+	engine := setupCommonTest(t)
 
-	st, err := store.Open("temporal_queries_deleted_rows", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1", nil, nil)
-	require.NoError(t, err)
-
-	err = engine.SetCurrentDatabase("db1")
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec("CREATE TABLE table1(id INTEGER, title VARCHAR[50], PRIMARY KEY id)", nil, nil)
 	require.NoError(t, err)
 
 	for i := 0; i < 10; i++ {
@@ -5486,9 +5081,7 @@ func TestTemporalQueriesDeletedRows(t *testing.T) {
 }
 
 func TestMultiDBCatalogQueries(t *testing.T) {
-	defer os.RemoveAll("multidb_catalog_queries")
-
-	st, err := store.Open("multidb_catalog_queries", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
 	defer closeStore(t, st)
 
@@ -5643,20 +5236,7 @@ func (h *multidbHandlerMock) ExecPreparedStmts(ctx context.Context, stmts []SQLS
 }
 
 func TestSingleDBCatalogQueries(t *testing.T) {
-	defer os.RemoveAll("singledb_catalog_queries")
-
-	st, err := store.Open("singledb_catalog_queries", store.DefaultOptions())
-	require.NoError(t, err)
-	defer closeStore(t, st)
-
-	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
-	require.NoError(t, err)
-
-	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
-	require.NoError(t, err)
+	engine := setupCommonTest(t)
 
 	tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
 	require.NoError(t, err)

@@ -23,7 +23,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 
 	"github.com/codenotary/immudb/cmd/helper"
@@ -33,57 +32,83 @@ import (
 	"google.golang.org/grpc"
 )
 
-type clientTest struct {
+type ClientTest struct {
 	Imc     immuc.Client
 	Ts      tokenservice.TokenService
 	Options immuc.Options
 	Pr      helper.PasswordReader
+	Dialer  servertest.BuffDialer
 }
 
 type HomedirServiceMock struct {
-	homedir.HomedirService
-	Token []byte
+	m sync.RWMutex
+	f map[string][]byte
 }
 
 func (h *HomedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
-	return true, nil
+	h.m.RLock()
+	defer h.m.RUnlock()
+	if h.f == nil {
+		return false, nil
+	}
+	_, exists := h.f[pathToFile]
+	return exists, nil
 }
 
 func (h *HomedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
-	h.Token = content
+	h.m.Lock()
+	defer h.m.Unlock()
+	if h.f == nil {
+		h.f = map[string][]byte{}
+	}
+	h.f[pathToFile] = content
 	return nil
 }
 
 func (h *HomedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
+	h.m.Lock()
+	defer h.m.Unlock()
+	if h.f != nil {
+		delete(h.f, pathToFile)
+	}
 	return nil
 }
 
 func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
-	return string(h.Token), nil
+	h.m.RLock()
+	defer h.m.RUnlock()
+	if h.f == nil {
+		return "", os.ErrNotExist
+	}
+	c, exists := h.f[pathToFile]
+	if !exists {
+		return "", os.ErrNotExist
+	}
+	return string(c), nil
 }
 
-func NewDefaultClientTest() *clientTest {
-	return &clientTest{}
+func NewDefaultClientTest() *ClientTest {
+	return &ClientTest{}
 }
-func NewClientTest(pr helper.PasswordReader, tkns tokenservice.TokenService) *clientTest {
-	return &clientTest{
+func NewClientTest(pr helper.PasswordReader, tkns tokenservice.TokenService, opts *client.Options) *ClientTest {
+	return &ClientTest{
 		Ts:      tkns,
 		Pr:      pr,
-		Options: *(&immuc.Options{}).WithImmudbClientOptions(client.DefaultOptions()),
+		Options: *(&immuc.Options{}).WithImmudbClientOptions(opts),
 	}
 }
 
-func (ct *clientTest) WithTokenFileService(tkns tokenservice.TokenService) *clientTest {
+func (ct *ClientTest) WithTokenFileService(tkns tokenservice.TokenService) *ClientTest {
 	ct.Imc.WithFileTokenService(tkns)
 	return ct
 }
 
-func (ct *clientTest) WithOptions(opts *immuc.Options) *clientTest {
+func (ct *ClientTest) WithOptions(opts *immuc.Options) *ClientTest {
 	ct.Options = *opts
 	return ct
 }
 
-func (c *clientTest) Connect(dialer servertest.BuffDialer) {
+func (c *ClientTest) Connect(dialer servertest.BuffDialer) {
 
 	c.Options.WithRevisionSeparator("@")
 	c.Options.GetImmudbClientOptions().
@@ -91,6 +116,7 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 			grpc.WithContextDialer(dialer), grpc.WithInsecure(),
 		}).
 		WithPasswordReader(c.Pr)
+	c.Dialer = dialer
 
 	ic, err := immuc.Init(&c.Options)
 	if err != nil {
@@ -106,7 +132,7 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	c.Imc = ic
 }
 
-func (c *clientTest) Login(username string) {
+func (c *ClientTest) Login(username string) {
 	_, err := c.Imc.Login([]string{username})
 	if err != nil {
 		log.Fatal(err)

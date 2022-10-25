@@ -18,7 +18,6 @@ package man
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -33,8 +32,7 @@ func TestGenerate(t *testing.T) {
 		Short: "somme command short description",
 		Long:  "some command long description",
 	}
-	dir := "./test_generate_output"
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	cmd := Generate(rootCmd, rootCmd.Use, dir)
 	cmd.SetArgs([]string{dir})
 	require.NoError(t, cmd.Execute())

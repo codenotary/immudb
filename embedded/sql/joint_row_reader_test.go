@@ -19,7 +19,6 @@ package sql
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -27,9 +26,8 @@ import (
 )
 
 func TestJointRowReader(t *testing.T) {
-	st, err := store.Open("sqldata_joint_reader", store.DefaultOptions())
+	st, err := store.Open(t.TempDir(), store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata_joint_reader")
 
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)

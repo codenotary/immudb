@@ -17,16 +17,14 @@ limitations under the License.
 package tbtree
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestHistoryReaderEdgeCases(t *testing.T) {
-	tbtree, err := Open("test_tree_history_edge", DefaultOptions())
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_history_edge")
 
 	snapshot, err := tbtree.Snapshot()
 	require.NotNil(t, snapshot)
@@ -65,9 +63,8 @@ func TestHistoryReaderAscendingScan(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_history_asc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_history_asc")
 
 	itCount := 10
 	keyCount := 1000
@@ -119,9 +116,8 @@ func TestHistoryReaderDescendingScan(t *testing.T) {
 
 	opts.WithMaxNodeSize(requiredNodeSize(opts.maxKeySize, opts.maxValueSize))
 
-	tbtree, err := Open("test_tree_history_desc", opts)
+	tbtree, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_history_desc")
 
 	itCount := 10
 	keyCount := 1000

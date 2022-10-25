@@ -18,35 +18,25 @@ package immuc_test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-
-	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
+func cleanupClientFiles() {
+	list, _ := filepath.Glob(".state-*")
+	for _, e := range list {
+		os.Remove(e)
+	}
+
+	list, _ = filepath.Glob(".identity-*")
+	for _, e := range list {
+		os.Remove(e)
+	}
+}
+
 func TestSet(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	msg, err := ic.Imc.Set([]string{"key", "val"})
 
@@ -58,24 +48,7 @@ func TestSet(t *testing.T) {
 	}
 }
 func TestVerifiedSet(t *testing.T) {
-	defer os.Remove(".state-")
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 
@@ -87,24 +60,7 @@ func TestVerifiedSet(t *testing.T) {
 	}
 }
 func TestZAdd(t *testing.T) {
-	defer os.Remove(".state-")
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
@@ -118,24 +74,7 @@ func TestZAdd(t *testing.T) {
 	}
 }
 func _TestVerifiedZAdd(t *testing.T) {
-	defer os.Remove(".state-")
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
@@ -149,23 +88,7 @@ func _TestVerifiedZAdd(t *testing.T) {
 	}
 }
 func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.
-		Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	msg, err := ic.Imc.CreateDatabase([]string{"newdb"})
 	if err != nil {

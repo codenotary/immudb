@@ -35,7 +35,7 @@ defer bs.Stop()
 	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 ic.
 Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -61,7 +61,7 @@ defer bs.Stop()
 	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 ic.
 Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -86,7 +86,7 @@ defer bs.Stop()
 	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 ic.
 Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -111,7 +111,7 @@ defer bs.Stop()
 	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 ic.
 Connect(bs.Dialer)
 	ic.Login("immudb")
@@ -137,7 +137,7 @@ defer bs.Stop()
 	ts := tokenservice.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts, client.DefaultOptions().WithDir(t.TempDir()))
 ic.
 Connect(bs.Dialer)
 	ic.Login("immudb")

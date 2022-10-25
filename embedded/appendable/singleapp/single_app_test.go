@@ -38,8 +38,7 @@ func TestSingleApp(t *testing.T) {
 		WithReadBufferSize(DefaultReadBufferSize * 2).
 		WithWriteBuffer(buf)
 
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -120,8 +119,7 @@ func TestSingleAppSetOffsetWithRetryableSyncOff(t *testing.T) {
 }
 
 func testSingleAppSetOffsetWith(opts *Options, t *testing.T) {
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	err = a.SetOffset(-1)
@@ -174,8 +172,7 @@ func testSingleAppSetOffsetWith(opts *Options, t *testing.T) {
 }
 
 func TestSingleAppSwitchToReadOnlyMode(t *testing.T) {
-	a, err := Open("testdata.aof", DefaultOptions())
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), DefaultOptions())
 	require.NoError(t, err)
 
 	off, n, err := a.Append([]byte{1, 2, 3})
@@ -200,8 +197,9 @@ func TestSingleAppSwitchToReadOnlyMode(t *testing.T) {
 }
 
 func TestSingleAppReOpening(t *testing.T) {
-	a, err := Open("testdata.aof", DefaultOptions())
-	defer os.Remove("testdata.aof")
+	dir := t.TempDir()
+
+	a, err := Open(filepath.Join(dir, "testdata.aof"), DefaultOptions())
 	require.NoError(t, err)
 
 	off, n, err := a.Append([]byte{1, 2, 3})
@@ -209,14 +207,13 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.Equal(t, int64(0), off)
 	require.Equal(t, 3, n)
 
-	err = a.Copy("testdata_copy.aof")
+	err = a.Copy(filepath.Join(dir, "testdata_copy.aof"))
 	require.NoError(t, err)
-	defer os.Remove("testdata_copy.aof")
 
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata_copy.aof", DefaultOptions().WithReadOnly(true))
+	a, err = Open(filepath.Join(dir, "testdata_copy.aof"), DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -249,10 +246,8 @@ func TestSingleAppReOpening(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
-	f, err := ioutil.TempFile(".", "singleapp_test_")
+	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
-
-	defer os.Remove(f.Name())
 
 	// should fail reading metadata len
 	_, err = Open(f.Name(), DefaultOptions())
@@ -274,10 +269,8 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
-	f, err := ioutil.TempFile(".", "singleapp_test_")
+	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
-
-	defer os.Remove(f.Name())
 
 	m := appendable.NewMetadata(nil)
 
@@ -301,10 +294,8 @@ func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
-	f, err := ioutil.TempFile(".", "singleapp_test_")
+	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
-
-	defer os.Remove(f.Name())
 
 	m := appendable.NewMetadata(nil)
 	m.PutInt(metaCompressionFormat, appendable.NoCompression)
@@ -329,10 +320,8 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 }
 
 func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
-	f, err := ioutil.TempFile(".", "singleapp_test_")
+	f, err := ioutil.TempFile(t.TempDir(), "singleapp_test_")
 	require.NoError(t, err)
-
-	defer os.Remove(f.Name())
 
 	m := appendable.NewMetadata(nil)
 	m.PutInt(metaCompressionFormat, appendable.NoCompression)
@@ -358,14 +347,15 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 }
 
 func TestSingleAppEdgeCases(t *testing.T) {
-	_, err := Open("testdata.aof", nil)
+	dir := t.TempDir()
+
+	_, err := Open(filepath.Join(dir, "testdata.aof"), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
+	_, err = Open(filepath.Join(dir, "testdata.aof"), DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
 
-	a, err := Open("testdata.aof", DefaultOptions().WithRetryableSync(false))
-	defer os.RemoveAll("testdata.aof")
+	a, err := Open(filepath.Join(dir, "testdata.aof"), DefaultOptions().WithRetryableSync(false))
 	require.NoError(t, err)
 
 	err = a.Flush()
@@ -380,7 +370,7 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	_, err = a.Size()
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = a.Copy("copy.aof")
+	err = a.Copy(filepath.Join(dir, "copy.aof"))
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = a.SetOffset(0)
@@ -407,8 +397,7 @@ func TestSingleAppEdgeCases(t *testing.T) {
 
 func TestSingleAppZLibCompression(t *testing.T) {
 	opts := DefaultOptions().WithCompressionFormat(appendable.ZLibCompression)
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
@@ -429,8 +418,7 @@ func TestSingleAppZLibCompression(t *testing.T) {
 
 func TestSingleAppFlateCompression(t *testing.T) {
 	opts := DefaultOptions().WithCompressionFormat(appendable.FlateCompression)
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
@@ -451,8 +439,7 @@ func TestSingleAppFlateCompression(t *testing.T) {
 
 func TestSingleAppGZipCompression(t *testing.T) {
 	opts := DefaultOptions().WithCompressionFormat(appendable.GZipCompression)
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
@@ -473,8 +460,7 @@ func TestSingleAppGZipCompression(t *testing.T) {
 
 func TestSingleAppLZWCompression(t *testing.T) {
 	opts := DefaultOptions().WithCompressionFormat(appendable.LZWCompression)
-	a, err := Open("testdata.aof", opts)
-	defer os.Remove("testdata.aof")
+	a, err := Open(filepath.Join(t.TempDir(), "testdata.aof"), opts)
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
@@ -494,13 +480,10 @@ func TestSingleAppLZWCompression(t *testing.T) {
 }
 
 func TestSingleAppCantCreateFile(t *testing.T) {
-	dir, err := ioutil.TempDir(os.TempDir(), "singleapp")
-	require.NoError(t, err)
-
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	os.Mkdir(filepath.Join(dir, "exists"), 0644)
 
-	_, err = Open(filepath.Join(dir, "exists"), DefaultOptions())
+	_, err := Open(filepath.Join(dir, "exists"), DefaultOptions())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exists")
 
@@ -512,10 +495,8 @@ func TestSingleAppCantCreateFile(t *testing.T) {
 }
 
 func TestSingleAppDiscard(t *testing.T) {
-	app, err := Open("testdata_discard.aof", DefaultOptions())
+	app, err := Open(filepath.Join(t.TempDir(), "testdata_discard.aof"), DefaultOptions())
 	require.NoError(t, err)
-
-	defer os.RemoveAll("testdata_discard.aof")
 
 	err = app.DiscardUpto(0)
 	require.NoError(t, err)
@@ -538,12 +519,8 @@ func BenchmarkAppendFlush(b *testing.B) {
 		WithRetryableSync(false).
 		WithWriteBuffer(make([]byte, DefaultWriteBufferSize))
 
-	app, err := Open("testdata_benchmark_flush.aof", opts)
-	if err != nil {
-		panic(err)
-	}
-
-	defer os.RemoveAll("testdata_benchmark_flush.aof")
+	app, err := Open(filepath.Join(b.TempDir(), "testdata_benchmark_flush.aof"), opts)
+	require.NoError(b, err)
 
 	b.ResetTimer()
 
@@ -552,21 +529,15 @@ func BenchmarkAppendFlush(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for j := 1; j <= 1000; j++ {
 			_, _, err = app.Append(chunck)
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 
 			err = app.Flush()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 	}
 
 	err = app.Close()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(b, err)
 }
 
 func BenchmarkAppendFlushless(b *testing.B) {
@@ -574,12 +545,8 @@ func BenchmarkAppendFlushless(b *testing.B) {
 		WithRetryableSync(false).
 		WithWriteBuffer(make([]byte, DefaultWriteBufferSize*16))
 
-	app, err := Open("testdata_benchmark_flushless.aof", opts)
-	if err != nil {
-		panic(err)
-	}
-
-	defer os.RemoveAll("testdata_benchmark_flushless.aof")
+	app, err := Open(filepath.Join(b.TempDir(), "testdata_benchmark_flushless.aof"), opts)
+	require.NoError(b, err)
 
 	b.ResetTimer()
 
@@ -588,14 +555,10 @@ func BenchmarkAppendFlushless(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for j := 1; j <= 1000; j++ {
 			_, _, err = app.Append(chunck)
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 	}
 
 	err = app.Close()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(b, err)
 }

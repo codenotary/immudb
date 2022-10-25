@@ -26,8 +26,7 @@ import (
 )
 
 func TestStoreIndexExists(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)}}})
@@ -114,8 +113,7 @@ func TestStoreIndexExists(t *testing.T) {
 }
 
 func TestStoreIndexEqualKeys(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.ZAdd(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
@@ -192,8 +190,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 }
 
 func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
@@ -263,8 +260,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 }
 
 func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 
@@ -290,8 +286,7 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 // key: key5, score: 2
 // key: key6, score: 3/*
 func TestStore_ZScanPagination(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	setName := []byte(`set1`)
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
@@ -409,8 +404,7 @@ func TestStore_ZScanPagination(t *testing.T) {
 // key: key5, score: 2
 // key: key6, score: 3
 func TestStore_ZScanReversePagination(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	setName := []byte(`set1`)
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
@@ -527,8 +521,7 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 }
 
 func TestStore_ZScanInvalidSet(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	opt := &schema.ZScanRequest{
 		Set: nil,
@@ -538,8 +531,7 @@ func TestStore_ZScanInvalidSet(t *testing.T) {
 }
 
 func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	idx0, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-A`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2-A`)}}})
@@ -595,8 +587,7 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 }
 
 func TestStoreZScanOnZAddIndexReference(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
@@ -657,8 +648,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 }
 
 func TestStoreVerifiableZAdd(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
+	db := makeDb(t)
 
 	_, err := db.VerifiableZAdd(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)

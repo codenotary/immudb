@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -30,19 +28,11 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestImmuClient_SQL(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
 	options := server.DefaultOptions().
-		WithDir(dir).
+		WithDir(t.TempDir()).
 		WithAuth(true).
 		WithSigningKey("./../../../test/signer/ec1.key")
 
@@ -51,18 +41,15 @@ func TestImmuClient_SQL(t *testing.T) {
 	bs.Start()
 	defer bs.Stop()
 
-	clientOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../../test/signer/ec1.pub")
-
-	client, err := ic.NewImmuClient(clientOpts)
+	client, err := bs.NewAuthenticatedClient(ic.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithServerSigningPubKey("./../../../test/signer/ec1.pub"),
+	)
 	require.NoError(t, err)
+	defer client.CloseSession(context.Background())
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	ctx := context.Background()
 
 	_, err = client.SQLExec(ctx, `
 		CREATE TABLE table1(
@@ -252,26 +239,15 @@ func TestImmuClient_SQL(t *testing.T) {
 }
 
 func TestImmuClient_SQL_Errors(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client, err := ic.NewImmuClient(cliOpts)
+	client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
 	require.NoError(t, err)
+	defer client.CloseSession(context.Background())
 
 	_, err = client.SQLExec(context.Background(), "", map[string]interface{}{
 		"param1": struct{}{},

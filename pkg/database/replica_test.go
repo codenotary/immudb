@@ -18,9 +18,7 @@ package database
 
 import (
 	"os"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -28,14 +26,12 @@ import (
 )
 
 func TestReadOnlyReplica(t *testing.T) {
-	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	rootPath := t.TempDir()
 
 	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(true)
 
 	replica, err := NewDB("db", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
-
-	defer os.RemoveAll(options.dbRootPath)
 
 	err = replica.Close()
 	require.NoError(t, err)
@@ -95,12 +91,11 @@ func TestReadOnlyReplica(t *testing.T) {
 }
 
 func TestSwitchToReplica(t *testing.T) {
-	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	rootPath := t.TempDir()
 
 	options := DefaultOption().WithDBRootPath(rootPath).AsReplica(false)
 
-	replica, rcloser := makeDbWith("db", options)
-	defer rcloser()
+	replica := makeDbWith(t, "db", options)
 
 	_, _, err := replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"}, nil)
 	require.NoError(t, err)

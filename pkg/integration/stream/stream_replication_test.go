@@ -19,8 +19,6 @@ package integration
 import (
 	"context"
 	"io"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -33,28 +31,21 @@ import (
 )
 
 func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	cliOpts := ic.DefaultOptions().
+	cliOpts := ic.
+		DefaultOptions().
+		WithDir(t.TempDir()).
 		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
 
 	client, err := ic.NewImmuClient(cliOpts)
 	require.NoError(t, err)
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	lr, err := client.Login(context.Background(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)

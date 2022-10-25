@@ -18,20 +18,14 @@ package store
 
 import (
 	"encoding/binary"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestImmudbStoreReader(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_store_reader")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	defer immuStore.Close()
@@ -92,12 +86,8 @@ func TestImmudbStoreReader(t *testing.T) {
 }
 
 func TestImmudbStoreReaderAsBefore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_store_reader_as_before")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	defer immustoreClose(t, immuStore)
@@ -160,12 +150,8 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 }
 
 func TestImmudbStoreReaderWithOffset(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_store_reader_offset")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	defer immuStore.Close()
@@ -227,12 +213,8 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 }
 
 func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_store_reader_as_before_offset")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	defer immuStore.Close()

@@ -18,8 +18,6 @@ package integration
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -28,36 +26,32 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
-func TestTransaction_SetAndGet(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
+func setupTest(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient) {
+	options := server.DefaultOptions().WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
-	defer bs.Stop()
+	t.Cleanup(func() { bs.Stop() })
 
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	cliOpts := ic.DefaultOptions().WithDir(t.TempDir())
+	client, err := bs.NewAuthenticatedClient(cliOpts)
 	require.NoError(t, err)
+
+	t.Cleanup(func() { client.CloseSession(context.Background()) })
+
+	return bs, client
+}
+
+func TestTransaction_SetAndGet(t *testing.T) {
+	_, client := setupTest(t)
 
 	// tx mode
-	tx, err := client.NewTx(context.TODO())
+	tx, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
-	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(
 		id INTEGER,
 		title VARCHAR,
 		active BOOLEAN,
@@ -72,213 +66,129 @@ func TestTransaction_SetAndGet(t *testing.T) {
 	params["active"] = true
 	params["payload"] = []byte{1, 2, 3}
 
-	err = tx.SQLExec(context.TODO(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
+	err = tx.SQLExec(context.Background(), "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
 	require.NoError(t, err)
 
-	res, err := tx.SQLQuery(context.TODO(), "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params)
+	res, err := tx.SQLQuery(context.Background(), "SELECT t.id as id, title FROM table1 t WHERE id <= 3 AND active = @active", params)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	txH, err := tx.Commit(context.TODO())
+	txH, err := tx.Commit(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, txH)
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }
 
 func TestTransaction_Rollback(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client := setupTest(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	_, err := client.SQLExec(context.Background(), "CREATE DATABASE db1;", nil)
 	require.NoError(t, err)
 
-	_, err = client.SQLExec(context.TODO(), "CREATE DATABASE db1;", nil)
+	_, err = client.SQLExec(context.Background(), "USE db1;", nil)
 	require.NoError(t, err)
 
-	_, err = client.SQLExec(context.TODO(), "USE db1;", nil)
-	require.NoError(t, err)
-
-	res, err := client.SQLQuery(context.TODO(), "SELECT * FROM databases();", nil, true)
+	res, err := client.SQLQuery(context.Background(), "SELECT * FROM databases();", nil, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Len(t, res.Rows, 2)
 	require.Equal(t, "defaultdb", res.Rows[0].Values[0].GetS())
 	require.Equal(t, "db1", res.Rows[1].Values[0].GetS())
 
-	tx, err := client.NewTx(context.TODO())
+	tx, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
-	err = tx.SQLExec(context.TODO(), `CREATE TABLE table1(
+	err = tx.SQLExec(context.Background(), `CREATE TABLE table1(
 		id INTEGER,
 		PRIMARY KEY id
 		);`, nil)
 	require.NoError(t, err)
 
-	err = tx.Rollback(context.TODO())
+	err = tx.Rollback(context.Background())
 	require.NoError(t, err)
 
-	err = tx.Rollback(context.TODO())
-	require.Error(t, err)
-	require.Equal(t, "no transaction found", err.Error())
+	err = tx.Rollback(context.Background())
+	require.ErrorContains(t, err, "no transaction found")
 
-	tx1, err := client.NewTx(context.TODO())
+	tx1, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
-	res, err = tx1.SQLQuery(context.TODO(), "SELECT * FROM table1", nil)
-	require.Error(t, err)
-	require.Equal(t, "table does not exist (table1)", err.Error())
+	res, err = tx1.SQLQuery(context.Background(), "SELECT * FROM table1", nil)
+	require.ErrorContains(t, err, "table does not exist (table1)")
 	require.Nil(t, res)
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }
 
 func TestTransaction_MultipleReadWriteError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client := setupTest(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	tx1, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
-	tx1, err := client.NewTx(context.TODO())
-	require.NoError(t, err)
-
-	tx2, err := client.NewTx(context.TODO())
-	require.Error(t, err)
+	tx2, err := client.NewTx(context.Background())
+	require.ErrorContains(t, err, "only 1 read write transaction supported at once")
 	require.Nil(t, tx2)
 
-	_, err = tx1.Commit(context.TODO())
+	_, err = tx1.Commit(context.Background())
 	require.NoError(t, err)
 }
 
 func TestTransaction_ChangingDBOnSessionNoError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	bs, client := setupTest(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	txDefaultDB, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
-	txDefaultDB, err := client.NewTx(context.TODO())
+	err = txDefaultDB.SQLExec(context.Background(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
-	err = txDefaultDB.SQLExec(context.TODO(), `CREATE TABLE tableDefaultDB(id INTEGER,PRIMARY KEY id);`, nil)
+	client2, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(t.TempDir()))
 	require.NoError(t, err)
 
-	cliOpts2 := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client2 := ic.NewClient().WithOptions(cliOpts2)
-
-	err = client2.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client2.CreateDatabase(context.Background(), &schema.DatabaseSettings{DatabaseName: "db2"})
 	require.NoError(t, err)
 
-	err = client2.CreateDatabase(context.TODO(), &schema.DatabaseSettings{DatabaseName: "db2"})
+	_, err = client2.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db2"})
 	require.NoError(t, err)
 
-	_, err = client2.UseDatabase(context.TODO(), &schema.Database{DatabaseName: "db2"})
+	txDb2, err := client2.NewTx(context.Background())
 	require.NoError(t, err)
 
-	txDb2, err := client2.NewTx(context.TODO())
+	err = txDb2.SQLExec(context.Background(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
 	require.NoError(t, err)
 
-	err = txDb2.SQLExec(context.TODO(), `CREATE TABLE tableDB2(id INTEGER,PRIMARY KEY id);`, nil)
+	err = txDb2.SQLExec(context.Background(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
 	require.NoError(t, err)
 
-	err = txDb2.SQLExec(context.TODO(), "INSERT INTO tableDB2(id) VALUES (1)", nil)
-	require.NoError(t, err)
-
-	txh1, err := txDefaultDB.Commit(context.TODO())
+	txh1, err := txDefaultDB.Commit(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, txh1.Header.Ts)
 
-	txh2, err := txDb2.Commit(context.TODO())
+	txh2, err := txDb2.Commit(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, txh2.Header.Ts)
 
-	_, err = client.UseDatabase(context.TODO(), &schema.Database{DatabaseName: "db2"})
+	_, err = client.UseDatabase(context.Background(), &schema.Database{DatabaseName: "db2"})
 	require.NoError(t, err)
 
-	ris, err := client.SQLQuery(context.TODO(), `SELECT * FROM tableDB2;`, nil, true)
+	ris, err := client.SQLQuery(context.Background(), `SELECT * FROM tableDB2;`, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(ris.Rows))
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 
-	err = client2.CloseSession(context.TODO())
+	err = client2.CloseSession(context.Background())
 	require.NoError(t, err)
 }
 
 func TestTransaction_MultiNoErr(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
+	_, client := setupTest(t)
 	ctx := context.Background()
-
-	err = client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
 
 	tx, err := client.NewTx(ctx)
 	require.NoError(t, err)
@@ -355,28 +265,8 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 }
 
 func TestTransaction_HandlingReadConflict(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
+	_, client := setupTest(t)
 	ctx := context.Background()
-
-	err = client.OpenSession(ctx, []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
 
 	tx, err := client.NewTx(ctx)
 	require.NoError(t, err)

@@ -19,8 +19,6 @@ package store
 import (
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
@@ -29,12 +27,8 @@ import (
 )
 
 func TestTxReader(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_txreader")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	require.NotNil(t, immuStore)
@@ -104,12 +98,8 @@ func TestTxReader(t *testing.T) {
 }
 
 func TestWrapAppendableErr(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_txreader_wrap_error")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
-	immuStore, err := Open(dir, opts)
+	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
 	err = immuStore.wrapAppendableErr(nil, "anAction")

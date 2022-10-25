@@ -30,6 +30,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	daem "github.com/takama/daemon"
 )
 
@@ -103,33 +104,32 @@ func TestSservice_IsAdmin(t *testing.T) {
 	assert.Errorf(t, err, "you must have root user privileges. Possibly using 'sudo' command should help")
 }
 
-func TestSservice_InstallSetup_immudb(t *testing.T) {
-	os.Mkdir("immutest", 0755)
-	defer os.Remove("immutest")
-	op := Option{}
-	mps := immudbcmdtest.ManpageServiceMock{}
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
+func TestSservice_immudb(t *testing.T) {
+	dir := t.TempDir()
 
-	err := ss.InstallSetup("immutest", &cobra.Command{})
-	if err != nil {
-		t.Logf("TestSservice_InstallSetup_immudb: %s", err)
-	}
-	assert.NoError(t, err)
-}
+	t.Run("install", func(t *testing.T) {
+		op := Option{}
+		mps := immudbcmdtest.ManpageServiceMock{}
+		ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
 
-func TestSservice_UninstallSetup_immudb(t *testing.T) {
-	op := Option{}
-	// provide
-	op.ExecPath = "/usr/sbin/immudbnotexistentexec"
-	op.ConfigPath = "/etc/immunotexistent"
-	c := viper.New()
-	c.Set("dir", "/var/lib/immuconfignotexistent")
-	c.Set("logfile", "/var/log/immunotexist/immulognotexistent")
+		err := ss.InstallSetup(dir, &cobra.Command{})
+		require.NoError(t, err)
+	})
 
-	mps := immudbcmdtest.ManpageServiceMock{}
-	ss := sservice{osMock, c, op, mps}
-	err := ss.UninstallSetup("immudb")
-	assert.NoError(t, err)
+	t.Run("uninstall", func(t *testing.T) {
+		op := Option{}
+		// provide
+		op.ExecPath = "/usr/sbin/immudbnotexistentexec"
+		op.ConfigPath = "/etc/immunotexistent"
+		c := viper.New()
+		c.Set("dir", "/var/lib/immuconfignotexistent")
+		c.Set("logfile", "/var/log/immunotexist/immulognotexistent")
+
+		mps := immudbcmdtest.ManpageServiceMock{}
+		ss := sservice{osMock, c, op, mps}
+		err := ss.UninstallSetup(dir)
+		assert.NoError(t, err)
+	})
 }
 
 func TestSservice_getDefaultExecPath(t *testing.T) {
@@ -142,12 +142,14 @@ func TestSservice_getDefaultExecPath(t *testing.T) {
 }
 
 func TestSservice_CopyExecInOsDefault(t *testing.T) {
-	os.Mkdir("immutest", 0755)
-	defer os.Remove("immutest")
 	op := Option{}
+	op.ExecPath = t.TempDir()
+	err := os.Mkdir(filepath.Join(op.ExecPath, "immutest"), 0777)
+	require.NoError(t, err)
+
 	mps := manpageService{}
 	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
-	_, err := ss.CopyExecInOsDefault("immutest")
+	_, err = ss.CopyExecInOsDefault("immutest")
 	assert.NoError(t, err)
 }
 

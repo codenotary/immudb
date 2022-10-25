@@ -17,36 +17,14 @@ limitations under the License.
 package immuc_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/client/tokenservice"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetTxByID(t *testing.T) {
-
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
@@ -59,23 +37,7 @@ func TestGetTxByID(t *testing.T) {
 	}
 }
 func TestGet(t *testing.T) {
-	defer os.Remove(".state")
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.Get([]string{"key"})
@@ -88,23 +50,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestVerifiedGet(t *testing.T) {
-	defer os.Remove(".state-")
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
@@ -117,23 +63,7 @@ func TestVerifiedGet(t *testing.T) {
 }
 
 func TestGetByRevision(t *testing.T) {
-
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	tkf := cmdtest.RandString()
-	ts := tokenservice.NewFileTokenService().WithTokenFileName(tkf)
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	ic := setupTest(t)
 
 	_, err := ic.Imc.Set([]string{"key", "value1"})
 	require.NoError(t, err)
@@ -172,6 +102,6 @@ func TestGetByRevision(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, msg, "value1")
 
-	msg, err = ic.Imc.Get([]string{"key@notarevision"})
+	_, err = ic.Imc.Get([]string{"key@notarevision"})
 	require.Error(t, err)
 }

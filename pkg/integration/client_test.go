@@ -19,9 +19,8 @@ package integration
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -59,6 +58,58 @@ var testData = struct {
 	refKeys: [][]byte{[]byte("refKey1"), []byte("refKey2"), []byte("refKey3")},
 	set:     []byte("set1"),
 	scores:  []float64{1.0, 2.0, 3.0},
+}
+
+func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient, context.Context) {
+	bs := servertest.NewBufconnServer(server.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key"),
+	)
+
+	bs.Start()
+	t.Cleanup(func() { bs.Stop() })
+
+	client, err := bs.NewAuthenticatedClient(ic.
+		DefaultOptions().
+		WithDir(t.TempDir()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { client.CloseSession(context.Background()) })
+	return bs, client, context.Background()
+}
+
+func setupTestServerAndClientWithToken(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient, context.Context) {
+	bs := servertest.NewBufconnServer(server.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithAuth(true).
+		WithSigningKey("./../../test/signer/ec1.key"),
+	)
+
+	bs.Start()
+	t.Cleanup(func() { bs.Stop() })
+
+	client, err := ic.NewImmuClient(ic.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithServerSigningPubKey("./../../test/signer/ec1.pub"),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { client.Disconnect() })
+
+	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+	require.NoError(t, err)
+
+	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", resp.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	return bs, client, ctx
 }
 
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte, client ic.ImmuClient) {
@@ -283,31 +334,7 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 }
 
 func TestImmuClient(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	require.NoError(t, err)
-
-	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", resp.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0], client)
 	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1], client)
@@ -332,33 +359,9 @@ func TestImmuClient(t *testing.T) {
 }
 
 func TestImmuClientTampering(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	bs, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	require.NoError(t, err)
-
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", resp.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.Set(ctx, []byte{0}, []byte{0})
+	_, err := client.Set(ctx, []byte{0}, []byte{0})
 	require.NoError(t, err)
 
 	bs.Server.PostSetFn = func(ctx context.Context,
@@ -486,29 +489,9 @@ func TestImmuClientTampering(t *testing.T) {
 }
 
 func TestReplica(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{
 		DatabaseName:   "db1",
 		Replica:        true,
 		MasterDatabase: "defaultdb",
@@ -527,7 +510,7 @@ func TestReplica(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	md = metadata.Pairs("authorization", resp.Token)
+	md := metadata.Pairs("authorization", resp.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`db1-key1`), []byte(`db1-value1`))
@@ -535,35 +518,9 @@ func TestReplica(t *testing.T) {
 }
 
 func TestDatabasesSwitching(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(
-		ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
+	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
@@ -574,7 +531,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Token)
 
-	md = metadata.Pairs("authorization", resp.Token)
+	md := metadata.Pairs("authorization", resp.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
@@ -603,29 +560,9 @@ func TestDatabasesSwitching(t *testing.T) {
 }
 
 func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, _ := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(
-		ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	_, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+	err := client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
@@ -659,43 +596,30 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 }
 
 func TestImmuClientDisconnect(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClientWithToken(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	err = client.Disconnect()
+	err := client.Disconnect()
 	require.NoError(t, err)
 
 	require.False(t, client.IsConnected())
 
-	require.True(t, errors.Is(client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db"), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.UpdateAuthConfig(ctx, auth.KindPassword), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.UpdateMTLSConfig(ctx, false), ic.ErrNotConnected))
-	require.True(t, errors.Is(client.CompactIndex(ctx, &emptypb.Empty{}), ic.ErrNotConnected))
+	err = client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db")
+	require.ErrorIs(t, err, ic.ErrNotConnected)
+
+	err = client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd"))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
+
+	err = client.UpdateAuthConfig(ctx, auth.KindPassword)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
+
+	err = client.UpdateMTLSConfig(ctx, false)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
+
+	err = client.CompactIndex(ctx, &emptypb.Empty{})
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.FlushIndex(ctx, 100, true)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.True(t, errors.Is(err.(immuErrors.ImmuError), ic.ErrNotConnected))
@@ -703,171 +627,143 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.True(t, errors.Is(client.Logout(context.TODO()), ic.ErrNotConnected))
 
 	_, err = client.Get(context.TODO(), []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.CurrentState(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.GetAll(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Count(context.TODO(), []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.CountAll(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.VerifiedSet(context.TODO(), []byte("key"), []byte("value"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Set(context.TODO(), nil, nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.Delete(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ExecAll(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.TxByID(context.TODO(), 1)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.TxByIDWithSpec(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.TxScan(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.VerifiedSetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.VerifiedZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	//_, err = client.Dump(context.TODO(), nil)
 	//require.Equal(t, ic.ErrNotConnected, err)
 
 	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.GetAt(context.TODO(), []byte("key"), 0)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ServerInfo(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	require.True(t, errors.Is(client.HealthCheck(context.TODO()), ic.ErrNotConnected))
+	err = client.HealthCheck(context.TODO())
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	require.True(t, errors.Is(client.CreateDatabase(context.TODO(), nil), ic.ErrNotConnected))
+	err = client.CreateDatabase(context.TODO(), nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.UseDatabase(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	err = client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	require.True(t, errors.Is(client.SetActiveUser(context.TODO(), nil), ic.ErrNotConnected))
+	err = client.SetActiveUser(context.TODO(), nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ListUsers(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.DatabaseList(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.DatabaseListV2(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.UpdateDatabaseV2(context.TODO(), "defaultdb", nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.CurrentRoot(context.TODO())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	_, err = client.CurrentState(context.TODO())
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.SafeSet(context.TODO(), nil, nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	_, err = client.VerifiedSet(context.TODO(), nil, nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.SafeGet(context.TODO(), nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	_, err = client.VerifiedGet(context.TODO(), nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.SafeZAdd(context.TODO(), nil, 0, nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	_, err = client.VerifiedZAdd(context.TODO(), nil, 0, nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.SafeReference(context.TODO(), nil, nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	_, err = client.VerifiedSetReference(context.TODO(), nil, nil)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+	_, client, _ := setupTestServerAndClientWithToken(t)
 
 	client.Disconnect()
-	err = client.Disconnect()
+	err := client.Disconnect()
 	require.Error(t, err)
-	require.Errorf(t, err, "not connected")
+	require.ErrorContains(t, err, "not connected")
 }
 
 func TestWaitForHealthCheck(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, _ := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	err = client.WaitForHealthCheck(context.TODO())
+	err := client.WaitForHealthCheck(context.TODO())
 	require.NoError(t, err)
 }
 
@@ -903,29 +799,7 @@ func TestUserManagement(t *testing.T) {
 		testUser        *schema.User
 	)
 
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithConfig("../../configs/immudb.toml")
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	err = client.CreateDatabase(ctx, testDB)
 	require.NoError(t, err)
@@ -995,33 +869,10 @@ func TestUserManagement(t *testing.T) {
 	require.Len(t, testUser.Permissions, 0)
 	require.Equal(t, "immudb", testUser.Createdby)
 	require.True(t, testUser.Active)
-
-	client.Disconnect()
 }
 
 func TestDatabaseManagement(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	err1 := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: "test"})
 	require.Nil(t, err1)
@@ -1035,33 +886,10 @@ func TestDatabaseManagement(t *testing.T) {
 	require.Nil(t, err3)
 	require.IsType(t, &schema.DatabaseListResponseV2{}, resp3)
 	require.Len(t, resp3.Databases, 2)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_History(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	txmd, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
@@ -1074,33 +902,12 @@ func TestImmuClient_History(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, sil.Entries, 2)
-	client.Disconnect()
 }
 
 func TestImmuClient_SetAll(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.SetAll(ctx, nil)
+	_, err := client.SetAll(ctx, nil)
 	require.Error(t, err)
 
 	setRequest := &schema.SetRequest{KVs: []*schema.KeyValue{}}
@@ -1129,38 +936,17 @@ func TestImmuClient_SetAll(t *testing.T) {
 		}
 	}
 
-	err = client.Disconnect()
+	err = client.CloseSession(ctx)
 	require.NoError(t, err)
 
 	_, err = client.SetAll(ctx, setRequest)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
 func TestImmuClient_GetAll(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
+	_, err := client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
 	require.NoError(t, err)
 
 	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
@@ -1179,36 +965,12 @@ func TestImmuClient_GetAll(t *testing.T) {
 	entries, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
 	require.Len(t, entries.Entries, 2)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_Delete(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	require.NoError(t, err)
-
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.Delete(ctx, nil)
+	_, err := client.Delete(ctx, nil)
 	require.Error(t, err)
 
 	deleteRequest := &schema.DeleteKeysRequest{}
@@ -1240,33 +1002,10 @@ func TestImmuClient_Delete(t *testing.T) {
 	_, err = client.Delete(ctx, deleteRequest)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "key not found")
-
-	err = client.Disconnect()
-	require.NoError(t, err)
 }
 
 func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -1285,73 +1024,33 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, idx)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_Scan(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
+	_, client, ctx := setupTestServerAndClient(t)
+
+	_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val11`))
 	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
 	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
-	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val11`))
-	_, _ = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
 
 	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key"), SinceTx: 3})
-
-	require.IsType(t, &schema.Entries{}, entries)
 	require.NoError(t, err)
+	require.IsType(t, &schema.Entries{}, entries)
 	require.Len(t, entries.Entries, 2)
-	client.Disconnect()
 }
 
 func TestImmuClient_TxScan(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
+	_, client, ctx := setupTestServerAndClient(t)
+
+	_, err := client.Set(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	_, err = client.Set(ctx, []byte(`key1`), []byte(`val11`))
 	require.NoError(t, err)
-	defer client.Disconnect()
-
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	_, err = client.Set(ctx, []byte(`key3`), []byte(`val3`))
 	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, _ = client.Set(ctx, []byte(`key1`), []byte(`val1`))
-	_, _ = client.Set(ctx, []byte(`key1`), []byte(`val11`))
-	_, _ = client.Set(ctx, []byte(`key3`), []byte(`val3`))
 
 	txls, err := client.TxScan(ctx, &schema.TxScanRequest{
 		InitialTx: 2,
@@ -1381,16 +1080,11 @@ func TestImmuClient_TxScan(t *testing.T) {
 }
 
 func TestImmuClient_Logout(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
+	bs := servertest.NewBufconnServer(server.
+		DefaultOptions().
+		WithDir(t.TempDir()).
+		WithAuth(true),
+	)
 
 	bs.Start()
 	defer bs.Stop()
@@ -1414,7 +1108,9 @@ func TestImmuClient_Logout(t *testing.T) {
 	}
 	tokenServices := []tokenservice.TokenService{ts1, ts2, &ts3}
 	expectations := []func(error){
-		func(err error) { require.NoError(t, err) },
+		func(err error) {
+			require.NoError(t, err)
+		},
 		func(err error) {
 			require.NotNil(t, err)
 			require.Contains(t, err.Error(), "some IsTokenPresent error")
@@ -1426,9 +1122,11 @@ func TestImmuClient_Logout(t *testing.T) {
 	}
 
 	for i, expect := range expectations {
-		clientOpts := ic.DefaultOptions().
-			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-		client, err := ic.NewImmuClient(clientOpts)
+		client, err := ic.NewImmuClient(ic.
+			DefaultOptions().
+			WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+			WithDir(t.TempDir()),
+		)
 		if err != nil {
 			expect(err)
 			continue
@@ -1445,33 +1143,16 @@ func TestImmuClient_Logout(t *testing.T) {
 
 		err = client.Logout(ctx)
 		expect(err)
-		client.Disconnect()
+		err = client.Disconnect()
+		require.NoError(t, err)
 	}
 }
 
 func TestImmuClient_GetServiceClient(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
+	_, client, _ := setupTestServerAndClient(t)
 
 	cli := client.GetServiceClient()
 	require.Implements(t, (*schema.ImmuServiceClient)(nil), cli)
-	client.Disconnect()
 }
 
 func TestImmuClient_GetOptions(t *testing.T) {
@@ -1481,28 +1162,7 @@ func TestImmuClient_GetOptions(t *testing.T) {
 }
 
 func TestImmuClient_ServerInfo(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	defer client.Disconnect()
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, client, ctx := setupTestServerAndClient(t)
 
 	resp, err := client.ServerInfo(ctx, &schema.ServerInfoRequest{})
 	require.NoError(t, err)
@@ -1511,29 +1171,9 @@ func TestImmuClient_ServerInfo(t *testing.T) {
 }
 
 func TestImmuClient_CurrentRoot(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
 
 	r, err := client.CurrentState(ctx)
@@ -1544,61 +1184,19 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, healthRes)
 	require.Equal(t, uint32(0x0), healthRes.PendingRequests)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_Count(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.Count(ctx, []byte(`key1`))
+	_, err := client.Count(ctx, []byte(`key1`))
 	require.Error(t, err)
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-	_, err = client.CountAll(ctx)
-
+	_, err := client.CountAll(ctx)
 	require.Error(t, err)
 }
 
@@ -1710,28 +1308,8 @@ func TestImmuClient_GetReference(t *testing.T) {
 
 */
 
-func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+func TestEnforcedLogoutAfterPasswordChangeWithToken(t *testing.T) {
+	_, client, ctx := setupTestServerAndClientWithToken(t)
 
 	var (
 		userName        = "test"
@@ -1742,7 +1320,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		testUserContext = context.TODO()
 	)
 	// step 1: create test database
-	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
+	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
 	require.NoError(t, err)
 
 	// step 2: create test user with read write permissions to the test db
@@ -1755,11 +1333,11 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// setp 3: create test client and context
-	lr, err = client.Login(context.TODO(), []byte(userName), []byte(userPassword))
+	// step 3: create test client and context
+	lr, err := client.Login(context.TODO(), []byte(userName), []byte(userPassword))
 	require.NoError(t, err)
 
-	md = metadata.Pairs("authorization", lr.Token)
+	md := metadata.Pairs("authorization", lr.Token)
 	testUserContext = metadata.NewOutgoingContext(context.Background(), md)
 
 	dbResp, err := client.UseDatabase(testUserContext, testDB)
@@ -1781,68 +1359,68 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 
 	// step 6: access the test db again using the test client which should give an error
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	require.NotNil(t, err)
+	require.Error(t, err)
+}
 
-	client.Disconnect()
+func TestEnforcedLogoutAfterPasswordChangeWithSessions(t *testing.T) {
+	t.SkipNow()
+	bs, client, ctx := setupTestServerAndClient(t)
+
+	var (
+		userName        = "test"
+		userPassword    = "1Password!*"
+		userNewPassword = "2Password!*"
+		testDBName      = "test"
+		testUserContext = context.TODO()
+	)
+	// step 1: create test database
+	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
+	require.NoError(t, err)
+
+	// step 2: create test user with read write permissions to the test db
+	err = client.CreateUser(
+		ctx,
+		[]byte(userName),
+		[]byte(userPassword),
+		auth.PermissionRW,
+		testDBName,
+	)
+	require.NoError(t, err)
+
+	// step 3: create test client and context
+	testClient := bs.NewClient(ic.DefaultOptions().WithDir(t.TempDir()))
+
+	err = testClient.OpenSession(context.Background(), []byte(userName), []byte(userPassword), testDBName)
+	require.NoError(t, err)
+
+	// step 4: successfully access the test db using the test client
+	_, err = testClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	require.NoError(t, err)
+
+	// step 5: using admin client change the test user password
+	err = client.ChangePassword(
+		ctx,
+		[]byte(userName),
+		[]byte(userPassword),
+		[]byte(userNewPassword),
+	)
+	require.NoError(t, err)
+
+	// step 6: access the test db again using the test client which should give an error
+	_, err = testClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	require.Error(t, err)
 }
 
 func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
-
-	err = bs.Start()
-	require.NoError(t, err)
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	item, err := client.CurrentState(ctx)
-
 	require.IsType(t, &schema.ImmutableState{}, item)
 	require.NoError(t, err)
 }
 
 func TestImmuClient_VerifiedGetAt(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true).
-		WithSigningKey("./../../test/signer/ec1.key")
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	opts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-	client, err := ic.NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
-	require.NoError(t, err)
-
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	bs, client, ctx := setupTestServerAndClient(t)
 
 	txHdr0, err := client.Set(ctx, []byte(`key0`), []byte(`val0`))
 	require.NoError(t, err)
@@ -1880,34 +1458,12 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 
 	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val3`))
 	require.Equal(t, store.ErrCorruptedData, err)
-
-	client.Disconnect()
 }
 
 func TestImmuClient_VerifiedGetSince(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	_, client, ctx := setupTestServerAndClient(t)
 
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().
-		WithDir(dir).
-		WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	client, err := ic.NewImmuClient(ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	client.WithTokenService(tokenservice.NewInmemoryTokenService())
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
 	txMeta2, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
 	require.NoError(t, err)
@@ -1920,32 +1476,9 @@ func TestImmuClient_VerifiedGetSince(t *testing.T) {
 }
 
 func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
-	stateFileDir := path.Join(os.TempDir(), "testStates")
-	dir := path.Join(os.TempDir(), "data")
-	dirAtTx3 := path.Join(os.TempDir(), "dataTx3")
+	bs, client, ctx := setupTestServerAndClient(t)
 
-	defer os.RemoveAll(dir)
-	defer os.RemoveAll(dirAtTx3)
-	defer os.RemoveAll(stateFileDir)
-
-	os.RemoveAll(dir)
-	os.RemoveAll(dirAtTx3)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(dir)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-
-	cliOpts := ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
-	cliOpts.CurrentDatabase = ic.DefaultDB
-	client, err := ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
 
 	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
@@ -1960,41 +1493,54 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	bs.Stop()
 
 	copier := fs.NewStandardCopier()
-	err = copier.CopyDir(dir, dirAtTx3)
+	dirAtTx3 := filepath.Join(t.TempDir(), "data")
+	err = copier.CopyDir(bs.Options.Dir, dirAtTx3)
 	require.NoError(t, err)
 
-	bs = servertest.NewBufconnServer(options)
+	bs = servertest.NewBufconnServer(bs.Options)
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
+	stateFileDir := t.TempDir()
+	cliOpts := ic.
+		DefaultOptions().
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDir(stateFileDir)
 	cliOpts.CurrentDatabase = ic.DefaultDB
 	client, err = ic.NewImmuClient(cliOpts)
 	require.NoError(t, err)
 
-	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
-	md = metadata.Pairs("authorization", lr.Token)
+	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
 	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
+	require.NoError(t, err)
 	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
 	require.NoError(t, err)
 	_, err = client.VerifiedGet(ctx, []byte(`key3`))
-	client.Disconnect()
-	bs.Stop()
-
-	os.RemoveAll(dir)
-	err = copier.CopyDir(dirAtTx3, dir)
+	require.NoError(t, err)
+	err = client.Disconnect()
 	require.NoError(t, err)
 
-	bs = servertest.NewBufconnServer(options)
+	bs.Stop()
+
+	os.RemoveAll(bs.Options.Dir)
+	err = copier.CopyDir(dirAtTx3, bs.Options.Dir)
+	require.NoError(t, err)
+
+	bs = servertest.NewBufconnServer(bs.Options)
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = ic.DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
+	cliOpts = ic.
+		DefaultOptions().
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDir(stateFileDir)
 	cliOpts.CurrentDatabase = ic.DefaultDB
 	client, err = ic.NewImmuClient(cliOpts)
 	require.NoError(t, err)

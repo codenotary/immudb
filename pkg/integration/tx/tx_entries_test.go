@@ -19,39 +19,14 @@ package integration
 import (
 	"context"
 	"crypto/sha256"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	ic "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 func Test_GetTransactionEntries(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	defer os.Remove(".state-")
-
-	options := server.DefaultOptions().WithDir(dir)
-
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	cliOpts := ic.DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	client := ic.NewClient().WithOptions(cliOpts)
-
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.NoError(t, err)
+	_, client := setupTest(t)
 
 	hdr, err := client.ExecAll(context.Background(), &schema.ExecAllRequest{
 		Operations: []*schema.Op{

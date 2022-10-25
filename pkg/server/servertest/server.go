@@ -68,9 +68,27 @@ func NewBufconnServer(options *server.Options) *BufconnServer {
 	return bs
 }
 
+func (bs *BufconnServer) setupGrpcServer() {
+	bs.GrpcServer = grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			server.ErrorMapper,
+			bs.immuServer.KeepAliveSessionInterceptor,
+			auth.ServerUnaryInterceptor,
+			bs.immuServer.SessionAuthInterceptor,
+		)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			server.ErrorMapperStream,
+			bs.immuServer.KeepALiveSessionStreamInterceptor,
+			auth.ServerStreamInterceptor,
+		)),
+	)
+}
+
 func (bs *BufconnServer) Start() error {
 	bs.m.Lock()
 	defer bs.m.Unlock()
+
+	bs.setupGrpcServer()
 
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
@@ -113,7 +131,10 @@ func (bs *BufconnServer) Stop() error {
 		return err
 	}
 
-	bs.GrpcServer.Stop()
+	if bs.GrpcServer != nil {
+		bs.GrpcServer.Stop()
+		bs.GrpcServer = nil
+	}
 
 	return nil
 }

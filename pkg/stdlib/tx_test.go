@@ -18,50 +18,17 @@ package stdlib
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"os"
 	"testing"
-	"time"
 
 	"google.golang.org/grpc/status"
 
-	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConn_BeginTx(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0).
-		WithDir(path)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
-
-	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
-	require.NoError(t, err)
+	_, db := testServerClient(t)
 
 	table1 := getRandomTableName()
 	result, err := db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table1))
@@ -105,34 +72,7 @@ func TestConn_BeginTx(t *testing.T) {
 }
 
 func TestTx_Rollback(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0).
-		WithDir(path)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
-
-	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
-	require.NoError(t, err)
+	_, db := testServerClient(t)
 
 	tx, err := db.Begin()
 	require.NoError(t, err)
@@ -158,34 +98,7 @@ func TestTx_Rollback(t *testing.T) {
 }
 
 func TestTx_Errors(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "tx_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().
-		WithMetricsServer(false).
-		WithWebServer(false).
-		WithPgsqlServer(false).
-		WithPort(0).
-		WithDir(path)
-
-	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
-	server.Initialize()
-
-	defer server.Stop()
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	go func() {
-		server.Start()
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-
-	port := server.Listener.Addr().(*net.TCPAddr).Port
-
-	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
-	require.NoError(t, err)
+	_, db := testServerClient(t)
 
 	tx, err := db.Begin()
 	require.NoError(t, err)

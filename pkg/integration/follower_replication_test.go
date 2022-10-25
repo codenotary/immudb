@@ -34,9 +34,7 @@ import (
 
 func TestReplication(t *testing.T) {
 	//init master server
-	masterDir, err := ioutil.TempDir("", "master-data")
-	require.NoError(t, err)
-	defer os.RemoveAll(masterDir)
+	masterDir := t.TempDir()
 
 	masterServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
@@ -47,13 +45,11 @@ func TestReplication(t *testing.T) {
 
 	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
 
-	err = masterServer.Initialize()
+	err := masterServer.Initialize()
 	require.NoError(t, err)
 
 	//init follower server
-	followerDir, err := ioutil.TempDir("", "follower-data")
-	require.NoError(t, err)
-	defer os.RemoveAll(followerDir)
+	followerDir := t.TempDir()
 
 	followerServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).

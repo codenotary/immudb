@@ -21,9 +21,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -40,32 +38,32 @@ func getRandomTableName() string {
 	return fmt.Sprintf("table%d", r)
 }
 
-func TestOpenDB(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
+func testServerClient(t *testing.T) (*servertest.BufconnServer, *sql.DB) {
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
+	t.Cleanup(func() { bs.Stop() })
 
 	opts := client.DefaultOptions()
 	opts.Username = "immudb"
 	opts.Password = "immudb"
 	opts.Database = "defaultdb"
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDir(t.TempDir())
 
 	db := OpenDB(opts)
-	defer db.Close()
+	t.Cleanup(func() { db.Close() })
+	return bs, db
+}
+
+func TestOpenDB(t *testing.T) {
+	_, db := testServerClient(t)
 
 	table := getRandomTableName()
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 
 	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (1, 'immu1')", table))
@@ -113,28 +111,7 @@ func TestOpenDB(t *testing.T) {
 }
 
 func TestQueryCapabilities(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	db := OpenDB(opts)
-	defer db.Close()
+	_, db := testServerClient(t)
 
 	table := getRandomTableName()
 	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
@@ -171,32 +148,11 @@ func TestQueryCapabilities(t *testing.T) {
 }
 
 func TestQueryCapabilitiesWithPointers(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	db := OpenDB(opts)
-	defer db.Close()
+	_, db := testServerClient(t)
 
 	table := getRandomTableName()
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
+	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
 	require.NoError(t, err)
 
 	table1 := getRandomTableName()
@@ -213,28 +169,7 @@ func TestQueryCapabilitiesWithPointers(t *testing.T) {
 }
 
 func TestNilValues(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	db := OpenDB(opts)
-	defer db.Close()
+	_, db := testServerClient(t)
 
 	table := getRandomTableName()
 
@@ -273,28 +208,7 @@ func (v *valuer) Value() (driver.Value, error) {
 }
 
 func TestDriverValuer(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
-	opts.Username = "immudb"
-	opts.Password = "immudb"
-	opts.Database = "defaultdb"
-
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
-
-	db := OpenDB(opts)
-	defer db.Close()
+	_, db := testServerClient(t)
 
 	table := getRandomTableName()
 
@@ -330,74 +244,62 @@ func TestDriverValuer(t *testing.T) {
 }
 
 func TestImmuConnector_ConnectErr(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "sql_test_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	options := server.DefaultOptions().WithAuth(true).WithDir(path)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	opts := client.DefaultOptions()
+	opts := client.DefaultOptions().WithDir(t.TempDir()).WithAddress("some.host.that.does.not.exist")
 
 	db := OpenDB(opts)
 	defer db.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	_, err = db.ExecContext(ctx, "this will not be executed")
-	require.Error(t, err)
+	_, err := db.ExecContext(ctx, "this will not be executed")
+	require.ErrorContains(t, err, "Error while dialing")
 }
 
 func TestImmuConnector_ConnectLoginErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
 	opts := client.DefaultOptions()
-	opts.Username = "wrongUsername"
+	opts.Username = "wrong-username"
+	opts.Password = "immudb"
+	opts.Database = "defaultdb"
 
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDir(t.TempDir())
 
 	db := OpenDB(opts)
 	defer db.Close()
 
 	_, err := db.ExecContext(context.TODO(), "this will not be executed")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid user name or password")
 }
 
 func TestImmuConnector_ConnectUseDatabaseErr(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithDir(t.TempDir())
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
 
 	opts := client.DefaultOptions()
 	opts.Username = "immudb"
 	opts.Password = "immudb"
-	opts.Database = "wrong db"
-	opts.WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()})
+	opts.Database = "wrong-db"
+
+	opts.
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDir(t.TempDir())
 
 	db := OpenDB(opts)
 	defer db.Close()
 
 	_, err := db.ExecContext(context.TODO(), "this will not be executed")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "database does not exist")
 }
 
 func TestImmuConnector_Driver(t *testing.T) {

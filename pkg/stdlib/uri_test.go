@@ -20,9 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -32,15 +30,12 @@ import (
 )
 
 func testServer(t *testing.T) (port int, cleanup func()) {
-	path, err := ioutil.TempDir(os.TempDir(), "test_data")
-	require.NoError(t, err)
-
 	options := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir(path)
+		WithDir(t.TempDir())
 
 	server := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 	server.Initialize()
@@ -53,16 +48,12 @@ func testServer(t *testing.T) (port int, cleanup func()) {
 	time.Sleep(500 * time.Millisecond)
 
 	port = server.Listener.Addr().(*net.TCPAddr).Port
-	return port, func() {
-		server.Stop()
-		os.RemoveAll(options.Dir)
-		os.Remove(".state-")
-	}
+	return port, func() { server.Stop() }
 }
 
 func TestDriver_Open(t *testing.T) {
 	d := immuDriver
-	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:3324/defaultdb")
+	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:5555/defaultdb")
 	require.Error(t, err)
 	require.Nil(t, conn)
 }
