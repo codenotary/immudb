@@ -62,7 +62,7 @@ func TestEmptyDBCorruptionChecker(t *testing.T) {
 		val := dbList.GetByIndex(int64(i))
 		val.Close()
 	}
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCorruptionChecker(t *testing.T) {
@@ -90,7 +90,7 @@ func TestCorruptionChecker(t *testing.T) {
 		val := dbList.GetByIndex(int64(i))
 		val.Close()
 	}
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
@@ -354,7 +354,7 @@ func TestCorruptionChecker_ExitImmediatly(t *testing.T) {
 		val := dbList.GetByIndex(int64(i))
 		val.Close()
 	}
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func treeKey(layer uint8, index uint64) []byte {

@@ -207,7 +207,7 @@ func TestDumpToFile(t *testing.T) {
 	require.NoError(t, collector.Start())
 	require.Nil(t, cmd.Execute())
 	dumpLog, err := collector.Stop()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "Database is empty.\n", dumpLog)
 
 	immuClientMock.DumpF = func(ctx context.Context, f io.WriteSeeker) (int64, error) {
@@ -216,7 +216,7 @@ func TestDumpToFile(t *testing.T) {
 	require.NoError(t, collector.Start())
 	require.Nil(t, cmd.Execute())
 	dumpLog, err = collector.Stop()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("SUCCESS: 1 key-value entries were backed-up to file %s\n", dumpFile), dumpLog)
 }
 
@@ -828,7 +828,7 @@ func TestCommandlineBck_Register(t *testing.T) {
 func TestNewCommandLineBck(t *testing.T) {
 	cml, err := newCommandlineBck(immuos.NewStandardOS())
 	assert.IsType(t, &commandlineBck{}, cml)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandlineBck_ConfigChain(t *testing.T) {
@@ -842,7 +842,7 @@ func TestCommandlineBck_ConfigChain(t *testing.T) {
 	cmd.Flags().StringVar(&c.config.CfgFn, "config", "", "config file")
 	cc := c.ConfigChain(f)
 	err := cc(cmd, []string{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandlineBck_ConfigChainErr(t *testing.T) {

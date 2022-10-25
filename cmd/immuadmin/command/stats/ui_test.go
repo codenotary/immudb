@@ -28,7 +28,7 @@ import (
 func TestRunUI(t *testing.T) {
 	sui := statsui{Loader: metricsLoaderMock{}, Tui: tuiMock{}}
 	err := sui.runUI(true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 type metricsLoaderMock struct{}

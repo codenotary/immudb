@@ -27,26 +27,26 @@ import (
 func TestTerminalReader_ReadFromTerminalYN(t *testing.T) {
 	tr := NewTerminalReader(strings.NewReader("Y"))
 	resp, err := tr.ReadFromTerminalYN("Y")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "y", resp)
 	tr.r = strings.NewReader("sgdf")
 	resp, err = tr.ReadFromTerminalYN("Y")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "", resp)
 	tr.r = strings.NewReader("N")
 	resp, err = tr.ReadFromTerminalYN("Y")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "n", resp)
 	tr.r = strings.NewReader("")
 	resp, err = tr.ReadFromTerminalYN("Y")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "y", resp)
 }
 
 func TestStdinPasswordReader_Read(t *testing.T) {
 	pr := stdinPasswordReader{&terminalReadPwMock{}}
 	pw, err := pr.Read("paxword")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, []byte(`fake`), pw)
 }
 

@@ -876,11 +876,11 @@ func TestImmuClient_StreamWithSignature(t *testing.T) {
 			Size:    len([]byte(`val`)),
 		},
 	}})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {

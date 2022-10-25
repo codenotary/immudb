@@ -113,7 +113,7 @@ func TestWrapAppendableErr(t *testing.T) {
 	require.NoError(t, err)
 
 	err = immuStore.wrapAppendableErr(nil, "anAction")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	unwrappedErr := errors.New("some error")
 	err = immuStore.wrapAppendableErr(unwrappedErr, "anAction")

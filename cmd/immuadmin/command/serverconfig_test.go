@@ -62,7 +62,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	}
 
 	cmdso, err := cl.NewCmd()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cl.serverConfig(cmdso)
 
 	b := bytes.NewBufferString("")

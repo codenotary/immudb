@@ -79,7 +79,7 @@ func TestCommandLine_Connect(t *testing.T) {
 		options: opts,
 	}
 	err = cmdl.connect(&cobra.Command{}, []string{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandLine_Disconnect(t *testing.T) {
@@ -247,7 +247,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl1.options = Options()
 	cl1.options.DialOptions = dialOptions1
 	err := cl1.checkLoggedIn(&cmd1, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func newHomedirServiceMock() *clienttest.HomedirServiceMock {

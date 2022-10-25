@@ -41,17 +41,17 @@ func TestStateService(t *testing.T) {
 	uuidProvider := NewUUIDProvider(ic)
 
 	rs, err := NewStateService(cache, logger, stateProvider, uuidProvider)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	state, err := rs.GetState(context.TODO(), "db1")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.IsType(t, &schema.ImmutableState{}, state)
 
 	err = rs.SetState(&schema.ImmutableState{}, "db1")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	state, err = rs.GetState(context.TODO(), "db1")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.IsType(t, &schema.ImmutableState{}, state)
 }
 

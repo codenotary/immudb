@@ -36,7 +36,7 @@ func TestClientUnaryInterceptor(t *testing.T) {
 		return nil
 	}
 	err := f(context.Background(), "", "", "", nil, invoker)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestClientStreamInterceptor(t *testing.T) {
@@ -48,5 +48,5 @@ func TestClientStreamInterceptor(t *testing.T) {
 		return nil, nil
 	}
 	_, err := f(context.Background(), nil, nil, "", streamer)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }

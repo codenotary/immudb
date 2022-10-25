@@ -38,7 +38,7 @@ func (e execsmock) Command(name string, arg ...string) *exec.Cmd {
 func TestDetached(t *testing.T) {
 	pl := plauncher{execsmock{}}
 	err := pl.Detached()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestNewPlauncher(t *testing.T) {
