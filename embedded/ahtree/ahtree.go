@@ -382,63 +382,63 @@ func (t *AHtree) ResetSize(newSize uint64) error {
 
 	currentSize := t.size()
 
-	if currentSize < newSize {
-		return ErrCannotResetToLargerSize
-	}
+	// if currentSize < newSize {
+	// 	return ErrCannotResetToLargerSize
+	// }
 
 	if currentSize == newSize {
 		return nil
 	}
 
-	err := t.sync()
-	if err != nil {
-		return err
-	}
+	// err := t.sync()
+	// if err != nil {
+	// 	return err
+	// }
 
 	cLogSize := int64(newSize * cLogEntrySize)
 	pLogSize := int64(0)
 	dLogSize := int64(0)
 
 	if newSize > 0 {
-		var b [cLogEntrySize]byte
-		_, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
-		if err != nil {
-			return err
-		}
+		// var b [cLogEntrySize]byte
+		// _, err := t.cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
+		// if err != nil {
+		// 	return err
+		// }
 
-		pOff := binary.BigEndian.Uint64(b[:])
-		pSize := binary.BigEndian.Uint32(b[offsetSize:])
+		// pOff := binary.BigEndian.Uint64(b[:])
+		// pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
-		pLogSize = int64(pOff) + int64(pSize)
+		// pLogSize = int64(pOff) + int64(pSize)
 
-		pLogFileSize, err := t.pLog.Size()
-		if err != nil {
-			return err
-		}
+		// pLogFileSize, err := t.pLog.Size()
+		// if err != nil {
+		// 	return err
+		// }
 
-		if pLogFileSize < pLogSize {
-			return ErrorCorruptedData
-		}
+		// if pLogFileSize < pLogSize {
+		// 	// return ErrorCorruptedData
+		// }
 
 		dLogSize = int64(nodesUpto(uint64(cLogSize/cLogEntrySize)) * sha256.Size)
 
-		dLogFileSize, err := t.dLog.Size()
-		if err != nil {
-			return err
-		}
+		// dLogFileSize, err := t.dLog.Size()
+		// if err != nil {
+		// 	return err
+		// }
 
-		if dLogFileSize < dLogSize {
-			return ErrorCorruptedDigests
-		}
+		// if dLogFileSize < dLogSize {
+		// 	return ErrorCorruptedDigests
+		// }
 	}
 
 	// Invalidate caches
-	for i := cLogSize; i < t.cLogSize; i += cLogEntrySize {
-		t.pCache.Pop(uint64(i / cLogEntrySize))
-	}
-	for i := dLogSize; i < t.dLogSize; i += sha256.Size {
-		t.dCache.Pop(uint64(i / sha256.Size))
-	}
+	// for i := cLogSize; i < t.cLogSize; i += cLogEntrySize {
+	// 	t.pCache.Pop(uint64(i / cLogEntrySize))
+	// }
+	// for i := dLogSize; i < t.dLogSize; i += sha256.Size {
+	// 	t.dCache.Pop(uint64(i / sha256.Size))
+	// }
 
 	t.cLogSize = cLogSize
 	t.pLogSize = pLogSize
@@ -457,24 +457,24 @@ var nodeAtOffsetBuffer = []uint64{}
 
 func (t *AHtree) nodeAt(i uint64) (h [sha256.Size]byte, err error) {
 	nodeAtOffsetBuffer = append(nodeAtOffsetBuffer, i)
-	v, err := t.dCache.Get(i)
+	// v, err := t.dCache.Get(i)
 
-	if err == nil {
-		return v.([sha256.Size]byte), nil
-	}
+	// if err == nil {
+	return [sha256.Size]byte{}, nil
+	// }
 
-	if err != cache.ErrKeyNotFound {
-		return
-	}
+	// if err != cache.ErrKeyNotFound {
+	// 	return
+	// }
 
-	_, err = t.dLog.ReadAt(h[:], int64(i*sha256.Size))
-	if err != nil {
-		return
-	}
+	// _, err = t.dLog.ReadAt(h[:], int64(i*sha256.Size))
+	// if err != nil {
+	// 	return
+	// }
 
-	_, _, err = t.dCache.Put(i, h)
+	// _, _, err = t.dCache.Put(i, h)
 
-	return h, err
+	// return h, err
 }
 
 func nodesUntil(n uint64) uint64 {
