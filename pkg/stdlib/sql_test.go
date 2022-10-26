@@ -247,7 +247,8 @@ func TestImmuConnector_ConnectErr(t *testing.T) {
 	defer cancel()
 
 	_, err := db.ExecContext(ctx, "this will not be executed")
-	require.ErrorContains(t, err, "Error while dialing")
+	require.Error(t, err)
+	require.Regexp(t, "context deadline exceeded|Error while dialing", err.Error())
 }
 
 func TestImmuConnector_ConnectLoginErr(t *testing.T) {
