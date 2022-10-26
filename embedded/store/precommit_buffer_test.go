@@ -38,10 +38,10 @@ func TestPrecommitBuffer(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = b.put(0, sha256.Sum256(nil), 0, 0)
-	require.Equal(t, err, ErrBufferIsFull)
+	require.ErrorIs(t, err, ErrBufferIsFull)
 
 	_, _, _, _, err = b.readAhead(size + 1)
-	require.Equal(t, err, ErrNotEnoughData)
+	require.ErrorIs(t, err, ErrNotEnoughData)
 
 	// reading ahead should not consume entries
 	for it := 0; it < 2; it++ {
@@ -78,7 +78,7 @@ func TestPrecommitBuffer(t *testing.T) {
 	}
 
 	_, _, _, _, err = b.readAhead(0)
-	require.Equal(t, err, ErrNotEnoughData)
+	require.ErrorIs(t, err, ErrNotEnoughData)
 
 	for i := 0; i < size; i++ {
 		err := b.put(uint64(i), sha256.Sum256([]byte{byte(i)}), int64(i*100), i*10)
@@ -86,7 +86,7 @@ func TestPrecommitBuffer(t *testing.T) {
 	}
 
 	err = b.put(0, sha256.Sum256([]byte{byte(0)}), 0, 0)
-	require.Equal(t, err, ErrBufferIsFull)
+	require.ErrorIs(t, err, ErrBufferIsFull)
 }
 
 func TestPrecommitBufferRecedeWriter(t *testing.T) {

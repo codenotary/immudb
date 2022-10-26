@@ -90,7 +90,7 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	require.Equal(t, err, ErrDuplicatedZAddNotSupported)
+	require.ErrorIs(t, err, ErrDuplicatedZAddNotSupported)
 }
 
 func TestOps_ValidateErrEmptySet(t *testing.T) {
@@ -98,7 +98,7 @@ func TestOps_ValidateErrEmptySet(t *testing.T) {
 		Operations: []*Op{},
 	}
 	err := aOps.Validate()
-	require.Equal(t, err, ErrEmptySet)
+	require.ErrorIs(t, err, ErrEmptySet)
 }
 
 func TestOps_ValidateErrDuplicate(t *testing.T) {

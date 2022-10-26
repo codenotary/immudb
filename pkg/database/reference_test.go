@@ -315,7 +315,7 @@ func TestStore_ReferenceIllegalArgument(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.SetReference(nil)
-	require.Equal(t, err, store.ErrIllegalArguments)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 }
 
 func TestStore_ReferencedItemNotFound(t *testing.T) {

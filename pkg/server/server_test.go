@@ -1180,7 +1180,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 		return errWriteFile
 	}
 	err = s.updateConfigItem("key3", "key3 = value3", func(string) bool { return false })
-	require.Equal(t, err, errWriteFile)
+	require.ErrorIs(t, err, errWriteFile)
 }
 
 func TestServerPID(t *testing.T) {

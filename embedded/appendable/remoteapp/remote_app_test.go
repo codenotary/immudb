@@ -79,7 +79,7 @@ func TestOpenRemoteStorageAppendable(t *testing.T) {
 	require.NoError(t, err)
 
 	err = app.Close()
-	require.Equal(t, multiapp.ErrAlreadyClosed, err)
+	require.ErrorIs(t, err, multiapp.ErrAlreadyClosed)
 }
 
 func TestOpenRemoteStorageAppendableCompression(t *testing.T) {
@@ -88,7 +88,7 @@ func TestOpenRemoteStorageAppendableCompression(t *testing.T) {
 		WithCompresionLevel(appendable.BestCompression)
 
 	app, err := Open(t.TempDir(), "", memory.Open(), opts)
-	require.Equal(t, err, ErrCompressionNotSupported)
+	require.ErrorIs(t, err, ErrCompressionNotSupported)
 	require.Nil(t, app)
 }
 
