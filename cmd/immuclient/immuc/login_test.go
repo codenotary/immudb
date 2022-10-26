@@ -17,11 +17,9 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
 
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
@@ -42,7 +40,7 @@ func TestLogin(t *testing.T) {
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 		}).
-		WithPasswordReader(&immuclienttest.PasswordReader{
+		WithPasswordReader(&test.PasswordReader{
 			Pass: []string{"immudb"},
 		}).
 		WithDir(t.TempDir())
@@ -55,9 +53,7 @@ func TestLogin(t *testing.T) {
 
 	msg, err := imc.Login([]string{"immudb"})
 	require.NoError(t, err)
-	if !strings.Contains(msg, "Successfully logged in") {
-		t.Fatal("Login error")
-	}
+	require.Contains(t, msg, "Successfully logged in", "Login error")
 }
 
 func TestLogout(t *testing.T) {
@@ -72,7 +68,7 @@ func TestLogout(t *testing.T) {
 		WithDialOptions([]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 		}).
-		WithPasswordReader(&immuclienttest.PasswordReader{
+		WithPasswordReader(&test.PasswordReader{
 			Pass: []string{"immudb"},
 		}).
 		WithDir(t.TempDir())
@@ -117,9 +113,7 @@ func TestUserCreate(t *testing.T) {
 
 				msg, err := ic.Imc.UserCreate(args)
 				require.NoError(t, err, "TestUserCreate fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("TestUserCreate failed to create user: %s", msg)
-				}
+				require.Contains(t, msg, exp, "TestUserCreate failed to create user")
 			},
 		},
 		{
@@ -135,9 +129,7 @@ func TestUserCreate(t *testing.T) {
 
 				msg, err := ic.Imc.UserCreate(args)
 				require.NoError(t, err, "TestUserCreate fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("TestUserCreate failed to create user: %s", msg)
-				}
+				require.Contains(t, msg, exp, "TestUserCreate failed to create user")
 			},
 		},
 		{
@@ -153,9 +145,7 @@ func TestUserCreate(t *testing.T) {
 
 				msg, err := ic.Imc.UserCreate(args)
 				require.NoError(t, err, "TestUserCreate fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("TestUserCreate failed to create user: %s", msg)
-				}
+				require.Contains(t, msg, exp, "TestUserCreate failed to create user")
 			},
 		},
 		{
@@ -171,9 +161,7 @@ func TestUserCreate(t *testing.T) {
 
 				msg, err := ic.Imc.UserCreate(args)
 				require.NoError(t, err, "TestUserCreate fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("TestUserCreate failed to create user: %s", msg)
-				}
+				require.Contains(t, msg, exp, "TestUserCreate failed to create user")
 			},
 		},
 		{
@@ -188,15 +176,8 @@ func TestUserCreate(t *testing.T) {
 				ic.Connect(icMain.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
-				if err == nil {
-					t.Fatal("TestUserCreate fail", err)
-				}
-				if !strings.Contains(err.Error(), exp) {
-					t.Fatalf("TestUserCreate failed to create user: %s", err)
-				}
-				if msg != "" {
-					t.Fatalf("TestUserCreate %s", msg)
-				}
+				require.ErrorContains(t, err, exp, "TestUserCreate fail")
+				require.Empty(t, msg)
 			},
 		},
 	}
@@ -229,9 +210,7 @@ func TestUserChangePassword(t *testing.T) {
 				ic.Connect(ic.Dialer)
 				msg, err := ic.Imc.ChangeUserPassword(args)
 				require.NoError(t, err, "TestUserChangePassword fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("TestUserChangePassword failed to change password: %s", msg)
-				}
+				require.Contains(t, msg, exp, "TestUserChangePassword failed to change password")
 			},
 		},
 		{
@@ -251,12 +230,7 @@ func TestUserChangePassword(t *testing.T) {
 				}
 				ic.Connect(ic.Dialer)
 				msg, err := ic.Imc.ChangeUserPassword(args)
-				if err == nil {
-					t.Fatal("TestUserChangePassword fail", err)
-				}
-				if !strings.Contains(err.Error(), exp) {
-					t.Fatalf("TestUserChangePassword failed to change password: %s", msg)
-				}
+				require.ErrorContainsf(t, err, exp, "TestUserChangePassword failed to change password: %s", msg)
 			},
 		},
 	}
@@ -292,9 +266,7 @@ func TestUserSetActive(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetActiveUser(args, true)
 				require.NoError(t, err, "SetActiveUser fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("SetActiveUser failed to change status: %s", msg)
-				}
+				require.Contains(t, msg, exp, "SetActiveUser failed to change status")
 			},
 		},
 		{
@@ -305,9 +277,7 @@ func TestUserSetActive(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetActiveUser(args, false)
 				require.NoError(t, err, "Deactivate fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("Deactivate failed to change status: %s", msg)
-				}
+				require.Contains(t, msg, exp, "Deactivate failed to change status")
 			},
 		},
 	}
@@ -342,9 +312,7 @@ func TestSetUserPermission(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				require.NoError(t, err, "SetUserPermission fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("SetUserPermission failed to set user permission: %s", msg)
-				}
+				require.Contains(t, msg, exp, "SetUserPermission failed to set user permission")
 			},
 		},
 		{
@@ -355,9 +323,7 @@ func TestSetUserPermission(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				require.NoError(t, err, "SetUserPermission fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("SetUserPermission failed to set user permission: %s", msg)
-				}
+				require.Contains(t, msg, exp, "SetUserPermission failed to set user permission")
 			},
 		},
 		{
@@ -368,9 +334,7 @@ func TestSetUserPermission(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				require.NoError(t, err, "SetUserPermission fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("SetUserPermission failed to set user permission: %s", msg)
-				}
+				require.Contains(t, msg, exp, "SetUserPermission failed to set user permission")
 			},
 		},
 		{
@@ -381,9 +345,7 @@ func TestSetUserPermission(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				require.NoError(t, err, "SetUserPermission fail")
-				if !strings.Contains(msg, exp) {
-					t.Fatalf("SetUserPermission failed to set user permission: %s", msg)
-				}
+				require.Contains(t, msg, exp, "SetUserPermission failed to set user permission")
 			},
 		},
 	}

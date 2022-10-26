@@ -17,7 +17,6 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,15 +27,11 @@ func TestHistory(t *testing.T) {
 
 	msg, err := ic.Imc.History([]string{"key"})
 	require.NoError(t, err, "History fail")
-	if !strings.Contains(msg, "key not found") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.Contains(t, msg, "key not found", "History fail")
 
 	_, err = ic.Imc.Set([]string{"key", "value"})
 	require.NoError(t, err, "History fail")
 	msg, err = ic.Imc.History([]string{"key"})
 	require.NoError(t, err, "History fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("History fail %s", msg)
-	}
+	require.Contains(t, msg, "value", "History fail")
 }

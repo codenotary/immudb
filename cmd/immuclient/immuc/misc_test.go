@@ -17,16 +17,15 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHealthCheck(t *testing.T) {
 	ic := setupTest(t)
 
-	if msg, err := ic.Imc.HealthCheck(nil); err != nil {
-		t.Fatal("HealthCheck fail", err)
-	} else if !strings.Contains(msg, "Health check OK") {
-		t.Fatalf("HealthCheck failed: %s", msg)
-	}
+	msg, err := ic.Imc.HealthCheck(nil)
+	require.NoError(t, err, "HealthCheck fail")
+	require.Contains(t, msg, "Health check OK")
 }

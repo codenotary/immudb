@@ -83,9 +83,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "immudb") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, string(msg), "immudb")
 }
 
 func TestUserListErrors(t *testing.T) {
@@ -179,9 +177,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "immudb's password has been changed") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, string(msg), "immudb's password has been changed")
 }
 
 func TestUserChangePasswordErrors(t *testing.T) {
@@ -301,9 +297,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "Created user newuser") {
-		t.Fatal(msg)
-	}
+	require.Contains(t, string(msg), "Created user newuser")
 }
 
 func TestUserCreateErrors(t *testing.T) {
@@ -473,9 +467,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "User status changed successfully") {
-		t.Fatal(string(msg))
-	}
+	require.Contains(t, string(msg), "User status changed successfully")
 }
 
 func TestUserDeactivate(t *testing.T) {
@@ -532,9 +524,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "User status changed successfully") {
-		t.Fatal(string(msg))
-	}
+	require.Contains(t, string(msg), "User status changed successfully")
 }
 
 func TestUserActivateErrors(t *testing.T) {
@@ -607,9 +597,7 @@ defer bs.Stop()
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "Permission changed successfully") {
-		t.Fatal(string(msg))
-	}
+	require.Contains(t, string(msg), "Permission changed successfully")
 }
 
 func TestUserPermissionErrors(t *testing.T) {

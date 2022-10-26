@@ -17,7 +17,6 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,9 +28,7 @@ func TestSet(t *testing.T) {
 	msg, err := ic.Imc.Set([]string{"key", "val"})
 
 	require.NoError(t, err, "Set fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Set failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "Set failed")
 }
 
 func TestVerifiedSet(t *testing.T) {
@@ -40,9 +37,7 @@ func TestVerifiedSet(t *testing.T) {
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 
 	require.NoError(t, err, "VerifiedSet fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("VerifiedSet failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "VerifiedSet failed")
 }
 
 func TestZAdd(t *testing.T) {
@@ -54,9 +49,7 @@ func TestZAdd(t *testing.T) {
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
 
 	require.NoError(t, err, "ZAdd fail")
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("ZAdd failed: %s", msg)
-	}
+	require.Contains(t, msg, "hash", "ZAdd failed")
 }
 
 func _TestVerifiedZAdd(t *testing.T) {
@@ -68,9 +61,7 @@ func _TestVerifiedZAdd(t *testing.T) {
 	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
 
 	require.NoError(t, err, "VerifiedZAdd fail")
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("VerifiedZAdd failed: %s", msg)
-	}
+	require.Contains(t, msg, "hash", "VerifiedZAdd failed")
 }
 
 func TestCreateDatabase(t *testing.T) {
@@ -78,16 +69,12 @@ func TestCreateDatabase(t *testing.T) {
 
 	msg, err := ic.Imc.CreateDatabase([]string{"newdb"})
 	require.NoError(t, err, "CreateDatabase fail")
-	if !strings.Contains(msg, "database successfully created") {
-		t.Fatalf("CreateDatabase failed: %s", msg)
-	}
+	require.Contains(t, msg, "database successfully created", "CreateDatabase failed")
 
 	_, err = ic.Imc.DatabaseList([]string{})
 	require.NoError(t, err, "DatabaseList fail")
 
 	msg, err = ic.Imc.UseDatabase([]string{"newdb"})
 	require.NoError(t, err, "UseDatabase fail")
-	if !strings.Contains(msg, "newdb") {
-		t.Fatalf("UseDatabase failed: %s", msg)
-	}
+	require.Contains(t, msg, "newdb", "UseDatabase failed")
 }

@@ -68,9 +68,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestSet(t *testing.T) {
@@ -108,9 +106,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestSafeset(t *testing.T) {
@@ -148,9 +144,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestZAdd(t *testing.T) {
@@ -201,9 +195,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "score") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "score")
 }
 
 func TestSafeZAdd(t *testing.T) {
@@ -255,8 +247,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "score") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "score")
 }
 */

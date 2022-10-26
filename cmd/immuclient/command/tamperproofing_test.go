@@ -72,9 +72,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "firstRoot") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "firstRoot")
 }
 func TestInclusion(t *testing.T) {
 	defer os.Remove(".root-")
@@ -115,8 +113,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "verified: true") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "verified: true")
 }
 */

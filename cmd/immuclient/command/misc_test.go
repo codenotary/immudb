@@ -70,9 +70,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 func TestStatus(t *testing.T) {
 	defer os.Remove(".root-")
@@ -112,9 +110,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "Health check OK") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "Health check OK")
 }
 
 func TestUseDatabase(t *testing.T) {
@@ -153,8 +149,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "mynewdb") {
-		t.Fatal(string(msg))
-	}
+	require.Contains(t, string(msg), "mynewdb")
 }
 */

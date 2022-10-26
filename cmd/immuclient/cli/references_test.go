@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,9 +29,7 @@ func TestReference(t *testing.T) {
 
 	msg, err := cli.reference([]string{"val", "key"})
 	require.NoError(t, err, "Reference fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Reference failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "Reference failed")
 }
 
 func TestSafeReference(t *testing.T) {
@@ -44,7 +41,5 @@ func TestSafeReference(t *testing.T) {
 
 	msg, err := cli.safereference([]string{"val", "key"})
 	require.NoError(t, err, "SafeReference fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("SafeReference failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "SafeReference failed")
 }

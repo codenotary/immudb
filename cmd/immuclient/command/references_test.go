@@ -70,9 +70,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestSafeReference(t *testing.T) {
@@ -113,8 +111,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 */

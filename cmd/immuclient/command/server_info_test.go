@@ -19,7 +19,6 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
@@ -51,7 +50,5 @@ func TestServerInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	rsp := string(msg)
-	if !strings.Contains(rsp, "version:") {
-		t.Fatal(err)
-	}
+	require.Contains(t, rsp, "version:")
 }

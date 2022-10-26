@@ -17,7 +17,6 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
@@ -53,7 +52,5 @@ func TestCurrentRoot(t *testing.T) {
 
 	msg, err := ic.Imc.CurrentState([]string{""})
 	require.NoError(t, err, "CurrentState fail")
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("CurrentState failed: %s", msg)
-	}
+	require.Contains(t, msg, "hash", "CurrentState failed")
 }

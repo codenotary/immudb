@@ -17,7 +17,6 @@ limitations under the License.
 package immuc_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,9 +30,7 @@ func TestGetTxByID(t *testing.T) {
 
 	msg, err := ic.Imc.GetTxByID([]string{"1"})
 	require.NoError(t, err, "GetByIndex fail")
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("GetByIndex failed: %s", msg)
-	}
+	require.Contains(t, msg, "hash", "GetByIndex failed")
 }
 func TestGet(t *testing.T) {
 	ic := setupTest(t)
@@ -43,9 +40,7 @@ func TestGet(t *testing.T) {
 
 	msg, err := ic.Imc.Get([]string{"key"})
 	require.NoError(t, err, "GetKey fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("GetKey failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "GetKey failed")
 }
 
 func TestVerifiedGet(t *testing.T) {
@@ -56,9 +51,7 @@ func TestVerifiedGet(t *testing.T) {
 
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
 	require.NoError(t, err, "VerifiedGet fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("VerifiedGet failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "VerifiedGet failed")
 }
 
 func TestGetByRevision(t *testing.T) {

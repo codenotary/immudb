@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -48,13 +47,9 @@ func TestLogin(t *testing.T) {
 
 	msg, err := cli.login([]string{"immudb"})
 	require.NoError(t, err)
-	if !strings.Contains(msg, "immudb user has the default password") {
-		t.Fatalf("Login failed: %s", err)
-	}
+	require.Contains(t, msg, "immudb user has the default password", "Login failed")
 
 	msg, err = cli.logout([]string{"immudb"})
 	require.NoError(t, err)
-	if !strings.Contains(msg, "Successfully logged out") {
-		t.Fatalf("Login failed: %s", err)
-	}
+	require.Contains(t, msg, "Successfully logged out", "Login failed")
 }

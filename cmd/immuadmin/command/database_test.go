@@ -50,9 +50,7 @@ func TestDatabaseList(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "defaultdb") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "defaultdb")
 }
 
 func TestDatabaseCreate(t *testing.T) {
@@ -105,8 +103,6 @@ func TestDatabaseCreate(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "database successfully created") {
-		t.Fatal(string(msg))
-	}
+	require.Contains(t, string(msg), "database successfully created")
 }
 */

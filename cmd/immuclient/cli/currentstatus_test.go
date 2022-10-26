@@ -49,8 +49,6 @@ Connect(bs.Dialer)
 	msg, err := cli.currentRoot([]string{""})
 
 	require.NoError(t, err, "CurrentRoot fail")
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("CurrentRoot failed: %s", msg)
-	}
+	require.Contains(t, msg, "hash", "CurrentRoot failed")
 }
 */

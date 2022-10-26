@@ -82,9 +82,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestGetRawBySafeIndex(t *testing.T) {
@@ -130,9 +128,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestGetKey(t *testing.T) {
@@ -179,9 +175,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestSafeGetKey(t *testing.T) {
@@ -233,9 +227,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestRawSafeGetKey(t *testing.T) {
@@ -281,8 +273,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 */

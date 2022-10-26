@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,9 +33,7 @@ func TestZScan(t *testing.T) {
 
 	msg, err := cli.zScan([]string{"set"})
 	require.NoError(t, err, "ZScan fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("ZScan failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "ZScan failed")
 }
 
 func TestScan(t *testing.T) {
@@ -47,9 +44,7 @@ func TestScan(t *testing.T) {
 
 	msg, err := cli.scan([]string{"k"})
 	require.NoError(t, err, "Scan fail")
-	if !strings.Contains(msg, "value") {
-		t.Fatalf("Scan failed: %s", msg)
-	}
+	require.Contains(t, msg, "value", "Scan failed")
 }
 
 func TestCount(t *testing.T) {
@@ -62,7 +57,5 @@ func TestCount(t *testing.T) {
 
 	msg, err := cli.count([]string{"key"})
 	require.NoError(t, err, "Count fail")
-	if !strings.Contains(msg, "1") {
-		t.Fatalf("Count failed: %s", msg)
-	}
+	require.Contains(t, msg, "1", "Count failed")
 }

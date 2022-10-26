@@ -72,9 +72,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestIScan(t *testing.T) {
@@ -114,9 +112,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestScan(t *testing.T) {
@@ -157,9 +153,7 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "hash") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "hash")
 }
 
 func TestCount(t *testing.T) {
@@ -200,8 +194,6 @@ Connect(bs.Dialer)
 	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
 	require.NoError(t, err)
-	if !strings.Contains(string(msg), "1") {
-		t.Fatal(err)
-	}
+	require.Contains(t, string(msg), "1")
 }
 */
