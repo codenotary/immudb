@@ -94,8 +94,8 @@ func TestConcurrentCompactIndex(t *testing.T) {
 			case <-ticker.C:
 				{
 					err := compactIndex(db, cleanUpTimeout)
-					if err != nil && err != sql.ErrAlreadyClosed && err != tbtree.ErrCompactionThresholdNotReached {
-						panic(err)
+					if !errors.Is(err, sql.ErrAlreadyClosed) && !errors.Is(err, tbtree.ErrCompactionThresholdNotReached) {
+						require.NoError(t, err)
 					}
 				}
 			}
@@ -125,7 +125,6 @@ func TestConcurrentCompactIndex(t *testing.T) {
 
 		err := execAll(db, &schema.ExecAllRequest{Operations: kvs}, execAllTimeout)
 		require.NoError(t, err)
-
 	}
 
 	time.Sleep(4 * time.Second)
@@ -630,6 +629,10 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 
 	wg.Wait()
 
+	if t.Failed() {
+		t.FailNow()
+	}
+
 	for i := 1; i <= 10; i++ {
 		set := strconv.FormatUint(uint64(i), 10)
 
@@ -819,6 +822,9 @@ func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	for i := 1; i <= 10; i++ {
 		set := strconv.FormatUint(uint64(i), 10)
@@ -920,6 +926,9 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	for i := 1; i <= 10; i++ {
 		set := strconv.FormatUint(uint64(i), 10)
@@ -1031,6 +1040,9 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScor
 
 	}
 	wg.Wait()
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	history, err := st.History(&schema.HistoryOptions{
 		Key: []byte(keyA),

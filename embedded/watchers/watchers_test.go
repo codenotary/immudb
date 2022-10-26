@@ -48,19 +48,12 @@ func TestWatchersHub(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(waitessCount * 2)
 
-	var errHolder error
-	var errMutex sync.Mutex
-
 	for it := 0; it < 2; it++ {
 		for i := 1; i <= waitessCount; i++ {
 			go func(i uint64) {
+				defer wg.Done()
 				err := wHub.WaitFor(i, nil)
-				if err != nil {
-					errMutex.Lock()
-					errHolder = err
-					errMutex.Unlock()
-				}
-				wg.Done()
+				require.NoError(t, err)
 			}(uint64(i))
 		}
 	}
@@ -73,19 +66,15 @@ func TestWatchersHub(t *testing.T) {
 	done := make(chan struct{})
 
 	go func(done <-chan struct{}) {
-		t := uint64(1)
+		id := uint64(1)
 
 		for {
 			select {
 			case <-time.Tick(1 * time.Millisecond):
 				{
-					err := wHub.DoneUpto(t + 2)
-					if err != nil {
-						errMutex.Lock()
-						errHolder = err
-						errMutex.Unlock()
-					}
-					t++
+					err := wHub.DoneUpto(id + 2)
+					require.NoError(t, err)
+					id++
 				}
 			case <-done:
 				{
@@ -99,7 +88,9 @@ func TestWatchersHub(t *testing.T) {
 
 	done <- struct{}{}
 
-	require.NoError(t, errHolder)
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	err = wHub.WaitFor(5, nil)
 	require.NoError(t, err)
@@ -107,13 +98,11 @@ func TestWatchersHub(t *testing.T) {
 	wg.Add(1)
 
 	go func() {
+		defer wg.Done()
 		err := wHub.WaitFor(uint64(waitessCount)+1, nil)
-		if err != ErrAlreadyClosed {
-			errMutex.Lock()
-			errHolder = err
-			errMutex.Unlock()
+		if !errors.Is(err, ErrAlreadyClosed) {
+			require.NoError(t, err)
 		}
-		wg.Done()
 	}()
 
 	time.Sleep(1 * time.Millisecond)
@@ -123,7 +112,9 @@ func TestWatchersHub(t *testing.T) {
 
 	wg.Wait()
 
-	require.NoError(t, errHolder)
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	err = wHub.WaitFor(0, nil)
 	require.ErrorIs(t, err, ErrAlreadyClosed)

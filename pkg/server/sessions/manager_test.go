@@ -131,7 +131,6 @@ func TestManager_ExpireSessions(t *testing.T) {
 	m.logger = logger.NewSimpleLogger("immudb session guard", os.Stdout)
 
 	sessIDs := make(chan string, SESS_NUMBER)
-	sessErrs := make(chan error, SESS_NUMBER)
 
 	t.Run("must correctly create sessions in parallel", func(t *testing.T) {
 		wg := sync.WaitGroup{}
@@ -143,18 +142,14 @@ func TestManager_ExpireSessions(t *testing.T) {
 				lid, err := m.NewSession(&auth.User{
 					Username: fmt.Sprintf("%d", u),
 				}, nil)
-				if err != nil {
-					sessErrs <- err
-				} else {
-					sessIDs <- lid.GetID()
-				}
+				require.NoError(t, err)
+
+				sessIDs <- lid.GetID()
 			}(i)
 		}
 		wg.Wait()
-
-		close(sessErrs)
-		for err := range sessErrs {
-			require.NoError(t, err)
+		if t.Failed() {
+			t.FailNow()
 		}
 
 		require.Equal(t, SESS_NUMBER, m.SessionCount())
@@ -198,19 +193,6 @@ func TestManager_ExpireSessions(t *testing.T) {
 		err = m.StopSessionsGuard()
 		require.NoError(t, err)
 	})
-}
-
-func keepActive(id string, m *manager, updateTime time.Duration, done chan bool) {
-	t := time.NewTicker(updateTime)
-	for {
-		select {
-		case <-t.C:
-			m.UpdateSessionActivityTime(id)
-		case <-done:
-			t.Stop()
-			return
-		}
-	}
 }
 
 func TestManagerSessionExpiration(t *testing.T) {

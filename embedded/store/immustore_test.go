@@ -70,6 +70,8 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
+
 		for i := 0; i < txCount; i++ {
 			tx, err := immuStore.NewWriteOnlyTx()
 			require.NoError(t, err)
@@ -87,16 +89,13 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 
 			txhdr, err := tx.AsyncCommit()
 			require.NoError(t, err)
-
-			if uint64(i+1) != txhdr.ID {
-				panic(fmt.Errorf("expected %v but actual %v", uint64(i+1), txhdr.ID))
-			}
+			require.EqualValues(t, i+1, txhdr.ID)
 		}
-
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
+
 		txID := uint64(1)
 
 		for {
@@ -115,7 +114,6 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 				require.NoError(t, err)
 
 				if tx.header.ID == uint64(txCount) {
-					wg.Done()
 					return
 				}
 
@@ -148,6 +146,8 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 
 	for c := 0; c < 10; c++ {
 		go func(txHolder *Tx) {
+			defer wg.Done()
+
 			for c := 0; c < txCount; {
 				tx, err := immuStore.NewWriteOnlyTx()
 				require.NoError(t, err)
@@ -180,8 +180,6 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 
 				c++
 			}
-
-			wg.Done()
 		}(txs[c])
 	}
 
@@ -877,6 +875,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 	for f := 0; f < 1; f++ {
 		go func() {
+			defer wg.Done()
 			for {
 				txID, _ := immuStore.CommittedAlh()
 
@@ -893,19 +892,12 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 						valRef, err := snap.Get(k)
 						if err != nil {
-							if err != tbtree.ErrKeyNotFound {
-								panic(err)
-							}
+							require.ErrorIs(t, err, tbtree.ErrKeyNotFound)
 						}
 
 						val, err := valRef.Resolve()
 						require.NoError(t, err)
-
-						if err == nil {
-							if !bytes.Equal(v, val) {
-								panic(fmt.Errorf("expected %v actual %v", v, val))
-							}
-						}
+						require.Equal(t, v, val)
 					}
 				}
 
@@ -924,25 +916,13 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 					v2, err := valRef2.Resolve()
 					require.NoError(t, err)
-
-					if !bytes.Equal(v1, v2) {
-						panic(fmt.Errorf("expected %v actual %v", v1, v2))
-					}
-
-					if valRef1.Tx() != valRef2.Tx() {
-						panic(fmt.Errorf("expected %d actual %d", valRef1.Tx(), valRef2.Tx()))
-					}
+					require.Equal(t, v1, v2)
+					require.Equal(t, valRef1.Tx(), valRef2.Tx())
 
 					txs, hCount, err := immuStore.History(k, 0, false, txCount)
 					require.NoError(t, err)
-
-					if len(txs) != txCount {
-						panic(fmt.Errorf("expected %d actual %d", txCount, len(txs)))
-					}
-
-					if int(hCount) != txCount {
-						panic(fmt.Errorf("expected %d actual %d", txCount, hCount))
-					}
+					require.Equal(t, txCount, len(txs))
+					require.Equal(t, txCount, int(hCount))
 
 					snap.Close()
 					break
@@ -951,11 +931,14 @@ func TestImmudbStoreIndexing(t *testing.T) {
 				snap.Close()
 				time.Sleep(time.Duration(100) * time.Millisecond)
 			}
-			wg.Done()
 		}()
 	}
 
 	wg.Wait()
+
+	if t.Failed() {
+		return
+	}
 
 	err = immuStore.FlushIndex(-10, true)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
@@ -1602,12 +1585,8 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 						txIDs, hCount, err := snap.History(k, 0, false, txCount)
 						require.NoError(t, err)
-						if int(snap.Ts()) != len(txIDs) {
-							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), len(txIDs)))
-						}
-						if int(snap.Ts()) != int(hCount) {
-							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), hCount))
-						}
+						require.EqualValues(t, snap.Ts(), len(txIDs))
+						require.EqualValues(t, snap.Ts(), hCount)
 
 						for _, txID := range txIDs {
 							v := make([]byte, 8)
@@ -1623,10 +1602,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 							val, err := immuStore.ReadValue(entry)
 							require.NoError(t, err)
-
-							if !bytes.Equal(v, val) {
-								panic(fmt.Errorf("expected %v actual %v", v, val))
-							}
+							require.Equal(t, v, val)
 						}
 					}
 				}
@@ -2525,19 +2501,22 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 
 	for r := 0; r < replicatorsCount; r++ {
 		go func(replicatorID int) {
+			defer wg.Done()
 			for etx := range etxs {
 				time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
 				_, err = replicaStore.ReplicateTx(etx, false)
 				require.NoError(t, err)
 			}
-
-			wg.Done()
 		}(r)
 	}
 
 	// it's needed to avoid getting 'already closed' error if the store is closed fast enough
 	wg.Wait()
+
+	if t.Failed() {
+		return
+	}
 
 	err = replicaStore.WaitForTx(uint64(txCount), false, nil)
 	require.NoError(t, err)
@@ -2888,10 +2867,7 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 			if err == ErrAlreadyClosed {
 				return
 			}
-			if !assert.NoError(b, err) {
-				return
-			}
-
+			require.NoError(b, err)
 			time.Sleep(time.Duration(5) * time.Millisecond)
 		}
 	}()
@@ -3280,6 +3256,9 @@ func TestBlTXOrdering(t *testing.T) {
 		time.Sleep(2 * time.Second)
 		close(done)
 		wg.Wait()
+		if t.Failed() {
+			t.FailNow()
+		}
 	})
 
 	t.Run("verify dual proofs for sequences of transactions", func(t *testing.T) {
@@ -3324,6 +3303,8 @@ func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
 
 	for i := 0; i < txCount; i++ {
 		go func() {
+			defer wg.Done()
+
 			tx, err := immuStore.NewWriteOnlyTx()
 			require.NoError(t, err)
 
@@ -3340,8 +3321,6 @@ func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
 
 			_, err = tx.Commit()
 			require.NoError(t, err)
-
-			wg.Done()
 		}()
 	}
 
@@ -3382,6 +3361,8 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 
 	for i := 0; i < txCount; i++ {
 		go func() {
+			defer wg.Done()
+
 			tx, err := immuStore.NewWriteOnlyTx()
 			require.NoError(t, err)
 
@@ -3395,8 +3376,6 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 				err = tx.Set(k, nil, v)
 				require.NoError(t, err)
 			}
-
-			wg.Done()
 
 			_, err = tx.Commit()
 			require.ErrorIs(t, err, ErrAlreadyClosed)
@@ -3420,6 +3399,8 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 
 	err = immuStore.Close()
 	require.NoError(t, err)
+
+	wg.Wait()
 }
 
 func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
@@ -3500,4 +3481,6 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 
 	err = immuStore.Close()
 	require.NoError(t, err)
+
+	wg.Wait()
 }
