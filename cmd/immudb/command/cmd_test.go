@@ -28,7 +28,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
 )
 
 func DefaultTestOptions() (o *server.Options) {
@@ -58,13 +57,13 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
-	assert.NoError(t, err)
-	assert.Equal(t, o.Logfile, options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, o.Logfile, options.Logfile)
 }
 
 func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
@@ -88,13 +87,13 @@ func TestImmudbCommandFlagParserWrongTLS(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 // Priority:
@@ -125,35 +124,35 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
 	// 4. config file
 	_, err = executeCommand(cmd)
-	assert.NoError(t, err)
-	assert.Equal(t, "", options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, "", options.Logfile)
 	// 4-b. config file specified in command line
 	_, err = executeCommand(cmd, "--config=../../../test/immudb.toml")
-	assert.NoError(t, err)
-	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
 	// 3. env. variables
 	t.Setenv("IMMUDB_LOGFILE", "EnvironmentVars")
 	_, err = executeCommand(cmd)
-	assert.NoError(t, err)
-	assert.Equal(t, "EnvironmentVars", options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, "EnvironmentVars", options.Logfile)
 
 	// 2. flags
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
-	assert.NoError(t, err)
-	assert.Equal(t, o.Logfile, options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, o.Logfile, options.Logfile)
 
 	// 1. overrides
 	viper.Set("logfile", "override")
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
-	assert.NoError(t, err)
-	assert.Equal(t, "override", options.Logfile)
+	require.NoError(t, err)
+	require.Equal(t, "override", options.Logfile)
 }
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
@@ -180,7 +179,7 @@ func TestImmudb(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 }
 
@@ -198,7 +197,7 @@ func TestImmudbDetached(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestImmudbMtls(t *testing.T) {
@@ -218,7 +217,7 @@ func TestImmudbMtls(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestImmudbLogFile(t *testing.T) {
@@ -235,7 +234,7 @@ func TestImmudbLogFile(t *testing.T) {
 
 	immudb := cl.Immudb(&immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 type plauncherMock struct{}
@@ -257,7 +256,7 @@ func TestExecute(t *testing.T) {
 		quitCode = q
 	})
 	Execute()
-	assert.Equal(t, quitCode, 1)
+	require.Equal(t, quitCode, 1)
 }
 
 func TestImmudbCommandReplicationFlagsParser(t *testing.T) {
@@ -277,11 +276,11 @@ func TestImmudbCommandReplicationFlagsParser(t *testing.T) {
 	cl.setupFlags(cmd, server.DefaultOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	setupDefaults(server.DefaultOptions())
 
 	_, err = executeCommand(cmd, "--replication-is-replica")
-	assert.NoError(t, err)
-	assert.True(t, options.ReplicationOptions.IsReplica)
+	require.NoError(t, err)
+	require.True(t, options.ReplicationOptions.IsReplica)
 }
