@@ -33,13 +33,9 @@ func TestNewZStreamReceiver(t *testing.T) {
 
 func TestNewZStreamReceiver_Next(t *testing.T) {
 	atTx, err := NumberToBytes(uint64(67))
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	score, err := NumberToBytes(float64(33.5))
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	me := []*streamtest.MsgError{
 		{M: []byte(`first`), E: io.EOF},
 		{M: []byte(`second`), E: io.EOF},

@@ -49,9 +49,7 @@ func TestServerLogin(t *testing.T) {
 		Password: []byte(auth.SysAdminPassword),
 	}
 	resp, err := s.Login(context.Background(), r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 	if len(resp.Token) == 0 {
 		t.Fatalf("login token is empty")
 	}
@@ -85,16 +83,12 @@ func TestServerLogout(t *testing.T) {
 	}
 	ctx := context.Background()
 	l, err := s.Login(ctx, r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 	m := make(map[string]string)
 	m["Authorization"] = "Bearer " + string(l.Token)
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 	_, err = s.Logout(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("Logout error %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
@@ -136,9 +130,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	}
 	ctx := context.Background()
 	lr, err := s.Login(ctx, r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
@@ -147,9 +139,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = s.CloseDatabases()
 	require.NoError(t, err)
@@ -177,47 +167,33 @@ func TestServerListUsersAdmin(t *testing.T) {
 		Permission: auth.PermissionAdmin,
 	}
 	_, err = s.CreateUser(ctx, newUser)
-	if err != nil {
-		t.Fatalf("CreateUser error %v", err)
-	}
+	require.NoError(t, err)
 	s.multidbmode = true
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: testUsername, Password: testPassword})
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 	md = metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 	ur, err := s.UseDatabase(ctx, &schema.Database{
 		DatabaseName: testDatabase,
 	})
-	if err != nil {
-		t.Fatalf("UseDatabase error %v", err)
-	}
+	require.NoError(t, err)
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	users, err := s.ListUsers(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("ListUsers error %v", err)
-	}
+	require.NoError(t, err)
 	if len(users.Users) < 1 {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
 
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: []byte(auth.SysAdminUsername), Password: []byte(auth.SysAdminPassword)})
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 	md = metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
-	if err != nil {
-		t.Fatalf("login error %v", err)
-	}
+	require.NoError(t, err)
 	users, err = s.ListUsers(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("ListUsers error %v", err)
-	}
+	require.NoError(t, err)
 	if len(users.Users) < 1 {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
@@ -230,31 +206,23 @@ func TestServerListUsersAdmin(t *testing.T) {
 		Permission: auth.PermissionRW,
 	}
 	_, err = s.CreateUser(ctx, newUser)
-	if err != nil {
-		t.Fatalf("CreateUser error %v", err)
-	}
+	require.NoError(t, err)
 	s.multidbmode = true
 
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: []byte("rwuser"), Password: []byte("rwuserPas@1")})
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 	md = metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	ur, err = s.UseDatabase(ctx, &schema.Database{
 		DatabaseName: testDatabase,
 	})
-	if err != nil {
-		t.Fatalf("UseDatabase error %v", err)
-	}
+	require.NoError(t, err)
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	users, err = s.ListUsers(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("ListUsers error %v", err)
-	}
+	require.NoError(t, err)
 	if len(users.Users) < 1 {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
@@ -280,9 +248,7 @@ func TestServerUsermanagement(t *testing.T) {
 	}
 	ctx := context.Background()
 	lr, err := s.Login(ctx, r)
-	if err != nil {
-		t.Fatalf("Login error %v", err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
@@ -311,9 +277,7 @@ func testServerCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Permission: auth.PermissionAdmin,
 	}
 	_, err := s.CreateUser(ctx, newUser)
-	if err != nil {
-		t.Fatalf("CreateUser error %v", err)
-	}
+	require.NoError(t, err)
 
 	if !s.mandatoryAuth() {
 		t.Fatalf("mandatoryAuth expected true")
@@ -322,9 +286,7 @@ func testServerCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 	users, err := s.ListUsers(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("ListUsers error %v", err)
-	}
+	require.NoError(t, err)
 	if len(users.Users) < 1 {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
@@ -332,9 +294,7 @@ func testServerListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.DatabaseList(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("DatabaseList error %v", err)
-	}
+	require.NoError(t, err)
 	if len(dbs.Databases) < 1 {
 		t.Fatalf("List databases, expected >1 got %v", len(dbs.Databases))
 	}
@@ -344,9 +304,7 @@ func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.UseDatabase(ctx, &schema.Database{
 		DatabaseName: testDatabase,
 	})
-	if err != nil {
-		t.Fatalf("UseDatabase error %v", err)
-	}
+	require.NoError(t, err)
 	if len(dbs.Token) == 0 {
 		t.Fatalf("Expected token, got %v", dbs.Token)
 	}
@@ -360,9 +318,6 @@ func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T
 		Username:   string(testUsername),
 	})
 
-	if err != nil {
-		t.Fatalf("error changing permission, got %v", err.Error())
-	}
 	require.NoError(t, err)
 }
 
@@ -371,9 +326,7 @@ func testServerDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) 
 		Active:   false,
 		Username: string(testUsername),
 	})
-	if err != nil {
-		t.Fatalf("DeactivateUser error %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func testServerSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -381,9 +334,7 @@ func testServerSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Active:   true,
 		Username: string(testUsername),
 	})
-	if err != nil {
-		t.Fatalf("SetActiveUser error %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func testServerChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -392,7 +343,5 @@ func testServerChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) 
 		OldPassword: testPassword,
 		User:        testUsername,
 	})
-	if err != nil {
-		t.Fatalf("ChangePassword error %v", err)
-	}
+	require.NoError(t, err)
 }

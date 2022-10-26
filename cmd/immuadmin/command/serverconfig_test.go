@@ -29,9 +29,7 @@ import (
 func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	options := (&server.Options{}).WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
@@ -76,9 +74,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 
 	cmdso.Execute()
 	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.Contains(t, string(out), "Server auth config updated")
 	os.RemoveAll("/tmp/immudb.toml")
 }
@@ -86,9 +82,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	options := (&server.Options{}).WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
@@ -127,9 +121,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 
 	cmdso.Execute()
 	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.Contains(t, string(out), "Server MTLS config updated")
 
 	os.RemoveAll("/tmp/immudb.toml")

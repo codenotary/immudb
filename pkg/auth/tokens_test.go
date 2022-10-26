@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -41,17 +42,13 @@ func TestToken(t *testing.T) {
 		Active:   true,
 	}
 	token, err := GenerateToken(u, 2, 60)
-	if err != nil {
-		t.Errorf("Error GenerateToken %s", err)
-	}
+	require.NoError(t, err)
 	if len(token) == 0 {
 		t.Errorf("Error GenerateToken token length equal to zero")
 	}
 
 	jToken, err := verifyToken(token)
-	if err != nil {
-		t.Errorf("Error verifyToken %s", err)
-	}
+	require.NoError(t, err)
 	if jToken.Username != u.Username {
 		t.Errorf("Token username error %s", jToken.Username)
 	}
@@ -71,9 +68,7 @@ func TestVerifyFromCtx(t *testing.T) {
 		Active:   true,
 	}
 	token, err := GenerateToken(u, 2, 60)
-	if err != nil {
-		t.Errorf("Error GenerateToken %s", err)
-	}
+	require.NoError(t, err)
 	ctx := context.Background()
 	_, err = verifyTokenFromCtx(ctx)
 	if err == nil {
@@ -83,9 +78,7 @@ func TestVerifyFromCtx(t *testing.T) {
 	m["authorization"] = []string{token}
 	newCtx := metadata.NewIncomingContext(ctx, m)
 	js, err := verifyTokenFromCtx(newCtx)
-	if err != nil {
-		t.Errorf("Error verifyTokenFromCtx %s", err)
-	}
+	require.NoError(t, err)
 	if js.Username != u.Username {
 		t.Errorf("Token username error %s", js.Username)
 	}

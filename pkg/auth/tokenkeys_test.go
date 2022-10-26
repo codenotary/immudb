@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -47,6 +48,7 @@ func TestDropTokenKeys(t *testing.T) {
 	}
 	evictOldTokenKeyPairs()
 }
+
 func TestDropTokenKeysForCtx(t *testing.T) {
 	u := User{
 		Username: "copperfield",
@@ -54,21 +56,15 @@ func TestDropTokenKeysForCtx(t *testing.T) {
 	}
 	generateKeys("copperfield")
 	token, err := GenerateToken(u, 2, 60)
-	if err != nil {
-		t.Errorf("Error GenerateToken %s", err)
-	}
+	require.NoError(t, err)
 	m := make(map[string][]string)
 	m["authorization"] = []string{token}
 	ctx := metadata.NewIncomingContext(context.Background(), m)
 	js, err := GetLoggedInUser(ctx)
-	if err != nil {
-		t.Errorf("Error GetLoggedInUser %s", err)
-	}
+	require.NoError(t, err)
 	if js.Username != u.Username {
 		t.Errorf("Error GetLoggedInUser usernames do not match")
 	}
 	_, err = DropTokenKeysForCtx(ctx)
-	if err != nil {
-		t.Errorf("Error DropTokenKeysForCtx %s", err)
-	}
+	require.NoError(t, err)
 }

@@ -66,9 +66,7 @@ func makeDb(t *testing.T) *db {
 
 func makeDbWith(t *testing.T, dbName string, opts *Options) *db {
 	d, err := NewDB(dbName, &dummyMultidbHandler{}, opts, logger.NewSimpleLogger("immudb ", os.Stderr))
-	if err != nil {
-		log.Fatalf("Error creating Db instance %s", err)
-	}
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		err := d.Close()
@@ -1824,9 +1822,7 @@ db := makeDb(t)
 		Reference: []byte(`tag`),
 		Key:       kvs[0].Key,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
@@ -1856,9 +1852,7 @@ db := makeDb(t)
 		Reference: []byte(`tag`),
 		Key:       kvs[0].Key,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
@@ -1890,9 +1884,7 @@ db := makeDb(t)
 		Score: &schema.Score{Score: float64(1)},
 		Set:   []byte(`mySet`),
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
@@ -1983,9 +1975,7 @@ func TestCount(t *testing.T) {
 db := makeDb(t)
 
 	root, err := db.CurrentRoot()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	kv := []*schema.SafeSetOptions{
 		{
@@ -2049,9 +2039,7 @@ db := makeDb(t)
 func TestSafeReference(t *testing.T) {
 db := makeDb(t)
 	root, err := db.CurrentRoot()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 	kv := []*schema.SafeSetOptions{
 		{
 			Kv: &schema.KeyValue{
@@ -2098,9 +2086,7 @@ func TestDump(t *testing.T) {
 db := makeDb(t)
 
 	root, err := db.CurrentRoot()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	kvs := []*schema.SafeSetOptions{
 		{

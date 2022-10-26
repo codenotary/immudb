@@ -19,27 +19,23 @@ package immuc_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHistory(t *testing.T) {
 	ic := setupTest(t)
 
 	msg, err := ic.Imc.History([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 	if !strings.Contains(msg, "key not found") {
 		t.Fatalf("History fail %s", msg)
 	}
 
 	_, err = ic.Imc.Set([]string{"key", "value"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 	msg, err = ic.Imc.History([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("History fail %s", msg)
 	}

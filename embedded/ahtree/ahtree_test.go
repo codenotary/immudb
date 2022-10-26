@@ -986,9 +986,7 @@ func BenchmarkAppend(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 1_000_000; j++ {
 			_, _, err := tree.Append(bs[:])
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 	}
 

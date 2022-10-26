@@ -53,9 +53,7 @@ defer bs.Stop()
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false)
 	_, err := ad.InitAgent()
 	os.RemoveAll(pidPath)
-	if err != nil {
-		t.Fatal("InitAgent", err)
-	}
+	require.NoError(t, err, "InitAgent")
 
 	os.Setenv("audit-agent-interval", "X")
 	_, err = ad.InitAgent()

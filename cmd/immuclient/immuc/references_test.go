@@ -19,6 +19,8 @@ package immuc_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReference(t *testing.T) {
@@ -27,9 +29,7 @@ func TestReference(t *testing.T) {
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 
 	msg, err := ic.Imc.SetReference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("Reference fail", err)
-	}
+	require.NoError(t, err, "Reference fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("Reference failed: %s", msg)
 	}
@@ -43,9 +43,7 @@ func TestVerifiedSetReference(t *testing.T) {
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 
 	msg, err := ic.Imc.VerifiedSetReference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("SafeReference fail", err)
-	}
+	require.NoError(t, err, "SafeReference fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("SafeReference failed: %s", msg)
 	}

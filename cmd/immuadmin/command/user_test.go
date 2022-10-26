@@ -55,9 +55,7 @@ defer bs.Stop()
 
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
@@ -82,13 +80,9 @@ defer bs.Stop()
 	usrcmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "immudb") {
 		t.Fatal(msg)
 	}
@@ -157,9 +151,7 @@ defer bs.Stop()
 
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
@@ -184,13 +176,9 @@ defer bs.Stop()
 	usrcmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "immudb's password has been changed") {
 		t.Fatal(msg)
 	}
@@ -281,9 +269,7 @@ defer bs.Stop()
 
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -312,13 +298,9 @@ defer bs.Stop()
 	usrcmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "Created user newuser") {
 		t.Fatal(msg)
 	}
@@ -455,9 +437,7 @@ defer bs.Stop()
 
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -466,13 +446,9 @@ defer bs.Stop()
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
@@ -494,13 +470,9 @@ defer bs.Stop()
 	usrcmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "User status changed successfully") {
 		t.Fatal(string(msg))
 	}
@@ -524,9 +496,7 @@ defer bs.Stop()
 
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -535,13 +505,9 @@ defer bs.Stop()
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
@@ -563,13 +529,9 @@ defer bs.Stop()
 	usrcmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "User status changed successfully") {
 		t.Fatal(string(msg))
 	}
@@ -608,9 +570,7 @@ defer bs.Stop()
 	clientb, _ := client.NewImmuClient(cliopt)
 
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -619,13 +579,9 @@ defer bs.Stop()
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
@@ -648,13 +604,9 @@ defer bs.Stop()
 
 	err = cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "Permission changed successfully") {
 		t.Fatal(string(msg))
 	}

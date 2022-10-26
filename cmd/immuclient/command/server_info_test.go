@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServerInfo(t *testing.T) {
@@ -44,16 +45,12 @@ func TestServerInfo(t *testing.T) {
 	innercmd.PersistentPreRunE = nil
 
 	err := cmd.Execute()
+	require.NoError(t, err)
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rsp := string(msg)
+	require.NoError(t, err)
 
+	rsp := string(msg)
 	if !strings.Contains(rsp, "version:") {
 		t.Fatal(err)
 	}

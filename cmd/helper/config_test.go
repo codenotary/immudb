@@ -18,7 +18,6 @@ package helper
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"os/user"
 	"testing"
@@ -26,14 +25,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptions_InitConfig(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
 	user, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	fn := user.HomeDir + "/immudbtest9990.toml"
 	_ = ioutil.WriteFile(fn, input, 0644)
 	defer os.RemoveAll(fn)

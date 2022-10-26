@@ -19,7 +19,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -604,9 +603,7 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 
 			aOps.Operations = append(aOps.Operations, aOp)
 			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
-			if err != nil {
-				log.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			set := val
 			refKey := key

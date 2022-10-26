@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -76,9 +75,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	metaTx, err := cli.StreamSet(ctx, kvs)
 	require.NoError(t, err)
@@ -95,14 +92,10 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	s, err := cli.streamSet(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
 
@@ -118,9 +111,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	cli, ctx := externalImmudbClient(t)
 
 	s1, err := cli.streamSet(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s1, cli.Options.StreamChunkSize))
 
@@ -146,9 +137,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	require.IsType(t, &schema.TxHeader{}, txhdr)
 
 	s2, err := cli.streamSet(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	kvs2 := stream.NewKvStreamSender(stream.NewMsgSender(s2, cli.Options.StreamChunkSize))
 
@@ -174,9 +163,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	require.IsType(t, &schema.TxHeader{}, txhdr)
 
 	s3, err := cli.streamSet(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	kvs3 := stream.NewKvStreamSender(stream.NewMsgSender(s3, cli.Options.StreamChunkSize))
 

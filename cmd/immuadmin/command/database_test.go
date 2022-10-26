@@ -23,9 +23,7 @@ func TestDatabaseList(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -49,13 +47,9 @@ func TestDatabaseList(t *testing.T) {
 
 	cmd.SetArgs([]string{"database", "list"})
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "defaultdb") {
 		t.Fatal(err)
 	}
@@ -83,9 +77,7 @@ func TestDatabaseCreate(t *testing.T) {
 	cliopt.DialOptions = dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", token.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -110,13 +102,9 @@ func TestDatabaseCreate(t *testing.T) {
 
 	cmd.SetArgs([]string{"database", "create", "mynewdb"})
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "database successfully created") {
 		t.Fatal(string(msg))
 	}

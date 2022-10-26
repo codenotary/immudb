@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func cleanupClientFiles() {
@@ -40,9 +42,7 @@ func TestSet(t *testing.T) {
 
 	msg, err := ic.Imc.Set([]string{"key", "val"})
 
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("Set failed: %s", msg)
 	}
@@ -52,9 +52,7 @@ func TestVerifiedSet(t *testing.T) {
 
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 
-	if err != nil {
-		t.Fatal("VerifiedSet fail", err)
-	}
+	require.NoError(t, err, "VerifiedSet fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("VerifiedSet failed: %s", msg)
 	}
@@ -66,9 +64,7 @@ func TestZAdd(t *testing.T) {
 
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
 
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
+	require.NoError(t, err, "ZAdd fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
@@ -80,9 +76,7 @@ func _TestVerifiedZAdd(t *testing.T) {
 
 	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
 
-	if err != nil {
-		t.Fatal("VerifiedZAdd fail", err)
-	}
+	require.NoError(t, err, "VerifiedZAdd fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("VerifiedZAdd failed: %s", msg)
 	}
@@ -91,22 +85,16 @@ func TestCreateDatabase(t *testing.T) {
 	ic := setupTest(t)
 
 	msg, err := ic.Imc.CreateDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("CreateDatabase fail", err)
-	}
+	require.NoError(t, err, "CreateDatabase fail")
 	if !strings.Contains(msg, "database successfully created") {
 		t.Fatalf("CreateDatabase failed: %s", msg)
 	}
 
 	_, err = ic.Imc.DatabaseList([]string{})
-	if err != nil {
-		t.Fatal("DatabaseList fail", err)
-	}
+	require.NoError(t, err, "DatabaseList fail")
 
 	msg, err = ic.Imc.UseDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("UseDatabase fail", err)
-	}
+	require.NoError(t, err, "UseDatabase fail")
 	if !strings.Contains(msg, "newdb") {
 		t.Fatalf("UseDatabase failed: %s", msg)
 	}

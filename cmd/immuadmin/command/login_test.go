@@ -168,9 +168,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.Contains(t, string(out), "logged in")
 	cmdlo := commandline{
 		config:         helper.Config{Name: "immuadmin"},

@@ -71,9 +71,7 @@ func TestCommandLine_ServiceImmudbUninstallRemovingData(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.Contains(t, string(out), "uninstall")
 }
 
@@ -90,9 +88,7 @@ func TestCommandLine_ServiceImmudbUninstallWithoutRemoveData(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.Contains(t, string(out), "uninstall")
 }
 

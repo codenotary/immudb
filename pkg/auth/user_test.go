@@ -19,6 +19,8 @@ package auth
 import (
 	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestUser(t *testing.T) {
@@ -30,16 +32,12 @@ func TestUser(t *testing.T) {
 	}
 
 	p, err := u.SetPassword(weakPassword)
-	if err != nil {
-		t.Errorf("Error setting password %s", err)
-	}
+	require.NoError(t, err)
 	if !bytes.Equal(p, weakPassword) {
 		t.Errorf("setpassword plain passwords do not match")
 	}
 	err = u.ComparePasswords(weakPassword)
-	if err != nil {
-		t.Errorf("ComparePasswords fail %s", err)
-	}
+	require.NoError(t, err)
 
 	u.GrantPermission("immudb", PermissionR)
 	perm := u.WhichPermission("immudb")

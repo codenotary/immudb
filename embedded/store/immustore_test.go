@@ -72,9 +72,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < txCount; i++ {
 			tx, err := immuStore.NewWriteOnlyTx()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(t, err)
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
@@ -84,15 +82,11 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 				binary.BigEndian.PutUint64(v, uint64(i))
 
 				err = tx.Set(k, nil, v)
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 			}
 
 			txhdr, err := tx.AsyncCommit()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(t, err)
 
 			if uint64(i+1) != txhdr.ID {
 				panic(fmt.Errorf("expected %v but actual %v", uint64(i+1), txhdr.ID))
@@ -109,9 +103,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 			time.Sleep(time.Duration(100) * time.Millisecond)
 
 			txReader, err := immuStore.NewTxReader(txID, false, tempTxHolder(t, immuStore))
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(t, err)
 
 			for {
 				time.Sleep(time.Duration(10) * time.Millisecond)
@@ -120,9 +112,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 				if err == ErrNoMoreEntries {
 					break
 				}
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				if tx.header.ID == uint64(txCount) {
 					wg.Done()
@@ -160,9 +150,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 		go func(txHolder *Tx) {
 			for c := 0; c < txCount; {
 				tx, err := immuStore.NewWriteOnlyTx()
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				for j := 0; j < eCount; j++ {
 					k := make([]byte, 8)
@@ -172,9 +160,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 					binary.BigEndian.PutUint64(v, uint64(c))
 
 					err = tx.Set(k, nil, v)
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 				}
 
 				hdr, err := tx.AsyncCommit()
@@ -182,20 +168,14 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 					time.Sleep(1 * time.Millisecond)
 					continue
 				}
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				err = immuStore.ReadTx(hdr.ID, txHolder)
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				for _, e := range txHolder.Entries() {
 					_, err := immuStore.ReadValue(e)
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 				}
 
 				c++
@@ -901,9 +881,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 				txID, _ := immuStore.CommittedAlh()
 
 				snap, err := immuStore.SnapshotSince(txID)
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
 					for j := 0; j < eCount; j++ {
@@ -921,9 +899,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						}
 
 						val, err := valRef.Resolve()
-						if err != nil {
-							panic(err)
-						}
+						require.NoError(t, err)
 
 						if err == nil {
 							if !bytes.Equal(v, val) {
@@ -938,24 +914,16 @@ func TestImmudbStoreIndexing(t *testing.T) {
 					binary.BigEndian.PutUint64(k, uint64(eCount-1))
 
 					valRef1, err := immuStore.Get(k)
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 
 					v1, err := valRef1.Resolve()
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 
 					valRef2, err := snap.Get(k)
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 
 					v2, err := valRef2.Resolve()
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 
 					if !bytes.Equal(v1, v2) {
 						panic(fmt.Errorf("expected %v actual %v", v1, v2))
@@ -966,9 +934,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 					}
 
 					txs, hCount, err := immuStore.History(k, 0, false, txCount)
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(t, err)
 
 					if len(txs) != txCount {
 						panic(fmt.Errorf("expected %d actual %d", txCount, len(txs)))
@@ -1627,9 +1593,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		go func() {
 			for {
 				snap, err := immuStore.Snapshot()
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
 					for j := 0; j < eCount; j++ {
@@ -1637,9 +1601,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						binary.BigEndian.PutUint64(k, uint64(j))
 
 						txIDs, hCount, err := snap.History(k, 0, false, txCount)
-						if err != nil {
-							panic(err)
-						}
+						require.NoError(t, err)
 						if int(snap.Ts()) != len(txIDs) {
 							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), len(txIDs)))
 						}
@@ -1660,9 +1622,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 							require.NoError(t, err)
 
 							val, err := immuStore.ReadValue(entry)
-							if err != nil {
-								panic(err)
-							}
+							require.NoError(t, err)
 
 							if !bytes.Equal(v, val) {
 								panic(fmt.Errorf("expected %v actual %v", v, val))
@@ -2778,9 +2738,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 
 				for committed < txCount {
 					tx, err := immuStore.NewWriteOnlyTx()
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(b, err)
 
 					for j := 0; j < eCount; j++ {
 						k := make([]byte, 8)
@@ -2790,9 +2748,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 						binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
 						err = tx.Set(k, nil, v)
-						if err != nil {
-							panic(err)
-						}
+						require.NoError(b, err)
 					}
 
 					_, err = tx.AsyncCommit()
@@ -2800,9 +2756,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 						time.Sleep(1 * time.Nanosecond)
 						continue
 					}
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(b, err)
 
 					committed++
 				}
@@ -2829,9 +2783,7 @@ func BenchmarkAsyncAppend(b *testing.B) {
 
 		for i := 0; i < txCount; i++ {
 			tx, err := immuStore.NewWriteOnlyTx()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
@@ -2841,15 +2793,11 @@ func BenchmarkAsyncAppend(b *testing.B) {
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
 				err = tx.Set(k, nil, v)
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(b, err)
 			}
 
 			_, err = tx.Commit()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 	}
 }
@@ -2871,9 +2819,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 			if err == ErrAlreadyClosed {
 				return
 			}
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 
 			time.Sleep(time.Duration(5) * time.Millisecond)
 		}
@@ -2896,9 +2842,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 
 				for committed < txCount {
 					tx, err := immuStore.NewWriteOnlyTx()
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(b, err)
 
 					for j := 0; j < eCount; j++ {
 						k := make([]byte, 8)
@@ -2908,9 +2852,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 						binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
 						err = tx.Set(k, nil, v)
-						if err != nil {
-							panic(err)
-						}
+						require.NoError(b, err)
 					}
 
 					_, err = tx.AsyncCommit()
@@ -2918,9 +2860,7 @@ func BenchmarkSyncedAppendWithExtCommitAllowance(b *testing.B) {
 						time.Sleep(1 * time.Nanosecond)
 						continue
 					}
-					if err != nil {
-						panic(err)
-					}
+					require.NoError(b, err)
 
 					committed++
 				}
@@ -2948,8 +2888,8 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 			if err == ErrAlreadyClosed {
 				return
 			}
-			if err != nil {
-				panic(err)
+			if !assert.NoError(b, err) {
+				return
 			}
 
 			time.Sleep(time.Duration(5) * time.Millisecond)
@@ -2962,9 +2902,7 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 
 		for i := 0; i < txCount; i++ {
 			tx, err := immuStore.NewWriteOnlyTx()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
@@ -2974,15 +2912,11 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
 				err = tx.Set(k, nil, v)
-				if err != nil {
-					panic(err)
-				}
+				require.NoError(b, err)
 			}
 
 			_, err = tx.Commit()
-			if err != nil {
-				panic(err)
-			}
+			require.NoError(b, err)
 		}
 	}
 }

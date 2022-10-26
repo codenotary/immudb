@@ -81,17 +81,13 @@ func TestOpenDB(t *testing.T) {
 
 	rows.Next()
 	err = rows.Scan(&id, &name)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	require.Equal(t, uint64(1), id)
 	require.Equal(t, "immu1", name)
 
 	rows.Next()
 	err = rows.Scan(&id, &name)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	require.Equal(t, uint64(2), id)
 	require.Equal(t, "immu2", name)
 
@@ -101,9 +97,7 @@ func TestOpenDB(t *testing.T) {
 	rowsw.Next()
 
 	err = rowsw.Scan(&id, &name)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	require.Equal(t, uint64(2), id)
 	require.Equal(t, "immu2", name)
 

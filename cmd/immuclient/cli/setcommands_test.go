@@ -19,15 +19,15 @@ package cli
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSet(t *testing.T) {
 	cli := setupTest(t)
 
 	msg, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("Set failed: %s", msg)
 	}
@@ -37,9 +37,7 @@ func TestSafeSet(t *testing.T) {
 	cli := setupTest(t)
 
 	msg, err := cli.safeset([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("SafeSet fail", err)
-	}
+	require.NoError(t, err, "SafeSet fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("SafeSet failed: %s", msg)
 	}
@@ -52,9 +50,7 @@ func TestZAdd(t *testing.T) {
 
 	msg, err := cli.zAdd([]string{"val", "1", "key"})
 
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
+	require.NoError(t, err, "ZAdd fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
@@ -67,9 +63,7 @@ func TestSafeZAdd(t *testing.T) {
 
 	msg, err := cli.safeZAdd([]string{"val", "1", "key"})
 
-	if err != nil {
-		t.Fatal("SafeZAdd fail", err)
-	}
+	require.NoError(t, err, "SafeZAdd fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}

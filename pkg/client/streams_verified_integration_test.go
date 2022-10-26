@@ -37,9 +37,7 @@ func TestImmuServer_StreamVerifiedSetAndGet(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	txMeta, err := cliIF.StreamVerifiedSet(ctx, kvs)
 	require.NoError(t, err)

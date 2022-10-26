@@ -69,9 +69,7 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"getByIndex", "0"})
 
@@ -81,13 +79,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -129,19 +123,13 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"getRawBySafeIndex", "0"})
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -183,20 +171,14 @@ Connect(bs.Dialer)
 	cmd.SetArgs([]string{"safeset", "key", "value"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"get", "key"})
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -244,19 +226,13 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"safeget", "key"})
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -298,19 +274,13 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"rawsafeget", "key"})
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}

@@ -45,9 +45,7 @@ Connect(bs.Dialer)
 
 	_, _ = cli.safeset([]string{"key", "val"})
 	msg, err := cli.getByIndex([]string{"0"})
-	if err != nil {
-		t.Fatal("GetByIndex fail", err)
-	}
+	require.NoError(t, err, "GetByIndex fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("GetByIndex failed: %s", msg)
 	}
@@ -71,9 +69,7 @@ Connect(bs.Dialer)
 
 	_, _ = cli.set([]string{"key", "val"})
 	msg, err := cli.getKey([]string{"key"})
-	if err != nil {
-		t.Fatal("GetKey fail", err)
-	}
+	require.NoError(t, err, "GetKey fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("GetKey failed: %s", msg)
 	}
@@ -96,9 +92,7 @@ Connect(bs.Dialer)
 
 	_, _ = cli.set([]string{"key", "val"})
 	msg, err := cli.rawSafeGetKey([]string{"key"})
-	if err != nil {
-		t.Fatal("RawSafeGetKey fail", err)
-	}
+	require.NoError(t, err, "RawSafeGetKey fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("RawSafeGetKey failed: %s", msg)
 	}
@@ -121,9 +115,7 @@ Connect(bs.Dialer)
 
 	_, _ = cli.set([]string{"key", "val"})
 	msg, err := cli.safeGetKey([]string{"key"})
-	if err != nil {
-		t.Fatal("SafeGetKey fail", err)
-	}
+	require.NoError(t, err, "SafeGetKey fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("SafeGetKey failed: %s", msg)
 	}
@@ -147,9 +139,7 @@ Connect(bs.Dialer)
 
 	_, _ = cli.set([]string{"key", "val"})
 	msg, err := cli.getRawBySafeIndex([]string{"0"})
-	if err != nil {
-		t.Fatal("GetRawBySafeIndex fail", err)
-	}
+	require.NoError(t, err, "GetRawBySafeIndex fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("GetRawBySafeIndex failed: %s", msg)
 	}

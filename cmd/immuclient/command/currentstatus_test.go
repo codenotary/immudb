@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/cmd/helper"
 
@@ -69,13 +70,9 @@ func TestCurrentState(t *testing.T) {
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	rsp := string(msg)
 
 	if !strings.Contains(rsp, "txID:") {

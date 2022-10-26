@@ -22,6 +22,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -46,17 +47,13 @@ func TestLogin(t *testing.T) {
 	cli.immucl.WithFileTokenService(ts)
 
 	msg, err := cli.login([]string{"immudb"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(msg, "immudb user has the default password") {
 		t.Fatalf("Login failed: %s", err)
 	}
 
 	msg, err = cli.logout([]string{"immudb"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(msg, "Successfully logged out") {
 		t.Fatalf("Login failed: %s", err)
 	}
