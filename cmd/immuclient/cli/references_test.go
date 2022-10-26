@@ -19,6 +19,8 @@ package cli
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReference(t *testing.T) {
@@ -27,9 +29,7 @@ func TestReference(t *testing.T) {
 	_, _ = cli.set([]string{"key", "val"})
 
 	msg, err := cli.reference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("Reference fail", err)
-	}
+	require.NoError(t, err, "Reference fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("Reference failed: %s", msg)
 	}
@@ -43,9 +43,7 @@ func TestSafeReference(t *testing.T) {
 	_, _ = cli.set([]string{"key", "val"})
 
 	msg, err := cli.safereference([]string{"val", "key"})
-	if err != nil {
-		t.Fatal("SafeReference fail", err)
-	}
+	require.NoError(t, err, "SafeReference fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("SafeReference failed: %s", msg)
 	}

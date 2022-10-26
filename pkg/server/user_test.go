@@ -147,9 +147,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = s.CloseDatabases()
 	require.NoError(t, err)

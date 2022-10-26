@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/stretchr/testify/require"
 
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/server"
@@ -40,12 +41,8 @@ func TestConnect(t *testing.T) {
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 		}).WithDir(t.TempDir())
 	imc, err := Init(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	err = imc.Connect([]string{""})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	imc.WithFileTokenService(tokenservice.NewInmemoryTokenService())
 }

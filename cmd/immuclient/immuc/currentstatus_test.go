@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func setupTest(t *testing.T) *test.ClientTest {
@@ -50,9 +51,7 @@ func TestCurrentRoot(t *testing.T) {
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 	msg, err := ic.Imc.CurrentState([]string{""})
 
-	if err != nil {
-		t.Fatal("CurrentState fail", err)
-	}
+	require.NoError(t, err, "CurrentState fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("CurrentState failed: %s", msg)
 	}

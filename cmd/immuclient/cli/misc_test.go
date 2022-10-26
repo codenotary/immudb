@@ -19,15 +19,15 @@ package cli
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHealthCheck(t *testing.T) {
 	cli := setupTest(t)
 
 	msg, err := cli.healthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail", err)
-	}
+	require.NoError(t, err, "HealthCheck fail")
 	if !strings.Contains(msg, "Health check OK") {
 		t.Fatal("HealthCheck fail")
 	}
@@ -37,22 +37,16 @@ func TestHistory(t *testing.T) {
 	cli := setupTest(t)
 
 	msg, err := cli.history([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 	if !strings.Contains(msg, "key not found") {
 		t.Fatalf("History fail %s", msg)
 	}
 
 	_, err = cli.set([]string{"key", "value"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 
 	msg, err = cli.history([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
+	require.NoError(t, err, "History fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("History fail %s", msg)
 	}
@@ -62,9 +56,7 @@ func TestVersion(t *testing.T) {
 	cli := setupTest(t)
 
 	msg, err := cli.version([]string{"key"})
-	if err != nil {
-		t.Fatal("version fail", err)
-	}
+	require.NoError(t, err, "version fail")
 	if !strings.Contains(msg, "no version info available") {
 		t.Fatalf("version fail %s", msg)
 	}

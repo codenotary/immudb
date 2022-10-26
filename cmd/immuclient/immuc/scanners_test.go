@@ -19,25 +19,21 @@ package immuc_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestZScan(t *testing.T) {
 	ic := setupTest(t)
 
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 
 	_, err = ic.Imc.ZAdd([]string{"set", "10.5", "key"})
-	if err != nil {
-		t.Fatal("ZAdd fail", err)
-	}
+	require.NoError(t, err, "ZAdd fail")
 
 	msg, err := ic.Imc.ZScan([]string{"set"})
-	if err != nil {
-		t.Fatal("ZScan fail", err)
-	}
+	require.NoError(t, err, "ZScan fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("ZScan failed: %s", msg)
 	}
@@ -47,23 +43,17 @@ func TestIScan(t *testing.T) {
 	ic := setupTest(t)
 
 	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 }
 
 func TestScan(t *testing.T) {
 	ic := setupTest(t)
 
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 
 	msg, err := ic.Imc.Scan([]string{"k"})
-	if err != nil {
-		t.Fatal("Scan fail", err)
-	}
+	require.NoError(t, err, "Scan fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("Scan failed: %s", msg)
 	}
@@ -75,14 +65,10 @@ func TestCount(t *testing.T) {
 	ic := setupTest(t)
 
 	_, err := ic.Imc.Set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
+	require.NoError(t, err, "Set fail")
 
 	msg, err := ic.Imc.Count([]string{"key"})
-	if err != nil {
-		t.Fatal("Count fail", err)
-	}
+	require.NoError(t, err, "Count fail")
 	if !strings.Contains(msg, "1") {
 		t.Fatalf("Count failed: %s", msg)
 	}

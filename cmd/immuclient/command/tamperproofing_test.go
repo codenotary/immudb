@@ -57,9 +57,7 @@ Connect(bs.Dialer)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	hash := strings.Split(setmsg, "hash:		")[1]
 	hash = hash[:64]
 
@@ -71,13 +69,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "firstRoot") {
 		t.Fatal(err)
 	}
@@ -106,9 +100,7 @@ Connect(bs.Dialer)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	hash := strings.Split(setmsg, "hash:		")[1]
 	hash = hash[:64]
 
@@ -120,13 +112,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "verified: true") {
 		t.Fatal(err)
 	}

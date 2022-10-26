@@ -29,9 +29,7 @@ func TestGetTxByID(t *testing.T) {
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
 	msg, err := ic.Imc.GetTxByID([]string{"1"})
-	if err != nil {
-		t.Fatal("GetByIndex fail", err)
-	}
+	require.NoError(t, err, "GetByIndex fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("GetByIndex failed: %s", msg)
 	}
@@ -41,9 +39,7 @@ func TestGet(t *testing.T) {
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.Get([]string{"key"})
-	if err != nil {
-		t.Fatal("GetKey fail", err)
-	}
+	require.NoError(t, err, "GetKey fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("GetKey failed: %s", msg)
 	}
@@ -54,9 +50,7 @@ func TestVerifiedGet(t *testing.T) {
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
-	if err != nil {
-		t.Fatal("VerifiedGet fail", err)
-	}
+	require.NoError(t, err, "VerifiedGet fail")
 	if !strings.Contains(msg, "value") {
 		t.Fatalf("VerifiedGet failed: %s", msg)
 	}

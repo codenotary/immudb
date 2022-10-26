@@ -65,13 +65,9 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -109,13 +105,9 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -153,13 +145,9 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -200,9 +188,7 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"zadd", "name", "1", "key"})
 
@@ -212,13 +198,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "score") {
 		t.Fatal(err)
 	}
@@ -260,9 +242,7 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cmd.SetArgs([]string{"safezadd", "name", "1", "key"})
 
@@ -272,13 +252,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "score") {
 		t.Fatal(err)
 	}

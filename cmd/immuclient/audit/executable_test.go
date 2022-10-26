@@ -44,9 +44,7 @@ defer bs.Stop()
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidpath)
 	ad.logger = logger.NewSimpleLogger("test", os.Stdout)
 	_, err := ad.InitAgent()
-	if err != nil {
-		t.Fatal("InitAgent", err)
-	}
+	require.NoError(t, err, "InitAgent")
 	exec := newExecutable(ad)
 	go func() {
 		time.Sleep(200 * time.Millisecond)

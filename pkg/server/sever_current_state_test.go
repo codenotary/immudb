@@ -19,7 +19,6 @@ package server
 import (
 	"context"
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
 
@@ -48,14 +47,10 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
 
 	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	ctx := context.Background()
 

@@ -67,13 +67,9 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
 	}
@@ -113,13 +109,9 @@ Connect(bs.Dialer)
 
 	err := cmd.Execute()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "Health check OK") {
 		t.Fatal(err)
 	}
@@ -144,9 +136,7 @@ Connect(bs.Dialer)
 		immucl: ic.Imc,
 	}
 	_, err := ic.Imc.CreateDatabase([]string{"mynewdb"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cmd, _ := cmdl.NewCmd()
 	cmdl.use(cmd)
 	b := bytes.NewBufferString("")
@@ -160,13 +150,9 @@ Connect(bs.Dialer)
 	innercmd.PersistentPreRunE = nil
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	msg, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !strings.Contains(string(msg), "mynewdb") {
 		t.Fatal(string(msg))
 	}

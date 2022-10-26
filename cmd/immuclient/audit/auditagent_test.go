@@ -72,9 +72,7 @@ defer bs.Stop()
 	}
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
-	if err != nil {
-		t.Fatal("InitAgent", err)
-	}
+	require.NoError(t, err, "InitAgent")
 	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
 
 	_, err = ad.Manage([]string{"uninstall"}, &cobra.Command{})
@@ -130,52 +128,36 @@ defer bs.Stop()
 	}
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
-	if err != nil {
-		t.Fatal("InitAgent", err)
-	}
+	require.NoError(t, err, "InitAgent")
 	os.RemoveAll(pidPath)
 	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
 
 	_, err = ad.Manage([]string{}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage start audit fail", err)
-	}
+	require.NoError(t, err, "Manage start audit fail")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"install"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage install audit fail", err)
-	}
+	require.NoError(t, err, "Manage install audit fail")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"uninstall"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage uninstall fail", err)
-	}
+	require.NoError(t, err, "Manage uninstall fail")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"start"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage start fail", err)
-	}
+	require.NoError(t, err, "Manage start fail")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"restart"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage restart fail", err)
-	}
+	require.NoError(t, err, "Manage restart fail")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"stop"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage restart", err)
-	}
+	require.NoError(t, err, "Manage restart")
 	os.RemoveAll(pidPath)
 
 	_, err = ad.Manage([]string{"status"}, &cobra.Command{})
-	if err != nil {
-		t.Fatal("Manage status", err)
-	}
+	require.NoError(t, err, "Manage status")
 
 }
 

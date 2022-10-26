@@ -99,9 +99,8 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	dbList := NewDatabaseList()
 	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
 	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	k := []byte(strconv.FormatUint(1, 10))
 	v := []byte(strconv.FormatUint(2, 10))
 	kv := &schema.KeyValue{
@@ -115,19 +114,16 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	txn := dbb.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 	item, err := txn.Get(k)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	value, err := item.ValueCopy(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	ts := binary.BigEndian.Uint64(value[:8])
 	v1 := append(value[:8], []byte(strconv.FormatUint(3, 10))...)
 	if err := txn.Set(k, v1); err != nil {
@@ -165,9 +161,8 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	dbList := NewDatabaseList()
 	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
 	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	k := []byte(strconv.FormatUint(1, 10))
 	v := []byte(strconv.FormatUint(2, 10))
 	kv := &schema.KeyValue{
@@ -181,16 +176,14 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	txn := dbb.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
 	item, err := txn.Get(treeKey(0, 0))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	ts := item.Version()
 	v1 := []byte(strconv.FormatUint(3, 10))
 	if err := txn.Set(item.Key(), v1); err != nil {
@@ -228,9 +221,8 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	dbList := NewDatabaseList()
 	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
 	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	k := []byte(strconv.FormatUint(1, 10))
 	v := []byte(strconv.FormatUint(2, 10))
 	kv := &schema.KeyValue{
@@ -253,16 +245,14 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	txn := dbb.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
 	item, err := txn.Get(treeKey(0, 0))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	ts := item.Version()
 	v1 = []byte(`QWERTYUIOPASDFGHJKLZXCBVBN123456fake root`)
 	if err := txn.Set(item.Key(), v1); err != nil {

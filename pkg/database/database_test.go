@@ -1824,9 +1824,7 @@ db := makeDb(t)
 		Reference: []byte(`tag`),
 		Key:       kvs[0].Key,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
@@ -1856,9 +1854,7 @@ db := makeDb(t)
 		Reference: []byte(`tag`),
 		Key:       kvs[0].Key,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
@@ -1890,9 +1886,7 @@ db := makeDb(t)
 		Score: &schema.Score{Score: float64(1)},
 		Set:   []byte(`mySet`),
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
