@@ -453,7 +453,10 @@ func (t *AHtree) node(n uint64, l int) (h [sha256.Size]byte, err error) {
 	return t.nodeAt(nodesUntil(n) + uint64(l))
 }
 
+var nodeAtOffsetBuffer = []uint64{}
+
 func (t *AHtree) nodeAt(i uint64) (h [sha256.Size]byte, err error) {
+	nodeAtOffsetBuffer = append(nodeAtOffsetBuffer, i)
 	v, err := t.dCache.Get(i)
 
 	if err == nil {
