@@ -17,25 +17,11 @@ limitations under the License.
 package immuc_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func cleanupClientFiles() {
-	list, _ := filepath.Glob(".state-*")
-	for _, e := range list {
-		os.Remove(e)
-	}
-
-	list, _ = filepath.Glob(".identity-*")
-	for _, e := range list {
-		os.Remove(e)
-	}
-}
 
 func TestSet(t *testing.T) {
 	ic := setupTest(t)
@@ -47,6 +33,7 @@ func TestSet(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 }
+
 func TestVerifiedSet(t *testing.T) {
 	ic := setupTest(t)
 
@@ -57,10 +44,12 @@ func TestVerifiedSet(t *testing.T) {
 		t.Fatalf("VerifiedSet failed: %s", msg)
 	}
 }
+
 func TestZAdd(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
 
@@ -69,10 +58,12 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
 }
+
 func _TestVerifiedZAdd(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
 
@@ -81,6 +72,7 @@ func _TestVerifiedZAdd(t *testing.T) {
 		t.Fatalf("VerifiedZAdd failed: %s", msg)
 	}
 }
+
 func TestCreateDatabase(t *testing.T) {
 	ic := setupTest(t)
 

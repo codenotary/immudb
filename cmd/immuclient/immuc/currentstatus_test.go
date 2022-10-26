@@ -48,9 +48,10 @@ func setupTest(t *testing.T) *test.ClientTest {
 func TestCurrentRoot(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
-	msg, err := ic.Imc.CurrentState([]string{""})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
+	msg, err := ic.Imc.CurrentState([]string{""})
 	require.NoError(t, err, "CurrentState fail")
 	if !strings.Contains(msg, "hash") {
 		t.Fatalf("CurrentState failed: %s", msg)

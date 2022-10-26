@@ -979,7 +979,8 @@ func BenchmarkAppend(b *testing.B) {
 		WithSyncThld(100_000).
 		WithFileSize(1 << 29)
 
-	tree, _ := Open(b.TempDir(), opts)
+	tree, err := Open(b.TempDir(), opts)
+	require.NoError(b, err)
 
 	var bs [32]byte
 

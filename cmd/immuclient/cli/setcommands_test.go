@@ -46,7 +46,8 @@ func TestSafeSet(t *testing.T) {
 func TestZAdd(t *testing.T) {
 	cli := setupTest(t)
 
-	_, _ = cli.safeset([]string{"key", "val"})
+	_, err := cli.safeset([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := cli.zAdd([]string{"val", "1", "key"})
 
@@ -59,7 +60,8 @@ func TestZAdd(t *testing.T) {
 func TestSafeZAdd(t *testing.T) {
 	cli := setupTest(t)
 
-	_, _ = cli.safeset([]string{"key", "val"})
+	_, err := cli.safeset([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := cli.safeZAdd([]string{"val", "1", "key"})
 

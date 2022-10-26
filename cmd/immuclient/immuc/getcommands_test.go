@@ -26,7 +26,8 @@ import (
 func TestGetTxByID(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
+	require.NoError(t, err)
 
 	msg, err := ic.Imc.GetTxByID([]string{"1"})
 	require.NoError(t, err, "GetByIndex fail")
@@ -37,7 +38,9 @@ func TestGetTxByID(t *testing.T) {
 func TestGet(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.Set([]string{"key", "val"})
+	_, err := ic.Imc.Set([]string{"key", "val"})
+	require.NoError(t, err)
+
 	msg, err := ic.Imc.Get([]string{"key"})
 	require.NoError(t, err, "GetKey fail")
 	if !strings.Contains(msg, "value") {
@@ -48,7 +51,9 @@ func TestGet(t *testing.T) {
 func TestVerifiedGet(t *testing.T) {
 	ic := setupTest(t)
 
-	_, _ = ic.Imc.Set([]string{"key", "val"})
+	_, err := ic.Imc.Set([]string{"key", "val"})
+	require.NoError(t, err)
+
 	msg, err := ic.Imc.VerifiedGet([]string{"key"})
 	require.NoError(t, err, "VerifiedGet fail")
 	if !strings.Contains(msg, "value") {
