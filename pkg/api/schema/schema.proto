@@ -379,6 +379,16 @@ message LinearProof {
   repeated bytes terms = 3;
 }
 
+// LinearAdvanceProof contains the proof of consistency between the consumed part of the older linear chain
+// and the new Merkle Tree
+message LinearAdvanceProof {
+  // terms for the linear chain
+  repeated bytes linearProofTerms = 1;
+
+  // inclusion proofs for steps on the linear chain
+  repeated InclusionProof inclusionProofs = 2;
+}
+
 // DualProof contains inclusion and consistency proofs for dual Merkle-Tree + Linear proofs
 message DualProof {
   // Header of the source (earlier) transaction
@@ -401,6 +411,9 @@ message DualProof {
 
   // Linear proof starting from targetBlTxAlh to the final state value
   LinearProof linearProof = 7;
+
+  // Proof of consistency between some part of older linear chain and newer Merkle Tree
+  LinearAdvanceProof LinearAdvanceProof = 8;
 }
 
 message Tx {

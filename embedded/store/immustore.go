@@ -1866,6 +1866,7 @@ type DualProof struct {
 	TargetBlTxAlh      [sha256.Size]byte
 	LastInclusionProof [][sha256.Size]byte
 	LinearProof        *LinearProof
+	LinearAdvanceProof *LinearAdvanceProof
 }
 
 // DualProof combines linear cryptographic linking i.e. transactions include the linear accumulative hash up to the previous one,
@@ -1931,6 +1932,16 @@ func (s *ImmuStore) DualProof(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualPr
 	}
 	proof.LinearProof = lproof
 
+	laproof, err := s.LinearAdvanceProof(
+		sourceTxHdr.BlTxID,
+		minUint64(sourceTxHdr.ID, targetTxHdr.BlTxID),
+		targetTxHdr.BlTxID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	proof.LinearAdvanceProof = laproof
+
 	return
 }
 
@@ -1983,6 +1994,64 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 		TargetTxID: targetTxID,
 		Terms:      proof,
 	}, nil
+}
+
+// LinearAdvanceProof returns additional inclusion proof for part of the old linear proof consumed by
+// the new Merkle Tree
+func (s *ImmuStore) LinearAdvanceProof(sourceTxID, targetTxID uint64, targetBlTxID uint64) (*LinearAdvanceProof, error) {
+	if targetTxID < sourceTxID {
+		return nil, ErrSourceTxNewerThanTargetTx
+	}
+
+	if targetTxID <= sourceTxID+1 {
+		// Additional proof is not needed
+		return nil, nil
+	}
+
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer s.releaseAllocTx(tx)
+
+	r, err := s.NewTxReader(sourceTxID+1, false, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = r.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	linearProofTerms := make([][sha256.Size]byte, targetTxID-sourceTxID)
+	linearProofTerms[0] = tx.header.Alh()
+
+	inclusionProofs := make([][][sha256.Size]byte, targetTxID-sourceTxID-1)
+
+	for txID := sourceTxID + 1; txID < targetTxID; txID++ {
+		inclusionProof, err := s.aht.InclusionProof(txID, targetBlTxID)
+		if err != nil {
+			return nil, err
+		}
+		inclusionProofs[txID-sourceTxID-1] = inclusionProof
+
+		tx, err := r.Read()
+		if err != nil {
+			return nil, err
+		}
+		linearProofTerms[txID-sourceTxID] = tx.Header().innerHash()
+	}
+
+	return &LinearAdvanceProof{
+		LinearProofTerms: linearProofTerms,
+		InclusionProofs:  inclusionProofs,
+	}, nil
+}
+
+type LinearAdvanceProof struct {
+	LinearProofTerms [][sha256.Size]byte
+	InclusionProofs  [][][sha256.Size]byte
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
@@ -2768,6 +2837,13 @@ func maxInt(a, b int) int {
 
 func maxUint64(a, b uint64) uint64 {
 	if a <= b {
+		return b
+	}
+	return a
+}
+
+func minUint64(a, b uint64) uint64 {
+	if a >= b {
 		return b
 	}
 	return a

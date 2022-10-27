@@ -137,6 +137,7 @@ func DualProofToProto(dualProof *store.DualProof) *DualProof {
 		TargetBlTxAlh:      dualProof.TargetBlTxAlh[:],
 		LastInclusionProof: DigestsToProto(dualProof.LastInclusionProof),
 		LinearProof:        LinearProofToProto(dualProof.LinearProof),
+		LinearAdvanceProof: LinearAdvanceProofToProto(dualProof.LinearAdvanceProof),
 	}
 }
 
@@ -174,6 +175,24 @@ func LinearProofToProto(linearProof *store.LinearProof) *LinearProof {
 	}
 }
 
+func LinearAdvanceProofToProto(proof *store.LinearAdvanceProof) *LinearAdvanceProof {
+	if proof == nil {
+		return nil
+	}
+
+	inclusionProofs := make([]*InclusionProof, len(proof.InclusionProofs))
+	for i, p := range proof.InclusionProofs {
+		inclusionProofs[i] = &InclusionProof{
+			Terms: DigestsToProto(p),
+		}
+	}
+
+	return &LinearAdvanceProof{
+		LinearProofTerms: DigestsToProto(proof.LinearProofTerms),
+		InclusionProofs:  inclusionProofs,
+	}
+}
+
 func DualProofFromProto(dproof *DualProof) *store.DualProof {
 	return &store.DualProof{
 		SourceTxHeader:     TxHeaderFromProto(dproof.SourceTxHeader),
@@ -183,6 +202,7 @@ func DualProofFromProto(dproof *DualProof) *store.DualProof {
 		TargetBlTxAlh:      DigestFromProto(dproof.TargetBlTxAlh),
 		LastInclusionProof: DigestsFromProto(dproof.LastInclusionProof),
 		LinearProof:        LinearProofFromProto(dproof.LinearProof),
+		LinearAdvanceProof: LinearAdvanceProofFromProto(dproof.LinearAdvanceProof),
 	}
 }
 
@@ -213,6 +233,22 @@ func LinearProofFromProto(lproof *LinearProof) *store.LinearProof {
 		SourceTxID: lproof.SourceTxId,
 		TargetTxID: lproof.TargetTxId,
 		Terms:      DigestsFromProto(lproof.Terms),
+	}
+}
+
+func LinearAdvanceProofFromProto(laproof *LinearAdvanceProof) *store.LinearAdvanceProof {
+	if laproof == nil {
+		return nil
+	}
+
+	inclusionProofs := make([][][sha256.Size]byte, len(laproof.InclusionProofs))
+	for i, proof := range laproof.InclusionProofs {
+		inclusionProofs[i] = DigestsFromProto(proof.Terms)
+	}
+
+	return &store.LinearAdvanceProof{
+		LinearProofTerms: DigestsFromProto(laproof.LinearProofTerms),
+		InclusionProofs:  inclusionProofs,
 	}
 }
 

@@ -417,3 +417,95 @@ func TestVerifyDualProofLongLinearProofWithReplica(t *testing.T) {
 	})
 
 }
+
+func TestGenerateDataWithLongLinearProof(t *testing.T) {
+	const (
+		initialNormalTxCount = 10
+		linearTxCount        = 10
+		finalNormalTxCount   = 10
+	)
+
+	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(100).WithMaxConcurrency(1)
+	dir := t.TempDir()
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+	defer func() {
+		if immuStore != nil {
+			immustoreClose(t, immuStore)
+		}
+	}()
+
+	t.Run("Prepare initial normal transactions", func(t *testing.T) {
+		for i := 0; i < initialNormalTxCount; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte(fmt.Sprintf("step1:key:%d", i)), nil, []byte(fmt.Sprintf("value:%d", i)))
+			require.NoError(t, err)
+
+			txhdr, err := tx.AsyncCommit()
+			require.NoError(t, err)
+			require.EqualValues(t, i+1, txhdr.ID)
+			require.EqualValues(t, i, txhdr.BlTxID)
+
+			immuStore.ahtWHub.WaitFor(txhdr.ID, nil)
+		}
+	})
+
+	t.Run("Add transactions with long linear proof", func(t *testing.T) {
+		// Disable binary linking and restore before we finish this step
+		immuStore.blDone <- struct{}{}
+		defer func() {
+			go immuStore.binaryLinking()
+			immuStore.ahtWHub.WaitFor(initialNormalTxCount+linearTxCount, nil)
+		}()
+
+		for i := 0; i < linearTxCount; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte(fmt.Sprintf("step2:key:%d", i)), nil, []byte(fmt.Sprintf("value:%d", i)))
+			require.NoError(t, err)
+
+			txhdr, err := tx.AsyncCommit()
+			require.NoError(t, err)
+			require.EqualValues(t, i+1+initialNormalTxCount, txhdr.ID)
+			require.EqualValues(t, initialNormalTxCount, txhdr.BlTxID)
+		}
+	})
+
+	t.Run("Add normal transactions at the end", func(t *testing.T) {
+		for i := 0; i < finalNormalTxCount; i++ {
+			tx, err := immuStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set([]byte(fmt.Sprintf("step3:key:%d", i)), nil, []byte(fmt.Sprintf("value:%d", i)))
+			require.NoError(t, err)
+
+			txhdr, err := tx.AsyncCommit()
+			require.NoError(t, err)
+			require.EqualValues(t, i+1+initialNormalTxCount+linearTxCount, txhdr.ID)
+			require.EqualValues(t, i+initialNormalTxCount+linearTxCount, txhdr.BlTxID)
+
+			immuStore.ahtWHub.WaitFor(txhdr.ID, nil)
+		}
+	})
+
+	t.Run("copy database files to test folder", func(t *testing.T) {
+		err := immuStore.Sync()
+		require.NoError(t, err)
+
+		err = immuStore.Close()
+		require.NoError(t, err)
+		immuStore = nil
+
+		destPath := "../../test/data_long_linear_proof"
+		copier := fs.NewStandardCopier()
+
+		err = os.RemoveAll(destPath)
+		require.NoError(t, err)
+
+		err = copier.CopyDir(dir, destPath)
+		require.NoError(t, err)
+	})
+}

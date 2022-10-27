@@ -19,8 +19,10 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"path/filepath"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -121,5 +123,70 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		// Restore proof
 		dproof.TargetTxHeader.BlTxID--
 	}
+
+}
+
+func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	copier := fs.NewStandardCopier()
+	require.NoError(t, copier.CopyDir("../../test/data_long_linear_proof", dir))
+
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open(dir, opts)
+	require.NoError(t, err)
+	defer immustoreClose(t, immuStore)
+
+	maxTxID := immuStore.TxCount()
+
+	t.Run("data check", func(t *testing.T) {
+		require.EqualValues(t, 30, maxTxID, "Invalid dataset - expected 30 transactions")
+
+		t.Run("transactions 1-10 do not use linear proof longer than 1", func(t *testing.T) {
+			for txID := uint64(1); txID <= 10; txID++ {
+				hdr, err := immuStore.ReadTxHeader(txID, false)
+				require.NoError(t, err)
+				require.Equal(t, txID-1, hdr.BlTxID)
+			}
+		})
+
+		t.Run("transactions 11-20 use long linear proof", func(t *testing.T) {
+			for txID := uint64(11); txID <= 20; txID++ {
+				hdr, err := immuStore.ReadTxHeader(txID, false)
+				require.NoError(t, err)
+				require.EqualValues(t, 10, hdr.BlTxID)
+			}
+		})
+
+		t.Run("transactions 21-30 do not use linear proof longer than 1", func(t *testing.T) {
+			for txID := uint64(21); txID <= 30; txID++ {
+				hdr, err := immuStore.ReadTxHeader(txID, false)
+				require.NoError(t, err)
+				require.Equal(t, txID-1, hdr.BlTxID)
+			}
+		})
+
+	})
+
+	t.Run("exhaustive consistency proof check", func(t *testing.T) {
+		for sourceTxID := uint64(1); sourceTxID < maxTxID; sourceTxID++ {
+			for targetTxID := sourceTxID; targetTxID < maxTxID; targetTxID++ {
+
+				sourceTx := tempTxHolder(t, immuStore)
+				targetTx := tempTxHolder(t, immuStore)
+
+				err := immuStore.ReadTx(sourceTxID, sourceTx)
+				require.NoError(t, err)
+
+				err = immuStore.ReadTx(targetTxID, targetTx)
+				require.NoError(t, err)
+
+				dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
+				require.NoError(t, err)
+
+				verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.header.Alh(), targetTx.header.Alh())
+				require.True(t, verifies)
+			}
+		}
+	})
 
 }

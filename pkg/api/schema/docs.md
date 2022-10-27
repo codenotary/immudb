@@ -53,6 +53,7 @@
     - [KeyPrefix](#immudb.schema.KeyPrefix)
     - [KeyRequest](#immudb.schema.KeyRequest)
     - [KeyValue](#immudb.schema.KeyValue)
+    - [LinearAdvanceProof](#immudb.schema.LinearAdvanceProof)
     - [LinearProof](#immudb.schema.LinearProof)
     - [LoadDatabaseRequest](#immudb.schema.LoadDatabaseRequest)
     - [LoadDatabaseResponse](#immudb.schema.LoadDatabaseResponse)
@@ -597,6 +598,7 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | targetBlTxAlh | [bytes](#bytes) |  | Accumulative hash (Alh) of the last transaction that&#39;s part of the target Merkle Tree |
 | lastInclusionProof | [bytes](#bytes) | repeated | Inclusion proof of the targetBlTxAlh in the target Merkle Tree |
 | linearProof | [LinearProof](#immudb.schema.LinearProof) |  | Linear proof starting from targetBlTxAlh to the final state value |
+| LinearAdvanceProof | [LinearAdvanceProof](#immudb.schema.LinearAdvanceProof) |  | Proof of consistency between some part of older linear chain and newer Merkle Tree |
 
 
 
@@ -974,6 +976,23 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
 | metadata | [KVMetadata](#immudb.schema.KVMetadata) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.LinearAdvanceProof"></a>
+
+### LinearAdvanceProof
+LinearAdvanceProof contains the proof of consistency between the consumed part of the older linear chain
+and the new Merkle Tree
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| linearProofTerms | [bytes](#bytes) | repeated | terms for the linear chain |
+| inclusionProofs | [InclusionProof](#immudb.schema.InclusionProof) | repeated | inclusion proofs for steps on the linear chain |
 
 
 
