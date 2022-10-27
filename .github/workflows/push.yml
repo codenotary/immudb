@@ -62,7 +62,7 @@ jobs:
             args: n git://. --host cas.codenotary.com --api-key ${{ secrets.CAS_API_KEY }}
         - id: list-binaries
           run: |
-            echo "::set-output name=matrix::$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')"
+            echo "matrix=$(ls dist | jq -R -s -c 'split("\n")[:-1] | {binary: .}')" >> $GITHUB_OUTPUT
         - name: Upload binary artifacts
           uses: actions/upload-artifact@v3
           with:

@@ -31,7 +31,7 @@ jobs:
           RES="$(echo "${PERF_TEST_RUNS_ON:-${PERF_TEST_RUNS_ON_DEFAULT}}" | jq -c '.targets')"
           echo "Detected targets:"
           echo "$RES" | jq .
-          echo "::set-output name=matrix::${RES}"
+          echo "matrix=${RES}" >> $GITHUB_OUTPUT
 
   performance-test-suite:
     name: Performance Test Suite (${{ matrix.target.name }})
