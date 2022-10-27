@@ -107,7 +107,6 @@ func main() {
 		WithCommitLogMaxOpenedFiles(*openedLogFiles).
 		WithCompressionFormat(compressionFormat).
 		WithCompresionLevel(compressionLevel).
-		WithMaxLinearProofLen(0).
 		WithMaxValueLen(1 << 26) // 64Mb
 
 	immuStore, err := store.Open(*dataDir, opts)

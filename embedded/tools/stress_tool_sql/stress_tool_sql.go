@@ -120,7 +120,6 @@ func main() {
 		WithCommitLogMaxOpenedFiles(c.openedLogFiles).
 		WithCompressionFormat(c.compressionFormat).
 		WithCompresionLevel(c.compressionLevel).
-		WithMaxLinearProofLen(0).
 		WithMaxValueLen(1 << 26) // 64Mb
 
 	dataStore, err := store.Open(c.dataDir, opts)

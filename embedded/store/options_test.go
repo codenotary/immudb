@@ -38,7 +38,6 @@ func TestInvalidOptions(t *testing.T) {
 		{"SyncFrequency", DefaultOptions().WithSyncFrequency(-1)},
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
-		{"MaxLinearProofLen", DefaultOptions().WithMaxLinearProofLen(-1)},
 		{"TxLogCacheSize", DefaultOptions().WithTxLogCacheSize(-1)},
 		{"VLogMaxOpenedFiles", DefaultOptions().WithVLogMaxOpenedFiles(0)},
 		{"TxLogMaxOpenedFiles", DefaultOptions().WithTxLogMaxOpenedFiles(0)},
@@ -122,7 +121,6 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultMaxActiveTransactions, opts.WithMaxActiveTransactions(DefaultMaxActiveTransactions).MaxActiveTransactions)
 	require.Equal(t, DefaultMaxIOConcurrency, opts.WithMaxIOConcurrency(DefaultMaxIOConcurrency).MaxIOConcurrency)
 	require.Equal(t, DefaultMaxKeyLen, opts.WithMaxKeyLen(DefaultMaxKeyLen).MaxKeyLen)
-	require.Equal(t, DefaultMaxLinearProofLen, opts.WithMaxLinearProofLen(DefaultMaxLinearProofLen).MaxLinearProofLen)
 	require.Equal(t, DefaultMaxTxEntries, opts.WithMaxTxEntries(DefaultMaxTxEntries).MaxTxEntries)
 	require.Equal(t, DefaultMaxValueLen, opts.WithMaxValueLen(DefaultMaxValueLen).MaxValueLen)
 	require.Equal(t, DefaultTxLogCacheSize, opts.WithTxLogCacheSize(DefaultOptions().TxLogCacheSize).TxLogCacheSize)

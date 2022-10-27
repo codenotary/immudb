@@ -253,7 +253,6 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithVLogMaxOpenedFiles(opts.VLogMaxOpenedFiles).
 		WithTxLogMaxOpenedFiles(opts.TxLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.CommitLogMaxOpenedFiles).
-		WithMaxLinearProofLen(0). // fixed no limitation, it may be customized in the future
 		WithIndexOptions(indexOpts).
 		WithAHTOptions(ahtOpts)
 

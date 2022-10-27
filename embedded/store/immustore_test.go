@@ -235,7 +235,6 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.Equal(t, DefaultOptions().MaxTxEntries, immuStore.MaxTxEntries())
 	require.Equal(t, DefaultOptions().MaxKeyLen, immuStore.MaxKeyLen())
 	require.Equal(t, DefaultOptions().MaxValueLen, immuStore.MaxValueLen())
-	require.Equal(t, DefaultOptions().MaxLinearProofLen, immuStore.MaxLinearProofLen())
 }
 
 func TestImmudbStoreEdgeCases(t *testing.T) {
@@ -249,7 +248,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
 
-	t.Run("should fail with invalid appendables and invlaid options", func(t *testing.T) {
+	t.Run("should fail with invalid appendables and invalid options", func(t *testing.T) {
 		_, err := OpenWith(t.TempDir(), nil, nil, nil, nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 	})
@@ -259,7 +258,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		require.EqualError(t, err, "stat invalid\x00_dir_name: invalid argument")
 	})
 
-	t.Run("should fail with permiission denied", func(t *testing.T) {
+	t.Run("should fail with permission denied", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "ro_path")
 		require.NoError(t, os.MkdirAll(path, 0500))
 
@@ -720,9 +719,6 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = immuStore.LinearProof(2, 1)
 	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)
 
-	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
-	require.ErrorIs(t, err, ErrLinearProofMaxLenExceeded)
-
 	_, err = sourceTx.EntryOf([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
@@ -810,19 +806,6 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidPrecondition)
 		require.ErrorIs(t, err, ErrInvalidPreconditionInvalidTxID)
 	})
-}
-
-func TestImmudbSetBlErr(t *testing.T) {
-	opts := DefaultOptions().WithMaxConcurrency(1)
-	immuStore, err := Open(t.TempDir(), opts)
-	require.NoError(t, err)
-
-	defer immustoreClose(t, immuStore)
-
-	immuStore.SetBlErr(errors.New("error"))
-
-	_, err = immuStore.BlInfo()
-	require.Error(t, err)
 }
 
 func TestImmudbTxOffsetAndSize(t *testing.T) {
@@ -1182,7 +1165,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.Equal(t, []byte("value1_tx1"), v)
 	})
 
-	t.Run("second ongoing tx after the first cancelation should succeed", func(t *testing.T) {
+	t.Run("second ongoing tx after the first cancellation should succeed", func(t *testing.T) {
 		tx1, err := immuStore.NewTx()
 		require.NoError(t, err)
 
@@ -1744,7 +1727,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 }
 
 func TestLeavesMatchesAHTSync(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(1)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
 
@@ -1784,15 +1767,6 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		exists, err := immuStore.ExistKeyWith(k0[:], nil)
 		require.NoError(t, err)
 		require.True(t, exists)
-	}
-
-	for {
-		n, err := immuStore.BlInfo()
-		require.NoError(t, err)
-		if n == uint64(txCount) {
-			break
-		}
-		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 
 	tx := tempTxHolder(t, immuStore)
@@ -1840,15 +1814,6 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 		txhdr, err := tx.AsyncCommit()
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
-	}
-
-	for {
-		n, err := immuStore.BlInfo()
-		require.NoError(t, err)
-		if n == uint64(txCount) {
-			break
-		}
-		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 
 	tx := tempTxHolder(t, immuStore)
@@ -1956,15 +1921,6 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		txhdr, err := tx.AsyncCommit()
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
-	}
-
-	for {
-		n, err := immuStore.BlInfo()
-		require.NoError(t, err)
-		if n == uint64(txCount) {
-			break
-		}
-		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 
 	sourceTx := tempTxHolder(t, immuStore)

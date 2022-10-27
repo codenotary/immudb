@@ -36,7 +36,6 @@ const DefaultMaxKeyLen = 1024
 const DefaultMaxValueLen = 4096 // 4Kb
 const DefaultSyncFrequency = 20 * time.Millisecond
 const DefaultFileMode = os.FileMode(0755)
-const DefaultMaxLinearProofLen = 1 << 10
 const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
@@ -75,9 +74,8 @@ type Options struct {
 
 	MaxActiveTransactions int
 
-	MaxConcurrency    int
-	MaxIOConcurrency  int
-	MaxLinearProofLen int
+	MaxConcurrency   int
+	MaxIOConcurrency int
 
 	TxLogCacheSize int
 
@@ -139,9 +137,8 @@ func DefaultOptions() *Options {
 
 		MaxActiveTransactions: DefaultMaxActiveTransactions,
 
-		MaxConcurrency:    DefaultMaxConcurrency,
-		MaxIOConcurrency:  DefaultMaxIOConcurrency,
-		MaxLinearProofLen: DefaultMaxLinearProofLen,
+		MaxConcurrency:   DefaultMaxConcurrency,
+		MaxIOConcurrency: DefaultMaxIOConcurrency,
 
 		TxLogCacheSize: DefaultTxLogCacheSize,
 
@@ -218,9 +215,6 @@ func (opts *Options) Validate() error {
 
 	if opts.MaxIOConcurrency <= 0 || opts.MaxIOConcurrency > MaxParallelIO {
 		return fmt.Errorf("%w: invalid MaxIOConcurrency", ErrInvalidOptions)
-	}
-	if opts.MaxLinearProofLen < 0 {
-		return fmt.Errorf("%w: invalid MaxLinearProofLen", ErrInvalidOptions)
 	}
 
 	if opts.VLogMaxOpenedFiles <= 0 {
@@ -405,11 +399,6 @@ func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
 
 func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
 	opts.MaxValueLen = maxValueLen
-	return opts
-}
-
-func (opts *Options) WithMaxLinearProofLen(maxLinearProofLen int) *Options {
-	opts.MaxLinearProofLen = maxLinearProofLen
 	return opts
 }
 
