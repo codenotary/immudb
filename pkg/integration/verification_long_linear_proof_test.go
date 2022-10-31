@@ -24,10 +24,12 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -37,6 +39,8 @@ type stateServiceMock struct {
 	state        *schema.ImmutableState
 	stateHistory map[uint64]*schema.ImmutableState
 }
+
+var _ state.StateService = (*stateServiceMock)(nil)
 
 func newServiceStateMock() *stateServiceMock {
 	return &stateServiceMock{
@@ -69,6 +73,25 @@ func (ssm *stateServiceMock) CacheLock() error {
 func (ssm *stateServiceMock) CacheUnlock() error {
 	ssm.cl.Unlock()
 	return nil
+}
+
+func (ssm *stateServiceMock) SetServerIdentity(identity string) {}
+
+type clientProxyRemovingLinearAdvanceProof struct {
+	schema.ImmuServiceClient
+}
+
+func (mock *clientProxyRemovingLinearAdvanceProof) VerifiableTxById(
+	ctx context.Context, in *schema.VerifiableTxRequest, opts ...grpc.CallOption,
+) (
+	*schema.VerifiableTx, error,
+) {
+	ret, err := mock.ImmuServiceClient.VerifiableTxById(ctx, in)
+	if ret != nil && ret.DualProof != nil {
+		// Cleanup the linear advance proof so that it gets regenerated
+		ret.DualProof.LinearAdvanceProof = nil
+	}
+	return ret, err
 }
 
 func TestLongLinearProofVerification(t *testing.T) {
@@ -151,15 +174,37 @@ func TestLongLinearProofVerification(t *testing.T) {
 	})
 
 	t.Run("Exhaustive consistency proof", func(t *testing.T) {
-		for i := uint64(1); i <= txCount; i++ {
-			for j := i; j <= txCount; j++ {
-				ssm.state = ssm.stateHistory[i]
 
-				_, err = cl.VerifiedTxByID(context.Background(), j)
-				require.NoError(t, err)
-				require.EqualValues(t, j, ssm.state.TxId)
+		t.Run("server-generated linear advance proof", func(t *testing.T) {
+			for i := uint64(1); i <= txCount; i++ {
+				for j := i; j <= txCount; j++ {
+					ssm.state = ssm.stateHistory[i]
+
+					_, err = cl.VerifiedTxByID(context.Background(), j)
+					require.NoError(t, err)
+					require.EqualValues(t, j, ssm.state.TxId)
+				}
 			}
-		}
+		})
+
+		t.Run("client-reconstructed linear advance proof", func(t *testing.T) {
+
+			scl := cl.GetServiceClient()
+			// Mock service client that removes linear advance proofs
+			// that will mimic the behavior of older servers
+			cl.WithServiceClient(&clientProxyRemovingLinearAdvanceProof{ImmuServiceClient: scl})
+
+			for i := uint64(1); i <= txCount; i++ {
+				for j := i + 5; j <= txCount; j++ {
+
+					ssm.state = ssm.stateHistory[i]
+
+					_, err = cl.VerifiedTxByID(context.Background(), j)
+					require.NoError(t, err)
+					require.EqualValues(t, j, ssm.state.TxId)
+				}
+			}
+		})
 	})
 
 }

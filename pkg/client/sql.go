@@ -213,15 +213,16 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	}
 
 	if state.TxId > 0 {
-		verifies = store.VerifyDualProof(
+		err := c.verifyDualProof(
+			ctx,
 			dualProof,
 			sourceID,
 			targetID,
 			sourceAlh,
 			targetAlh,
 		)
-		if !verifies {
-			return store.ErrCorruptedData
+		if err != nil {
+			return err
 		}
 	}
 

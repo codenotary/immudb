@@ -308,8 +308,20 @@ func (a *defaultAuditor) audit() error {
 			return noErr
 		}
 
+		dualProof := schema.DualProofFromProto(vtx.DualProof)
+		err = schema.FillMissingLinearAdvanceProof(
+			ctx, dualProof, prevState.TxId, state.TxId, a.serviceClient,
+		)
+		if err != nil {
+			a.logger.Errorf(
+				"error fetching consistency proof for previous state %d: %v",
+				prevState.TxId, err)
+			withError = true
+			return noErr
+		}
+
 		verified = store.VerifyDualProof(
-			schema.DualProofFromProto(vtx.DualProof),
+			dualProof,
 			prevState.TxId,
 			state.TxId,
 			schema.DigestFromProto(prevState.TxHash),

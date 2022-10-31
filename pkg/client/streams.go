@@ -246,16 +246,17 @@ func (c *immuClient) _streamVerifiedSet(ctx context.Context, kvs []*stream.KeyVa
 	targetAlh = tx.Header().Alh()
 
 	if state.TxId > 0 {
-		verifies = store.VerifyDualProof(
-			schema.DualProofFromProto(verifiableTx.DualProof),
+		dualProof := schema.DualProofFromProto(verifiableTx.DualProof)
+		err := c.verifyDualProof(
+			ctx,
+			dualProof,
 			sourceID,
 			targetID,
 			sourceAlh,
 			targetAlh,
 		)
-
-		if !verifies {
-			return nil, store.ErrCorruptedData
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -360,15 +361,16 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 	}
 
 	if state.TxId > 0 {
-		verifies = store.VerifyDualProof(
+		err := c.verifyDualProof(
+			ctx,
 			dualProof,
 			sourceID,
 			targetID,
 			sourceAlh,
 			targetAlh,
 		)
-		if !verifies {
-			return nil, store.ErrCorruptedData
+		if err != nil {
+			return nil, err
 		}
 	}
 
