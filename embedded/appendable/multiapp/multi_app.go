@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/fileutils"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 )
@@ -141,7 +142,7 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 			return nil, err
 		}
 
-		err = appendable.SyncPaths(path, filepath.Dir(path))
+		err = fileutils.SyncDir(path, filepath.Dir(path))
 		if err != nil {
 			return nil, err
 		}
@@ -460,6 +461,8 @@ func (mf *MultiFileAppendable) DiscardUpto(off int64) error {
 
 	appID := appendableID(off, mf.fileSize)
 
+	var dirSyncNeeded bool
+
 	for i := int64(0); i < appID; i++ {
 		if i == mf.currAppID {
 			break
@@ -476,6 +479,15 @@ func (mf *MultiFileAppendable) DiscardUpto(off int64) error {
 		appFile := filepath.Join(mf.path, appendableName(i, mf.fileExt))
 		err = os.Remove(appFile)
 		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+
+		dirSyncNeeded = true
+	}
+
+	if dirSyncNeeded {
+		err := fileutils.SyncDir(mf.path)
+		if err != nil {
 			return err
 		}
 	}

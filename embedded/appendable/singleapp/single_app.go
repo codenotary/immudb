@@ -32,6 +32,7 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/fileutils"
 )
 
 var ErrorPathIsNotADirectory = errors.New("singleapp: path is not a directory")
@@ -139,7 +140,7 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
-		err = appendable.SyncPath(filepath.Dir(fileName))
+		err = fileutils.SyncDir(filepath.Dir(fileName))
 		if err != nil {
 			return nil, err
 		}
