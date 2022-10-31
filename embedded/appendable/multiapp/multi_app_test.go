@@ -33,7 +33,7 @@ func TestMultiApp(t *testing.T) {
 	md := appendable.NewMetadata(nil)
 	md.PutInt("mkey1", 1)
 
-	a, err := Open(t.TempDir(), DefaultOptions().WithMetadata(md.Bytes()))
+	a, err := Open(filepath.Join(t.TempDir(), "multiapp"), DefaultOptions().WithMetadata(md.Bytes()))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
