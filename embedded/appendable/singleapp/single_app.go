@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -129,6 +130,16 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		}
 
 		err = w.Flush()
+		if err != nil {
+			return nil, err
+		}
+
+		err = f.Sync()
+		if err != nil {
+			return nil, err
+		}
+
+		err = appendable.SyncPath(filepath.Dir(fileName))
 		if err != nil {
 			return nil, err
 		}

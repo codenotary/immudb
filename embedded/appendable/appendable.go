@@ -20,6 +20,7 @@ import (
 	"compress/flate"
 	"crypto/sha256"
 	"io"
+	"os"
 )
 
 const DefaultCompressionFormat = NoCompression
@@ -72,4 +73,25 @@ func Checksum(rAt io.ReaderAt, off, n int64) (checksum [sha256.Size]byte, err er
 	copy(checksum[:], h.Sum(nil))
 
 	return checksum, nil
+}
+
+func SyncPaths(paths ...string) error {
+	for _, path := range paths {
+		err := SyncPath(path)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func SyncPath(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	return f.Sync()
 }

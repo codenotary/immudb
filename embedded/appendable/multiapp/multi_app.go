@@ -140,6 +140,11 @@ func OpenWithHooks(path string, hooks MultiFileAppendableHooks, opts *Options) (
 		if err != nil {
 			return nil, err
 		}
+
+		err = appendable.SyncPaths(path, filepath.Dir(path))
+		if err != nil {
+			return nil, err
+		}
 	} else if !finfo.IsDir() {
 		return nil, ErrorPathIsNotADirectory
 	}
