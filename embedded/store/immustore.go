@@ -185,7 +185,6 @@ type ImmuStore struct {
 	_valBsMux sync.Mutex
 
 	aht                  *ahtree.AHtree
-	ahtWHub              *watchers.WatchersHub
 	inmemPrecommitWHub   *watchers.WatchersHub
 	durablePrecommitWHub *watchers.WatchersHub
 	commitWHub           *watchers.WatchersHub
@@ -515,7 +514,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		aht: aht,
 
-		ahtWHub:              watchers.New(0, opts.MaxActiveTransactions),
 		inmemPrecommitWHub:   watchers.New(0, opts.MaxActiveTransactions+1), // syncer (TODO: indexer may wait here instead)
 		durablePrecommitWHub: watchers.New(0, opts.MaxActiveTransactions+opts.MaxWaitees),
 		commitWHub:           watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
@@ -544,11 +542,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			store.Close()
 			return nil, fmt.Errorf("binary linking failed: %w", err)
 		}
-	}
-
-	err = store.ahtWHub.DoneUpto(precommittedTxID)
-	if err != nil {
-		return nil, err
 	}
 
 	err = store.inmemPrecommitWHub.DoneUpto(precommittedTxID)
@@ -1214,14 +1207,6 @@ func (s *ImmuStore) precommit(otx *OngoingTx, hdr *TxHeader) (*TxHeader, error) 
 		var blRoot [sha256.Size]byte
 
 		if hdr.BlTxID > 0 {
-			err = s.ahtWHub.WaitFor(hdr.BlTxID, nil)
-			if err == watchers.ErrAlreadyClosed {
-				return nil, ErrAlreadyClosed
-			}
-			if err != nil {
-				return nil, err
-			}
-
 			blRoot, err = s.aht.RootAt(hdr.BlTxID)
 			if err != nil && err != ahtree.ErrEmptyTree {
 				return nil, err
@@ -1445,8 +1430,6 @@ func (s *ImmuStore) performPrecommit(tx *Tx, ts int64, blTxID uint64) error {
 	if err != nil {
 		return err
 	}
-
-	s.ahtWHub.DoneUpto(tx.header.ID)
 
 	s.inmemPrecommittedTxID++
 	s.inmemPrecommittedAlh = alh
@@ -2693,10 +2676,7 @@ func (s *ImmuStore) Close() error {
 		s.releaseVLog(i + 1)
 	}
 
-	err := s.ahtWHub.Close()
-	merr.Append(err)
-
-	err = s.inmemPrecommitWHub.Close()
+	err := s.inmemPrecommitWHub.Close()
 	merr.Append(err)
 
 	err = s.durablePrecommitWHub.Close()
