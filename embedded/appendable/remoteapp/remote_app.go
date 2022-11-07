@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/fileutils"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
@@ -264,7 +265,12 @@ func (r *RemoteStorageAppendable) uploadChunk(chunkID int64, dontRemoveFile bool
 			r.chunkInfos[chunkID].cancelUpload = nil
 			r.mutex.Unlock()
 
-			return os.Remove(path.Join(r.path, appName))
+			err := os.Remove(path.Join(r.path, appName))
+			if err != nil {
+				return nil
+			}
+
+			return fileutils.SyncDir(r.path)
 		})
 
 		if ctx.Err() != nil {
@@ -354,7 +360,12 @@ func (r *RemoteStorageAppendable) downloadChunk(chunkID int64) {
 			return flTmp.Close()
 		})
 		cp.Step(func() error {
-			return os.Rename(fileNameTmp, fileName)
+			err := os.Rename(fileNameTmp, fileName)
+			if err != nil {
+				return err
+			}
+
+			return fileutils.SyncDir(r.path)
 		})
 
 		if ctx.Err() != nil {
