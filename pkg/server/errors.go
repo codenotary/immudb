@@ -32,6 +32,7 @@ var (
 	ErrIllegalArguments            = status.Error(codes.InvalidArgument, database.ErrIllegalArguments.Error())
 	ErrIllegalState                = status.Error(codes.InvalidArgument, database.ErrIllegalState.Error())
 	ErrEmptyAdminPassword          = status.Error(codes.InvalidArgument, "Admin password cannot be empty")
+	ErrCantUpdateAdminPassword     = errors.New("can not update sysadmin password")
 	ErrUserNotActive               = "user is not active"
 	ErrInvalidUsernameOrPassword   = "invalid user name or password"
 	ErrAuthDisabled                = "server is running with authentication disabled, please enable authentication to login"

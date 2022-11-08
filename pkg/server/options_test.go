@@ -38,6 +38,7 @@ func TestOptions(t *testing.T) {
 		op.DevMode != false ||
 		op.NoHistograms != false ||
 		op.AdminPassword != auth.SysAdminPassword ||
+		op.ForceAdminPassword != false ||
 		op.Address != "0.0.0.0" ||
 		op.Network != "tcp" ||
 		op.Port != 3322 ||
@@ -100,11 +101,17 @@ func TestSetOptions(t *testing.T) {
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{}}
 
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
-		WithAddress("localhost").WithPort(2048).
-		WithPidfile("immu.pid").WithAuth(false).
+		WithAddress("localhost").
+		WithPort(2048).
+		WithPidfile("immu.pid").
+		WithAuth(false).
 		WithMaxRecvMsgSize(4096).
-		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
-		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
+		WithDetached(true).
+		WithNoHistograms(true).
+		WithMetricsServer(false).
+		WithDevMode(true).WithLogfile("logfile").
+		WithAdminPassword("admin").
+		WithForceAdminPassword(true).
 		WithStreamChunkSize(4096).
 		WithWebServerPort(8081).
 		WithTokenExpiryTime(52).
@@ -130,6 +137,7 @@ func TestSetOptions(t *testing.T) {
 		op.DevMode != true ||
 		op.Logfile != "logfile" ||
 		op.AdminPassword != "admin" ||
+		op.ForceAdminPassword != true ||
 		op.StreamChunkSize != 4096 ||
 		op.WebServerPort != 8081 ||
 		op.Bind() != "localhost:2048" ||

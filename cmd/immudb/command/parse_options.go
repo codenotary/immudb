@@ -63,6 +63,7 @@ func parseOptions() (options *server.Options, err error) {
 
 	devMode := viper.GetBool("devmode")
 	adminPassword := viper.GetString("admin-password")
+	forceAdminPassword := viper.GetBool("force-admin-password")
 	maintenance := viper.GetBool("maintenance")
 	signingKey := viper.GetString("signingKey")
 	synced := viper.GetBool("synced")
@@ -123,6 +124,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithDetached(detached).
 		WithDevMode(devMode).
 		WithAdminPassword(adminPassword).
+		WithForceAdminPassword(forceAdminPassword).
 		WithMaintenance(maintenance).
 		WithSigningKey(signingKey).
 		WithSynced(synced).

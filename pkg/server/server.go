@@ -126,7 +126,7 @@ func (s *ImmuServer) Initialize() error {
 		return logErr(s.Logger, "Unable to initialize remote storage: %v", err)
 	}
 
-	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword); err != nil {
+	if err = s.loadSystemDatabase(dataDir, s.remoteStorage, adminPassword, s.Options.ForceAdminPassword); err != nil {
 		return logErr(s.Logger, "Unable to load system database: %v", err)
 	}
 
@@ -379,7 +379,42 @@ func (s *ImmuServer) printUsageCallToAction() {
 	}
 }
 
-func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestorage.Storage, adminPassword string) error {
+func (s *ImmuServer) resetAdminPassword(adminPassword string) error {
+	if s.sysDB.IsReplica() {
+		return errors.New("database is running as a replica")
+	}
+
+	adminUser, err := s.getUser([]byte(auth.SysAdminUsername), false)
+	if err != nil {
+		return fmt.Errorf("could not read sysadmin user data: %v", err)
+	}
+
+	err = adminUser.ComparePasswords([]byte(adminPassword))
+	if err == nil {
+		// Password is as expected, do not overwrite it to avoid unnecessary
+		// transactions in systemdb
+		return nil
+	}
+
+	_, err = adminUser.SetPassword([]byte(adminPassword))
+	if err != nil {
+		return err
+	}
+
+	err = s.saveUser(adminUser)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *ImmuServer) loadSystemDatabase(
+	dataDir string,
+	remoteStorage remotestorage.Storage,
+	adminPassword string,
+	forceAdminPasswordReset bool,
+) error {
 	if s.dbList.Length() != 0 {
 		panic("loadSystemDatabase should be called before any other database loading")
 	}
@@ -397,6 +432,14 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, remoteStorage remotestor
 			s.Logger.Errorf("Database '%s' was not correctly initialized.\n"+
 				"Use replication to recover from external source or start without data folder.", dbOpts.Database)
 			return err
+		}
+
+		if forceAdminPasswordReset {
+			err := s.resetAdminPassword(adminPassword)
+			if err != nil {
+				s.Logger.Errorf("Can not reset admin password, %v", err)
+				return ErrCantUpdateAdminPassword
+			}
 		}
 
 		if dbOpts.isReplicatorRequired() {

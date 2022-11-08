@@ -147,7 +147,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	s.dbList = database.NewDatabaseList()
 	s.sysDB = nil
 
-	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword)
+	err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(s.Options.Dir, nil)

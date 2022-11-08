@@ -110,7 +110,7 @@ func TestServerReOpen(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -121,7 +121,7 @@ func TestServerReOpen(t *testing.T) {
 	s, closer = testServer(serverOptions)
 	defer closer()
 
-	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)
@@ -138,7 +138,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	s, closer := testServer(serverOptions)
 	defer closer()
 
-	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)

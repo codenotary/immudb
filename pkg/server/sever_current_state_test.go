@@ -46,7 +46,7 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	stSig := NewStateSigner(sig)
 	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
 
-	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword)
+	err = s.loadSystemDatabase(dbRootpath, nil, s.Options.AdminPassword, false)
 	require.NoError(t, err)
 
 	err = s.loadDefaultDatabase(dbRootpath, nil)

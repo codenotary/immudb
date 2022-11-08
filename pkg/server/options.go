@@ -54,6 +54,7 @@ type Options struct {
 	WebServerPort        int
 	DevMode              bool
 	AdminPassword        string `json:"-"`
+	ForceAdminPassword   bool
 	systemAdminDBName    string
 	defaultDBName        string
 	listener             net.Listener
@@ -116,6 +117,7 @@ func DefaultOptions() *Options {
 		WebServerPort:        8080,
 		DevMode:              false,
 		AdminPassword:        auth.SysAdminPassword,
+		ForceAdminPassword:   false,
 		systemAdminDBName:    SystemDBName,
 		defaultDBName:        DefaultDBName,
 		usingCustomListener:  false,
@@ -350,6 +352,12 @@ func (o *Options) WithDevMode(devMode bool) *Options {
 // WithAdminPassword ...
 func (o *Options) WithAdminPassword(adminPassword string) *Options {
 	o.AdminPassword = adminPassword
+	return o
+}
+
+// WithForceAdminPassword ...
+func (o *Options) WithForceAdminPassword(forceAdminPassword bool) *Options {
+	o.ForceAdminPassword = forceAdminPassword
 	return o
 }
 
