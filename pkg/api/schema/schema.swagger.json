@@ -2101,24 +2101,24 @@
           "type": "boolean",
           "title": "If set to true, this database is replicating another database"
         },
-        "masterDatabase": {
+        "primaryDatabase": {
           "type": "string",
           "title": "Name of the database to replicate"
         },
-        "masterAddress": {
+        "primaryHost": {
           "type": "string",
           "title": "Hostname of the immudb instance with database to replicate"
         },
-        "masterPort": {
+        "primaryPort": {
           "type": "integer",
           "format": "int64",
           "title": "Port of the immudb instance with database to replicate"
         },
-        "followerUsername": {
+        "primaryUsername": {
           "type": "string",
           "title": "Username of the user with read access of the database to replicate"
         },
-        "followerPassword": {
+        "primaryPassword": {
           "type": "string",
           "title": "Password of the user with read access of the database to replicate"
         },
@@ -2402,30 +2402,6 @@
         "database": {
           "type": "string",
           "title": "Database name"
-        }
-      }
-    },
-    "schemaFollowerState": {
-      "type": "object",
-      "properties": {
-        "UUID": {
-          "type": "string"
-        },
-        "committedTxID": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "committedAlh": {
-          "type": "string",
-          "format": "byte"
-        },
-        "precommittedTxID": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "precommittedAlh": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
@@ -2939,6 +2915,30 @@
         }
       }
     },
+    "schemaReplicaState": {
+      "type": "object",
+      "properties": {
+        "UUID": {
+          "type": "string"
+        },
+        "committedTxID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "committedAlh": {
+          "type": "string",
+          "format": "byte"
+        },
+        "precommittedTxID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "precommittedAlh": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaReplicationNullableSettings": {
       "type": "object",
       "properties": {
@@ -2946,23 +2946,23 @@
           "$ref": "#/definitions/schemaNullableBool",
           "title": "If set to true, this database is replicating another database"
         },
-        "masterDatabase": {
+        "primaryDatabase": {
           "$ref": "#/definitions/schemaNullableString",
           "title": "Name of the database to replicate"
         },
-        "masterAddress": {
+        "primaryHost": {
           "$ref": "#/definitions/schemaNullableString",
           "title": "Hostname of the immudb instance with database to replicate"
         },
-        "masterPort": {
+        "primaryPort": {
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Port of the immudb instance with database to replicate"
         },
-        "followerUsername": {
+        "primaryUsername": {
           "$ref": "#/definitions/schemaNullableString",
           "title": "Username of the user with read access of the database to replicate"
         },
-        "followerPassword": {
+        "primaryPassword": {
           "$ref": "#/definitions/schemaNullableString",
           "title": "Password of the user with read access of the database to replicate"
         },
@@ -2984,7 +2984,7 @@
         },
         "AllowTxDiscarding": {
           "$ref": "#/definitions/schemaNullableBool",
-          "title": "Allow precommitted transactions to be discarded if the follower diverges from the master"
+          "title": "Allow precommitted transactions to be discarded if the replica diverges from the primary"
         }
       }
     },

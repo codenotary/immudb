@@ -130,13 +130,13 @@ func TestReplication(t *testing.T) {
 	// create database as replica in follower server
 	_, err = followerClient.CreateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			Replica:          &schema.NullableBool{Value: true},
-			SyncReplication:  &schema.NullableBool{Value: true},
-			MasterDatabase:   &schema.NullableString{Value: "masterdb"},
-			MasterAddress:    &schema.NullableString{Value: "127.0.0.1"},
-			MasterPort:       &schema.NullableUint32{Value: uint32(masterPort)},
-			FollowerUsername: &schema.NullableString{Value: "follower"},
-			FollowerPassword: &schema.NullableString{Value: "wrongPassword"},
+			Replica:         &schema.NullableBool{Value: true},
+			SyncReplication: &schema.NullableBool{Value: true},
+			PrimaryDatabase: &schema.NullableString{Value: "masterdb"},
+			PrimaryHost:     &schema.NullableString{Value: "127.0.0.1"},
+			PrimaryPort:     &schema.NullableUint32{Value: uint32(masterPort)},
+			PrimaryUsername: &schema.NullableString{Value: "follower"},
+			PrimaryPassword: &schema.NullableString{Value: "wrongPassword"},
 		},
 	})
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestReplication(t *testing.T) {
 
 	_, err = followerClient.UpdateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			FollowerPassword: &schema.NullableString{Value: "follower1Pwd!"},
+			PrimaryPassword: &schema.NullableString{Value: "follower1Pwd!"},
 		},
 	})
 	require.NoError(t, err)

@@ -1253,20 +1253,20 @@ func (s *ImmuServer) GetDatabaseSettings(ctx context.Context, _ *empty.Empty) (*
 		if res.Settings.ReplicationSettings.Replica != nil {
 			ret.Replica = res.Settings.ReplicationSettings.Replica.Value
 		}
-		if res.Settings.ReplicationSettings.MasterDatabase != nil {
-			ret.MasterDatabase = res.Settings.ReplicationSettings.MasterDatabase.Value
+		if res.Settings.ReplicationSettings.PrimaryDatabase != nil {
+			ret.PrimaryDatabase = res.Settings.ReplicationSettings.PrimaryDatabase.Value
 		}
-		if res.Settings.ReplicationSettings.MasterAddress != nil {
-			ret.MasterAddress = res.Settings.ReplicationSettings.MasterAddress.Value
+		if res.Settings.ReplicationSettings.PrimaryHost != nil {
+			ret.PrimaryHost = res.Settings.ReplicationSettings.PrimaryHost.Value
 		}
-		if res.Settings.ReplicationSettings.MasterPort != nil {
-			ret.MasterPort = res.Settings.ReplicationSettings.MasterPort.Value
+		if res.Settings.ReplicationSettings.PrimaryPort != nil {
+			ret.PrimaryPort = res.Settings.ReplicationSettings.PrimaryPort.Value
 		}
-		if res.Settings.ReplicationSettings.FollowerUsername != nil {
-			ret.FollowerUsername = res.Settings.ReplicationSettings.FollowerUsername.Value
+		if res.Settings.ReplicationSettings.PrimaryUsername != nil {
+			ret.PrimaryUsername = res.Settings.ReplicationSettings.PrimaryUsername.Value
 		}
-		if res.Settings.ReplicationSettings.FollowerPassword != nil {
-			ret.FollowerPassword = res.Settings.ReplicationSettings.FollowerPassword.Value
+		if res.Settings.ReplicationSettings.PrimaryPassword != nil {
+			ret.PrimaryPassword = res.Settings.ReplicationSettings.PrimaryPassword.Value
 		}
 	}
 

@@ -52,9 +52,9 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	err = client.CreateDatabase(ctx, &schema.DatabaseSettings{
-		DatabaseName:   "replicateddb",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
+		DatabaseName:    "replicateddb",
+		Replica:         true,
+		PrimaryDatabase: "defaultdb",
 	})
 	require.NoError(t, err)
 

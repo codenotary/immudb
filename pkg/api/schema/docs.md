@@ -42,7 +42,6 @@
     - [ExportTxRequest](#immudb.schema.ExportTxRequest)
     - [FlushIndexRequest](#immudb.schema.FlushIndexRequest)
     - [FlushIndexResponse](#immudb.schema.FlushIndexResponse)
-    - [FollowerState](#immudb.schema.FollowerState)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
@@ -79,6 +78,7 @@
     - [Precondition.KeyNotModifiedAfterTXPrecondition](#immudb.schema.Precondition.KeyNotModifiedAfterTXPrecondition)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
+    - [ReplicaState](#immudb.schema.ReplicaState)
     - [ReplicationNullableSettings](#immudb.schema.ReplicationNullableSettings)
     - [RetryInfo](#immudb.schema.RetryInfo)
     - [Row](#immudb.schema.Row)
@@ -461,11 +461,11 @@ DEPRECATED
 | ----- | ---- | ----- | ----------- |
 | databaseName | [string](#string) |  | Name of the database |
 | replica | [bool](#bool) |  | If set to true, this database is replicating another database |
-| masterDatabase | [string](#string) |  | Name of the database to replicate |
-| masterAddress | [string](#string) |  | Hostname of the immudb instance with database to replicate |
-| masterPort | [uint32](#uint32) |  | Port of the immudb instance with database to replicate |
-| followerUsername | [string](#string) |  | Username of the user with read access of the database to replicate |
-| followerPassword | [string](#string) |  | Password of the user with read access of the database to replicate |
+| primaryDatabase | [string](#string) |  | Name of the database to replicate |
+| primaryHost | [string](#string) |  | Hostname of the immudb instance with database to replicate |
+| primaryPort | [uint32](#uint32) |  | Port of the immudb instance with database to replicate |
+| primaryUsername | [string](#string) |  | Username of the user with read access of the database to replicate |
+| primaryPassword | [string](#string) |  | Password of the user with read access of the database to replicate |
 | fileSize | [uint32](#uint32) |  | Size of files stored on disk |
 | maxKeyLen | [uint32](#uint32) |  | Maximum length of keys |
 | maxValueLen | [uint32](#uint32) |  | Maximum length of values |
@@ -744,7 +744,7 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  | Id of transaction to export |
 | allowPreCommitted | [bool](#bool) |  | If set to true, non-committed transactions can be exported |
-| followerState | [FollowerState](#immudb.schema.FollowerState) |  | Used on synchronous replication to notify the master about follower state |
+| replicaState | [ReplicaState](#immudb.schema.ReplicaState) |  | Used on synchronous replication to notify the primary about replica state |
 
 
 
@@ -776,25 +776,6 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  | Database name |
-
-
-
-
-
-
-<a name="immudb.schema.FollowerState"></a>
-
-### FollowerState
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| UUID | [string](#string) |  |  |
-| committedTxID | [uint64](#uint64) |  |  |
-| committedAlh | [bytes](#bytes) |  |  |
-| precommittedTxID | [uint64](#uint64) |  |  |
-| precommittedAlh | [bytes](#bytes) |  |  |
 
 
 
@@ -1399,6 +1380,25 @@ Only succeed if given key was not modified after given transaction
 
 
 
+<a name="immudb.schema.ReplicaState"></a>
+
+### ReplicaState
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| UUID | [string](#string) |  |  |
+| committedTxID | [uint64](#uint64) |  |  |
+| committedAlh | [bytes](#bytes) |  |  |
+| precommittedTxID | [uint64](#uint64) |  |  |
+| precommittedAlh | [bytes](#bytes) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.ReplicationNullableSettings"></a>
 
 ### ReplicationNullableSettings
@@ -1408,16 +1408,16 @@ Only succeed if given key was not modified after given transaction
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | replica | [NullableBool](#immudb.schema.NullableBool) |  | If set to true, this database is replicating another database |
-| masterDatabase | [NullableString](#immudb.schema.NullableString) |  | Name of the database to replicate |
-| masterAddress | [NullableString](#immudb.schema.NullableString) |  | Hostname of the immudb instance with database to replicate |
-| masterPort | [NullableUint32](#immudb.schema.NullableUint32) |  | Port of the immudb instance with database to replicate |
-| followerUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
-| followerPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
+| primaryDatabase | [NullableString](#immudb.schema.NullableString) |  | Name of the database to replicate |
+| primaryHost | [NullableString](#immudb.schema.NullableString) |  | Hostname of the immudb instance with database to replicate |
+| primaryPort | [NullableUint32](#immudb.schema.NullableUint32) |  | Port of the immudb instance with database to replicate |
+| primaryUsername | [NullableString](#immudb.schema.NullableString) |  | Username of the user with read access of the database to replicate |
+| primaryPassword | [NullableString](#immudb.schema.NullableString) |  | Password of the user with read access of the database to replicate |
 | syncReplication | [NullableBool](#immudb.schema.NullableBool) |  | Enable synchronous replication |
 | syncAcks | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of confirmations from synchronous replicas required to commit a transaction |
 | prefetchTxBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of prefetched transactions |
 | replicationCommitConcurrency | [NullableUint32](#immudb.schema.NullableUint32) |  | Number of concurrent replications |
-| AllowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the follower diverges from the master |
+| AllowTxDiscarding | [NullableBool](#immudb.schema.NullableBool) |  | Allow precommitted transactions to be discarded if the replica diverges from the primary |
 
 
 

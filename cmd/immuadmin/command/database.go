@@ -399,27 +399,27 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterDatabase, err = condString("replication-primary-database")
+	ret.ReplicationSettings.PrimaryDatabase, err = condString("replication-primary-database")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterAddress, err = condString("replication-primary-host")
+	ret.ReplicationSettings.PrimaryHost, err = condString("replication-primary-host")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterPort, err = condUInt32("replication-primary-port")
+	ret.ReplicationSettings.PrimaryPort, err = condUInt32("replication-primary-port")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.FollowerUsername, err = condString("replication-primary-username")
+	ret.ReplicationSettings.PrimaryUsername, err = condString("replication-primary-username")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.FollowerPassword, err = condString("replication-primary-password")
+	ret.ReplicationSettings.PrimaryPassword, err = condString("replication-primary-password")
 	if err != nil {
 		return nil, err
 	}

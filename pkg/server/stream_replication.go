@@ -37,7 +37,7 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 	txbs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(req)
 
 	defer func() {
-		if req.FollowerState != nil {
+		if req.ReplicaState != nil {
 			var bMayCommitUpToTxID [8]byte
 			binary.BigEndian.PutUint64(bMayCommitUpToTxID[:], mayCommitUpToTxID)
 

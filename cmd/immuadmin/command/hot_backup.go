@@ -541,7 +541,7 @@ func (cl *commandlineHotBck) useDb(name string, replica bool) (uint64, []byte, e
 }
 
 func (cl *commandlineHotBck) createDb(name string) error {
-	err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true, MasterDatabase: "dummy"})
+	err := cl.immuClient.CreateDatabase(cl.context, &schema.DatabaseSettings{DatabaseName: name, Replica: true, PrimaryDatabase: "dummy"})
 	if err != nil {
 		return err
 	}

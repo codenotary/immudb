@@ -1171,7 +1171,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 	return stx, nil
 }
 
-func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *schema.FollowerState) error {
+func (d *db) mayUpdateFollowerState(committedTxID uint64, newFollowerState *schema.ReplicaState) error {
 	d.followerStatesMutex.Lock()
 	defer d.followerStatesMutex.Unlock()
 
@@ -1244,7 +1244,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 		return nil, 0, mayCommitUpToAlh, ErrIllegalArguments
 	}
 
-	if d.followerStates == nil && req.FollowerState != nil {
+	if d.followerStates == nil && req.ReplicaState != nil {
 		return nil, 0, mayCommitUpToAlh, fmt.Errorf("%w: follower state was NOT expected", ErrIllegalState)
 	}
 
@@ -1257,20 +1257,20 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	committedTxID, committedAlh := d.st.CommittedAlh()
 	preCommittedTxID, _ := d.st.PrecommittedAlh()
 
-	if req.FollowerState != nil {
-		if req.FollowerState.CommittedTxID > 0 {
+	if req.ReplicaState != nil {
+		if req.ReplicaState.CommittedTxID > 0 {
 			// validate follower commit state
-			if req.FollowerState.CommittedTxID > committedTxID {
+			if req.ReplicaState.CommittedTxID > committedTxID {
 				return nil, committedTxID, committedAlh,
 					fmt.Errorf("%w: follower commit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 
-			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.FollowerState.CommittedTxID, false)
+			expectedFollowerCommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.CommittedTxID, false)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
 
-			followerCommittedAlh := schema.DigestFromProto(req.FollowerState.CommittedAlh)
+			followerCommittedAlh := schema.DigestFromProto(req.ReplicaState.CommittedAlh)
 
 			if expectedFollowerCommitHdr.Alh() != followerCommittedAlh {
 				return nil, expectedFollowerCommitHdr.ID, expectedFollowerCommitHdr.Alh(),
@@ -1278,19 +1278,19 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			}
 		}
 
-		if req.FollowerState.PrecommittedTxID > 0 {
+		if req.ReplicaState.PrecommittedTxID > 0 {
 			// validate follower precommit state
-			if req.FollowerState.PrecommittedTxID > preCommittedTxID {
+			if req.ReplicaState.PrecommittedTxID > preCommittedTxID {
 				return nil, committedTxID, committedAlh,
 					fmt.Errorf("%w: follower precommit state diverged from master's", ErrFollowerDivergedFromMaster)
 			}
 
-			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.FollowerState.PrecommittedTxID, true)
+			expectedFollowerPrecommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.PrecommittedTxID, true)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
 
-			followerPreCommittedAlh := schema.DigestFromProto(req.FollowerState.PrecommittedAlh)
+			followerPreCommittedAlh := schema.DigestFromProto(req.ReplicaState.PrecommittedAlh)
 
 			if expectedFollowerPrecommitHdr.Alh() != followerPreCommittedAlh {
 				return nil, expectedFollowerPrecommitHdr.ID, expectedFollowerPrecommitHdr.Alh(),
@@ -1298,11 +1298,11 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			}
 
 			// master will provide commit state to the follower so it can commit pre-committed transactions
-			if req.FollowerState.PrecommittedTxID < committedTxID {
+			if req.ReplicaState.PrecommittedTxID < committedTxID {
 				// if follower is behind current commit state in master
 				// return the alh up to the point known by the follower.
 				// That way the follower is able to validate is following the right master.
-				mayCommitUpToTxID = req.FollowerState.PrecommittedTxID
+				mayCommitUpToTxID = req.ReplicaState.PrecommittedTxID
 				mayCommitUpToAlh = followerPreCommittedAlh
 			} else {
 				mayCommitUpToTxID = committedTxID
@@ -1310,7 +1310,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 			}
 		}
 
-		err = d.mayUpdateFollowerState(committedTxID, req.FollowerState)
+		err = d.mayUpdateFollowerState(committedTxID, req.ReplicaState)
 		if err != nil {
 			return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 		}
@@ -1320,7 +1320,7 @@ func (d *db) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUp
 	// current timeout it's not a special value but at least a relative one
 	// note: master might also be waiting ack from any follower (even this follower may do progress)
 
-	// TODO: under some circustances, follower might not be able to do further progress until master
+	// TODO: under some circumstances, follower might not be able to do further progress until master
 	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
 	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
 	defer cancel()

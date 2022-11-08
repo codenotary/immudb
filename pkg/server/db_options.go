@@ -271,11 +271,11 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:                      &schema.NullableBool{Value: opts.Replica},
 			SyncReplication:              &schema.NullableBool{Value: opts.SyncReplication},
-			MasterDatabase:               &schema.NullableString{Value: opts.MasterDatabase},
-			MasterAddress:                &schema.NullableString{Value: opts.MasterAddress},
-			MasterPort:                   &schema.NullableUint32{Value: uint32(opts.MasterPort)},
-			FollowerUsername:             &schema.NullableString{Value: opts.FollowerUsername},
-			FollowerPassword:             &schema.NullableString{Value: opts.FollowerPassword},
+			PrimaryDatabase:              &schema.NullableString{Value: opts.MasterDatabase},
+			PrimaryHost:                  &schema.NullableString{Value: opts.MasterAddress},
+			PrimaryPort:                  &schema.NullableUint32{Value: uint32(opts.MasterPort)},
+			PrimaryUsername:              &schema.NullableString{Value: opts.FollowerUsername},
+			PrimaryPassword:              &schema.NullableString{Value: opts.FollowerPassword},
 			SyncAcks:                     &schema.NullableUint32{Value: uint32(opts.SyncAcks)},
 			PrefetchTxBufferSize:         &schema.NullableUint32{Value: uint32(opts.PrefetchTxBufferSize)},
 			ReplicationCommitConcurrency: &schema.NullableUint32{Value: uint32(opts.ReplicationCommitConcurrency)},
@@ -346,12 +346,12 @@ func dbSettingsToDBNullableSettings(settings *schema.DatabaseSettings) *schema.D
 	}
 
 	repSettings := &schema.ReplicationNullableSettings{
-		Replica:          &schema.NullableBool{Value: settings.Replica},
-		MasterDatabase:   &schema.NullableString{Value: settings.MasterDatabase},
-		MasterAddress:    &schema.NullableString{Value: settings.MasterAddress},
-		MasterPort:       &schema.NullableUint32{Value: settings.MasterPort},
-		FollowerUsername: &schema.NullableString{Value: settings.FollowerUsername},
-		FollowerPassword: &schema.NullableString{Value: settings.FollowerPassword},
+		Replica:         &schema.NullableBool{Value: settings.Replica},
+		PrimaryDatabase: &schema.NullableString{Value: settings.PrimaryDatabase},
+		PrimaryHost:     &schema.NullableString{Value: settings.PrimaryHost},
+		PrimaryPort:     &schema.NullableUint32{Value: settings.PrimaryPort},
+		PrimaryUsername: &schema.NullableString{Value: settings.PrimaryUsername},
+		PrimaryPassword: &schema.NullableString{Value: settings.PrimaryPassword},
 	}
 
 	if !settings.Replica {
@@ -422,28 +422,28 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		} else if opts.Replica {
 			opts.SyncAcks = 0
 		}
-		if rs.MasterDatabase != nil {
-			opts.MasterDatabase = rs.MasterDatabase.Value
+		if rs.PrimaryDatabase != nil {
+			opts.MasterDatabase = rs.PrimaryDatabase.Value
 		} else if !opts.Replica {
 			opts.MasterDatabase = ""
 		}
-		if rs.MasterAddress != nil {
-			opts.MasterAddress = rs.MasterAddress.Value
+		if rs.PrimaryHost != nil {
+			opts.MasterAddress = rs.PrimaryHost.Value
 		} else if !opts.Replica {
 			opts.MasterAddress = ""
 		}
-		if rs.MasterPort != nil {
-			opts.MasterPort = int(rs.MasterPort.Value)
+		if rs.PrimaryPort != nil {
+			opts.MasterPort = int(rs.PrimaryPort.Value)
 		} else if !opts.Replica {
 			opts.MasterPort = 0
 		}
-		if rs.FollowerUsername != nil {
-			opts.FollowerUsername = rs.FollowerUsername.Value
+		if rs.PrimaryUsername != nil {
+			opts.FollowerUsername = rs.PrimaryUsername.Value
 		} else if !opts.Replica {
 			opts.FollowerUsername = ""
 		}
-		if rs.FollowerPassword != nil {
-			opts.FollowerPassword = rs.FollowerPassword.Value
+		if rs.PrimaryPassword != nil {
+			opts.FollowerPassword = rs.PrimaryPassword.Value
 		} else if !opts.Replica {
 			opts.FollowerPassword = ""
 		}

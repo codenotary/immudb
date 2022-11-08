@@ -385,9 +385,9 @@ func TestServerCreateDatabase(t *testing.T) {
 	require.Equal(t, ErrIllegalArguments, err)
 
 	dbSettings := &schema.DatabaseSettings{
-		DatabaseName:   "lisbon",
-		Replica:        false,
-		MasterDatabase: "masterdb",
+		DatabaseName:    "lisbon",
+		Replica:         false,
+		PrimaryDatabase: "masterdb",
 	}
 	_, err = s.CreateDatabaseWith(ctx, dbSettings)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -548,15 +548,15 @@ func TestServerUpdateDatabaseAuthEnabled(t *testing.T) {
 	require.Equal(t, database.ErrDatabaseNotExists, err)
 
 	newdb := &schema.DatabaseSettings{
-		DatabaseName:   "lisbon",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
+		DatabaseName:    "lisbon",
+		Replica:         true,
+		PrimaryDatabase: "defaultdb",
 	}
 	_, err = s.CreateDatabaseWith(ctx, newdb)
 	require.NoError(t, err)
 
 	newdb.Replica = false
-	newdb.MasterDatabase = ""
+	newdb.PrimaryDatabase = ""
 	_, err = s.UpdateDatabase(ctx, newdb)
 	require.NoError(t, err)
 
@@ -629,8 +629,8 @@ func TestServerUpdateDatabaseV2AuthEnabled(t *testing.T) {
 		Name: "lisbon",
 		Settings: &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
-				Replica:        &schema.NullableBool{Value: true},
-				MasterDatabase: &schema.NullableString{Value: "defaultdb"},
+				Replica:         &schema.NullableBool{Value: true},
+				PrimaryDatabase: &schema.NullableString{Value: "defaultdb"},
 			},
 		},
 		IfNotExists: true,

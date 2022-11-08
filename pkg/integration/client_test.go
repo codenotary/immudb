@@ -492,9 +492,9 @@ func TestReplica(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{
-		DatabaseName:   "db1",
-		Replica:        true,
-		MasterDatabase: "defaultdb",
+		DatabaseName:    "db1",
+		Replica:         true,
+		PrimaryDatabase: "defaultdb",
 	})
 	require.NoError(t, err)
 

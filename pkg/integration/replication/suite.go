@@ -84,13 +84,13 @@ func (suite *baseReplicationTestSuite) AddFollower(sync bool) int {
 
 	settings := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			Replica:          &schema.NullableBool{Value: true},
-			SyncReplication:  &schema.NullableBool{Value: sync},
-			MasterDatabase:   &schema.NullableString{Value: suite.masterDBName},
-			MasterAddress:    &schema.NullableString{Value: masterHost},
-			MasterPort:       &schema.NullableUint32{Value: uint32(masterPort)},
-			FollowerUsername: &schema.NullableString{Value: replicaUsername},
-			FollowerPassword: &schema.NullableString{Value: replicaPassword},
+			Replica:         &schema.NullableBool{Value: true},
+			SyncReplication: &schema.NullableBool{Value: sync},
+			PrimaryDatabase: &schema.NullableString{Value: suite.masterDBName},
+			PrimaryHost:     &schema.NullableString{Value: masterHost},
+			PrimaryPort:     &schema.NullableUint32{Value: uint32(masterPort)},
+			PrimaryUsername: &schema.NullableString{Value: replicaUsername},
+			PrimaryPassword: &schema.NullableString{Value: replicaPassword},
 		},
 	}
 
@@ -157,12 +157,12 @@ func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncAcks int
 
 		_, err = client.UpdateDatabaseV2(ctx, suite.followersDBName[i], &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
-				Replica:          &schema.NullableBool{Value: true},
-				MasterAddress:    &schema.NullableString{Value: host},
-				MasterPort:       &schema.NullableUint32{Value: uint32(port)},
-				MasterDatabase:   &schema.NullableString{Value: suite.masterDBName},
-				FollowerUsername: &schema.NullableString{Value: replicaUsername},
-				FollowerPassword: &schema.NullableString{Value: replicaPassword},
+				Replica:         &schema.NullableBool{Value: true},
+				PrimaryHost:     &schema.NullableString{Value: host},
+				PrimaryPort:     &schema.NullableUint32{Value: uint32(port)},
+				PrimaryDatabase: &schema.NullableString{Value: suite.masterDBName},
+				PrimaryUsername: &schema.NullableString{Value: replicaUsername},
+				PrimaryPassword: &schema.NullableString{Value: replicaPassword},
 			},
 		})
 		require.NoError(suite.T(), err)

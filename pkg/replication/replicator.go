@@ -312,10 +312,10 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 	nextTx := txr.lastTx + 1
 
-	var state *schema.FollowerState
+	var state *schema.ReplicaState
 
 	if syncReplicationEnabled {
-		state = &schema.FollowerState{
+		state = &schema.ReplicaState{
 			UUID:             txr.uuid.String(),
 			CommittedTxID:    commitState.TxId,
 			CommittedAlh:     commitState.TxHash,
@@ -326,7 +326,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 
 	exportTxStream, err := txr.client.ExportTx(txr.context, &schema.ExportTxRequest{
 		Tx:                nextTx,
-		FollowerState:     state,
+		ReplicaState:      state,
 		AllowPreCommitted: syncReplicationEnabled,
 	})
 	if err != nil {
