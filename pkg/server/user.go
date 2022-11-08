@@ -130,7 +130,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, fmt.Errorf("can not create another system admin")
 	}
 
-	_, err = s.getUser(r.User, true)
+	_, err = s.getUser(r.User)
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
@@ -320,7 +320,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return nil, fmt.Errorf("username can not be empty")
 	}
 
-	targetUser, err := s.getUser(r.User, true)
+	targetUser, err := s.getUser(r.User)
 	if err != nil {
 		return nil, fmt.Errorf("user %s was not found or it was not created by you", string(r.User))
 	}
@@ -398,7 +398,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	}
 
 	//check if user exists
-	targetUser, err := s.getUser([]byte(r.Username), true)
+	targetUser, err := s.getUser([]byte(r.Username))
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
 	}
@@ -465,7 +465,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		return nil, fmt.Errorf("changing your own status is not allowed")
 	}
 
-	targetUser, err := s.getUser([]byte(r.Username), true)
+	targetUser, err := s.getUser([]byte(r.Username))
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
@@ -533,7 +533,7 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 }
 
 func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.User, error) {
-	userdata, err := s.getUser(username, true)
+	userdata, err := s.getUser(username)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +547,7 @@ func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.U
 }
 
 // getUser returns userdata (username,hashed password, permission, active) from username
-func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.User, error) {
+func (s *ImmuServer) getUser(username []byte) (*auth.User, error) {
 	key := make([]byte, 1+len(username))
 	key[0] = KeyPrefixUser
 	copy(key[1:], username)
@@ -562,12 +562,6 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	err = json.Unmarshal(item.Value, &usr)
 	if err != nil {
 		return nil, err
-	}
-
-	if !includeDeactivated {
-		if usr.Active {
-			return nil, fmt.Errorf("user not found")
-		}
 	}
 
 	return &usr, nil

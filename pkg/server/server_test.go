@@ -1700,11 +1700,9 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, err)
 
-	_, err = s.getUser([]byte(username), true)
+	_, err = s.getUser([]byte(username))
 	require.NoError(t, err)
 
-	_, err = s.getUser([]byte(username), false)
-	require.Equal(t, errors.New("user not found"), err)
 
 	_, err = s.getValidatedUser([]byte(username), []byte("wrongpass"))
 	require.Error(t, err)

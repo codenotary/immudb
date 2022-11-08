@@ -384,7 +384,7 @@ func (s *ImmuServer) resetAdminPassword(adminPassword string) error {
 		return errors.New("database is running as a replica")
 	}
 
-	adminUser, err := s.getUser([]byte(auth.SysAdminUsername), false)
+	adminUser, err := s.getUser([]byte(auth.SysAdminUsername))
 	if err != nil {
 		return fmt.Errorf("could not read sysadmin user data: %v", err)
 	}
