@@ -36,10 +36,10 @@ func parseOptions() (options *server.Options, err error) {
 
 	if replicationOptions.IsReplica {
 		replicationOptions.
-			WithMasterAddress(viper.GetString("replication-master-address")).
-			WithMasterPort(viper.GetInt("replication-master-port")).
-			WithFollowerUsername(viper.GetString("replication-follower-username")).
-			WithFollowerPassword(viper.GetString("replication-follower-password")).
+			WithMasterAddress(viper.GetString("replication-primary-host")).
+			WithMasterPort(viper.GetInt("replication-primary-port")).
+			WithFollowerUsername(viper.GetString("replication-primary-username")).
+			WithFollowerPassword(viper.GetString("replication-primary-password")).
 			WithPrefetchTxBufferSize(viper.GetInt("replication-prefetch-tx-buffer-size")).
 			WithReplicationCommitConcurrency(viper.GetInt("replication-commit-concurrency")).
 			WithAllowTxDiscarding(viper.GetBool("replication-allow-tx-discarding"))

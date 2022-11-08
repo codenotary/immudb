@@ -36,13 +36,13 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Bool("replication-is-replica", false, "set systemdb and defaultdb as replica")
 	cmd.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	cmd.Flags().Int("replication-sync-acks", 0, "set a minimum number of replica acknowledgements required before transactions can be committed")
-	cmd.Flags().String("replication-master-address", "", "master address (if replica=true)")
-	cmd.Flags().Int("replication-master-port", 3322, "master port (if replica=true)")
-	cmd.Flags().String("replication-follower-username", "", "username used for replication of systemdb and defaultdb")
-	cmd.Flags().String("replication-follower-password", "", "password used for replication of systemdb and defaultdb")
+	cmd.Flags().String("replication-primary-host", "", "primary database host (if replica=true)")
+	cmd.Flags().Int("replication-primary-port", 3322, "primary database port (if replica=true)")
+	cmd.Flags().String("replication-primary-username", "", "username in the primary database used for replication of systemdb and defaultdb")
+	cmd.Flags().String("replication-primary-password", "", "password in the primary database used for replication of systemdb and defaultdb")
 	cmd.Flags().Int("replication-prefetch-tx-buffer-size", options.ReplicationOptions.PrefetchTxBufferSize, "maximum number of prefeched transactions")
 	cmd.Flags().Int("replication-commit-concurrency", options.ReplicationOptions.ReplicationCommitConcurrency, "number of concurrent replications")
-	cmd.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the follower diverges from the master")
+	cmd.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the replica diverges from the primary")
 
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename e.g. /var/run/immudb.pid")
@@ -84,9 +84,18 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Duration("sessions-guard-check-interval", 1*time.Minute, "sessions guard check interval")
 	cmd.Flags().MarkHidden("sessions-guard-check-interval")
 
+	flagNameMapping := map[string]string{
+		"replication-enabled":           "replication-is-replica",
+		"replication-follower-username": "replication-primary-username",
+		"replication-follower-password": "replication-primary-password",
+		"replication-master-database":   "replication-primary-database",
+		"replication-master-address":    "replication-primary-host",
+		"replication-master-port":       "replication-primary-port",
+	}
+
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
-		if name == "replication-enabled" {
-			name = "replication-is-replica"
+		if newName, ok := flagNameMapping[name]; ok {
+			name = newName
 		}
 		return pflag.NormalizedName(name)
 	})

@@ -38,14 +38,14 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Bool("replication-is-replica", false, "set database as a replica")
 	c.Flags().Bool("replication-sync-enabled", false, "enable synchronous replication")
 	c.Flags().Uint32("replication-sync-acks", 0, "set a minimum number of replica acknowledgements required before transactions can be committed")
-	c.Flags().String("replication-master-database", "", "set master database to be replicated")
-	c.Flags().String("replication-master-address", "", "set master address")
-	c.Flags().Uint32("replication-master-port", 0, "set master port")
-	c.Flags().String("replication-follower-username", "", "set username used for replication")
-	c.Flags().String("replication-follower-password", "", "set password used for replication")
+	c.Flags().String("replication-primary-database", "", "set primary database to be replicated")
+	c.Flags().String("replication-primary-host", "", "set primary database host")
+	c.Flags().Uint32("replication-primary-port", 0, "set primary database port")
+	c.Flags().String("replication-primary-username", "", "set username used for replication to connect to the primary database")
+	c.Flags().String("replication-primary-password", "", "set password used for replication to connect to the primary database")
 	c.Flags().Uint32("replication-prefetch-tx-buffer-size", uint32(replication.DefaultPrefetchTxBufferSize), "maximum number of prefeched transactions")
 	c.Flags().Uint32("replication-commit-concurrency", uint32(replication.DefaultReplicationCommitConcurrency), "number of concurrent replications")
-	c.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the follower diverges from the master")
+	c.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the replica diverges from the primary")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
 	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
@@ -53,9 +53,18 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("read-tx-pool-size", database.DefaultReadTxPoolSize, "set transaction read pool size (used for reading transaction objects)")
 	c.Flags().Bool("autoload", true, "enable database autoloading")
 
+	flagNameMapping := map[string]string{
+		"replication-enabled":           "replication-is-replica",
+		"replication-follower-username": "replication-primary-username",
+		"replication-follower-password": "replication-primary-password",
+		"replication-master-database":   "replication-primary-database",
+		"replication-master-address":    "replication-primary-host",
+		"replication-master-port":       "replication-primary-port",
+	}
+
 	c.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
-		if name == "replication-enabled" {
-			name = "replication-is-replica"
+		if newName, ok := flagNameMapping[name]; ok {
+			name = newName
 		}
 		return pflag.NormalizedName(name)
 	})
@@ -390,27 +399,27 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterDatabase, err = condString("replication-master-database")
+	ret.ReplicationSettings.MasterDatabase, err = condString("replication-primary-database")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterAddress, err = condString("replication-master-address")
+	ret.ReplicationSettings.MasterAddress, err = condString("replication-primary-host")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.MasterPort, err = condUInt32("replication-master-port")
+	ret.ReplicationSettings.MasterPort, err = condUInt32("replication-primary-port")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.FollowerUsername, err = condString("replication-follower-username")
+	ret.ReplicationSettings.FollowerUsername, err = condString("replication-primary-username")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.ReplicationSettings.FollowerPassword, err = condString("replication-follower-password")
+	ret.ReplicationSettings.FollowerPassword, err = condString("replication-primary-password")
 	if err != nil {
 		return nil, err
 	}
