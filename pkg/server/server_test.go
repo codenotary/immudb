@@ -387,7 +387,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	dbSettings := &schema.DatabaseSettings{
 		DatabaseName:    "lisbon",
 		Replica:         false,
-		PrimaryDatabase: "masterdb",
+		PrimaryDatabase: "primarydb",
 	}
 	_, err = s.CreateDatabaseWith(ctx, dbSettings)
 	require.ErrorIs(t, err, ErrIllegalArguments)

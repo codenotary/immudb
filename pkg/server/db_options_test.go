@@ -69,7 +69,7 @@ func TestReplicaOptions(t *testing.T) {
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 }
 
-func TestMasterOptions(t *testing.T) {
+func TestPrimaryOptions(t *testing.T) {
 	dir, err := ioutil.TempDir("", "server_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
@@ -100,10 +100,10 @@ func TestMasterOptions(t *testing.T) {
 	opts.PrefetchTxBufferSize = 100
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.PrimaryPassword = "follower-pwd"
+	opts.PrimaryPassword = "primary-pwd"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.PrimaryUsername = "follower-username"
+	opts.PrimaryUsername = "primary-username"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.PrimaryPort = 3323
@@ -112,7 +112,7 @@ func TestMasterOptions(t *testing.T) {
 	opts.PrimaryHost = "localhost"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.PrimaryDatabase = "masterdb"
+	opts.PrimaryDatabase = "primarydb"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.SyncAcks = -1

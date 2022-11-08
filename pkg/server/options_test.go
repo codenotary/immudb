@@ -69,8 +69,8 @@ func TestReplicationOptions(t *testing.T) {
 		WithSyncAcks(0).
 		WithPrimaryHost("localhost").
 		WithPrimaryPort(3322).
-		WithPrimaryUsername("follower-user").
-		WithPrimaryPassword("follower-pwd").
+		WithPrimaryUsername("primary-user").
+		WithPrimaryPassword("primary-pwd").
 		WithPrefetchTxBufferSize(100).
 		WithReplicationCommitConcurrency(5).
 		WithAllowTxDiscarding(true)
@@ -80,13 +80,13 @@ func TestReplicationOptions(t *testing.T) {
 	require.Zero(t, repOpts.SyncAcks)
 	require.Equal(t, "localhost", repOpts.PrimaryHost)
 	require.Equal(t, 3322, repOpts.PrimaryPort)
-	require.Equal(t, "follower-user", repOpts.PrimaryUsername)
-	require.Equal(t, "follower-pwd", repOpts.PrimaryPassword)
+	require.Equal(t, "primary-user", repOpts.PrimaryUsername)
+	require.Equal(t, "primary-pwd", repOpts.PrimaryPassword)
 	require.Equal(t, 100, repOpts.PrefetchTxBufferSize)
 	require.Equal(t, 5, repOpts.ReplicationCommitConcurrency)
 	require.True(t, repOpts.AllowTxDiscarding)
 
-	// master-related settings
+	// primary-related settings
 	repOpts.
 		WithIsReplica(false).
 		WithSyncReplication(true).

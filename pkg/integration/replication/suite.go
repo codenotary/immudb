@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	masterDBName    = "masterdb"
+	primaryDBName   = "primarydb"
 	replicaDBName   = "replicadb"
-	replicaUsername = "follower"
-	replicaPassword = "follower1Pwd!"
+	primaryUsername = "replicator"
+	primaryPassword = "replicator1Pwd!"
 )
 
 // TestServer is an abstract representation of a TestServer
@@ -48,89 +48,89 @@ type baseReplicationTestSuite struct {
 	mu sync.Mutex
 
 	// server settings
-	master        TestServer
-	masterDBName  string
-	masterRunning bool
+	primary        TestServer
+	primaryDBName  string
+	primaryRunning bool
 
-	followers        []TestServer
-	followersDBName  []string
-	followersRunning []bool
+	replicas        []TestServer
+	replicasDBName  []string
+	replicasRunning []bool
 
 	clientStateDir string
 }
 
-func (suite *baseReplicationTestSuite) GetFollowersCount() int {
+func (suite *baseReplicationTestSuite) GetReplicasCount() int {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	return len(suite.followers)
+	return len(suite.replicas)
 }
 
-func (suite *baseReplicationTestSuite) AddFollower(sync bool) int {
+func (suite *baseReplicationTestSuite) AddReplica(sync bool) int {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	follower := suite.srvProvider.AddServer(suite.T())
+	replica := suite.srvProvider.AddServer(suite.T())
 
-	followerNum := len(suite.followers)
-	suite.followers = append(suite.followers, follower)
-	suite.followersDBName = append(suite.followersDBName, replicaDBName)
-	suite.followersRunning = append(suite.followersRunning, true)
+	replicaNum := len(suite.replicas)
+	suite.replicas = append(suite.replicas, replica)
+	suite.replicasDBName = append(suite.replicasDBName, replicaDBName)
+	suite.replicasRunning = append(suite.replicasRunning, true)
 
-	fctx, followerClient, cleanup := suite.internalClientFor(follower, client.DefaultDB)
+	rctx, replicaClient, cleanup := suite.internalClientFor(replica, client.DefaultDB)
 	defer cleanup()
 
-	masterHost, masterPort := suite.master.Address(suite.T())
+	primaryHost, primaryPort := suite.primary.Address(suite.T())
 
 	settings := &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:         &schema.NullableBool{Value: true},
 			SyncReplication: &schema.NullableBool{Value: sync},
-			PrimaryDatabase: &schema.NullableString{Value: suite.masterDBName},
-			PrimaryHost:     &schema.NullableString{Value: masterHost},
-			PrimaryPort:     &schema.NullableUint32{Value: uint32(masterPort)},
-			PrimaryUsername: &schema.NullableString{Value: replicaUsername},
-			PrimaryPassword: &schema.NullableString{Value: replicaPassword},
+			PrimaryDatabase: &schema.NullableString{Value: suite.primaryDBName},
+			PrimaryHost:     &schema.NullableString{Value: primaryHost},
+			PrimaryPort:     &schema.NullableUint32{Value: uint32(primaryPort)},
+			PrimaryUsername: &schema.NullableString{Value: primaryUsername},
+			PrimaryPassword: &schema.NullableString{Value: primaryPassword},
 		},
 	}
 
-	// init database on the follower to replicate
-	_, err := followerClient.CreateDatabaseV2(fctx, replicaDBName, settings)
+	// init database on the replica to replicate
+	_, err := replicaClient.CreateDatabaseV2(rctx, replicaDBName, settings)
 	require.NoError(suite.T(), err)
 
-	return followerNum
+	return replicaNum
 }
 
-func (suite *baseReplicationTestSuite) StopFollower(followerNum int) {
+func (suite *baseReplicationTestSuite) StopReplica(replicaNum int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	f := suite.followers[followerNum]
+	f := suite.replicas[replicaNum]
 	f.Shutdown(suite.T())
-	suite.followersRunning[followerNum] = false
+	suite.replicasRunning[replicaNum] = false
 }
 
-func (suite *baseReplicationTestSuite) StartFollower(followerNum int) {
+func (suite *baseReplicationTestSuite) StartReplica(replicaNum int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	f := suite.followers[followerNum]
+	f := suite.replicas[replicaNum]
 	f.Start(suite.T())
-	suite.followersRunning[followerNum] = true
+	suite.replicasRunning[replicaNum] = true
 }
 
-func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncAcks int) {
+func (suite *baseReplicationTestSuite) PromoteReplica(replicaNum, syncAcks int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	// set follower as new master and current master as follower
-	suite.master, suite.followers[followerNum] = suite.followers[followerNum], suite.master
-	suite.masterDBName, suite.followersDBName[followerNum] = suite.followersDBName[followerNum], suite.masterDBName
+	// set replica as new primary and current primary as replica
+	suite.primary, suite.replicas[replicaNum] = suite.replicas[replicaNum], suite.primary
+	suite.primaryDBName, suite.replicasDBName[replicaNum] = suite.replicasDBName[replicaNum], suite.primaryDBName
 
-	mctx, mClient, cleanup := suite.internalClientFor(suite.master, suite.masterDBName)
+	mctx, mClient, cleanup := suite.internalClientFor(suite.primary, suite.primaryDBName)
 	defer cleanup()
 
-	_, err := mClient.UpdateDatabaseV2(mctx, suite.masterDBName, &schema.DatabaseNullableSettings{
+	_, err := mClient.UpdateDatabaseV2(mctx, suite.primaryDBName, &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:         &schema.NullableBool{Value: false},
 			SyncReplication: &schema.NullableBool{Value: syncAcks > 0},
@@ -139,45 +139,45 @@ func (suite *baseReplicationTestSuite) PromoteFollower(followerNum, syncAcks int
 	})
 	require.NoError(suite.T(), err)
 
-	mdb, err := mClient.UseDatabase(mctx, &schema.Database{DatabaseName: suite.masterDBName})
+	mdb, err := mClient.UseDatabase(mctx, &schema.Database{DatabaseName: suite.primaryDBName})
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), mdb)
 
-	err = mClient.CreateUser(mctx, []byte(replicaUsername), []byte(replicaPassword), auth.PermissionAdmin, suite.masterDBName)
+	err = mClient.CreateUser(mctx, []byte(primaryUsername), []byte(primaryPassword), auth.PermissionAdmin, suite.primaryDBName)
 	require.NoError(suite.T(), err)
 
-	err = mClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: replicaUsername})
+	err = mClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: primaryUsername})
 	require.NoError(suite.T(), err)
 
-	host, port := suite.master.Address(suite.T())
+	host, port := suite.primary.Address(suite.T())
 
-	for i, _ := range suite.followers {
-		ctx, client, cleanup := suite.internalClientFor(suite.followers[i], suite.followersDBName[i])
+	for i, _ := range suite.replicas {
+		ctx, client, cleanup := suite.internalClientFor(suite.replicas[i], suite.replicasDBName[i])
 		defer cleanup()
 
-		_, err = client.UpdateDatabaseV2(ctx, suite.followersDBName[i], &schema.DatabaseNullableSettings{
+		_, err = client.UpdateDatabaseV2(ctx, suite.replicasDBName[i], &schema.DatabaseNullableSettings{
 			ReplicationSettings: &schema.ReplicationNullableSettings{
 				Replica:         &schema.NullableBool{Value: true},
 				PrimaryHost:     &schema.NullableString{Value: host},
 				PrimaryPort:     &schema.NullableUint32{Value: uint32(port)},
-				PrimaryDatabase: &schema.NullableString{Value: suite.masterDBName},
-				PrimaryUsername: &schema.NullableString{Value: replicaUsername},
-				PrimaryPassword: &schema.NullableString{Value: replicaPassword},
+				PrimaryDatabase: &schema.NullableString{Value: suite.primaryDBName},
+				PrimaryUsername: &schema.NullableString{Value: primaryUsername},
+				PrimaryPassword: &schema.NullableString{Value: primaryPassword},
 			},
 		})
 		require.NoError(suite.T(), err)
 	}
 }
 
-func (suite *baseReplicationTestSuite) StartMaster(syncAcks int) {
+func (suite *baseReplicationTestSuite) StartPrimary(syncAcks int) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	require.Nil(suite.T(), suite.master)
+	require.Nil(suite.T(), suite.primary)
 
 	srv := suite.srvProvider.AddServer(suite.T())
 
-	suite.master = srv
+	suite.primary = srv
 
 	mctx, client, cleanup := suite.internalClientFor(srv, client.DefaultDB)
 	defer cleanup()
@@ -191,40 +191,40 @@ func (suite *baseReplicationTestSuite) StartMaster(syncAcks int) {
 		}
 	}
 
-	_, err := client.CreateDatabaseV2(mctx, suite.masterDBName, settings)
+	_, err := client.CreateDatabaseV2(mctx, suite.primaryDBName, settings)
 	require.NoError(suite.T(), err)
 
-	mdb, err := client.UseDatabase(mctx, &schema.Database{DatabaseName: suite.masterDBName})
+	mdb, err := client.UseDatabase(mctx, &schema.Database{DatabaseName: suite.primaryDBName})
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), mdb)
 
-	err = client.CreateUser(mctx, []byte(replicaUsername), []byte(replicaPassword), auth.PermissionAdmin, suite.masterDBName)
+	err = client.CreateUser(mctx, []byte(primaryUsername), []byte(primaryPassword), auth.PermissionAdmin, suite.primaryDBName)
 	require.NoError(suite.T(), err)
 
-	err = client.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: replicaUsername})
+	err = client.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: primaryUsername})
 	require.NoError(suite.T(), err)
 
-	suite.masterRunning = true
+	suite.primaryRunning = true
 }
 
-func (suite *baseReplicationTestSuite) StopMaster() {
+func (suite *baseReplicationTestSuite) StopPrimary() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	require.NotNil(suite.T(), suite.master)
+	require.NotNil(suite.T(), suite.primary)
 
-	suite.master.Shutdown(suite.T())
-	suite.masterRunning = false
+	suite.primary.Shutdown(suite.T())
+	suite.primaryRunning = false
 }
 
-func (suite *baseReplicationTestSuite) RestartMaster() {
-	suite.StopMaster()
+func (suite *baseReplicationTestSuite) RestartPrimary() {
+	suite.StopPrimary()
 
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	suite.master.Start(suite.T())
-	suite.masterRunning = true
+	suite.primary.Start(suite.T())
+	suite.primaryRunning = true
 }
 
 func (suite *baseReplicationTestSuite) internalClientFor(srv TestServer, dbName string) (context.Context, client.ImmuClient, func()) {
@@ -249,18 +249,18 @@ func (suite *baseReplicationTestSuite) internalClientFor(srv TestServer, dbName 
 	return context.Background(), c, func() { c.CloseSession(context.Background()) }
 }
 
-func (suite *baseReplicationTestSuite) ClientForMaster() (mctx context.Context, client client.ImmuClient, cleanup func()) {
+func (suite *baseReplicationTestSuite) ClientForPrimary() (mctx context.Context, client client.ImmuClient, cleanup func()) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	return suite.internalClientFor(suite.master, suite.masterDBName)
+	return suite.internalClientFor(suite.primary, suite.primaryDBName)
 }
 
-func (suite *baseReplicationTestSuite) ClientForReplica(replicaNum int) (fctx context.Context, client client.ImmuClient, cleanup func()) {
+func (suite *baseReplicationTestSuite) ClientForReplica(replicaNum int) (rctx context.Context, client client.ImmuClient, cleanup func()) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	return suite.internalClientFor(suite.followers[replicaNum], suite.followersDBName[replicaNum])
+	return suite.internalClientFor(suite.replicas[replicaNum], suite.replicasDBName[replicaNum])
 }
 
 func (suite *baseReplicationTestSuite) WaitForCommittedTx(
@@ -288,9 +288,9 @@ func (suite *baseReplicationTestSuite) WaitForCommittedTx(
 }
 
 func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyncReplicas int) {
-	suite.masterDBName = masterDBName
+	suite.primaryDBName = primaryDBName
 
-	suite.StartMaster(syncAcks)
+	suite.StartPrimary(syncAcks)
 
 	wg := sync.WaitGroup{}
 
@@ -298,7 +298,7 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			suite.AddFollower(true)
+			suite.AddReplica(true)
 		}()
 	}
 
@@ -306,7 +306,7 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			suite.AddFollower(false)
+			suite.AddReplica(false)
 		}()
 	}
 
@@ -314,11 +314,11 @@ func (suite *baseReplicationTestSuite) SetupCluster(syncReplicas, syncAcks, asyn
 }
 
 func (suite *baseReplicationTestSuite) ValidateClusterSetup() {
-	uuids := make(map[string]struct{}, 1+suite.GetFollowersCount())
+	uuids := make(map[string]struct{}, 1+suite.GetReplicasCount())
 
-	uuids[suite.master.UUID(suite.T()).String()] = struct{}{}
+	uuids[suite.primary.UUID(suite.T()).String()] = struct{}{}
 
-	for _, f := range suite.followers {
+	for _, f := range suite.replicas {
 		uuid := f.UUID(suite.T()).String()
 
 		if _, ok := uuids[uuid]; ok {
@@ -346,18 +346,18 @@ func (suite *baseReplicationTestSuite) TearDownTest() {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
 
-	// stop followers
-	for i, srv := range suite.followers {
-		if suite.followersRunning[i] {
+	// stop replicas
+	for i, srv := range suite.replicas {
+		if suite.replicasRunning[i] {
 			srv.Shutdown(suite.T())
 		}
 	}
-	suite.followers = []TestServer{}
+	suite.replicas = []TestServer{}
 
-	// stop master
-	if suite.master != nil {
-		suite.master.Shutdown(suite.T())
-		suite.master = nil
+	// stop primary
+	if suite.primary != nil {
+		suite.primary.Shutdown(suite.T())
+		suite.primary = nil
 	}
-	suite.master = nil
+	suite.primary = nil
 }

@@ -2293,11 +2293,11 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 }
 
 func TestExportAndReplicateTx(t *testing.T) {
-	masterDir := t.TempDir()
+	primaryDir := t.TempDir()
 
-	masterStore, err := Open(masterDir, DefaultOptions())
+	primaryStore, err := Open(primaryDir, DefaultOptions())
 	require.NoError(t, err)
-	defer immustoreClose(t, masterStore)
+	defer immustoreClose(t, primaryStore)
 
 	replicaDir := t.TempDir()
 
@@ -2305,7 +2305,7 @@ func TestExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 	defer immustoreClose(t, replicaStore)
 
-	tx, err := masterStore.NewWriteOnlyTx()
+	tx, err := primaryStore.NewWriteOnlyTx()
 	require.NoError(t, err)
 
 	tx.WithMetadata(NewTxMetadata())
@@ -2317,9 +2317,9 @@ func TestExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	txholder := tempTxHolder(t, masterStore)
+	txholder := tempTxHolder(t, primaryStore)
 
-	etx, err := masterStore.ExportTx(1, false, txholder)
+	etx, err := primaryStore.ExportTx(1, false, txholder)
 	require.NoError(t, err)
 
 	rhdr, err := replicaStore.ReplicateTx(etx, false)
@@ -2334,11 +2334,11 @@ func TestExportAndReplicateTx(t *testing.T) {
 }
 
 func TestExportAndReplicateTxCornerCases(t *testing.T) {
-	masterDir := t.TempDir()
+	primaryDir := t.TempDir()
 
-	masterStore, err := Open(masterDir, DefaultOptions())
+	primaryStore, err := Open(primaryDir, DefaultOptions())
 	require.NoError(t, err)
-	defer immustoreClose(t, masterStore)
+	defer immustoreClose(t, primaryStore)
 
 	replicaDir := t.TempDir()
 
@@ -2346,7 +2346,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	require.NoError(t, err)
 	defer immustoreClose(t, replicaStore)
 
-	tx, err := masterStore.NewWriteOnlyTx()
+	tx, err := primaryStore.NewWriteOnlyTx()
 	require.NoError(t, err)
 
 	tx.WithMetadata(NewTxMetadata())
@@ -2358,10 +2358,10 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, hdr)
 
-	txholder := tempTxHolder(t, masterStore)
+	txholder := tempTxHolder(t, primaryStore)
 
 	t.Run("prevent replicating broken data", func(t *testing.T) {
-		etx, err := masterStore.ExportTx(1, false, txholder)
+		etx, err := primaryStore.ExportTx(1, false, txholder)
 		require.NoError(t, err)
 
 		for i := range etx {
@@ -2392,11 +2392,11 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 }
 
 func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
-	masterDir := t.TempDir()
+	primaryDir := t.TempDir()
 
-	masterStore, err := Open(masterDir, DefaultOptions())
+	primaryStore, err := Open(primaryDir, DefaultOptions())
 	require.NoError(t, err)
-	defer immustoreClose(t, masterStore)
+	defer immustoreClose(t, primaryStore)
 
 	replicaDir := t.TempDir()
 
@@ -2409,7 +2409,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 
 	for i := 0; i < txCount; i++ {
 		t.Run(fmt.Sprintf("tx: %d", i), func(t *testing.T) {
-			tx, err := masterStore.NewWriteOnlyTx()
+			tx, err := primaryStore.NewWriteOnlyTx()
 			require.NoError(t, err)
 
 			tx.WithMetadata(NewTxMetadata())
@@ -2422,7 +2422,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 			require.NotNil(t, hdr)
 
 			txholder := tempTxHolder(t, replicaStore)
-			etx, err := masterStore.ExportTx(hdr.ID, false, txholder)
+			etx, err := primaryStore.ExportTx(hdr.ID, false, txholder)
 			require.NoError(t, err)
 
 			// Replicate the same transactions concurrently, only one must succeed
@@ -2452,11 +2452,11 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 }
 
 func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
-	masterDir := t.TempDir()
+	primaryDir := t.TempDir()
 
-	masterStore, err := Open(masterDir, DefaultOptions())
+	primaryStore, err := Open(primaryDir, DefaultOptions())
 	require.NoError(t, err)
-	defer immustoreClose(t, masterStore)
+	defer immustoreClose(t, primaryStore)
 
 	replicaDir := t.TempDir()
 
@@ -2472,7 +2472,7 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 	txholder := tempTxHolder(t, replicaStore)
 
 	for i := 0; i < txCount; i++ {
-		tx, err := masterStore.NewWriteOnlyTx()
+		tx, err := primaryStore.NewWriteOnlyTx()
 		require.NoError(t, err)
 
 		tx.WithMetadata(NewTxMetadata())
@@ -2484,7 +2484,7 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, hdr)
 
-		etx, err := masterStore.ExportTx(hdr.ID, false, txholder)
+		etx, err := primaryStore.ExportTx(hdr.ID, false, txholder)
 		require.NoError(t, err)
 
 		etxs <- etx

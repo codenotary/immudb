@@ -33,68 +33,68 @@ import (
 )
 
 func TestReplication(t *testing.T) {
-	//init master server
-	masterDir := t.TempDir()
+	//init primary server
+	primaryDir := t.TempDir()
 
-	masterServerOpts := server.DefaultOptions().
+	primaryServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir(masterDir)
+		WithDir(primaryDir)
 
-	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
+	primaryServer := server.DefaultServer().WithOptions(primaryServerOpts).(*server.ImmuServer)
 
-	err := masterServer.Initialize()
+	err := primaryServer.Initialize()
 	require.NoError(t, err)
 
-	//init follower server
-	followerDir := t.TempDir()
+	//init replica server
+	replicaDir := t.TempDir()
 
-	followerServerOpts := server.DefaultOptions().
+	replicaServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir(followerDir)
+		WithDir(replicaDir)
 
-	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
+	replicaServer := server.DefaultServer().WithOptions(replicaServerOpts).(*server.ImmuServer)
 
-	err = followerServer.Initialize()
+	err = replicaServer.Initialize()
 	require.NoError(t, err)
 
 	go func() {
-		masterServer.Start()
+		primaryServer.Start()
 	}()
 
 	go func() {
-		followerServer.Start()
+		replicaServer.Start()
 	}()
 
 	time.Sleep(1 * time.Second)
 
 	defer func() {
-		masterServer.Stop()
+		primaryServer.Stop()
 
 		time.Sleep(1 * time.Second)
 
-		followerServer.Stop()
+		replicaServer.Stop()
 	}()
 
-	// init master client
-	masterPort := masterServer.Listener.Addr().(*net.TCPAddr).Port
-	masterClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(masterPort))
+	// init primary client
+	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
+	primaryClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(primaryPort))
 	require.NoError(t, err)
-	require.NotNil(t, masterClient)
+	require.NotNil(t, primaryClient)
 
-	mlr, err := masterClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	mlr, err := primaryClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
 	mmd := metadata.Pairs("authorization", mlr.Token)
-	mctx := metadata.NewOutgoingContext(context.Background(), mmd)
+	pctx := metadata.NewOutgoingContext(context.Background(), mmd)
 
-	// create database as masterdb in master server
-	_, err = masterClient.CreateDatabaseV2(mctx, "masterdb", &schema.DatabaseNullableSettings{
+	// create database as primarydb in primary server
+	_, err = primaryClient.CreateDatabaseV2(pctx, "primarydb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			SyncReplication: &schema.NullableBool{Value: true},
 			SyncAcks:        &schema.NullableUint32{Value: 1},
@@ -102,40 +102,40 @@ func TestReplication(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mdb, err := masterClient.UseDatabase(mctx, &schema.Database{DatabaseName: "masterdb"})
+	mdb, err := primaryClient.UseDatabase(pctx, &schema.Database{DatabaseName: "primarydb"})
 	require.NoError(t, err)
 	require.NotNil(t, mdb)
 
 	mmd = metadata.Pairs("authorization", mdb.Token)
-	mctx = metadata.NewOutgoingContext(context.Background(), mmd)
+	pctx = metadata.NewOutgoingContext(context.Background(), mmd)
 
-	err = masterClient.CreateUser(mctx, []byte("follower"), []byte("follower1Pwd!"), auth.PermissionAdmin, "masterdb")
+	err = primaryClient.CreateUser(pctx, []byte("replicator"), []byte("replicator1Pwd!"), auth.PermissionAdmin, "primarydb")
 	require.NoError(t, err)
 
-	err = masterClient.SetActiveUser(mctx, &schema.SetActiveUserRequest{Active: true, Username: "follower"})
+	err = primaryClient.SetActiveUser(pctx, &schema.SetActiveUserRequest{Active: true, Username: "replicator"})
 	require.NoError(t, err)
 
-	// init follower client
-	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
-	followerClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(followerPort))
+	// init replica client
+	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
+	replicaClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(replicaPort))
 	require.NoError(t, err)
-	require.NotNil(t, followerClient)
+	require.NotNil(t, replicaClient)
 
-	flr, err := followerClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	flr, err := replicaClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
 	fmd := metadata.Pairs("authorization", flr.Token)
-	fctx := metadata.NewOutgoingContext(context.Background(), fmd)
+	rctx := metadata.NewOutgoingContext(context.Background(), fmd)
 
-	// create database as replica in follower server
-	_, err = followerClient.CreateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
+	// create database as replica in replica server
+	_, err = replicaClient.CreateDatabaseV2(rctx, "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:         &schema.NullableBool{Value: true},
 			SyncReplication: &schema.NullableBool{Value: true},
-			PrimaryDatabase: &schema.NullableString{Value: "masterdb"},
+			PrimaryDatabase: &schema.NullableString{Value: "primarydb"},
 			PrimaryHost:     &schema.NullableString{Value: "127.0.0.1"},
-			PrimaryPort:     &schema.NullableUint32{Value: uint32(masterPort)},
-			PrimaryUsername: &schema.NullableString{Value: "follower"},
+			PrimaryPort:     &schema.NullableUint32{Value: uint32(primaryPort)},
+			PrimaryUsername: &schema.NullableString{Value: "replicator"},
 			PrimaryPassword: &schema.NullableString{Value: "wrongPassword"},
 		},
 	})
@@ -143,147 +143,147 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	_, err = followerClient.UpdateDatabaseV2(fctx, "replicadb", &schema.DatabaseNullableSettings{
+	_, err = replicaClient.UpdateDatabaseV2(rctx, "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
-			PrimaryPassword: &schema.NullableString{Value: "follower1Pwd!"},
+			PrimaryPassword: &schema.NullableString{Value: "replicator1Pwd!"},
 		},
 	})
 	require.NoError(t, err)
 
-	fdb, err := followerClient.UseDatabase(fctx, &schema.Database{DatabaseName: "replicadb"})
+	fdb, err := replicaClient.UseDatabase(rctx, &schema.Database{DatabaseName: "replicadb"})
 	require.NoError(t, err)
 	require.NotNil(t, fdb)
 
 	fmd = metadata.Pairs("authorization", fdb.Token)
-	fctx = metadata.NewOutgoingContext(context.Background(), fmd)
+	rctx = metadata.NewOutgoingContext(context.Background(), fmd)
 
 	t.Run("key1 should not exist", func(t *testing.T) {
-		_, err = followerClient.Get(fctx, []byte("key1"))
+		_, err = replicaClient.Get(rctx, []byte("key1"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "key not found")
 	})
 
-	_, err = masterClient.Set(mctx, []byte("key1"), []byte("value1"))
+	_, err = primaryClient.Set(pctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	_, err = masterClient.Set(mctx, []byte("key2"), []byte("value2"))
+	_, err = primaryClient.Set(pctx, []byte("key2"), []byte("value2"))
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
-	t.Run("key1 should exist in replicadb@follower", func(t *testing.T) {
-		_, err = followerClient.Get(fctx, []byte("key1"))
+	t.Run("key1 should exist in replicadb@replica", func(t *testing.T) {
+		_, err = replicaClient.Get(rctx, []byte("key1"))
 		require.NoError(t, err)
 	})
 
-	fdb, err = followerClient.UseDatabase(fctx, &schema.Database{DatabaseName: "defaultdb"})
+	fdb, err = replicaClient.UseDatabase(rctx, &schema.Database{DatabaseName: "defaultdb"})
 	require.NoError(t, err)
 	require.NotNil(t, fdb)
 
 	fmd = metadata.Pairs("authorization", fdb.Token)
-	fctx = metadata.NewOutgoingContext(context.Background(), fmd)
+	rctx = metadata.NewOutgoingContext(context.Background(), fmd)
 
-	t.Run("key1 should not exist in defaultdb@follower", func(t *testing.T) {
-		_, err = followerClient.Get(fctx, []byte("key1"))
+	t.Run("key1 should not exist in defaultdb@replica", func(t *testing.T) {
+		_, err = replicaClient.Get(rctx, []byte("key1"))
 		require.Contains(t, err.Error(), "key not found")
 	})
 }
 
 func TestSystemDBAndDefaultDBReplication(t *testing.T) {
-	//init master server
-	masterDir, err := ioutil.TempDir("", "master-data")
+	// init primary server
+	primaryDir, err := ioutil.TempDir("", "primary-data")
 	require.NoError(t, err)
-	defer os.RemoveAll(masterDir)
+	defer os.RemoveAll(primaryDir)
 
-	masterServerOpts := server.DefaultOptions().
+	primaryServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir(masterDir)
+		WithDir(primaryDir)
 
-	masterServer := server.DefaultServer().WithOptions(masterServerOpts).(*server.ImmuServer)
+	primaryServer := server.DefaultServer().WithOptions(primaryServerOpts).(*server.ImmuServer)
 
-	err = masterServer.Initialize()
+	err = primaryServer.Initialize()
 	require.NoError(t, err)
 
 	go func() {
-		masterServer.Start()
+		primaryServer.Start()
 	}()
 
 	time.Sleep(1 * time.Second)
 
-	defer masterServer.Stop()
+	defer primaryServer.Stop()
 
-	// init master client
-	masterPort := masterServer.Listener.Addr().(*net.TCPAddr).Port
-	masterClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(masterPort))
-	require.NotNil(t, masterClient)
+	// init primary client
+	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
+	primaryClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(primaryPort))
+	require.NotNil(t, primaryClient)
 
-	err = masterClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	defer masterClient.CloseSession(context.Background())
+	defer primaryClient.CloseSession(context.Background())
 
-	//init follower server
-	followerDir, err := ioutil.TempDir("", "follower-data")
+	// init replica server
+	replicaDir, err := ioutil.TempDir("", "replica-data")
 	require.NoError(t, err)
-	defer os.RemoveAll(followerDir)
+	defer os.RemoveAll(replicaDir)
 
 	replicationOpts := &server.ReplicationOptions{
 		IsReplica:                    true,
-		MasterAddress:                "127.0.0.1",
-		MasterPort:                   masterPort,
-		FollowerUsername:             "immudb",
-		FollowerPassword:             "immudb",
+		PrimaryHost:                  "127.0.0.1",
+		PrimaryPort:                  primaryPort,
+		PrimaryUsername:              "immudb",
+		PrimaryPassword:              "immudb",
 		PrefetchTxBufferSize:         100,
 		ReplicationCommitConcurrency: 1,
 	}
-	followerServerOpts := server.DefaultOptions().
+	replicaServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
-		WithDir(followerDir).
+		WithDir(replicaDir).
 		WithReplicationOptions(replicationOpts)
 
-	followerServer := server.DefaultServer().WithOptions(followerServerOpts).(*server.ImmuServer)
+	replicaServer := server.DefaultServer().WithOptions(replicaServerOpts).(*server.ImmuServer)
 
-	err = followerServer.Initialize()
+	err = replicaServer.Initialize()
 	require.NoError(t, err)
 
 	go func() {
-		followerServer.Start()
+		replicaServer.Start()
 	}()
 
 	time.Sleep(1 * time.Second)
 
-	defer followerServer.Stop()
+	defer replicaServer.Stop()
 
-	// init follower client
-	followerPort := followerServer.Listener.Addr().(*net.TCPAddr).Port
-	followerClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(followerPort))
-	require.NotNil(t, followerClient)
+	// init replica client
+	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
+	replicaClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(replicaPort))
+	require.NotNil(t, replicaClient)
 
-	err = followerClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
-	defer followerClient.CloseSession(context.Background())
+	defer replicaClient.CloseSession(context.Background())
 
 	t.Run("key1 should not exist", func(t *testing.T) {
-		_, err = followerClient.Get(context.Background(), []byte("key1"))
+		_, err = replicaClient.Get(context.Background(), []byte("key1"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "key not found")
 	})
 
-	_, err = masterClient.Set(context.Background(), []byte("key1"), []byte("value1"))
+	_, err = primaryClient.Set(context.Background(), []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
-	t.Run("key1 should exist in replicateddb@follower", func(t *testing.T) {
-		_, err = followerClient.Get(context.Background(), []byte("key1"))
+	t.Run("key1 should exist in replicateddb@replica", func(t *testing.T) {
+		_, err = replicaClient.Get(context.Background(), []byte("key1"))
 		require.NoError(t, err)
 	})
 
-	_, err = followerClient.Set(context.Background(), []byte("key2"), []byte("value2"))
+	_, err = replicaClient.Set(context.Background(), []byte("key2"), []byte("value2"))
 	require.Contains(t, err.Error(), "database is read-only because it's a replica")
 }
