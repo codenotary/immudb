@@ -87,10 +87,10 @@ type ReplicationOptions struct {
 	IsReplica                    bool
 	SyncReplication              bool
 	SyncAcks                     int    // only if !IsReplica && SyncReplication
-	MasterAddress                string // only if IsReplica
-	MasterPort                   int    // only if IsReplica
-	FollowerUsername             string // only if IsReplica
-	FollowerPassword             string // only if IsReplica
+	PrimaryHost                  string // only if IsReplica
+	PrimaryPort                  int    // only if IsReplica
+	PrimaryUsername              string // only if IsReplica
+	PrimaryPassword              string // only if IsReplica
 	PrefetchTxBufferSize         int    // only if IsReplica
 	ReplicationCommitConcurrency int    // only if IsReplica
 	AllowTxDiscarding            bool   // only if IsReplica
@@ -276,7 +276,7 @@ func (o *Options) String() string {
 	}
 
 	if isReplica {
-		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.MasterAddress, repOpts.MasterPort)))
+		opts = append(opts, rightPad("Replica of", fmt.Sprintf("%s:%d", repOpts.PrimaryHost, repOpts.PrimaryPort)))
 	}
 
 	if o.Config != "" {
@@ -504,23 +504,23 @@ func (opts *ReplicationOptions) WithSyncAcks(syncAcks int) *ReplicationOptions {
 	return opts
 }
 
-func (opts *ReplicationOptions) WithMasterAddress(masterAddress string) *ReplicationOptions {
-	opts.MasterAddress = masterAddress
+func (opts *ReplicationOptions) WithPrimaryHost(primaryHost string) *ReplicationOptions {
+	opts.PrimaryHost = primaryHost
 	return opts
 }
 
-func (opts *ReplicationOptions) WithMasterPort(masterPort int) *ReplicationOptions {
-	opts.MasterPort = masterPort
+func (opts *ReplicationOptions) WithPrimaryPort(primaryPort int) *ReplicationOptions {
+	opts.PrimaryPort = primaryPort
 	return opts
 }
 
-func (opts *ReplicationOptions) WithFollowerUsername(followerUsername string) *ReplicationOptions {
-	opts.FollowerUsername = followerUsername
+func (opts *ReplicationOptions) WithPrimaryUsername(primaryUsername string) *ReplicationOptions {
+	opts.PrimaryUsername = primaryUsername
 	return opts
 }
 
-func (opts *ReplicationOptions) WithFollowerPassword(followerPassword string) *ReplicationOptions {
-	opts.FollowerPassword = followerPassword
+func (opts *ReplicationOptions) WithPrimaryPassword(primaryPassword string) *ReplicationOptions {
+	opts.PrimaryPassword = primaryPassword
 	return opts
 }
 

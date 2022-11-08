@@ -36,11 +36,11 @@ func TestReplication(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rOpts := DefaultOptions().
-		WithMasterDatabase("defaultdb").
-		WithMasterAddress("127.0.0.1").
-		WithMasterPort(3322).
-		WithFollowerUsername("immudb").
-		WithFollowerPassword("immudb").
+		WithPrimaryDatabase("defaultdb").
+		WithPrimaryHost("127.0.0.1").
+		WithPrimaryPort(3322).
+		WithPrimaryUsername("immudb").
+		WithPrimaryPassword("immudb").
 		WithStreamChunkSize(DefaultChunkSize)
 
 	logger := logger.NewSimpleLogger("logger", os.Stdout)

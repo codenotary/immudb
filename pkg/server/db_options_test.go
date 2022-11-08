@@ -100,19 +100,19 @@ func TestMasterOptions(t *testing.T) {
 	opts.PrefetchTxBufferSize = 100
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.FollowerPassword = "follower-pwd"
+	opts.PrimaryPassword = "follower-pwd"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.FollowerUsername = "follower-username"
+	opts.PrimaryUsername = "follower-username"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.MasterPort = 3323
+	opts.PrimaryPort = 3323
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.MasterAddress = "localhost"
+	opts.PrimaryHost = "localhost"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
-	opts.MasterDatabase = "masterdb"
+	opts.PrimaryDatabase = "masterdb"
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 
 	opts.SyncAcks = -1

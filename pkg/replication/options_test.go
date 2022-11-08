@@ -34,22 +34,22 @@ func TestOptions(t *testing.T) {
 		retryJitter:   0.1,
 	}
 
-	opts.WithMasterDatabase("defaultdb").
-		WithMasterAddress("127.0.0.1").
-		WithMasterPort(3322).
-		WithFollowerUsername("immudbUsr").
-		WithFollowerPassword("immdubPwd").
+	opts.WithPrimaryDatabase("defaultdb").
+		WithPrimaryHost("127.0.0.1").
+		WithPrimaryPort(3322).
+		WithPrimaryUsername("immudbUsr").
+		WithPrimaryPassword("immdubPwd").
 		WithStreamChunkSize(DefaultChunkSize).
 		WithPrefetchTxBufferSize(DefaultPrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(DefaultReplicationCommitConcurrency).
 		WithAllowTxDiscarding(true).
 		WithDelayer(delayer)
 
-	require.Equal(t, "defaultdb", opts.masterDatabase)
-	require.Equal(t, "127.0.0.1", opts.masterAddress)
-	require.Equal(t, 3322, opts.masterPort)
-	require.Equal(t, "immudbUsr", opts.followerUsername)
-	require.Equal(t, "immdubPwd", opts.followerPassword)
+	require.Equal(t, "defaultdb", opts.primaryDatabase)
+	require.Equal(t, "127.0.0.1", opts.primaryHost)
+	require.Equal(t, 3322, opts.primaryPort)
+	require.Equal(t, "immudbUsr", opts.primaryUsername)
+	require.Equal(t, "immdubPwd", opts.primaryPassword)
 	require.Equal(t, DefaultChunkSize, opts.streamChunkSize)
 	require.Equal(t, DefaultPrefetchTxBufferSize, opts.prefetchTxBufferSize)
 	require.Equal(t, DefaultReplicationCommitConcurrency, opts.replicationCommitConcurrency)

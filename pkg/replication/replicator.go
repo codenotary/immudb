@@ -38,8 +38,8 @@ import (
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyRunning = errors.New("already running")
 var ErrAlreadyStopped = errors.New("already stopped")
-var ErrFollowerDivergedFromMaster = errors.New("follower diverged from master")
-var ErrNoSynchronousReplicationOnMaster = errors.New("master is not running with synchronous replication")
+var ErrReplicaDivergedFromPrimary = errors.New("replica diverged from primary")
+var ErrNoSynchronousReplicationOnPrimary = errors.New("primary is not running with synchronous replication")
 var ErrInvalidReplicationMetadata = errors.New("invalid replication metadata retrieved")
 
 type prefetchTxEntry struct {
@@ -53,7 +53,7 @@ type TxReplicator struct {
 	db   database.DB
 	opts *Options
 
-	_masterDB string // just a string denoting master database i.e. db@address:port
+	_primaryDB string // just a string denoting primary database i.e. db@host:port
 
 	logger logger.Logger
 
@@ -91,7 +91,7 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		db:                     db,
 		opts:                   opts,
 		logger:                 logger,
-		_masterDB:              fullAddress(opts.masterDatabase, opts.masterAddress, opts.masterPort),
+		_primaryDB:             fullAddress(opts.primaryDatabase, opts.primaryHost, opts.primaryPort),
 		streamSrvFactory:       stream.NewStreamServiceFactory(opts.streamChunkSize),
 		prefetchTxBuffer:       make(chan prefetchTxEntry, opts.prefetchTxBufferSize),
 		replicationConcurrency: opts.replicationCommitConcurrency,
@@ -110,7 +110,7 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 		return false
 	}
 
-	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrFollowerDivergedFromMaster) {
+	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrReplicaDivergedFromPrimary) {
 		return true
 	}
 
@@ -118,7 +118,7 @@ func (txr *TxReplicator) handleError(err error) (terminate bool) {
 
 	txr.logger.Infof("Replication error on database '%s' from '%s' (%d consecutive failures). Reason: %s",
 		txr.db.GetName(),
-		txr._masterDB,
+		txr._primaryDB,
 		txr.consecutiveFailures,
 		err.Error())
 
@@ -147,14 +147,14 @@ func (txr *TxReplicator) Start() error {
 		return ErrAlreadyRunning
 	}
 
-	txr.logger.Infof("Initializing replication from '%s' to '%s'...", txr._masterDB, txr.db.GetName())
+	txr.logger.Infof("Initializing replication from '%s' to '%s'...", txr._primaryDB, txr.db.GetName())
 
 	txr.context, txr.cancelFunc = context.WithCancel(context.Background())
 
 	txr.running = true
 
 	go func() {
-		txr.logger.Infof("Replication for '%s' started fetching transaction from '%s'...", txr.db.GetName(), txr._masterDB)
+		txr.logger.Infof("Replication for '%s' started fetching transaction from '%s'...", txr.db.GetName(), txr._primaryDB)
 
 		var err error
 
@@ -165,9 +165,9 @@ func (txr *TxReplicator) Start() error {
 			}
 		}
 
-		txr.logger.Infof("Replication for '%s' stopped fetching transaction from '%s'", txr.db.GetName(), txr._masterDB)
+		txr.logger.Infof("Replication for '%s' stopped fetching transaction from '%s'", txr.db.GetName(), txr._primaryDB)
 
-		if errors.Is(err, ErrFollowerDivergedFromMaster) {
+		if errors.Is(err, ErrReplicaDivergedFromPrimary) {
 			txr.Stop()
 		}
 	}()
@@ -189,7 +189,7 @@ func (txr *TxReplicator) Start() error {
 		}()
 	}
 
-	txr.logger.Infof("Replication from '%s' to '%s' successfully initialized", txr._masterDB, txr.db.GetName())
+	txr.logger.Infof("Replication from '%s' to '%s' successfully initialized", txr._primaryDB, txr.db.GetName())
 
 	return nil
 }
@@ -215,7 +215,7 @@ func (txr *TxReplicator) replicateSingleTx(data []byte) bool {
 			break // transaction successfully replicated
 		}
 
-		txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %s", txr._masterDB, txr.db.GetName(), err.Error())
+		txr.logger.Infof("Failed to replicate transaction from '%s' to '%s'. Reason: %s", txr._primaryDB, txr.db.GetName(), err.Error())
 
 		consecutiveFailures++
 
@@ -249,22 +249,22 @@ func fullAddress(db, address string, port int) string {
 
 func (txr *TxReplicator) connect() error {
 	txr.logger.Infof("Connecting to '%s':'%d' for database '%s'...",
-		txr.opts.masterAddress,
-		txr.opts.masterPort,
+		txr.opts.primaryHost,
+		txr.opts.primaryPort,
 		txr.db.GetName())
 
-	opts := client.DefaultOptions().WithAddress(txr.opts.masterAddress).WithPort(txr.opts.masterPort)
+	opts := client.DefaultOptions().WithAddress(txr.opts.primaryHost).WithPort(txr.opts.primaryPort)
 	txr.client = client.NewClient().WithOptions(opts)
 
 	err := txr.client.OpenSession(
-		txr.context, []byte(txr.opts.followerUsername), []byte(txr.opts.followerPassword), txr.opts.masterDatabase)
+		txr.context, []byte(txr.opts.primaryUsername), []byte(txr.opts.primaryPassword), txr.opts.primaryDatabase)
 	if err != nil {
 		return err
 	}
 
 	txr.logger.Infof("Connection to '%s':'%d' for database '%s' successfully established",
-		txr.opts.masterAddress,
-		txr.opts.masterPort,
+		txr.opts.primaryHost,
+		txr.opts.primaryPort,
 		txr.db.GetName())
 
 	return nil
@@ -275,13 +275,13 @@ func (txr *TxReplicator) disconnect() {
 		return
 	}
 
-	txr.logger.Infof("Disconnecting from '%s':'%d' for database '%s'...", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
+	txr.logger.Infof("Disconnecting from '%s':'%d' for database '%s'...", txr.opts.primaryHost, txr.opts.primaryPort, txr.db.GetName())
 
 	txr.client.CloseSession(txr.context)
 
 	txr.client = nil
 
-	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.masterAddress, txr.opts.masterPort, txr.db.GetName())
+	txr.logger.Infof("Disconnected from '%s':'%d' for database '%s'", txr.opts.primaryHost, txr.opts.primaryPort, txr.db.GetName())
 }
 
 func (txr *TxReplicator) fetchNextTx() error {
@@ -337,16 +337,16 @@ func (txr *TxReplicator) fetchNextTx() error {
 	etx, err := receiver.ReadFully()
 
 	if err != nil && !errors.Is(err, io.EOF) {
-		if strings.Contains(err.Error(), "follower commit state diverged from master's") {
-			txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
-			return ErrFollowerDivergedFromMaster
+		if strings.Contains(err.Error(), "commit state diverged from") {
+			txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
+			return ErrReplicaDivergedFromPrimary
 		}
 
-		if strings.Contains(err.Error(), "follower precommit state diverged from master's") {
+		if strings.Contains(err.Error(), "precommit state diverged from") {
 
 			if !txr.allowTxDiscarding {
-				txr.logger.Errorf("follower precommit state at '%s' diverged from master's", txr.db.GetName())
-				return ErrFollowerDivergedFromMaster
+				txr.logger.Errorf("replica precommit state at '%s' diverged from primary's", txr.db.GetName())
+				return ErrReplicaDivergedFromPrimary
 			}
 
 			txr.logger.Infof("discarding precommit txs since %d from '%s'. Reason: %s", nextTx, txr.db.GetName(), err.Error())
@@ -372,7 +372,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		if len(md.Get("may-commit-up-to-txid-bin")) == 0 ||
 			len(md.Get("may-commit-up-to-alh-bin")) == 0 ||
 			len(md.Get("committed-txid-bin")) == 0 {
-			return ErrNoSynchronousReplicationOnMaster
+			return ErrNoSynchronousReplicationOnPrimary
 		}
 
 		if len(md.Get("may-commit-up-to-txid-bin")[0]) != 8 ||
@@ -393,9 +393,9 @@ func (txr *TxReplicator) fetchNextTx() error {
 		if mayCommitUpToTxID > commitState.TxId {
 			err = txr.db.AllowCommitUpto(mayCommitUpToTxID, mayCommitUpToAlh)
 			if err != nil {
-				if strings.Contains(err.Error(), "follower commit state diverged from master's") {
-					txr.logger.Errorf("follower commit state at '%s' diverged from master's", txr.db.GetName())
-					return ErrFollowerDivergedFromMaster
+				if strings.Contains(err.Error(), "commit state diverged from") {
+					txr.logger.Errorf("replica commit state at '%s' diverged from primary's", txr.db.GetName())
+					return ErrReplicaDivergedFromPrimary
 				}
 
 				return err
@@ -404,7 +404,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 	}
 
 	if len(etx) > 0 {
-		// in some cases the transaction is not provided but only the master commit state
+		// in some cases the transaction is not provided but only the primary commit state
 		txr.prefetchTxBuffer <- prefetchTxEntry{
 			data:    etx,
 			addedAt: time.Now(),

@@ -633,11 +633,11 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 	defer s.replicationMutex.Unlock()
 
 	replicatorOpts := replication.DefaultOptions().
-		WithMasterDatabase(dbOpts.MasterDatabase).
-		WithMasterAddress(dbOpts.MasterAddress).
-		WithMasterPort(dbOpts.MasterPort).
-		WithFollowerUsername(dbOpts.FollowerUsername).
-		WithFollowerPassword(dbOpts.FollowerPassword).
+		WithPrimaryDatabase(dbOpts.PrimaryDatabase).
+		WithPrimaryHost(dbOpts.PrimaryHost).
+		WithPrimaryPort(dbOpts.PrimaryPort).
+		WithPrimaryUsername(dbOpts.PrimaryUsername).
+		WithPrimaryPassword(dbOpts.PrimaryPassword).
 		WithPrefetchTxBufferSize(dbOpts.PrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(dbOpts.ReplicationCommitConcurrency).
 		WithAllowTxDiscarding(dbOpts.AllowTxDiscarding).

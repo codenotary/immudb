@@ -24,11 +24,11 @@ const DefaultReplicationCommitConcurrency int = 10
 const DefaultAllowTxDiscarding = false
 
 type Options struct {
-	masterDatabase   string
-	masterAddress    string
-	masterPort       int
-	followerUsername string
-	followerPassword string
+	primaryDatabase string
+	primaryHost     string
+	primaryPort     int
+	primaryUsername string
+	primaryPassword string
 
 	streamChunkSize int
 
@@ -65,33 +65,33 @@ func (opts *Options) Valid() bool {
 		opts.delayer != nil
 }
 
-// WithMasterDatabase sets the source database name
-func (o *Options) WithMasterDatabase(masterDatabase string) *Options {
-	o.masterDatabase = masterDatabase
+// WithPrimaryDatabase sets the source database name
+func (o *Options) WithPrimaryDatabase(primaryDatabase string) *Options {
+	o.primaryDatabase = primaryDatabase
 	return o
 }
 
-// WithMasterAddress sets the source database address
-func (o *Options) WithMasterAddress(masterAddress string) *Options {
-	o.masterAddress = masterAddress
+// WithPrimaryHost sets the source database address
+func (o *Options) WithPrimaryHost(primaryHost string) *Options {
+	o.primaryHost = primaryHost
 	return o
 }
 
-// WithMasterPort sets the source database port
-func (o *Options) WithMasterPort(masterPort int) *Options {
-	o.masterPort = masterPort
+// WithPrimaryPort sets the source database port
+func (o *Options) WithPrimaryPort(primaryPort int) *Options {
+	o.primaryPort = primaryPort
 	return o
 }
 
-// WithFollowerUsername sets username used for replication
-func (o *Options) WithFollowerUsername(followerUsername string) *Options {
-	o.followerUsername = followerUsername
+// WithPrimaryUsername sets username used for replication
+func (o *Options) WithPrimaryUsername(primaryUsername string) *Options {
+	o.primaryUsername = primaryUsername
 	return o
 }
 
-// WithFollowerPassword sets password used for replication
-func (o *Options) WithFollowerPassword(followerPassword string) *Options {
-	o.followerPassword = followerPassword
+// WithPrimaryPassword sets password used for replication
+func (o *Options) WithPrimaryPassword(primaryPassword string) *Options {
+	o.primaryPassword = primaryPassword
 	return o
 }
 
