@@ -47,6 +47,7 @@ type BufconnServer struct {
 	GrpcServer *grpc.Server
 	Dialer     BuffDialer
 	quit       chan struct{}
+	uuid       xid.ID
 }
 
 // NewBuffconnServer creates new test server instance that uses grpc's buffconn connection method
@@ -55,45 +56,44 @@ func NewBufconnServer(options *server.Options) *BufconnServer {
 	options.Port = 0
 	immuserver := server.DefaultServer().WithOptions(options).(*server.ImmuServer)
 
-	uuidContext := server.NewUUIDContext(xid.New())
+	uuid := xid.New()
 
 	bs := &BufconnServer{
-		quit:    make(chan struct{}),
-		Lis:     bufconn.Listen(bufSize),
-		Options: options,
-		GrpcServer: grpc.NewServer(
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-				server.ErrorMapper,
-				immuserver.KeepAliveSessionInterceptor,
-				uuidContext.UUIDContextSetter,
-				auth.ServerUnaryInterceptor,
-				immuserver.SessionAuthInterceptor,
-			)),
-			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-				server.ErrorMapperStream,
-				immuserver.KeepALiveSessionStreamInterceptor,
-				uuidContext.UUIDStreamContextSetter,
-				auth.ServerStreamInterceptor,
-			)),
-		),
+		quit:       make(chan struct{}),
+		Lis:        bufconn.Listen(bufSize),
+		Options:    options,
 		immuServer: immuserver,
 		Server:     &ServerMock{Srv: immuserver},
+		uuid:       uuid,
 	}
+
 
 	return bs
 }
 
+func (bs *BufconnServer) GetUUID() xid.ID {
+	return bs.uuid
+}
+
+func (bs *BufconnServer) SetUUID(id xid.ID) {
+	bs.uuid = id
+}
+
 func (bs *BufconnServer) setupGrpcServer() {
+	uuidContext := server.NewUUIDContext(bs.uuid)
+
 	bs.GrpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			server.ErrorMapper,
 			bs.immuServer.KeepAliveSessionInterceptor,
+			uuidContext.UUIDContextSetter,
 			auth.ServerUnaryInterceptor,
 			bs.immuServer.SessionAuthInterceptor,
 		)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			server.ErrorMapperStream,
 			bs.immuServer.KeepALiveSessionStreamInterceptor,
+			uuidContext.UUIDStreamContextSetter,
 			auth.ServerStreamInterceptor,
 		)),
 	)
