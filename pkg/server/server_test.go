@@ -147,6 +147,88 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	require.DirExists(t, path.Join(options.GetDBRootPath(), DefaultOptions().GetSystemAdminDBName()))
 }
 
+func TestServerResetAdminPassword(t *testing.T) {
+	serverOptions := DefaultOptions().WithDir(t.TempDir())
+	options := database.DefaultOption().WithDBRootPath(serverOptions.Dir)
+	dbRootpath := options.GetDBRootPath()
+
+	var txID uint64
+
+	t.Run("Create new database", func(t *testing.T) {
+		s, closer := testServer(serverOptions)
+		defer closer()
+
+		err := s.loadSystemDatabase(dbRootpath, nil, "password1", false)
+		require.NoError(t, err)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		require.NoError(t, err)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		require.ErrorContains(t, err, "password")
+
+		txID, err = s.sysDB.Size()
+		require.NoError(t, err)
+	})
+
+	t.Run("Run db without resetting password", func(t *testing.T) {
+		s, closer := testServer(serverOptions)
+		defer closer()
+
+		err := s.loadSystemDatabase(dbRootpath, nil, "password2", false)
+		require.NoError(t, err)
+
+		currTxID, err := s.sysDB.Size()
+		require.NoError(t, err)
+		require.Equal(t, txID, currTxID)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		require.NoError(t, err)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		require.ErrorContains(t, err, "password")
+	})
+
+	t.Run("Run db with password reset", func(t *testing.T) {
+		s, closer := testServer(serverOptions)
+		defer closer()
+
+		err := s.loadSystemDatabase(dbRootpath, nil, "password2", true)
+		require.NoError(t, err)
+
+		// There should be new TX with updated password
+		currTxID, err := s.sysDB.Size()
+		require.NoError(t, err)
+		require.Equal(t, txID+1, currTxID)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		require.ErrorContains(t, err, "password")
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		require.NoError(t, err)
+	})
+
+	t.Run("Run db with password reset but no new tx", func(t *testing.T) {
+		s, closer := testServer(serverOptions)
+		defer closer()
+
+		err := s.loadSystemDatabase(dbRootpath, nil, "password2", true)
+		require.NoError(t, err)
+
+		// No ne TX is needed
+		currTxID, err := s.sysDB.Size()
+		require.NoError(t, err)
+		require.Equal(t, txID+1, currTxID)
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		require.ErrorContains(t, err, "password")
+
+		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		require.NoError(t, err)
+	})
+
+}
+
 func TestServerWithEmptyAdminPassword(t *testing.T) {
 	serverOptions := DefaultOptions().
 		WithDir(t.TempDir()).
