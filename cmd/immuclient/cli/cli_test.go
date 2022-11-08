@@ -139,6 +139,7 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 
 	options := server.DefaultOptions().WithDir(dir)
 	bs := servertest.NewBufconnServer(options)
+	uuid := bs.GetUUID()
 
 	err := bs.Start()
 	require.NoError(t, err)
@@ -177,6 +178,7 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 
 	bs = servertest.NewBufconnServer(options)
 	require.NoError(t, err)
+	bs.SetUUID(uuid)
 	err = bs.Start()
 	require.NoError(t, err)
 
@@ -212,6 +214,7 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 
 	bs = servertest.NewBufconnServer(options)
 	require.NoError(t, err)
+	bs.SetUUID(uuid)
 	err = bs.Start()
 	require.NoError(t, err)
 

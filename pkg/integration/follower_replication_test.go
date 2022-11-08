@@ -83,7 +83,7 @@ func TestReplication(t *testing.T) {
 
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
-	primaryClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(primaryPort))
+	primaryClient, err := ic.NewImmuClient(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(primaryPort))
 	require.NoError(t, err)
 	require.NotNil(t, primaryClient)
 
@@ -117,7 +117,7 @@ func TestReplication(t *testing.T) {
 
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
-	replicaClient, err := ic.NewImmuClient(ic.DefaultOptions().WithPort(replicaPort))
+	replicaClient, err := ic.NewImmuClient(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(replicaPort))
 	require.NoError(t, err)
 	require.NotNil(t, replicaClient)
 
@@ -217,7 +217,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
-	primaryClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(primaryPort))
+	primaryClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(primaryPort))
 	require.NotNil(t, primaryClient)
 
 	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
@@ -261,7 +261,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
-	replicaClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithPort(replicaPort))
+	replicaClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(replicaPort))
 	require.NotNil(t, replicaClient)
 
 	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")

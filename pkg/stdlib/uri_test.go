@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -51,7 +52,19 @@ func testServer(t *testing.T) (port int, cleanup func()) {
 	return port, func() { server.Stop() }
 }
 
+func setTempCwd(t *testing.T) {
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+
+	err = os.Chdir(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() { os.Chdir(origDir) })
+}
+
 func TestDriver_Open(t *testing.T) {
+	setTempCwd(t)
+
 	d := immuDriver
 	conn, err := d.Open("immudb://immudb:immudb@127.0.0.1:5555/defaultdb")
 	require.Error(t, err)
@@ -112,6 +125,8 @@ func TestDriver_OpenSSLPrefer(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
 
+	setTempCwd(t)
+
 	d := immuDriver
 	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb", port))
 	require.NoError(t, err)
@@ -121,6 +136,8 @@ func TestDriver_OpenSSLPrefer(t *testing.T) {
 func TestDriver_OpenSSLDisable(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
+
+	setTempCwd(t)
 
 	d := immuDriver
 	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
@@ -134,6 +151,8 @@ func TestDriver_OpenSSLRequire(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
 
+	setTempCwd(t)
+
 	d := immuDriver
 	conn, err := d.Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=require", port))
 	require.NoError(t, err)
@@ -143,6 +162,8 @@ func TestDriver_OpenSSLRequire(t *testing.T) {
 func Test_SQLOpen(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
+
+	setTempCwd(t)
 
 	db, err := sql.Open("immudb", fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NoError(t, err)
@@ -154,6 +175,8 @@ func Test_SQLOpen(t *testing.T) {
 func Test_Open(t *testing.T) {
 	port, cleanup := testServer(t)
 	defer cleanup()
+
+	setTempCwd(t)
 
 	db := Open(fmt.Sprintf("immudb://immudb:immudb@127.0.0.1:%d/defaultdb?sslmode=disable", port))
 	require.NotNil(t, db)

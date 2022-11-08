@@ -26,6 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client/homedir"
 	"github.com/codenotary/immudb/pkg/client/tokenservice"
+	"github.com/rs/xid"
 
 	ic "github.com/codenotary/immudb/pkg/client"
 	immuErrors "github.com/codenotary/immudb/pkg/client/errors"
@@ -63,7 +64,7 @@ var testData = struct {
 func setupTestServerAndClient(t *testing.T) (*servertest.BufconnServer, ic.ImmuClient, context.Context) {
 	bs := servertest.NewBufconnServer(server.
 		DefaultOptions().
-		WithDir(t.TempDir()).
+		WithDir(filepath.Join(t.TempDir(), "data")).
 		WithAuth(true).
 		WithSigningKey("./../../test/signer/ec1.key"),
 	)
@@ -1472,89 +1473,93 @@ func TestImmuClient_VerifiedGetSince(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte(`key1`), entry2.Key)
 	require.Equal(t, []byte(`val2`), entry2.Value)
-	client.Disconnect()
 }
 
 func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
+
+	var (
+		uuid         xid.ID
+		serverOpts   *server.Options
+		stateFileDir = t.TempDir()
+		dirAtTx3     = filepath.Join(t.TempDir(), "data")
+		copier       = fs.NewStandardCopier()
+	)
+
+	// Setup the initial test server outside t.Run to ensure the main data folder
+	// is present during whole test
 	bs, client, ctx := setupTestServerAndClient(t)
 
-	_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
-	require.NoError(t, err)
+	t.Run("write initial 3 Txs", func(t *testing.T) {
+		uuid = bs.GetUUID()
+		serverOpts = bs.Options
+		defer bs.Stop()
+		defer client.CloseSession(context.Background())
 
-	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
-	require.NoError(t, err)
+		_, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+		require.NoError(t, err)
 
-	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
-	require.NoError(t, err)
+		_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
+		require.NoError(t, err)
 
-	_, err = client.VerifiedGet(ctx, []byte(`key3`))
-	require.NoError(t, err)
-	client.Disconnect()
-	bs.Stop()
+		_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
+		require.NoError(t, err)
 
-	copier := fs.NewStandardCopier()
-	dirAtTx3 := filepath.Join(t.TempDir(), "data")
-	err = copier.CopyDir(bs.Options.Dir, dirAtTx3)
-	require.NoError(t, err)
+		_, err = client.VerifiedGet(ctx, []byte(`key3`))
+		require.NoError(t, err)
 
-	bs = servertest.NewBufconnServer(bs.Options)
-	err = bs.Start()
-	require.NoError(t, err)
+		err = client.CloseSession(context.Background())
+		require.NoError(t, err)
 
-	stateFileDir := t.TempDir()
-	cliOpts := ic.
-		DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithDir(stateFileDir)
-	cliOpts.CurrentDatabase = ic.DefaultDB
-	client, err = ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
+		err = bs.Stop()
+		require.NoError(t, err)
+	})
 
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
+	t.Run("preserve data at Tx 3", func(t *testing.T) {
+		err := copier.CopyDir(serverOpts.Dir, dirAtTx3)
+		require.NoError(t, err)
+	})
 
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
+	t.Run("add some more transactions to the database", func(t *testing.T) {
+		bs := servertest.NewBufconnServer(serverOpts)
+		bs.SetUUID(uuid)
+		err := bs.Start()
+		require.NoError(t, err)
+		defer bs.Stop()
 
-	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
-	require.NoError(t, err)
-	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
-	require.NoError(t, err)
-	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
-	require.NoError(t, err)
-	_, err = client.VerifiedGet(ctx, []byte(`key3`))
-	require.NoError(t, err)
-	err = client.Disconnect()
-	require.NoError(t, err)
+		client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(stateFileDir))
+		require.NoError(t, err)
+		defer client.CloseSession(context.Background())
 
-	bs.Stop()
+		_, err = client.VerifiedSet(context.Background(), []byte(`key1`), []byte(`val1`))
+		require.NoError(t, err)
+		_, err = client.VerifiedSet(context.Background(), []byte(`key2`), []byte(`val2`))
+		require.NoError(t, err)
+		_, err = client.VerifiedSet(context.Background(), []byte(`key3`), []byte(`val3`))
+		require.NoError(t, err)
+		_, err = client.VerifiedGet(context.Background(), []byte(`key3`))
+		require.NoError(t, err)
+		err = bs.Stop()
+		require.NoError(t, err)
+	})
 
-	os.RemoveAll(bs.Options.Dir)
-	err = copier.CopyDir(dirAtTx3, bs.Options.Dir)
-	require.NoError(t, err)
+	t.Run("clients will fail after restoring older dataset", func(t *testing.T) {
+		os.RemoveAll(serverOpts.Dir)
+		err := copier.CopyDir(dirAtTx3, serverOpts.Dir)
+		require.NoError(t, err)
 
-	bs = servertest.NewBufconnServer(bs.Options)
-	err = bs.Start()
-	require.NoError(t, err)
+		bs := servertest.NewBufconnServer(serverOpts)
+		bs.SetUUID(uuid)
+		err = bs.Start()
+		require.NoError(t, err)
+		defer bs.Stop()
 
-	cliOpts = ic.
-		DefaultOptions().
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
-		WithDir(stateFileDir)
-	cliOpts.CurrentDatabase = ic.DefaultDB
-	client, err = ic.NewImmuClient(cliOpts)
-	require.NoError(t, err)
+		client, err := bs.NewAuthenticatedClient(ic.DefaultOptions().WithDir(stateFileDir))
+		require.NoError(t, err)
+		defer client.CloseSession(context.Background())
 
-	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md = metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	_, err = client.VerifiedGet(ctx, []byte(`key3`))
-	require.ErrorIs(t, err, ic.ErrServerStateIsOlder)
-
-	bs.Stop()
+		_, err = client.VerifiedGet(context.Background(), []byte(`key3`))
+		require.ErrorIs(t, err, ic.ErrServerStateIsOlder)
+	})
 }
 
 type HomedirServiceMock struct {
