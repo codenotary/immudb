@@ -18,7 +18,7 @@ package cache
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,11 +27,14 @@ import (
 	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
-const IDENTITY_FN = ".identity-"
+const (
+	IDENTITY_FN       = ".identity-"
+	identityHashBytes = 16
+)
 
 func getFilenameForServerIdentity(serverIdentity, identityDir string) string {
 	identityHashRaw := sha256.Sum256([]byte(serverIdentity))
-	identityHash := hex.EncodeToString(identityHashRaw[:])
+	identityHash := base64.RawURLEncoding.EncodeToString(identityHashRaw[:identityHashBytes])
 	return filepath.Join(identityDir, IDENTITY_FN+identityHash)
 }
 
