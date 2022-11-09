@@ -47,7 +47,7 @@ func TestMiscErrors(t *testing.T) {
 		return nil, errHistory
 	}
 	_, err = ic.History(args)
-	require.Equal(t, errHistory, err)
+	require.ErrorIs(t, err, errHistory)
 
 	// HealthCheck errors
 	immuClientMock.HealthCheckF = func(context.Context) error {
@@ -62,6 +62,6 @@ func TestMiscErrors(t *testing.T) {
 		return errHealthCheck
 	}
 	_, err = ic.HealthCheck(nil)
-	require.Equal(t, errHealthCheck, err)
+	require.ErrorIs(t, err, errHealthCheck)
 }
 */

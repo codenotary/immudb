@@ -32,7 +32,7 @@ func TestGroupedRowReader(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = newGroupedRowReader(nil, nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)

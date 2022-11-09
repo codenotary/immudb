@@ -170,7 +170,7 @@ func TestImmutest(t *testing.T) {
 	}
 	errFunc = func(err error) {
 		require.Error(t, err)
-		require.Equal(t, errUseDb, err)
+		require.ErrorIs(t, err, errUseDb)
 	}
 	cmd10 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd10.SetArgs([]string{"1"})
@@ -196,7 +196,7 @@ func TestImmutest(t *testing.T) {
 	}
 	errFunc = func(err error) {
 		require.Error(t, err)
-		require.Equal(t, errSet, err)
+		require.ErrorIs(t, err, errSet)
 	}
 	cmd12 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd12.SetArgs([]string{"1"})
@@ -207,7 +207,7 @@ func TestImmutest(t *testing.T) {
 	icm.DisconnectF = func() error { return errDisconnect }
 	errFunc = func(err error) {
 		require.Error(t, err)
-		require.Equal(t, errDisconnect, err)
+		require.ErrorIs(t, err, errDisconnect)
 	}
 	cmd13 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd13.SetArgs([]string{"1"})

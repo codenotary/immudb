@@ -48,7 +48,7 @@ func TestReferencesErrors(t *testing.T) {
 		return nil, errReference
 	}
 	_, err = ic.Reference(args)
-	require.Equal(t, errReference, err)
+	require.ErrorIs(t, err, errReference)
 
 	// SafeReference errors
 	immuClientMock.SafeReferenceF = func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error) {
@@ -63,6 +63,6 @@ func TestReferencesErrors(t *testing.T) {
 		return nil, errSafeReference
 	}
 	_, err = ic.SafeReference(args)
-	require.Equal(t, errSafeReference, err)
+	require.ErrorIs(t, err, errSafeReference)
 }
 */

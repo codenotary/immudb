@@ -1125,10 +1125,10 @@ func TestCreateIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(name)", nil)
-	require.Equal(t, ErrIndexAlreadyExists, err)
+	require.ErrorIs(t, err, ErrIndexAlreadyExists)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(id)", nil)
-	require.Equal(t, ErrIndexAlreadyExists, err)
+	require.ErrorIs(t, err, ErrIndexAlreadyExists)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE UNIQUE INDEX IF NOT EXISTS ON table1(id)", nil)
 	require.NoError(t, err)
@@ -1137,7 +1137,7 @@ func TestCreateIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(name)", nil)
-	require.Equal(t, ErrIndexAlreadyExists, err)
+	require.ErrorIs(t, err, ErrIndexAlreadyExists)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table2(name)", nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
@@ -1152,7 +1152,7 @@ func TestCreateIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(active)", nil)
-	require.Equal(t, ErrLimitedIndexCreation, err)
+	require.ErrorIs(t, err, ErrLimitedIndexCreation)
 }
 
 func TestUpsertInto(t *testing.T) {
@@ -1192,7 +1192,7 @@ func TestUpsertInto(t *testing.T) {
 	params := make(map[string]interface{}, 1)
 	params["id"] = [4]byte{1, 2, 3, 4}
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, title, active) VALUES (@id, 'title1', true)", params)
-	require.Equal(t, ErrUnsupportedParameter, err)
+	require.ErrorIs(t, err, ErrUnsupportedParameter)
 
 	params = make(map[string]interface{}, 1)
 	params["id"] = []byte{1, 2, 3}
@@ -1213,7 +1213,7 @@ func TestUpsertInto(t *testing.T) {
 	params["title"] = uint64(1)
 	params["Title"] = uint64(2)
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, title, active) VALUES (1, @title, true)", params)
-	require.Equal(t, ErrDuplicatedParameters, err)
+	require.ErrorIs(t, err, ErrDuplicatedParameters)
 
 	_, ctxs, err := engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, amount, active) VALUES (1, 10, true)", nil)
 	require.NoError(t, err)
@@ -1276,7 +1276,7 @@ func TestUpsertInto(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id) VALUES (1, 'yat')", nil)
-	require.Equal(t, ErrInvalidNumberOfValues, err)
+	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, id) VALUES (1, 2)", nil)
 	require.ErrorIs(t, err, ErrDuplicatedColumn)
@@ -1286,13 +1286,13 @@ func TestUpsertInto(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnsupportedCast)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, active) VALUES (NULL, false)", nil)
-	require.Equal(t, ErrPKCanNotBeNull, err)
+	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (id, title, active) VALUES (2, NULL, true)", nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "UPSERT INTO table1 (title, active) VALUES ('interesting title', true)", nil)
-	require.Equal(t, ErrPKCanNotBeNull, err)
+	require.ErrorIs(t, err, ErrPKCanNotBeNull)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS blob_table (id BLOB[2], PRIMARY KEY id)", nil)
 	require.NoError(t, err)
@@ -1798,7 +1798,7 @@ func TestUseSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec(context.Background(), nil, "USE SNAPSHOT SINCE TX 1", nil)
-	require.Equal(t, ErrNoSupported, err)
+	require.ErrorIs(t, err, ErrNoSupported)
 
 	_, _, err = engine.Exec(context.Background(), nil, `
 		BEGIN TRANSACTION;
@@ -1992,7 +1992,7 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, "table1", orderBy[0].Table)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2001,7 +2001,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -2049,7 +2049,7 @@ func TestQuery(t *testing.T) {
 		}
 
 		_, err = r.Read(context.Background())
-		require.Equal(t, ErrNoMoreRows, err)
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -2099,7 +2099,7 @@ func TestQuery(t *testing.T) {
 		}
 
 		_, err = r.Read(context.Background())
-		require.Equal(t, ErrNoMoreRows, err)
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -2137,14 +2137,14 @@ func TestQuery(t *testing.T) {
 		}
 
 		_, err = r.Read(context.Background())
-		require.Equal(t, ErrNoMoreRows, err)
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
 	})
 
 	r, err = engine.Query(context.Background(), nil, "SELECT id, title, active, payload FROM table1 ORDER BY title", nil)
-	require.Equal(t, ErrLimitedOrderBy, err)
+	require.ErrorIs(t, err, ErrLimitedOrderBy)
 	require.Nil(t, r)
 
 	r, err = engine.Query(context.Background(), nil, "SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
@@ -3188,13 +3188,13 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil)
-	require.Equal(t, ErrLimitedOrderBy, err)
+	require.ErrorIs(t, err, ErrLimitedOrderBy)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil)
-	require.Equal(t, ErrLimitedOrderBy, err)
+	require.ErrorIs(t, err, ErrLimitedOrderBy)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
-	require.Equal(t, ErrLimitedOrderBy, err)
+	require.ErrorIs(t, err, ErrLimitedOrderBy)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table2 ORDER BY title", nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
@@ -3206,7 +3206,7 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.Query(context.Background(), nil, "SELECT id, title, age FROM table1 ORDER BY age", nil)
-	require.Equal(t, ErrLimitedOrderBy, err)
+	require.ErrorIs(t, err, ErrLimitedOrderBy)
 
 	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1(age)", nil)
 	require.NoError(t, err)
@@ -3359,7 +3359,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3390,7 +3390,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3413,7 +3413,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	}
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3427,7 +3427,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	}
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3652,7 +3652,7 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 
 	row, err := r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 	require.Nil(t, row)
 
 	err = r.Close()
@@ -3697,7 +3697,7 @@ func TestAggregations(t *testing.T) {
 	require.Equal(t, int64(ageSum/(rowCount-len(nullRows))), row.ValuesBySelector[EncodeSelector("", "t1", "col4")].RawValue())
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrNoMoreRows, err)
+	require.ErrorIs(t, err, ErrNoMoreRows)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3772,7 +3772,7 @@ func TestGroupByHaving(t *testing.T) {
 	}
 
 	_, err = engine.Query(context.Background(), nil, "SELECT active, COUNT(*), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil)
-	require.Equal(t, ErrHavingClauseRequiresGroupClause, err)
+	require.ErrorIs(t, err, ErrHavingClauseRequiresGroupClause)
 
 	r, err := engine.Query(context.Background(), nil, `
 		SELECT active, COUNT(*), SUM(age1)
@@ -3784,7 +3784,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrColumnDoesNotExist, err)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3804,7 +3804,7 @@ func TestGroupByHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read(context.Background())
-	require.Equal(t, ErrLimitedCount, err)
+	require.ErrorIs(t, err, ErrLimitedCount)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -3898,7 +3898,7 @@ func TestJoins(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = r.Read(context.Background())
-		require.Equal(t, ErrNoMoreRows, err)
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)
@@ -3917,7 +3917,7 @@ func TestJoins(t *testing.T) {
 		require.Len(t, row.ValuesBySelector, 3)
 
 		_, err = r.Read(context.Background())
-		require.Equal(t, ErrNoMoreRows, err)
+		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = r.Close()
 		require.NoError(t, err)

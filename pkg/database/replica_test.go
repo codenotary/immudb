@@ -91,7 +91,7 @@ func TestReadOnlyReplica(t *testing.T) {
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 }
 
 func TestSwitchToReplica(t *testing.T) {

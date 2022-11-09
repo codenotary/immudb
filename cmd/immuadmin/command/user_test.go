@@ -97,7 +97,7 @@ func TestUserListErrors(t *testing.T) {
 		return nil, errListUsers
 	}
 	_, err := cl.userList(nil)
-	require.Equal(t, errListUsers, err)
+	require.ErrorIs(t, err, errListUsers)
 
 	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
 		return &schema.UserList{
@@ -195,7 +195,7 @@ func TestUserChangePasswordErrors(t *testing.T) {
 		return nil, errors.New("password read error")
 	}
 	_, _, err := cl.changeUserPassword(username, oldPass)
-	require.Equal(t, errors.New("Error Reading Password"), err)
+	require.EqualError(t, err, "Error Reading Password")
 
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		return []byte("weakpass"), nil
@@ -216,7 +216,7 @@ func TestUserChangePasswordErrors(t *testing.T) {
 		return nil, errors.New("password read 2 error")
 	}
 	_, _, err = cl.changeUserPassword(username, oldPass)
-	require.Equal(t, errors.New("Error Reading Password"), err)
+	require.EqualError(t, err, "Error Reading Password")
 
 	pwReadCounter = 0
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
@@ -227,7 +227,7 @@ func TestUserChangePasswordErrors(t *testing.T) {
 		return []byte("GoodPass2!"), nil
 	}
 	_, _, err = cl.changeUserPassword(username, oldPass)
-	require.Equal(t, errors.New("Passwords don't match"), err)
+	require.EqualError(t, err, "Passwords don't match")
 
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		return goodPass1, nil
@@ -237,7 +237,7 @@ func TestUserChangePasswordErrors(t *testing.T) {
 		return errChangePass
 	}
 	_, _, err = cl.changeUserPassword(username, oldPass)
-	require.Equal(t, errChangePass, err)
+	require.ErrorIs(t, err, errChangePass)
 
 	immuClientMock.ChangePasswordF = func(context.Context, []byte, []byte, []byte) error {
 		return nil
@@ -317,7 +317,7 @@ func TestUserCreateErrors(t *testing.T) {
 	permission := "admin"
 	args := []string{username, permission, databasename}
 	_, err := cl.userCreate(args)
-	require.Equal(t, errListUsers, err)
+	require.ErrorIs(t, err, errListUsers)
 
 	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
 		return &schema.UserList{
@@ -335,7 +335,7 @@ func TestUserCreateErrors(t *testing.T) {
 		return nil, errListDatabases
 	}
 	_, err = cl.userCreate(args)
-	require.Equal(t, errListDatabases, err)
+	require.ErrorIs(t, err, errListDatabases)
 
 	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
@@ -366,7 +366,7 @@ func TestUserCreateErrors(t *testing.T) {
 		return nil, errors.New("password reading error")
 	}
 	_, err = cl.userCreate(args)
-	require.Equal(t, errors.New("Error Reading Password"), err)
+	require.EqualError(t, err, "Error Reading Password")
 
 	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
 		return []byte("weakpassword"), nil
@@ -386,7 +386,7 @@ func TestUserCreateErrors(t *testing.T) {
 		return nil, errors.New("password reading error 2")
 	}
 	_, err = cl.userCreate(args)
-	require.Equal(t, errors.New("Error Reading Password"), err)
+	require.EqualError(t, err, "Error Reading Password")
 
 	pwReadCounter = 0
 	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
@@ -397,14 +397,14 @@ func TestUserCreateErrors(t *testing.T) {
 		return []byte("$trongPass2!"), nil
 	}
 	_, err = cl.userCreate(args)
-	require.Equal(t, errors.New("Passwords don't match"), err)
+	require.EqualError(t, err, "Passwords don't match")
 
 	errCreateUser := errors.New("create user error")
 	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) error {
 		return errCreateUser
 	}
 	_, err = cl.userCreate(args)
-	require.Equal(t, errCreateUser, err)
+	require.ErrorIs(t, err, errCreateUser)
 
 	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) error {
 		return nil
@@ -538,7 +538,7 @@ func TestUserActivateErrors(t *testing.T) {
 		return errSetActiveUser
 	}
 	_, err := cl.setActiveUser([]string{"user1"}, true)
-	require.Equal(t, errSetActiveUser, err)
+	require.ErrorIs(t, err, errSetActiveUser)
 }
 
 func TestUserPermission(t *testing.T) {
@@ -629,6 +629,6 @@ func TestUserPermissionErrors(t *testing.T) {
 		return errChangePermission
 	}
 	_, err = cl.setUserPermission(args)
-	require.Equal(t, errChangePermission, err)
+	require.ErrorIs(t, err, errChangePermission)
 }
 */

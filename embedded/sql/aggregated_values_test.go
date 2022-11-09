@@ -34,7 +34,7 @@ func TestCountValue(t *testing.T) {
 	require.Equal(t, IntegerType, cval.Type())
 
 	_, err = cval.Compare(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	cmp, err := cval.Compare(&Integer{val: 1})
 	require.NoError(t, err)

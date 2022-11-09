@@ -33,7 +33,7 @@ func TestJointRowReader(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = newJointRowReader(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestJointRowReader(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: LeftJoin}})
-	require.Equal(t, ErrUnsupportedJoinType, err)
+	require.ErrorIs(t, err, ErrUnsupportedJoinType)
 
 	_, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &SelectStmt{}}})
 	require.NoError(t, err)

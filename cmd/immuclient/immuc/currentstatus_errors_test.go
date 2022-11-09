@@ -38,7 +38,7 @@ func TestCurrentRootErrors(t *testing.T) {
 	ic := new(immuc)
 	ic.ImmuClient = immuClientMock
 	_, err := ic.CurrentRoot(nil)
-	require.Equal(t, errCurrentRoot, err)
+	require.ErrorIs(t, err, errCurrentRoot)
 
 	rpcErrMsg := "CurrentRoot RPC error"
 	rpcErr := status.New(codes.Internal, rpcErrMsg).Err()
