@@ -72,6 +72,7 @@ var kvs = []*schema.KeyValue{
 func testServer(opts *Options) (*ImmuServer, func()) {
 	s := DefaultServer().WithOptions(opts).(*ImmuServer)
 	return s, func() {
+		s.CloseDatabases()
 		if s.Listener != nil {
 			s.Listener.Close()
 		}
@@ -227,6 +228,95 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+}
+
+type dbMockResetAdminPasswordCornerCases struct {
+	database.DB
+	setErr error
+}
+
+func (d *dbMockResetAdminPasswordCornerCases) Set(req *schema.SetRequest) (*schema.TxHeader, error) {
+	return nil, d.setErr
+}
+
+func TestResetAdminPasswordCornerCases(t *testing.T) {
+	t.Run("Do not allow changing sysadmin password if running as a systemdb replica", func(t *testing.T) {
+		opts := DefaultOptions().WithDir(t.TempDir())
+		opts.ReplicationOptions.WithIsReplica(true)
+
+		s, closer := testServer(opts)
+		defer closer()
+
+		err := s.Initialize()
+		require.NoError(t, err)
+
+		err = s.resetAdminPassword("newPassword")
+		require.ErrorContains(t, err, "database is running as a replica")
+	})
+
+	t.Run("Failure to read the current sysadmin user ", func(t *testing.T) {
+		opts := DefaultOptions().WithDir(t.TempDir())
+
+		s, closer := testServer(opts)
+		defer closer()
+
+		err := s.Initialize()
+		require.NoError(t, err)
+
+		err = s.CloseDatabases()
+		require.NoError(t, err)
+
+		err = s.resetAdminPassword("newPassword")
+		require.ErrorContains(t, err, "could not read sysadmin user data")
+	})
+
+	t.Run("Failure to read the current sysadmin user", func(t *testing.T) {
+		opts := DefaultOptions().WithDir(t.TempDir())
+
+		s, closer := testServer(opts)
+		defer closer()
+
+		err := s.Initialize()
+		require.NoError(t, err)
+
+		err = s.CloseDatabases()
+		require.NoError(t, err)
+
+		err = s.resetAdminPassword("newPassword")
+		require.ErrorContains(t, err, "could not read sysadmin user data")
+	})
+
+	t.Run("Invalid password", func(t *testing.T) {
+		opts := DefaultOptions().WithDir(t.TempDir())
+
+		s, closer := testServer(opts)
+		defer closer()
+
+		err := s.Initialize()
+		require.NoError(t, err)
+
+		err = s.resetAdminPassword("")
+		require.ErrorContains(t, err, "password is empty")
+	})
+
+	t.Run("Failing to save sysadmin user", func(t *testing.T) {
+		opts := DefaultOptions().WithDir(t.TempDir())
+
+		s, closer := testServer(opts)
+		defer closer()
+
+		err := s.Initialize()
+		require.NoError(t, err)
+
+		injectedErr := errors.New("injected error")
+
+		s.sysDB = &dbMockResetAdminPasswordCornerCases{
+			DB:     s.sysDB,
+			setErr: injectedErr,
+		}
+		err = s.resetAdminPassword("newPassword")
+		require.ErrorIs(t, err, injectedErr)
+	})
 }
 
 func TestServerWithEmptyAdminPassword(t *testing.T) {
@@ -1784,7 +1874,6 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 
 	_, err = s.getUser([]byte(username))
 	require.NoError(t, err)
-
 
 	_, err = s.getValidatedUser([]byte(username), []byte("wrongpass"))
 	require.Error(t, err)
