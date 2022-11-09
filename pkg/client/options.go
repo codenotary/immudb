@@ -177,6 +177,11 @@ func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
+// Identity returns server's identity
+func (o *Options) ServerIdentity() string {
+	return o.Bind()
+}
+
 // WithPasswordReader sets the password reader for the client
 func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
 	o.PasswordReader = pr

@@ -31,6 +31,8 @@ type StateService interface {
 	SetState(db string, state *schema.ImmutableState) error
 	CacheLock() error
 	CacheUnlock() error
+
+	SetServerIdentity(identity string)
 }
 
 type stateService struct {
@@ -40,13 +42,17 @@ type stateService struct {
 	serverUUID    string
 	logger        logger.Logger
 	m             sync.Mutex
+
+	serverIdentityNotChecked bool
+	serverIdentity           string
 }
 
 // NewStateService ...
 func NewStateService(cache cache.Cache,
 	logger logger.Logger,
 	stateProvider StateProvider,
-	uuidProvider UUIDProvider) (StateService, error) {
+	uuidProvider UUIDProvider,
+) (StateService, error) {
 
 	serverUUID, err := uuidProvider.CurrentUUID(context.Background())
 	if err != nil {
@@ -69,7 +75,8 @@ func NewStateService(cache cache.Cache,
 func NewStateServiceWithUUID(cache cache.Cache,
 	logger logger.Logger,
 	stateProvider StateProvider,
-	serverUUID string) (StateService, error) {
+	serverUUID string,
+) (StateService, error) {
 
 	if serverUUID == "" {
 		return nil, ErrNoServerUuid
@@ -86,6 +93,14 @@ func NewStateServiceWithUUID(cache cache.Cache,
 func (r *stateService) GetState(ctx context.Context, db string) (*schema.ImmutableState, error) {
 	r.m.Lock()
 	defer r.m.Unlock()
+
+	if r.serverIdentityNotChecked {
+		err := r.cache.ServerIdentityCheck(r.serverIdentity, r.serverUUID)
+		if err != nil {
+			return nil, err
+		}
+		r.serverIdentityNotChecked = false
+	}
 
 	state, err := r.cache.Get(r.serverUUID, db)
 	if err == nil {
@@ -120,4 +135,12 @@ func (r *stateService) CacheLock() error {
 
 func (r *stateService) CacheUnlock() error {
 	return r.cache.Unlock()
+}
+
+func (r *stateService) SetServerIdentity(identity string) {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	r.serverIdentityNotChecked = true
+	r.serverIdentity = identity
 }

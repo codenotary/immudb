@@ -592,35 +592,30 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	}
 
 	stateProvider := state.NewStateProvider(serviceClient)
-	serverUUID, err := state.NewUUIDProvider(serviceClient).CurrentUUID(context.Background())
-	if err != nil {
-		return nil, logErr(l, "Unable to get server uuid: %s", err)
-	}
+	uuidProvider := state.NewUUIDProvider(serviceClient)
 
-	stateCache := cache.NewFileCache(c.Options.Dir)
-	if !c.Options.DisableIdentityCheck {
-		err = stateCache.ServerIdentityCheck(
-			fmt.Sprintf("%s:%d", c.Options.Address, c.Options.Port),
-			serverUUID,
-		)
-		if err != nil {
-			return nil, logErr(l, "Unable to validate server identity: %s", err)
-		}
-	}
-
-	stateService, err := state.NewStateServiceWithUUID(
-		stateCache,
+	stateService, err := state.NewStateService(
+		cache.NewFileCache(options.Dir),
 		l,
 		stateProvider,
-		serverUUID,
+		uuidProvider,
 	)
 	if err != nil {
 		return nil, logErr(l, "Unable to create state service: %s", err)
 	}
 
+	if !c.Options.DisableIdentityCheck {
+		stateService.SetServerIdentity(c.getServerIdentity())
+	}
+
 	c.WithStateService(stateService)
 
 	return c, nil
+}
+
+func (c *immuClient) getServerIdentity() string {
+	// TODO: Allow customizing this value
+	return c.Options.Bind()
 }
 
 // SetupDialOptions extracts grpc dial options from provided client options.
