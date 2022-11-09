@@ -1323,7 +1323,8 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	// Config file path empty
 	s.Options.Config = ""
 	err := s.updateConfigItem("key", "key = value", func(string) bool { return false })
-	require.ErrorContains(t, err, "config file does not exist")
+	require.Error(t, err)
+	require.EqualError(t, err, "config file does not exist")
 	s.Options.Config = configFile
 
 	// ReadFile error

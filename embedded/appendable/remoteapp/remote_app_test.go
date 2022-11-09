@@ -42,11 +42,11 @@ import (
 func TestOpenInllegalArguments(t *testing.T) {
 	dir := t.TempDir()
 	app, err := Open(dir, "", memory.Open(), nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Nil(t, app)
 
 	app, err = Open(dir, "", nil, DefaultOptions())
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Nil(t, app)
 
 	app, err = Open(dir, "remotepath", memory.Open(), DefaultOptions())
@@ -900,7 +900,7 @@ func TestRemoteStorageOpenInitialAppendableMissingRemoteChunk(t *testing.T) {
 
 	// Opening should fail now
 	app, err = Open(path, "", m, opts)
-	require.Equal(t, ErrMissingRemoteChunk, err)
+	require.ErrorIs(t, err, ErrMissingRemoteChunk)
 	require.Nil(t, app)
 }
 
@@ -926,6 +926,6 @@ func TestRemoteStorageOpenInitialAppendableCorruptedLocalFile(t *testing.T) {
 
 	// Opening should fail now
 	app, err = Open(path, "", m, opts)
-	require.Equal(t, ErrInvalidRemoteStorage, err)
+	require.ErrorIs(t, err, ErrInvalidRemoteStorage)
 	require.Nil(t, app)
 }

@@ -48,7 +48,7 @@ func TestScannersErrors(t *testing.T) {
 		return nil, errZScan
 	}
 	_, err = ic.ZScan(args)
-	require.Equal(t, errZScan, err)
+	require.ErrorIs(t, err, errZScan)
 
 	immuClientMock.ZScanF = func(context.Context, *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
 		return &schema.ZStructuredItemList{}, nil
@@ -77,7 +77,7 @@ func TestScannersErrors(t *testing.T) {
 		return nil, errIScan
 	}
 	_, err = ic.IScan(args)
-	require.Equal(t, errIScan, err)
+	require.ErrorIs(t, err, errIScan)
 
 	immuClientMock.IScanF = func(context.Context, uint64, uint64) (*schema.SPage, error) {
 		return &schema.SPage{}, nil
@@ -100,7 +100,7 @@ func TestScannersErrors(t *testing.T) {
 		return nil, errScan
 	}
 	_, err = ic.Scan(args)
-	require.Equal(t, errScan, err)
+	require.ErrorIs(t, err, errScan)
 
 	immuClientMock.ScanF = func(context.Context, *schema.ScanOptions) (*schema.StructuredItemList, error) {
 		return &schema.StructuredItemList{}, nil
@@ -115,6 +115,6 @@ func TestScannersErrors(t *testing.T) {
 		return nil, errCount
 	}
 	_, err = ic.Count(args)
-	require.Equal(t, errCount, err)
+	require.ErrorIs(t, err, errCount)
 }
 */

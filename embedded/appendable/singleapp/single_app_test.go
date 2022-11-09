@@ -484,14 +484,12 @@ func TestSingleAppCantCreateFile(t *testing.T) {
 	os.Mkdir(filepath.Join(dir, "exists"), 0644)
 
 	_, err := Open(filepath.Join(dir, "exists"), DefaultOptions())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "exists")
+	require.ErrorContains(t, err, "exists")
 
 	app, err := Open(filepath.Join(dir, "valid"), DefaultOptions())
 	require.NoError(t, err)
 	err = app.Copy(filepath.Join(dir, "exists"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "exists")
+	require.ErrorContains(t, err, "exists")
 }
 
 func TestSingleAppDiscard(t *testing.T) {

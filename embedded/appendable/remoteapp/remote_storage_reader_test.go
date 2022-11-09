@@ -84,7 +84,7 @@ func TestRemoteStorageReadAt(t *testing.T) {
 
 	n, err = r.ReadAt(make([]byte, 2), -1)
 	require.EqualValues(t, 0, n)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	n, err = r.ReadAt(make([]byte, 2), 4)
 	require.EqualValues(t, 0, n)
@@ -108,7 +108,7 @@ func TestRemoteStorageCorruptedHeader(t *testing.T) {
 			storeData(t, m, "fl", d.bytes)
 
 			r, err := openRemoteStorageReader(m, "fl")
-			require.Equal(t, ErrCorruptedMetadata, err)
+			require.ErrorIs(t, err, ErrCorruptedMetadata)
 			require.Nil(t, r)
 		})
 	}

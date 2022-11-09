@@ -25,7 +25,7 @@ import (
 
 func TestCacheCreation(t *testing.T) {
 	_, err := NewLRUCache(0)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cacheSize := 10
 	cache, err := NewLRUCache(cacheSize)
@@ -34,10 +34,10 @@ func TestCacheCreation(t *testing.T) {
 	require.Equal(t, cacheSize, cache.Size())
 
 	_, err = cache.Get(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = cache.Put(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	for i := 0; i < cacheSize; i++ {
 		_, _, err = cache.Put(i, 10*i)
@@ -66,7 +66,7 @@ func TestCacheCreation(t *testing.T) {
 
 	for i := cacheSize / 2; i < cacheSize; i++ {
 		_, err = cache.Get(i)
-		require.Equal(t, ErrKeyNotFound, err)
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	}
 
 	for i := cacheSize; i < cacheSize+cacheSize/2; i++ {
@@ -127,11 +127,11 @@ func TestPop(t *testing.T) {
 	require.Equal(t, cacheSize-1, c)
 
 	val, err = cache.Pop(-1)
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 	require.Nil(t, val)
 
 	val, err = cache.Pop(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Nil(t, val)
 }
 
@@ -162,11 +162,11 @@ func TestReplace(t *testing.T) {
 	require.Equal(t, cacheSize, c)
 
 	val, err = cache.Replace(-1, 9998)
-	require.Equal(t, ErrKeyNotFound, err)
+	require.ErrorIs(t, err, ErrKeyNotFound)
 	require.Nil(t, val)
 
 	val, err = cache.Replace(nil, 9997)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Nil(t, val)
 }
 

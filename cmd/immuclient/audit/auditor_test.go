@@ -58,16 +58,14 @@ defer bs.Stop()
 	os.Setenv("audit-agent-interval", "X")
 	_, err = ad.InitAgent()
 	os.RemoveAll(pidPath)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid duration")
+	require.ErrorContains(t, err, "invalid duration")
 	os.Unsetenv("audit-agent-interval")
 
 	auditPassword := viper.GetString("audit-password")
 	viper.Set("audit-password", "X")
 	_, err = ad.InitAgent()
 	os.RemoveAll(pidPath)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "Invalid login operation")
+	require.ErrorContains(t, err, "Invalid login operation")
 	viper.Set("audit-password", auditPassword)
 }
 */

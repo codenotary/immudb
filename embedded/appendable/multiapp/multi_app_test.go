@@ -242,8 +242,7 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = a.Copy("multi_app_test.go")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not a directory")
+	require.ErrorContains(t, err, "not a directory")
 
 	err = a.Close()
 	require.NoError(t, err)

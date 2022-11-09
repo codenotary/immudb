@@ -38,7 +38,7 @@ func Test_Immuerror(t *testing.T) {
 	require.Equal(t, err.Error(), cause)
 	require.Equal(t, err.Message(), cause)
 	require.Equal(t, err.Code(), errors.CodInternalError)
-	require.Equal(t, err.Cause(), err)
+	require.ErrorIs(t, err, err.Cause())
 	require.Equal(t, err.RetryDelay(), int32(0))
 	require.NotNil(t, err.Stack())
 

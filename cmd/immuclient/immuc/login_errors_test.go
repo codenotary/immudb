@@ -68,7 +68,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		return errWriteFileToHomeDir
 	}
 	_, err = ic.Login(args)
-	require.Equal(t, errWriteFileToHomeDir, err)
+	require.ErrorIs(t, err, errWriteFileToHomeDir)
 
 	homedirServiceMock.WriteFileToUserHomeDirF = func([]byte, string) error {
 		return nil
@@ -94,7 +94,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		return true, nil
 	}
 	_, err = ic.Logout(nil)
-	require.Equal(t, errDeleteFileFromHomeDir, err)
+	require.ErrorIs(t, err, errDeleteFileFromHomeDir)
 
 	// UserCreate errors
 	resp, err = ic.UserCreate(nil)
@@ -149,7 +149,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		return nil, errListUsers
 	}
 	_, err = ic.UserList(nil)
-	require.Equal(t, errListUsers, err)
+	require.ErrorIs(t, err, errListUsers)
 
 	userList := &schema.UserList{
 		Users: []*schema.User{
@@ -201,7 +201,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 
 	// ChangeUserPassword errors
 	_, err = ic.ChangeUserPassword(nil)
-	require.Equal(t, errors.New("ERROR: Not enough arguments. Use [command] --help for documentation "), err)
+	require.EqualError(t, err, "ERROR: Not enough arguments. Use [command] --help for documentation ")
 
 	args = []string{auth.SysAdminUsername}
 	passwordReaderMock.ReadF = func(msg string) ([]byte, error) {
@@ -271,7 +271,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		return errSetActiveUser
 	}
 	_, err = ic.SetActiveUser([]string{"user1"}, true)
-	require.Equal(t, errSetActiveUser, err)
+	require.ErrorIs(t, err, errSetActiveUser)
 
 	// SetUserPermission errors
 	resp, err = ic.SetUserPermission(nil)
@@ -298,6 +298,6 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		return errChangePermission
 	}
 	_, err = ic.SetUserPermission(args)
-	require.Equal(t, errChangePermission, err)
+	require.ErrorIs(t, err, errChangePermission)
 }
 */

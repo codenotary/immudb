@@ -42,7 +42,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errRawSafeSet
 	}
 	_, err := ic.RawSafeSet(args)
-	require.Equal(t, errRawSafeSet, err)
+	require.ErrorIs(t, err, errRawSafeSet)
 	immuClientMock.RawSafeSetF = func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error) {
 		return nil, nil
 	}
@@ -52,7 +52,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errRawSafeGet
 	}
 	_, err = ic.RawSafeSet(args)
-	require.Equal(t, errRawSafeGet, err)
+	require.ErrorIs(t, err, errRawSafeGet)
 
 	// Set errors
 	errSet := errors.New("set error")
@@ -60,7 +60,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errSet
 	}
 	_, err = ic.Set(args)
-	require.Equal(t, errSet, err)
+	require.ErrorIs(t, err, errSet)
 	immuClientMock.SetF = func(context.Context, []byte, []byte) (*schema.Index, error) {
 		return nil, nil
 	}
@@ -70,7 +70,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errGet
 	}
 	_, err = ic.Set(args)
-	require.Equal(t, errGet, err)
+	require.ErrorIs(t, err, errGet)
 
 	// SafeSet errors
 	errSafeSet := errors.New("safe set error")
@@ -78,7 +78,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errSafeSet
 	}
 	_, err = ic.SafeSet(args)
-	require.Equal(t, errSafeSet, err)
+	require.ErrorIs(t, err, errSafeSet)
 
 	immuClientMock.SafeSetF = func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
 		return nil, nil
@@ -88,7 +88,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errSafeGet
 	}
 	_, err = ic.SafeSet(args)
-	require.Equal(t, errSafeGet, err)
+	require.ErrorIs(t, err, errSafeGet)
 
 	// ZAdd errors
 	_, err = ic.ZAdd([]string{"set1", "X", "key1"})
@@ -99,7 +99,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errZAdd
 	}
 	_, err = ic.ZAdd([]string{"set1", "1", "key1"})
-	require.Equal(t, errZAdd, err)
+	require.ErrorIs(t, err, errZAdd)
 
 	// SafeZAdd errors
 	_, err = ic.SafeZAdd([]string{"set1", "X", "key1"})
@@ -110,7 +110,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errSafeZAdd
 	}
 	_, err = ic.SafeZAdd([]string{"set1", "1", "key1"})
-	require.Equal(t, errSafeZAdd, err)
+	require.ErrorIs(t, err, errSafeZAdd)
 
 	// CreateDatabase errors
 	_, err = ic.CreateDatabase(nil)
@@ -124,7 +124,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return errCreateDb
 	}
 	_, err = ic.CreateDatabase([]string{"db1"})
-	require.Equal(t, errCreateDb, err)
+	require.ErrorIs(t, err, errCreateDb)
 
 	// DatabaseList errors
 	errDbList := errors.New("database list error")
@@ -132,7 +132,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return nil, errDbList
 	}
 	_, err = ic.DatabaseList(nil)
-	require.Equal(t, errDbList, err)
+	require.ErrorIs(t, err, errDbList)
 
 	ic.options = &client.Options{CurrentDatabase: "db2"}
 	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
@@ -155,7 +155,7 @@ func TestSetCommandsErrors(t *testing.T) {
 	}
 	args = []string{"db1"}
 	_, err = ic.UseDatabase(args)
-	require.Equal(t, errUseDb, err)
+	require.ErrorIs(t, err, errUseDb)
 
 	immuClientMock.UseDatabaseF = func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error) {
 		return &schema.UseDatabaseReply{
@@ -172,6 +172,6 @@ func TestSetCommandsErrors(t *testing.T) {
 		return errWriteFileToHomeDir
 	}
 	_, err = ic.UseDatabase(args)
-	require.Equal(t, errWriteFileToHomeDir, err)
+	require.ErrorIs(t, err, errWriteFileToHomeDir)
 }
 */

@@ -178,11 +178,11 @@ func TestRemoteStorageGetInvalidParams(t *testing.T) {
 	ctx := context.Background()
 
 	r, err := storage.Get(ctx, "testfile", -1, 100)
-	require.Equal(t, ErrInvalidArguments, err)
+	require.ErrorIs(t, err, ErrInvalidArguments)
 	require.Nil(t, r)
 
 	r, err = storage.Get(ctx, "testfile", 0, 0)
-	require.Equal(t, ErrInvalidArguments, err)
+	require.ErrorIs(t, err, ErrInvalidArguments)
 	require.Nil(t, r)
 }
 
@@ -217,7 +217,7 @@ func TestRemoteStorageListEntriesInvalidArgs(t *testing.T) {
 	for _, path := range []string{"/", "no_slash", "double_slash_//_inside/"} {
 		t.Run(path, func(t *testing.T) {
 			e, s, err := storage.ListEntries(context.Background(), path)
-			require.Equal(t, ErrInvalidArguments, err)
+			require.ErrorIs(t, err, ErrInvalidArguments)
 			require.Nil(t, e)
 			require.Nil(t, s)
 		})
