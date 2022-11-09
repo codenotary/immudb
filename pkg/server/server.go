@@ -450,7 +450,7 @@ func (s *ImmuServer) loadSystemDatabase(
 			err = user.ComparePasswords([]byte(adminPassword))
 			if err != nil {
 				s.Logger.Warningf(
-					"Admin password was not updated for an existing user, " +
+					"Admin password was not updated, " +
 						"use the force-admin-password option to forcibly reset it",
 				)
 			}
