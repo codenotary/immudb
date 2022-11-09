@@ -440,6 +440,20 @@ func (s *ImmuServer) loadSystemDatabase(
 				s.Logger.Errorf("Can not reset admin password, %v", err)
 				return ErrCantUpdateAdminPassword
 			}
+		} else if adminPassword != auth.SysAdminPassword {
+			// Add warning that the password is not changed even though manually specified
+			user, err := s.getUser([]byte(auth.SysAdminUsername))
+			if err != nil {
+				s.Logger.Errorf("Can not validate admin user: %v", err)
+				return err
+			}
+			err = user.ComparePasswords([]byte(adminPassword))
+			if err != nil {
+				s.Logger.Warningf(
+					"Admin password was not updated for an existing user, " +
+						"use the force-admin-password option to forcibly reset it",
+				)
+			}
 		}
 
 		if dbOpts.isReplicatorRequired() {
