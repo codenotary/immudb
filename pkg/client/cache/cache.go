@@ -34,6 +34,10 @@ type Cache interface {
 	Unlock() error
 
 	// Consistency check validates that a server with given identity can use given server uuid
+	//
+	// `serverIdentity` must uniquely identify given immudb server instance.
+	// Go SDK passes `host:port` pair as the server identity however the Cache interface implementation
+	// must not do any assumptions about the structure of this data.
 	ServerIdentityCheck(serverIdentity, serverUUID string) error
 }
 
