@@ -39,7 +39,7 @@ type stateService struct {
 	cache         cache.Cache
 	serverUUID    string
 	logger        logger.Logger
-	sync.RWMutex
+	m             sync.Mutex
 }
 
 // NewStateService ...
@@ -84,8 +84,8 @@ func NewStateServiceWithUUID(cache cache.Cache,
 }
 
 func (r *stateService) GetState(ctx context.Context, db string) (*schema.ImmutableState, error) {
-	r.Lock()
-	defer r.Unlock()
+	r.m.Lock()
+	defer r.m.Unlock()
 
 	state, err := r.cache.Get(r.serverUUID, db)
 	if err == nil {
@@ -108,8 +108,8 @@ func (r *stateService) GetState(ctx context.Context, db string) (*schema.Immutab
 }
 
 func (r *stateService) SetState(db string, state *schema.ImmutableState) error {
-	r.Lock()
-	defer r.Unlock()
+	r.m.Lock()
+	defer r.m.Unlock()
 
 	return r.cache.Set(r.serverUUID, db, state)
 }
