@@ -58,7 +58,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("clientcas", "", "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
-	cmd.Flags().Bool("force-admin-password", false, "if true, reset the admin password is to the one passed through admin-password option if it was changed")
+	cmd.Flags().Bool("force-admin-password", false, "if true, reset the admin password to the one passed through admin-password option upon startup")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. e.g. \"./../test/signer/ec3.key\"")
 	cmd.Flags().Bool("synced", true, "synced mode prevents data lost under unexpected crashes but affects performance")
