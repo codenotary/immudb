@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -66,15 +67,15 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	state, err := s.CurrentState(ctx, &emptypb.Empty{})
 
 	require.NoError(t, err)
-	require.IsType(t, &schema.ImmutableState{}, state)
-	require.IsType(t, &schema.Signature{}, state.Signature)
-	require.NotNil(t, state.Signature.Signature)
-	require.NotNil(t, state.Signature.PublicKey)
+	assert.IsType(t, &schema.ImmutableState{}, state)
+	assert.IsType(t, &schema.Signature{}, state.Signature)
+	assert.NotNil(t, state.Signature.Signature)
+	assert.NotNil(t, state.Signature.PublicKey)
 
 	ecdsaPK, err := signer.UnmarshalKey(state.Signature.PublicKey)
 	require.NoError(t, err)
 
 	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, ecdsaPK)
 	require.NoError(t, err)
-	require.True(t, ok)
+	assert.True(t, ok)
 }
