@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/stream"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -178,7 +177,7 @@ Superadmin default credentials
 		WithPidfile("immu.pid").
 		WithLogfile("immu.log")
 
-	assert.Equal(t, expected, op.String())
+	require.Equal(t, expected, op.String())
 }
 
 func TestOptionsWithSyncReplicationString(t *testing.T) {
@@ -211,7 +210,7 @@ Superadmin default credentials
 		WithSyncReplication(true).
 		WithSyncAcks(1)
 
-	assert.Equal(t, expected, op.String())
+	require.Equal(t, expected, op.String())
 }
 
 func TestOptionsStringWithS3(t *testing.T) {
@@ -252,7 +251,7 @@ Superadmin default credentials
 				WithS3PathPrefix("s3-path-prefix"),
 		)
 
-	assert.Equal(t, expected, op.String())
+	require.Equal(t, expected, op.String())
 }
 
 func TestOptionsStringWithPProf(t *testing.T) {
@@ -282,5 +281,5 @@ Superadmin default credentials
 		WithLogfile("immu.log").
 		WithPProf(true)
 
-	assert.Equal(t, expected, op.String())
+	require.Equal(t, expected, op.String())
 }

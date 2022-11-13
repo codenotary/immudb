@@ -41,7 +41,7 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	dbRootpath := dir
 
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	stSig := NewStateSigner(sig)
 	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
@@ -66,7 +66,7 @@ func TestServerCurrentStateSigned(t *testing.T) {
 
 	state, err := s.CurrentState(ctx, &emptypb.Empty{})
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.IsType(t, &schema.ImmutableState{}, state)
 	assert.IsType(t, &schema.Signature{}, state.Signature)
 	assert.NotNil(t, state.Signature.Signature)
@@ -76,6 +76,6 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	require.NoError(t, err)
 
 	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, ecdsaPK)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, ok)
 }
