@@ -27,7 +27,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/peer"
 )
@@ -45,7 +44,7 @@ func TestStartMetrics(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	defer server.Close()
 
-	assert.IsType(t, &http.Server{}, server)
+	require.IsType(t, &http.Server{}, server)
 }
 
 func TestStartMetricsFail(t *testing.T) {
@@ -65,7 +64,7 @@ func TestStartMetricsFail(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	defer server.Close()
 
-	assert.IsType(t, &http.Server{}, server)
+	require.IsType(t, &http.Server{}, server)
 }
 
 func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
@@ -104,7 +103,7 @@ func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	ctx := peer.NewContext(context.TODO(), p)
 	mc.UpdateClientMetrics(ctx)
 
-	assert.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, MetricsCollection{}, mc)
 }
 
 func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
@@ -140,7 +139,7 @@ func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
 	// update after injecting the funcs, to catch the normal execution path
 	mc.UpdateDBMetrics()
 
-	assert.IsType(t, MetricsCollection{}, mc)
+	require.IsType(t, MetricsCollection{}, mc)
 }
 
 func TestImmudbHealthHandlerFunc(t *testing.T) {

@@ -22,13 +22,13 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/signer"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewStateSigner(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
 	rs := NewStateSigner(s)
-	assert.IsType(t, &stateSigner{}, rs)
+	require.IsType(t, &stateSigner{}, rs)
 }
 
 func TestStateSigner_Sign(t *testing.T) {
@@ -36,13 +36,13 @@ func TestStateSigner_Sign(t *testing.T) {
 	stSigner := NewStateSigner(s)
 	state := &schema.ImmutableState{}
 	err := stSigner.Sign(state)
-	assert.NoError(t, err)
-	assert.IsType(t, &schema.ImmutableState{}, state)
+	require.NoError(t, err)
+	require.IsType(t, &schema.ImmutableState{}, state)
 }
 
 func TestStateSigner_Err(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
 	stSigner := NewStateSigner(s)
 	err := stSigner.Sign(nil)
-	assert.Error(t, store.ErrIllegalArguments, err)
+	require.Error(t, store.ErrIllegalArguments, err)
 }

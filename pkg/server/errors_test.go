@@ -23,20 +23,20 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	immuerrors "github.com/codenotary/immudb/pkg/errors"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMapServerError(t *testing.T) {
 	err := mapServerError(store.ErrIllegalState)
-	assert.Equal(t, ErrIllegalState, err)
+	require.Equal(t, ErrIllegalState, err)
 
 	err = mapServerError(store.ErrIllegalArguments)
-	assert.Equal(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	someError := errors.New("some error")
 	err = mapServerError(someError)
-	assert.Equal(t, someError, err)
+	require.Equal(t, someError, err)
 
 	err = mapServerError(fmt.Errorf("%w: test", store.ErrPreconditionFailed))
-	assert.Equal(t, immuerrors.CodIntegrityConstraintViolation, err.(immuerrors.Error).Code())
+	require.Equal(t, immuerrors.CodIntegrityConstraintViolation, err.(immuerrors.Error).Code())
 }
