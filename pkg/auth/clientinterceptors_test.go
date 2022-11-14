@@ -20,7 +20,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -36,7 +35,7 @@ func TestClientUnaryInterceptor(t *testing.T) {
 		return nil
 	}
 	err := f(context.Background(), "", "", "", nil, invoker)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientStreamInterceptor(t *testing.T) {
@@ -48,5 +47,5 @@ func TestClientStreamInterceptor(t *testing.T) {
 		return nil, nil
 	}
 	_, err := f(context.Background(), nil, nil, "", streamer)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
