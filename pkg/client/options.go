@@ -224,6 +224,16 @@ func (o *Options) WithHeartBeatFrequency(heartBeatFrequency time.Duration) *Opti
 	return o
 }
 
+// WithDisableIdentityCheck disables or enables server identity check.
+//
+// Each server identifies itself with a unique UUID which along with the database name
+// is used to identify a particular immudb database instance. This UUID+database name tuple
+// is then used to select appropriate state value stored on the client side to do proof verifications.
+//
+// Identity check is responsible for ensuring that the server with given identity
+// (which is currently the "host:port" string) must always present with the same UUID.
+//
+// Disabling this check means that the server can present different UUID.
 func (o *Options) WithDisableIdentityCheck(disableIdentityCheck bool) *Options {
 	o.DisableIdentityCheck = disableIdentityCheck
 	return o
