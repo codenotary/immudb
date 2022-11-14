@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJSONLogger(t *testing.T) {
@@ -35,7 +35,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Info("test call", "user", "foo")
 
@@ -46,10 +46,10 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "test call", raw["message"])
-		assert.Equal(t, "foo", raw["user"])
+		require.Equal(t, "test call", raw["message"])
+		require.Equal(t, "foo", raw["user"])
 
-		assert.NoError(t, logger.Close())
+		require.NoError(t, logger.Close())
 	})
 
 	t.Run("use UTC time zone", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestJSONLogger(t *testing.T) {
 			TimeFormat: time.Kitchen,
 			TimeFnc:    func() time.Time { return time.Now().UTC() },
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Info("foobar")
 
@@ -77,7 +77,7 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal("missing 'timestamp' key")
 		}
 
-		assert.Equal(t, val, time.Now().UTC().Format(time.Kitchen))
+		require.Equal(t, val, time.Now().UTC().Format(time.Kitchen))
 	})
 
 	t.Run("log error type", func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		errMsg := errors.New("this is an error")
 		logger.Info("test call", "user", "foo", "err", errMsg)
@@ -99,9 +99,9 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "test call", raw["message"])
-		assert.Equal(t, "foo", raw["user"])
-		assert.Equal(t, errMsg.Error(), raw["err"])
+		require.Equal(t, "test call", raw["message"])
+		require.Equal(t, "foo", raw["user"])
+		require.Equal(t, errMsg.Error(), raw["err"])
 	})
 
 	t.Run("handles non-serializable args", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		myfunc := func() int { return 42 }
 		logger.Info("test call", "production", myfunc)
@@ -123,13 +123,13 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "test call", raw["message"])
-		assert.Equal(t, errInvalidTypeMsg, raw["warn"])
+		require.Equal(t, "test call", raw["message"])
+		require.Equal(t, errInvalidTypeMsg, raw["warn"])
 	})
 
 	t.Run("use file output for logging", func(t *testing.T) {
 		file, err := ioutil.TempFile("", "logger")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer os.Remove(file.Name())
 
 		logger, err := NewJSONLogger(&Options{
@@ -138,22 +138,22 @@ func TestJSONLogger(t *testing.T) {
 			TimeFormat: time.Kitchen,
 			TimeFnc:    func() time.Time { return time.Now().UTC() },
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Info("some info", "foo", "bar")
 
 		logBytes, err := ioutil.ReadFile(file.Name())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var raw map[string]interface{}
 		if err := json.Unmarshal(logBytes, &raw); err != nil {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info", raw["message"])
-		assert.Equal(t, "bar", raw["foo"])
+		require.Equal(t, "some info", raw["message"])
+		require.Equal(t, "bar", raw["foo"])
 
-		assert.NoError(t, logger.Close())
+		require.NoError(t, logger.Close())
 	})
 
 	t.Run("log with debug", func(t *testing.T) {
@@ -162,7 +162,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Debug("some info", "foo", "bar")
 
@@ -173,9 +173,9 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info", raw["message"])
-		assert.Equal(t, "bar", raw["foo"])
-		assert.Equal(t, "debug", raw["level"])
+		require.Equal(t, "some info", raw["message"])
+		require.Equal(t, "bar", raw["foo"])
+		require.Equal(t, "debug", raw["level"])
 	})
 
 	t.Run("log with warning", func(t *testing.T) {
@@ -184,7 +184,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Warning("some info", "foo", "bar")
 		b := buf.Bytes()
@@ -194,9 +194,9 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info", raw["message"])
-		assert.Equal(t, "bar", raw["foo"])
-		assert.Equal(t, "warn", raw["level"])
+		require.Equal(t, "some info", raw["message"])
+		require.Equal(t, "bar", raw["foo"])
+		require.Equal(t, "warn", raw["level"])
 	})
 
 	t.Run("log with error", func(t *testing.T) {
@@ -205,7 +205,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Error("some info", "foo", "bar")
 		b := buf.Bytes()
@@ -215,9 +215,9 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info", raw["message"])
-		assert.Equal(t, "bar", raw["foo"])
-		assert.Equal(t, "error", raw["level"])
+		require.Equal(t, "some info", raw["message"])
+		require.Equal(t, "bar", raw["foo"])
+		require.Equal(t, "error", raw["level"])
 	})
 
 	t.Run("log with infof", func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Infof("some info %s %s", "foo", "bar")
 
@@ -237,8 +237,8 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info foo bar", raw["message"])
-		assert.Equal(t, "info", raw["level"])
+		require.Equal(t, "some info foo bar", raw["message"])
+		require.Equal(t, "info", raw["level"])
 	})
 
 	t.Run("log with debugf", func(t *testing.T) {
@@ -247,7 +247,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Debugf("some info %s %s", "foo", "bar")
 
@@ -258,8 +258,8 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info foo bar", raw["message"])
-		assert.Equal(t, "debug", raw["level"])
+		require.Equal(t, "some info foo bar", raw["message"])
+		require.Equal(t, "debug", raw["level"])
 	})
 
 	t.Run("log with warningf", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Warningf("some info %s %s", "foo", "bar")
 		b := buf.Bytes()
@@ -278,8 +278,8 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info foo bar", raw["message"])
-		assert.Equal(t, "warn", raw["level"])
+		require.Equal(t, "some info foo bar", raw["message"])
+		require.Equal(t, "warn", raw["level"])
 	})
 
 	t.Run("log with errorf", func(t *testing.T) {
@@ -288,7 +288,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logger.Errorf("some info %s %s", "foo", "bar")
 		b := buf.Bytes()
@@ -298,8 +298,8 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "some info foo bar", raw["message"])
-		assert.Equal(t, "error", raw["level"])
+		require.Equal(t, "some info foo bar", raw["message"])
+		require.Equal(t, "error", raw["level"])
 	})
 
 	t.Run("log with component", func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestJSONLogger(t *testing.T) {
 			Name:   "test",
 			Output: &buf,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logWithFunc(logger, "some info foo bar")
 
@@ -319,7 +319,7 @@ func TestJSONLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, "github.com/codenotary/immudb/pkg/logger.logWithFunc", raw["component"])
+		require.Equal(t, "github.com/codenotary/immudb/pkg/logger.logWithFunc", raw["component"])
 	})
 
 }
