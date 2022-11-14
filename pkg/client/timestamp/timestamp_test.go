@@ -20,13 +20,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefault(t *testing.T) {
 	def, err := NewDefaultTimestamp()
-	assert.NoError(t, err)
-	assert.IsType(t, def, &timestampDefault{})
+	require.NoError(t, err)
+	require.IsType(t, def, &timestampDefault{})
 	ts := def.Now()
-	assert.IsType(t, ts, time.Time{})
+	require.IsType(t, ts, time.Time{})
 }

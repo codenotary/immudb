@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/streamutils"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,6 +45,6 @@ func TestImmuServer_StreamVerifiedSetAndGet(t *testing.T) {
 	entry, err := cliIF.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
 		KeyRequest: &schema.KeyRequest{Key: []byte(tmpFile.Name())},
 	})
-	assert.NoError(t, err)
-	assert.Equal(t, (8<<20)-1, len(entry.Value))
+	require.NoError(t, err)
+	require.Equal(t, (8<<20)-1, len(entry.Value))
 }

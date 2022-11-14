@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteFileToUserHomeDir(t *testing.T) {
@@ -31,8 +31,8 @@ func TestWriteFileToUserHomeDir(t *testing.T) {
 	pathToFile := "testfile"
 	user, _ := user.Current()
 	err := hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.FileExists(t, filepath.Join(user.HomeDir, pathToFile))
-	assert.NoError(t, err)
+	require.FileExists(t, filepath.Join(user.HomeDir, pathToFile))
+	require.NoError(t, err)
 	os.RemoveAll(filepath.Join(user.HomeDir, pathToFile))
 }
 
@@ -43,13 +43,13 @@ func TestFileExistsInUserHomeDir(t *testing.T) {
 
 	user, _ := user.Current()
 	exists, err := hds.FileExistsInUserHomeDir(filepath.Join(user.HomeDir, pathToFile))
-	assert.False(t, exists)
-	assert.NoError(t, err)
+	require.False(t, exists)
+	require.NoError(t, err)
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	exists, err = hds.FileExistsInUserHomeDir(pathToFile)
-	assert.True(t, exists)
-	assert.NoError(t, err)
+	require.True(t, exists)
+	require.NoError(t, err)
 	os.RemoveAll(filepath.Join(user.HomeDir, pathToFile))
 }
 
@@ -60,15 +60,15 @@ func TestReadFileFromUserHomeDir(t *testing.T) {
 	user, _ := user.Current()
 
 	_, err := hds.ReadFileFromUserHomeDir(pathToFile)
-	assert.ErrorIs(t, err, os.ErrNotExist)
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(filepath.Join(user.HomeDir, pathToFile))
 
 	strcontent, err := hds.ReadFileFromUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, strcontent)
+	require.NoError(t, err)
+	require.NotEmpty(t, strcontent)
 }
 
 func TestDeleteFileFromUserHomeDir(t *testing.T) {
@@ -78,15 +78,15 @@ func TestDeleteFileFromUserHomeDir(t *testing.T) {
 	pathToFile := "testfile"
 	user, _ := user.Current()
 	err := hds.DeleteFileFromUserHomeDir(pathToFile)
-	assert.ErrorIs(t, err, os.ErrNotExist)
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(filepath.Join(user.HomeDir, pathToFile))
 
 	err = hds.DeleteFileFromUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.NoFileExists(t, filepath.Join(user.HomeDir, pathToFile))
+	require.NoError(t, err)
+	require.NoFileExists(t, filepath.Join(user.HomeDir, pathToFile))
 }
 
 func TestWriteDirFileToUserHomeDir(t *testing.T) {
@@ -95,8 +95,8 @@ func TestWriteDirFileToUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	err := hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
-	assert.FileExists(t, pathToFile)
+	require.NoError(t, err)
+	require.FileExists(t, pathToFile)
 }
 
 func TestDirFileExistsInUserHomeDir(t *testing.T) {
@@ -105,15 +105,15 @@ func TestDirFileExistsInUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	exists, err := hds.FileExistsInUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	exists, err = hds.FileExistsInUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 }
 
 func TestDirFileFileFromUserHomeDir(t *testing.T) {
@@ -122,14 +122,14 @@ func TestDirFileFileFromUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	_, err := hds.ReadFileFromUserHomeDir(pathToFile)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	strcontent, err := hds.ReadFileFromUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, strcontent)
+	require.NoError(t, err)
+	require.NotEmpty(t, strcontent)
 }
 
 func TestDeleteDirFileFromUserHomeDir(t *testing.T) {
@@ -138,12 +138,12 @@ func TestDeleteDirFileFromUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	err := hds.DeleteFileFromUserHomeDir(pathToFile)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = hds.DeleteFileFromUserHomeDir(pathToFile)
-	assert.NoError(t, err)
-	assert.NoFileExists(t, pathToFile)
+	require.NoError(t, err)
+	require.NoFileExists(t, pathToFile)
 }
