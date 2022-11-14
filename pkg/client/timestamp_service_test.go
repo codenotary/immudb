@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTimestampService(t *testing.T) {
 	tg, _ := timestamp.NewDefaultTimestamp()
 	tss := NewTimestampService(tg)
 	tim := tss.GetTime()
-	assert.IsType(t, tim, time.Time{})
+	require.IsType(t, tim, time.Time{})
 }
