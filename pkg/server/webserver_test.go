@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,10 +48,10 @@ func TestStartWebServerHTTP(t *testing.T) {
 	require.NoError(t, err)
 	defer webServer.Close()
 
-	assert.IsType(t, &http.Server{}, webServer)
+	require.IsType(t, &http.Server{}, webServer)
 
 	client := &http.Client{}
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		_, err = client.Get("http://0.0.0.0:8080")
 		return err == nil
 	}, 10*time.Second, 30*time.Millisecond)
@@ -94,11 +93,11 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	require.NoError(t, err)
 	defer webServer.Close()
 
-	assert.IsType(t, &http.Server{}, webServer)
+	require.IsType(t, &http.Server{}, webServer)
 
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	client := &http.Client{Transport: tr}
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		_, err = client.Get("https://0.0.0.0:8080")
 		return err == nil
 	}, 10*time.Second, 30*time.Millisecond)
