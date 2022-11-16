@@ -23,13 +23,13 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewMsgSender(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := NewMsgSender(sm, 4096)
-	assert.IsType(t, new(msgSender), s)
+	require.IsType(t, new(msgSender), s)
 }
 
 func TestMsgSender_Send(t *testing.T) {
@@ -40,7 +40,7 @@ func TestMsgSender_Send(t *testing.T) {
 	message := bytes.Join([][]byte{streamtest.GetTrailer(len(content)), content}, nil)
 	b := bytes.NewBuffer(message)
 	err := s.Send(b, b.Len())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestMsgSender_SendPayloadSizeZero(t *testing.T) {
@@ -48,7 +48,7 @@ func TestMsgSender_SendPayloadSizeZero(t *testing.T) {
 	s := NewMsgSender(sm, 4096)
 	b := bytes.NewBuffer(nil)
 	err := s.Send(b, 0)
-	assert.Equal(t, ErrMessageLengthIsZero, err.Error())
+	require.Equal(t, ErrMessageLengthIsZero, err.Error())
 }
 
 func TestMsgSender_SendErrReader(t *testing.T) {
@@ -60,7 +60,7 @@ func TestMsgSender_SendErrReader(t *testing.T) {
 		},
 	}
 	err := s.Send(r, 5000)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestMsgSender_SendEmptyReader(t *testing.T) {
@@ -72,7 +72,7 @@ func TestMsgSender_SendEmptyReader(t *testing.T) {
 		},
 	}
 	err := s.Send(r, 5000)
-	assert.Equal(t, ErrReaderIsEmpty, err.Error())
+	require.Equal(t, ErrReaderIsEmpty, err.Error())
 }
 
 func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
@@ -83,7 +83,7 @@ func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
 	message := streamtest.GetTrailer(len(content))
 	b := bytes.NewBuffer(message)
 	err := s.Send(b, 5000)
-	assert.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
 }
 
 func TestMsgSender_SendLastChunk(t *testing.T) {
@@ -93,7 +93,7 @@ func TestMsgSender_SendLastChunk(t *testing.T) {
 	content := []byte(`mycontent`)
 	b := bytes.NewBuffer(content)
 	err := s.Send(b, len(content))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestMsgSender_SendMultipleChunks(t *testing.T) {
@@ -103,12 +103,12 @@ func TestMsgSender_SendMultipleChunks(t *testing.T) {
 	content := []byte(`mycontent`)
 	b := bytes.NewBuffer(content)
 	err := s.Send(b, len(content))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestMsgSender_RecvMsg(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := NewMsgSender(sm, 4096)
 	err := s.RecvMsg(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
