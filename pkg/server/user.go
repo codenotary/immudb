@@ -140,6 +140,8 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, err
 	}
 
+	s.Logger.Infof("user %s was created by user %s", r.User, loggedInuser.Username)
+
 	return &empty.Empty{}, nil
 }
 
@@ -343,6 +345,8 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return nil, err
 	}
 
+	s.Logger.Infof("password for user %s was changed by user %s", targetUser.Username, user.Username)
+
 	// remove user from logged in users
 	s.removeUserFromLoginList(targetUser.Username)
 
@@ -428,6 +432,8 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		return nil, err
 	}
 
+	s.Logger.Infof("permissions of user %s for database %s was changed by user %s", targetUser.Username, r.Database, user.Username)
+
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
 
@@ -482,6 +488,11 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	if err := s.saveUser(targetUser); err != nil {
 		return nil, err
 	}
+
+	s.Logger.Infof("user %s was %s by user %s", targetUser.Username, map[bool]string{
+		true:  "activated",
+		false: "deactivated",
+	}[r.Active], user.Username)
 
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)

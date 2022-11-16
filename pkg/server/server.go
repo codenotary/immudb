@@ -379,34 +379,34 @@ func (s *ImmuServer) printUsageCallToAction() {
 	}
 }
 
-func (s *ImmuServer) resetAdminPassword(adminPassword string) error {
+func (s *ImmuServer) resetAdminPassword(adminPassword string) (bool, error) {
 	if s.sysDB.IsReplica() {
-		return errors.New("database is running as a replica")
+		return false, errors.New("database is running as a replica")
 	}
 
 	adminUser, err := s.getUser([]byte(auth.SysAdminUsername))
 	if err != nil {
-		return fmt.Errorf("could not read sysadmin user data: %v", err)
+		return false, fmt.Errorf("could not read sysadmin user data: %v", err)
 	}
 
 	err = adminUser.ComparePasswords([]byte(adminPassword))
 	if err == nil {
 		// Password is as expected, do not overwrite it to avoid unnecessary
 		// transactions in systemdb
-		return nil
+		return false, nil
 	}
 
 	_, err = adminUser.SetPassword([]byte(adminPassword))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	err = s.saveUser(adminUser)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *ImmuServer) loadSystemDatabase(
@@ -435,11 +435,18 @@ func (s *ImmuServer) loadSystemDatabase(
 		}
 
 		if forceAdminPasswordReset {
-			err := s.resetAdminPassword(adminPassword)
+			changed, err := s.resetAdminPassword(adminPassword)
 			if err != nil {
 				s.Logger.Errorf("Can not reset admin password, %v", err)
 				return ErrCantUpdateAdminPassword
 			}
+
+			if changed {
+				s.Logger.Warningf("Admin password was reset to the value specified in options")
+			} else {
+				s.Logger.Infof("Admin password update was not needed")
+			}
+
 		} else if adminPassword != auth.SysAdminPassword {
 			// Add warning that the password is not changed even though manually specified
 			user, err := s.getUser([]byte(auth.SysAdminUsername))

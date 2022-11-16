@@ -250,7 +250,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err := s.Initialize()
 		require.NoError(t, err)
 
-		err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword("newPassword")
 		require.ErrorContains(t, err, "database is running as a replica")
 	})
 
@@ -266,7 +266,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err = s.CloseDatabases()
 		require.NoError(t, err)
 
-		err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword("newPassword")
 		require.ErrorContains(t, err, "could not read sysadmin user data")
 	})
 
@@ -282,7 +282,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err = s.CloseDatabases()
 		require.NoError(t, err)
 
-		err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword("newPassword")
 		require.ErrorContains(t, err, "could not read sysadmin user data")
 	})
 
@@ -295,7 +295,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err := s.Initialize()
 		require.NoError(t, err)
 
-		err = s.resetAdminPassword("")
+		_, err = s.resetAdminPassword("")
 		require.ErrorContains(t, err, "password is empty")
 	})
 
@@ -314,7 +314,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 			DB:     s.sysDB,
 			setErr: injectedErr,
 		}
-		err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword("newPassword")
 		require.ErrorIs(t, err, injectedErr)
 	})
 }
