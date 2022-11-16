@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.4.1-RC1"></a>
+## [v1.4.1-RC1] - 2022-11-16
+### Bug Fixes
+- Change replication-related terms in codebase
+- Change replication-related terms in tests
+- **cmd:** Rename replication flags to follow consistent convention
+- **cmd/immudb:** Better description of the `--force-admin-password` flag
+- **cmd/immudb:** Fix description of the `force-admin-password` flag
+- **embedded/appendable:** fsync parent directory
+- **embedded/appendable:** fsync parent folder in remote appedable
+- **pkg:** Rename replication-related fields in GRPC protocol
+- **pkg/client:** Delay server identity validation
+- **pkg/client/cache:** Add methods to validate server identity
+- **pkg/client/cache:** Validate server's identity
+- **pkg/server:** Remove includeDeactivated flag when querying for users
+- **pkg/server/servertest:** Add uuid to buffconn server
+- **pkg/server/servertest:** Fix resetting grpc connection
+- **test/perf-test-suite:** Avoid dumping immudb logo on perf test results file
+- **test/performance-test-suite:** Ensure results are shown after proper is finished
+- **verification:** Additional Linear proof consistency check
+- **verification:** Recreate linear advance proofs for older servers
+
+### Changes
+- **ci:** migrate deprecating set-output commands
+- **cmd/immudb:** Allow resetting sysadmin password
+- **docs/security:** Be less specific about package version in examples
+- **docs/security:** Add resources for the linear-fake vulnerability
+- **embedded/appendable:** sync directories
+- **embedded/store:** Disable asynchronous AHT generation
+- **embedded/store:** Remove AHT Wait Hub
+- **pkg/client:** Document `WithDisableIdentityCheck` option
+- **pkg/client/cache:** Describe serverIdentity parameter
+- **pkg/client/cache:** Limit the hash part of the identity file name
+- **pkg/client/state:** Cleanup mutex handling in StateService
+- **pkg/server:** Warn if sysadmin user password was not reset
+- **pkg/server:** Better warning for unchanged admin password
+- **test/performance-test-suite:** Add summary to json output
+
+### Features
+- **ci:** fix message and input
+- **ci:** add runner name to mattermost message header
+- **ci:** simplify results extraction
+- **ci:** extract performance tests into separate workflow to be reused
+- **ci:** add scheduled daily test runs and send results to Mattermost
+- **pkg/replication:** Disable server's identity check in internal replication
+
+
 <a name="v1.4.0"></a>
 ## [v1.4.0] - 2022-10-12
 ### Bug Fixes
@@ -3093,7 +3140,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...HEAD
+[v1.4.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.0...v1.4.1-RC1
 [v1.4.0]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...v1.4.0
 [v1.4.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC1...v1.4.0-RC2
 [v1.4.0-RC1]: https://github.com/vchain-us/immudb/compare/v1.3.2...v1.4.0-RC1
