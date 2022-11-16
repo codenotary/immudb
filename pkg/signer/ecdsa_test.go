@@ -26,16 +26,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewSigner(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var i interface{} = s
 	_, ok := i.(Signer)
-	assert.True(t, ok)
+	require.True(t, ok)
 }
 
 func TestNewSignerFromPKey(t *testing.T) {
@@ -46,33 +45,33 @@ func TestNewSignerFromPKey(t *testing.T) {
 	s := NewSignerFromPKey(r, pk)
 	var i interface{} = s
 	_, ok := i.(Signer)
-	assert.True(t, ok)
+	require.True(t, ok)
 }
 
 func TestNewSignerKeyNotExistent(t *testing.T) {
 	s, err := NewSigner("./not_exists")
-	assert.Error(t, err)
-	assert.Nil(t, s)
+	require.Error(t, err)
+	require.Nil(t, s)
 }
 
 func TestNewSignerNoKeyFound(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/unparsable.key")
-	assert.Error(t, err)
-	assert.Nil(t, s)
+	require.Error(t, err)
+	require.Nil(t, s)
 }
 
 func TestNewSignerKeyUnparsable(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.pub")
-	assert.Error(t, err)
-	assert.Nil(t, s)
+	require.Error(t, err)
+	require.Nil(t, s)
 }
 
 func TestSignature_Sign(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, _, err = s.Sign(rawMessage[:])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestSignature_SignError(t *testing.T) {
@@ -83,38 +82,38 @@ func TestSignature_SignError(t *testing.T) {
 	r := strings.NewReader("")
 	s := NewSignerFromPKey(r, pk)
 	_, _, err := s.Sign([]byte(``))
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestSignature_Verify(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	signature, publicKey, _ := s.Sign(rawMessage[:])
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
 	ok, err := Verify(rawMessage[:], signature, ecdsaPK)
-	assert.True(t, ok)
-	assert.NoError(t, err)
+	require.True(t, ok)
+	require.NoError(t, err)
 }
 
 func TestSignature_VerifyError(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, publicKey, _ := s.Sign(rawMessage[:])
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
 	ok, err := Verify(rawMessage[:], []byte(`wrongsignature`), ecdsaPK)
-	assert.False(t, ok)
-	assert.Error(t, err)
+	require.False(t, ok)
+	require.Error(t, err)
 }
 
 func TestSignature_VerifyFalse(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, publicKey, _ := s.Sign(rawMessage[:])
 	sigToMarshal := ecdsaSignature{R: &big.Int{}, S: &big.Int{}}
@@ -122,8 +121,8 @@ func TestSignature_VerifyFalse(t *testing.T) {
 	ecdsaPK, err := UnmarshalKey(publicKey)
 	require.NoError(t, err)
 	ok, err := Verify(rawMessage[:], m, ecdsaPK)
-	assert.False(t, ok)
-	assert.NoError(t, err)
+	require.False(t, ok)
+	require.NoError(t, err)
 }
 
 func TestUnmarshalKey_Error(t *testing.T) {
