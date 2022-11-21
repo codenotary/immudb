@@ -232,9 +232,40 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.Equal(t, DefaultOptions().Synced, immuStore.Synced())
 	require.Equal(t, 1, immuStore.MaxConcurrency())
 	require.Equal(t, DefaultOptions().MaxIOConcurrency, immuStore.MaxIOConcurrency())
+	require.Equal(t, DefaultOptions().MaxActiveTransactions, immuStore.MaxActiveTransactions())
 	require.Equal(t, DefaultOptions().MaxTxEntries, immuStore.MaxTxEntries())
 	require.Equal(t, DefaultOptions().MaxKeyLen, immuStore.MaxKeyLen())
 	require.Equal(t, DefaultOptions().MaxValueLen, immuStore.MaxValueLen())
+}
+
+func TestImmudbStoreWithTimeFunction(t *testing.T) {
+	immuStore, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+
+	defer immuStore.Close()
+
+	err = immuStore.UseTimeFunc(nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	fixedTime := time.Now()
+
+	// add some delay to ensure time has passed
+	time.Sleep(10 * time.Microsecond)
+
+	err = immuStore.UseTimeFunc(func() time.Time {
+		return fixedTime
+	})
+	require.NoError(t, err)
+
+	tx, err := immuStore.NewTx()
+	require.NoError(t, err)
+
+	err = tx.Set([]byte("key1"), nil, []byte("value1"))
+	require.NoError(t, err)
+
+	hdr, err := tx.Commit()
+	require.NoError(t, err)
+	require.Equal(t, fixedTime.Unix(), hdr.Ts)
 }
 
 func TestImmudbStoreEdgeCases(t *testing.T) {
