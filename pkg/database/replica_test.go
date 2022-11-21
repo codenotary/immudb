@@ -20,6 +20,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
@@ -104,6 +105,12 @@ func TestSwitchToReplica(t *testing.T) {
 	require.NoError(t, err)
 
 	replica.AsReplica(true, false, 0)
+
+	state, err := replica.CurrentState()
+	require.NoError(t, err)
+
+	err = replica.DiscardPrecommittedTxsSince(state.TxId)
+	require.Error(t, err, store.ErrIllegalArguments)
 
 	_, err = replica.ListTables(nil)
 	require.NoError(t, err)
