@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v1.4.1"></a>
+## [v1.4.1] - 2022-11-14
+### Changes
+- **pkg/server:** Add logs for activities related to users
+
+
 <a name="v1.4.1-RC1"></a>
 ## [v1.4.1-RC1] - 2022-11-16
 ### Bug Fixes
@@ -3140,7 +3146,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v1.4.1...HEAD
+[v1.4.1]: https://github.com/vchain-us/immudb/compare/v1.4.1-RC1...v1.4.1
 [v1.4.1-RC1]: https://github.com/vchain-us/immudb/compare/v1.4.0...v1.4.1-RC1
 [v1.4.0]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC2...v1.4.0
 [v1.4.0-RC2]: https://github.com/vchain-us/immudb/compare/v1.4.0-RC1...v1.4.0-RC2
