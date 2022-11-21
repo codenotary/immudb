@@ -356,6 +356,26 @@ func TestTimestampCasts(t *testing.T) {
 		require.Contains(t, err.Error(), "...")
 	})
 
+	t.Run("test casting unsupported type", func(t *testing.T) {
+		_, _, err = engine.Exec("INSERT INTO timestamp_table(ts) VALUES(CAST(true AS TIMESTAMP))", nil, nil)
+		require.ErrorIs(t, err, ErrUnsupportedCast)
+
+		_, _, err = engine.Exec("INSERT INTO timestamp_table(ts) VALUES(CAST(true AS INTEGER))", nil, nil)
+		require.ErrorIs(t, err, ErrUnsupportedCast)
+	})
+
+	t.Run("test type inference with casting", func(t *testing.T) {
+		_, err = engine.Query("SELECT * FROM timestamp_table WHERE id < CAST(true AS TIMESTAMP)", nil, nil)
+		require.ErrorIs(t, err, ErrUnsupportedCast)
+
+		rowReader, err := engine.Query("SELECT * FROM timestamp_table WHERE ts > CAST(id AS TIMESTAMP)", nil, nil)
+		require.NoError(t, err)
+
+		_, err = rowReader.Read()
+		require.NoError(t, err)
+
+		require.NoError(t, rowReader.Close())
+	})
 }
 
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {
