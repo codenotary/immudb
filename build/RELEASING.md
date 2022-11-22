@@ -203,8 +203,10 @@ and synchronize it with README.md from this repository.
 
 Once the release is done, following post-release actions are needed
 
-* Ensure the new brew version is ready - sometimes it may need some manual fixes in [the formula file](https://github.com/Homebrew/homebrew-core/blob/master/Formula/immudb.rb)
-* Ensure helm chart on artifactory is updated
-* Start release of new AWS image
+* Ensure the new [brew version](https://formulae.brew.sh/formula/immudb) is ready -
+  should happen automatically but sometimes it may need some manual fixes in
+  [the formula file](https://github.com/Homebrew/homebrew-core/blob/master/Formula/immudb.rb)
+* Ensure that playground and demo have the updated immudb (should happen automatically within 24h)
+* Ensure [helm chart on artifacthub](https://artifacthub.io/packages/helm/codenotary/immudb) is updated (needs manual update of our helm image)
+* Start release of new AWS image (manual process)
 * Create PR with updates to this file if there were any undocumented / unclear steps
-* Ensure that playground has the updated immudb (currently this is a manual process)
