@@ -62,11 +62,11 @@ func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableStat
 }
 
 func (imc *inMemoryCache) Lock(serverUUID string) (err error) {
-	return fmt.Errorf("not implemented")
+	return ErrNotImplemented
 }
 
 func (imc *inMemoryCache) Unlock() (err error) {
-	return fmt.Errorf("not implemented")
+	return ErrNotImplemented
 }
 
 func (imc *inMemoryCache) ServerIdentityCheck(serverIdentity, serverUUID string) error {
