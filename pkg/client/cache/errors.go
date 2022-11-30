@@ -21,4 +21,5 @@ import "errors"
 var (
 	ErrPrevStateNotFound   = errors.New("could not find previous state")
 	ErrLocalStateCorrupted = errors.New("local state is corrupted")
+	ErrNotImplemented      = errors.New("no implemented")
 )

@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -122,7 +123,7 @@ func TestDirFileFileFromUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	_, err := hds.ReadFileFromUserHomeDir(pathToFile)
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOENT)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
 	require.NoError(t, err)
@@ -138,7 +139,7 @@ func TestDeleteDirFileFromUserHomeDir(t *testing.T) {
 	pathToFile := filepath.Join(t.TempDir(), "testfile")
 
 	err := hds.DeleteFileFromUserHomeDir(pathToFile)
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOENT)
 
 	err = hds.WriteFileToUserHomeDir(content, pathToFile)
 	require.NoError(t, err)

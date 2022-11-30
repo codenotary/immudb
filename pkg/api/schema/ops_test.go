@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -136,7 +137,7 @@ func TestOps_ValidateUnexpectedType(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("unexpected type %T", &Op_Unexpected{}))
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {
@@ -153,7 +154,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps[1] = op
 	aOps := &ExecAllRequest{Operations: bOps}
 	err := aOps.Validate()
-	require.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
+	require.ErrorIs(t, err, status.Error(codes.InvalidArgument, "Op is not set"))
 }
 
 func TestOps_ValidateOperationNilElementFound(t *testing.T) {
@@ -165,5 +166,5 @@ func TestOps_ValidateOperationNilElementFound(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	require.Equal(t, status.Error(codes.InvalidArgument, "operation is not set"), err)
+	require.ErrorIs(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
 }

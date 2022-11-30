@@ -17,7 +17,6 @@ limitations under the License.
 package stream
 
 import (
-	"errors"
 	"io"
 	"testing"
 
@@ -64,7 +63,7 @@ func TestVEntryStreamSender_SendErr(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
-		return errors.New("custom")
+		return errCustom
 	}
 	kvss := NewVEntryStreamSender(s)
 	kv := &VerifiableEntry{
@@ -88,5 +87,5 @@ func TestVEntryStreamSender_SendErr(t *testing.T) {
 
 	err := kvss.Send(kv)
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }

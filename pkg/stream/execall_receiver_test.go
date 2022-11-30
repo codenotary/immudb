@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var errCustom = errors.New("custom one")
+
 func TestNewExecAllStreamReceiver(t *testing.T) {
 	r := bytes.NewBuffer([]byte{})
 	esr := NewExecAllStreamReceiver(r, 4096)
@@ -78,7 +80,7 @@ func TestExecAllStreamReceiver_NextZAddUnmarshalError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, op)
 	op, err = esr.Next()
-	require.Equal(t, ErrUnableToReassembleExecAllMessage, err.Error())
+	require.ErrorContains(t, err, ErrUnableToReassembleExecAllMessage)
 	require.Nil(t, op)
 }
 
@@ -90,29 +92,29 @@ func TestExecAllStreamReceiver_NextRefError(t *testing.T) {
 	r := streamtest.DefaultMsgReceiverMock(me)
 	esr := NewExecAllStreamReceiver(r, 4096)
 	op, err := esr.Next()
-	require.Equal(t, ErrRefOptNotImplemented, err.Error())
+	require.ErrorContains(t, err, ErrRefOptNotImplemented)
 	require.Nil(t, op)
 }
 
 func TestExecAllStreamReceiver_NextKvStreamerError(t *testing.T) {
 	me := []*streamtest.MsgError{
-		{M: []byte{TOp_Kv}, E: errors.New("custom one")},
+		{M: []byte{TOp_Kv}, E: errCustom},
 	}
 	r := streamtest.DefaultMsgReceiverMock(me)
 	esr := NewExecAllStreamReceiver(r, 4096)
 	op, err := esr.Next()
-	require.Error(t, err, err)
+	require.ErrorIs(t, err, errCustom)
 	require.Nil(t, op)
 }
 
 func TestExecAllStreamReceiver_NextKvStreamerNextError(t *testing.T) {
 	me := []*streamtest.MsgError{
 		{M: []byte{TOp_Kv}, E: io.EOF},
-		{M: []byte{4}, E: errors.New("custom one")},
+		{M: []byte{4}, E: errCustom},
 	}
 	r := streamtest.DefaultMsgReceiverMock(me)
 	esr := NewExecAllStreamReceiver(r, 4096)
 	op, err := esr.Next()
-	require.Error(t, err, err)
+	require.ErrorIs(t, err, errCustom)
 	require.Nil(t, op)
 }

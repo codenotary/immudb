@@ -56,7 +56,7 @@ func TestValidateServerIdentityInFile(t *testing.T) {
 func TestValidateServerIdentityInFileCornerCases(t *testing.T) {
 	t.Run("fail to validate identity file with invalid path", func(t *testing.T) {
 		err := validateServerIdentityInFile("identity1", "uuid1", "/invalid/folder/name?")
-		require.Error(t, err)
+		require.ErrorContains(t, err, "could not check the identity of the server")
 		// This is not validation error, it's some OS error
 		require.NotErrorIs(t, err, ErrServerIdentityValidationFailed)
 	})

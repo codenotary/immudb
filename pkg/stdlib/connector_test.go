@@ -37,7 +37,7 @@ func TestDriverConnector_Connect(t *testing.T) {
 
 func TestDriverConnector_ConnectParseError(t *testing.T) {
 	conn, err := immuDriver.Open("not parsable string")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBadQueryString)
 	require.Nil(t, conn)
 }
 

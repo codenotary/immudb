@@ -64,7 +64,7 @@ func TestCopyFileOpenDstError(t *testing.T) {
 		return nil, errOpenFile
 	}
 	err = copier.CopyFile(src, filepath.Join(t.TempDir(), "test-copy-file-open-dst-error-dst"))
-	require.Equal(t, errOpenFile, err)
+	require.ErrorIs(t, err, errOpenFile)
 }
 
 func TestCopyDir(t *testing.T) {
@@ -120,7 +120,6 @@ func TestCopyDirDstAlreadyExists(t *testing.T) {
 	dst := t.TempDir()
 	copier := NewStandardCopier()
 	err := copier.CopyDir(src, dst)
-	require.Error(t, err)
 	require.ErrorIs(t, err, os.ErrExist)
 }
 
@@ -136,7 +135,7 @@ func TestCopyDirDstStatError(t *testing.T) {
 		return nil, errDstStat
 	}
 	err := copier.CopyDir(src, dst)
-	require.Equal(t, errDstStat, err)
+	require.ErrorIs(t, err, errDstStat)
 }
 
 func TestCopyDirWalkError(t *testing.T) {
@@ -152,5 +151,5 @@ func TestCopyDirWalkError(t *testing.T) {
 		return walkFn("", nil, errWalk)
 	}
 	err := copier.CopyDir(src, dst)
-	require.Equal(t, errWalk, err)
+	require.ErrorIs(t, err, errWalk)
 }

@@ -396,7 +396,7 @@ func TestRowsAffected_LastInsertIdErr(t *testing.T) {
 		er: &schema.SQLExecResult{},
 	}
 	_, err := ra.LastInsertId()
-	require.Error(t, err)
+	require.ErrorContains(t, err, "unable to retrieve LastInsertId")
 }
 
 func TestRowsAffected_RowsAffected(t *testing.T) {

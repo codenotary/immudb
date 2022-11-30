@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,7 +77,7 @@ func TestExecAllStreamSender_SendZAddError(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
-		return errors.New("custom one")
+		return errCustom
 	}
 	eas := NewExecAllStreamSender(s)
 
@@ -96,7 +97,7 @@ func TestExecAllStreamSender_SendZAddError(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestExecAllStreamSender_SendZAddError2(t *testing.T) {
@@ -115,7 +116,7 @@ func TestExecAllStreamSender_SendZAddError2(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Error(t, err)
+	require.ErrorContains(t, err, proto.ErrNil.Error())
 }
 
 func TestExecAllStreamSender_SendZAddError3(t *testing.T) {
@@ -124,7 +125,7 @@ func TestExecAllStreamSender_SendZAddError3(t *testing.T) {
 	sec := false
 	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
 		if sec {
-			return errors.New("custom one")
+			return errCustom
 		}
 		sec = true
 		return nil
@@ -148,14 +149,14 @@ func TestExecAllStreamSender_SendZAddError3(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestExecAllStreamSender_SendKVError(t *testing.T) {
 	sm := streamtest.DefaultImmuServiceSenderStreamMock()
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	s.SendF = func(reader io.Reader, payloadSize int, metadata map[string][]byte) (err error) {
-		return errors.New("custom one")
+		return errCustom
 	}
 	eas := NewExecAllStreamSender(s)
 
@@ -178,7 +179,7 @@ func TestExecAllStreamSender_SendKVError(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestExecAllStreamSender_SendRefError(t *testing.T) {
@@ -197,5 +198,5 @@ func TestExecAllStreamSender_SendRefError(t *testing.T) {
 		},
 	}
 	err := eas.Send(aOps)
-	require.Equal(t, ErrRefOptNotImplemented, err.Error())
+	require.ErrorContains(t, err, ErrRefOptNotImplemented)
 }
