@@ -25,7 +25,7 @@ import (
 func TestNewInmemoryTokenService(t *testing.T) {
 	ts := NewInmemoryTokenService()
 	err := ts.SetToken("db1", "")
-	require.Equal(t, ErrEmptyTokenProvided, err)
+	require.ErrorIs(t, err, ErrEmptyTokenProvided)
 	err = ts.SetToken("db", "tk")
 	require.NoError(t, err)
 	present, err := ts.IsTokenPresent()

@@ -33,7 +33,8 @@ func TestStandardUser(t *testing.T) {
 	su.AddGroupF = func(name string) error {
 		return errAddGroup
 	}
-	require.Equal(t, errAddGroup, su.AddGroup("name"))
+	err := su.AddGroup("name")
+	require.ErrorIs(t, err, errAddGroup)
 	su.AddGroupF = addGroupFOK
 
 	// AddUser
@@ -42,7 +43,8 @@ func TestStandardUser(t *testing.T) {
 	su.AddUserF = func(usr string, group string) error {
 		return errAddUser
 	}
-	require.Equal(t, errAddUser, su.AddUser("usr", "group"))
+	err = su.AddUser("usr", "group")
+	require.ErrorIs(t, err, errAddUser)
 	su.AddUserF = addUserFOK
 
 	// LookupGroup ...
@@ -51,8 +53,8 @@ func TestStandardUser(t *testing.T) {
 	su.LookupGroupF = func(name string) (*user.Group, error) {
 		return nil, errLookupGroup
 	}
-	_, err := su.LookupGroup("name")
-	require.Equal(t, errLookupGroup, err)
+	_, err = su.LookupGroup("name")
+	require.ErrorIs(t, err, errLookupGroup)
 	su.LookupGroupF = lookupGroupFOK
 
 	// Lookup ...
@@ -62,6 +64,6 @@ func TestStandardUser(t *testing.T) {
 		return nil, errLookup
 	}
 	_, err = su.Lookup("username")
-	require.Equal(t, errLookup, err)
+	require.ErrorIs(t, err, errLookup)
 	su.LookupF = lookupFOK
 }

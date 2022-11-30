@@ -41,10 +41,10 @@ func TestExportTxEdgeCases(t *testing.T) {
 	s.Initialize()
 
 	err := s.ExportTx(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	ctx := context.Background()
 
@@ -58,10 +58,10 @@ func TestExportTxEdgeCases(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	err = s.ExportTx(&schema.ExportTxRequest{Tx: 0}, &immuServiceExportTxServer{})
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func TestReplicateTxEdgeCases(t *testing.T) {
@@ -77,10 +77,10 @@ func TestReplicateTxEdgeCases(t *testing.T) {
 	s.Initialize()
 
 	err := s.ReplicateTx(nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	err = s.ReplicateTx(&immuServiceReplicateTxServer{ctx: context.Background()})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	ctx := context.Background()
 
@@ -96,7 +96,7 @@ func TestReplicateTxEdgeCases(t *testing.T) {
 	stream := &immuServiceReplicateTxServer{ctx: ctx}
 
 	err = s.ReplicateTx(stream)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "error")
 }
 
 type immuServiceExportTxServer struct {

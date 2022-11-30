@@ -58,8 +58,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 				Autoload: &schema.NullableBool{Value: false},
 			},
 		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "database is reserved")
+		require.ErrorIs(t, err, ErrReservedDatabase)
 
 		_, err = s.UpdateDatabaseV2(ctx, &schema.UpdateDatabaseRequest{
 			Database: DefaultDBName,
@@ -67,8 +66,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 				Autoload: &schema.NullableBool{Value: false},
 			},
 		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "database is reserved")
+		require.ErrorIs(t, err, ErrReservedDatabase)
 	})
 
 	t.Run("user created databases can be updated", func(t *testing.T) {

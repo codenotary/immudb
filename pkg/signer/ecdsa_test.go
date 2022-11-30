@@ -21,9 +21,11 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -50,19 +52,19 @@ func TestNewSignerFromPKey(t *testing.T) {
 
 func TestNewSignerKeyNotExistent(t *testing.T) {
 	s, err := NewSigner("./not_exists")
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOENT)
 	require.Nil(t, s)
 }
 
 func TestNewSignerNoKeyFound(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/unparsable.key")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "no ecdsa key found in provided signing key file")
 	require.Nil(t, s)
 }
 
 func TestNewSignerKeyUnparsable(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.pub")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "x509: failed to parse EC private key")
 	require.Nil(t, s)
 }
 
@@ -82,7 +84,7 @@ func TestSignature_SignError(t *testing.T) {
 	r := strings.NewReader("")
 	s := NewSignerFromPKey(r, pk)
 	_, _, err := s.Sign([]byte(``))
-	require.Error(t, err)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestSignature_Verify(t *testing.T) {

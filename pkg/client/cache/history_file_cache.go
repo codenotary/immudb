@@ -144,12 +144,12 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 			r := strings.Split(line, ":")
 
 			if r[1] == "" {
-				return nil, fmt.Errorf("could not find previous state")
+				return nil, ErrPrevStateNotFound
 			}
 
 			oldRoot, err := base64.StdEncoding.DecodeString(r[1])
 			if err != nil {
-				return nil, fmt.Errorf("could not find previous state")
+				return nil, ErrPrevStateNotFound
 			}
 
 			if err = proto.Unmarshal(oldRoot, state); err != nil {

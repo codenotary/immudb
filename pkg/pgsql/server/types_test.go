@@ -18,6 +18,8 @@ package server
 
 import (
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -43,7 +45,7 @@ func Test_getInt64(t *testing.T) {
 
 	bxxx := make([]byte, 64)
 	i, err = getInt64(bxxx)
-	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("cannot convert a slice of %d byte in an INTEGER parameter", len(bxxx)))
 }
 
 func Test_buildNamedParams(t *testing.T) {
@@ -56,7 +58,7 @@ func Test_buildNamedParams(t *testing.T) {
 	}
 	pt := []interface{}{[]byte(`1`)}
 	_, err := buildNamedParams(cols, pt)
-	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("cannot convert a slice of %d byte in an INTEGER parameter", len(cols)))
 
 	// varchar error
 	cols = []*schema.Column{
@@ -89,5 +91,5 @@ func Test_buildNamedParams(t *testing.T) {
 	}
 	pt = []interface{}{"blob"}
 	_, err = buildNamedParams(cols, pt)
-	require.Error(t, err)
+	require.ErrorIs(t, err, hex.InvalidByteError(108))
 }

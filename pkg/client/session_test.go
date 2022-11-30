@@ -32,15 +32,13 @@ import (
 func TestImmuClient_OpenSession_ErrParsingKey(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithServerSigningPubKey("invalid"))
 	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.Error(t, err)
 	require.ErrorIs(t, err, syscall.ENOENT)
 }
 
 func TestImmuClient_OpenSession_ErrDefaultChunkTooSmall(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithStreamChunkSize(1))
 	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
-	require.Error(t, err)
-	require.Equal(t, err.Error(), stream.ErrChunkTooSmall)
+	require.ErrorContains(t, err, stream.ErrChunkTooSmall)
 }
 
 func TestImmuClient_OpenSession_DialError(t *testing.T) {
