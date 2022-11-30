@@ -87,34 +87,34 @@ func TestImmuClientMock(t *testing.T) {
 	require.Equal(t, errWaitForHealthCheck, icm.WaitForHealthCheck(context.TODO()))
 	_, err := icm.Connect(context.TODO())
 
-	require.Equal(t, errConnect, err)
+	require.ErrorIs(t, err, errConnect)
 	err = icm.Disconnect()
 
-	require.Equal(t, errDisconnect, err)
+	require.ErrorIs(t, err, errDisconnect)
 	_, err = icm.Login(context.TODO(), nil, nil)
 
-	require.Equal(t, errLogin, err)
+	require.ErrorIs(t, err, errLogin)
 
-	require.Equal(t, errLogout, icm.Logout(context.TODO()))
+	require.ErrorIs(t, errLogout, icm.Logout(context.TODO()))
 	_, err = icm.VerifiedGet(context.TODO(), nil)
 
-	require.Equal(t, errVerifiedGet, err)
+	require.ErrorIs(t, err, errVerifiedGet)
 	_, err = icm.VerifiedSet(context.TODO(), nil, nil)
 
-	require.Equal(t, errVerifiedSet, err)
+	require.ErrorIs(t, err, errVerifiedSet)
 	_, err = icm.Set(context.TODO(), nil, nil)
 
-	require.Equal(t, errSet, err)
+	require.ErrorIs(t, err, errSet)
 	_, err = icm.VerifiedSetReference(context.TODO(), nil, nil)
 
-	require.Equal(t, errVerifiedReference, err)
+	require.ErrorIs(t, err, errVerifiedReference)
 	_, err = icm.VerifiedZAdd(context.TODO(), nil, 0., nil)
 
-	require.Equal(t, errVerifiedZAdd, err)
+	require.ErrorIs(t, err, errVerifiedZAdd)
 	_, err = icm.History(context.TODO(), nil)
 
-	require.Equal(t, errHistory, err)
+	require.ErrorIs(t, err, errHistory)
 
 	_, err = icm.CreateDatabaseV2(context.TODO(), "", nil)
-	require.Equal(t, errCreateDatabase, err)
+	require.ErrorIs(t, err, errCreateDatabase)
 }

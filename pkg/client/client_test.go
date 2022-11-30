@@ -31,5 +31,5 @@ func TestLogErr(t *testing.T) {
 	require.Nil(t, logErr(logger, "error: %v", nil))
 
 	err := fmt.Errorf("expected error")
-	require.Error(t, logErr(logger, "error: %v", err))
+	require.ErrorIs(t, logErr(logger, "error: %v", err), err)
 }

@@ -30,8 +30,7 @@ func TestImmuClient_Errors(t *testing.T) {
 	ctx := context.TODO()
 
 	_, err := client.StreamVerifiedSet(ctx, nil)
-	require.Error(t, err)
-	require.Equal(t, "no key-values specified", err.Error())
+	require.ErrorContains(t, err, "no key-values specified")
 
 	// test ErrNotConnected errors
 	fs := []func() (string, error){
@@ -60,6 +59,6 @@ func TestImmuClient_Errors(t *testing.T) {
 	}
 	for _, f := range fs {
 		fn, err := f()
-		require.Equal(t, ErrNotConnected.Error(), err.Error(), fn)
+		require.ErrorIs(t, err, ErrNotConnected, fn)
 	}
 }
