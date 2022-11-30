@@ -73,7 +73,7 @@ func TestRowComparison(t *testing.T) {
 	require.False(t, equals)
 
 	_, err = intValue1.Equal(trueValue)
-	require.Equal(t, sql.ErrNotComparableValues, err)
+	require.ErrorIs(t, err ,sql.ErrNotComparableValues)
 
 	equals, err = intValue1.Equal(intValue2)
 	require.NoError(t, err)
