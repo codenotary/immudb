@@ -197,7 +197,7 @@ func TestSetBatchInvalidKvKey(t *testing.T) {
 				Value: []byte(`val`),
 			},
 		}})
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 }
 
 func TestSetBatchDuplicatedKey(t *testing.T) {
@@ -215,27 +215,27 @@ func TestSetBatchDuplicatedKey(t *testing.T) {
 			},
 		}},
 	)
-	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
+	require.ErrorIs(t, err ,schema.ErrDuplicatedKeysNotSupported)
 }
 
 func TestExecAllOps(t *testing.T) {
 	db := makeDb(t)
 
 	_, err := db.ExecAll(nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, store.ErrIllegalArguments, err)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, schema.ErrEmptySet)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{}})
-	require.Error(t, err)
+	require.ErrorIs(t, err, schema.ErrEmptySet)
 
 	_, err = db.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			nil,
 		},
 	})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "Op is not set")
 
 	batchCount := 10
 	batchSize := 100
@@ -349,7 +349,7 @@ func TestExecAllOpsEmptyList(t *testing.T) {
 		Operations: []*schema.Op{},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, schema.ErrEmptySet, err)
+	require.ErrorIs(t, err, schema.ErrEmptySet)
 }
 
 func TestExecAllOpsInvalidKvKey(t *testing.T) {
@@ -368,7 +368,7 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err ,store.ErrIllegalArguments)
 
 	aOps = &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -393,7 +393,7 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 		},
 	}
 	_, err = db.ExecAll(aOps)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	aOps = &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -434,7 +434,7 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 		},
 	}
 	_, err = db.ExecAll(aOps)
-	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
+	require.ErrorIs(t, err, ErrReferencedKeyCannotBeAReference)
 }
 
 func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
@@ -456,7 +456,7 @@ func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, store.ErrTxNotFound, err)
+	require.ErrorIs(t, err, store.ErrTxNotFound)
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {
@@ -474,7 +474,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 	}
 
 	_, err := db.ExecAll(&schema.ExecAllRequest{Operations: bOps})
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 }
 
 func TestSetOperationNilElementFound(t *testing.T) {
@@ -488,7 +488,7 @@ func TestSetOperationNilElementFound(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "operation is not set")
 }
 
 func TestExecAllOpsUnexpectedType(t *testing.T) {
@@ -502,7 +502,7 @@ func TestExecAllOpsUnexpectedType(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "unexpected type")
 }
 
 func TestExecAllOpsDuplicatedKey(t *testing.T) {
@@ -574,7 +574,7 @@ func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 	}
 
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
+	require.ErrorIs(t, err, schema.ErrDuplicatedZAddNotSupported)
 }
 
 func TestStore_ExecAllOpsConcurrent(t *testing.T) {
@@ -1122,7 +1122,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		},
 	}
 	_, err := db.ExecAll(aOps)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	// Ops payload
 	aOps = &schema.ExecAllRequest{
@@ -1157,7 +1157,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		},
 	}
 	_, err = db.ExecAll(aOps)
-	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
+	require.ErrorIs(t, err, ErrReferencedKeyCannotBeAReference)
 
 	aOps = &schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -1174,7 +1174,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		},
 	}
 	_, err = db.ExecAll(aOps)
-	require.Equal(t, ErrFinalKeyCannotBeConvertedIntoReference, err)
+	require.ErrorIs(t, err, ErrFinalKeyCannotBeConvertedIntoReference)
 
 	ref, err := db.Get(&schema.KeyRequest{Key: []byte(`myReference`), SinceTx: idx1.Id})
 	require.NoError(t, err)

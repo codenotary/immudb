@@ -31,19 +31,19 @@ func TestSQLExecAndQuery(t *testing.T) {
 	db.maxResultSize = 2
 
 	_, _, err := db.SQLExecPrepared(nil, nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = db.SQLExec(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "invalid sql statement"}, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "syntax error")
 
 	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrNoSupported)
 
 	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrNoSupported)
 
 	ntx, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
 		CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
@@ -74,16 +74,16 @@ func TestSQLExecAndQuery(t *testing.T) {
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
 	_, err = db.SQLQueryPrepared(nil, nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.SQLQuery(nil, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "invalid sql statement"}, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "syntax error")
 
 	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"}, nil)
-	require.Equal(t, sql.ErrExpectingDQLStmt, err)
+	require.ErrorIs(t, err, sql.ErrExpectingDQLStmt)
 
 	q := "SELECT * FROM table1 LIMIT 1"
 	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
@@ -110,7 +110,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
 
 	_, err = db.VerifiableSQLGet(nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
@@ -119,7 +119,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 		},
 		ProveSinceTx: 4,
 	})
-	require.Equal(t, store.ErrIllegalState, err)
+	require.ErrorIs(t, err, store.ErrIllegalState)
 
 	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
@@ -146,7 +146,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 		},
 		ProveSinceTx: 0,
 	})
-	require.Equal(t, store.ErrKeyNotFound, err)
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
 
 	ve, err := db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
@@ -176,7 +176,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 		},
 		ProveSinceTx: 0,
 	})
-	require.Equal(t, store.ErrKeyNotFound, err)
+	require.ErrorIs(t, err, store.ErrKeyNotFound)
 
 }
 
@@ -184,10 +184,10 @@ func TestVerifiableSQLGet(t *testing.T) {
 	db := makeDb(t)
 
 	_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrNoSupported)
 
 	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrNoSupported)
 
 	t.Run("correctly handle verified get when incorrect number of primary key values is given", func(t *testing.T) {
 		_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: `

@@ -41,7 +41,7 @@ func TestReadOnlyReplica(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.ExecAll(&schema.ExecAllRequest{
 		Operations: []*schema.Op{
@@ -55,32 +55,32 @@ func TestReadOnlyReplica(t *testing.T) {
 			},
 		}},
 	)
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.SetReference(&schema.ReferenceRequest{
 		Key:           []byte("key"),
 		ReferencedKey: []byte("refkey"),
 	})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.ZAdd(&schema.ZAddRequest{
 		Set:   []byte("set"),
 		Score: 1,
 		Key:   []byte("key"),
 	})
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, _, err = replica.SQLExec(&schema.SQLExecRequest{Sql: "CREATE TABLE mytable(id INTEGER, title VARCHAR, PRIMARY KEY id)"}, nil)
-	require.Equal(t, ErrIsReplica, err)
+	require.ErrorIs(t, err, ErrIsReplica)
 
 	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"}, nil)
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, ErrSQLNotReady)
 
 	_, err = replica.ListTables(nil)
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, ErrSQLNotReady)
 
 	_, err = replica.DescribeTable("mytable", nil)
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, ErrSQLNotReady)
 
 	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
@@ -88,7 +88,7 @@ func TestReadOnlyReplica(t *testing.T) {
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 		},
 	})
-	require.Equal(t, ErrSQLNotReady, err)
+	require.ErrorIs(t, err, ErrSQLNotReady)
 }
 
 func TestSwitchToReplica(t *testing.T) {
