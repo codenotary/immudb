@@ -378,12 +378,12 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.Set(ctx, []byte{1}, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	_, err = client.SetAll(ctx, &schema.SetRequest{
 		KVs: []*schema.KeyValue{{Key: []byte{1}, Value: []byte{1}}},
 	})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostVerifiableSetFn = func(ctx context.Context,
 		req *schema.VerifiableSetRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
@@ -398,7 +398,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.VerifiedSet(ctx, []byte{1}, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostSetReferenceFn = func(ctx context.Context,
 		req *schema.ReferenceRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
@@ -413,7 +413,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.SetReference(ctx, []byte{2}, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostVerifiableSetReferenceFn = func(ctx context.Context,
 		req *schema.VerifiableReferenceRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
@@ -428,7 +428,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.VerifiedSetReference(ctx, []byte{2}, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostZAddFn = func(ctx context.Context,
 		req *schema.ZAddRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
@@ -443,7 +443,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.ZAdd(ctx, []byte{7}, 1, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostVerifiableZAddFn = func(ctx context.Context,
 		req *schema.VerifiableZAddRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
@@ -458,7 +458,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.VerifiedZAdd(ctx, []byte{7}, 1, []byte{1})
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PostExecAllFn = func(ctx context.Context,
 		req *schema.ExecAllRequest, res *schema.TxHeader, err error) (*schema.TxHeader, error) {
@@ -486,7 +486,7 @@ func TestImmuClientTampering(t *testing.T) {
 	}
 
 	_, err = client.ExecAll(ctx, aOps)
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 }
 
 func TestReplica(t *testing.T) {
@@ -515,7 +515,7 @@ func TestReplica(t *testing.T) {
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.VerifiedSet(ctx, []byte(`db1-key1`), []byte(`db1-value1`))
-	require.Error(t, err)
+	require.ErrorContains(t, err, database.ErrIsReplica.Error())
 }
 
 func TestDatabasesSwitching(t *testing.T) {
@@ -556,7 +556,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	vi, err := client.VerifiedGet(ctx, []byte(`db1-my`))
-	require.Error(t, err)
+	require.ErrorContains(t, err, "key not found")
 	require.Nil(t, vi)
 }
 
@@ -592,7 +592,7 @@ func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 	require.NoError(t, err)
 
 	vi, err := client.VerifiedGet(context.TODO(), []byte(`db1-my`))
-	require.Error(t, err)
+	require.ErrorContains(t, err, "key not found")
 	require.Nil(t, vi)
 }
 
@@ -757,8 +757,7 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 
 	client.Disconnect()
 	err := client.Disconnect()
-	require.Error(t, err)
-	require.ErrorContains(t, err, "not connected")
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
 func TestWaitForHealthCheck(t *testing.T) {
@@ -771,7 +770,7 @@ func TestWaitForHealthCheck(t *testing.T) {
 func TestWaitForHealthCheckFail(t *testing.T) {
 	client := ic.NewClient()
 	err := client.WaitForHealthCheck(context.TODO())
-	require.Error(t, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
 func TestSetupDialOptions(t *testing.T) {
@@ -806,10 +805,10 @@ func TestUserManagement(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.UpdateAuthConfig(ctx, auth.KindPassword)
-	require.Contains(t, err.Error(), "operation not supported")
+	require.ErrorContains(t, err, server.ErrNotSupported.Error())
 
 	err = client.UpdateMTLSConfig(ctx, false)
-	require.Contains(t, err.Error(), "operation not supported")
+	require.ErrorContains(t, err, server.ErrNotSupported.Error())
 
 	err = client.CreateUser(
 		ctx,
@@ -909,11 +908,11 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.SetAll(ctx, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "Marshal called with nil")
 
 	setRequest := &schema.SetRequest{KVs: []*schema.KeyValue{}}
 	_, err = client.SetAll(ctx, setRequest)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "no entries provided")
 
 	setRequest = &schema.SetRequest{KVs: []*schema.KeyValue{
 		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
@@ -972,11 +971,11 @@ func TestImmuClient_Delete(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.Delete(ctx, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "Marshal called with nil")
 
 	deleteRequest := &schema.DeleteKeysRequest{}
 	_, err = client.Delete(ctx, deleteRequest)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "no entries provided")
 
 	_, err = client.Set(ctx, []byte("1,2,3"), []byte("3,2,1"))
 	require.NoError(t, err)
@@ -989,20 +988,17 @@ func TestImmuClient_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.Get(ctx, []byte("expirableKey"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "key not found")
+	require.ErrorContains(t, err, "key not found")
 
 	deleteRequest.Keys = append(deleteRequest.Keys, []byte("1,2,3"))
 	_, err = client.Delete(ctx, deleteRequest)
 	require.NoError(t, err)
 
 	_, err = client.Get(ctx, []byte("1,2,3"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "key not found")
+	require.ErrorContains(t, err, "key not found")
 
 	_, err = client.Delete(ctx, deleteRequest)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "key not found")
+	require.ErrorContains(t, err, "key not found")
 }
 
 func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
@@ -1191,14 +1187,14 @@ func TestImmuClient_Count(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.Count(ctx, []byte(`key1`))
-	require.Error(t, err)
+	require.ErrorContains(t, err, server.ErrNotSupported.Error())
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, err := client.CountAll(ctx)
-	require.Error(t, err)
+	require.ErrorContains(t, err, server.ErrNotSupported.Error())
 }
 
 /*
@@ -1360,7 +1356,7 @@ func TestEnforcedLogoutAfterPasswordChangeWithToken(t *testing.T) {
 
 	// step 6: access the test db again using the test client which should give an error
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	require.Error(t, err)
+	require.ErrorContains(t, err, auth.ErrNotLoggedIn.Error())
 }
 
 func TestEnforcedLogoutAfterPasswordChangeWithSessions(t *testing.T) {
@@ -1451,14 +1447,14 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 		req.KeyRequest.AtTx = txHdr1.Id
 	}
 	_, err = client.VerifiedGetAt(ctx, []byte(`key1`), txHdr2.Id)
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 
 	bs.Server.PreVerifiableSetFn = func(ctx context.Context, req *schema.VerifiableSetRequest) {
 		req.SetRequest.KVs[0].Value = []byte(`val2`)
 	}
 
 	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val3`))
-	require.Equal(t, store.ErrCorruptedData, err)
+	require.ErrorIs(t, err, store.ErrCorruptedData)
 }
 
 func TestImmuClient_VerifiedGetSince(t *testing.T) {

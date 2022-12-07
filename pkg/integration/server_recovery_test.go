@@ -42,7 +42,7 @@ func TestServerRecovertMode(t *testing.T) {
 	s := server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 
 	err = s.Initialize()
-	require.Equal(t, server.ErrAuthMustBeDisabled, err)
+	require.ErrorIs(t, err, server.ErrAuthMustBeDisabled)
 
 	serverOptions = server.DefaultOptions().
 		WithDir(dir).

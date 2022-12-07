@@ -261,7 +261,7 @@ func TestTransaction_MultiNoErr(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.NewTx(ctx)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
 func TestTransaction_HandlingReadConflict(t *testing.T) {

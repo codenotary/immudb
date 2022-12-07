@@ -74,7 +74,7 @@ func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 		return nil
 	}
 	err = c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "unable to verify signature")
 }
 
 func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
@@ -99,7 +99,7 @@ func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 
 	err = c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 
-	require.Error(t, err)
+	require.ErrorContains(t, err, "signature doesn't match provided public key")
 }
 
 func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
@@ -116,5 +116,5 @@ func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
 
 	err := c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 
-	require.Error(t, err)
+	require.ErrorContains(t, err, "public key not loaded")
 }

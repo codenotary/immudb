@@ -68,7 +68,7 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.ExportTx(ctx, nil)
-	require.Equal(t, ic.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ic.ErrIllegalArguments)
 
 	txmd, err := client.Set(ctx, []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
@@ -111,8 +111,8 @@ func TestImmuClient_ExportAndReplicateTx(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.ExportTx(ctx, &schema.ExportTxRequest{Tx: 1})
-	require.Equal(t, ic.ErrNotConnected, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ReplicateTx(rctx)
-	require.Equal(t, ic.ErrNotConnected, err)
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
