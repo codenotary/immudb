@@ -30,7 +30,7 @@ type heartBeater struct {
 	sessionID     string
 	logger        logger.Logger
 	serviceClient schema.ImmuServiceClient
-	done          chan bool
+	done          chan struct{}
 	t             *time.Ticker
 }
 
@@ -44,7 +44,7 @@ func NewHeartBeater(sessionID string, sc schema.ImmuServiceClient, keepAliveInte
 		sessionID:     sessionID,
 		logger:        logger.NewSimpleLogger("immuclient", stdos.Stdout),
 		serviceClient: sc,
-		done:          make(chan bool),
+		done:          make(chan struct{}),
 		t:             time.NewTicker(keepAliveInterval),
 	}
 }
@@ -68,7 +68,8 @@ func (hb *heartBeater) KeepAlive(ctx context.Context) {
 }
 
 func (hb *heartBeater) Stop() {
-	hb.done <- true
+	hb.t.Stop()
+	close(hb.done)
 }
 
 func (hb *heartBeater) keepAliveRequest(ctx context.Context) error {
