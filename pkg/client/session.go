@@ -101,6 +101,10 @@ func (c *immuClient) CloseSession(ctx context.Context) error {
 	defer func() {
 		c.SessionID = ""
 		c.clientConn = nil
+		c.ServiceClient = nil
+		c.StateService = nil
+		c.serverSigningPubKey = nil
+		c.HeartBeater = nil
 	}()
 
 	c.HeartBeater.Stop()
