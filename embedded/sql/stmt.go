@@ -2068,7 +2068,7 @@ const (
 
 type DataSource interface {
 	SQLStmt
-	Resolve(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error)
+	Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
 
@@ -3665,7 +3665,7 @@ func (stmt *FnDataSourceStmt) Resolve(tx *SQLTx, params map[string]interface{}, 
 	return nil, fmt.Errorf("%w (%s)", ErrFunctionDoesNotExist, stmt.fnCall.fn)
 }
 
-func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
 	if len(stmt.fnCall.params) > 0 {
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, DatabasesFnCall, len(stmt.fnCall.params))
 	}
@@ -3700,7 +3700,7 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]
 	return newValuesRowReader(tx, cols, "*", stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
 	if len(stmt.fnCall.params) > 0 {
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, TablesFnCall, len(stmt.fnCall.params))
 	}
@@ -3724,7 +3724,7 @@ func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]int
 	return newValuesRowReader(tx, cols, db.name, stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
 	if len(stmt.fnCall.params) != 1 {
 		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, ColumnsFnCall)
 	}
@@ -3819,7 +3819,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]in
 	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
 	if len(stmt.fnCall.params) != 1 {
 		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, IndexesFnCall)
 	}
