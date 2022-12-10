@@ -123,29 +123,30 @@ func (s *Snapshot) Ts() uint64 {
 	return s.root.ts()
 }
 
-func (s *Snapshot) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
+func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, value []byte, ts uint64, hc uint64, err error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	if s.closed {
-		return false, ErrAlreadyClosed
+		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
 
 	_, leaf, off, err := s.root.findLeafNode(prefix, nil, 0, neq, false)
-	if err == ErrKeyNotFound {
-		return false, nil
-	}
 	if err != nil {
-		return false, err
+		return nil, nil, 0, 0, err
 	}
 
-	v := leaf.values[off]
+	leafValue := leaf.values[off]
 
-	if len(prefix) > len(v.key) {
-		return false, nil
+	if len(prefix) > len(leafValue.key) {
+		return nil, nil, 0, 0, ErrKeyNotFound
 	}
 
-	return bytes.Equal(prefix, v.key[:len(prefix)]), nil
+	if bytes.Equal(prefix, leafValue.key[:len(prefix)]) {
+		return leafValue.key, cp(leafValue.value), leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
+	}
+
+	return nil, nil, 0, 0, ErrKeyNotFound
 }
 
 func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
@@ -167,7 +168,7 @@ func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, er
 	return reader, nil
 }
 
-func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
+func (s *Snapshot) NewReader(spec ReaderSpec) (r *Reader, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -175,7 +176,7 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if spec == nil || len(spec.SeekKey) > s.t.maxKeySize || len(spec.Prefix) > s.t.maxKeySize {
+	if len(spec.SeekKey) > s.t.maxKeySize || len(spec.Prefix) > s.t.maxKeySize {
 		return nil, ErrIllegalArguments
 	}
 

@@ -357,9 +357,8 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			}
 
 			if j == kCount-1 {
-				exists, err := tbtree.ExistKeyWith(k, k)
-				require.NoError(t, err)
-				require.False(t, exists)
+				_, _, _, _, err := tbtree.GetWithPrefix(k, k)
+				require.ErrorIs(t, err, ErrKeyNotFound)
 			}
 
 			if i%2 == 1 {
@@ -446,11 +445,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 			for {
 				_, _, _, err = snapshot.Get(k)
-				if err == ErrKeyNotFound {
-
-					exists, err := tbtree.ExistKeyWith(k, nil)
-					require.NoError(t, err)
-					require.False(t, exists)
+				if errors.Is(err, ErrKeyNotFound) {
+					_, _, _, _, err := tbtree.GetWithPrefix(k, nil)
+					require.ErrorIs(t, err, ErrKeyNotFound)
 
 					break
 				}
@@ -469,9 +466,12 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
-		exists, err := tbtree.ExistKeyWith(k, nil)
+		k1, v1, ts1, hc1, err := tbtree.GetWithPrefix(k, nil)
 		require.NoError(t, err)
-		require.True(t, exists)
+		require.Equal(t, k, k1)
+		require.Equal(t, v, v1)
+		require.NotZero(t, ts1)
+		require.NotZero(t, hc1)
 
 		v0, ts0, hc0, err := tbtree.Get(k)
 		require.NoError(t, err)
@@ -491,7 +491,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		snapshotTs := snapshot.Ts()
 		require.Equal(t, ts, snapshotTs)
 
-		v1, ts1, hc1, err := snapshot.Get(k)
+		v1, ts1, hc1, err = snapshot.Get(k)
 		require.NoError(t, err)
 		require.Equal(t, v, v1)
 		require.Equal(t, ts, ts1)
@@ -931,9 +931,8 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, err = tbtree.History([]byte("key"), 0, false, 0)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	exists, err := tbtree.ExistKeyWith([]byte("key"), []byte("longerkey"))
-	require.NoError(t, err)
-	require.False(t, exists)
+	_, _, _, _, err = tbtree.GetWithPrefix([]byte("key"), []byte("longerkey"))
+	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	err = tbtree.Close()
 	require.NoError(t, err)
@@ -950,7 +949,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, _, err = tbtree.Get([]byte("key"))
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, err = tbtree.ExistKeyWith([]byte("key"), nil)
+	_, _, _, _, err = tbtree.GetWithPrefix([]byte("key"), nil)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()
@@ -997,7 +996,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	require.NotNil(t, snapshot)
 	require.NoError(t, err)
 
-	rspec := &ReaderSpec{
+	rspec := ReaderSpec{
 		SeekKey:   []byte{},
 		Prefix:    nil,
 		DescOrder: false,
@@ -1075,7 +1074,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		require.NotNil(t, snapshot)
 		require.NoError(t, err)
 
-		rspec := &ReaderSpec{
+		rspec := ReaderSpec{
 			SeekKey:   []byte{},
 			Prefix:    nil,
 			DescOrder: false,

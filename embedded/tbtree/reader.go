@@ -18,6 +18,7 @@ package tbtree
 
 import (
 	"bytes"
+	"errors"
 )
 
 type Reader struct {
@@ -50,15 +51,11 @@ type ReaderSpec struct {
 }
 
 func (r *Reader) Reset() error {
-	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
-	if err != nil {
-		return err
+	if r.closed {
+		return ErrAlreadyClosed
 	}
 
-	r.path = path
-	r.leafNode = startingLeaf
-	r.leafOffset = startingOffset
-	r.skipped = 0
+	r.leafNode = nil
 
 	return nil
 }
@@ -70,7 +67,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 
 	if r.leafNode == nil {
 		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
-		if err == ErrKeyNotFound {
+		if errors.Is(err, ErrKeyNotFound) {
 			return nil, 0, 0, ErrNoMoreEntries
 		}
 		if err != nil {
@@ -80,6 +77,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 		r.path = path
 		r.leafNode = startingLeaf
 		r.leafOffset = startingOffset
+		r.skipped = 0
 	}
 
 	for {
@@ -98,7 +96,7 @@ func (r *Reader) ReadBetween(initialTs, finalTs uint64) (key []byte, ts, hc uint
 
 				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
-				if err == ErrKeyNotFound {
+				if errors.Is(err, ErrKeyNotFound) {
 					r.path = r.path[:len(r.path)-1]
 					continue
 				}
@@ -163,7 +161,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 	if r.leafNode == nil {
 		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, 0, nil, r.descOrder)
-		if err == ErrKeyNotFound {
+		if errors.Is(err, ErrKeyNotFound) {
 			return nil, nil, 0, 0, ErrNoMoreEntries
 		}
 		if err != nil {
@@ -173,6 +171,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 		r.path = path
 		r.leafNode = startingLeaf
 		r.leafOffset = startingOffset
+		r.skipped = 0
 	}
 
 	for {
@@ -191,7 +190,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts, hc uint64, err error) {
 
 				path, leaf, off, err := parent.node.findLeafNode(r.seekKey, parentPath, parent.offset+1, nil, r.descOrder)
 
-				if err == ErrKeyNotFound {
+				if errors.Is(err, ErrKeyNotFound) {
 					r.path = r.path[:len(r.path)-1]
 					continue
 				}
