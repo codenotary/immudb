@@ -55,14 +55,11 @@ var (
 	}
 )
 
-type KeyReader struct {
-	snap           *Snapshot
-	reader         *tbtree.Reader
-	filters        []FilterFn
-	refInterceptor valueRefInterceptor
-
-	offset  uint64
-	skipped uint64
+type KeyReader interface {
+	Read() (key []byte, val ValueRef, err error)
+	ReadBetween(initialTxID uint64, finalTxID uint64) (key []byte, val ValueRef, err error)
+	Reset() error
+	Close() error
 }
 
 type KeyReaderSpec struct {
@@ -81,10 +78,10 @@ func (s *Snapshot) set(key, value []byte) error {
 }
 
 func (s *Snapshot) Get(key []byte) (valRef ValueRef, err error) {
-	return s.GetWith(key, IgnoreExpired, IgnoreDeleted)
+	return s.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
+func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
 	indexedVal, tx, hc, err := s.snap.Get(key)
 	if err != nil {
 		return nil, err
@@ -113,8 +110,22 @@ func (s *Snapshot) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, er
 	return valRef, nil
 }
 
-func (s *Snapshot) ExistKeyWith(prefix []byte, neq []byte) (bool, error) {
-	return s.snap.ExistKeyWith(prefix, neq)
+func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	key, indexedVal, tx, hc, err := s.snap.GetWithPrefix(prefix, neq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	valRef, err = s.st.valueRefFrom(tx, hc, indexedVal)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if s.refInterceptor != nil {
+		return key, s.refInterceptor(key, valRef), nil
+	}
+
+	return key, valRef, nil
 }
 
 func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, hCount uint64, err error) {
@@ -129,12 +140,8 @@ func (s *Snapshot) Close() error {
 	return s.snap.Close()
 }
 
-func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
-	if spec == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	r, err := s.snap.NewReader(&tbtree.ReaderSpec{
+func (s *Snapshot) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
+	r, err := s.snap.NewReader(tbtree.ReaderSpec{
 		SeekKey:       spec.SeekKey,
 		EndKey:        spec.EndKey,
 		Prefix:        spec.Prefix,
@@ -162,7 +169,7 @@ func (s *Snapshot) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		}
 	}
 
-	return &KeyReader{
+	return &storeKeyReader{
 		snap:           s,
 		reader:         r,
 		filters:        spec.Filters,
@@ -313,16 +320,26 @@ func (v *valueRef) Len() uint32 {
 	return v.valLen
 }
 
-func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, tx uint64, err error) {
+type storeKeyReader struct {
+	snap           *Snapshot
+	reader         *tbtree.Reader
+	filters        []FilterFn
+	refInterceptor valueRefInterceptor
+
+	offset  uint64
+	skipped uint64
+}
+
+func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
 	for {
 		key, ktxID, hc, err := r.reader.ReadBetween(initialTxID, finalTxID)
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, err
 		}
 
 		e, header, err := r.snap.st.ReadTxEntry(ktxID, key)
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, err
 		}
 
 		val = &valueRef{
@@ -357,11 +374,11 @@ func (r *KeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val 
 			continue
 		}
 
-		return key, valRef, ktxID, nil
+		return key, valRef, nil
 	}
 }
 
-func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
+func (r *storeKeyReader) Read() (key []byte, val ValueRef, err error) {
 	for {
 		key, indexedVal, tx, hc, err := r.reader.Read()
 		if err != nil {
@@ -398,12 +415,17 @@ func (r *KeyReader) Read() (key []byte, val ValueRef, err error) {
 	}
 }
 
-func (r *KeyReader) Reset() error {
+func (r *storeKeyReader) Reset() error {
+	err := r.reader.Reset()
+	if err != nil {
+		return err
+	}
+
 	r.skipped = 0
 
-	return r.reader.Reset()
+	return nil
 }
 
-func (r *KeyReader) Close() error {
+func (r *storeKeyReader) Close() error {
 	return r.reader.Close()
 }

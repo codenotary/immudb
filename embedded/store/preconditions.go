@@ -111,7 +111,7 @@ func (cs *PreconditionKeyNotModifiedAfterTx) Validate(st *ImmuStore) error {
 
 func (cs *PreconditionKeyNotModifiedAfterTx) Check(idx KeyIndex) (bool, error) {
 	// get the latest entry (it could be deleted or even expired)
-	valRef, err := idx.GetWith(cs.Key)
+	valRef, err := idx.GetWithFilters(cs.Key)
 	if err != nil && errors.Is(err, ErrKeyNotFound) {
 		// key does not exist thus not modified at all
 		return true, nil

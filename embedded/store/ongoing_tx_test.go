@@ -43,49 +43,39 @@ func TestOngoingTXAddPrecondition(t *testing.T) {
 }
 
 func TestOngoingTxCheckPreconditionsCornerCases(t *testing.T) {
-	otx := &OngoingTx{}
-	idx := &dummyKeyIndex{}
+	st, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
 
-	err := otx.checkPreconditions(idx)
+	defer immustoreClose(t, st)
+
+	otx := &OngoingTx{}
+
+	err = otx.checkPreconditions(st)
 	require.NoError(t, err)
 
 	otx.preconditions = []Precondition{nil}
-	err = otx.checkPreconditions(idx)
+	err = otx.checkPreconditions(st)
 	require.ErrorIs(t, err, ErrInvalidPrecondition)
 	require.ErrorIs(t, err, ErrInvalidPreconditionNull)
 
-	idx.closed = true
+	err = st.Close()
+	require.NoError(t, err)
+
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(idx)
+	err = otx.checkPreconditions(st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyMustNotExist{Key: []byte{1}},
 	}
-	err = otx.checkPreconditions(idx)
+	err = otx.checkPreconditions(st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	otx.preconditions = []Precondition{
 		&PreconditionKeyNotModifiedAfterTx{Key: []byte{1}, TxID: 1},
 	}
-	err = otx.checkPreconditions(idx)
+	err = otx.checkPreconditions(st)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
-}
-
-type dummyKeyIndex struct {
-	closed bool
-}
-
-func (i *dummyKeyIndex) Get(key []byte) (valRef ValueRef, err error) {
-	return i.GetWith(key, IgnoreDeleted)
-}
-
-func (i *dummyKeyIndex) GetWith(key []byte, filters ...FilterFn) (valRef ValueRef, err error) {
-	if i.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	return nil, ErrKeyNotFound
 }
