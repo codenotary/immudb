@@ -57,10 +57,7 @@ func TestImmudbStoreReader(t *testing.T) {
 
 	defer snap.Close()
 
-	_, err = snap.NewKeyReader(nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
-	reader, err := snap.NewKeyReader(&KeyReaderSpec{})
+	reader, err := snap.NewKeyReader(KeyReaderSpec{})
 	require.NoError(t, err)
 
 	defer reader.Close()
@@ -119,7 +116,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 
 	defer snap.Close()
 
-	reader, err := snap.NewKeyReader(&KeyReaderSpec{})
+	reader, err := snap.NewKeyReader(KeyReaderSpec{})
 	require.NoError(t, err)
 
 	defer reader.Close()
@@ -132,7 +129,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, err := reader.ReadBetween(0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 
@@ -185,7 +182,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 
 	offset := eCount - 10
 
-	reader, err := snap.NewKeyReader(&KeyReaderSpec{
+	reader, err := snap.NewKeyReader(KeyReaderSpec{
 		Offset: uint64(offset),
 	})
 	require.NoError(t, err)
@@ -248,7 +245,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 
 	offset := eCount - 10
 
-	reader, err := snap.NewKeyReader(&KeyReaderSpec{
+	reader, err := snap.NewKeyReader(KeyReaderSpec{
 		Offset: uint64(offset),
 	})
 	require.NoError(t, err)
@@ -263,7 +260,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			var v [8]byte
 			binary.BigEndian.PutUint64(v[:], uint64(i))
 
-			rk, vref, _, err := reader.ReadBetween(0, uint64(i+1))
+			rk, vref, err := reader.ReadBetween(0, uint64(i+1))
 			require.NoError(t, err)
 			require.Equal(t, k[:], rk)
 

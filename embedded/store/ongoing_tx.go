@@ -17,7 +17,9 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -33,11 +35,28 @@ type OngoingTx struct {
 
 	preconditions []Precondition
 
+	expectedGetsWithFilters []expectedGetWithFilters
+	expectedGetsWithPrefix  []expectedGetWithPrefix
+	expectedReaders         []*expectedReader
+
 	metadata *TxMetadata
 
 	ts time.Time
 
 	closed bool
+}
+
+type expectedGetWithFilters struct {
+	key        []byte
+	filters    []FilterFn
+	expectedTx uint64 // 0 used denotes non-existence
+}
+
+type expectedGetWithPrefix struct {
+	prefix      []byte
+	neq         []byte
+	expectedKey []byte
+	expectedTx  uint64 // 0 used denotes non-existence
 }
 
 type EntrySpec struct {
@@ -215,16 +234,41 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 	return nil
 }
 
-func (tx *OngoingTx) ExistKeyWith(prefix, neq []byte) (bool, error) {
+func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef ValueRef, err error) {
 	if tx.closed {
-		return false, ErrAlreadyClosed
+		return nil, nil, ErrAlreadyClosed
 	}
 
 	if tx.IsWriteOnly() {
-		return false, ErrWriteOnlyTx
+		return nil, nil, ErrWriteOnlyTx
 	}
 
-	return tx.snap.ExistKeyWith(prefix, neq)
+	key, valRef, err = tx.snap.GetWithPrefix(prefix, neq)
+	if errors.Is(err, ErrKeyNotFound) {
+		expectedGetWith := expectedGetWithPrefix{
+			prefix: prefix,
+			neq:    neq,
+		}
+
+		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWith)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if valRef.Tx() > 0 {
+		// it only requires validation when the entry was pre-existent to ongoing tx
+		expectedGetWithPrefix := expectedGetWithPrefix{
+			prefix:      prefix,
+			neq:         neq,
+			expectedKey: key,
+			expectedTx:  valRef.Tx(),
+		}
+
+		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
+	}
+
+	return key, valRef, nil
 }
 
 func (tx *OngoingTx) Delete(key []byte) error {
@@ -245,10 +289,10 @@ func (tx *OngoingTx) Delete(key []byte) error {
 }
 
 func (tx *OngoingTx) Get(key []byte) (ValueRef, error) {
-	return tx.GetWith(key, IgnoreExpired, IgnoreDeleted)
+	return tx.GetWithFilters(key, IgnoreExpired, IgnoreDeleted)
 }
 
-func (tx *OngoingTx) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) {
+func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {
 	if tx.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -257,10 +301,35 @@ func (tx *OngoingTx) GetWith(key []byte, filters ...FilterFn) (ValueRef, error) 
 		return nil, ErrWriteOnlyTx
 	}
 
-	return tx.snap.GetWith(key, filters...)
+	valRef, err := tx.snap.GetWithFilters(key, filters...)
+	if errors.Is(err, ErrKeyNotFound) {
+		expectedGetWithFilters := expectedGetWithFilters{
+			key:        key,
+			filters:    filters,
+			expectedTx: 0,
+		}
+
+		tx.expectedGetsWithFilters = append(tx.expectedGetsWithFilters, expectedGetWithFilters)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if valRef.Tx() > 0 {
+		// it only requires validation when the entry was pre-existent to ongoing tx
+		expectedGet := expectedGetWithFilters{
+			key:        key,
+			filters:    filters,
+			expectedTx: valRef.Tx(),
+		}
+
+		tx.expectedGetsWithFilters = append(tx.expectedGetsWithFilters, expectedGet)
+	}
+
+	return valRef, nil
 }
 
-func (tx *OngoingTx) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
+func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	if tx.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -269,7 +338,16 @@ func (tx *OngoingTx) NewKeyReader(spec *KeyReaderSpec) (*KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
-	return tx.snap.NewKeyReader(spec)
+	keyReader, err := tx.snap.NewKeyReader(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	expectedReader := newExpectedReader(spec)
+
+	tx.expectedReaders = append(tx.expectedReaders, expectedReader)
+
+	return newOngoingTxKeyReader(keyReader, expectedReader), nil
 }
 
 func (tx *OngoingTx) Commit() (*TxHeader, error) {
@@ -312,15 +390,18 @@ func (tx *OngoingTx) Cancel() error {
 }
 
 func (tx *OngoingTx) hasPreconditions() bool {
-	return len(tx.preconditions) > 0
+	return len(tx.preconditions) > 0 ||
+		len(tx.expectedGetsWithFilters) > 0 ||
+		len(tx.expectedGetsWithPrefix) > 0 ||
+		len(tx.expectedReaders) > 0
 }
 
-func (tx *OngoingTx) checkPreconditions(idx KeyIndex) error {
+func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 	for _, c := range tx.preconditions {
 		if c == nil {
 			return ErrInvalidPreconditionNull
 		}
-		ok, err := c.Check(idx)
+		ok, err := c.Check(st)
 		if err != nil {
 			return fmt.Errorf("error checking %s precondition: %w", c, err)
 		}
@@ -328,6 +409,93 @@ func (tx *OngoingTx) checkPreconditions(idx KeyIndex) error {
 			return fmt.Errorf("%w: %s", ErrPreconditionFailed, c)
 		}
 	}
+
+	/*
+		if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
+			return nil
+		}
+	*/
+
+	for _, e := range tx.expectedGetsWithFilters {
+		valRef, err := st.GetWithFilters(e.key, e.filters...)
+		if errors.Is(err, ErrKeyNotFound) {
+			if e.expectedTx > 0 {
+				return ErrTxReadConflict
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		if e.expectedTx != valRef.Tx() {
+			return ErrTxReadConflict
+		}
+	}
+
+	for _, e := range tx.expectedGetsWithPrefix {
+		key, valRef, err := st.GetWithPrefix(e.prefix, e.neq)
+		if errors.Is(err, ErrKeyNotFound) {
+			if e.expectedTx > 0 {
+				return ErrTxReadConflict
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(e.expectedKey, key) || e.expectedTx != valRef.Tx() {
+			return ErrTxReadConflict
+		}
+	}
+
+	for _, eReader := range tx.expectedReaders {
+		tbsnap, err := st.indexer.index.RSnapshot()
+		if err != nil {
+			return err
+		}
+
+		snap := &Snapshot{
+			st:   st,
+			snap: tbsnap,
+			ts:   time.Now(),
+		}
+
+		reader, err := snap.NewKeyReader(eReader.spec)
+		if err != nil {
+			return err
+		}
+
+		defer reader.Close()
+
+		for _, eReads := range eReader.expectedReads {
+			for _, eRead := range eReads {
+				var key []byte
+				var valRef ValueRef
+
+				if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
+					key, valRef, err = reader.Read()
+				} else {
+					key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
+				}
+
+				if err != nil {
+					return err
+				}
+
+				if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
+					return ErrTxReadConflict
+				}
+			}
+
+			err = reader.Reset()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

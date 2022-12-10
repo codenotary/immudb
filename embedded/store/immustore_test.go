@@ -45,6 +45,10 @@ import (
 )
 
 func immustoreClose(t *testing.T, immuStore *ImmuStore) {
+	if immuStore.IsClosed() {
+		return
+	}
+
 	err := immuStore.Close()
 	if !t.Failed() {
 		require.NoError(t, err)
@@ -1017,13 +1021,13 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = tx.Get([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrWriteOnlyTx)
 
-		_, err = tx.ExistKeyWith([]byte{1}, []byte{1})
+		_, _, err = tx.GetWithPrefix([]byte{1}, []byte{1})
 		require.ErrorIs(t, err, ErrWriteOnlyTx)
 
 		err = tx.Delete([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrWriteOnlyTx)
 
-		_, err = tx.NewKeyReader(&KeyReaderSpec{})
+		_, err = tx.NewKeyReader(KeyReaderSpec{})
 		require.ErrorIs(t, err, ErrWriteOnlyTx)
 
 		_, err = tx.Commit()
@@ -1032,7 +1036,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1, 0})
 		require.ErrorIs(t, err, ErrAlreadyClosed)
 
-		_, err = tx.NewKeyReader(&KeyReaderSpec{})
+		_, err = tx.NewKeyReader(KeyReaderSpec{})
 		require.ErrorIs(t, err, ErrAlreadyClosed)
 
 		_, err = tx.Commit()
@@ -1085,11 +1089,12 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Set([]byte("key1"), nil, []byte("value1"))
 		require.NoError(t, err)
 
-		exists, err := tx.ExistKeyWith([]byte("key1"), []byte("key"))
+		key, valRef, err := tx.GetWithPrefix([]byte("key1"), []byte("key"))
 		require.NoError(t, err)
-		require.True(t, exists)
+		require.NotNil(t, key)
+		require.NotNil(t, valRef)
 
-		r, err := tx.NewKeyReader(&KeyReaderSpec{Prefix: []byte("key")})
+		r, err := tx.NewKeyReader(KeyReaderSpec{Prefix: []byte("key")})
 		require.NoError(t, err)
 		require.NotNil(t, r)
 
@@ -1103,7 +1108,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 
-		valRef, err := tx.Get([]byte("key1"))
+		valRef, err = tx.Get([]byte("key1"))
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), valRef.Tx())
 		require.Equal(t, uint64(1), valRef.HC())
@@ -1122,7 +1127,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = tx.Commit()
 		require.NoError(t, err)
 
-		_, err = tx.ExistKeyWith([]byte("key1"), []byte("key1"))
+		_, _, err = tx.GetWithPrefix([]byte("key1"), []byte("key1"))
 		require.ErrorIs(t, err, ErrAlreadyClosed)
 
 		valRef, err = immuStore.Get([]byte("key1"))
@@ -1135,7 +1140,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.Equal(t, []byte("value1"), v)
 	})
 
-	t.Run("second ongoing tx after the first commit should fail", func(t *testing.T) {
+	t.Run("second ongoing tx after the first commit should succeed", func(t *testing.T) {
 		tx1, err := immuStore.NewTx()
 		require.NoError(t, err)
 
@@ -1152,19 +1157,19 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = tx2.Commit()
-		require.ErrorIs(t, err, ErrTxReadConflict)
+		require.NoError(t, err)
 
 		valRef, err := immuStore.Get([]byte("key1"))
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
-		require.Equal(t, uint64(3), valRef.Tx())
+		require.Equal(t, uint64(4), valRef.Tx())
 
 		v, err := valRef.Resolve()
 		require.NoError(t, err)
-		require.Equal(t, []byte("value1_tx1"), v)
+		require.Equal(t, []byte("value1_tx2"), v)
 	})
 
-	t.Run("second ongoing tx with multiple entries after the first commit should fail", func(t *testing.T) {
+	t.Run("second ongoing tx with multiple entries after the first commit should succeed", func(t *testing.T) {
 		tx1, err := immuStore.NewTx()
 		require.NoError(t, err)
 
@@ -1184,16 +1189,16 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = tx2.Commit()
-		require.ErrorIs(t, err, ErrTxReadConflict)
+		require.NoError(t, err)
 
 		valRef, err := immuStore.Get([]byte("key1"))
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
-		require.Equal(t, uint64(4), valRef.Tx())
+		require.Equal(t, uint64(6), valRef.Tx())
 
 		v, err := valRef.Resolve()
 		require.NoError(t, err)
-		require.Equal(t, []byte("value1_tx1"), v)
+		require.Equal(t, []byte("value1_tx2"), v)
 	})
 
 	t.Run("second ongoing tx after the first cancellation should succeed", func(t *testing.T) {
@@ -1218,7 +1223,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		valRef, err := immuStore.Get([]byte("key1"))
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
-		require.Equal(t, uint64(5), valRef.Tx())
+		require.Equal(t, uint64(7), valRef.Tx())
 
 		v, err := valRef.Resolve()
 		require.NoError(t, err)
@@ -1235,7 +1240,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Delete([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		r, err := tx.NewKeyReader(&KeyReaderSpec{
+		r, err := tx.NewKeyReader(KeyReaderSpec{
 			Prefix:  []byte{1, 2, 3},
 			Filters: []FilterFn{IgnoreDeleted},
 		})
@@ -1254,10 +1259,10 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		_, err = immuStore.Get([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		_, err = immuStore.GetWith([]byte{1, 2, 3}, nil)
+		_, err = immuStore.GetWithFilters([]byte{1, 2, 3}, nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
-		valRef, err := immuStore.GetWith([]byte{1, 2, 3})
+		valRef, err := immuStore.GetWithFilters([]byte{1, 2, 3})
 		require.NoError(t, err)
 		require.NotNil(t, valRef)
 		require.True(t, valRef.KVMetadata().Deleted())
@@ -1268,14 +1273,14 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NoError(t, err)
 		defer tx.Cancel()
 
-		r, err = tx.NewKeyReader(&KeyReaderSpec{
+		r, err = tx.NewKeyReader(KeyReaderSpec{
 			Prefix:  []byte{1, 2, 3},
 			Filters: []FilterFn{IgnoreDeleted},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, r)
 
-		_, _, _, err = r.ReadBetween(1, immuStore.TxCount())
+		_, _, err = r.ReadBetween(1, immuStore.TxCount())
 		require.ErrorIs(t, err, ErrNoMoreEntries)
 
 		err = r.Close()
@@ -1314,14 +1319,14 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrExpiredEntry)
 
 		// expired entries can not be resolved
-		valRef, err = immuStore.GetWith([]byte("expirableKey"))
+		valRef, err = immuStore.GetWithFilters([]byte("expirableKey"))
 		require.NoError(t, err)
 		_, err = valRef.Resolve()
 		require.ErrorIs(t, err, ErrKeyNotFound)
 		require.ErrorIs(t, err, ErrExpiredEntry)
 
 		// expired entries are not returned
-		_, err = immuStore.GetWith([]byte("expirableKey"), IgnoreExpired)
+		_, err = immuStore.GetWithFilters([]byte("expirableKey"), IgnoreExpired)
 		require.ErrorIs(t, err, ErrKeyNotFound)
 		require.ErrorIs(t, err, ErrExpiredEntry)
 	})
@@ -1347,7 +1352,7 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		// expired entries can not be resolved
-		valRef, err := immuStore.GetWith([]byte("expirableKey"))
+		valRef, err := immuStore.GetWithFilters([]byte("expirableKey"))
 		require.NoError(t, err)
 		_, err = valRef.Resolve()
 		require.ErrorIs(t, err, ErrKeyNotFound)
@@ -1384,7 +1389,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	_, err = immuStore.Get([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
-	valRef, err := immuStore.GetWith([]byte{1, 2, 3})
+	valRef, err := immuStore.GetWithFilters([]byte{1, 2, 3})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), valRef.Tx())
 	require.True(t, valRef.KVMetadata().Deleted())
@@ -1795,9 +1800,8 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 
 		var k0 [8]byte
-		exists, err := immuStore.ExistKeyWith(k0[:], nil)
+		_, _, err = immuStore.GetWithPrefix(k0[:], nil)
 		require.NoError(t, err)
-		require.True(t, exists)
 	}
 
 	tx := tempTxHolder(t, immuStore)
