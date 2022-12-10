@@ -95,9 +95,6 @@ func TestSnapshotClosing(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	require.NoError(t, err)
 
-	_, err = snapshot.NewReader(nil)
-	require.ErrorIs(t, err, ErrIllegalArguments)
-
 	err = snapshot.Close()
 	require.NoError(t, err)
 
@@ -110,10 +107,10 @@ func TestSnapshotClosing(t *testing.T) {
 	_, _, err = snapshot.History([]byte{}, 0, false, 1)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, err = snapshot.ExistKeyWith([]byte{}, nil)
+	_, _, _, _, err = snapshot.GetWithPrefix([]byte{}, nil)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, err = snapshot.NewReader(nil)
+	_, err = snapshot.NewReader(ReaderSpec{})
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = snapshot.NewHistoryReader(nil)
@@ -166,13 +163,12 @@ func TestSnapshotIsolation(t *testing.T) {
 		_, _, _, err = snap2.Get([]byte("key1"))
 		require.NoError(t, err)
 
-		exists, err := snap1.ExistKeyWith([]byte("key"), nil)
+		_, _, ts, _, err := snap1.GetWithPrefix([]byte("key"), nil)
 		require.NoError(t, err)
-		require.True(t, exists)
+		require.NotZero(t, ts)
 
-		exists, err = snap1.ExistKeyWith([]byte("key3"), []byte("key3"))
-		require.NoError(t, err)
-		require.False(t, exists)
+		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), []byte("key3"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 
 	err = tbtree.Insert([]byte("key2"), []byte("value2"))
