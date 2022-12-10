@@ -174,7 +174,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	r, err := snap.NewKeyReader(
-		&store.KeyReaderSpec{
+		store.KeyReaderSpec{
 			SeekKey:       seekKey,
 			Prefix:        prefix,
 			InclusiveSeek: req.InclusiveSeek,

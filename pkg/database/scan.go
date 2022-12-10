@@ -75,7 +75,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 
 	r, err := snap.NewKeyReader(
-		&store.KeyReaderSpec{
+		store.KeyReaderSpec{
 			SeekKey:       seekKey,
 			EndKey:        endKey,
 			Prefix:        EncodeKey(req.Prefix),
