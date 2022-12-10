@@ -124,7 +124,7 @@ type rawRowReader struct {
 
 	params map[string]interface{}
 
-	reader          *store.KeyReader
+	reader          store.KeyReader
 	onCloseCallback func()
 }
 
@@ -155,7 +155,7 @@ func newRawRowReader(tx *SQLTx, params map[string]interface{}, table *Table, per
 		return nil, err
 	}
 
-	r, err := tx.newKeyReader(rSpec)
+	r, err := tx.newKeyReader(*rSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +393,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	if r.txRange == nil {
 		mkey, vref, err = r.reader.Read()
 	} else {
-		mkey, vref, _, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
+		mkey, vref, err = r.reader.ReadBetween(r.txRange.initialTxID, r.txRange.finalTxID)
 	}
 	if err != nil {
 		return nil, err

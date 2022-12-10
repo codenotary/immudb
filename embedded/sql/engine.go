@@ -117,7 +117,7 @@ type MultiDBHandler interface {
 	ExecPreparedStmts(ctx context.Context, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
 }
 
-//SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
+// SQLTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW
 type SQLTx struct {
 	engine *Engine
 
@@ -275,7 +275,7 @@ func (sqlTx *SQLTx) distinctLimit() int {
 	return sqlTx.engine.distinctLimit
 }
 
-func (sqlTx *SQLTx) newKeyReader(rSpec *store.KeyReaderSpec) (*store.KeyReader, error) {
+func (sqlTx *SQLTx) newKeyReader(rSpec store.KeyReaderSpec) (store.KeyReader, error) {
 	return sqlTx.tx.NewKeyReader(rSpec)
 }
 
@@ -288,7 +288,12 @@ func (sqlTx *SQLTx) set(key []byte, metadata *store.KVMetadata, value []byte) er
 }
 
 func (sqlTx *SQLTx) existKeyWith(prefix, neq []byte) (bool, error) {
-	return sqlTx.tx.ExistKeyWith(prefix, neq)
+	_, _, err := sqlTx.tx.GetWithPrefix(prefix, neq)
+	if errors.Is(err, store.ErrKeyNotFound) {
+		return false, nil
+	}
+
+	return err == nil, err
 }
 
 func (sqlTx *SQLTx) Cancel() error {
@@ -324,7 +329,7 @@ func (sqlTx *SQLTx) Closed() bool {
 }
 
 func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := &store.KeyReaderSpec{
+	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
@@ -369,7 +374,7 @@ func (c *Catalog) load(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
-	dbReaderSpec := &store.KeyReaderSpec{
+	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(db.id)),
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
@@ -450,7 +455,7 @@ func (db *Database) loadTables(sqlPrefix []byte, tx *store.OngoingTx) error {
 }
 
 func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, error) {
-	pkReaderSpec := &store.KeyReaderSpec{
+	pkReaderSpec := store.KeyReaderSpec{
 		Prefix:    mapKey(sqlPrefix, PIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(PKIndexID)),
 		DescOrder: true,
 	}
@@ -472,7 +477,7 @@ func loadMaxPK(sqlPrefix []byte, tx *store.OngoingTx, table *Table) ([]byte, err
 func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
 	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
-	dbReaderSpec := &store.KeyReaderSpec{
+	dbReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
@@ -532,7 +537,7 @@ func loadColSpecs(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (
 func (table *Table) loadIndexes(sqlPrefix []byte, tx *store.OngoingTx) error {
 	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id))
 
-	idxReaderSpec := &store.KeyReaderSpec{
+	idxReaderSpec := store.KeyReaderSpec{
 		Prefix:  initialKey,
 		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
 	}
