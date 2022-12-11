@@ -246,8 +246,8 @@ func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef Value
 	key, valRef, err = tx.snap.GetWithPrefix(prefix, neq)
 	if errors.Is(err, ErrKeyNotFound) {
 		expectedGetWith := expectedGetWithPrefix{
-			prefix: prefix,
-			neq:    neq,
+			prefix: cp(prefix),
+			neq:    cp(neq),
 		}
 
 		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWith)
@@ -259,9 +259,9 @@ func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef Value
 	if valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGetWithPrefix := expectedGetWithPrefix{
-			prefix:      prefix,
-			neq:         neq,
-			expectedKey: key,
+			prefix:      cp(prefix),
+			neq:         cp(neq),
+			expectedKey: cp(key),
 			expectedTx:  valRef.Tx(),
 		}
 
@@ -304,7 +304,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	valRef, err := tx.snap.GetWithFilters(key, filters...)
 	if errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithFilters := expectedGetWithFilters{
-			key:        key,
+			key:        cp(key),
 			filters:    filters,
 			expectedTx: 0,
 		}
@@ -318,7 +318,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	if valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGet := expectedGetWithFilters{
-			key:        key,
+			key:        cp(key),
 			filters:    filters,
 			expectedTx: valRef.Tx(),
 		}
@@ -410,11 +410,9 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	/*
-		if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
-			return nil
-		}
-	*/
+	if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
+		return nil
+	}
 
 	for _, e := range tx.expectedGetsWithFilters {
 		valRef, err := st.GetWithFilters(e.key, e.filters...)
@@ -450,18 +448,22 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
+	if len(tx.expectedReaders) == 0 {
+		return nil
+	}
+
+	tbsnap, err := st.indexer.index.RSnapshot()
+	if err != nil {
+		return err
+	}
+
+	snap := &Snapshot{
+		st:   st,
+		snap: tbsnap,
+		ts:   time.Now(),
+	}
+
 	for _, eReader := range tx.expectedReaders {
-		tbsnap, err := st.indexer.index.RSnapshot()
-		if err != nil {
-			return err
-		}
-
-		snap := &Snapshot{
-			st:   st,
-			snap: tbsnap,
-			ts:   time.Now(),
-		}
-
 		reader, err := snap.NewKeyReader(eReader.spec)
 		if err != nil {
 			return err
@@ -519,4 +521,15 @@ func (tx *OngoingTx) validateAgainst(hdr *TxHeader) error {
 	}
 
 	return nil
+}
+
+func cp(s []byte) []byte {
+	if s == nil {
+		return nil
+	}
+
+	c := make([]byte, len(s))
+	copy(c, s)
+
+	return c
 }
