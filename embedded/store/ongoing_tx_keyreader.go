@@ -57,7 +57,7 @@ func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
 	if valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedRead := expectedRead{
-			expectedKey: key,
+			expectedKey: cp(key),
 			expectedTx:  valRef.Tx(),
 		}
 
@@ -81,7 +81,7 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 		expectedRead := expectedRead{
 			initialTxID: initialTxID,
 			finalTxID:   finalTxID,
-			expectedKey: key,
+			expectedKey: cp(key),
 			expectedTx:  valRef.Tx(),
 		}
 
