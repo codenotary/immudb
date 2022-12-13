@@ -304,9 +304,8 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	valRef, err := tx.snap.GetWithFilters(key, filters...)
 	if errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithFilters := expectedGetWithFilters{
-			key:        cp(key),
-			filters:    filters,
-			expectedTx: 0,
+			key:     cp(key),
+			filters: filters,
 		}
 
 		tx.expectedGetsWithFilters = append(tx.expectedGetsWithFilters, expectedGetWithFilters)
@@ -338,16 +337,7 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
-	keyReader, err := tx.snap.NewKeyReader(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	expectedReader := newExpectedReader(spec)
-
-	tx.expectedReaders = append(tx.expectedReaders, expectedReader)
-
-	return newOngoingTxKeyReader(keyReader, expectedReader), nil
+	return newOngoingTxKeyReader(tx, spec)
 }
 
 func (tx *OngoingTx) Commit() (*TxHeader, error) {
@@ -410,12 +400,20 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
-		return nil
+	/*
+		if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
+			return nil
+		}
+	*/
+
+	snap, err := st.unsafeSnapshot()
+	if err != nil {
+		return err
 	}
+	// defer snap.Close() <- TODO: snap, err := st.lockedSnapshot()
 
 	for _, e := range tx.expectedGetsWithFilters {
-		valRef, err := st.GetWithFilters(e.key, e.filters...)
+		valRef, err := snap.GetWithFilters(e.key, e.filters...)
 		if errors.Is(err, ErrKeyNotFound) {
 			if e.expectedTx > 0 {
 				return ErrTxReadConflict
@@ -432,7 +430,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 	}
 
 	for _, e := range tx.expectedGetsWithPrefix {
-		key, valRef, err := st.GetWithPrefix(e.prefix, e.neq)
+		key, valRef, err := snap.GetWithPrefix(e.prefix, e.neq)
 		if errors.Is(err, ErrKeyNotFound) {
 			if e.expectedTx > 0 {
 				return ErrTxReadConflict
@@ -448,23 +446,17 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	if len(tx.expectedReaders) == 0 {
-		return nil
-	}
-
-	tbsnap, err := st.indexer.index.RSnapshot()
-	if err != nil {
-		return err
-	}
-
-	snap := &Snapshot{
-		st:   st,
-		snap: tbsnap,
-		ts:   time.Now(),
-	}
-
 	for _, eReader := range tx.expectedReaders {
-		reader, err := snap.NewKeyReader(eReader.spec)
+		rspec := KeyReaderSpec{
+			SeekKey:       eReader.spec.SeekKey,
+			EndKey:        eReader.spec.EndKey,
+			Prefix:        eReader.spec.Prefix,
+			InclusiveSeek: eReader.spec.InclusiveSeek,
+			InclusiveEnd:  eReader.spec.InclusiveEnd,
+			DescOrder:     eReader.spec.DescOrder,
+		}
+
+		reader, err := snap.NewKeyReader(rspec)
 		if err != nil {
 			return err
 		}
@@ -482,12 +474,27 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 					key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
 				}
 
-				if err != nil {
+				if err != nil && !errors.Is(err, ErrNoMoreEntries) {
 					return err
 				}
 
-				if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
-					return ErrTxReadConflict
+				// at this point if err != nil it means errors.Is(err, ErrNoMoreEntries)
+
+				if eRead.expectedNoMoreEntries {
+					// reader is now fetching more entries than expected
+					if err == nil {
+						return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
+					}
+				} else {
+					// reader is now fetching less entries than expected
+					if err != nil {
+						return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
+					}
+
+					// reader is now fetching a different key or an updated one
+					if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
+						return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
+					}
 				}
 			}
 
