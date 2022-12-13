@@ -110,15 +110,15 @@ func TestParseConfig_Require(t *testing.T) {
 func TestParseConfigErrs(t *testing.T) {
 	connString := "immudb://immudb:immudb@127.0.0.1:aaa/defaultdb"
 	_, err := ParseConfig(connString)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBadQueryString)
 
 	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb"
 	_, err = ParseConfig(connString)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBadQueryString)
 
 	connString = "AAAA://immudb:immudb@127.0.0.1:123/defaultdb?sslmode=invalid"
 	_, err = ParseConfig(connString)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBadQueryString)
 }
 
 func TestDriver_OpenSSLPrefer(t *testing.T) {

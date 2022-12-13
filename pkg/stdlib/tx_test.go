@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc/status"
 
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,7 +47,7 @@ func TestConn_BeginTx(t *testing.T) {
 	binaryContent := []byte("my blob content1")
 	blobContent := hex.EncodeToString(binaryContent)
 	_, err = db.Exec(fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (1, 1000, 6000, 'title 1', x'%s', true)", table, blobContent))
-	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("table does not exist (%s)", table))
 	st, _ := status.FromError(err)
 	require.Equal(t, fmt.Sprintf("table does not exist (%s)", table), st.Message())
 
@@ -104,8 +105,8 @@ func TestTx_Errors(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = tx.ExecContext(context.TODO(), "this is really wrong")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER at position 4")
 
 	_, err = tx.QueryContext(context.TODO(), "this is also very wrong")
-	require.Error(t, err)
+	require.ErrorIs(t, err, sessions.ErrTransactionNotFound)
 }

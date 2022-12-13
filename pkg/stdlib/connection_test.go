@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -64,25 +65,25 @@ func TestConnErr(t *testing.T) {
 	}
 
 	_, err := c.Prepare("")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	_, err = c.PrepareContext(context.TODO(), "")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotImplemented)
 
 	_, err = c.Begin()
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.BeginTx(context.TODO(), driver.TxOptions{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.ExecContext(context.TODO(), "", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	_, err = c.QueryContext(context.TODO(), "", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	err = c.ResetSession(context.TODO())
-	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrBadConn)
 
 	ris := c.CheckNamedValue(nil)
 	require.Nil(t, ris)
@@ -107,13 +108,13 @@ func TestConn_QueryContextErr(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.QueryContext(context.TODO(), "query", 10.5)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrInvalidValue)
 
 	_, err = db.ExecContext(context.TODO(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "table does not exist (mytable)")
 
 	_, err = db.QueryContext(context.TODO(), "SELECT * FROM myTable")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "table does not exist (mytable)")
 }
 
 func TestConn_QueryContext(t *testing.T) {
