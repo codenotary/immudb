@@ -45,7 +45,7 @@ func TestParsedMsg(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_Parse", i), func(t *testing.T) {
 			s, err := ParseParseMsg(tt.in)
 			require.Equal(t, tt.out, s)
-			require.Equal(t, tt.e, err)
+			require.ErrorIs(t, err, tt.e)
 		})
 	}
 

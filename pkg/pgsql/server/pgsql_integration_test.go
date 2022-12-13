@@ -29,11 +29,13 @@ import (
 	"testing"
 	"time"
 
+	isql "github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/pgsql/errors"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/jackc/pgx/v4"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
@@ -155,7 +157,7 @@ func TestPgsqlServer_SimpleQueryExecError(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = db.Exec("ILLEGAL STATEMENT")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "syntax error: unexpected IDENTIFIER at position 7")
 }
 
 func TestPgsqlServer_SimpleQueryQueryError(t *testing.T) {
@@ -175,7 +177,7 @@ func TestPgsqlServer_SimpleQueryQueryError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
-	require.Error(t, err)
+	require.ErrorContains(t, err, isql.ErrTableDoesNotExist.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingDatabase(t *testing.T) {
@@ -195,7 +197,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
-	require.Error(t, err)
+	require.ErrorContains(t, err, errors.ErrDBNotprovided.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQueryDatabaseNotExists(t *testing.T) {
@@ -215,7 +217,7 @@ func TestPgsqlServer_SimpleQueryQueryDatabaseNotExists(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
-	require.Error(t, err)
+	require.ErrorContains(t, err, errors.ErrDBNotExists.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingUsername(t *testing.T) {
@@ -235,7 +237,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingUsername(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
-	require.Error(t, err)
+	require.ErrorContains(t, err, errors.ErrUsernameNotFound.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingPassword(t *testing.T) {
@@ -255,7 +257,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingPassword(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
-	require.Error(t, err)
+	require.ErrorContains(t, err, errors.ErrPwNotprovided.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQueryClosedConnError(t *testing.T) {
@@ -309,7 +311,7 @@ func TestPgsqlServer_SimpleQueryTerminate(t *testing.T) {
 	var amount int64
 	var title string
 	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title FROM %s", table)).Scan(&id, &amount, &title)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "sql: database is closed")
 }
 
 func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
@@ -340,7 +342,7 @@ func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
 	var amount int64
 	var title string
 	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title FROM %s WHERE id=2", table)).Scan(&id, &amount, &title)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
 func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.T) {
@@ -362,7 +364,7 @@ func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.
 	_, err = db.Exec("CREATE DATABASE db")
 	require.Error(t, err)
 	_, err = db.Exec("USE DATABASE db")
-	require.Error(t, err)
+	require.ErrorContains(t, err, errors.ErrUseDBStatementNotSupported.Error())
 
 }
 
@@ -388,7 +390,7 @@ func TestPgsqlServer_SimpleQueryQueryExecError(t *testing.T) {
 	require.NotNil(t, result)
 
 	_, err = db.Exec(fmt.Sprintf("UPSERT INTO %s (id, title) VALUES (1, 200, 'title 1')", table))
-	require.Error(t, err)
+	require.ErrorContains(t, err, isql.ErrInvalidNumberOfValues.Error())
 }
 
 func TestPgsqlServer_SimpleQueryQuerySSLConn(t *testing.T) {
@@ -452,7 +454,7 @@ func TestPgsqlServer_SSLNotEnabled(t *testing.T) {
 
 	table := getRandomTableName()
 	_, err = db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, title VARCHAR, content BLOB, PRIMARY KEY id)", table))
-	require.Error(t, err)
+	require.ErrorIs(t, err, pq.ErrSSLNotSupported)
 
 }
 
@@ -829,5 +831,5 @@ func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedMultiInsertError(t *testi
 	blobContent2 := hex.EncodeToString([]byte("my blob content2"))
 	blobContent := hex.EncodeToString(binaryContent)
 	_, err = db.Exec(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?); INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table, table), 1, 1000, 6000, "title 1", fmt.Sprintf("%s", blobContent), true, 2, 2000, 12000, "title 2", fmt.Sprintf("%s", blobContent2), true)
-	require.Error(t, errors.ErrMaxStmtNumberExceeded)
+	require.ErrorContains(t, err, errors.ErrMaxStmtNumberExceeded.Error())
 }
