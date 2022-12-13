@@ -1655,7 +1655,7 @@ func (t *TBtree) Ts() uint64 {
 	return t.root.ts()
 }
 
-func (t *TBtree) RSnapshot() (*Snapshot, error) {
+func (t *TBtree) UnsafeSnapshot() (*Snapshot, error) {
 	t.rwmutex.RLock()
 	defer t.rwmutex.RUnlock()
 

@@ -16,9 +16,12 @@ limitations under the License.
 
 package store
 
+import "errors"
+
 type expectedReader struct {
 	spec          KeyReaderSpec
 	expectedReads [][]expectedRead
+	i             int
 }
 
 type expectedRead struct {
@@ -27,10 +30,17 @@ type expectedRead struct {
 
 	expectedKey []byte
 	expectedTx  uint64
+
+	expectedNoMoreEntries bool
 }
 
 type ongoingTxKeyReader struct {
-	keyReader      KeyReader
+	tx *OngoingTx
+
+	keyReader KeyReader
+	offset    uint64
+	skipped   uint64
+
 	expectedReader *expectedReader
 }
 
@@ -41,56 +51,135 @@ func newExpectedReader(spec KeyReaderSpec) *expectedReader {
 	}
 }
 
-func newOngoingTxKeyReader(keyReader KeyReader, expectedReader *expectedReader) *ongoingTxKeyReader {
-	return &ongoingTxKeyReader{
-		keyReader:      keyReader,
-		expectedReader: expectedReader,
+func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyReader, error) {
+	rspec := KeyReaderSpec{
+		SeekKey:       spec.SeekKey,
+		EndKey:        spec.EndKey,
+		Prefix:        spec.Prefix,
+		InclusiveSeek: spec.InclusiveSeek,
+		InclusiveEnd:  spec.InclusiveEnd,
+		DescOrder:     spec.DescOrder,
 	}
+
+	keyReader, err := tx.snap.NewKeyReader(rspec)
+	if err != nil {
+		return nil, err
+	}
+
+	expectedReader := newExpectedReader(spec)
+
+	tx.expectedReaders = append(tx.expectedReaders, expectedReader)
+
+	return &ongoingTxKeyReader{
+		tx:             tx,
+		keyReader:      keyReader,
+		offset:         spec.Offset,
+		expectedReader: expectedReader,
+	}, nil
 }
 
 func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
-	key, valRef, err := r.keyReader.Read()
-	if err != nil {
-		return nil, nil, err
-	}
+	for {
+		key, valRef, err := r.keyReader.Read()
+		if errors.Is(err, ErrNoMoreEntries) {
+			expectedRead := expectedRead{
+				expectedNoMoreEntries: true,
+			}
 
-	if valRef.Tx() > 0 {
-		// it only requires validation when the entry was pre-existent to ongoing tx
-		expectedRead := expectedRead{
-			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+		if err != nil {
+			return nil, nil, err
 		}
 
-		i := len(r.expectedReader.expectedReads) - 1
+		skipEntry := false
 
-		r.expectedReader.expectedReads[i] = append(r.expectedReader.expectedReads[i], expectedRead)
+		for _, filter := range r.expectedReader.spec.Filters {
+			err = filter(valRef, r.tx.Timestamp())
+			if err != nil {
+				skipEntry = true
+				break
+			}
+		}
+
+		if valRef.Tx() == 0 {
+			expectedRead := expectedRead{}
+
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+
+		if skipEntry {
+			continue
+		}
+
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
+		}
+
+		if valRef.Tx() > 0 {
+			expectedRead := expectedRead{
+				expectedKey: cp(key),
+				expectedTx:  valRef.Tx(),
+			}
+
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+
+		return key, valRef, nil
 	}
-
-	return key, valRef, nil
 }
 
 func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
-	key, valRef, err := r.keyReader.ReadBetween(initialTxID, finalTxID)
-	if err != nil {
-		return nil, nil, err
-	}
+	for {
+		key, valRef, err := r.keyReader.ReadBetween(initialTxID, finalTxID)
+		if errors.Is(err, ErrNoMoreEntries) {
+			expectedRead := expectedRead{
+				expectedNoMoreEntries: true,
+			}
 
-	if valRef.Tx() > 0 {
-		// it only requires validation when the entry was pre-existent to ongoing tx
-
-		expectedRead := expectedRead{
-			initialTxID: initialTxID,
-			finalTxID:   finalTxID,
-			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+		if err != nil {
+			return nil, nil, err
 		}
 
-		i := len(r.expectedReader.expectedReads) - 1
+		skipEntry := false
 
-		r.expectedReader.expectedReads[i] = append(r.expectedReader.expectedReads[i], expectedRead)
+		for _, filter := range r.expectedReader.spec.Filters {
+			err = filter(valRef, r.tx.Timestamp())
+			if err != nil {
+				skipEntry = true
+				break
+			}
+		}
+
+		if valRef.Tx() == 0 {
+			expectedRead := expectedRead{}
+
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+
+		if skipEntry {
+			continue
+		}
+
+		if r.skipped < r.offset {
+			r.skipped++
+			continue
+		}
+
+		if valRef.Tx() > 0 {
+			expectedRead := expectedRead{
+				expectedKey: cp(key),
+				expectedTx:  valRef.Tx(),
+			}
+
+			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		}
+
+		return key, valRef, nil
 	}
-
-	return key, valRef, nil
 }
 
 func (r *ongoingTxKeyReader) Reset() error {
@@ -100,6 +189,7 @@ func (r *ongoingTxKeyReader) Reset() error {
 	}
 
 	r.expectedReader.expectedReads = append(r.expectedReader.expectedReads, nil)
+	r.expectedReader.i++
 
 	return nil
 }
