@@ -464,29 +464,40 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		defer reader.Close()
 
 		for _, eReads := range eReader.expectedReads {
+			var key []byte
+			var valRef ValueRef
+
 			for _, eRead := range eReads {
-				var key []byte
-				var valRef ValueRef
 
-				if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
-					key, valRef, err = reader.Read()
-				} else {
-					key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
-				}
+				if len(key) == 0 {
+					if eRead.initialTxID == 0 && eRead.finalTxID == 0 {
+						key, valRef, err = reader.Read()
+					} else {
+						key, valRef, err = reader.ReadBetween(eRead.initialTxID, eRead.finalTxID)
+					}
 
-				if err != nil && !errors.Is(err, ErrNoMoreEntries) {
-					return err
+					if err != nil && !errors.Is(err, ErrNoMoreEntries) {
+						return err
+					}
 				}
 
 				// at this point if err != nil it means errors.Is(err, ErrNoMoreEntries)
 
+				if eRead.expectedTx == 0 {
+					if bytes.Equal(eRead.expectedKey, key) {
+						// key was updated by the transaction
+						key = nil
+						valRef = nil
+					}
+
+					continue
+				}
+
 				if eRead.expectedNoMoreEntries {
-					// reader is now fetching more entries than expected
 					if err == nil {
 						return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
 					}
 				} else {
-					// reader is now fetching less entries than expected
 					if err != nil {
 						return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
 					}

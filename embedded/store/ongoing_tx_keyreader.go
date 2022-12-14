@@ -92,23 +92,25 @@ func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
 			return nil, nil, err
 		}
 
-		skipEntry := false
+		filterEntry := false
 
 		for _, filter := range r.expectedReader.spec.Filters {
 			err = filter(valRef, r.tx.Timestamp())
 			if err != nil {
-				skipEntry = true
+				filterEntry = true
 				break
 			}
 		}
 
-		if valRef.Tx() == 0 {
-			expectedRead := expectedRead{}
+		if valRef.Tx() == 0 && !filterEntry {
+			expectedRead := expectedRead{
+				expectedKey: cp(key),
+			}
 
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 		}
 
-		if skipEntry {
+		if filterEntry {
 			continue
 		}
 
@@ -144,23 +146,25 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 			return nil, nil, err
 		}
 
-		skipEntry := false
-
-		for _, filter := range r.expectedReader.spec.Filters {
-			err = filter(valRef, r.tx.Timestamp())
-			if err != nil {
-				skipEntry = true
-				break
-			}
-		}
-
 		if valRef.Tx() == 0 {
-			expectedRead := expectedRead{}
+			expectedRead := expectedRead{
+				expectedKey: cp(key),
+			}
 
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 		}
 
-		if skipEntry {
+		filterEntry := false
+
+		for _, filter := range r.expectedReader.spec.Filters {
+			err = filter(valRef, r.tx.Timestamp())
+			if err != nil {
+				filterEntry = true
+				break
+			}
+		}
+
+		if filterEntry {
 			continue
 		}
 

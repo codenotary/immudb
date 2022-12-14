@@ -355,17 +355,17 @@ func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte,
 
 		valRef := r.refInterceptor(key, val)
 
-		skipEntry := false
+		filterEntry := false
 
 		for _, filter := range r.filters {
 			err = filter(valRef, r.snap.ts)
 			if err != nil {
-				skipEntry = true
+				filterEntry = true
 				break
 			}
 		}
 
-		if skipEntry {
+		if filterEntry {
 			continue
 		}
 
@@ -392,17 +392,17 @@ func (r *storeKeyReader) Read() (key []byte, val ValueRef, err error) {
 
 		valRef := r.refInterceptor(key, val)
 
-		skipEntry := false
+		filterEntry := false
 
 		for _, filter := range r.filters {
 			err = filter(valRef, r.snap.ts)
 			if err != nil {
-				skipEntry = true
+				filterEntry = true
 				break
 			}
 		}
 
-		if skipEntry {
+		if filterEntry {
 			continue
 		}
 
