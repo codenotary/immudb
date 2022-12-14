@@ -92,6 +92,13 @@ func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
 			return nil, nil, err
 		}
 
+		expectedRead := expectedRead{
+			expectedKey: cp(key),
+			expectedTx:  valRef.Tx(),
+		}
+
+		r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+
 		filterEntry := false
 
 		for _, filter := range r.expectedReader.spec.Filters {
@@ -102,14 +109,6 @@ func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
 			}
 		}
 
-		if valRef.Tx() == 0 && !filterEntry {
-			expectedRead := expectedRead{
-				expectedKey: cp(key),
-			}
-
-			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
-		}
-
 		if filterEntry {
 			continue
 		}
@@ -117,15 +116,6 @@ func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
 		if r.skipped < r.offset {
 			r.skipped++
 			continue
-		}
-
-		if valRef.Tx() > 0 {
-			expectedRead := expectedRead{
-				expectedKey: cp(key),
-				expectedTx:  valRef.Tx(),
-			}
-
-			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 		}
 
 		return key, valRef, nil

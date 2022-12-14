@@ -481,31 +481,31 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 					}
 				}
 
-				// at this point if err != nil it means errors.Is(err, ErrNoMoreEntries)
-
-				if eRead.expectedTx == 0 {
-					if bytes.Equal(eRead.expectedKey, key) {
-						// key was updated by the transaction
-						key = nil
-						valRef = nil
-					}
-
-					continue
-				}
-
 				if eRead.expectedNoMoreEntries {
 					if err == nil {
 						return fmt.Errorf("%w: fetching more entries than expected", ErrTxReadConflict)
 					}
+
+					break
+				}
+
+				if eRead.expectedTx == 0 {
+					if err == nil && bytes.Equal(eRead.expectedKey, key) {
+						// key was updated by the transaction
+						key = nil
+						valRef = nil
+					}
 				} else {
-					if err != nil {
+					if errors.Is(err, ErrNoMoreEntries) {
 						return fmt.Errorf("%w: fetching less entries than expected", ErrTxReadConflict)
 					}
 
-					// reader is now fetching a different key or an updated one
 					if !bytes.Equal(eRead.expectedKey, key) || eRead.expectedTx != valRef.Tx() {
 						return fmt.Errorf("%w: fetching a different key or an updated one", ErrTxReadConflict)
 					}
+
+					key = nil
+					valRef = nil
 				}
 			}
 
