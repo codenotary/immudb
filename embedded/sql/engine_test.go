@@ -5447,3 +5447,37 @@ func TestSingleDBCatalogQueries(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoMoreRows)
 	})
 }
+
+func TestMVCC(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id);", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (title);", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (active);", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON table1 (payload);", nil, nil)
+	require.NoError(t, err)
+
+	tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+	require.NoError(t, err)
+
+	tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A1');", nil, tx1)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("COMMIT;", nil, tx1)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("COMMIT;", nil, tx2)
+	require.NoError(t, err)
+}
