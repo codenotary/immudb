@@ -3475,3 +3475,57 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestImmudbStoreMVCC(t *testing.T) {
+	immuStore, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+
+	defer immuStore.Close()
+
+	t.Run("no read conflict should be detected when read keys are not updated by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key1"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		_, err = tx2.Get([]byte("key2"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("read conflict should be detected when read key was updated by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key"), nil, []byte("value"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		_, err = tx2.Get([]byte("key"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		err = tx2.Set([]byte("key"), nil, []byte("value"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
+
+}
