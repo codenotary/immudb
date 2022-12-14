@@ -3505,6 +3505,26 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("read conflict should be detected even when the key was updated by another transaction if its value was not read", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key1"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		err = tx2.Set([]byte("key1"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.NoError(t, err)
+	})
+
 	t.Run("read conflict should be detected when read key was updated by another transaction", func(t *testing.T) {
 		tx1, err := immuStore.NewTx()
 		require.NoError(t, err)
@@ -3512,20 +3532,51 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		tx2, err := immuStore.NewTx()
 		require.NoError(t, err)
 
-		err = tx1.Set([]byte("key"), nil, []byte("value"))
+		err = tx1.Set([]byte("key3"), nil, []byte("value"))
 		require.NoError(t, err)
 
 		_, err = tx1.Commit()
 		require.NoError(t, err)
 
-		_, err = tx2.Get([]byte("key"))
+		_, err = tx2.Get([]byte("key3"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		err = tx2.Set([]byte("key"), nil, []byte("value"))
+		err = tx2.Set([]byte("key3"), nil, []byte("value"))
 		require.NoError(t, err)
 
 		_, err = tx2.Commit()
 		require.ErrorIs(t, err, ErrTxReadConflict)
 	})
 
+	t.Run("read conflict should be detected when read key was deleted by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key4"), nil, []byte("value"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx3, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx2.Delete([]byte("key4"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.NoError(t, err)
+
+		_, err = tx3.Get([]byte("key4"))
+		require.NoError(t, err)
+
+		err = tx3.Set([]byte("key4"), nil, []byte("value4"))
+		require.NoError(t, err)
+
+		_, err = tx3.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
 }
