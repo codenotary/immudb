@@ -5463,21 +5463,86 @@ func TestMVCC(t *testing.T) {
 	_, _, err = engine.Exec("CREATE INDEX ON table1 (payload);", nil, nil)
 	require.NoError(t, err)
 
-	tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
-	require.NoError(t, err)
+	t.Run("no read conflict should be detected when processing transactions without overlapping rows", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
 
-	tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
-	require.NoError(t, err)
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
 
-	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
-	require.NoError(t, err)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+		require.NoError(t, err)
 
-	_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A1');", nil, tx1)
-	require.NoError(t, err)
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A1');", nil, tx2)
+		require.NoError(t, err)
 
-	_, _, err = engine.Exec("COMMIT;", nil, tx1)
-	require.NoError(t, err)
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
 
-	_, _, err = engine.Exec("COMMIT;", nil, tx2)
-	require.NoError(t, err)
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.NoError(t, err)
+	})
+
+	t.Run("read conflict should be detected when processing transactions with invalidated queries", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 USE INDEX ON id WHERE id > 0", nil, tx2)
+		require.NoError(t, err)
+
+		for {
+			_, err = rowReader.Read()
+			if err != nil {
+				require.ErrorIs(t, err, ErrNoMoreRows)
+				break
+			}
+		}
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A1');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
+
+	t.Run("no read conflict should be detected when processing transactions with non-invalidated queries", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 USE INDEX ON id WHERE id > 10", nil, tx2)
+		require.NoError(t, err)
+
+		_, err = rowReader.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A1');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.NoError(t, err)
+	})
 }
