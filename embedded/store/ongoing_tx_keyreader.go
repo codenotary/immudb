@@ -79,52 +79,17 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 }
 
 func (r *ongoingTxKeyReader) Read() (key []byte, val ValueRef, err error) {
-	for {
-		key, valRef, err := r.keyReader.Read()
-		if errors.Is(err, ErrNoMoreEntries) {
-			expectedRead := expectedRead{
-				expectedNoMoreEntries: true,
-			}
-
-			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-
-		expectedRead := expectedRead{
-			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
-		}
-
-		r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
-
-		filterEntry := false
-
-		for _, filter := range r.expectedReader.spec.Filters {
-			err = filter(valRef, r.tx.Timestamp())
-			if err != nil {
-				filterEntry = true
-				break
-			}
-		}
-
-		if filterEntry {
-			continue
-		}
-
-		if r.skipped < r.offset {
-			r.skipped++
-			continue
-		}
-
-		return key, valRef, nil
-	}
+	return r.ReadBetween(0, 0)
 }
 
-func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, val ValueRef, err error) {
+func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte, valRef ValueRef, err error) {
 	for {
-		key, valRef, err := r.keyReader.ReadBetween(initialTxID, finalTxID)
+		if initialTxID == 0 && finalTxID == 0 {
+			key, valRef, err = r.keyReader.Read()
+		} else {
+			key, valRef, err = r.keyReader.ReadBetween(initialTxID, finalTxID)
+		}
+
 		if errors.Is(err, ErrNoMoreEntries) {
 			expectedRead := expectedRead{
 				initialTxID:           initialTxID,
@@ -134,6 +99,7 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 		}
+
 		if err != nil {
 			return nil, nil, err
 		}
