@@ -28,14 +28,14 @@ import (
 
 func TestMapServerError(t *testing.T) {
 	err := mapServerError(store.ErrIllegalState)
-	require.Equal(t, ErrIllegalState, err)
+	require.ErrorIs(t, err, ErrIllegalState)
 
 	err = mapServerError(store.ErrIllegalArguments)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	someError := errors.New("some error")
 	err = mapServerError(someError)
-	require.Equal(t, someError, err)
+	require.ErrorIs(t, err, someError)
 
 	err = mapServerError(fmt.Errorf("%w: test", store.ErrPreconditionFailed))
 	require.Equal(t, immuerrors.CodIntegrityConstraintViolation, err.(immuerrors.Error).Code())

@@ -107,7 +107,7 @@ func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
 
 	_, err = s.Logout(context.Background(), &emptypb.Empty{})
 	require.NotNil(t, err)
-	require.Equal(t, ErrAuthDisabled, err.Error())
+	require.ErrorContains(t, err, ErrAuthDisabled)
 }
 
 func TestServerListUsersAdmin(t *testing.T) {

@@ -44,5 +44,5 @@ func TestStateSigner_Err(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
 	stSigner := NewStateSigner(s)
 	err := stSigner.Sign(nil)
-	require.Error(t, store.ErrIllegalArguments, err)
+	require.ErrorIs(t, err, store.ErrIllegalArguments)
 }

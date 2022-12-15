@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -48,22 +49,22 @@ func TestSQLInteraction(t *testing.T) {
 	ctx := context.Background()
 
 	_, err = s.ListTables(ctx, &emptypb.Empty{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.SQLExec(ctx, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.SQLQuery(ctx, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.DescribeTable(ctx, nil)
-	require.Equal(t, ErrIllegalArguments, err)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = s.DescribeTable(ctx, &schema.Table{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	_, err = s.VerifiableSQLGet(ctx, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -110,7 +111,7 @@ func TestSQLInteraction(t *testing.T) {
 		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}}},
 		ProveSinceTx:  100,
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, database.ErrIllegalState)
 }
 
 func TestSQLExecResult(t *testing.T) {
@@ -180,8 +181,7 @@ func TestSQLExecCreateDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db1;"})
-	require.Error(t, err)
-	require.Equal(t, sql.ErrDatabaseAlreadyExists.Error(), err.Error())
+	require.ErrorContains(t, err, sql.ErrDatabaseAlreadyExists.Error())
 
 	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE IF NOT EXISTS db1;"})
 	require.NoError(t, err)
@@ -190,6 +190,5 @@ func TestSQLExecCreateDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.SQLExec(ctx, &schema.SQLExecRequest{Sql: "CREATE DATABASE db2;"})
-	require.Error(t, err)
-	require.Equal(t, sql.ErrDatabaseAlreadyExists.Error(), err.Error())
+	require.ErrorContains(t, err, sql.ErrDatabaseAlreadyExists.Error())
 }
