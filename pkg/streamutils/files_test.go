@@ -1,11 +1,14 @@
 package streamutils
 
 import (
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 )
 
 func TestStreamUtilsFiles(t *testing.T) {
@@ -14,13 +17,13 @@ func TestStreamUtilsFiles(t *testing.T) {
 
 	// stat will fail
 	_, err = GetKeyValuesFromFiles(filepath.Join(tmpdir, "non-existant"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOENT)
 
 	unreadable := filepath.Join(tmpdir, "dir")
 	os.Mkdir(unreadable, 200)
 	// open will fail
 	_, err = GetKeyValuesFromFiles(unreadable)
-	require.Error(t, err)
+	require.ErrorIs(t, err, unix.EACCES)
 
 	valid := filepath.Join(tmpdir, "data")
 	err = ioutil.WriteFile(valid, []byte("content"), 0644)
