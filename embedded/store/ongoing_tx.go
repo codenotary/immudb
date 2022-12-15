@@ -400,7 +400,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		}
 	}
 
-	if tx.IsWriteOnly() || tx.snap.Ts() >= st.lastPrecommittedTxID() {
+	if tx.IsWriteOnly() {
 		return nil
 	}
 
