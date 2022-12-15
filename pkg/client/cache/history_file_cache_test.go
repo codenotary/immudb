@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -106,7 +107,7 @@ func TestHistoryFileCache_SetError(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	err = fc.Set("uuid", "dbName", nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, proto.ErrNil)
 }
 
 func TestHistoryFileCache_GetError(t *testing.T) {

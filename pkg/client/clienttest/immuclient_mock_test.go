@@ -83,9 +83,10 @@ func TestImmuClientMock(t *testing.T) {
 		},
 	}
 	require.True(t, icm.IsConnected())
+	err := icm.WaitForHealthCheck(context.TODO())
 
-	require.Equal(t, errWaitForHealthCheck, icm.WaitForHealthCheck(context.TODO()))
-	_, err := icm.Connect(context.TODO())
+	require.ErrorIs(t, err, errWaitForHealthCheck)
+	_, err = icm.Connect(context.TODO())
 
 	require.ErrorIs(t, err, errConnect)
 	err = icm.Disconnect()
