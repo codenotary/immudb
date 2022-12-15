@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -5611,4 +5612,55 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec("COMMIT;", nil, tx2)
 		require.NoError(t, err)
 	})
+}
+
+func TestConcurrentInsertions(t *testing.T) {
+	workers := 10
+
+	st, err := store.Open(t.TempDir(), store.DefaultOptions().WithMaxConcurrency(workers))
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(`
+		CREATE DATABASE db1;
+		USE DATABASE db1;
+		CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id);
+		CREATE INDEX ON table1 (title);
+	`, nil, nil)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func(i int) {
+			tx, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			_, _, err = engine.Exec(
+				"UPSERT INTO table1 (id, title, active, payload) VALUES (@id, 'title', true, x'00A1');",
+				map[string]interface{}{
+					"id": i,
+				},
+				tx,
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			_, _, err = engine.Exec("COMMIT;", nil, tx)
+			if err != nil {
+				panic(err)
+			}
+
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
 }
