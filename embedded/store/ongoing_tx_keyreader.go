@@ -20,8 +20,8 @@ import "errors"
 
 type expectedReader struct {
 	spec          KeyReaderSpec
-	expectedReads [][]expectedRead
-	i             int
+	expectedReads [][]expectedRead // multiple []expectedRead may be generated if the reader is reset
+	i             int              // it matches with reset count, used to point to the latest []expectedRead
 }
 
 type expectedRead struct {
@@ -29,7 +29,7 @@ type expectedRead struct {
 	finalTxID   uint64
 
 	expectedKey []byte
-	expectedTx  uint64
+	expectedTx  uint64 // expectedTx = 0 means the entry was updated/created by the ongoing transaction
 
 	expectedNoMoreEntries bool
 }
@@ -127,6 +127,8 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 		key, valRef, err := r.keyReader.ReadBetween(initialTxID, finalTxID)
 		if errors.Is(err, ErrNoMoreEntries) {
 			expectedRead := expectedRead{
+				initialTxID:           initialTxID,
+				finalTxID:             finalTxID,
 				expectedNoMoreEntries: true,
 			}
 
@@ -136,13 +138,14 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 			return nil, nil, err
 		}
 
-		if valRef.Tx() == 0 {
-			expectedRead := expectedRead{
-				expectedKey: cp(key),
-			}
-
-			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		expectedRead := expectedRead{
+			initialTxID: initialTxID,
+			finalTxID:   finalTxID,
+			expectedKey: cp(key),
+			expectedTx:  valRef.Tx(),
 		}
+
+		r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 
 		filterEntry := false
 
@@ -161,15 +164,6 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 		if r.skipped < r.offset {
 			r.skipped++
 			continue
-		}
-
-		if valRef.Tx() > 0 {
-			expectedRead := expectedRead{
-				expectedKey: cp(key),
-				expectedTx:  valRef.Tx(),
-			}
-
-			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
 		}
 
 		return key, valRef, nil
