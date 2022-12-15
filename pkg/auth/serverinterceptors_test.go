@@ -92,7 +92,7 @@ func TestServerStreamInterceptorTampered(t *testing.T) {
 	}
 
 	sh := ServerStreamInterceptor(nil, &MockedServerStream{}, nil, h)
-	require.Error(t, sh)
+	require.ErrorContains(t, sh, "the database should be checked manually as we detected possible tampering")
 
 }
 
@@ -108,7 +108,7 @@ func TestServerStreamInterceptorNoAuth(t *testing.T) {
 	}
 
 	sh := ServerStreamInterceptor(nil, &MockedServerStream{}, nil, h)
-	require.Error(t, sh)
+	require.ErrorContains(t, sh, "server has authentication disabled: only local connections are accepted")
 
 }
 
@@ -138,7 +138,7 @@ func TestServerUnaryInterceptorTampered(t *testing.T) {
 	}
 
 	_, err := ServerUnaryInterceptor(context.Background(), "method", nil, h)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "the database should be checked manually as we detected possible tampering")
 }
 
 func TestServerUnaryInterceptorNoAuth(t *testing.T) {
@@ -152,5 +152,5 @@ func TestServerUnaryInterceptorNoAuth(t *testing.T) {
 	}
 
 	_, err := ServerUnaryInterceptor(context.Background(), "method", nil, h)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "server has authentication disabled: only local connections are accepted")
 }
