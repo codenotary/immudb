@@ -22,10 +22,11 @@ func (msm *msgSenderMock) RecvMsg(m interface{}) error {
 }
 
 func TestZSender(t *testing.T) {
+	errReceiveMsg := errors.New("receive msg error")
 	// EOF error
 	msm := msgSenderMock{
 		SendF:    func(io.Reader, int) error { return io.EOF },
-		RecvMsgF: func(interface{}) error { return errors.New("receive msg error") },
+		RecvMsgF: func(interface{}) error { return errReceiveMsg },
 	}
 	zss := NewZStreamSender(&msm)
 
@@ -48,16 +49,15 @@ func TestZSender(t *testing.T) {
 	}
 
 	err = zss.Send(&zEntry)
-	require.Error(t, err)
-	require.Equal(t, errors.New("receive msg error"), err)
+	require.ErrorIs(t, err, errReceiveMsg)
 
+	errSend := errors.New("send error")
 	// other error
-	msm.SendF = func(io.Reader, int) error { return errors.New("send error") }
+	msm.SendF = func(io.Reader, int) error { return errSend }
 	msm.RecvMsgF = func(interface{}) error { return nil }
 	zss = NewZStreamSender(&msm)
 	err = zss.Send(&zEntry)
-	require.Error(t, err)
-	require.Equal(t, errors.New("send error"), err)
+	require.ErrorIs(t, err, errSend)
 
 	// no error
 	msm.SendF = func(io.Reader, int) error { return nil }

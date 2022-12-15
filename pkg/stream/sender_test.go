@@ -18,7 +18,6 @@ package stream
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"testing"
 
@@ -48,7 +47,7 @@ func TestMsgSender_SendPayloadSizeZero(t *testing.T) {
 	s := NewMsgSender(sm, 4096)
 	b := bytes.NewBuffer(nil)
 	err := s.Send(b, 0)
-	require.Equal(t, ErrMessageLengthIsZero, err.Error())
+	require.ErrorContains(t, err, ErrMessageLengthIsZero)
 }
 
 func TestMsgSender_SendErrReader(t *testing.T) {
@@ -56,11 +55,11 @@ func TestMsgSender_SendErrReader(t *testing.T) {
 	s := NewMsgSender(sm, 4096)
 	r := &streamtest.ErrReader{
 		ReadF: func([]byte) (int, error) {
-			return 0, errors.New("custom one")
+			return 0, errCustom
 		},
 	}
 	err := s.Send(r, 5000)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestMsgSender_SendEmptyReader(t *testing.T) {
@@ -72,7 +71,7 @@ func TestMsgSender_SendEmptyReader(t *testing.T) {
 		},
 	}
 	err := s.Send(r, 5000)
-	require.Equal(t, ErrReaderIsEmpty, err.Error())
+	require.ErrorContains(t, err, ErrReaderIsEmpty)
 }
 
 func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
@@ -83,7 +82,7 @@ func TestMsgSender_SendEErrNotEnoughDataOnStream(t *testing.T) {
 	message := streamtest.GetTrailer(len(content))
 	b := bytes.NewBuffer(message)
 	err := s.Send(b, 5000)
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorContains(t, err, ErrNotEnoughDataOnStream)
 }
 
 func TestMsgSender_SendLastChunk(t *testing.T) {

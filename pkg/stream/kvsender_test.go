@@ -76,7 +76,7 @@ func TestKvStreamSender_SendEOF(t *testing.T) {
 
 	err := kvss.Send(kv)
 
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorContains(t, err, ErrNotEnoughDataOnStream)
 }
 
 func TestKvStreamSender_SendErr(t *testing.T) {
@@ -84,7 +84,7 @@ func TestKvStreamSender_SendErr(t *testing.T) {
 
 	s := streamtest.DefaultMsgSenderMock(sm, 4096)
 	s.SendF = func(reader io.Reader, payloadSize int) (err error) {
-		return errors.New("custom one")
+		return errCustom
 	}
 
 	kvss := NewKvStreamSender(s)
@@ -101,5 +101,5 @@ func TestKvStreamSender_SendErr(t *testing.T) {
 
 	err := kvss.Send(kv)
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }

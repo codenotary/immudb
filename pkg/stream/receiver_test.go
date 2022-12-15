@@ -92,7 +92,7 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 	})
 	mr := NewMsgReceiver(sm)
 	_, err := mr.ReadFully()
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorContains(t, err, ErrNotEnoughDataOnStream)
 
 	sm = streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{C: &schema.Chunk{Content: []byte{1}}, E: nil},
@@ -100,7 +100,7 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 	})
 	mr = NewMsgReceiver(sm)
 	_, err = mr.ReadFully()
-	require.Equal(t, ErrChunkTooSmall, err.Error())
+	require.ErrorContains(t, err, ErrChunkTooSmall)
 
 	expectedErr := errors.New("unexpected error")
 
@@ -109,7 +109,7 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 	})
 	mr = NewMsgReceiver(sm)
 	_, err = mr.ReadFully()
-	require.Equal(t, expectedErr.Error(), err.Error())
+	require.ErrorIs(t, err, expectedErr)
 
 	sm = streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{C: firstChunk, E: nil},
@@ -117,7 +117,7 @@ func TestMsgReceiver_ReadFully_Edge_Cases(t *testing.T) {
 	})
 	mr = NewMsgReceiver(sm)
 	_, err = mr.ReadFully()
-	require.Equal(t, expectedErr.Error(), err.Error())
+	require.ErrorIs(t, err, expectedErr)
 }
 
 func TestMsgReceiver_EmptyStream(t *testing.T) {
@@ -133,7 +133,7 @@ func TestMsgReceiver_EmptyStream(t *testing.T) {
 	n, err := mr.Read(message)
 
 	require.Equal(t, 0, n)
-	require.Equal(t, io.EOF, err)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
@@ -153,13 +153,13 @@ func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
 	n, err := mr.Read(message)
 
 	require.Equal(t, 0, n)
-	require.Equal(t, ErrNotEnoughDataOnStream, err.Error())
+	require.ErrorContains(t, err, ErrNotEnoughDataOnStream)
 }
 
 func TestMsgReceiver_StreamRecvError(t *testing.T) {
 
 	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
-		{C: nil, E: errors.New("NewError!")},
+		{C: nil, E: errCustom},
 	})
 
 	mr := NewMsgReceiver(sm)
@@ -169,7 +169,7 @@ func TestMsgReceiver_StreamRecvError(t *testing.T) {
 	n, err := mr.Read(message)
 
 	require.Equal(t, 0, n)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errCustom)
 }
 
 func TestMsgReceiver_StreamMsgSent(t *testing.T) {
@@ -197,5 +197,5 @@ func TestMsgReceiver_StreamEOF(t *testing.T) {
 	n, err := mr.Read(message)
 
 	require.Equal(t, 0, n)
-	require.Equal(t, io.EOF, err)
+	require.ErrorIs(t, err, io.EOF)
 }

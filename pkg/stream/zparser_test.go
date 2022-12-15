@@ -18,6 +18,7 @@ package stream
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -32,6 +33,6 @@ func TestParseZEntry(t *testing.T) {
 
 func TestParseZEntryErr(t *testing.T) {
 	z, err := ParseZEntry([]byte(`set`), []byte(`key`), 87.4, 1, bytes.NewBuffer([]byte{}), 4096)
-	require.Error(t, err)
+	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, z)
 }
