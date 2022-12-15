@@ -5483,6 +5483,26 @@ func TestMVCC(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("read conflict should be detected when processing transactions with overlapping rows", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
+
 	t.Run("read conflict should be detected when processing transactions with invalidated queries", func(t *testing.T) {
 		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
 		require.NoError(t, err)
