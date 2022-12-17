@@ -759,8 +759,8 @@ func (s *ImmuStore) NewTxHolderPool(poolSize int, preallocated bool) (TxPool, er
 	})
 }
 
-func (s *ImmuStore) unsafeSnapshot() (*Snapshot, error) {
-	snap, err := s.indexer.index.UnsafeSnapshot()
+func (s *ImmuStore) syncSnapshot() (*Snapshot, error) {
+	snap, err := s.indexer.index.SyncSnapshot()
 	if err != nil {
 		return nil, err
 	}
