@@ -1655,15 +1655,15 @@ func (t *TBtree) Ts() uint64 {
 	return t.root.ts()
 }
 
-func (t *TBtree) UnsafeSnapshot() (*Snapshot, error) {
+func (t *TBtree) SyncSnapshot() (*Snapshot, error) {
 	t.rwmutex.RLock()
-	defer t.rwmutex.RUnlock()
 
 	if t.closed {
 		return nil, ErrAlreadyClosed
 	}
 
 	return &Snapshot{
+		id:      math.MaxUint64,
 		t:       t,
 		ts:      t.root.ts(),
 		root:    t.root,
@@ -1723,6 +1723,11 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
+	if snapshot.id == math.MaxUint64 {
+		t.rwmutex.RUnlock()
+		return nil
+	}
+
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 

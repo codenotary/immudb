@@ -404,11 +404,11 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 		return nil
 	}
 
-	snap, err := st.unsafeSnapshot()
+	snap, err := st.syncSnapshot()
 	if err != nil {
 		return err
 	}
-	// defer snap.Close() <- TODO: snap, err := st.lockedSnapshot()
+	defer snap.Close()
 
 	for _, e := range tx.expectedGetsWithFilters {
 		valRef, err := snap.GetWithFilters(e.key, e.filters...)
