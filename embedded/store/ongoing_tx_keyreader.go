@@ -34,11 +34,13 @@ type expectedRead struct {
 	expectedNoMoreEntries bool
 }
 
+// ongoingTxKeyReader wraps a keyReader and keeps track of read entries
+// read entries are validated against the current database state at commit time
 type ongoingTxKeyReader struct {
 	tx *OngoingTx
 
 	keyReader KeyReader
-	offset    uint64
+	offset    uint64 // offset and filtering is handled by the wrapper in order to have full control of read entries
 	skipped   uint64
 
 	expectedReader *expectedReader
