@@ -35,9 +35,9 @@ type OngoingTx struct {
 
 	preconditions []Precondition
 
-	expectedGetsWithFilters []expectedGetWithFilters
-	expectedGetsWithPrefix  []expectedGetWithPrefix
-	expectedReaders         []*expectedReader
+	expectedGets           []expectedGet
+	expectedGetsWithPrefix []expectedGetWithPrefix
+	expectedReaders        []*expectedReader
 
 	metadata *TxMetadata
 
@@ -46,7 +46,7 @@ type OngoingTx struct {
 	closed bool
 }
 
-type expectedGetWithFilters struct {
+type expectedGet struct {
 	key        []byte
 	filters    []FilterFn
 	expectedTx uint64 // 0 used denotes non-existence
@@ -55,6 +55,7 @@ type expectedGetWithFilters struct {
 type expectedGetWithPrefix struct {
 	prefix      []byte
 	neq         []byte
+	filters     []FilterFn
 	expectedKey []byte
 	expectedTx  uint64 // 0 used denotes non-existence
 }
@@ -234,43 +235,6 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 	return nil
 }
 
-func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef ValueRef, err error) {
-	if tx.closed {
-		return nil, nil, ErrAlreadyClosed
-	}
-
-	if tx.IsWriteOnly() {
-		return nil, nil, ErrWriteOnlyTx
-	}
-
-	key, valRef, err = tx.snap.GetWithPrefix(prefix, neq)
-	if errors.Is(err, ErrKeyNotFound) {
-		expectedGetWith := expectedGetWithPrefix{
-			prefix: cp(prefix),
-			neq:    cp(neq),
-		}
-
-		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWith)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if valRef.Tx() > 0 {
-		// it only requires validation when the entry was pre-existent to ongoing tx
-		expectedGetWithPrefix := expectedGetWithPrefix{
-			prefix:      cp(prefix),
-			neq:         cp(neq),
-			expectedKey: cp(key),
-			expectedTx:  valRef.Tx(),
-		}
-
-		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
-	}
-
-	return key, valRef, nil
-}
-
 func (tx *OngoingTx) Delete(key []byte) error {
 	valRef, err := tx.Get(key)
 	if err != nil {
@@ -303,12 +267,12 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 
 	valRef, err := tx.snap.GetWithFilters(key, filters...)
 	if errors.Is(err, ErrKeyNotFound) {
-		expectedGetWithFilters := expectedGetWithFilters{
+		expectedGet := expectedGet{
 			key:     cp(key),
 			filters: filters,
 		}
 
-		tx.expectedGetsWithFilters = append(tx.expectedGetsWithFilters, expectedGetWithFilters)
+		tx.expectedGets = append(tx.expectedGets, expectedGet)
 	}
 	if err != nil {
 		return nil, err
@@ -316,16 +280,59 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 
 	if valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
-		expectedGet := expectedGetWithFilters{
+		expectedGet := expectedGet{
 			key:        cp(key),
 			filters:    filters,
 			expectedTx: valRef.Tx(),
 		}
 
-		tx.expectedGetsWithFilters = append(tx.expectedGetsWithFilters, expectedGet)
+		tx.expectedGets = append(tx.expectedGets, expectedGet)
 	}
 
 	return valRef, nil
+}
+
+func (tx *OngoingTx) GetWithPrefix(prefix, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return tx.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+}
+
+func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+	if tx.closed {
+		return nil, nil, ErrAlreadyClosed
+	}
+
+	if tx.IsWriteOnly() {
+		return nil, nil, ErrWriteOnlyTx
+	}
+
+	key, valRef, err = tx.snap.GetWithPrefixAndFilters(prefix, neq, filters...)
+	if errors.Is(err, ErrKeyNotFound) {
+		expectedGetWithPrefix := expectedGetWithPrefix{
+			prefix:  cp(prefix),
+			neq:     cp(neq),
+			filters: filters,
+		}
+
+		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if valRef.Tx() > 0 {
+		// it only requires validation when the entry was pre-existent to ongoing tx
+		expectedGetWithPrefix := expectedGetWithPrefix{
+			prefix:      cp(prefix),
+			neq:         cp(neq),
+			filters:     filters,
+			expectedKey: cp(key),
+			expectedTx:  valRef.Tx(),
+		}
+
+		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
+	}
+
+	return key, valRef, nil
 }
 
 func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
@@ -381,7 +388,7 @@ func (tx *OngoingTx) Cancel() error {
 
 func (tx *OngoingTx) hasPreconditions() bool {
 	return len(tx.preconditions) > 0 ||
-		len(tx.expectedGetsWithFilters) > 0 ||
+		len(tx.expectedGets) > 0 ||
 		len(tx.expectedGetsWithPrefix) > 0 ||
 		len(tx.expectedReaders) > 0
 }
@@ -410,7 +417,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 	}
 	defer snap.Close()
 
-	for _, e := range tx.expectedGetsWithFilters {
+	for _, e := range tx.expectedGets {
 		valRef, err := snap.GetWithFilters(e.key, e.filters...)
 		if errors.Is(err, ErrKeyNotFound) {
 			if e.expectedTx > 0 {

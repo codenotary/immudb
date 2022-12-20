@@ -720,6 +720,10 @@ func (s *ImmuStore) GetWithFilters(key []byte, filters ...FilterFn) (valRef Valu
 }
 
 func (s *ImmuStore) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+}
+
+func (s *ImmuStore) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	key, indexedVal, tx, hc, err := s.indexer.GetWithPrefix(prefix, neq)
 	if err != nil {
 		return nil, nil, err
@@ -728,6 +732,19 @@ func (s *ImmuStore) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef
 	valRef, err = s.valueRefFrom(tx, hc, indexedVal)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	now := time.Now()
+
+	for _, filter := range filters {
+		if filter == nil {
+			return nil, nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
+		}
+
+		err = filter(valRef, now)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	return key, valRef, nil
@@ -1636,6 +1653,7 @@ type KeyIndex interface {
 	Get(key []byte) (valRef ValueRef, err error)
 	GetWithFilters(key []byte, filters ...FilterFn) (valRef ValueRef, err error)
 	GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error)
+	GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error)
 }
 
 type unsafeIndex struct {
@@ -1643,7 +1661,7 @@ type unsafeIndex struct {
 }
 
 func (index *unsafeIndex) Get(key []byte) (ValueRef, error) {
-	return index.GetWithFilters(key, IgnoreDeleted)
+	return index.GetWithFilters(key, IgnoreDeleted, IgnoreExpired)
 }
 
 func (index *unsafeIndex) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, error) {
@@ -1651,7 +1669,11 @@ func (index *unsafeIndex) GetWithFilters(key []byte, filters ...FilterFn) (Value
 }
 
 func (index *unsafeIndex) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
-	return index.st.GetWithPrefix(prefix, neq)
+	return index.st.GetWithPrefixAndFilters(prefix, neq, IgnoreDeleted, IgnoreExpired)
+}
+
+func (index *unsafeIndex) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
+	return index.st.GetWithPrefixAndFilters(prefix, neq, filters...)
 }
 
 func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
