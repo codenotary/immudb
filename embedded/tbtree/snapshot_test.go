@@ -167,7 +167,10 @@ func TestSnapshotIsolation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, ts)
 
-		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), []byte("key3"))
+		_, _, _, _, err = snap1.GetWithPrefix([]byte("key3"), nil)
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		_, _, _, _, err = snap1.GetWithPrefix([]byte("key1"), []byte("key1"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 	})
 

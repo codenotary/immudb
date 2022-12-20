@@ -33,6 +33,9 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	require.NoError(t, err)
 	defer snapshot.Close()
 
+	_, err = snapshot.NewReader(ReaderSpec{SeekKey: make([]byte, tbtree.maxKeySize+1)})
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
 	r, err := snapshot.NewReader(ReaderSpec{SeekKey: []byte{0, 0, 0, 0}, DescOrder: false})
 	require.NoError(t, err)
 
