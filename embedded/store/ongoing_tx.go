@@ -408,9 +408,11 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 	}
 
 	if tx.IsWriteOnly() || tx.snap.Ts() > st.lastPrecommittedTxID() {
+		// read-only transactions or read-write transactions when no other transaction was committed won't be invalidated
 		return nil
 	}
 
+	// current snapshot is fetched without flushing
 	snap, err := st.syncSnapshot()
 	if err != nil {
 		return err
