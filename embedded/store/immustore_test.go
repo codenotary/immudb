@@ -3580,6 +3580,78 @@ func TestImmudbStoreMVCC(t *testing.T) {
 		require.ErrorIs(t, err, ErrTxReadConflict)
 	})
 
+	t.Run("no read conflict should be detected when read keys are not updated by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key1"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		key, _, err := tx2.GetWithPrefix([]byte("key2"), nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("key2"), key)
+
+		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("read conflict should be detected when read key was updated by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Set([]byte("key1"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		key, _, err := tx2.GetWithPrefix([]byte("key"), nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("key1"), key)
+
+		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
+
+	t.Run("read conflict should be detected when read key was deleted by another transaction", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		err = tx1.Delete([]byte("key1"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		_, _, err = tx2.GetWithPrefix([]byte("key"), nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("key1"), []byte("key1"))
+
+		err = tx2.Set([]byte("key2"), nil, []byte("value2"))
+		require.NoError(t, err)
+
+		_, err = tx2.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
+
 	t.Run("read conflict should be detected when read keys have been updated by another transaction", func(t *testing.T) {
 		tx1, err := immuStore.NewTx()
 		require.NoError(t, err)
