@@ -1089,6 +1089,12 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		err = tx.Set([]byte("key1"), nil, []byte("value1"))
 		require.NoError(t, err)
 
+		_, err = tx.GetWithFilters([]byte("key1"), nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, err = tx.GetWithPrefixAndFilters([]byte("key1"), nil, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
 		key, valRef, err := tx.GetWithPrefix([]byte("key1"), []byte("key"))
 		require.NoError(t, err)
 		require.NotNil(t, key)
@@ -1260,6 +1266,9 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
 		_, err = immuStore.GetWithFilters([]byte{1, 2, 3}, nil)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, err = immuStore.GetWithPrefixAndFilters([]byte{1, 2, 3}, nil, nil)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
 		valRef, err := immuStore.GetWithFilters([]byte{1, 2, 3})
