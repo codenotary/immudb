@@ -111,6 +111,10 @@ func (s *Snapshot) GetWithFilters(key []byte, filters ...FilterFn) (valRef Value
 }
 
 func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef ValueRef, err error) {
+	return s.GetWithPrefixAndFilters(prefix, neq, IgnoreExpired, IgnoreDeleted)
+}
+
+func (s *Snapshot) GetWithPrefixAndFilters(prefix []byte, neq []byte, filters ...FilterFn) (key []byte, valRef ValueRef, err error) {
 	key, indexedVal, tx, hc, err := s.snap.GetWithPrefix(prefix, neq)
 	if err != nil {
 		return nil, nil, err
@@ -119,6 +123,17 @@ func (s *Snapshot) GetWithPrefix(prefix []byte, neq []byte) (key []byte, valRef 
 	valRef, err = s.st.valueRefFrom(tx, hc, indexedVal)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	for _, filter := range filters {
+		if filter == nil {
+			return nil, nil, fmt.Errorf("%w: invalid filter function", ErrIllegalArguments)
+		}
+
+		err = filter(valRef, s.ts)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	if s.refInterceptor != nil {
