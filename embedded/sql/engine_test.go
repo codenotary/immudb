@@ -5461,8 +5461,25 @@ func TestMVCC(t *testing.T) {
 	_, _, err = engine.Exec("CREATE INDEX ON table1 (active);", nil, nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE INDEX ON table1 (payload);", nil, nil)
-	require.NoError(t, err)
+	t.Run("read conflict should be detected when a new index was created by another transaction", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("CREATE INDEX ON table1 (payload);", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
 
 	t.Run("no read conflict should be detected when processing transactions without overlapping rows", func(t *testing.T) {
 		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
@@ -5471,7 +5488,7 @@ func TestMVCC(t *testing.T) {
 		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
 		require.NoError(t, err)
 
-		_, _, err = engine.Exec("INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil, tx1)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec("COMMIT;", nil, tx1)
@@ -5607,6 +5624,74 @@ func TestMVCC(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (2, 'title2', false, x'00A2');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.NoError(t, err)
+	})
+
+	t.Run("read conflict should be detected when processing transactions with invalidated queries in desc order", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', true, x'0A10');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil, tx2)
+		require.NoError(t, err)
+
+		for {
+			_, err = rowReader.Read()
+			if err != nil {
+				require.ErrorIs(t, err, ErrNoMoreRows)
+				break
+			}
+		}
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', false, x'0A10');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
+
+	t.Run("no read conflict should be detected when processing transactions with non invalidated queries in desc order", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (11, 'title11', true, x'0A11');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 USE INDEX ON id WHERE id < 10 ORDER BY id DESC", nil, tx2)
+		require.NoError(t, err)
+
+		for {
+			_, err = rowReader.Read()
+			if err != nil {
+				require.ErrorIs(t, err, ErrNoMoreRows)
+				break
+			}
+		}
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', false, x'0A10');", nil, tx2)
 		require.NoError(t, err)
 
 		_, _, err = engine.Exec("COMMIT;", nil, tx2)
