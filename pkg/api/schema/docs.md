@@ -446,6 +446,8 @@ DEPRECATED
 | syncFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Fsync frequency during commit process |
 | writeBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the in-memory buffer for write operations |
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
+| maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
+| mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
 
 
 

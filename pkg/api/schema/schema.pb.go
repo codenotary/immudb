@@ -5508,6 +5508,10 @@ type DatabaseNullableSettings struct {
 	WriteBufferSize *NullableUint32 `protobuf:"bytes,24,opt,name=writeBufferSize,proto3" json:"writeBufferSize,omitempty"`
 	// Settings of Appendable Hash Tree
 	AhtSettings *AHTNullableSettings `protobuf:"bytes,25,opt,name=ahtSettings,proto3" json:"ahtSettings,omitempty"`
+	// Maximum number of pre-committed transactions
+	MaxActiveTransactions *NullableUint32 `protobuf:"bytes,26,opt,name=maxActiveTransactions,proto3" json:"maxActiveTransactions,omitempty"`
+	// Limit the number of read entries per transaction
+	MvccReadSetLimit *NullableUint32 `protobuf:"bytes,27,opt,name=mvccReadSetLimit,proto3" json:"mvccReadSetLimit,omitempty"`
 }
 
 func (x *DatabaseNullableSettings) Reset() {
@@ -5671,6 +5675,20 @@ func (x *DatabaseNullableSettings) GetWriteBufferSize() *NullableUint32 {
 func (x *DatabaseNullableSettings) GetAhtSettings() *AHTNullableSettings {
 	if x != nil {
 		return x.AhtSettings
+	}
+	return nil
+}
+
+func (x *DatabaseNullableSettings) GetMaxActiveTransactions() *NullableUint32 {
+	if x != nil {
+		return x.MaxActiveTransactions
+	}
+	return nil
+}
+
+func (x *DatabaseNullableSettings) GetMvccReadSetLimit() *NullableUint32 {
+	if x != nil {
+		return x.MvccReadSetLimit
 	}
 	return nil
 }
@@ -8960,7 +8978,7 @@ var file_schema_proto_rawDesc = []byte{
 	0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22,
 	0x2c, 0x0a, 0x14, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x4d, 0x69, 0x6c, 0x6c, 0x69,
 	0x73, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x8a, 0x0b,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0xaa, 0x0c,
 	0x0a, 0x18, 0x44, 0x61, 0x74, 0x61, 0x62, 0x61, 0x73, 0x65, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62,
 	0x6c, 0x65, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x5c, 0x0a, 0x13, 0x72, 0x65,
 	0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67,
@@ -9049,7 +9067,17 @@ var file_schema_proto_rawDesc = []byte{
 	0x6e, 0x67, 0x73, 0x18, 0x19, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x69, 0x6d, 0x6d, 0x75,
 	0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x41, 0x48, 0x54, 0x4e, 0x75, 0x6c,
 	0x6c, 0x61, 0x62, 0x6c, 0x65, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x52, 0x0b, 0x61,
-	0x68, 0x74, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x22, 0xb4, 0x06, 0x0a, 0x1b, 0x52,
+	0x68, 0x74, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x53, 0x0a, 0x15, 0x6d, 0x61,
+	0x78, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x18, 0x1a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x69, 0x6d, 0x6d, 0x75,
+	0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62,
+	0x6c, 0x65, 0x55, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x52, 0x15, 0x6d, 0x61, 0x78, 0x41, 0x63, 0x74,
+	0x69, 0x76, 0x65, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12,
+	0x49, 0x0a, 0x10, 0x6d, 0x76, 0x63, 0x63, 0x52, 0x65, 0x61, 0x64, 0x53, 0x65, 0x74, 0x4c, 0x69,
+	0x6d, 0x69, 0x74, 0x18, 0x1b, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x69, 0x6d, 0x6d, 0x75,
+	0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62,
+	0x6c, 0x65, 0x55, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x52, 0x10, 0x6d, 0x76, 0x63, 0x63, 0x52, 0x65,
+	0x61, 0x64, 0x53, 0x65, 0x74, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x22, 0xb4, 0x06, 0x0a, 0x1b, 0x52,
 	0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4e, 0x75, 0x6c, 0x6c, 0x61, 0x62,
 	0x6c, 0x65, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x35, 0x0a, 0x07, 0x72, 0x65,
 	0x70, 0x6c, 0x69, 0x63, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x69, 0x6d,
@@ -10103,205 +10131,207 @@ var file_schema_proto_depIdxs = []int32{
 	80,  // 75: immudb.schema.DatabaseNullableSettings.syncFrequency:type_name -> immudb.schema.NullableMilliseconds
 	75,  // 76: immudb.schema.DatabaseNullableSettings.writeBufferSize:type_name -> immudb.schema.NullableUint32
 	84,  // 77: immudb.schema.DatabaseNullableSettings.ahtSettings:type_name -> immudb.schema.AHTNullableSettings
-	78,  // 78: immudb.schema.ReplicationNullableSettings.replica:type_name -> immudb.schema.NullableBool
-	79,  // 79: immudb.schema.ReplicationNullableSettings.primaryDatabase:type_name -> immudb.schema.NullableString
-	79,  // 80: immudb.schema.ReplicationNullableSettings.primaryHost:type_name -> immudb.schema.NullableString
-	75,  // 81: immudb.schema.ReplicationNullableSettings.primaryPort:type_name -> immudb.schema.NullableUint32
-	79,  // 82: immudb.schema.ReplicationNullableSettings.primaryUsername:type_name -> immudb.schema.NullableString
-	79,  // 83: immudb.schema.ReplicationNullableSettings.primaryPassword:type_name -> immudb.schema.NullableString
-	78,  // 84: immudb.schema.ReplicationNullableSettings.syncReplication:type_name -> immudb.schema.NullableBool
-	75,  // 85: immudb.schema.ReplicationNullableSettings.syncAcks:type_name -> immudb.schema.NullableUint32
-	75,  // 86: immudb.schema.ReplicationNullableSettings.prefetchTxBufferSize:type_name -> immudb.schema.NullableUint32
-	75,  // 87: immudb.schema.ReplicationNullableSettings.replicationCommitConcurrency:type_name -> immudb.schema.NullableUint32
-	78,  // 88: immudb.schema.ReplicationNullableSettings.AllowTxDiscarding:type_name -> immudb.schema.NullableBool
-	75,  // 89: immudb.schema.IndexNullableSettings.flushThreshold:type_name -> immudb.schema.NullableUint32
-	75,  // 90: immudb.schema.IndexNullableSettings.syncThreshold:type_name -> immudb.schema.NullableUint32
-	75,  // 91: immudb.schema.IndexNullableSettings.cacheSize:type_name -> immudb.schema.NullableUint32
-	75,  // 92: immudb.schema.IndexNullableSettings.maxNodeSize:type_name -> immudb.schema.NullableUint32
-	75,  // 93: immudb.schema.IndexNullableSettings.maxActiveSnapshots:type_name -> immudb.schema.NullableUint32
-	76,  // 94: immudb.schema.IndexNullableSettings.renewSnapRootAfter:type_name -> immudb.schema.NullableUint64
-	75,  // 95: immudb.schema.IndexNullableSettings.compactionThld:type_name -> immudb.schema.NullableUint32
-	75,  // 96: immudb.schema.IndexNullableSettings.delayDuringCompaction:type_name -> immudb.schema.NullableUint32
-	75,  // 97: immudb.schema.IndexNullableSettings.nodesLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
-	75,  // 98: immudb.schema.IndexNullableSettings.historyLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
-	75,  // 99: immudb.schema.IndexNullableSettings.commitLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
-	75,  // 100: immudb.schema.IndexNullableSettings.flushBufferSize:type_name -> immudb.schema.NullableUint32
-	77,  // 101: immudb.schema.IndexNullableSettings.cleanupPercentage:type_name -> immudb.schema.NullableFloat
-	75,  // 102: immudb.schema.AHTNullableSettings.syncThreshold:type_name -> immudb.schema.NullableUint32
-	75,  // 103: immudb.schema.AHTNullableSettings.writeBufferSize:type_name -> immudb.schema.NullableUint32
-	115, // 104: immudb.schema.SQLGetRequest.pkValues:type_name -> immudb.schema.SQLValue
-	94,  // 105: immudb.schema.VerifiableSQLGetRequest.sqlGetRequest:type_name -> immudb.schema.SQLGetRequest
-	36,  // 106: immudb.schema.SQLEntry.metadata:type_name -> immudb.schema.KVMetadata
-	96,  // 107: immudb.schema.VerifiableSQLEntry.sqlEntry:type_name -> immudb.schema.SQLEntry
-	38,  // 108: immudb.schema.VerifiableSQLEntry.verifiableTx:type_name -> immudb.schema.VerifiableTx
-	40,  // 109: immudb.schema.VerifiableSQLEntry.inclusionProof:type_name -> immudb.schema.InclusionProof
-	124, // 110: immudb.schema.VerifiableSQLEntry.ColNamesById:type_name -> immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry
-	125, // 111: immudb.schema.VerifiableSQLEntry.ColIdsByName:type_name -> immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry
-	126, // 112: immudb.schema.VerifiableSQLEntry.ColTypesById:type_name -> immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry
-	127, // 113: immudb.schema.VerifiableSQLEntry.ColLenById:type_name -> immudb.schema.VerifiableSQLEntry.ColLenByIdEntry
-	1,   // 114: immudb.schema.ChangePermissionRequest.action:type_name -> immudb.schema.PermissionAction
-	67,  // 115: immudb.schema.DatabaseListResponse.databases:type_name -> immudb.schema.Database
-	104, // 116: immudb.schema.DatabaseListResponseV2.databases:type_name -> immudb.schema.DatabaseWithSettings
-	81,  // 117: immudb.schema.DatabaseWithSettings.settings:type_name -> immudb.schema.DatabaseNullableSettings
-	109, // 118: immudb.schema.SQLExecRequest.params:type_name -> immudb.schema.NamedParam
-	109, // 119: immudb.schema.SQLQueryRequest.params:type_name -> immudb.schema.NamedParam
-	115, // 120: immudb.schema.NamedParam.value:type_name -> immudb.schema.SQLValue
-	111, // 121: immudb.schema.SQLExecResult.txs:type_name -> immudb.schema.CommittedSQLTx
-	29,  // 122: immudb.schema.CommittedSQLTx.header:type_name -> immudb.schema.TxHeader
-	128, // 123: immudb.schema.CommittedSQLTx.lastInsertedPKs:type_name -> immudb.schema.CommittedSQLTx.LastInsertedPKsEntry
-	129, // 124: immudb.schema.CommittedSQLTx.firstInsertedPKs:type_name -> immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry
-	113, // 125: immudb.schema.SQLQueryResult.columns:type_name -> immudb.schema.Column
-	114, // 126: immudb.schema.SQLQueryResult.rows:type_name -> immudb.schema.Row
-	115, // 127: immudb.schema.Row.values:type_name -> immudb.schema.SQLValue
-	130, // 128: immudb.schema.SQLValue.null:type_name -> google.protobuf.NullValue
-	2,   // 129: immudb.schema.NewTxRequest.mode:type_name -> immudb.schema.TxMode
-	115, // 130: immudb.schema.CommittedSQLTx.LastInsertedPKsEntry.value:type_name -> immudb.schema.SQLValue
-	115, // 131: immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry.value:type_name -> immudb.schema.SQLValue
-	131, // 132: immudb.schema.ImmuService.ListUsers:input_type -> google.protobuf.Empty
-	7,   // 133: immudb.schema.ImmuService.CreateUser:input_type -> immudb.schema.CreateUserRequest
-	9,   // 134: immudb.schema.ImmuService.ChangePassword:input_type -> immudb.schema.ChangePasswordRequest
-	99,  // 135: immudb.schema.ImmuService.ChangePermission:input_type -> immudb.schema.ChangePermissionRequest
-	100, // 136: immudb.schema.ImmuService.SetActiveUser:input_type -> immudb.schema.SetActiveUserRequest
-	12,  // 137: immudb.schema.ImmuService.UpdateAuthConfig:input_type -> immudb.schema.AuthConfig
-	13,  // 138: immudb.schema.ImmuService.UpdateMTLSConfig:input_type -> immudb.schema.MTLSConfig
-	14,  // 139: immudb.schema.ImmuService.OpenSession:input_type -> immudb.schema.OpenSessionRequest
-	131, // 140: immudb.schema.ImmuService.CloseSession:input_type -> google.protobuf.Empty
-	131, // 141: immudb.schema.ImmuService.KeepAlive:input_type -> google.protobuf.Empty
-	116, // 142: immudb.schema.ImmuService.NewTx:input_type -> immudb.schema.NewTxRequest
-	131, // 143: immudb.schema.ImmuService.Commit:input_type -> google.protobuf.Empty
-	131, // 144: immudb.schema.ImmuService.Rollback:input_type -> google.protobuf.Empty
-	107, // 145: immudb.schema.ImmuService.TxSQLExec:input_type -> immudb.schema.SQLExecRequest
-	108, // 146: immudb.schema.ImmuService.TxSQLQuery:input_type -> immudb.schema.SQLQueryRequest
-	10,  // 147: immudb.schema.ImmuService.Login:input_type -> immudb.schema.LoginRequest
-	131, // 148: immudb.schema.ImmuService.Logout:input_type -> google.protobuf.Empty
-	41,  // 149: immudb.schema.ImmuService.Set:input_type -> immudb.schema.SetRequest
-	45,  // 150: immudb.schema.ImmuService.VerifiableSet:input_type -> immudb.schema.VerifiableSetRequest
-	42,  // 151: immudb.schema.ImmuService.Get:input_type -> immudb.schema.KeyRequest
-	46,  // 152: immudb.schema.ImmuService.VerifiableGet:input_type -> immudb.schema.VerifiableGetRequest
-	44,  // 153: immudb.schema.ImmuService.Delete:input_type -> immudb.schema.DeleteKeysRequest
-	43,  // 154: immudb.schema.ImmuService.GetAll:input_type -> immudb.schema.KeyListRequest
-	21,  // 155: immudb.schema.ImmuService.ExecAll:input_type -> immudb.schema.ExecAllRequest
-	25,  // 156: immudb.schema.ImmuService.Scan:input_type -> immudb.schema.ScanRequest
-	26,  // 157: immudb.schema.ImmuService.Count:input_type -> immudb.schema.KeyPrefix
-	131, // 158: immudb.schema.ImmuService.CountAll:input_type -> google.protobuf.Empty
-	59,  // 159: immudb.schema.ImmuService.TxById:input_type -> immudb.schema.TxRequest
-	62,  // 160: immudb.schema.ImmuService.VerifiableTxById:input_type -> immudb.schema.VerifiableTxRequest
-	63,  // 161: immudb.schema.ImmuService.TxScan:input_type -> immudb.schema.TxScanRequest
-	57,  // 162: immudb.schema.ImmuService.History:input_type -> immudb.schema.HistoryRequest
-	47,  // 163: immudb.schema.ImmuService.ServerInfo:input_type -> immudb.schema.ServerInfoRequest
-	131, // 164: immudb.schema.ImmuService.Health:input_type -> google.protobuf.Empty
-	131, // 165: immudb.schema.ImmuService.DatabaseHealth:input_type -> google.protobuf.Empty
-	131, // 166: immudb.schema.ImmuService.CurrentState:input_type -> google.protobuf.Empty
-	52,  // 167: immudb.schema.ImmuService.SetReference:input_type -> immudb.schema.ReferenceRequest
-	53,  // 168: immudb.schema.ImmuService.VerifiableSetReference:input_type -> immudb.schema.VerifiableReferenceRequest
-	54,  // 169: immudb.schema.ImmuService.ZAdd:input_type -> immudb.schema.ZAddRequest
-	58,  // 170: immudb.schema.ImmuService.VerifiableZAdd:input_type -> immudb.schema.VerifiableZAddRequest
-	56,  // 171: immudb.schema.ImmuService.ZScan:input_type -> immudb.schema.ZScanRequest
-	67,  // 172: immudb.schema.ImmuService.CreateDatabase:input_type -> immudb.schema.Database
-	68,  // 173: immudb.schema.ImmuService.CreateDatabaseWith:input_type -> immudb.schema.DatabaseSettings
-	69,  // 174: immudb.schema.ImmuService.CreateDatabaseV2:input_type -> immudb.schema.CreateDatabaseRequest
-	85,  // 175: immudb.schema.ImmuService.LoadDatabase:input_type -> immudb.schema.LoadDatabaseRequest
-	87,  // 176: immudb.schema.ImmuService.UnloadDatabase:input_type -> immudb.schema.UnloadDatabaseRequest
-	89,  // 177: immudb.schema.ImmuService.DeleteDatabase:input_type -> immudb.schema.DeleteDatabaseRequest
-	131, // 178: immudb.schema.ImmuService.DatabaseList:input_type -> google.protobuf.Empty
-	102, // 179: immudb.schema.ImmuService.DatabaseListV2:input_type -> immudb.schema.DatabaseListRequestV2
-	67,  // 180: immudb.schema.ImmuService.UseDatabase:input_type -> immudb.schema.Database
-	68,  // 181: immudb.schema.ImmuService.UpdateDatabase:input_type -> immudb.schema.DatabaseSettings
-	71,  // 182: immudb.schema.ImmuService.UpdateDatabaseV2:input_type -> immudb.schema.UpdateDatabaseRequest
-	131, // 183: immudb.schema.ImmuService.GetDatabaseSettings:input_type -> google.protobuf.Empty
-	73,  // 184: immudb.schema.ImmuService.GetDatabaseSettingsV2:input_type -> immudb.schema.DatabaseSettingsRequest
-	91,  // 185: immudb.schema.ImmuService.FlushIndex:input_type -> immudb.schema.FlushIndexRequest
-	131, // 186: immudb.schema.ImmuService.CompactIndex:input_type -> google.protobuf.Empty
-	42,  // 187: immudb.schema.ImmuService.streamGet:input_type -> immudb.schema.KeyRequest
-	105, // 188: immudb.schema.ImmuService.streamSet:input_type -> immudb.schema.Chunk
-	46,  // 189: immudb.schema.ImmuService.streamVerifiableGet:input_type -> immudb.schema.VerifiableGetRequest
-	105, // 190: immudb.schema.ImmuService.streamVerifiableSet:input_type -> immudb.schema.Chunk
-	25,  // 191: immudb.schema.ImmuService.streamScan:input_type -> immudb.schema.ScanRequest
-	56,  // 192: immudb.schema.ImmuService.streamZScan:input_type -> immudb.schema.ZScanRequest
-	57,  // 193: immudb.schema.ImmuService.streamHistory:input_type -> immudb.schema.HistoryRequest
-	105, // 194: immudb.schema.ImmuService.streamExecAll:input_type -> immudb.schema.Chunk
-	65,  // 195: immudb.schema.ImmuService.exportTx:input_type -> immudb.schema.ExportTxRequest
-	105, // 196: immudb.schema.ImmuService.replicateTx:input_type -> immudb.schema.Chunk
-	107, // 197: immudb.schema.ImmuService.SQLExec:input_type -> immudb.schema.SQLExecRequest
-	108, // 198: immudb.schema.ImmuService.SQLQuery:input_type -> immudb.schema.SQLQueryRequest
-	131, // 199: immudb.schema.ImmuService.ListTables:input_type -> google.protobuf.Empty
-	93,  // 200: immudb.schema.ImmuService.DescribeTable:input_type -> immudb.schema.Table
-	95,  // 201: immudb.schema.ImmuService.VerifiableSQLGet:input_type -> immudb.schema.VerifiableSQLGetRequest
-	6,   // 202: immudb.schema.ImmuService.ListUsers:output_type -> immudb.schema.UserList
-	131, // 203: immudb.schema.ImmuService.CreateUser:output_type -> google.protobuf.Empty
-	131, // 204: immudb.schema.ImmuService.ChangePassword:output_type -> google.protobuf.Empty
-	131, // 205: immudb.schema.ImmuService.ChangePermission:output_type -> google.protobuf.Empty
-	131, // 206: immudb.schema.ImmuService.SetActiveUser:output_type -> google.protobuf.Empty
-	131, // 207: immudb.schema.ImmuService.UpdateAuthConfig:output_type -> google.protobuf.Empty
-	131, // 208: immudb.schema.ImmuService.UpdateMTLSConfig:output_type -> google.protobuf.Empty
-	15,  // 209: immudb.schema.ImmuService.OpenSession:output_type -> immudb.schema.OpenSessionResponse
-	131, // 210: immudb.schema.ImmuService.CloseSession:output_type -> google.protobuf.Empty
-	131, // 211: immudb.schema.ImmuService.KeepAlive:output_type -> google.protobuf.Empty
-	117, // 212: immudb.schema.ImmuService.NewTx:output_type -> immudb.schema.NewTxResponse
-	111, // 213: immudb.schema.ImmuService.Commit:output_type -> immudb.schema.CommittedSQLTx
-	131, // 214: immudb.schema.ImmuService.Rollback:output_type -> google.protobuf.Empty
-	131, // 215: immudb.schema.ImmuService.TxSQLExec:output_type -> google.protobuf.Empty
-	112, // 216: immudb.schema.ImmuService.TxSQLQuery:output_type -> immudb.schema.SQLQueryResult
-	11,  // 217: immudb.schema.ImmuService.Login:output_type -> immudb.schema.LoginResponse
-	131, // 218: immudb.schema.ImmuService.Logout:output_type -> google.protobuf.Empty
-	29,  // 219: immudb.schema.ImmuService.Set:output_type -> immudb.schema.TxHeader
-	38,  // 220: immudb.schema.ImmuService.VerifiableSet:output_type -> immudb.schema.VerifiableTx
-	18,  // 221: immudb.schema.ImmuService.Get:output_type -> immudb.schema.Entry
-	39,  // 222: immudb.schema.ImmuService.VerifiableGet:output_type -> immudb.schema.VerifiableEntry
-	29,  // 223: immudb.schema.ImmuService.Delete:output_type -> immudb.schema.TxHeader
-	22,  // 224: immudb.schema.ImmuService.GetAll:output_type -> immudb.schema.Entries
-	29,  // 225: immudb.schema.ImmuService.ExecAll:output_type -> immudb.schema.TxHeader
-	22,  // 226: immudb.schema.ImmuService.Scan:output_type -> immudb.schema.Entries
-	27,  // 227: immudb.schema.ImmuService.Count:output_type -> immudb.schema.EntryCount
-	27,  // 228: immudb.schema.ImmuService.CountAll:output_type -> immudb.schema.EntryCount
-	34,  // 229: immudb.schema.ImmuService.TxById:output_type -> immudb.schema.Tx
-	38,  // 230: immudb.schema.ImmuService.VerifiableTxById:output_type -> immudb.schema.VerifiableTx
-	64,  // 231: immudb.schema.ImmuService.TxScan:output_type -> immudb.schema.TxList
-	22,  // 232: immudb.schema.ImmuService.History:output_type -> immudb.schema.Entries
-	48,  // 233: immudb.schema.ImmuService.ServerInfo:output_type -> immudb.schema.ServerInfoResponse
-	49,  // 234: immudb.schema.ImmuService.Health:output_type -> immudb.schema.HealthResponse
-	50,  // 235: immudb.schema.ImmuService.DatabaseHealth:output_type -> immudb.schema.DatabaseHealthResponse
-	51,  // 236: immudb.schema.ImmuService.CurrentState:output_type -> immudb.schema.ImmutableState
-	29,  // 237: immudb.schema.ImmuService.SetReference:output_type -> immudb.schema.TxHeader
-	38,  // 238: immudb.schema.ImmuService.VerifiableSetReference:output_type -> immudb.schema.VerifiableTx
-	29,  // 239: immudb.schema.ImmuService.ZAdd:output_type -> immudb.schema.TxHeader
-	38,  // 240: immudb.schema.ImmuService.VerifiableZAdd:output_type -> immudb.schema.VerifiableTx
-	24,  // 241: immudb.schema.ImmuService.ZScan:output_type -> immudb.schema.ZEntries
-	131, // 242: immudb.schema.ImmuService.CreateDatabase:output_type -> google.protobuf.Empty
-	131, // 243: immudb.schema.ImmuService.CreateDatabaseWith:output_type -> google.protobuf.Empty
-	70,  // 244: immudb.schema.ImmuService.CreateDatabaseV2:output_type -> immudb.schema.CreateDatabaseResponse
-	86,  // 245: immudb.schema.ImmuService.LoadDatabase:output_type -> immudb.schema.LoadDatabaseResponse
-	88,  // 246: immudb.schema.ImmuService.UnloadDatabase:output_type -> immudb.schema.UnloadDatabaseResponse
-	90,  // 247: immudb.schema.ImmuService.DeleteDatabase:output_type -> immudb.schema.DeleteDatabaseResponse
-	101, // 248: immudb.schema.ImmuService.DatabaseList:output_type -> immudb.schema.DatabaseListResponse
-	103, // 249: immudb.schema.ImmuService.DatabaseListV2:output_type -> immudb.schema.DatabaseListResponseV2
-	98,  // 250: immudb.schema.ImmuService.UseDatabase:output_type -> immudb.schema.UseDatabaseReply
-	131, // 251: immudb.schema.ImmuService.UpdateDatabase:output_type -> google.protobuf.Empty
-	72,  // 252: immudb.schema.ImmuService.UpdateDatabaseV2:output_type -> immudb.schema.UpdateDatabaseResponse
-	68,  // 253: immudb.schema.ImmuService.GetDatabaseSettings:output_type -> immudb.schema.DatabaseSettings
-	74,  // 254: immudb.schema.ImmuService.GetDatabaseSettingsV2:output_type -> immudb.schema.DatabaseSettingsResponse
-	92,  // 255: immudb.schema.ImmuService.FlushIndex:output_type -> immudb.schema.FlushIndexResponse
-	131, // 256: immudb.schema.ImmuService.CompactIndex:output_type -> google.protobuf.Empty
-	105, // 257: immudb.schema.ImmuService.streamGet:output_type -> immudb.schema.Chunk
-	29,  // 258: immudb.schema.ImmuService.streamSet:output_type -> immudb.schema.TxHeader
-	105, // 259: immudb.schema.ImmuService.streamVerifiableGet:output_type -> immudb.schema.Chunk
-	38,  // 260: immudb.schema.ImmuService.streamVerifiableSet:output_type -> immudb.schema.VerifiableTx
-	105, // 261: immudb.schema.ImmuService.streamScan:output_type -> immudb.schema.Chunk
-	105, // 262: immudb.schema.ImmuService.streamZScan:output_type -> immudb.schema.Chunk
-	105, // 263: immudb.schema.ImmuService.streamHistory:output_type -> immudb.schema.Chunk
-	29,  // 264: immudb.schema.ImmuService.streamExecAll:output_type -> immudb.schema.TxHeader
-	105, // 265: immudb.schema.ImmuService.exportTx:output_type -> immudb.schema.Chunk
-	29,  // 266: immudb.schema.ImmuService.replicateTx:output_type -> immudb.schema.TxHeader
-	110, // 267: immudb.schema.ImmuService.SQLExec:output_type -> immudb.schema.SQLExecResult
-	112, // 268: immudb.schema.ImmuService.SQLQuery:output_type -> immudb.schema.SQLQueryResult
-	112, // 269: immudb.schema.ImmuService.ListTables:output_type -> immudb.schema.SQLQueryResult
-	112, // 270: immudb.schema.ImmuService.DescribeTable:output_type -> immudb.schema.SQLQueryResult
-	97,  // 271: immudb.schema.ImmuService.VerifiableSQLGet:output_type -> immudb.schema.VerifiableSQLEntry
-	202, // [202:272] is the sub-list for method output_type
-	132, // [132:202] is the sub-list for method input_type
-	132, // [132:132] is the sub-list for extension type_name
-	132, // [132:132] is the sub-list for extension extendee
-	0,   // [0:132] is the sub-list for field type_name
+	75,  // 78: immudb.schema.DatabaseNullableSettings.maxActiveTransactions:type_name -> immudb.schema.NullableUint32
+	75,  // 79: immudb.schema.DatabaseNullableSettings.mvccReadSetLimit:type_name -> immudb.schema.NullableUint32
+	78,  // 80: immudb.schema.ReplicationNullableSettings.replica:type_name -> immudb.schema.NullableBool
+	79,  // 81: immudb.schema.ReplicationNullableSettings.primaryDatabase:type_name -> immudb.schema.NullableString
+	79,  // 82: immudb.schema.ReplicationNullableSettings.primaryHost:type_name -> immudb.schema.NullableString
+	75,  // 83: immudb.schema.ReplicationNullableSettings.primaryPort:type_name -> immudb.schema.NullableUint32
+	79,  // 84: immudb.schema.ReplicationNullableSettings.primaryUsername:type_name -> immudb.schema.NullableString
+	79,  // 85: immudb.schema.ReplicationNullableSettings.primaryPassword:type_name -> immudb.schema.NullableString
+	78,  // 86: immudb.schema.ReplicationNullableSettings.syncReplication:type_name -> immudb.schema.NullableBool
+	75,  // 87: immudb.schema.ReplicationNullableSettings.syncAcks:type_name -> immudb.schema.NullableUint32
+	75,  // 88: immudb.schema.ReplicationNullableSettings.prefetchTxBufferSize:type_name -> immudb.schema.NullableUint32
+	75,  // 89: immudb.schema.ReplicationNullableSettings.replicationCommitConcurrency:type_name -> immudb.schema.NullableUint32
+	78,  // 90: immudb.schema.ReplicationNullableSettings.AllowTxDiscarding:type_name -> immudb.schema.NullableBool
+	75,  // 91: immudb.schema.IndexNullableSettings.flushThreshold:type_name -> immudb.schema.NullableUint32
+	75,  // 92: immudb.schema.IndexNullableSettings.syncThreshold:type_name -> immudb.schema.NullableUint32
+	75,  // 93: immudb.schema.IndexNullableSettings.cacheSize:type_name -> immudb.schema.NullableUint32
+	75,  // 94: immudb.schema.IndexNullableSettings.maxNodeSize:type_name -> immudb.schema.NullableUint32
+	75,  // 95: immudb.schema.IndexNullableSettings.maxActiveSnapshots:type_name -> immudb.schema.NullableUint32
+	76,  // 96: immudb.schema.IndexNullableSettings.renewSnapRootAfter:type_name -> immudb.schema.NullableUint64
+	75,  // 97: immudb.schema.IndexNullableSettings.compactionThld:type_name -> immudb.schema.NullableUint32
+	75,  // 98: immudb.schema.IndexNullableSettings.delayDuringCompaction:type_name -> immudb.schema.NullableUint32
+	75,  // 99: immudb.schema.IndexNullableSettings.nodesLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
+	75,  // 100: immudb.schema.IndexNullableSettings.historyLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
+	75,  // 101: immudb.schema.IndexNullableSettings.commitLogMaxOpenedFiles:type_name -> immudb.schema.NullableUint32
+	75,  // 102: immudb.schema.IndexNullableSettings.flushBufferSize:type_name -> immudb.schema.NullableUint32
+	77,  // 103: immudb.schema.IndexNullableSettings.cleanupPercentage:type_name -> immudb.schema.NullableFloat
+	75,  // 104: immudb.schema.AHTNullableSettings.syncThreshold:type_name -> immudb.schema.NullableUint32
+	75,  // 105: immudb.schema.AHTNullableSettings.writeBufferSize:type_name -> immudb.schema.NullableUint32
+	115, // 106: immudb.schema.SQLGetRequest.pkValues:type_name -> immudb.schema.SQLValue
+	94,  // 107: immudb.schema.VerifiableSQLGetRequest.sqlGetRequest:type_name -> immudb.schema.SQLGetRequest
+	36,  // 108: immudb.schema.SQLEntry.metadata:type_name -> immudb.schema.KVMetadata
+	96,  // 109: immudb.schema.VerifiableSQLEntry.sqlEntry:type_name -> immudb.schema.SQLEntry
+	38,  // 110: immudb.schema.VerifiableSQLEntry.verifiableTx:type_name -> immudb.schema.VerifiableTx
+	40,  // 111: immudb.schema.VerifiableSQLEntry.inclusionProof:type_name -> immudb.schema.InclusionProof
+	124, // 112: immudb.schema.VerifiableSQLEntry.ColNamesById:type_name -> immudb.schema.VerifiableSQLEntry.ColNamesByIdEntry
+	125, // 113: immudb.schema.VerifiableSQLEntry.ColIdsByName:type_name -> immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry
+	126, // 114: immudb.schema.VerifiableSQLEntry.ColTypesById:type_name -> immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry
+	127, // 115: immudb.schema.VerifiableSQLEntry.ColLenById:type_name -> immudb.schema.VerifiableSQLEntry.ColLenByIdEntry
+	1,   // 116: immudb.schema.ChangePermissionRequest.action:type_name -> immudb.schema.PermissionAction
+	67,  // 117: immudb.schema.DatabaseListResponse.databases:type_name -> immudb.schema.Database
+	104, // 118: immudb.schema.DatabaseListResponseV2.databases:type_name -> immudb.schema.DatabaseWithSettings
+	81,  // 119: immudb.schema.DatabaseWithSettings.settings:type_name -> immudb.schema.DatabaseNullableSettings
+	109, // 120: immudb.schema.SQLExecRequest.params:type_name -> immudb.schema.NamedParam
+	109, // 121: immudb.schema.SQLQueryRequest.params:type_name -> immudb.schema.NamedParam
+	115, // 122: immudb.schema.NamedParam.value:type_name -> immudb.schema.SQLValue
+	111, // 123: immudb.schema.SQLExecResult.txs:type_name -> immudb.schema.CommittedSQLTx
+	29,  // 124: immudb.schema.CommittedSQLTx.header:type_name -> immudb.schema.TxHeader
+	128, // 125: immudb.schema.CommittedSQLTx.lastInsertedPKs:type_name -> immudb.schema.CommittedSQLTx.LastInsertedPKsEntry
+	129, // 126: immudb.schema.CommittedSQLTx.firstInsertedPKs:type_name -> immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry
+	113, // 127: immudb.schema.SQLQueryResult.columns:type_name -> immudb.schema.Column
+	114, // 128: immudb.schema.SQLQueryResult.rows:type_name -> immudb.schema.Row
+	115, // 129: immudb.schema.Row.values:type_name -> immudb.schema.SQLValue
+	130, // 130: immudb.schema.SQLValue.null:type_name -> google.protobuf.NullValue
+	2,   // 131: immudb.schema.NewTxRequest.mode:type_name -> immudb.schema.TxMode
+	115, // 132: immudb.schema.CommittedSQLTx.LastInsertedPKsEntry.value:type_name -> immudb.schema.SQLValue
+	115, // 133: immudb.schema.CommittedSQLTx.FirstInsertedPKsEntry.value:type_name -> immudb.schema.SQLValue
+	131, // 134: immudb.schema.ImmuService.ListUsers:input_type -> google.protobuf.Empty
+	7,   // 135: immudb.schema.ImmuService.CreateUser:input_type -> immudb.schema.CreateUserRequest
+	9,   // 136: immudb.schema.ImmuService.ChangePassword:input_type -> immudb.schema.ChangePasswordRequest
+	99,  // 137: immudb.schema.ImmuService.ChangePermission:input_type -> immudb.schema.ChangePermissionRequest
+	100, // 138: immudb.schema.ImmuService.SetActiveUser:input_type -> immudb.schema.SetActiveUserRequest
+	12,  // 139: immudb.schema.ImmuService.UpdateAuthConfig:input_type -> immudb.schema.AuthConfig
+	13,  // 140: immudb.schema.ImmuService.UpdateMTLSConfig:input_type -> immudb.schema.MTLSConfig
+	14,  // 141: immudb.schema.ImmuService.OpenSession:input_type -> immudb.schema.OpenSessionRequest
+	131, // 142: immudb.schema.ImmuService.CloseSession:input_type -> google.protobuf.Empty
+	131, // 143: immudb.schema.ImmuService.KeepAlive:input_type -> google.protobuf.Empty
+	116, // 144: immudb.schema.ImmuService.NewTx:input_type -> immudb.schema.NewTxRequest
+	131, // 145: immudb.schema.ImmuService.Commit:input_type -> google.protobuf.Empty
+	131, // 146: immudb.schema.ImmuService.Rollback:input_type -> google.protobuf.Empty
+	107, // 147: immudb.schema.ImmuService.TxSQLExec:input_type -> immudb.schema.SQLExecRequest
+	108, // 148: immudb.schema.ImmuService.TxSQLQuery:input_type -> immudb.schema.SQLQueryRequest
+	10,  // 149: immudb.schema.ImmuService.Login:input_type -> immudb.schema.LoginRequest
+	131, // 150: immudb.schema.ImmuService.Logout:input_type -> google.protobuf.Empty
+	41,  // 151: immudb.schema.ImmuService.Set:input_type -> immudb.schema.SetRequest
+	45,  // 152: immudb.schema.ImmuService.VerifiableSet:input_type -> immudb.schema.VerifiableSetRequest
+	42,  // 153: immudb.schema.ImmuService.Get:input_type -> immudb.schema.KeyRequest
+	46,  // 154: immudb.schema.ImmuService.VerifiableGet:input_type -> immudb.schema.VerifiableGetRequest
+	44,  // 155: immudb.schema.ImmuService.Delete:input_type -> immudb.schema.DeleteKeysRequest
+	43,  // 156: immudb.schema.ImmuService.GetAll:input_type -> immudb.schema.KeyListRequest
+	21,  // 157: immudb.schema.ImmuService.ExecAll:input_type -> immudb.schema.ExecAllRequest
+	25,  // 158: immudb.schema.ImmuService.Scan:input_type -> immudb.schema.ScanRequest
+	26,  // 159: immudb.schema.ImmuService.Count:input_type -> immudb.schema.KeyPrefix
+	131, // 160: immudb.schema.ImmuService.CountAll:input_type -> google.protobuf.Empty
+	59,  // 161: immudb.schema.ImmuService.TxById:input_type -> immudb.schema.TxRequest
+	62,  // 162: immudb.schema.ImmuService.VerifiableTxById:input_type -> immudb.schema.VerifiableTxRequest
+	63,  // 163: immudb.schema.ImmuService.TxScan:input_type -> immudb.schema.TxScanRequest
+	57,  // 164: immudb.schema.ImmuService.History:input_type -> immudb.schema.HistoryRequest
+	47,  // 165: immudb.schema.ImmuService.ServerInfo:input_type -> immudb.schema.ServerInfoRequest
+	131, // 166: immudb.schema.ImmuService.Health:input_type -> google.protobuf.Empty
+	131, // 167: immudb.schema.ImmuService.DatabaseHealth:input_type -> google.protobuf.Empty
+	131, // 168: immudb.schema.ImmuService.CurrentState:input_type -> google.protobuf.Empty
+	52,  // 169: immudb.schema.ImmuService.SetReference:input_type -> immudb.schema.ReferenceRequest
+	53,  // 170: immudb.schema.ImmuService.VerifiableSetReference:input_type -> immudb.schema.VerifiableReferenceRequest
+	54,  // 171: immudb.schema.ImmuService.ZAdd:input_type -> immudb.schema.ZAddRequest
+	58,  // 172: immudb.schema.ImmuService.VerifiableZAdd:input_type -> immudb.schema.VerifiableZAddRequest
+	56,  // 173: immudb.schema.ImmuService.ZScan:input_type -> immudb.schema.ZScanRequest
+	67,  // 174: immudb.schema.ImmuService.CreateDatabase:input_type -> immudb.schema.Database
+	68,  // 175: immudb.schema.ImmuService.CreateDatabaseWith:input_type -> immudb.schema.DatabaseSettings
+	69,  // 176: immudb.schema.ImmuService.CreateDatabaseV2:input_type -> immudb.schema.CreateDatabaseRequest
+	85,  // 177: immudb.schema.ImmuService.LoadDatabase:input_type -> immudb.schema.LoadDatabaseRequest
+	87,  // 178: immudb.schema.ImmuService.UnloadDatabase:input_type -> immudb.schema.UnloadDatabaseRequest
+	89,  // 179: immudb.schema.ImmuService.DeleteDatabase:input_type -> immudb.schema.DeleteDatabaseRequest
+	131, // 180: immudb.schema.ImmuService.DatabaseList:input_type -> google.protobuf.Empty
+	102, // 181: immudb.schema.ImmuService.DatabaseListV2:input_type -> immudb.schema.DatabaseListRequestV2
+	67,  // 182: immudb.schema.ImmuService.UseDatabase:input_type -> immudb.schema.Database
+	68,  // 183: immudb.schema.ImmuService.UpdateDatabase:input_type -> immudb.schema.DatabaseSettings
+	71,  // 184: immudb.schema.ImmuService.UpdateDatabaseV2:input_type -> immudb.schema.UpdateDatabaseRequest
+	131, // 185: immudb.schema.ImmuService.GetDatabaseSettings:input_type -> google.protobuf.Empty
+	73,  // 186: immudb.schema.ImmuService.GetDatabaseSettingsV2:input_type -> immudb.schema.DatabaseSettingsRequest
+	91,  // 187: immudb.schema.ImmuService.FlushIndex:input_type -> immudb.schema.FlushIndexRequest
+	131, // 188: immudb.schema.ImmuService.CompactIndex:input_type -> google.protobuf.Empty
+	42,  // 189: immudb.schema.ImmuService.streamGet:input_type -> immudb.schema.KeyRequest
+	105, // 190: immudb.schema.ImmuService.streamSet:input_type -> immudb.schema.Chunk
+	46,  // 191: immudb.schema.ImmuService.streamVerifiableGet:input_type -> immudb.schema.VerifiableGetRequest
+	105, // 192: immudb.schema.ImmuService.streamVerifiableSet:input_type -> immudb.schema.Chunk
+	25,  // 193: immudb.schema.ImmuService.streamScan:input_type -> immudb.schema.ScanRequest
+	56,  // 194: immudb.schema.ImmuService.streamZScan:input_type -> immudb.schema.ZScanRequest
+	57,  // 195: immudb.schema.ImmuService.streamHistory:input_type -> immudb.schema.HistoryRequest
+	105, // 196: immudb.schema.ImmuService.streamExecAll:input_type -> immudb.schema.Chunk
+	65,  // 197: immudb.schema.ImmuService.exportTx:input_type -> immudb.schema.ExportTxRequest
+	105, // 198: immudb.schema.ImmuService.replicateTx:input_type -> immudb.schema.Chunk
+	107, // 199: immudb.schema.ImmuService.SQLExec:input_type -> immudb.schema.SQLExecRequest
+	108, // 200: immudb.schema.ImmuService.SQLQuery:input_type -> immudb.schema.SQLQueryRequest
+	131, // 201: immudb.schema.ImmuService.ListTables:input_type -> google.protobuf.Empty
+	93,  // 202: immudb.schema.ImmuService.DescribeTable:input_type -> immudb.schema.Table
+	95,  // 203: immudb.schema.ImmuService.VerifiableSQLGet:input_type -> immudb.schema.VerifiableSQLGetRequest
+	6,   // 204: immudb.schema.ImmuService.ListUsers:output_type -> immudb.schema.UserList
+	131, // 205: immudb.schema.ImmuService.CreateUser:output_type -> google.protobuf.Empty
+	131, // 206: immudb.schema.ImmuService.ChangePassword:output_type -> google.protobuf.Empty
+	131, // 207: immudb.schema.ImmuService.ChangePermission:output_type -> google.protobuf.Empty
+	131, // 208: immudb.schema.ImmuService.SetActiveUser:output_type -> google.protobuf.Empty
+	131, // 209: immudb.schema.ImmuService.UpdateAuthConfig:output_type -> google.protobuf.Empty
+	131, // 210: immudb.schema.ImmuService.UpdateMTLSConfig:output_type -> google.protobuf.Empty
+	15,  // 211: immudb.schema.ImmuService.OpenSession:output_type -> immudb.schema.OpenSessionResponse
+	131, // 212: immudb.schema.ImmuService.CloseSession:output_type -> google.protobuf.Empty
+	131, // 213: immudb.schema.ImmuService.KeepAlive:output_type -> google.protobuf.Empty
+	117, // 214: immudb.schema.ImmuService.NewTx:output_type -> immudb.schema.NewTxResponse
+	111, // 215: immudb.schema.ImmuService.Commit:output_type -> immudb.schema.CommittedSQLTx
+	131, // 216: immudb.schema.ImmuService.Rollback:output_type -> google.protobuf.Empty
+	131, // 217: immudb.schema.ImmuService.TxSQLExec:output_type -> google.protobuf.Empty
+	112, // 218: immudb.schema.ImmuService.TxSQLQuery:output_type -> immudb.schema.SQLQueryResult
+	11,  // 219: immudb.schema.ImmuService.Login:output_type -> immudb.schema.LoginResponse
+	131, // 220: immudb.schema.ImmuService.Logout:output_type -> google.protobuf.Empty
+	29,  // 221: immudb.schema.ImmuService.Set:output_type -> immudb.schema.TxHeader
+	38,  // 222: immudb.schema.ImmuService.VerifiableSet:output_type -> immudb.schema.VerifiableTx
+	18,  // 223: immudb.schema.ImmuService.Get:output_type -> immudb.schema.Entry
+	39,  // 224: immudb.schema.ImmuService.VerifiableGet:output_type -> immudb.schema.VerifiableEntry
+	29,  // 225: immudb.schema.ImmuService.Delete:output_type -> immudb.schema.TxHeader
+	22,  // 226: immudb.schema.ImmuService.GetAll:output_type -> immudb.schema.Entries
+	29,  // 227: immudb.schema.ImmuService.ExecAll:output_type -> immudb.schema.TxHeader
+	22,  // 228: immudb.schema.ImmuService.Scan:output_type -> immudb.schema.Entries
+	27,  // 229: immudb.schema.ImmuService.Count:output_type -> immudb.schema.EntryCount
+	27,  // 230: immudb.schema.ImmuService.CountAll:output_type -> immudb.schema.EntryCount
+	34,  // 231: immudb.schema.ImmuService.TxById:output_type -> immudb.schema.Tx
+	38,  // 232: immudb.schema.ImmuService.VerifiableTxById:output_type -> immudb.schema.VerifiableTx
+	64,  // 233: immudb.schema.ImmuService.TxScan:output_type -> immudb.schema.TxList
+	22,  // 234: immudb.schema.ImmuService.History:output_type -> immudb.schema.Entries
+	48,  // 235: immudb.schema.ImmuService.ServerInfo:output_type -> immudb.schema.ServerInfoResponse
+	49,  // 236: immudb.schema.ImmuService.Health:output_type -> immudb.schema.HealthResponse
+	50,  // 237: immudb.schema.ImmuService.DatabaseHealth:output_type -> immudb.schema.DatabaseHealthResponse
+	51,  // 238: immudb.schema.ImmuService.CurrentState:output_type -> immudb.schema.ImmutableState
+	29,  // 239: immudb.schema.ImmuService.SetReference:output_type -> immudb.schema.TxHeader
+	38,  // 240: immudb.schema.ImmuService.VerifiableSetReference:output_type -> immudb.schema.VerifiableTx
+	29,  // 241: immudb.schema.ImmuService.ZAdd:output_type -> immudb.schema.TxHeader
+	38,  // 242: immudb.schema.ImmuService.VerifiableZAdd:output_type -> immudb.schema.VerifiableTx
+	24,  // 243: immudb.schema.ImmuService.ZScan:output_type -> immudb.schema.ZEntries
+	131, // 244: immudb.schema.ImmuService.CreateDatabase:output_type -> google.protobuf.Empty
+	131, // 245: immudb.schema.ImmuService.CreateDatabaseWith:output_type -> google.protobuf.Empty
+	70,  // 246: immudb.schema.ImmuService.CreateDatabaseV2:output_type -> immudb.schema.CreateDatabaseResponse
+	86,  // 247: immudb.schema.ImmuService.LoadDatabase:output_type -> immudb.schema.LoadDatabaseResponse
+	88,  // 248: immudb.schema.ImmuService.UnloadDatabase:output_type -> immudb.schema.UnloadDatabaseResponse
+	90,  // 249: immudb.schema.ImmuService.DeleteDatabase:output_type -> immudb.schema.DeleteDatabaseResponse
+	101, // 250: immudb.schema.ImmuService.DatabaseList:output_type -> immudb.schema.DatabaseListResponse
+	103, // 251: immudb.schema.ImmuService.DatabaseListV2:output_type -> immudb.schema.DatabaseListResponseV2
+	98,  // 252: immudb.schema.ImmuService.UseDatabase:output_type -> immudb.schema.UseDatabaseReply
+	131, // 253: immudb.schema.ImmuService.UpdateDatabase:output_type -> google.protobuf.Empty
+	72,  // 254: immudb.schema.ImmuService.UpdateDatabaseV2:output_type -> immudb.schema.UpdateDatabaseResponse
+	68,  // 255: immudb.schema.ImmuService.GetDatabaseSettings:output_type -> immudb.schema.DatabaseSettings
+	74,  // 256: immudb.schema.ImmuService.GetDatabaseSettingsV2:output_type -> immudb.schema.DatabaseSettingsResponse
+	92,  // 257: immudb.schema.ImmuService.FlushIndex:output_type -> immudb.schema.FlushIndexResponse
+	131, // 258: immudb.schema.ImmuService.CompactIndex:output_type -> google.protobuf.Empty
+	105, // 259: immudb.schema.ImmuService.streamGet:output_type -> immudb.schema.Chunk
+	29,  // 260: immudb.schema.ImmuService.streamSet:output_type -> immudb.schema.TxHeader
+	105, // 261: immudb.schema.ImmuService.streamVerifiableGet:output_type -> immudb.schema.Chunk
+	38,  // 262: immudb.schema.ImmuService.streamVerifiableSet:output_type -> immudb.schema.VerifiableTx
+	105, // 263: immudb.schema.ImmuService.streamScan:output_type -> immudb.schema.Chunk
+	105, // 264: immudb.schema.ImmuService.streamZScan:output_type -> immudb.schema.Chunk
+	105, // 265: immudb.schema.ImmuService.streamHistory:output_type -> immudb.schema.Chunk
+	29,  // 266: immudb.schema.ImmuService.streamExecAll:output_type -> immudb.schema.TxHeader
+	105, // 267: immudb.schema.ImmuService.exportTx:output_type -> immudb.schema.Chunk
+	29,  // 268: immudb.schema.ImmuService.replicateTx:output_type -> immudb.schema.TxHeader
+	110, // 269: immudb.schema.ImmuService.SQLExec:output_type -> immudb.schema.SQLExecResult
+	112, // 270: immudb.schema.ImmuService.SQLQuery:output_type -> immudb.schema.SQLQueryResult
+	112, // 271: immudb.schema.ImmuService.ListTables:output_type -> immudb.schema.SQLQueryResult
+	112, // 272: immudb.schema.ImmuService.DescribeTable:output_type -> immudb.schema.SQLQueryResult
+	97,  // 273: immudb.schema.ImmuService.VerifiableSQLGet:output_type -> immudb.schema.VerifiableSQLEntry
+	204, // [204:274] is the sub-list for method output_type
+	134, // [134:204] is the sub-list for method input_type
+	134, // [134:134] is the sub-list for extension type_name
+	134, // [134:134] is the sub-list for extension extendee
+	0,   // [0:134] is the sub-list for field type_name
 }
 
 func init() { file_schema_proto_init() }

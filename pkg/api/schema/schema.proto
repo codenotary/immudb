@@ -1022,6 +1022,12 @@ message DatabaseNullableSettings {
 
   // Settings of Appendable Hash Tree
   AHTNullableSettings ahtSettings = 25;
+
+  // Maximum number of pre-committed transactions
+  NullableUint32 maxActiveTransactions = 26;
+
+  // Limit the number of read entries per transaction
+  NullableUint32 mvccReadSetLimit = 27;
 }
 
 message ReplicationNullableSettings {

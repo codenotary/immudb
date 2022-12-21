@@ -2087,6 +2087,14 @@
         "ahtSettings": {
           "$ref": "#/definitions/schemaAHTNullableSettings",
           "title": "Settings of Appendable Hash Tree"
+        },
+        "maxActiveTransactions": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of pre-committed transactions"
+        },
+        "mvccReadSetLimit": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Limit the number of read entries per transaction"
         }
       }
     },

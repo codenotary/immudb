@@ -64,6 +64,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 		MaxValueLen:             &schema.NullableUint32{Value: 64},
 		MaxTxEntries:            &schema.NullableUint32{Value: 100},
 		ExcludeCommitTime:       &schema.NullableBool{Value: false},
+		MaxActiveTransactions:   &schema.NullableUint32{Value: 30},
+		MvccReadSetLimit:        &schema.NullableUint32{Value: 1_000},
 		MaxConcurrency:          &schema.NullableUint32{Value: 10},
 		MaxIOConcurrency:        &schema.NullableUint32{Value: 2},
 		TxLogCacheSize:          &schema.NullableUint32{Value: 2000},
@@ -105,6 +107,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.MaxValueLen.Value, res.Settings.MaxValueLen.Value)
 	require.Equal(t, dbNullableSettings.MaxTxEntries.Value, res.Settings.MaxTxEntries.Value)
 	require.Equal(t, dbNullableSettings.ExcludeCommitTime.Value, res.Settings.ExcludeCommitTime.Value)
+	require.Equal(t, dbNullableSettings.MaxActiveTransactions.Value, res.Settings.MaxActiveTransactions.Value)
+	require.Equal(t, dbNullableSettings.MvccReadSetLimit.Value, res.Settings.MvccReadSetLimit.Value)
 	require.Equal(t, dbNullableSettings.MaxConcurrency.Value, res.Settings.MaxConcurrency.Value)
 	require.Equal(t, dbNullableSettings.MaxIOConcurrency.Value, res.Settings.MaxIOConcurrency.Value)
 	require.Equal(t, dbNullableSettings.TxLogCacheSize.Value, res.Settings.TxLogCacheSize.Value)
