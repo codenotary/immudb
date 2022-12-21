@@ -54,6 +54,10 @@ func newExpectedReader(spec KeyReaderSpec) *expectedReader {
 }
 
 func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyReader, error) {
+	if tx.readsetSize == tx.st.mvccReadSetLimit {
+		return nil, ErrMVCCReadSetLimitExceeded
+	}
+
 	rspec := KeyReaderSpec{
 		SeekKey:       spec.SeekKey,
 		EndKey:        spec.EndKey,
@@ -71,6 +75,7 @@ func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyRead
 	expectedReader := newExpectedReader(spec)
 
 	tx.expectedReaders = append(tx.expectedReaders, expectedReader)
+	tx.readsetSize++
 
 	return &ongoingTxKeyReader{
 		tx:             tx,
@@ -99,7 +104,12 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 				expectedNoMoreEntries: true,
 			}
 
+			if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+				return nil, nil, ErrMVCCReadSetLimitExceeded
+			}
+
 			r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+			r.tx.readsetSize++
 		}
 
 		if err != nil {
@@ -113,7 +123,12 @@ func (r *ongoingTxKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []b
 			expectedTx:  valRef.Tx(),
 		}
 
+		if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+			return nil, nil, ErrMVCCReadSetLimitExceeded
+		}
+
 		r.expectedReader.expectedReads[r.expectedReader.i] = append(r.expectedReader.expectedReads[r.expectedReader.i], expectedRead)
+		r.tx.readsetSize++
 
 		filterEntry := false
 
@@ -144,8 +159,14 @@ func (r *ongoingTxKeyReader) Reset() error {
 		return err
 	}
 
+	if r.tx.readsetSize == r.tx.st.mvccReadSetLimit {
+		return ErrMVCCReadSetLimitExceeded
+	}
+
 	r.expectedReader.expectedReads = append(r.expectedReader.expectedReads, nil)
 	r.expectedReader.i++
+
+	r.tx.readsetSize++
 
 	return nil
 }

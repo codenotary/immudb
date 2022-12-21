@@ -1100,6 +1100,9 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.NotNil(t, key)
 		require.NotNil(t, valRef)
 
+		_, _, err = tx.GetWithPrefix([]byte("key1"), []byte("key1"))
+		require.ErrorIs(t, err, embedded.ErrKeyNotFound)
+
 		r, err := tx.NewKeyReader(KeyReaderSpec{Prefix: []byte("key")})
 		require.NoError(t, err)
 		require.NotNil(t, r)

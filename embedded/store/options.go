@@ -29,6 +29,7 @@ import (
 )
 
 const DefaultMaxActiveTransactions = 1000
+const DefaultMVCCReadSetLimit = 100_000
 const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 10 // 1024
@@ -73,6 +74,7 @@ type Options struct {
 	CompactionDisabled bool
 
 	MaxActiveTransactions int
+	MVCCReadSetLimit      int
 
 	MaxConcurrency   int
 	MaxIOConcurrency int
@@ -136,6 +138,7 @@ func DefaultOptions() *Options {
 		logger:          logger.NewSimpleLogger("immudb ", os.Stderr),
 
 		MaxActiveTransactions: DefaultMaxActiveTransactions,
+		MVCCReadSetLimit:      DefaultMVCCReadSetLimit,
 
 		MaxConcurrency:   DefaultMaxConcurrency,
 		MaxIOConcurrency: DefaultMaxIOConcurrency,
@@ -207,6 +210,10 @@ func (opts *Options) Validate() error {
 
 	if opts.MaxActiveTransactions <= 0 {
 		return fmt.Errorf("%w: invalid MaxActiveTransactions", ErrInvalidOptions)
+	}
+
+	if opts.MVCCReadSetLimit <= 0 {
+		return fmt.Errorf("%w: invalid MVCCReadSetLimit", ErrInvalidOptions)
 	}
 
 	if opts.MaxConcurrency <= 0 {
@@ -374,6 +381,11 @@ func (opts *Options) WithCompactionDisabled(disabled bool) *Options {
 
 func (opts *Options) WithMaxActiveTransactions(maxActiveTransactions int) *Options {
 	opts.MaxActiveTransactions = maxActiveTransactions
+	return opts
+}
+
+func (opts *Options) WithMVCCReadSetLimit(mvccReadSetLimit int) *Options {
+	opts.MVCCReadSetLimit = mvccReadSetLimit
 	return opts
 }
 

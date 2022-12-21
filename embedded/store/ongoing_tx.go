@@ -39,6 +39,7 @@ type OngoingTx struct {
 	expectedGets           []expectedGet
 	expectedGetsWithPrefix []expectedGetWithPrefix
 	expectedReaders        []*expectedReader
+	readsetSize            int
 
 	metadata *TxMetadata
 
@@ -273,7 +274,12 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			filters: filters,
 		}
 
+		if tx.readsetSize == tx.st.mvccReadSetLimit {
+			return nil, ErrMVCCReadSetLimitExceeded
+		}
+
 		tx.expectedGets = append(tx.expectedGets, expectedGet)
+		tx.readsetSize++
 	}
 	if err != nil {
 		return nil, err
@@ -287,7 +293,12 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			expectedTx: valRef.Tx(),
 		}
 
+		if tx.readsetSize == tx.st.mvccReadSetLimit {
+			return nil, ErrMVCCReadSetLimitExceeded
+		}
+
 		tx.expectedGets = append(tx.expectedGets, expectedGet)
+		tx.readsetSize++
 	}
 
 	return valRef, nil
@@ -314,7 +325,12 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			filters: filters,
 		}
 
+		if tx.readsetSize == tx.st.mvccReadSetLimit {
+			return nil, nil, ErrMVCCReadSetLimitExceeded
+		}
+
 		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
+		tx.readsetSize++
 	}
 	if err != nil {
 		return nil, nil, err
@@ -330,7 +346,12 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			expectedTx:  valRef.Tx(),
 		}
 
+		if tx.readsetSize == tx.st.mvccReadSetLimit {
+			return nil, nil, ErrMVCCReadSetLimitExceeded
+		}
+
 		tx.expectedGetsWithPrefix = append(tx.expectedGetsWithPrefix, expectedGetWithPrefix)
+		tx.readsetSize++
 	}
 
 	return key, valRef, nil
