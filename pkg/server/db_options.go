@@ -58,6 +58,9 @@ type dbOptions struct {
 
 	ExcludeCommitTime bool `json:"excludeCommitTime"`
 
+	MaxActiveTransactions int `json:"maxActiveTransactions"`
+	MVCCReadSetLimit      int `json:"mvccReadSetLimit"`
+
 	MaxConcurrency   int `json:"maxConcurrency"`
 	MaxIOConcurrency int `json:"maxIOConcurrency"`
 
@@ -133,6 +136,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 
 		ExcludeCommitTime: false,
 
+		MaxActiveTransactions:   store.DefaultMaxActiveTransactions,
+		MVCCReadSetLimit:        store.DefaultMVCCReadSetLimit,
 		MaxConcurrency:          store.DefaultMaxConcurrency,
 		MaxIOConcurrency:        store.DefaultMaxIOConcurrency,
 		WriteBufferSize:         store.DefaultWriteBufferSize,
@@ -246,6 +251,8 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithMaxValueLen(opts.MaxValueLen).
 		WithMaxTxEntries(opts.MaxTxEntries).
 		WithWriteTxHeaderVersion(opts.WriteTxHeaderVersion).
+		WithMaxActiveTransactions(opts.MaxActiveTransactions).
+		WithMVCCReadSetLimit(opts.MVCCReadSetLimit).
 		WithMaxConcurrency(opts.MaxConcurrency).
 		WithMaxIOConcurrency(opts.MaxIOConcurrency).
 		WithWriteBufferSize(opts.WriteBufferSize).
@@ -289,6 +296,9 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		MaxTxEntries: &schema.NullableUint32{Value: uint32(opts.MaxTxEntries)},
 
 		ExcludeCommitTime: &schema.NullableBool{Value: opts.ExcludeCommitTime},
+
+		MaxActiveTransactions: &schema.NullableUint32{Value: uint32(opts.MaxActiveTransactions)},
+		MvccReadSetLimit:      &schema.NullableUint32{Value: uint32(opts.MVCCReadSetLimit)},
 
 		MaxConcurrency:   &schema.NullableUint32{Value: uint32(opts.MaxConcurrency)},
 		MaxIOConcurrency: &schema.NullableUint32{Value: uint32(opts.MaxIOConcurrency)},
@@ -491,6 +501,13 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	if settings.ExcludeCommitTime != nil {
 		opts.ExcludeCommitTime = settings.ExcludeCommitTime.Value
+	}
+
+	if settings.MaxActiveTransactions != nil {
+		opts.MaxActiveTransactions = int(settings.MaxActiveTransactions.Value)
+	}
+	if settings.MvccReadSetLimit != nil {
+		opts.MVCCReadSetLimit = int(settings.MvccReadSetLimit.Value)
 	}
 
 	if settings.MaxConcurrency != nil {
@@ -781,6 +798,8 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.MaxValueLen: %v", database, opts.MaxValueLen)
 	s.Logger.Infof("%s.MaxTxEntries: %v", database, opts.MaxTxEntries)
 	s.Logger.Infof("%s.ExcludeCommitTime: %v", database, opts.ExcludeCommitTime)
+	s.Logger.Infof("%s.MaxActiveTransactions: %v", database, opts.MaxActiveTransactions)
+	s.Logger.Infof("%s.MVCCReadSetLimit: %v", database, opts.MVCCReadSetLimit)
 	s.Logger.Infof("%s.MaxConcurrency: %v", database, opts.MaxConcurrency)
 	s.Logger.Infof("%s.MaxIOConcurrency: %v", database, opts.MaxIOConcurrency)
 	s.Logger.Infof("%s.WriteBufferSize: %v", database, opts.WriteBufferSize)
