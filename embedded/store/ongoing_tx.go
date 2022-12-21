@@ -49,7 +49,7 @@ type OngoingTx struct {
 type expectedGet struct {
 	key        []byte
 	filters    []FilterFn
-	expectedTx uint64 // 0 used denotes non-existence
+	expectedTx uint64 // 0 used to denote non-existence
 }
 
 type expectedGetWithPrefix struct {
@@ -57,7 +57,7 @@ type expectedGetWithPrefix struct {
 	neq         []byte
 	filters     []FilterFn
 	expectedKey []byte
-	expectedTx  uint64 // 0 used denotes non-existence
+	expectedTx  uint64 // 0 used to denote non-existence
 }
 
 type EntrySpec struct {
