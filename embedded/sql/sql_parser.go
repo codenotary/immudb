@@ -22,7 +22,7 @@ type yySymType struct {
 	values        []ValueExp
 	value         ValueExp
 	id            string
-	number        uint64
+	integer       uint64
 	float         float64
 	str           string
 	boolean       bool
@@ -123,7 +123,7 @@ const LOP = 57410
 const CMPOP = 57411
 const IDENTIFIER = 57412
 const TYPE = 57413
-const NUMBER = 57414
+const INTEGER = 57414
 const FLOAT = 57415
 const VARCHAR = 57416
 const BOOLEAN = 57417
@@ -205,7 +205,7 @@ var yyToknames = [...]string{
 	"CMPOP",
 	"IDENTIFIER",
 	"TYPE",
-	"NUMBER",
+	"INTEGER",
 	"FLOAT",
 	"VARCHAR",
 	"BOOLEAN",
@@ -918,12 +918,12 @@ yydefault:
 	case 28:
 		yyDollar = yyS[yypt-7 : yypt+1]
 		{
-			yyVAL.stmt = &DeleteFromStmt{tableRef: yyDollar[3].tableRef, where: yyDollar[4].exp, indexOn: yyDollar[5].ids, limit: int(yyDollar[6].number), offset: int(yyDollar[7].number)}
+			yyVAL.stmt = &DeleteFromStmt{tableRef: yyDollar[3].tableRef, where: yyDollar[4].exp, indexOn: yyDollar[5].ids, limit: int(yyDollar[6].integer), offset: int(yyDollar[7].integer)}
 		}
 	case 29:
 		yyDollar = yyS[yypt-8 : yypt+1]
 		{
-			yyVAL.stmt = &UpdateStmt{tableRef: yyDollar[2].tableRef, updates: yyDollar[4].updates, where: yyDollar[5].exp, indexOn: yyDollar[6].ids, limit: int(yyDollar[7].number), offset: int(yyDollar[8].number)}
+			yyVAL.stmt = &UpdateStmt{tableRef: yyDollar[2].tableRef, updates: yyDollar[4].updates, where: yyDollar[5].exp, indexOn: yyDollar[6].ids, limit: int(yyDollar[7].integer), offset: int(yyDollar[8].integer)}
 		}
 	case 30:
 		yyDollar = yyS[yypt-0 : yypt+1]
@@ -1018,7 +1018,7 @@ yydefault:
 	case 48:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.value = &Number{val: int64(yyDollar[1].number)}
+			yyVAL.value = &Number{val: int64(yyDollar[1].integer)}
 		}
 	case 49:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -1083,17 +1083,17 @@ yydefault:
 	case 61:
 		yyDollar = yyS[yypt-5 : yypt+1]
 		{
-			yyVAL.colSpec = &ColSpec{colName: yyDollar[1].id, colType: yyDollar[2].sqlType, maxLen: int(yyDollar[3].number), notNull: yyDollar[4].boolean, autoIncrement: yyDollar[5].boolean}
+			yyVAL.colSpec = &ColSpec{colName: yyDollar[1].id, colType: yyDollar[2].sqlType, maxLen: int(yyDollar[3].integer), notNull: yyDollar[4].boolean, autoIncrement: yyDollar[5].boolean}
 		}
 	case 62:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.number = 0
+			yyVAL.integer = 0
 		}
 	case 63:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.number = yyDollar[2].number
+			yyVAL.integer = yyDollar[2].integer
 		}
 	case 64:
 		yyDollar = yyS[yypt-0 : yypt+1]
@@ -1147,8 +1147,8 @@ yydefault:
 				groupBy:   yyDollar[9].cols,
 				having:    yyDollar[10].exp,
 				orderBy:   yyDollar[11].ordcols,
-				limit:     int(yyDollar[12].number),
-				offset:    int(yyDollar[13].number),
+				limit:     int(yyDollar[12].integer),
+				offset:    int(yyDollar[13].integer),
 			}
 		}
 	case 72:
@@ -1354,22 +1354,22 @@ yydefault:
 	case 111:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.number = 0
+			yyVAL.integer = 0
 		}
 	case 112:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.number = yyDollar[2].number
+			yyVAL.integer = yyDollar[2].integer
 		}
 	case 113:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.number = 0
+			yyVAL.integer = 0
 		}
 	case 114:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.number = yyDollar[2].number
+			yyVAL.integer = yyDollar[2].integer
 		}
 	case 115:
 		yyDollar = yyS[yypt-0 : yypt+1]

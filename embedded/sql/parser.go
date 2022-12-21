@@ -374,8 +374,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		if val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64); err == nil {
-			lval.number = val
-			return NUMBER
+			lval.integer = val
+			return INTEGER
 		}
 
 		if err != nil {

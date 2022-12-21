@@ -36,7 +36,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     values []ValueExp
     value ValueExp
     id string
-    number uint64
+    integer uint64
     float float64
     str string
     boolean bool
@@ -82,7 +82,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
-%token <number> NUMBER
+%token <integer> INTEGER
 %token <float> FLOAT
 %token <str> VARCHAR
 %token <boolean> BOOLEAN
@@ -129,7 +129,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <exp> exp opt_where opt_having boundexp
 %type <binExp> binExp
 %type <cols> opt_groupby
-%type <number> opt_limit opt_offset opt_max_len
+%type <integer> opt_limit opt_offset opt_max_len
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -370,7 +370,7 @@ values:
     }
 
 val:
-    NUMBER
+    INTEGER
     {
         $$ = &Number{val: int64($1)}
     }
@@ -448,7 +448,7 @@ opt_max_len:
         $$ = 0
     }
 |
-    '[' NUMBER ']'
+    '[' INTEGER ']'
     {
         $$ = $2
     }
@@ -725,7 +725,7 @@ opt_limit:
         $$ = 0
     }
 |
-    LIMIT NUMBER
+    LIMIT INTEGER
     {
         $$ = $2
     }
@@ -735,7 +735,7 @@ opt_offset:
         $$ = 0
     }
 |
-    OFFSET NUMBER
+    OFFSET INTEGER
     {
         $$ = $2
     }
