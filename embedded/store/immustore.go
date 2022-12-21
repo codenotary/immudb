@@ -59,6 +59,7 @@ var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrPreconditionFailed = errors.New("precondition failed")
 var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxActiveTransactionsLimitExceeded = errors.New("max active transactions limit exceeded")
+var ErrMVCCReadSetLimitExceeded = errors.New("MVCC read-set limit exceeded")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedTxData = errors.New("tx data is corrupted")
@@ -158,6 +159,7 @@ type ImmuStore struct {
 	synced                bool
 	syncFrequency         time.Duration
 	maxActiveTransactions int
+	mvccReadSetLimit      int
 	maxWaitees            int
 	maxConcurrency        int
 	maxIOConcurrency      int
@@ -496,6 +498,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		synced:                opts.Synced,
 		syncFrequency:         opts.SyncFrequency,
 		maxActiveTransactions: opts.MaxActiveTransactions,
+		mvccReadSetLimit:      opts.MVCCReadSetLimit,
 		maxWaitees:            opts.MaxWaitees,
 		maxConcurrency:        opts.MaxConcurrency,
 		maxIOConcurrency:      opts.MaxIOConcurrency,
@@ -979,6 +982,10 @@ func (s *ImmuStore) Synced() bool {
 
 func (s *ImmuStore) MaxActiveTransactions() int {
 	return s.maxActiveTransactions
+}
+
+func (s *ImmuStore) MVCCReadSetLimit() int {
+	return s.mvccReadSetLimit
 }
 
 func (s *ImmuStore) MaxConcurrency() int {
