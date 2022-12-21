@@ -36,6 +36,8 @@ func TestInvalidOptions(t *testing.T) {
 		{"MaxConcurrency", DefaultOptions().WithMaxConcurrency(0)},
 		{"WriteBufferSize", DefaultOptions().WithWriteBufferSize(0)},
 		{"SyncFrequency", DefaultOptions().WithSyncFrequency(-1)},
+		{"MaxActiveTransactions", DefaultOptions().WithMaxActiveTransactions(0)},
+		{"MVCCReadSetLimit", DefaultOptions().WithMVCCReadSetLimit(0)},
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
 		{"TxLogCacheSize", DefaultOptions().WithTxLogCacheSize(-1)},

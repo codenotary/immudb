@@ -237,6 +237,7 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.Equal(t, 1, immuStore.MaxConcurrency())
 	require.Equal(t, DefaultOptions().MaxIOConcurrency, immuStore.MaxIOConcurrency())
 	require.Equal(t, DefaultOptions().MaxActiveTransactions, immuStore.MaxActiveTransactions())
+	require.Equal(t, DefaultOptions().MVCCReadSetLimit, immuStore.MVCCReadSetLimit())
 	require.Equal(t, DefaultOptions().MaxTxEntries, immuStore.MaxTxEntries())
 	require.Equal(t, DefaultOptions().MaxKeyLen, immuStore.MaxKeyLen())
 	require.Equal(t, DefaultOptions().MaxValueLen, immuStore.MaxValueLen())
@@ -3958,5 +3959,175 @@ func TestImmudbStoreMVCC(t *testing.T) {
 
 		_, err = tx3.Commit()
 		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
+}
+
+func TestImmudbStoreMVCCBoundaries(t *testing.T) {
+	mvccReadsetLimit := 3
+
+	immuStore, err := Open(t.TempDir(), DefaultOptions().WithMVCCReadSetLimit(mvccReadsetLimit))
+	require.NoError(t, err)
+
+	defer immuStore.Close()
+
+	t.Run("MVCC read-set limit should be reached when randomly reading keys", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			_, err = tx1.Get([]byte(fmt.Sprintf("key%d", i)))
+			require.ErrorIs(t, err, ErrKeyNotFound)
+		}
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			_, err = tx1.Get([]byte(fmt.Sprintf("key%d", i)))
+			require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+		}
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should not be reached when reading an updated key", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i <= mvccReadsetLimit; i++ {
+			err = tx1.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+		}
+
+		for i := 0; i <= mvccReadsetLimit; i++ {
+			_, err = tx1.Get([]byte(fmt.Sprintf("key%d", i)))
+			require.NoError(t, err)
+		}
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should be reached when reading keys by prefix", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			_, _, err = tx1.GetWithPrefix([]byte(fmt.Sprintf("key%d", i)), nil)
+			require.ErrorIs(t, err, ErrKeyNotFound)
+		}
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			_, _, err = tx1.GetWithPrefix([]byte(fmt.Sprintf("key%d", i)), nil)
+			require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+		}
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should not be reached when reading an updated entries", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i <= mvccReadsetLimit; i++ {
+			err = tx1.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+		}
+
+		for i := 0; i <= mvccReadsetLimit; i++ {
+			_, _, err = tx1.GetWithPrefix([]byte(fmt.Sprintf("key%d", i)), nil)
+			require.NoError(t, err)
+		}
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should be reached when scanning out of read-set boundaries", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			err = tx1.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+		}
+
+		r, err := tx1.NewKeyReader(KeyReaderSpec{Prefix: []byte("key")})
+		require.NoError(t, err)
+
+		// Note: creating the reader already consumes one read-set slot
+		for i := 0; i < mvccReadsetLimit-1; i++ {
+			_, _, err = r.Read()
+			require.NoError(t, err)
+		}
+
+		_, _, err = r.Read()
+		require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should be reached when reseting a reader out of read-set boundaries", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			err = tx1.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+		}
+
+		r, err := tx1.NewKeyReader(KeyReaderSpec{Prefix: []byte("key")})
+		require.NoError(t, err)
+
+		// Note: creating the reader already consumes one read-set slot
+		for i := 0; i < mvccReadsetLimit-1; i++ {
+			_, _, err = r.Read()
+			require.NoError(t, err)
+		}
+
+		err = r.Reset()
+		require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+		err = tx1.Cancel()
+		require.NoError(t, err)
+	})
+
+	t.Run("MVCC read-set limit should be reached when reading non-updated keys", func(t *testing.T) {
+		tx1, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i <= mvccReadsetLimit; i++ {
+			err = tx1.Set([]byte(fmt.Sprintf("key%d", i)), nil, []byte(fmt.Sprintf("value%d", i)))
+			require.NoError(t, err)
+		}
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx()
+		require.NoError(t, err)
+
+		for i := 0; i < mvccReadsetLimit; i++ {
+			_, err = tx2.Get([]byte(fmt.Sprintf("key%d", i)))
+			require.NoError(t, err)
+		}
+
+		_, err = tx2.Get([]byte("key"))
+		require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+
+		_, _, err = tx2.GetWithPrefix([]byte("key"), nil)
+		require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+
+		_, err = tx2.NewKeyReader(KeyReaderSpec{Prefix: []byte("key")})
+		require.ErrorIs(t, err, ErrMVCCReadSetLimitExceeded)
+
+		err = tx2.Cancel()
+		require.NoError(t, err)
 	})
 }
