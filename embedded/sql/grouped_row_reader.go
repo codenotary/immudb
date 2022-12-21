@@ -149,7 +149,7 @@ func zeroForType(t SQLValueType) TypedValue {
 	switch t {
 	case IntegerType:
 		{
-			return &Number{}
+			return &Integer{}
 		}
 	case BooleanType:
 		{

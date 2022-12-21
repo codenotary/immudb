@@ -188,7 +188,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 		expectedError error
 	}{
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -197,7 +197,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -206,7 +206,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Bool{val: true}, right: &Number{val: 0}},
+			exp:           &NumExp{op: ADDOP, left: &Bool{val: true}, right: &Integer{val: 0}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -215,7 +215,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Bool{val: true}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Bool{val: true}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -224,7 +224,7 @@ func TestRequiresTypeNumExpValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &NumExp{op: ADDOP, left: &Number{val: 0}, right: &Bool{val: true}},
+			exp:           &NumExp{op: ADDOP, left: &Integer{val: 0}, right: &Bool{val: true}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -294,7 +294,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &Number{},
+			exp:           &Integer{},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -303,7 +303,7 @@ func TestRequiresTypeSimpleValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &Number{},
+			exp:           &Integer{},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -551,7 +551,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Number{val: 1}, right: &Bool{val: false}},
+			exp:           &BinBoolExp{op: AND, left: &Integer{val: 1}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -560,7 +560,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Number{val: 1}},
+			exp:           &BinBoolExp{op: AND, left: &Bool{val: false}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -569,7 +569,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -578,7 +578,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -587,7 +587,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Number{val: 1}, right: &Bool{val: false}},
+			exp:           &CmpBoolExp{op: LE, left: &Integer{val: 1}, right: &Bool{val: false}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -596,7 +596,7 @@ func TestRequiresTypeBinValueExp(t *testing.T) {
 			expectedError: ErrInvalidTypes,
 		},
 		{
-			exp:           &CmpBoolExp{op: LE, left: &Bool{val: false}, right: &Number{val: 1}},
+			exp:           &CmpBoolExp{op: LE, left: &Bool{val: false}, right: &Integer{val: 1}},
 			cols:          cols,
 			params:        params,
 			implicitDB:    "db1",
@@ -684,7 +684,7 @@ func TestLikeBoolExpEdgeCases(t *testing.T) {
 	require.Nil(t, exp.selectorRanges(nil, "", nil, nil))
 
 	t.Run("like expression with invalid types", func(t *testing.T) {
-		exp := &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Number{}}
+		exp := &LikeBoolExp{val: &ColSelector{col: "col1"}, pattern: &Integer{}}
 
 		_, err = exp.inferType(nil, nil, "", "")
 		require.ErrorIs(t, err, ErrInvalidTypes)
@@ -725,7 +725,7 @@ func TestEdgeCases(t *testing.T) {
 
 func TestIsConstant(t *testing.T) {
 	require.True(t, (&NullValue{}).isConstant())
-	require.True(t, (&Number{}).isConstant())
+	require.True(t, (&Integer{}).isConstant())
 	require.True(t, (&Varchar{}).isConstant())
 	require.True(t, (&Bool{}).isConstant())
 	require.True(t, (&Blob{}).isConstant())
@@ -736,8 +736,8 @@ func TestIsConstant(t *testing.T) {
 
 	require.True(t, (&NumExp{
 		op:    AND,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.True(t, (&NotBoolExp{exp: &Bool{}}).isConstant())
@@ -745,19 +745,19 @@ func TestIsConstant(t *testing.T) {
 
 	require.True(t, (&CmpBoolExp{
 		op:    LE,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.True(t, (&BinBoolExp{
 		op:    ADDOP,
-		left:  &Number{val: 1},
-		right: &Number{val: 2},
+		left:  &Integer{val: 1},
+		right: &Integer{val: 2},
 	}).isConstant())
 
 	require.False(t, (&CmpBoolExp{
 		op:    LE,
-		left:  &Number{val: 1},
+		left:  &Integer{val: 1},
 		right: &ColSelector{},
 	}).isConstant())
 

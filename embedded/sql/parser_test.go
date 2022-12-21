@@ -102,7 +102,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&UseSnapshotStmt{
 					period: period{
-						start: &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Number{val: 100}}, inclusive: true},
+						start: &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Integer{val: 100}}, inclusive: true},
 					},
 				},
 			},
@@ -135,8 +135,8 @@ func TestUseSnapshotStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&UseSnapshotStmt{
 					period: period{
-						start: &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Number{val: 1}}, inclusive: true},
-						end:   &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Number{val: 10}}, inclusive: true},
+						start: &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Integer{val: 1}}, inclusive: true},
+						end:   &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Integer{val: 10}}, inclusive: true},
 					},
 				},
 			},
@@ -148,7 +148,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 				&UseSnapshotStmt{
 					period: period{
 						start: &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Param{id: "fromtx"}}, inclusive: true},
-						end:   &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Number{val: 10}}},
+						end:   &openPeriod{instant: periodInstant{instantType: txInstant, exp: &Integer{val: 10}}},
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 						start: &openPeriod{
 							instant: periodInstant{
 								instantType: txInstant,
-								exp:         &NumExp{op: SUBSOP, left: &Param{id: "fromtx"}, right: &Number{val: 1}},
+								exp:         &NumExp{op: SUBSOP, left: &Param{id: "fromtx"}, right: &Integer{val: 1}},
 							},
 						},
 						end: &openPeriod{instant: periodInstant{instantType: timeInstant, exp: &FnCall{fn: "now"}}},
@@ -414,7 +414,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []ValueExp{
-							&Number{val: 2},
+							&Integer{val: 2},
 							&FnCall{fn: "now"},
 							&Varchar{val: "un'titled row"},
 							&Bool{val: true},
@@ -436,7 +436,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []ValueExp{
-							&Number{val: 2},
+							&Integer{val: 2},
 							&FnCall{fn: "now"},
 							&Varchar{val: ""},
 							&Bool{val: true},
@@ -458,7 +458,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []ValueExp{
-							&Number{val: 2},
+							&Integer{val: 2},
 							&FnCall{fn: "now"},
 							&Varchar{val: "'"},
 							&Bool{val: true},
@@ -480,7 +480,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []ValueExp{
-							&Number{val: 2},
+							&Integer{val: 2},
 							&FnCall{fn: "now"},
 							&Varchar{val: "untitled row"},
 							&Bool{val: true},
@@ -502,7 +502,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []ValueExp{
-							&Number{val: 2},
+							&Integer{val: 2},
 							&FnCall{fn: "now"},
 							&Param{id: "param1", pos: 1},
 							&Bool{val: true},
@@ -563,9 +563,9 @@ func TestInsertIntoStmt(t *testing.T) {
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "active"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 1}, &Bool{val: false}}},
-						{Values: []ValueExp{&Number{val: 2}, &Bool{val: true}}},
-						{Values: []ValueExp{&Number{val: 3}, &Bool{val: true}}},
+						{Values: []ValueExp{&Integer{val: 1}, &Bool{val: false}}},
+						{Values: []ValueExp{&Integer{val: 2}, &Bool{val: true}}},
+						{Values: []ValueExp{&Integer{val: 3}, &Bool{val: true}}},
 					},
 				},
 			},
@@ -694,14 +694,14 @@ func TestTxStmt(t *testing.T) {
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
+						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table2"},
 					cols:     []string{"id"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 10}}},
+						{Values: []ValueExp{&Integer{val: 10}}},
 					},
 				},
 				&RollbackStmt{},
@@ -724,7 +724,7 @@ func TestTxStmt(t *testing.T) {
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
+						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
 				&CommitStmt{},
@@ -743,7 +743,7 @@ func TestTxStmt(t *testing.T) {
 					where: &CmpBoolExp{
 						op:    EQ,
 						left:  &ColSelector{col: "id"},
-						right: &Number{val: 100},
+						right: &Integer{val: 100},
 					},
 				},
 				&CommitStmt{},
@@ -766,7 +766,7 @@ func TestTxStmt(t *testing.T) {
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
+						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
 				&CommitStmt{},
@@ -867,7 +867,7 @@ func TestSelectStmt(t *testing.T) {
 						left: &ColSelector{
 							col: "id",
 						},
-						right: &Number{val: 1},
+						right: &Integer{val: 1},
 					},
 				}},
 			expectedError: nil,
@@ -887,7 +887,7 @@ func TestSelectStmt(t *testing.T) {
 						left: &ColSelector{
 							col: "id",
 						},
-						right: &Number{val: 1},
+						right: &Integer{val: 1},
 					},
 				}},
 			expectedError: nil,
@@ -1210,7 +1210,7 @@ func TestAggFnStmt(t *testing.T) {
 					having: &CmpBoolExp{
 						op:    GT,
 						left:  &AggColSelector{aggFn: SUM, col: "amount"},
-						right: &Number{val: 0},
+						right: &Integer{val: 0},
 					},
 				}},
 			expectedError: nil,
@@ -1247,7 +1247,7 @@ func TestExpressions(t *testing.T) {
 						left: &ColSelector{
 							col: "id",
 						},
-						right: &Number{val: 0},
+						right: &Integer{val: 0},
 					},
 				}},
 			expectedError: nil,
@@ -1269,7 +1269,7 @@ func TestExpressions(t *testing.T) {
 								left: &ColSelector{
 									col: "id",
 								},
-								right: &Number{val: 0},
+								right: &Integer{val: 0},
 							},
 						},
 						right: &CmpBoolExp{
@@ -1277,7 +1277,7 @@ func TestExpressions(t *testing.T) {
 							left: &ColSelector{
 								col: "id",
 							},
-							right: &Number{val: 10},
+							right: &Integer{val: 10},
 						},
 					},
 				}},
@@ -1300,14 +1300,14 @@ func TestExpressions(t *testing.T) {
 								left: &ColSelector{
 									col: "id",
 								},
-								right: &Number{val: 0},
+								right: &Integer{val: 0},
 							},
 							right: &CmpBoolExp{
 								op: LT,
 								left: &ColSelector{
 									col: "id",
 								},
-								right: &Number{val: 10},
+								right: &Integer{val: 10},
 							},
 						},
 					},
@@ -1349,7 +1349,7 @@ func TestExpressions(t *testing.T) {
 							left: &ColSelector{
 								col: "id",
 							},
-							right: &Number{val: 0},
+							right: &Integer{val: 0},
 						},
 						right: &NotBoolExp{
 							exp: &CmpBoolExp{
@@ -1358,7 +1358,7 @@ func TestExpressions(t *testing.T) {
 									table: "table1",
 									col:   "id",
 								},
-								right: &Number{val: 10},
+								right: &Integer{val: 10},
 							},
 						},
 					},
@@ -1421,7 +1421,7 @@ func TestExpressions(t *testing.T) {
 								left: &ColSelector{
 									col: "id",
 								},
-								right: &Number{val: 0},
+								right: &Integer{val: 0},
 							},
 							right: &NotBoolExp{
 								exp: &CmpBoolExp{
@@ -1430,7 +1430,7 @@ func TestExpressions(t *testing.T) {
 										table: "table1",
 										col:   "id",
 									},
-									right: &Number{val: 10},
+									right: &Integer{val: 10},
 								},
 							},
 						},
@@ -1572,14 +1572,14 @@ func TestMultiLineStmts(t *testing.T) {
 					tableRef: &tableRef{table: "table1"},
 					cols:     []string{"id", "label"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
+						{Values: []ValueExp{&Integer{val: 100}, &Varchar{val: "label1"}}},
 					},
 				},
 				&UpsertIntoStmt{
 					tableRef: &tableRef{table: "table2"},
 					cols:     []string{"id"},
 					rows: []*RowSpec{
-						{Values: []ValueExp{&Number{val: 10}}},
+						{Values: []ValueExp{&Integer{val: 10}}},
 					},
 				},
 				&CommitStmt{},
@@ -1631,7 +1631,7 @@ func TestFloatCornerCases(t *testing.T) {
 		invalid bool
 		v       ValueExp
 	}{
-		{"1", false, &Number{val: 1}},
+		{"1", false, &Integer{val: 1}},
 		{"1.", false, &Float64{val: 1}},
 		{"1.1", false, &Float64{val: 1.1}},
 		{"123.123ab1", true, nil},

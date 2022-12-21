@@ -1106,7 +1106,7 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 			v := binary.BigEndian.Uint64(b[voff:])
 			voff += vlen
 
-			return &Number{val: int64(v)}, voff, nil
+			return &Integer{val: int64(v)}, voff, nil
 		}
 	case BooleanType:
 		{

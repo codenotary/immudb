@@ -619,7 +619,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 					table.maxPK++
 
 					pkCol := table.primaryIndex.cols[0]
-					valuesByColID[pkCol.id] = &Number{val: table.maxPK}
+					valuesByColID[pkCol.id] = &Integer{val: table.maxPK}
 
 					if _, ok := tx.firstInsertedPKs[table.name]; !ok {
 						tx.firstInsertedPKs[table.name] = table.maxPK
@@ -1446,23 +1446,23 @@ func (v *NullValue) selectorRanges(table *Table, asTable string, params map[stri
 	return nil
 }
 
-type Number struct {
+type Integer struct {
 	val int64
 }
 
-func (v *Number) Type() SQLValueType {
+func (v *Integer) Type() SQLValueType {
 	return IntegerType
 }
 
-func (v *Number) IsNull() bool {
+func (v *Integer) IsNull() bool {
 	return false
 }
 
-func (v *Number) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
+func (v *Integer) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
 	return IntegerType, nil
 }
 
-func (v *Number) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
+func (v *Integer) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
 	if t != IntegerType {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
@@ -1470,31 +1470,31 @@ func (v *Number) requiresType(t SQLValueType, cols map[string]ColDescriptor, par
 	return nil
 }
 
-func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
+func (v *Integer) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Number) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Integer) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
-func (v *Number) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
+func (v *Integer) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
 	return v
 }
 
-func (v *Number) isConstant() bool {
+func (v *Integer) isConstant() bool {
 	return true
 }
 
-func (v *Number) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
+func (v *Integer) selectorRanges(table *Table, asTable string, params map[string]interface{}, rangesByColID map[uint32]*typedValueRange) error {
 	return nil
 }
 
-func (v *Number) Value() interface{} {
+func (v *Integer) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) Compare(val TypedValue) (int, error) {
+func (v *Integer) Compare(val TypedValue) (int, error) {
 	if val.IsNull() {
 		return 1, nil
 	}
@@ -2119,19 +2119,19 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case int:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case uint:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case uint64:
 		{
-			return &Number{val: int64(v)}, nil
+			return &Integer{val: int64(v)}, nil
 		}
 	case int64:
 		{
-			return &Number{val: v}, nil
+			return &Integer{val: v}, nil
 		}
 	case []byte:
 		{
@@ -2962,11 +2962,11 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string
 	switch bexp.op {
 	case ADDOP:
 		{
-			return &Number{val: nl + nr}, nil
+			return &Integer{val: nl + nr}, nil
 		}
 	case SUBSOP:
 		{
-			return &Number{val: nl - nr}, nil
+			return &Integer{val: nl - nr}, nil
 		}
 	case DIVOP:
 		{
@@ -2974,11 +2974,11 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string
 				return nil, ErrDivisionByZero
 			}
 
-			return &Number{val: nl / nr}, nil
+			return &Integer{val: nl / nr}, nil
 		}
 	case MULTOP:
 		{
-			return &Number{val: nl * nr}, nil
+			return &Integer{val: nl * nr}, nil
 		}
 	}
 
@@ -3917,7 +3917,7 @@ func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]in
 			&Varchar{val: table.name},
 			&Varchar{val: c.colName},
 			&Varchar{val: c.colType},
-			&Number{val: int64(c.MaxLen())},
+			&Integer{val: int64(c.MaxLen())},
 			&Bool{val: c.IsNullable()},
 			&Bool{val: c.autoIncrement},
 			&Bool{val: indexed},

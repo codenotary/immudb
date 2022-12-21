@@ -1662,7 +1662,7 @@ func TestEncodeRawValue(t *testing.T) {
 }
 
 func TestEncodeValue(t *testing.T) {
-	b, err := EncodeValue((&Number{val: 1}).Value(), IntegerType, 0)
+	b, err := EncodeValue((&Integer{val: 1}).Value(), IntegerType, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
@@ -1674,7 +1674,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 1, 1}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), BooleanType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), BooleanType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1682,7 +1682,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 5, 't', 'i', 't', 'l', 'e'}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), VarcharType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), VarcharType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1694,11 +1694,11 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 0}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), BLOBType, 50)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), BLOBType, 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), "invalid type", 50)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), "invalid type", 50)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 
@@ -1736,7 +1736,7 @@ func TestEncodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 1}, b)
 
-	b, err = EncodeValue((&Number{val: 1}).Value(), TimestampType, 0)
+	b, err = EncodeValue((&Integer{val: 1}).Value(), TimestampType, 0)
 	require.ErrorIs(t, err, ErrInvalidValue)
 	require.Nil(t, b)
 }
@@ -4382,21 +4382,21 @@ func TestDecodeValueSuccess(t *testing.T) {
 			"zero integer",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0},
 			IntegerType,
-			&Number{val: 0},
+			&Integer{val: 0},
 			12,
 		},
 		{
 			"large integer",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 127, 255, 255, 255},
 			IntegerType,
-			&Number{val: math.MaxInt32},
+			&Integer{val: math.MaxInt32},
 			12,
 		},
 		{
 			"large integer padded",
 			[]byte{0, 0, 0, 8, 0, 0, 0, 0, 127, 255, 255, 255, 1, 1, 1},
 			IntegerType,
-			&Number{val: math.MaxInt32},
+			&Integer{val: math.MaxInt32},
 			12,
 		},
 		{
@@ -4760,7 +4760,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 		case nil:
 			return &NullValue{t: tp}
 		case int:
-			return &Number{val: int64(v)}
+			return &Integer{val: int64(v)}
 		case string:
 			return &Varchar{val: v}
 		case []byte:
@@ -4773,7 +4773,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 	}
 
 	t1Row := func(id int64, v1, v2 interface{}) *Row {
-		idVal := &Number{val: id}
+		idVal := &Integer{val: id}
 		v1Val := colVal(t, v1, IntegerType)
 		v2Val := colVal(t, v2, VarcharType)
 
@@ -4792,7 +4792,7 @@ func TestIndexingNullableColumns(t *testing.T) {
 	}
 
 	t2Row := func(id int64, v1, v2, v3, v4 interface{}) *Row {
-		idVal := &Number{val: id}
+		idVal := &Integer{val: id}
 		v1Val := colVal(t, v1, IntegerType)
 		v2Val := colVal(t, v2, VarcharType)
 		v3Val := colVal(t, v3, BooleanType)

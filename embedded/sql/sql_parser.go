@@ -1018,7 +1018,7 @@ yydefault:
 	case 48:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.value = &Number{val: int64(yyDollar[1].integer)}
+			yyVAL.value = &Integer{val: int64(yyDollar[1].integer)}
 		}
 	case 49:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -1449,7 +1449,7 @@ yydefault:
 	case 130:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.exp = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: yyDollar[2].exp}
+			yyVAL.exp = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: yyDollar[2].exp}
 		}
 	case 131:
 		yyDollar = yyS[yypt-4 : yypt+1]

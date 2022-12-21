@@ -36,18 +36,18 @@ func TestCountValue(t *testing.T) {
 	_, err = cval.Compare(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	cmp, err := cval.Compare(&Number{val: 1})
+	cmp, err := cval.Compare(&Integer{val: 1})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
 	err = cval.updateWith(&Bool{val: true})
 	require.NoError(t, err)
 
-	cmp, err = cval.Compare(&Number{val: 1})
+	cmp, err = cval.Compare(&Integer{val: 1})
 	require.NoError(t, err)
 	require.Equal(t, 1, cmp)
 
-	cmp, err = cval.Compare(&Number{val: 3})
+	cmp, err = cval.Compare(&Integer{val: 3})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
 
@@ -85,7 +85,7 @@ func TestSumValue(t *testing.T) {
 	require.True(t, cval.ColBounded())
 	require.False(t, cval.IsNull())
 
-	err := cval.updateWith(&Number{val: 1})
+	err := cval.updateWith(&Integer{val: 1})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
@@ -93,21 +93,21 @@ func TestSumValue(t *testing.T) {
 	_, err = cval.Compare(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	cmp, err := cval.Compare(&Number{val: 1})
+	cmp, err := cval.Compare(&Integer{val: 1})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
 	err = cval.updateWith(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	err = cval.updateWith(&Number{val: 10})
+	err = cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
 
-	cmp, err = cval.Compare(&Number{val: 10})
+	cmp, err = cval.Compare(&Integer{val: 10})
 	require.NoError(t, err)
 	require.Equal(t, 1, cmp)
 
-	cmp, err = cval.Compare(&Number{val: 12})
+	cmp, err = cval.Compare(&Integer{val: 12})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
 
@@ -151,12 +151,12 @@ func TestMinValue(t *testing.T) {
 	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
 
-	err = cval.updateWith(&Number{val: 10})
+	err = cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
 
-	cmp, err := cval.Compare(&Number{val: 10})
+	cmp, err := cval.Compare(&Integer{val: 10})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
@@ -166,14 +166,14 @@ func TestMinValue(t *testing.T) {
 	err = cval.updateWith(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	err = cval.updateWith(&Number{val: 2})
+	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
 
-	cmp, err = cval.Compare(&Number{val: 2})
+	cmp, err = cval.Compare(&Integer{val: 2})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
-	cmp, err = cval.Compare(&Number{val: 4})
+	cmp, err = cval.Compare(&Integer{val: 4})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
 
@@ -217,12 +217,12 @@ func TestMaxValue(t *testing.T) {
 	err = cval.requiresType(IntegerType, nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
 
-	err = cval.updateWith(&Number{val: 10})
+	err = cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
 
-	cmp, err := cval.Compare(&Number{val: 10})
+	cmp, err := cval.Compare(&Integer{val: 10})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
@@ -232,14 +232,14 @@ func TestMaxValue(t *testing.T) {
 	err = cval.updateWith(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	err = cval.updateWith(&Number{val: 2})
+	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
 
-	cmp, err = cval.Compare(&Number{val: 2})
+	cmp, err = cval.Compare(&Integer{val: 2})
 	require.NoError(t, err)
 	require.Equal(t, 1, cmp)
 
-	cmp, err = cval.Compare(&Number{val: 11})
+	cmp, err = cval.Compare(&Integer{val: 11})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
 
@@ -277,12 +277,12 @@ func TestAVGValue(t *testing.T) {
 	require.True(t, cval.ColBounded())
 	require.False(t, cval.IsNull())
 
-	err := cval.updateWith(&Number{val: 10})
+	err := cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
 
 	require.Equal(t, IntegerType, cval.Type())
 
-	cmp, err := cval.Compare(&Number{val: 10})
+	cmp, err := cval.Compare(&Integer{val: 10})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
@@ -292,14 +292,14 @@ func TestAVGValue(t *testing.T) {
 	err = cval.updateWith(&Bool{val: true})
 	require.Equal(t, ErrNotComparableValues, err)
 
-	err = cval.updateWith(&Number{val: 2})
+	err = cval.updateWith(&Integer{val: 2})
 	require.NoError(t, err)
 
-	cmp, err = cval.Compare(&Number{val: 6})
+	cmp, err = cval.Compare(&Integer{val: 6})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
-	cmp, err = cval.Compare(&Number{val: 7})
+	cmp, err = cval.Compare(&Integer{val: 7})
 	require.NoError(t, err)
 	require.Equal(t, -1, cmp)
 

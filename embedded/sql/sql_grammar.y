@@ -372,12 +372,12 @@ values:
 val:
     INTEGER
     {
-        $$ = &Number{val: int64($1)}
+        $$ = &Integer{val: int64($1)}
     }
 |
     FLOAT
     {
-        $$ = &Float{val: float64($1)}
+        $$ = &Float64{val: float64($1)}
     }
 |
     VARCHAR
@@ -819,7 +819,7 @@ exp:
 |
     '-' exp
     {
-        $$ = &NumExp{left: &Number{val: 0}, op: SUBSOP, right: $2}
+        $$ = &NumExp{left: &Integer{val: 0}, op: SUBSOP, right: $2}
     }
 |
     boundexp opt_not LIKE exp
