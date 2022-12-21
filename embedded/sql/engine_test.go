@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -387,6 +389,9 @@ func TestFloatType(t *testing.T) {
 
 	t.Run("must insert float type", func(t *testing.T) {
 
+		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(100.100)", nil, nil)
+		require.NoError(t, err)
+
 		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(.7)", nil, nil)
 		require.NoError(t, err)
 
@@ -466,6 +471,68 @@ func TestFloatType(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+}
+
+func TestFloatIndex(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS float_index (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON float_index(ft)", nil, nil)
+	require.NoError(t, err)
+
+	for i := 100; i > 0; i-- {
+		val, _ := strconv.ParseFloat(fmt.Sprint(i, ".", i), 64)
+		_, _, err = engine.Exec("INSERT INTO float_index(ft) VALUES(@ft)", map[string]interface{}{"ft": val}, nil)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query("SELECT * FROM float_index ORDER BY ft", nil, nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	for i := 100; i > 0; i-- {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.EqualValues(t, i, row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "id")].Value())
+	}
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
+}
+
+func TestFloatIndexOnNegatives(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec("CREATE TABLE IF NOT EXISTS float_index (id INTEGER AUTO_INCREMENT, ft FLOAT, PRIMARY KEY id)", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE INDEX ON float_index(ft)", nil, nil)
+	require.NoError(t, err)
+
+	floatSerie := []float64{-1.0, 3.345, -0.5, 0.0, -100.8, 0.5, 1.0}
+
+	for _, ft := range floatSerie {
+		_, _, err = engine.Exec("INSERT INTO float_index(ft) VALUES(@ft)", map[string]interface{}{"ft": ft}, nil)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.Query("SELECT * FROM float_index ORDER BY ft", nil, nil)
+	require.NoError(t, err)
+	defer r.Close()
+
+	sort.Float64s(floatSerie)
+
+	for i := 0; i < len(floatSerie); i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		val := row.ValuesBySelector[EncodeSelector("", "db1", "float_index", "ft")].Value()
+		require.Equal(t, floatSerie[i], val)
+	}
+
+	_, err = r.Read()
+	require.ErrorIs(t, err, ErrNoMoreRows)
 }
 
 func TestNowFunctionEvalsToTxTimestamp(t *testing.T) {

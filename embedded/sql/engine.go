@@ -1060,7 +1060,7 @@ func EncodeAsKey(val interface{}, colType SQLValueType, maxLen int) ([]byte, err
 				// For negative numbers, the order must be reversed,
 				// we also negate the sign bit so that all negative
 				// numbers end up in the smaller half of values
-				for i := 1; i < 10; i++ {
+				for i := 1; i < 9; i++ {
 					encv[i] = ^encv[i]
 				}
 			} else {
