@@ -5697,6 +5697,80 @@ func TestMVCC(t *testing.T) {
 		_, _, err = engine.Exec("COMMIT;", nil, tx2)
 		require.NoError(t, err)
 	})
+
+	t.Run("no read conflict should be detected when processing transactions with non invalidated queries", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (11, 'title11', true, x'0A11');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (12, 'title12', true, x'0A12');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 LIMIT 2", nil, tx2)
+		require.NoError(t, err)
+
+		for {
+			_, err = rowReader.Read()
+			if err != nil {
+				require.ErrorIs(t, err, ErrNoMoreRows)
+				break
+			}
+		}
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', false, x'0A10');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.NoError(t, err)
+	})
+
+	t.Run("read conflict should be detected when processing transactions with invalidated queries", func(t *testing.T) {
+		tx1, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		tx2, _, err := engine.Exec("BEGIN TRANSACTION;", nil, nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (11, 'title11', true, x'0A11');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (12, 'title12', true, x'0A12');", nil, tx1)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx1)
+		require.NoError(t, err)
+
+		rowReader, err := engine.Query("SELECT * FROM table1 ORDER BY id DESC LIMIT 1 OFFSET 1", nil, tx2)
+		require.NoError(t, err)
+
+		for {
+			_, err = rowReader.Read()
+			if err != nil {
+				require.ErrorIs(t, err, ErrNoMoreRows)
+				break
+			}
+		}
+
+		err = rowReader.Close()
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("UPSERT INTO table1 (id, title, active, payload) VALUES (10, 'title10', false, x'0A10');", nil, tx2)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec("COMMIT;", nil, tx2)
+		require.ErrorIs(t, err, store.ErrTxReadConflict)
+	})
 }
 
 func TestConcurrentInsertions(t *testing.T) {
