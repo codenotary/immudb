@@ -765,7 +765,9 @@ func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue,
 			return err
 		}
 
-		encVal, err := EncodeValue(rval.Value(), col.colType, col.MaxLen())
+		convertedValue := applyImplicitConversion(rval, col.colType)
+
+		encVal, err := EncodeValue(convertedValue, col.colType, col.MaxLen())
 		if err != nil {
 			return err
 		}

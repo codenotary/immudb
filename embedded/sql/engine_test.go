@@ -389,43 +389,51 @@ func TestFloatType(t *testing.T) {
 
 	t.Run("must insert float type", func(t *testing.T) {
 
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(100.100)", nil, nil)
-		require.NoError(t, err)
+		for _, d := range []struct {
+			valStr   string
+			valFloat float64
+		}{
+			{"0", 0},
+			{"-0", 0},
+			{"1", 1},
+			{"-1", -1.0},
+			{"100.100", 100.100},
+			{".7", .7},
+			{".543210", .543210},
+			{"105.7", 105.7},
+			{"00105.98988897", 00105.98988897},
+		} {
+			t.Run("Valid float: "+d.valStr, func(t *testing.T) {
 
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(.7)", nil, nil)
-		require.NoError(t, err)
+				_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES("+d.valStr+")", nil, nil)
+				require.NoError(t, err)
 
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(.543210)", nil, nil)
-		require.NoError(t, err)
+				r, err := engine.Query("SELECT ft FROM float_table ORDER BY id DESC LIMIT 1", nil, nil)
+				require.NoError(t, err)
+				defer r.Close()
 
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(105.7)", nil, nil)
-		require.NoError(t, err)
-
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(00105.98988897)", nil, nil)
-		require.NoError(t, err)
-
-		_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES(105.9898.8897)", nil, nil)
-		require.Error(t, err)
-
-		r, err := engine.Query("SELECT ft FROM float_table", nil, nil)
-		require.NoError(t, err)
-		defer r.Close()
-
-		fv := []float64{}
-		for i := 0; i < 5; i++ {
-			row, err := r.Read()
-			require.NoError(t, err)
-			require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-
-			fv = append(fv, row.ValuesByPosition[0].Value().(float64))
+				row, err := r.Read()
+				require.NoError(t, err)
+				require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
+				require.Equal(t, d.valFloat, row.ValuesByPosition[0].Value())
+			})
 		}
-		require.Equal(t, []float64{100.100, .7, .543210, 105.7, 105.98988897}, fv)
+
+		for _, d := range []string{
+			"105.9898.8897",
+			"0..0",
+		} {
+			t.Run("Invalid float: "+d, func(t *testing.T) {
+				_, _, err = engine.Exec("INSERT INTO float_table(ft) VALUES("+d+")", nil, nil)
+				require.Error(t, err)
+			})
+		}
 	})
 
 	t.Run("must accept float as parameter", func(t *testing.T) {
 		_, _, err = engine.Exec(
 			"INSERT INTO float_table(ft) VALUES(@ft)", map[string]interface{}{
-				"ft": 0.4,
+				"ft": -0.4,
 			},
 			nil,
 		)
@@ -438,7 +446,7 @@ func TestFloatType(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.Equal(t, Float64Type, row.ValuesByPosition[0].Type())
-		require.Equal(t, 0.4, row.ValuesByPosition[0].Value())
+		require.Equal(t, -0.4, row.ValuesByPosition[0].Value())
 	})
 
 	t.Run("must correctly validate float equality", func(t *testing.T) {
