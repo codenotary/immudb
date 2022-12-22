@@ -485,6 +485,65 @@ func TestFloatType(t *testing.T) {
 		err = r.Close()
 		require.NoError(t, err)
 	})
+
+	t.Run("must correctly handle floating points in aggregate functions", func(t *testing.T) {
+		_, _, err := engine.Exec(`
+			CREATE TABLE aggregate_test(
+				id INTEGER AUTO_INCREMENT,
+				f FLOAT,
+				PRIMARY KEY(id)
+			)
+		`, nil, nil)
+		require.NoError(t, err)
+
+		aggregateFunctions := []struct {
+			fn     string
+			result float64
+		}{
+			{"MAX", 4.0},
+			{"MIN", -1.0},
+			{"SUM", 10.0},
+			{"AVG", 10.0 / 6.0},
+		}
+
+		// Empty table - this is a corner case that has to be checked too
+		for _, d := range aggregateFunctions {
+			t.Run(d.fn, func(t *testing.T) {
+				res, err := engine.Query("SELECT "+d.fn+"(f) FROM aggregate_test", nil, nil)
+				require.NoError(t, err)
+				defer res.Close()
+
+				row, err := res.Read()
+				require.NoError(t, err)
+
+				require.Len(t, row.ValuesByPosition, 1)
+				require.EqualValues(t, 0.0, row.ValuesByPosition[0].Value())
+			})
+		}
+
+		// Add some values
+		_, _, err = engine.Exec(`
+			INSERT INTO aggregate_test(f)
+			VALUES (2.0), (1.0), (4.0), (3.0), (-1.0), (1.0)
+		`, nil, nil)
+		require.NoError(t, err)
+
+		for _, d := range aggregateFunctions {
+			t.Run(fmt.Sprintf("%+v", d), func(t *testing.T) {
+
+				res, err := engine.Query("SELECT "+d.fn+"(f) FROM aggregate_test", nil, nil)
+				require.NoError(t, err)
+				defer res.Close()
+
+				row, err := res.Read()
+				require.NoError(t, err)
+
+				require.Len(t, row.ValuesByPosition, 1)
+				require.EqualValues(t, d.result, row.ValuesByPosition[0].Value())
+			})
+		}
+
+	})
 }
 
 func TestFloatIndex(t *testing.T) {
@@ -3418,7 +3477,15 @@ func TestQueryWithInClause(t *testing.T) {
 func TestAggregations(t *testing.T) {
 	engine := setupCommonTest(t)
 
-	_, _, err := engine.Exec("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, nil)
+	_, _, err := engine.Exec(`
+		CREATE TABLE table1 (
+			id INTEGER,
+			title VARCHAR,
+			age INTEGER,
+			active BOOLEAN,
+			payload BLOB,
+			PRIMARY KEY(id)
+		)`, nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = engine.Exec("CREATE INDEX ON table1(age)", nil, nil)
@@ -3427,11 +3494,25 @@ func TestAggregations(t *testing.T) {
 	rowCount := 10
 	base := 30
 
+	nullRows := map[int]bool{
+		3: true,
+		5: true,
+		6: true,
+	}
+
+	ageSum := 0
+
 	for i := 1; i <= rowCount; i++ {
 		params := make(map[string]interface{}, 3)
+
 		params["id"] = i
 		params["title"] = fmt.Sprintf("title%d", i)
-		params["age"] = base + i
+		if _, setToNull := nullRows[i]; setToNull {
+			params["age"] = nil
+		} else {
+			params["age"] = base + i
+			ageSum += base + i
+		}
 
 		_, _, err = engine.Exec("INSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, nil)
 		require.NoError(t, err)
@@ -3486,13 +3567,13 @@ func TestAggregations(t *testing.T) {
 
 	require.Equal(t, int64(rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "c")].Value())
 
-	require.Equal(t, int64((1+2*base+rowCount)*rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].Value())
+	require.Equal(t, int64(ageSum), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col1")].Value())
 
 	require.Equal(t, int64(1+base), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col2")].Value())
 
 	require.Equal(t, int64(base+rowCount), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col3")].Value())
 
-	require.Equal(t, int64(base+rowCount/2), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].Value())
+	require.Equal(t, int64(ageSum/(rowCount-len(nullRows))), row.ValuesBySelector[EncodeSelector("", "db1", "t1", "col4")].Value())
 
 	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)

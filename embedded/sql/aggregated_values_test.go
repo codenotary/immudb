@@ -80,7 +80,10 @@ func TestCountValue(t *testing.T) {
 }
 
 func TestSumValue(t *testing.T) {
-	cval := &SumValue{sel: "db1.table1.amount"}
+	cval := &SumValue{
+		val: &Integer{},
+		sel: "db1.table1.amount",
+	}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
 	require.False(t, cval.IsNull())
@@ -91,14 +94,14 @@ func TestSumValue(t *testing.T) {
 	require.Equal(t, IntegerType, cval.Type())
 
 	_, err = cval.Compare(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrNotComparableValues)
 
 	cmp, err := cval.Compare(&Integer{val: 1})
 	require.NoError(t, err)
 	require.Equal(t, 0, cmp)
 
 	err = cval.updateWith(&Bool{val: true})
-	require.Equal(t, ErrNotComparableValues, err)
+	require.ErrorIs(t, err, ErrInvalidValue)
 
 	err = cval.updateWith(&Integer{val: 10})
 	require.NoError(t, err)
@@ -140,10 +143,13 @@ func TestSumValue(t *testing.T) {
 }
 
 func TestMinValue(t *testing.T) {
-	cval := &MinValue{sel: "db1.table1.amount"}
+	cval := &MinValue{
+		val: &NullValue{},
+		sel: "db1.table1.amount",
+	}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
-	require.False(t, cval.IsNull())
+	require.True(t, cval.IsNull())
 
 	_, err := cval.inferType(nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
@@ -206,10 +212,13 @@ func TestMinValue(t *testing.T) {
 }
 
 func TestMaxValue(t *testing.T) {
-	cval := &MaxValue{sel: "db1.table1.amount"}
+	cval := &MaxValue{
+		val: &NullValue{},
+		sel: "db1.table1.amount",
+	}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
-	require.False(t, cval.IsNull())
+	require.True(t, cval.IsNull())
 
 	_, err := cval.inferType(nil, nil, "db1", "table1")
 	require.ErrorIs(t, err, ErrUnexpected)
@@ -272,7 +281,10 @@ func TestMaxValue(t *testing.T) {
 }
 
 func TestAVGValue(t *testing.T) {
-	cval := &AVGValue{sel: "db1.table1.amount"}
+	cval := &AVGValue{
+		s:   &Integer{},
+		sel: "db1.table1.amount",
+	}
 	require.Equal(t, "db1.table1.amount", cval.Selector())
 	require.True(t, cval.ColBounded())
 	require.False(t, cval.IsNull())
