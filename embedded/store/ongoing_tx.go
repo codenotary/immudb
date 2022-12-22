@@ -35,6 +35,7 @@ type OngoingTx struct {
 
 	preconditions []Precondition
 
+	//MVCC
 	expectedGets           []expectedGet
 	expectedGetsWithPrefix []expectedGetWithPrefix
 	expectedReaders        []*expectedReader
@@ -437,7 +438,7 @@ func (tx *OngoingTx) checkPreconditions(st *ImmuStore) error {
 	}
 
 	for _, e := range tx.expectedGetsWithPrefix {
-		key, valRef, err := snap.GetWithPrefix(e.prefix, e.neq)
+		key, valRef, err := snap.GetWithPrefixAndFilters(e.prefix, e.neq, e.filters...)
 		if errors.Is(err, ErrKeyNotFound) {
 			if e.expectedTx > 0 {
 				return ErrTxReadConflict
