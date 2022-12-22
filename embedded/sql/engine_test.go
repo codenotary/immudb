@@ -2042,32 +2042,60 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id / 0", nil, nil)
-	require.NoError(t, err)
+	t.Run("Query with integer division by zero", func(t *testing.T) {
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE id / 0", nil, nil)
+		require.NoError(t, err)
 
-	_, err = r.Read()
-	require.ErrorIs(t, err, ErrDivisionByZero)
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrDivisionByZero)
 
-	err = r.Close()
-	require.NoError(t, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
-	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil, nil)
-	require.NoError(t, err)
+	t.Run("Query with floating-point division by zero", func(t *testing.T) {
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE id / (1.0-1.0)", nil, nil)
+		require.NoError(t, err)
 
-	_, err = r.Read()
-	require.NoError(t, err)
+		_, err = r.Read()
+		require.ErrorIs(t, err, ErrDivisionByZero)
 
-	err = r.Close()
-	require.NoError(t, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
-	r, err = engine.Query("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil, nil)
-	require.NoError(t, err)
+	t.Run("Query with integer arithmetics", func(t *testing.T) {
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil, nil)
+		require.NoError(t, err)
 
-	_, err = r.Read()
-	require.NoError(t, err)
+		_, err = r.Read()
+		require.NoError(t, err)
 
-	err = r.Close()
-	require.NoError(t, err)
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("Query with floating-point arithmetic", func(t *testing.T) {
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE id + 1.0/1.0 > 1.0 * (1.0 - 0.0)", nil, nil)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.NoError(t, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("Query with boolean expressions", func(t *testing.T) {
+		r, err := engine.Query("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil, nil)
+		require.NoError(t, err)
+
+		_, err = r.Read()
+		require.NoError(t, err)
+
+		err = r.Close()
+		require.NoError(t, err)
+	})
 
 	r, err = engine.Query("INVALID QUERY", nil, nil)
 	require.ErrorIs(t, err, ErrParsingError)

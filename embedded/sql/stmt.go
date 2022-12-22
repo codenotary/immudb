@@ -2951,40 +2951,7 @@ func (bexp *NumExp) reduce(tx *SQLTx, row *Row, implicitDB, implicitTable string
 		return nil, err
 	}
 
-	nl, isNumber := vl.Value().(int64)
-	if !isNumber {
-		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
-	}
-
-	nr, isNumber := vr.Value().(int64)
-	if !isNumber {
-		return nil, fmt.Errorf("%w (expecting numeric value)", ErrInvalidValue)
-	}
-
-	switch bexp.op {
-	case ADDOP:
-		{
-			return &Integer{val: nl + nr}, nil
-		}
-	case SUBSOP:
-		{
-			return &Integer{val: nl - nr}, nil
-		}
-	case DIVOP:
-		{
-			if nr == 0 {
-				return nil, ErrDivisionByZero
-			}
-
-			return &Integer{val: nl / nr}, nil
-		}
-	case MULTOP:
-		{
-			return &Integer{val: nl * nr}, nil
-		}
-	}
-
-	return nil, ErrUnexpected
+	return applyNumOperator(bexp.op, vl, vr)
 }
 
 func (bexp *NumExp) reduceSelectors(row *Row, implicitDB, implicitTable string) ValueExp {
