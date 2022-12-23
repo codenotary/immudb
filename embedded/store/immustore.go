@@ -805,8 +805,21 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	}, nil
 }
 
-func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
-	snap, err := s.indexer.SnapshotSince(tx)
+func (s *ImmuStore) SnapshotRenewIfOlderThanTs(tx uint64) (*Snapshot, error) {
+	snap, err := s.indexer.SnapshotRenewIfOlderThanTs(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Snapshot{
+		st:   s,
+		snap: snap,
+		ts:   time.Now(),
+	}, nil
+}
+
+func (s *ImmuStore) SnapshotRenewIfOlderThan(snapshotNotOlderThanTx uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
+	snap, err := s.indexer.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, snapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -1098,11 +1111,11 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 }
 
 func (s *ImmuStore) NewWriteOnlyTx() (*OngoingTx, error) {
-	return newWriteOnlyTx(s)
+	return newOngoingTx(s, &TxOptions{Mode: WriteOnlyTx})
 }
 
-func (s *ImmuStore) NewTx() (*OngoingTx, error) {
-	return newReadWriteTx(s)
+func (s *ImmuStore) NewTx(opts *TxOptions) (*OngoingTx, error) {
+	return newOngoingTx(s, opts)
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {

@@ -27,8 +27,9 @@ import (
 // OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
 // The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
-	st   *ImmuStore
-	snap *Snapshot
+	st       *ImmuStore
+	snap     *Snapshot
+	readOnly bool
 
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
@@ -68,32 +69,46 @@ type EntrySpec struct {
 	Value    []byte
 }
 
-func newWriteOnlyTx(s *ImmuStore) (*OngoingTx, error) {
-	return &OngoingTx{
-		st:           s,
-		entriesByKey: make(map[[sha256.Size]byte]int),
-		ts:           time.Now(),
-	}, nil
-}
+func newOngoingTx(s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
+	}
 
-func newReadWriteTx(s *ImmuStore) (*OngoingTx, error) {
 	tx := &OngoingTx{
 		st:           s,
 		entriesByKey: make(map[[sha256.Size]byte]int),
 		ts:           time.Now(),
 	}
 
-	precommittedTxID := s.lastPrecommittedTxID()
+	if opts.Mode == WriteOnlyTx {
+		return tx, nil
+	}
 
-	err := s.WaitForIndexingUpto(precommittedTxID, nil)
+	tx.readOnly = opts.Mode == ReadOnlyTx
+
+	var snapshotNotOlderThanTx uint64
+
+	if opts.SnapshotNotOlderThanTx != nil {
+		lastPrecommittedTxID := s.lastPrecommittedTxID()
+		snapshotNotOlderThanTx = opts.SnapshotNotOlderThanTx(lastPrecommittedTxID)
+
+		if snapshotNotOlderThanTx > lastPrecommittedTxID {
+			return nil, fmt.Errorf("%w: snapshotNotOlderThanTx is greater than the last precommitted transaction", ErrIllegalArguments)
+		}
+
+		err := s.WaitForIndexingUpto(snapshotNotOlderThanTx, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	snap, err := s.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, opts.SnapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
 
-	tx.snap, err = s.SnapshotSince(precommittedTxID)
-	if err != nil {
-		return nil, err
-	}
+	tx.snap = snap
 
 	// using an "interceptor" to construct the valueRef from current entries
 	// so to avoid storing more data into the snapshot
