@@ -1673,10 +1673,14 @@ func (t *TBtree) SyncSnapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
-	return t.SnapshotSince(0)
+	return t.SnapshotRenewIfOlderThanTs(0)
 }
 
-func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
+func (t *TBtree) SnapshotRenewIfOlderThanTs(snapshotNotOlderThanTx uint64) (*Snapshot, error) {
+	return t.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, t.renewSnapRootAfter)
+}
+
+func (t *TBtree) SnapshotRenewIfOlderThan(snapshotNotOlderThanTs uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -1688,8 +1692,8 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
-		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
+	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < snapshotNotOlderThanTs ||
+		(snapshotRenewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= snapshotRenewalPeriod) {
 
 		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "SnapshotSince")
 		if err != nil {
