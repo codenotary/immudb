@@ -16,7 +16,13 @@ limitations under the License.
 
 package sql
 
-var defultDistinctLimit = 1 << 20 // ~ 1mi rows
+import (
+	"fmt"
+
+	"github.com/codenotary/immudb/embedded/store"
+)
+
+var defaultDistinctLimit = 1 << 20 // ~ 1mi rows
 
 type Options struct {
 	prefix        []byte
@@ -26,12 +32,20 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		distinctLimit: defultDistinctLimit,
+		distinctLimit: defaultDistinctLimit,
 	}
 }
 
-func ValidOpts(opts *Options) bool {
-	return opts != nil && opts.distinctLimit > 0
+func (opts *Options) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("%w: nil options", store.ErrInvalidOptions)
+	}
+
+	if opts.distinctLimit <= 0 {
+		return fmt.Errorf("%w: invalid DistinctLimit value", store.ErrInvalidOptions)
+	}
+
+	return nil
 }
 
 func (opts *Options) WithPrefix(prefix []byte) *Options {
