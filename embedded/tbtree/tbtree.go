@@ -1692,16 +1692,30 @@ func (t *TBtree) SnapshotRenewIfOlderThan(snapshotNotOlderThanTs uint64, snapsho
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < snapshotNotOlderThanTs ||
-		(snapshotRenewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= snapshotRenewalPeriod) {
+	if t.root.mutated() {
+		// it means the current root is not stored on disk
 
-		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "SnapshotSince")
-		if err != nil {
-			return nil, err
+		var snapshotRenewalNeeded bool
+
+		if t.lastSnapRoot == nil {
+			snapshotRenewalNeeded = true
+		} else if t.lastSnapRoot.ts() < t.root.ts() {
+			snapshotRenewalNeeded = t.lastSnapRoot.ts() < snapshotNotOlderThanTs ||
+				(snapshotRenewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= snapshotRenewalPeriod)
+		}
+
+		if snapshotRenewalNeeded {
+			// a new snapshot is dumped on disk including current root
+			_, _, err := t.flushTree(t.cleanupPercentage, false, false, "SnapshotSince")
+			if err != nil {
+				return nil, err
+			}
+			// !t.root.mutated() hold as this point
 		}
 	}
 
 	if !t.root.mutated() {
+		// either if the root was not updated or if it was dumped as part of a snapshot renewal
 		t.lastSnapRoot = t.root
 		t.lastSnapRootAt = time.Now()
 	}
