@@ -57,7 +57,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		limit = d.maxResultSize
 	}
 
-	snap, err := d.st.SnapshotSince(waitUntilTx)
+	snap, err := d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}

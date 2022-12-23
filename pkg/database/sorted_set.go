@@ -132,7 +132,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		}
 	}
 
-	snap, err := d.st.SnapshotSince(waitUntilTx)
+	snap, err := d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}
