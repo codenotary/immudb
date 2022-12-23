@@ -29,7 +29,7 @@ import (
 type OngoingTx struct {
 	st       *ImmuStore
 	snap     *Snapshot
-	readOnly bool
+	readOnly bool // MVCC validations are not needed for read-only transactions
 
 	entries      []*EntrySpec
 	entriesByKey map[[sha256.Size]byte]int
@@ -160,6 +160,10 @@ func (tx *OngoingTx) IsWriteOnly() bool {
 	return tx.snap == nil
 }
 
+func (tx *OngoingTx) IsReadOnly() bool {
+	return tx.readOnly
+}
+
 func (tx *OngoingTx) WithMetadata(md *TxMetadata) *OngoingTx {
 	tx.metadata = md
 	return nil
@@ -176,6 +180,10 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	if tx.closed {
 		return ErrAlreadyClosed
+	}
+
+	if tx.readOnly {
+		return ErrReadOnlyTx
 	}
 
 	if len(key) == 0 {
@@ -247,6 +255,14 @@ func (tx *OngoingTx) mvccReadSetLimitReached() bool {
 }
 
 func (tx *OngoingTx) Delete(key []byte) error {
+	if tx.closed {
+		return ErrAlreadyClosed
+	}
+
+	if tx.readOnly {
+		return ErrReadOnlyTx
+	}
+
 	valRef, err := tx.Get(key)
 	if err != nil {
 		return err
@@ -277,7 +293,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 	}
 
 	valRef, err := tx.snap.GetWithFilters(key, filters...)
-	if errors.Is(err, ErrKeyNotFound) {
+	if !tx.readOnly && errors.Is(err, ErrKeyNotFound) {
 		expectedGet := expectedGet{
 			key:     cp(key),
 			filters: filters,
@@ -294,7 +310,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 		return nil, err
 	}
 
-	if valRef.Tx() > 0 {
+	if !tx.readOnly && valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGet := expectedGet{
 			key:        cp(key),
@@ -327,7 +343,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 	}
 
 	key, valRef, err = tx.snap.GetWithPrefixAndFilters(prefix, neq, filters...)
-	if errors.Is(err, ErrKeyNotFound) {
+	if !tx.readOnly && errors.Is(err, ErrKeyNotFound) {
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:  cp(prefix),
 			neq:     cp(neq),
@@ -345,7 +361,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 		return nil, nil, err
 	}
 
-	if valRef.Tx() > 0 {
+	if !tx.readOnly && valRef.Tx() > 0 {
 		// it only requires validation when the entry was pre-existent to ongoing tx
 		expectedGetWithPrefix := expectedGetWithPrefix{
 			prefix:      cp(prefix),
@@ -375,6 +391,10 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 		return nil, ErrWriteOnlyTx
 	}
 
+	if tx.readOnly {
+		return tx.snap.NewKeyReader(spec)
+	}
+
 	return newOngoingTxKeyReader(tx, spec)
 }
 
@@ -389,6 +409,10 @@ func (tx *OngoingTx) AsyncCommit() (*TxHeader, error) {
 func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 	if tx.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	if tx.readOnly {
+		return nil, ErrReadOnlyTx
 	}
 
 	if !tx.IsWriteOnly() {

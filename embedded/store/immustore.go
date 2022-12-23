@@ -50,6 +50,7 @@ var ErrAlreadyClosed = embedded.ErrAlreadyClosed
 var ErrUnexpectedLinkingError = errors.New("internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrWriteOnlyTx = errors.New("write-only transaction")
+var ErrReadOnlyTx = errors.New("read-only transaction")
 var ErrTxReadConflict = errors.New("tx read conflict")
 var ErrTxAlreadyCommitted = errors.New("tx already committed")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
