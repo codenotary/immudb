@@ -61,7 +61,7 @@ func TestClosedIndexerFailures(t *testing.T) {
 	require.Zero(t, snap)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	snap, err = indexer.SnapshotSince(0)
+	snap, err = indexer.SnapshotRenewIfOlderThanTs(0)
 	require.Zero(t, snap)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
@@ -185,7 +185,7 @@ func TestClosedIndexer(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
-	_, err = i.SnapshotSince(0)
+	_, err = i.SnapshotRenewIfOlderThanTs(0)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAlreadyClosed)
 
