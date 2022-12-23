@@ -542,7 +542,12 @@ func TestFloatType(t *testing.T) {
 				require.EqualValues(t, d.result, row.ValuesByPosition[0].Value())
 			})
 		}
+	})
 
+	t.Run("correctly infer fliating-point parameter", func(t *testing.T) {
+		params, err := engine.InferParameters("SELECT * FROM float_table WHERE ft = @fparam", nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]SQLValueType{"fparam": Float64Type}, params)
 	})
 }
 
@@ -4422,6 +4427,126 @@ func TestInferParametersInvalidCases(t *testing.T) {
 
 	_, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@param1, @param1); COMMIT;", nil)
 	require.Equal(t, ErrInferredMultipleTypes, err)
+}
+
+func TestInferParametersNumExp(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(`
+		CREATE TABLE mytable(
+			id INTEGER,
+			title VARCHAR,
+			active BOOLEAN,
+			price FLOAT,
+			PRIMARY KEY id
+		)`, nil, nil)
+	require.NoError(t, err)
+
+	type pmap = map[string]SQLValueType
+
+	for _, d := range []struct {
+		stmt string
+		err  error
+		res  pmap
+	}{
+		// Floating-point
+		{
+			stmt: "SELECT * FROM mytable WHERE price = 1.0 + @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = 1 + @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = 1 + (2 * @p)",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE 1 + (2 * @p) = price",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = @p1 + @p2",
+			res:  pmap{"p1": Float64Type, "p2": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = 1 + 2 + 3 + 4 + @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = true + @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = (1 - 5 * true) / (3 + @p)",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price+price = @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE price = @p + @p",
+			res:  pmap{"p": Float64Type},
+		},
+		// Integer
+		{
+			stmt: "SELECT * FROM mytable WHERE id = 1.0 + @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = 1 + @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = 1 + (2 * @p)",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE 1 + (2 * @p) = id",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = @p1 + @p2",
+			res:  pmap{"p1": IntegerType, "p2": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = 1 + 2 + 3 + 4 + @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = true + @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = (1 - 5 * true) / (3 + @p)",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id+id = @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id = @p + @p",
+			res:  pmap{"p": IntegerType},
+		},
+		// Mixed float/int
+		{
+			stmt: "SELECT * FROM mytable WHERE id+price = @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE id*2+2*price = @p",
+			res:  pmap{"p": Float64Type},
+		},
+	} {
+		t.Run(d.stmt, func(t *testing.T) {
+			params, err := engine.InferParameters(d.stmt, nil)
+			require.ErrorIs(t, err, d.err)
+			require.Equal(t, d.res, params)
+		})
+	}
 }
 
 func TestDecodeValueFailures(t *testing.T) {

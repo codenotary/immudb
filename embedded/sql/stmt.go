@@ -1861,7 +1861,7 @@ func (v *FnCall) inferType(cols map[string]ColDescriptor, params map[string]SQLV
 		return TimestampType, nil
 	}
 
-	return AnyType, fmt.Errorf("%w: unkown function %s", ErrIllegalArguments, v.fn)
+	return AnyType, fmt.Errorf("%w: unknown function %s", ErrIllegalArguments, v.fn)
 }
 
 func (v *FnCall) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
@@ -2892,32 +2892,85 @@ type NumExp struct {
 }
 
 func (bexp *NumExp) inferType(cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) (SQLValueType, error) {
-	err := bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	// First step - check if we can infer the type of sub-expressions
+	tleft, err := bexp.left.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
+	if tleft != AnyType && tleft != IntegerType && tleft != Float64Type {
+		return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, tleft)
+	}
 
-	err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	tright, err := bexp.right.inferType(cols, params, implicitDB, implicitTable)
 	if err != nil {
 		return AnyType, err
 	}
+	if tright != AnyType && tright != IntegerType && tright != Float64Type {
+		return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, tright)
+	}
 
-	return IntegerType, nil
+	if tleft == IntegerType && tright == IntegerType {
+		// Both sides are integer types - the result is also integer
+		return IntegerType, nil
+	}
+
+	if tleft != AnyType && tright != AnyType {
+		// Both sides have concrete types but at least one of them is float
+		return Float64Type, nil
+	}
+
+	// Both sides are ambiguous
+	return AnyType, nil
+}
+
+func copyParams(params map[string]SQLValueType) map[string]SQLValueType {
+	ret := make(map[string]SQLValueType, len(params))
+	for k, v := range params {
+		ret[k] = v
+	}
+	return ret
+}
+
+func restoreParams(params, restore map[string]SQLValueType) {
+	for k := range params {
+		delete(params, k)
+	}
+	for k, v := range restore {
+		params[k] = v
+	}
 }
 
 func (bexp *NumExp) requiresType(t SQLValueType, cols map[string]ColDescriptor, params map[string]SQLValueType, implicitDB, implicitTable string) error {
-	if t != IntegerType {
+	if t != IntegerType && t != Float64Type {
 		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
-	err := bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	floatArgs := 2
+	paramsOrig := copyParams(params)
+	err := bexp.left.requiresType(t, cols, params, implicitDB, implicitTable)
+	if err != nil && t == Float64Type {
+		restoreParams(params, paramsOrig)
+		floatArgs--
+		err = bexp.left.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	}
 	if err != nil {
 		return err
 	}
 
-	err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	paramsOrig = copyParams(params)
+	err = bexp.right.requiresType(t, cols, params, implicitDB, implicitTable)
+	if err != nil && t == Float64Type {
+		restoreParams(params, paramsOrig)
+		floatArgs--
+		err = bexp.right.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+	}
 	if err != nil {
 		return err
+	}
+
+	if t == Float64Type && floatArgs == 0 {
+		// Currently this case requires explicit float cast
+		return fmt.Errorf("%w: %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, t)
 	}
 
 	return nil
