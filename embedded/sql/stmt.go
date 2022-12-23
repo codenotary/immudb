@@ -2830,12 +2830,17 @@ func (sel *AggColSelector) inferType(cols map[string]ColDescriptor, params map[s
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}
 
 	if sel.aggFn == SUM || sel.aggFn == AVG {
-		err := colSelector.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+		t, err := colSelector.inferType(cols, params, implicitDB, implicitTable)
 		if err != nil {
 			return AnyType, err
 		}
 
-		return IntegerType, nil
+		if t != IntegerType && t != Float64Type {
+			return AnyType, fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, t)
+
+		}
+
+		return t, nil
 	}
 
 	return colSelector.inferType(cols, params, implicitDB, implicitTable)
@@ -2852,7 +2857,9 @@ func (sel *AggColSelector) requiresType(t SQLValueType, cols map[string]ColDescr
 	colSelector := &ColSelector{db: sel.db, table: sel.table, col: sel.col}
 
 	if sel.aggFn == SUM || sel.aggFn == AVG {
-		return colSelector.requiresType(IntegerType, cols, params, implicitDB, implicitTable)
+		if t != IntegerType && t != Float64Type {
+			return fmt.Errorf("%w: %v or %v can not be interpreted as type %v", ErrInvalidTypes, IntegerType, Float64Type, t)
+		}
 	}
 
 	return colSelector.requiresType(t, cols, params, implicitDB, implicitTable)

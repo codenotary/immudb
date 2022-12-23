@@ -151,6 +151,15 @@ func TestRequiresTypeColSelectorsValueExp(t *testing.T) {
 			implicitDB:    "db1",
 			implicitTable: "mytable",
 			requiredType:  Float64Type,
+			expectedError: nil,
+		},
+		{
+			exp:           &AggColSelector{aggFn: "SUM", db: "db1", table: "mytable", col: "ft"},
+			cols:          cols,
+			params:        params,
+			implicitDB:    "db1",
+			implicitTable: "mytable",
+			requiredType:  BooleanType,
 			expectedError: ErrInvalidTypes,
 		},
 	}

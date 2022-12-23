@@ -4411,10 +4411,10 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1, @param1)", nil)
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
 
 	_, err = engine.InferParameters("INSERT INTO mytable(id, title) VALUES (@param1)", nil)
-	require.Equal(t, ErrInvalidNumberOfValues, err)
+	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
 	_, err = engine.InferParameters("INSERT INTO mytable1(id, title) VALUES (@param1, @param2)", nil)
 	require.ErrorIs(t, err, ErrTableDoesNotExist)
@@ -4423,10 +4423,16 @@ func TestInferParametersInvalidCases(t *testing.T) {
 	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 
 	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > @param1 AND (@param1 OR active)", nil)
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
 
 	_, err = engine.InferParameters("BEGIN TRANSACTION; INSERT INTO mytable(id, title) VALUES (@param1, @param1); COMMIT;", nil)
-	require.Equal(t, ErrInferredMultipleTypes, err)
+	require.ErrorIs(t, err, ErrInferredMultipleTypes)
+
+	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > INVALID_FUNCTION()", nil)
+	require.ErrorIs(t, err, ErrIllegalArguments)
+
+	_, err = engine.InferParameters("SELECT * FROM mytable WHERE id > CAST(wrong_column_name AS INTEGER)", nil)
+	require.ErrorIs(t, err, ErrColumnDoesNotExist)
 }
 
 func TestInferParametersNumExp(t *testing.T) {
@@ -4539,6 +4545,174 @@ func TestInferParametersNumExp(t *testing.T) {
 		{
 			stmt: "SELECT * FROM mytable WHERE id*2+2*price = @p",
 			res:  pmap{"p": Float64Type},
+		},
+	} {
+		t.Run(d.stmt, func(t *testing.T) {
+			params, err := engine.InferParameters(d.stmt, nil)
+			require.ErrorIs(t, err, d.err)
+			require.Equal(t, d.res, params)
+		})
+	}
+}
+
+func TestInferParametersAggregateFunctions(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(`
+		CREATE TABLE mytable(
+			id INTEGER,
+			title VARCHAR,
+			active BOOLEAN,
+			price FLOAT,
+			data BLOB,
+			created TIMESTAMP,
+			PRIMARY KEY id
+		)`, nil, nil)
+	require.NoError(t, err)
+
+	type pmap = map[string]SQLValueType
+
+	for _, d := range []struct {
+		stmt string
+		err  error
+		res  pmap
+	}{
+		// Integer
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(id) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(id) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(id) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(id) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(id) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// Float
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(price) > @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(price) > @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(price) > @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(price) > @p",
+			res:  pmap{"p": Float64Type},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(price) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// Bool
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(active) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(active) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(active) > @p",
+			res:  pmap{"p": BooleanType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(active) > @p",
+			res:  pmap{"p": BooleanType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(active) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// varchar
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(title) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(title) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(title) > @p",
+			res:  pmap{"p": VarcharType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(title) > @p",
+			res:  pmap{"p": VarcharType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(title) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// blob
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(data) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(data) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(data) > @p",
+			res:  pmap{"p": BLOBType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(data) > @p",
+			res:  pmap{"p": BLOBType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(data) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// timestamp
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(created) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE SUM(created) > @p",
+			err:  ErrInvalidTypes,
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MIN(created) > @p",
+			res:  pmap{"p": TimestampType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE MAX(created) > @p",
+			res:  pmap{"p": TimestampType},
+		},
+		{
+			stmt: "SELECT * FROM mytable WHERE COUNT(created) > @p",
+			res:  pmap{"p": IntegerType},
+		},
+
+		// errors
+		{
+			stmt: "SELECT * FROM mytable WHERE AVG(column_that_nobody_has_seen) > @p",
+			err:  ErrColumnDoesNotExist,
 		},
 	} {
 		t.Run(d.stmt, func(t *testing.T) {
