@@ -23,16 +23,18 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	opts := &Options{}
+	var opts *Options
 
-	require.False(t, ValidOpts(nil))
-	require.False(t, ValidOpts(opts))
+	require.Error(t, opts.Validate())
+
+	opts = &Options{}
+	require.Error(t, opts.Validate())
 
 	opts.WithDistinctLimit(0)
-	require.False(t, ValidOpts(opts))
+	require.Error(t, opts.Validate())
 
-	opts.WithDistinctLimit(defultDistinctLimit)
-	require.Equal(t, defultDistinctLimit, opts.distinctLimit)
+	opts.WithDistinctLimit(defaultDistinctLimit)
+	require.Equal(t, defaultDistinctLimit, opts.distinctLimit)
 
 	opts.WithPrefix([]byte("sqlPrefix"))
 	require.Equal(t, []byte("sqlPrefix"), opts.prefix)
@@ -40,5 +42,5 @@ func TestOptions(t *testing.T) {
 	opts.WithAutocommit(true)
 	require.True(t, opts.autocommit)
 
-	require.True(t, ValidOpts(opts))
+	require.NoError(t, opts.Validate())
 }

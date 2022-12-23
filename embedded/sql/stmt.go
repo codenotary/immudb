@@ -150,7 +150,7 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 		return nil, err
 	}
 
-	ntx, err := tx.engine.NewTx(tx.ctx)
+	ntx, err := tx.engine.NewTx(tx.ctx, tx.opts)
 	if err != nil {
 		return nil, err
 	}

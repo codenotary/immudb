@@ -1843,7 +1843,7 @@ func TestQueryCornerCases(t *testing.T) {
 	t.Run("run out of snapshots", func(t *testing.T) {
 
 		// Get one tx that takes the snapshot
-		tx, err := engine.NewTx(context.Background())
+		tx, err := engine.NewTx(context.Background(), DefaultTxOptions())
 		require.NoError(t, err)
 
 		res, err = engine.Query("SELECT * FROM table1", nil, nil)
