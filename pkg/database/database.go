@@ -871,7 +871,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 		return nil, err
 	}
 
-	tx, err := d.st.NewTx()
+	tx, err := d.st.NewTx(store.DefaultTxOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -925,7 +925,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 		return nil, err
 	}
 
-	snapshot, err := d.st.SnapshotSince(waitUntilTx)
+	snapshot, err := d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,7 +1013,7 @@ func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
 		}
 	}
 
-	return d.st.SnapshotSince(waitUntilTx)
+	return d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
 }
 
 func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
