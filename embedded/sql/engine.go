@@ -111,7 +111,7 @@ type MultiDBHandler interface {
 	ListDatabases(ctx context.Context) ([]string, error)
 	CreateDatabase(ctx context.Context, db string, ifNotExists bool) error
 	UseDatabase(ctx context.Context, db string) error
-	ExecPreparedStmts(ctx context.Context, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
+	ExecPreparedStmts(ctx context.Context, opts *TxOptions, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error)
 }
 
 func NewEngine(store *store.ImmuStore, opts *Options) (*Engine, error) {
@@ -179,10 +179,17 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 		return nil, err
 	}
 
+	var mode store.TxMode
+	if opts.ReadOnly {
+		mode = store.ReadOnlyTx
+	} else {
+		mode = store.ReadWriteTx
+	}
+
 	txOpts := &store.TxOptions{
-		Mode:                   store.TxMode(opts.Mode),
-		SnapshotNotOlderThanTx: opts.SnapshotNotOlderThanTx,
-		SnapshotRenewalPeriod:  opts.SnapshotRenewalPeriod,
+		Mode:                    mode,
+		SnapshotMustIncludeTxID: opts.SnapshotMustIncludeTxID,
+		SnapshotRenewalPeriod:   opts.SnapshotRenewalPeriod,
 	}
 
 	e.mutex.RLock()
@@ -246,14 +253,17 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		var ctx context.Context
+		var opts *TxOptions
 
 		if tx != nil {
 			ctx = tx.ctx
+			opts = tx.opts
 		} else {
 			ctx = context.Background()
+			opts = DefaultTxOptions()
 		}
 
-		ntx, hctxs, err := e.multidbHandler.ExecPreparedStmts(ctx, pendingStmts, params)
+		ntx, hctxs, err := e.multidbHandler.ExecPreparedStmts(ctx, opts, pendingStmts, params)
 
 		return ntx, append(ctxs, hctxs...), err
 	}
