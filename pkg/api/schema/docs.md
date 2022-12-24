@@ -1122,6 +1122,8 @@ DEPRECATED
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | mode | [TxMode](#immudb.schema.TxMode) |  | Transaction mode |
+| snapshotMustIncludeTxID | [NullableUint64](#immudb.schema.NullableUint64) |  | An existing snapshot may be reused as long as it includes the specified transaction If not specified it will include up to the latest precommitted transaction |
+| snapshotRenewalPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | An existing snapshot may be reused as long as it is not older than the specified timeframe |
 
 
 
@@ -1612,7 +1614,7 @@ Only succeed if given key was not modified after given transaction
 | desc | [bool](#bool) |  | If set to true, sort items in descending order |
 | limit | [uint64](#uint64) |  | maximum number of entries to get, if not specified, the default value is used |
 | sinceTx | [uint64](#uint64) |  | If non-zero, only require transactions up to this transaction to be indexed, newer transaction may still be pending |
-| noWait | [bool](#bool) |  | If set to true, do not wait for indexing to be done before finishing this call |
+| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for indexing to be done before finishing this call |
 | inclusiveSeek | [bool](#bool) |  | If set to true, results will include seekKey |
 | inclusiveEnd | [bool](#bool) |  | If set to true, results will include endKey if needed |
 | offset | [uint64](#uint64) |  | Specify the initial entry to be returned by excluding the initial set of entries |
@@ -1822,7 +1824,7 @@ TxMetadata contains metadata set to whole transaction
 | tx | [uint64](#uint64) |  | Transaction id to query for |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification for parsing entries, if empty, entries are returned in raw form |
 | sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
-| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for the indexer to be up to date |
 | keepReferencesUnresolved | [bool](#bool) |  | If set to true, do not resolve references (avoid looking up final values if not needed) |
 
 
@@ -1843,7 +1845,7 @@ TxMetadata contains metadata set to whole transaction
 | desc | [bool](#bool) |  | If set to true, scan transactions in descending order |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification of how to parse entries |
 | sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
-| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for the indexer to be up to date |
 
 
 
@@ -2190,7 +2192,7 @@ Reserved to reply with more advanced response later
 | proveSinceTx | [uint64](#uint64) |  | When generating the proof, generate consistency proof with state from this transaction |
 | entriesSpec | [EntriesSpec](#immudb.schema.EntriesSpec) |  | Specification of how to parse entries |
 | sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed, will affect resolving references |
-| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for the indexer to be up to date |
 | keepReferencesUnresolved | [bool](#bool) |  | If set to true, do not resolve references (avoid looking up final values if not needed) |
 
 
@@ -2286,7 +2288,7 @@ Reserved to reply with more advanced response later
 | minScore | [Score](#immudb.schema.Score) |  | Minimum score of entries to scan |
 | maxScore | [Score](#immudb.schema.Score) |  | Maximum score of entries to scan |
 | sinceTx | [uint64](#uint64) |  | If &gt; 0, do not wait for the indexer to index all entries, only require entries up to sinceTx to be indexed |
-| noWait | [bool](#bool) |  | If set to true, do not wait for the indexer to be up to date |
+| noWait | [bool](#bool) |  | Deprecated: If set to true, do not wait for the indexer to be up to date |
 | offset | [uint64](#uint64) |  | Specify the index of initial entry to be returned by excluding the initial set of entries (alternative to seekXXX attributes) |
 
 
