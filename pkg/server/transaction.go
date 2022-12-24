@@ -18,8 +18,11 @@ package server
 
 import (
 	"context"
+	"time"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/server/sessions"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -32,12 +35,30 @@ func (s *ImmuServer) NewTx(ctx context.Context, request *schema.NewTxRequest) (*
 		return nil, ErrNotAllowedInMaintenanceMode
 	}
 
+	if request.Mode == schema.TxMode_WriteOnly {
+		// only in key-value mode, in sql we read catalog and write to it
+		return nil, sessions.ErrWriteOnlyTXNotAllowed
+	}
+
 	sess, err := s.SessManager.GetSessionFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	tx, err := sess.NewTransaction(ctx, request.Mode)
+	opts := sql.DefaultTxOptions().
+		WithReadOnly(request.Mode == schema.TxMode_ReadOnly)
+
+	if request.SnapshotMustIncludeTxID != nil {
+		opts.WithSnapshotMustIncludeTxID(func(_ uint64) uint64 {
+			return request.SnapshotMustIncludeTxID.GetValue()
+		})
+	}
+
+	if request.SnapshotRenewalPeriod != nil {
+		opts.WithSnapshotRenewalPeriod(time.Duration(request.SnapshotRenewalPeriod.GetValue()) * time.Millisecond)
+	}
+
+	tx, err := sess.NewTransaction(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +119,6 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 	tx, err := s.SessManager.GetTransactionFromContext(ctx)
 	if err != nil {
 		return new(empty.Empty), err
-	}
-
-	if tx.GetMode() != schema.TxMode_ReadWrite {
-		return new(empty.Empty), ErrReadWriteTxNotOngoing
 	}
 
 	res := tx.SQLExec(request)

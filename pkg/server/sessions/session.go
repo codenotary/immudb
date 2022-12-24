@@ -21,8 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/sql"
+
 	"github.com/codenotary/immudb/embedded/multierr"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -31,15 +32,14 @@ import (
 )
 
 type Session struct {
-	mux                sync.RWMutex
-	id                 string
-	user               *auth.User
-	database           database.DB
-	creationTime       time.Time
-	lastActivityTime   time.Time
-	readWriteTxOngoing bool
-	transactions       map[string]transactions.Transaction
-	log                logger.Logger
+	mux              sync.RWMutex
+	id               string
+	user             *auth.User
+	database         database.DB
+	creationTime     time.Time
+	lastActivityTime time.Time
+	transactions     map[string]transactions.Transaction
+	log              logger.Logger
 }
 
 func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Logger) *Session {
@@ -55,25 +55,11 @@ func NewSession(sessionID string, user *auth.User, db database.DB, log logger.Lo
 	}
 }
 
-func (s *Session) NewTransaction(ctx context.Context, mode schema.TxMode) (transactions.Transaction, error) {
+func (s *Session) NewTransaction(ctx context.Context, opts *sql.TxOptions) (transactions.Transaction, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if mode == schema.TxMode_WriteOnly {
-		// only in key-value mode, in sql we read catalog and write to it
-		return nil, ErrWriteOnlyTXNotAllowed
-	}
-	if mode == schema.TxMode_ReadOnly {
-		return nil, ErrReadOnlyTXNotAllowed
-	}
-	if mode == schema.TxMode_ReadWrite {
-		if s.readWriteTxOngoing {
-			return nil, ErrOngoingReadWriteTx
-		}
-		s.readWriteTxOngoing = true
-	}
-
-	tx, err := transactions.NewTransaction(ctx, mode, s.database, s.id)
+	tx, err := transactions.NewTransaction(ctx, opts, s.database, s.id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,10 +76,7 @@ func (s *Session) RemoveTransaction(transactionID string) error {
 
 // not thread safe
 func (s *Session) removeTransaction(transactionID string) error {
-	if tx, ok := s.transactions[transactionID]; ok {
-		if tx.GetMode() == schema.TxMode_ReadWrite {
-			s.readWriteTxOngoing = false
-		}
+	if _, ok := s.transactions[transactionID]; ok {
 		delete(s.transactions, transactionID)
 		return nil
 	}
@@ -209,16 +192,4 @@ func (s *Session) GetCreationTime() time.Time {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.creationTime
-}
-
-func (s *Session) GetReadWriteTxOngoing() bool {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.readWriteTxOngoing
-}
-
-func (s *Session) SetReadWriteTxOngoing(b bool) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.readWriteTxOngoing = b
 }
