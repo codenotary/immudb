@@ -1673,19 +1673,23 @@ func (t *TBtree) SyncSnapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
-	return t.SnapshotRenewIfOlderThanTs(0)
+	return t.SnapshotMustIncludeTs(0)
 }
 
-func (t *TBtree) SnapshotRenewIfOlderThanTs(snapshotNotOlderThanTx uint64) (*Snapshot, error) {
-	return t.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, t.renewSnapRootAfter)
+func (t *TBtree) SnapshotMustIncludeTs(snapshotMustIncludeTs uint64) (*Snapshot, error) {
+	return t.SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs, t.renewSnapRootAfter)
 }
 
-func (t *TBtree) SnapshotRenewIfOlderThan(snapshotNotOlderThanTs uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
+func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
 	if t.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	if snapshotMustIncludeTs > t.root.ts() {
+		return nil, fmt.Errorf("%w: snapshotMustIncludeTs is greater than current ts", ErrIllegalArguments)
 	}
 
 	if len(t.snapshots) == t.maxActiveSnapshots {
@@ -1700,7 +1704,7 @@ func (t *TBtree) SnapshotRenewIfOlderThan(snapshotNotOlderThanTs uint64, snapsho
 		if t.lastSnapRoot == nil {
 			snapshotRenewalNeeded = true
 		} else if t.lastSnapRoot.ts() < t.root.ts() {
-			snapshotRenewalNeeded = t.lastSnapRoot.ts() < snapshotNotOlderThanTs ||
+			snapshotRenewalNeeded = t.lastSnapRoot.ts() < snapshotMustIncludeTs ||
 				(snapshotRenewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= snapshotRenewalPeriod)
 		}
 

@@ -805,21 +805,21 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	}, nil
 }
 
-func (s *ImmuStore) SnapshotRenewIfOlderThanTs(tx uint64) (*Snapshot, error) {
-	snap, err := s.indexer.SnapshotRenewIfOlderThanTs(tx)
+func (s *ImmuStore) SnapshotMustIncludeTxID(snapshotMustIncludeTxID uint64) (*Snapshot, error) {
+	return s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, 0)
+}
+
+func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
+	if snapshotMustIncludeTxID > s.lastPrecommittedTxID() {
+		return nil, fmt.Errorf("%w: snapshotMustIncludeTxID is greater than the last precommitted transaction", ErrIllegalArguments)
+	}
+
+	err := s.WaitForIndexingUpto(snapshotMustIncludeTxID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Snapshot{
-		st:   s,
-		snap: snap,
-		ts:   time.Now(),
-	}, nil
-}
-
-func (s *ImmuStore) SnapshotRenewIfOlderThan(snapshotNotOlderThanTx uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
-	snap, err := s.indexer.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, snapshotRenewalPeriod)
+	snap, err := s.indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, snapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}

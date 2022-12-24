@@ -87,23 +87,13 @@ func newOngoingTx(s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
 
 	tx.readOnly = opts.Mode == ReadOnlyTx
 
-	var snapshotNotOlderThanTx uint64
+	var snapshotMustIncludeTxID uint64
 
-	if opts.SnapshotNotOlderThanTx != nil {
-		lastPrecommittedTxID := s.lastPrecommittedTxID()
-		snapshotNotOlderThanTx = opts.SnapshotNotOlderThanTx(lastPrecommittedTxID)
-
-		if snapshotNotOlderThanTx > lastPrecommittedTxID {
-			return nil, fmt.Errorf("%w: snapshotNotOlderThanTx is greater than the last precommitted transaction", ErrIllegalArguments)
-		}
-
-		err := s.WaitForIndexingUpto(snapshotNotOlderThanTx, nil)
-		if err != nil {
-			return nil, err
-		}
+	if opts.SnapshotMustIncludeTxID != nil {
+		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.lastPrecommittedTxID())
 	}
 
-	snap, err := s.SnapshotRenewIfOlderThan(snapshotNotOlderThanTx, opts.SnapshotRenewalPeriod)
+	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
