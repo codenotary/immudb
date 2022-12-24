@@ -30,14 +30,12 @@ type transaction struct {
 	mutex         sync.RWMutex
 	transactionID string
 	sqlTx         *sql.SQLTx
-	txMode        schema.TxMode
 	db            database.DB
 	sessionID     string
 }
 
 type Transaction interface {
 	GetID() string
-	GetMode() schema.TxMode
 	IsClosed() bool
 	Rollback() error
 	Commit() ([]*sql.SQLTx, error)
@@ -46,10 +44,10 @@ type Transaction interface {
 	SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 }
 
-func NewTransaction(ctx context.Context, mode schema.TxMode, db database.DB, sessionID string) (*transaction, error) {
+func NewTransaction(ctx context.Context, opts *sql.TxOptions, db database.DB, sessionID string) (*transaction, error) {
 	transactionID := xid.New().String()
 
-	tx, err := db.NewSQLTx(ctx)
+	tx, err := db.NewSQLTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +60,6 @@ func NewTransaction(ctx context.Context, mode schema.TxMode, db database.DB, ses
 	return &transaction{
 		sqlTx:         sqlTx,
 		transactionID: transactionID,
-		txMode:        mode,
 		db:            db,
 		sessionID:     sessionID,
 	}, nil
@@ -73,13 +70,6 @@ func (tx *transaction) GetID() string {
 	defer tx.mutex.RUnlock()
 
 	return tx.transactionID
-}
-
-func (tx *transaction) GetMode() schema.TxMode {
-	tx.mutex.RLock()
-	defer tx.mutex.RUnlock()
-
-	return tx.txMode
 }
 
 func (tx *transaction) IsClosed() bool {

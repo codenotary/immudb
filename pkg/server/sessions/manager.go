@@ -149,8 +149,6 @@ func (sm *manager) deleteSession(sessionID string) error {
 		return err
 	}
 
-	sess.SetReadWriteTxOngoing(false)
-
 	return nil
 }
 

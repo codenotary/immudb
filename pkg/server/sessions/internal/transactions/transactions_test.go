@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
@@ -37,7 +36,7 @@ func TestNewTx(t *testing.T) {
 	db, err := database.NewDB("db1", nil, database.DefaultOption().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
 	require.NoError(t, err)
 
-	tx, err := NewTransaction(context.Background(), schema.TxMode_ReadWrite, db, "session1")
+	tx, err := NewTransaction(context.Background(), sql.DefaultTxOptions(), db, "session1")
 	require.NoError(t, err)
 	require.NotNil(t, tx)
 

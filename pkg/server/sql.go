@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 )
@@ -65,7 +66,7 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 		return nil, err
 	}
 
-	tx, err := db.NewSQLTx(ctx)
+	tx, err := db.NewSQLTx(ctx, sql.DefaultTxOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) 
 		return nil, err
 	}
 
-	tx, err := db.NewSQLTx(ctx)
+	tx, err := db.NewSQLTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}

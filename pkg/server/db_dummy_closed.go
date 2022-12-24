@@ -144,7 +144,7 @@ func (db *closedDB) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) NewSQLTx(ctx context.Context) (*sql.SQLTx, error) {
+func (db *closedDB) NewSQLTx(ctx context.Context, _ *sql.TxOptions) (*sql.SQLTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
