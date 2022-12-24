@@ -30,15 +30,15 @@ const (
 )
 
 type TxOptions struct {
-	Mode                   TxMode
-	SnapshotNotOlderThanTx func(lastPrecommittedTxID uint64) uint64
-	SnapshotRenewalPeriod  time.Duration
+	Mode                    TxMode
+	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
+	SnapshotRenewalPeriod   time.Duration
 }
 
 func DefaultTxOptions() *TxOptions {
 	return &TxOptions{
 		Mode: ReadWriteTx,
-		SnapshotNotOlderThanTx: func(lastPrecommittedTxID uint64) uint64 {
+		SnapshotMustIncludeTxID: func(lastPrecommittedTxID uint64) uint64 {
 			return lastPrecommittedTxID
 		},
 	}
@@ -61,8 +61,8 @@ func (opts *TxOptions) WithMode(mode TxMode) *TxOptions {
 	return opts
 }
 
-func (opts *TxOptions) WithSnapshotNotOlderThanTx(snapshotNotOlderThanTx func(lastPrecommittedTxID uint64) uint64) *TxOptions {
-	opts.SnapshotNotOlderThanTx = snapshotNotOlderThanTx
+func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64) *TxOptions {
+	opts.SnapshotMustIncludeTxID = snapshotMustIncludeTxID
 	return opts
 }
 

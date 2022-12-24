@@ -898,7 +898,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 			for {
 				txID, _ := immuStore.CommittedAlh()
 
-				snap, err := immuStore.SnapshotRenewIfOlderThanTs(txID)
+				snap, err := immuStore.SnapshotMustIncludeTxID(txID)
 				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
