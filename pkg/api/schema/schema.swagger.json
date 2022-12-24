@@ -949,7 +949,7 @@
           },
           {
             "name": "noWait",
-            "description": "If set to true, do not wait for the indexer to be up to date.",
+            "description": "Deprecated: If set to true, do not wait for the indexer to be up to date.",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -1309,7 +1309,7 @@
           },
           {
             "name": "noWait",
-            "description": "If set to true, do not wait for the indexer to be up to date.",
+            "description": "Deprecated: If set to true, do not wait for the indexer to be up to date.",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -3225,7 +3225,7 @@
         },
         "noWait": {
           "type": "boolean",
-          "title": "If set to true, do not wait for indexing to be done before finishing this call"
+          "title": "Deprecated: If set to true, do not wait for indexing to be done before finishing this call"
         },
         "inclusiveSeek": {
           "type": "boolean",
@@ -3482,7 +3482,7 @@
         },
         "noWait": {
           "type": "boolean",
-          "title": "If set to true, do not wait for the indexer to be up to date"
+          "title": "Deprecated: If set to true, do not wait for the indexer to be up to date"
         }
       }
     },
@@ -3874,7 +3874,7 @@
         },
         "noWait": {
           "type": "boolean",
-          "title": "If set to true, do not wait for the indexer to be up to date"
+          "title": "Deprecated: If set to true, do not wait for the indexer to be up to date"
         },
         "offset": {
           "type": "string",

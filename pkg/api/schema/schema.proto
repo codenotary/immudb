@@ -306,7 +306,7 @@ message ScanRequest {
   // indexed, newer transaction may still be pending
   uint64 sinceTx = 5;
 
-  // If set to true, do not wait for indexing to be done before finishing this call
+  // Deprecated: If set to true, do not wait for indexing to be done before finishing this call
   bool noWait = 6;
 
   // If set to true, results will include seekKey
@@ -702,7 +702,7 @@ message ZScanRequest {
   // entries up to sinceTx to be indexed
   uint64 sinceTx = 10;
 
-  // If set to true, do not wait for the indexer to be up to date
+  // Deprecated: If set to true, do not wait for the indexer to be up to date
   bool noWait = 11;
 
   // Specify the index of initial entry to be returned by excluding the initial
@@ -747,7 +747,7 @@ message TxRequest {
   // entries up to sinceTx to be indexed, will affect resolving references
   uint64 sinceTx = 3;
 
-  // If set to true, do not wait for the indexer to be up to date
+  // Deprecated: If set to true, do not wait for the indexer to be up to date
   bool noWait = 4;
 
   // If set to true, do not resolve references (avoid looking up final values if not needed)
@@ -799,7 +799,7 @@ message VerifiableTxRequest {
   // entries up to sinceTx to be indexed, will affect resolving references
   uint64 sinceTx = 4;
 
-  // If set to true, do not wait for the indexer to be up to date
+  // Deprecated: If set to true, do not wait for the indexer to be up to date
   bool noWait = 5;
 
   // If set to true, do not resolve references (avoid looking up final values if not needed)
@@ -823,7 +823,7 @@ message TxScanRequest {
   // entries up to sinceTx to be indexed, will affect resolving references
   uint64 sinceTx = 5;
 
-  // If set to true, do not wait for the indexer to be up to date
+  // Deprecated: If set to true, do not wait for the indexer to be up to date
   bool noWait = 6;
 }
 
@@ -1403,6 +1403,11 @@ enum TxMode {
 message NewTxRequest {
   // Transaction mode
   TxMode mode = 1;
+  // An existing snapshot may be reused as long as it includes the specified transaction
+  // If not specified it will include up to the latest precommitted transaction
+  NullableUint64 snapshotMustIncludeTxID = 2;
+  // An existing snapshot may be reused as long as it is not older than the specified timeframe
+  NullableMilliseconds snapshotRenewalPeriod = 3;
 }
 
 message NewTxResponse {
