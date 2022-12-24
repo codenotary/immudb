@@ -23,27 +23,19 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-type TxMode store.TxMode
-
-const (
-	ReadOnlyTx  TxMode = TxMode(store.ReadOnlyTx)
-	WriteOnlyTx TxMode = TxMode(store.WriteOnlyTx)
-	ReadWriteTx TxMode = TxMode(store.ReadWriteTx)
-)
-
 type TxOptions struct {
-	Mode                   TxMode
-	SnapshotNotOlderThanTx func(lastPrecommittedTxID uint64) uint64
-	SnapshotRenewalPeriod  time.Duration
+	ReadOnly                bool
+	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
+	SnapshotRenewalPeriod   time.Duration
 }
 
 func DefaultTxOptions() *TxOptions {
 	txOpts := store.DefaultTxOptions()
 
 	return &TxOptions{
-		Mode:                   TxMode(txOpts.Mode),
-		SnapshotNotOlderThanTx: txOpts.SnapshotNotOlderThanTx,
-		SnapshotRenewalPeriod:  txOpts.SnapshotRenewalPeriod,
+		ReadOnly:                txOpts.Mode == store.ReadOnlyTx,
+		SnapshotMustIncludeTxID: txOpts.SnapshotMustIncludeTxID,
+		SnapshotRenewalPeriod:   txOpts.SnapshotRenewalPeriod,
 	}
 }
 
@@ -52,20 +44,16 @@ func (opts *TxOptions) Validate() error {
 		return fmt.Errorf("%w: nil options", store.ErrInvalidOptions)
 	}
 
-	if opts.Mode != ReadOnlyTx && opts.Mode != WriteOnlyTx && opts.Mode != ReadWriteTx {
-		return fmt.Errorf("%w: invalid transaction mode", store.ErrInvalidOptions)
-	}
-
 	return nil
 }
 
-func (opts *TxOptions) WithMode(mode TxMode) *TxOptions {
-	opts.Mode = mode
+func (opts *TxOptions) WithReadOnly(readOnly bool) *TxOptions {
+	opts.ReadOnly = readOnly
 	return opts
 }
 
-func (opts *TxOptions) WithSnapshotNotOlderThanTx(snapshotNotOlderThanTx func(lastPrecommittedTxID uint64) uint64) *TxOptions {
-	opts.SnapshotNotOlderThanTx = snapshotNotOlderThanTx
+func (opts *TxOptions) WithSnapshotMustIncludeTxID(snapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64) *TxOptions {
+	opts.SnapshotMustIncludeTxID = snapshotMustIncludeTxID
 	return opts
 }
 

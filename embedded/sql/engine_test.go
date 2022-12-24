@@ -5252,7 +5252,12 @@ func (h *multidbHandlerMock) UseDatabase(ctx context.Context, db string) error {
 	return nil
 }
 
-func (h *multidbHandlerMock) ExecPreparedStmts(ctx context.Context, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
+func (h *multidbHandlerMock) ExecPreparedStmts(
+	ctx context.Context,
+	opts *TxOptions,
+	stmts []SQLStmt,
+	params map[string]interface{},
+) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
 	return h.engine.ExecPreparedStmts(stmts, params, nil)
 }
 
