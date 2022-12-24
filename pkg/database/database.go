@@ -101,7 +101,7 @@ type DB interface {
 	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
 
 	// SQL-related
-	NewSQLTx(ctx context.Context) (*sql.SQLTx, error)
+	NewSQLTx(ctx context.Context, opts *sql.TxOptions) (*sql.SQLTx, error)
 
 	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
 	SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
@@ -855,23 +855,15 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 		return nil, ErrIsReplica
 	}
 
-	currTxID, _ := d.st.CommittedAlh()
+	opts := store.DefaultTxOptions()
 
-	if req.SinceTx > currTxID {
-		return nil, ErrIllegalArguments
+	if req.SinceTx > 0 {
+		opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+			return req.SinceTx
+		})
 	}
 
-	waitUntilTx := req.SinceTx
-	if waitUntilTx == 0 {
-		waitUntilTx = currTxID
-	}
-
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := d.st.NewTx(store.DefaultTxOptions())
+	tx, err := d.st.NewTx(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -909,32 +901,16 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 
 // GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	currTxID, _ := d.st.CommittedAlh()
-
-	if req.SinceTx > currTxID {
-		return nil, ErrIllegalArguments
-	}
-
-	waitUntilTx := req.SinceTx
-	if waitUntilTx == 0 {
-		waitUntilTx = currTxID
-	}
-
-	err := d.WaitForIndexingUpto(waitUntilTx, nil)
+	snap, err := d.snapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
-
-	snapshot, err := d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
-	if err != nil {
-		return nil, err
-	}
-	defer snapshot.Close()
+	defer snap.Close()
 
 	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		e, err := d.get(EncodeKey(key), snapshot)
+		e, err := d.get(EncodeKey(key), snap)
 		if err == nil || err == store.ErrKeyNotFound {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
@@ -978,7 +954,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	defer d.releaseTx(tx)
 
 	if !req.KeepReferencesUnresolved {
-		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
+		snap, err = d.snapshotSince(req.SinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -994,7 +970,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	return d.serializeTx(tx, req.EntriesSpec, snap)
 }
 
-func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
+func (d *db) snapshotSince(txID uint64) (*store.Snapshot, error) {
 	currTxID, _ := d.st.CommittedAlh()
 
 	if txID > currTxID {
@@ -1006,14 +982,7 @@ func (d *db) snapshotSince(txID uint64, noWait bool) (*store.Snapshot, error) {
 		waitUntilTx = currTxID
 	}
 
-	if !noWait {
-		err := d.st.WaitForIndexingUpto(waitUntilTx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
+	return d.st.SnapshotMustIncludeTxID(waitUntilTx)
 }
 
 func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
@@ -1413,7 +1382,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	var err error
 
 	if !req.KeepReferencesUnresolved {
-		snap, err = d.snapshotSince(req.SinceTx, req.NoWait)
+		snap, err = d.snapshotSince(req.SinceTx)
 		if err != nil {
 			return nil, err
 		}
@@ -1490,7 +1459,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 		limit = d.maxResultSize
 	}
 
-	snap, err := d.snapshotSince(req.SinceTx, req.NoWait)
+	snap, err := d.snapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
