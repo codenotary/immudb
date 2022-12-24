@@ -93,7 +93,11 @@ func (h *dummyMultidbHandler) UseDatabase(ctx context.Context, db string) error 
 	return sql.ErrNoSupported
 }
 
-func (h *dummyMultidbHandler) ExecPreparedStmts(ctx context.Context, stmts []sql.SQLStmt, params map[string]interface{}) (ntx *sql.SQLTx, committedTxs []*sql.SQLTx, err error) {
+func (h *dummyMultidbHandler) ExecPreparedStmts(
+	ctx context.Context,
+	opts *sql.TxOptions,
+	stmts []sql.SQLStmt,
+	params map[string]interface{}) (ntx *sql.SQLTx, committedTxs []*sql.SQLTx, err error) {
 	return nil, nil, sql.ErrNoSupported
 }
 

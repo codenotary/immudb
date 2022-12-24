@@ -327,8 +327,8 @@ func (d *db) DescribeTable(tableName string, tx *sql.SQLTx) (*schema.SQLQueryRes
 	return res, nil
 }
 
-func (d *db) NewSQLTx(ctx context.Context) (*sql.SQLTx, error) {
-	return d.sqlEngine.NewTx(ctx, sql.DefaultTxOptions())
+func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (*sql.SQLTx, error) {
+	return d.sqlEngine.NewTx(ctx, opts)
 }
 
 func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {

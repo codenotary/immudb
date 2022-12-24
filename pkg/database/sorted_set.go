@@ -120,24 +120,6 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	waitUntilTx := req.SinceTx
-	if waitUntilTx == 0 {
-		waitUntilTx = currTxID
-	}
-
-	if !req.NoWait {
-		err := d.st.WaitForIndexingUpto(waitUntilTx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	snap, err := d.st.SnapshotRenewIfOlderThanTs(waitUntilTx)
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Close()
-
 	prefix := make([]byte, 1+setLenLen+len(req.Set))
 	prefix[0] = SortedSetKeyPrefix
 	binary.BigEndian.PutUint64(prefix[1:], uint64(len(req.Set)))
@@ -172,6 +154,12 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		copy(seekKey[len(prefix)+scoreLen+keyLenLen:], EncodeKey(req.SeekKey))
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
+
+	snap, err := d.snapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
 
 	r, err := snap.NewKeyReader(
 		store.KeyReaderSpec{
