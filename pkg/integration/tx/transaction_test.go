@@ -123,17 +123,19 @@ func TestTransaction_Rollback(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestTransaction_MultipleReadWriteError(t *testing.T) {
+func TestTransaction_MultipleReadWriteTransactions(t *testing.T) {
 	_, client := setupTest(t)
 
 	tx1, err := client.NewTx(context.Background())
 	require.NoError(t, err)
 
 	tx2, err := client.NewTx(context.Background())
-	require.ErrorContains(t, err, "only 1 read write transaction supported at once")
-	require.Nil(t, tx2)
+	require.NoError(t, err)
 
 	_, err = tx1.Commit(context.Background())
+	require.NoError(t, err)
+
+	_, err = tx2.Commit(context.Background())
 	require.NoError(t, err)
 }
 
