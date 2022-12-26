@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -37,7 +36,7 @@ import (
 func externalImmudbClient(t *testing.T) (*immuClient, context.Context) {
 	extImmudb := os.Getenv("TEST_EXTERNAL_IMMUDB")
 	if extImmudb == "" {
-		t.Skip(fmt.Sprintf("Please launch an immudb server and set TEST_EXTERNAL_IMMUDB to its <host:port> value"))
+		t.Skip("Please launch an immudb server and set TEST_EXTERNAL_IMMUDB to its <host:port> value")
 	}
 
 	s := strings.SplitN(extImmudb, ":", 2)
