@@ -1392,7 +1392,7 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 
 		for i := 0; i < kBulkCount; i++ {
 			for j := 0; j < kBulkSize; j++ {
-				k := make([]byte, 8)
+				k := make([]byte, 32)
 				v := make([]byte, 32)
 
 				rnd.Read(k)
