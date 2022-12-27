@@ -225,7 +225,7 @@ type pathNode struct {
 }
 
 type node interface {
-	insertAt(key []byte, value []byte, ts uint64) ([]node, int, error)
+	insertAt(sortedKVs []*KV, ts uint64) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
 	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
@@ -1562,7 +1562,9 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		return ErrIllegalArguments
 	}
 
-	for _, kv := range kvs {
+	sortedKVs := make([]*KV, len(kvs))
+
+	for i, kv := range kvs {
 		if kv == nil || kv.K == nil || kv.V == nil {
 			return ErrIllegalArguments
 		}
@@ -1574,11 +1576,22 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		if len(kv.V) > t.maxValueSize {
 			return ErrorMaxValueSizeExceeded
 		}
+
+		k := make([]byte, len(kv.K))
+		copy(k, kv.K)
+
+		v := make([]byte, len(kv.V))
+		copy(v, kv.V)
+
+		sortedKVs[i] = &KV{
+			K: k,
+			V: v,
+		}
 	}
 
 	// sort entries to increase cache hits
-	sort.Slice(kvs, func(i, j int) bool {
-		return bytes.Compare(kvs[i].K, kvs[j].K) < 0
+	sort.Slice(sortedKVs, func(i, j int) bool {
+		return bytes.Compare(sortedKVs[i].K, sortedKVs[j].K) < 0
 	})
 
 	t.rwmutex.Lock()
@@ -1603,42 +1616,34 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	ts := t.root.ts() + 1
 
-	for _, kv := range kvs {
-		k := make([]byte, len(kv.K))
-		copy(k, kv.K)
+	nodes, depth, err := t.root.insertAt(sortedKVs, ts)
+	if err != nil {
+		return err
+	}
 
-		v := make([]byte, len(kv.V))
-		copy(v, kv.V)
+	for len(nodes) > 1 {
+		newRoot := &innerNode{
+			t:     t,
+			nodes: nodes,
+			_ts:   ts,
+			mut:   true,
+		}
 
-		nodes, depth, err := t.root.insertAt(k, v, ts)
+		depth++
+
+		nodes, err = newRoot.split()
 		if err != nil {
 			return err
 		}
-
-		for len(nodes) > 1 {
-			newRoot := &innerNode{
-				t:     t,
-				nodes: nodes,
-				_ts:   ts,
-				mut:   true,
-			}
-
-			depth++
-
-			nodes, err = newRoot.split()
-			if err != nil {
-				return err
-			}
-		}
-
-		t.root = nodes[0]
-
-		metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
-
-		t.insertionCountSinceFlush++
-		t.insertionCountSinceSync++
-		t.insertionCountSinceCleanup++
 	}
+
+	t.root = nodes[0]
+
+	metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
+
+	t.insertionCountSinceFlush += len(sortedKVs)
+	t.insertionCountSinceSync += len(sortedKVs)
+	t.insertionCountSinceCleanup += len(sortedKVs)
 
 	if t.insertionCountSinceFlush >= t.flushThld {
 		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "BulkInsert")
@@ -1760,63 +1765,93 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
-func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	if !n.mutated() {
-		return n.copyOnInsertAt(key, value, ts)
+func (n *innerNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	if n.mutated() {
+		return n.updateOnInsertAt(sortedKVs, ts)
 	}
-	return n.updateOnInsertAt(key, value, ts)
+
+	newNode := &innerNode{
+		t:       n.t,
+		nodes:   make([]node, len(n.nodes)),
+		_ts:     n._ts,
+		_minOff: n._minOff,
+		mut:     true,
+	}
+
+	copy(newNode.nodes, n.nodes)
+
+	return newNode.updateOnInsertAt(sortedKVs, ts)
 }
 
-func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	insertAt := n.indexOf(key)
+func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	kvsPerChild := make(map[int][]*KV)
 
-	c := n.nodes[insertAt]
+	for _, kv := range sortedKVs {
+		insertAt := n.indexOf(kv.K)
 
-	cs, depth, err := c.insertAt(key, value, ts)
+		_, ok := kvsPerChild[insertAt]
+		if ok {
+			kvsPerChild[insertAt] = []*KV{kv}
+		} else {
+			kvsPerChild[insertAt] = append(kvsPerChild[insertAt], kv)
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(kvsPerChild))
+
+	nodesPerChild := make(map[int][]node)
+	var nodesMutex sync.Mutex
+
+	for childIndex, kvs := range kvsPerChild {
+		go func(childIndex int, sortedKVs []*KV) {
+			defer wg.Done()
+
+			c := n.nodes[childIndex]
+
+			cs, cdepth, cerr := c.insertAt(sortedKVs, ts)
+
+			nodesMutex.Lock()
+			defer nodesMutex.Unlock()
+
+			if err != nil {
+				err = cerr
+				return
+			}
+
+			nodesPerChild[childIndex] = cs
+			if cdepth > depth {
+				depth = cdepth
+			}
+		}(childIndex, kvs)
+	}
+
+	// wait for all the insertions to be done
+	wg.Wait()
+
+	// TODO: gets should ignore any change greater than root.Ts
 	if err != nil {
 		return nil, 0, err
 	}
 
 	n._ts = ts
 
-	ns := make([]node, len(n.nodes)+len(cs)-1)
+	ns := make([]node, 0)
 
-	copy(ns, n.nodes[:insertAt])
-	copy(ns[insertAt:], cs)
-	copy(ns[insertAt+len(cs):], n.nodes[insertAt+1:])
+	for i, n := range n.nodes {
+		cs, ok := nodesPerChild[i]
+		if ok {
+			ns = append(ns, cs...)
+		} else {
+			ns = append(ns, n)
+		}
+	}
 
 	n.nodes = ns
 
-	nodes, err = n.split()
+	nodes, _ = n.split()
 
-	return nodes, depth + 1, err
-}
-
-func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	insertAt := n.indexOf(key)
-
-	c := n.nodes[insertAt]
-
-	cs, depth, err := c.insertAt(key, value, ts)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	newNode := &innerNode{
-		t:       n.t,
-		nodes:   make([]node, len(n.nodes)+len(cs)-1),
-		_ts:     ts,
-		mut:     true,
-		_minOff: n._minOff,
-	}
-
-	copy(newNode.nodes, n.nodes[:insertAt])
-	copy(newNode.nodes[insertAt:], cs)
-	copy(newNode.nodes[insertAt+len(cs):], n.nodes[insertAt+1:])
-
-	nodes, err = newNode.split()
-
-	return nodes, depth + 1, err
+	return nodes, depth + 1, nil
 }
 
 func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -1936,6 +1971,7 @@ func (n *innerNode) minKey() []byte {
 	return n.nodes[0].minKey()
 }
 
+// indexOf returns the first child at which key is equal or greater than its minKey
 func (n *innerNode) indexOf(key []byte) int {
 	metricsBtreeInnerNodeEntries.WithLabelValues(n.t.path).Observe(float64(len(n.nodes)))
 
@@ -1955,8 +1991,10 @@ func (n *innerNode) indexOf(key []byte) int {
 		if diff == 0 {
 			return middle
 		} else if diff < 0 {
+			// minKey < key
 			left = middle
 		} else {
+			// minKey > key
 			right = middle - 1
 		}
 	}
@@ -2012,12 +2050,12 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 
-func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
+func (r *nodeRef) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, 0, err
 	}
-	return n.insertAt(key, value, ts)
+	return n.insertAt(sortedKVs, ts)
 }
 
 func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -2084,130 +2122,64 @@ func (r *nodeRef) offset() int64 {
 
 ////////////////////////////////////////////////////////////
 
-func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	if !l.mutated() {
-		return l.copyOnInsertAt(key, value, ts)
+func (l *leafNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	if l.mutated() {
+		return l.updateOnInsertAt(sortedKVs, ts)
 	}
-	return l.updateOnInsertAt(key, value, ts)
+
+	newLeaf := &leafNode{
+		t:      l.t,
+		values: make([]*leafValue, len(l.values)),
+		_ts:    l._ts,
+		mut:    true,
+	}
+
+	for i, lv := range l.values {
+		newLeaf.values[i] = &leafValue{
+			key:    lv.key,
+			value:  lv.value,
+			ts:     lv.ts,
+			tss:    lv.tss,
+			hOff:   lv.hOff,
+			hCount: lv.hCount,
+		}
+	}
+
+	return newLeaf.updateOnInsertAt(sortedKVs, ts)
 }
 
-func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	i, found := l.indexOf(key)
+func (l *leafNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	for _, kv := range sortedKVs {
+
+		i, found := l.indexOf(kv.K)
+
+		if found {
+			l.values[i].value = kv.V
+			l.values[i].ts = ts
+			l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
+		} else {
+			values := make([]*leafValue, len(l.values)+1)
+
+			copy(values, l.values[:i])
+
+			values[i] = &leafValue{
+				key:    kv.K,
+				value:  kv.V,
+				ts:     ts,
+				tss:    []uint64{ts},
+				hOff:   -1,
+				hCount: 0,
+			}
+
+			copy(values[i+1:], l.values[i:])
+
+			l.values = values
+		}
+	}
 
 	l._ts = ts
 
-	if found {
-		l.values[i].value = value
-		l.values[i].ts = ts
-		l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
-	} else {
-		values := make([]*leafValue, len(l.values)+1)
-
-		copy(values, l.values[:i])
-
-		values[i] = &leafValue{
-			key:    key,
-			value:  value,
-			ts:     ts,
-			tss:    []uint64{ts},
-			hOff:   -1,
-			hCount: 0,
-		}
-
-		copy(values[i+1:], l.values[i:])
-
-		l.values = values
-	}
-
 	nodes, err = l.split()
-
-	return nodes, 1, err
-}
-
-func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (nodes []node, depth int, err error) {
-	i, found := l.indexOf(key)
-
-	var newLeaf *leafNode
-
-	if found {
-		newLeaf = &leafNode{
-			t:      l.t,
-			values: make([]*leafValue, len(l.values)),
-			_ts:    ts,
-			mut:    true,
-		}
-
-		for pi := 0; pi < i; pi++ {
-			newLeaf.values[pi] = &leafValue{
-				key:    l.values[pi].key,
-				value:  l.values[pi].value,
-				ts:     l.values[pi].ts,
-				tss:    l.values[pi].tss,
-				hOff:   l.values[pi].hOff,
-				hCount: l.values[pi].hCount,
-			}
-		}
-
-		newLeaf.values[i] = &leafValue{
-			key:    key,
-			value:  value,
-			ts:     ts,
-			tss:    append([]uint64{ts}, l.values[i].tss...),
-			hOff:   l.values[i].hOff,
-			hCount: l.values[i].hCount,
-		}
-
-		for pi := i + 1; pi < len(newLeaf.values); pi++ {
-			newLeaf.values[pi] = &leafValue{
-				key:    l.values[pi].key,
-				value:  l.values[pi].value,
-				ts:     l.values[pi].ts,
-				tss:    l.values[pi].tss,
-				hOff:   l.values[pi].hOff,
-				hCount: l.values[pi].hCount,
-			}
-		}
-	} else {
-		newLeaf = &leafNode{
-			t:      l.t,
-			values: make([]*leafValue, len(l.values)+1),
-			_ts:    ts,
-			mut:    true,
-		}
-
-		for pi := 0; pi < i; pi++ {
-			newLeaf.values[pi] = &leafValue{
-				key:    l.values[pi].key,
-				value:  l.values[pi].value,
-				ts:     l.values[pi].ts,
-				tss:    l.values[pi].tss,
-				hOff:   l.values[pi].hOff,
-				hCount: l.values[pi].hCount,
-			}
-		}
-
-		newLeaf.values[i] = &leafValue{
-			key:    key,
-			value:  value,
-			ts:     ts,
-			tss:    []uint64{ts},
-			hOff:   -1,
-			hCount: 0,
-		}
-
-		for pi := i + 1; pi < len(newLeaf.values); pi++ {
-			newLeaf.values[pi] = &leafValue{
-				key:    l.values[pi-1].key,
-				value:  l.values[pi-1].value,
-				ts:     l.values[pi-1].ts,
-				tss:    l.values[pi-1].tss,
-				hOff:   l.values[pi-1].hOff,
-				hCount: l.values[pi-1].hCount,
-			}
-		}
-	}
-
-	nodes, err = newLeaf.split()
 
 	return nodes, 1, err
 }

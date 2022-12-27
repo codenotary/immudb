@@ -53,7 +53,7 @@ func (s *Snapshot) Set(key, value []byte) error {
 	v := make([]byte, len(value))
 	copy(v, value)
 
-	nodes, depth, err := s.root.insertAt(k, v, s.ts)
+	nodes, depth, err := s.root.insertAt([]*KV{{K: k, V: v}}, s.ts)
 	if err != nil {
 		return err
 	}
