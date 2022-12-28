@@ -237,6 +237,10 @@ func (tx *OngoingTx) AddPrecondition(c Precondition) error {
 	return nil
 }
 
+func (tx *OngoingTx) mvccReadSetLimitReached() bool {
+	return tx.readsetSize == tx.st.mvccReadSetLimit
+}
+
 func (tx *OngoingTx) Delete(key []byte) error {
 	valRef, err := tx.Get(key)
 	if err != nil {
@@ -274,7 +278,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			filters: filters,
 		}
 
-		if tx.readsetSize == tx.st.mvccReadSetLimit {
+		if tx.mvccReadSetLimitReached() {
 			return nil, ErrMVCCReadSetLimitExceeded
 		}
 
@@ -293,7 +297,7 @@ func (tx *OngoingTx) GetWithFilters(key []byte, filters ...FilterFn) (ValueRef, 
 			expectedTx: valRef.Tx(),
 		}
 
-		if tx.readsetSize == tx.st.mvccReadSetLimit {
+		if tx.mvccReadSetLimitReached() {
 			return nil, ErrMVCCReadSetLimitExceeded
 		}
 
@@ -325,7 +329,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			filters: filters,
 		}
 
-		if tx.readsetSize == tx.st.mvccReadSetLimit {
+		if tx.mvccReadSetLimitReached() {
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
@@ -346,7 +350,7 @@ func (tx *OngoingTx) GetWithPrefixAndFilters(prefix, neq []byte, filters ...Filt
 			expectedTx:  valRef.Tx(),
 		}
 
-		if tx.readsetSize == tx.st.mvccReadSetLimit {
+		if tx.mvccReadSetLimitReached() {
 			return nil, nil, ErrMVCCReadSetLimitExceeded
 		}
 
