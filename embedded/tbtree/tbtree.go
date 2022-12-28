@@ -225,7 +225,7 @@ type pathNode struct {
 }
 
 type node interface {
-	insertAt(sortedKVs []*KV, ts uint64) ([]node, int, error)
+	insertAt(kvs []*KV, ts uint64) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
 	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
@@ -1765,9 +1765,9 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
-func (n *innerNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (n *innerNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
 	if n.mutated() {
-		return n.updateOnInsertAt(sortedKVs, ts)
+		return n.updateOnInsertAt(kvs, ts)
 	}
 
 	newNode := &innerNode{
@@ -1780,13 +1780,14 @@ func (n *innerNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth in
 
 	copy(newNode.nodes, n.nodes)
 
-	return newNode.updateOnInsertAt(sortedKVs, ts)
+	return newNode.updateOnInsertAt(kvs, ts)
 }
 
-func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (n *innerNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	// group kvs by child at which they will be inserted
 	kvsPerChild := make(map[int][]*KV)
 
-	for _, kv := range sortedKVs {
+	for _, kv := range kvs {
 		childIndex := n.indexOf(kv.K)
 		kvsPerChild[childIndex] = append(kvsPerChild[childIndex], kv)
 	}
@@ -1797,18 +1798,20 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 	nodesPerChild := make(map[int][]node)
 	var nodesMutex sync.Mutex
 
-	for childIndex, kvs := range kvsPerChild {
-		go func(childIndex int, sortedKVs []*KV) {
+	for childIndex, childKVs := range kvsPerChild {
+		// insert kvs at every child simultaneously
+		go func(childIndex int, childKVs []*KV) {
 			defer wg.Done()
 
 			c := n.nodes[childIndex]
 
-			cs, cdepth, cerr := c.insertAt(sortedKVs, ts)
+			cs, cdepth, cerr := c.insertAt(childKVs, ts)
 
 			nodesMutex.Lock()
 			defer nodesMutex.Unlock()
 
 			if err != nil {
+				// if any of its children fail to insert, insertion fails
 				err = cerr
 				return
 			}
@@ -1817,7 +1820,7 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 			if cdepth > depth {
 				depth = cdepth
 			}
-		}(childIndex, kvs)
+		}(childIndex, childKVs)
 	}
 
 	// wait for all the insertions to be done
@@ -1829,6 +1832,7 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 
 	n._ts = ts
 
+	// count the number of children after insertion
 	nsSize := len(n.nodes)
 
 	for i := range n.nodes {
@@ -2055,12 +2059,12 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 
-func (r *nodeRef) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (r *nodeRef) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, 0, err
 	}
-	return n.insertAt(sortedKVs, ts)
+	return n.insertAt(kvs, ts)
 }
 
 func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -2127,9 +2131,9 @@ func (r *nodeRef) offset() int64 {
 
 ////////////////////////////////////////////////////////////
 
-func (l *leafNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (l *leafNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
 	if l.mutated() {
-		return l.updateOnInsertAt(sortedKVs, ts)
+		return l.updateOnInsertAt(kvs, ts)
 	}
 
 	newLeaf := &leafNode{
@@ -2153,11 +2157,11 @@ func (l *leafNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int
 		}
 	}
 
-	return newLeaf.updateOnInsertAt(sortedKVs, ts)
+	return newLeaf.updateOnInsertAt(kvs, ts)
 }
 
-func (l *leafNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
-	for _, kv := range sortedKVs {
+func (l *leafNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+	for _, kv := range kvs {
 		i, found := l.indexOf(kv.K)
 
 		if found {
