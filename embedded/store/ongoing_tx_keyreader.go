@@ -54,7 +54,7 @@ func newExpectedReader(spec KeyReaderSpec) *expectedReader {
 }
 
 func newOngoingTxKeyReader(tx *OngoingTx, spec KeyReaderSpec) (*ongoingTxKeyReader, error) {
-	if tx.readsetSize == tx.st.mvccReadSetLimit {
+	if tx.mvccReadSetLimitReached() {
 		return nil, ErrMVCCReadSetLimitExceeded
 	}
 
