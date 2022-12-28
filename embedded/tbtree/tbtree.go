@@ -1787,14 +1787,8 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 	kvsPerChild := make(map[int][]*KV)
 
 	for _, kv := range sortedKVs {
-		insertAt := n.indexOf(kv.K)
-
-		_, ok := kvsPerChild[insertAt]
-		if ok {
-			kvsPerChild[insertAt] = []*KV{kv}
-		} else {
-			kvsPerChild[insertAt] = append(kvsPerChild[insertAt], kv)
-		}
+		childIndex := n.indexOf(kv.K)
+		kvsPerChild[childIndex] = append(kvsPerChild[childIndex], kv)
 	}
 
 	var wg sync.WaitGroup
@@ -1829,7 +1823,6 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 	// wait for all the insertions to be done
 	wg.Wait()
 
-	// TODO: gets should ignore any change greater than root.Ts
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2135,11 +2128,14 @@ func (l *leafNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int
 	}
 
 	for i, lv := range l.values {
+		tss := make([]uint64, len(lv.tss))
+		copy(tss, lv.tss)
+
 		newLeaf.values[i] = &leafValue{
 			key:    lv.key,
 			value:  lv.value,
 			ts:     lv.ts,
-			tss:    lv.tss,
+			tss:    tss,
 			hOff:   lv.hOff,
 			hCount: lv.hCount,
 		}
@@ -2150,7 +2146,6 @@ func (l *leafNode) insertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int
 
 func (l *leafNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, depth int, err error) {
 	for _, kv := range sortedKVs {
-
 		i, found := l.indexOf(kv.K)
 
 		if found {
