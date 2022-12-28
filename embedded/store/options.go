@@ -61,30 +61,49 @@ type TimeFunc func() time.Time
 type Options struct {
 	ReadOnly bool
 
-	Synced        bool
+	// Fsync during commit process
+	Synced bool
+
+	// Fsync frequency during commit process
 	SyncFrequency time.Duration
 
+	// Size of the in-memory buffer for write operations
 	WriteBufferSize int
 
 	FileMode os.FileMode
 
 	logger logger.Logger
 
-	appFactory         AppFactoryFunc
+	appFactory AppFactoryFunc
+
 	CompactionDisabled bool
 
+	// Maximum number of pre-committed transactions
 	MaxActiveTransactions int
-	MVCCReadSetLimit      int
 
-	MaxConcurrency   int
+	// Limit the number of read entries per transaction
+	MVCCReadSetLimit int
+
+	// Maximum number of simultaneous commits prepared for write
+	MaxConcurrency int
+
+	// Maximum number of simultaneous IO writes
 	MaxIOConcurrency int
 
+	// Size of the LRU cache for transaction logs
 	TxLogCacheSize int
 
-	VLogMaxOpenedFiles      int
-	TxLogMaxOpenedFiles     int
+	// Maximum number of simultaneous value files opened
+	VLogMaxOpenedFiles int
+
+	// Maximum number of simultaneous transaction log files opened
+	TxLogMaxOpenedFiles int
+
+	// Maximum number of simultaneous commit log files opened
 	CommitLogMaxOpenedFiles int
-	WriteTxHeaderVersion    int
+
+	// Version of transaction header to use (limits available features)
+	WriteTxHeaderVersion int
 
 	MaxWaitees int
 
@@ -108,23 +127,51 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	CacheSize                int
-	FlushThld                int
-	SyncThld                 int
-	FlushBufferSize          int
-	CleanupPercentage        float32
-	MaxActiveSnapshots       int
-	MaxNodeSize              int
-	RenewSnapRootAfter       time.Duration
-	CompactionThld           int
-	DelayDuringCompaction    time.Duration
-	NodesLogMaxOpenedFiles   int
+	// Size of the Btree node LRU cache
+	CacheSize int
+
+	// Number of new index entries between disk flushes
+	FlushThld int
+
+	// Number of new index entries between disk flushes with file sync
+	SyncThld int
+
+	// Size of the in-memory flush buffer (in bytes)
+	FlushBufferSize int
+
+	// Percentage of node files cleaned up during each flush
+	CleanupPercentage float32
+
+	// Maximum number of active btree snapshots
+	MaxActiveSnapshots int
+
+	// Max size of a single Btree node in bytes
+	MaxNodeSize int
+
+	// Time in milliseconds between the most recent DB snapshot is automatically renewed
+	RenewSnapRootAfter time.Duration
+
+	// Minimum number of updates entries in the btree to allow for full compaction
+	CompactionThld int
+
+	// Additional delay added during indexing when full compaction is in progress
+	DelayDuringCompaction time.Duration
+
+	// Maximum number of simultaneously opened nodes files
+	NodesLogMaxOpenedFiles int
+
+	// Maximum number of simultaneously opened node history files
 	HistoryLogMaxOpenedFiles int
-	CommitLogMaxOpenedFiles  int
+
+	// Maximum number of simultaneously opened commit log files
+	CommitLogMaxOpenedFiles int
 }
 
 type AHTOptions struct {
-	SyncThld        int
+	// Number of new leaves in the tree between synchronous flush to disk
+	SyncThld int
+
+	// Size of the in-memory write buffer
 	WriteBufferSize int
 }
 
