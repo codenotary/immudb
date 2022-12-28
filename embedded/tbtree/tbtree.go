@@ -640,7 +640,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	if validatedCLogEntry == nil {
-		t.root = &leafNode{t: t, mut: true}
+		t.root = &leafNode{t: t, mut: false}
 	} else {
 		t.root, err = t.readNodeAt(validatedCLogEntry.finalNLogSize - int64(validatedCLogEntry.rootNodeSize))
 		if err != nil {
