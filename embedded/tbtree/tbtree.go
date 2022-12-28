@@ -1829,14 +1829,26 @@ func (n *innerNode) updateOnInsertAt(sortedKVs []*KV, ts uint64) (nodes []node, 
 
 	n._ts = ts
 
-	ns := make([]node, 0)
+	nsSize := len(n.nodes)
+
+	for i := range n.nodes {
+		cs, ok := nodesPerChild[i]
+		if ok {
+			nsSize += len(cs) - 1
+		}
+	}
+
+	ns := make([]node, nsSize)
+	nsi := 0
 
 	for i, n := range n.nodes {
 		cs, ok := nodesPerChild[i]
 		if ok {
-			ns = append(ns, cs...)
+			copy(ns[nsi:], cs)
+			nsi += len(cs)
 		} else {
-			ns = append(ns, n)
+			ns[nsi] = n
+			nsi++
 		}
 	}
 
