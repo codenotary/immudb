@@ -27,7 +27,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1562,7 +1561,8 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		return ErrIllegalArguments
 	}
 
-	sortedKVs := make([]*KV, len(kvs))
+	// validated immutable copy of input kv pairs
+	immutableKVs := make([]*KV, len(kvs))
 
 	for i, kv := range kvs {
 		if kv == nil || kv.K == nil || kv.V == nil {
@@ -1583,16 +1583,11 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		v := make([]byte, len(kv.V))
 		copy(v, kv.V)
 
-		sortedKVs[i] = &KV{
+		immutableKVs[i] = &KV{
 			K: k,
 			V: v,
 		}
 	}
-
-	// sort entries to increase cache hits
-	sort.Slice(sortedKVs, func(i, j int) bool {
-		return bytes.Compare(sortedKVs[i].K, sortedKVs[j].K) < 0
-	})
 
 	t.rwmutex.Lock()
 
@@ -1616,7 +1611,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	ts := t.root.ts() + 1
 
-	nodes, depth, err := t.root.insertAt(sortedKVs, ts)
+	nodes, depth, err := t.root.insertAt(immutableKVs, ts)
 	if err != nil {
 		return err
 	}
@@ -1641,9 +1636,9 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
 
-	t.insertionCountSinceFlush += len(sortedKVs)
-	t.insertionCountSinceSync += len(sortedKVs)
-	t.insertionCountSinceCleanup += len(sortedKVs)
+	t.insertionCountSinceFlush += len(immutableKVs)
+	t.insertionCountSinceSync += len(immutableKVs)
+	t.insertionCountSinceCleanup += len(immutableKVs)
 
 	if t.insertionCountSinceFlush >= t.flushThld {
 		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "BulkInsert")
