@@ -1371,6 +1371,64 @@ func TestImmudbStoreRWTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrKeyNotFound)
 		require.ErrorIs(t, err, ErrExpiredEntry)
 	})
+
+	t.Run("transactions should not read data from anothers committed or ongoing transactions since it was created", func(t *testing.T) {
+		tx1, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+
+		err = tx1.Delete([]byte("key1"))
+		require.NoError(t, err)
+
+		err = tx1.Delete([]byte("key2"))
+		require.NoError(t, err)
+
+		_, err = tx1.Commit()
+		require.NoError(t, err)
+
+		tx2, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+
+		err = tx2.Set([]byte("key1"), nil, []byte("value1_tx2"))
+		require.NoError(t, err)
+
+		tx3, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+
+		_, err = tx3.Get([]byte("key1"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		// ongoing tranactions should not read committed entries since their creation
+		tx11, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+
+		err = tx11.Set([]byte("key1"), nil, []byte("value1_tx11"))
+		require.NoError(t, err)
+
+		_, err = tx11.Commit()
+		require.NoError(t, err)
+		//
+
+		_, err = tx3.Get([]byte("key1"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		err = tx3.Set([]byte("key1"), nil, []byte("value1_tx3"))
+		require.NoError(t, err)
+
+		hdr2, err := tx2.Commit()
+		require.NoError(t, err)
+
+		valRef2, err := immuStore.Get([]byte("key1"))
+		require.NoError(t, err)
+		require.NotNil(t, valRef2)
+		require.Equal(t, hdr2.ID, valRef2.Tx())
+
+		v2, err := valRef2.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte("value1_tx2"), v2)
+
+		_, err = tx3.Commit()
+		require.ErrorIs(t, err, ErrTxReadConflict)
+	})
 }
 
 func TestImmudbStoreKVMetadata(t *testing.T) {
