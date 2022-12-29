@@ -481,7 +481,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	indexingBulkSize := 1
 
 	if !strings.Contains(path, "systemdb") && !strings.Contains(path, "defaultdb") {
-		indexingBulkSize = 100
+		indexingBulkSize = 10
 	}
 
 	store := &ImmuStore{
