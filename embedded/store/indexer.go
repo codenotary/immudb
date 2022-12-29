@@ -380,7 +380,7 @@ func (idx *indexer) doIndexing() {
 }
 
 func (idx *indexer) indexTx(txID uint64) error {
-	bulkSize := idx.bulkSize(txID)
+	bulkSize := idx.bulkSize(txID - 1)
 
 	indexableEntries := 0
 
