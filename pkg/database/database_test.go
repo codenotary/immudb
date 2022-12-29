@@ -491,9 +491,6 @@ func TestSetGetAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), txhdr.Id)
 
-	err = db.CompactIndex()
-	require.NoError(t, err)
-
 	itList, err := db.GetAll(&schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
