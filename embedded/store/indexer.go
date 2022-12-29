@@ -321,7 +321,7 @@ func (idx *indexer) Pause() {
 }
 
 func (idx *indexer) bulkSize(txID uint64) int {
-	if txID == 1 {
+	if txID == 0 {
 		return 1
 	}
 
