@@ -27,6 +27,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -176,6 +177,8 @@ type ImmuStore struct {
 
 	useExternalCommitAllowance bool
 	commitAllowedUpToTxID      uint64
+
+	indexingBulkSize int
 
 	txPool TxPool
 
@@ -475,6 +478,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
+	indexingBulkSize := 1
+
+	if !strings.Contains(path, "systemdb") && !strings.Contains(path, "defaultdb") {
+		indexingBulkSize = 100
+	}
+
 	store := &ImmuStore{
 		path:             path,
 		logger:           opts.logger,
@@ -515,6 +524,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		useExternalCommitAllowance: opts.UseExternalCommitAllowance,
 		commitAllowedUpToTxID:      committedTxID,
+
+		indexingBulkSize: indexingBulkSize,
 
 		aht: aht,
 
