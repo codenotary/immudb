@@ -871,6 +871,9 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Nil index after Setbatch")
 	}
 
+	_, err = s.FlushIndex(ctx, &schema.FlushIndexRequest{CleanupPercentage: 1})
+	require.NoError(t, err)
+
 	_, err = s.CompactIndex(ctx, nil)
 	require.NoError(t, err)
 
