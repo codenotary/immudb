@@ -127,11 +127,11 @@ func TestConsistencyFailure(t *testing.T) {
 		defer tbtree.Close()
 
 		for _, d := range dataset {
-			kvs := []*KV{}
+			kvs := []*KVT{}
 			require.NoError(t, json.Unmarshal([]byte(d), &kvs))
 
 			for _, kv := range kvs {
-				err := tbtree.BulkInsert([]*KV{kv})
+				err := tbtree.BulkInsert([]*KVT{kv})
 				require.NoError(t, err)
 
 				consistencyCheck(t, tbtree, tbtree.root)
@@ -145,12 +145,12 @@ func TestConsistencyFailure(t *testing.T) {
 		defer tbtree.Close()
 
 		for _, d := range dataset {
-			kvs := []*KV{}
+			kvs := []*KVT{}
 			require.NoError(t, json.Unmarshal([]byte(d), &kvs))
 
 			for _, kv := range kvs {
 				tbtree.Flush()
-				err := tbtree.BulkInsert([]*KV{kv})
+				err := tbtree.BulkInsert([]*KVT{kv})
 				require.NoError(t, err)
 
 				consistencyCheck(t, tbtree, tbtree.root)
