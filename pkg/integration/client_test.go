@@ -923,6 +923,9 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, err = client.SetAll(ctx, setRequest)
 	require.NoError(t, err)
 
+	_, err = client.FlushIndex(ctx, 1, false)
+	require.NoError(t, err)
+
 	err = client.CompactIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
