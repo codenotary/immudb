@@ -566,7 +566,7 @@ func TestSnapshotRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), snapc)
 
-	err = tree.BulkInsert([]*KV{
+	err = tree.BulkInsert([]*KVT{
 		{K: []byte("key1"), V: []byte("value1")},
 	})
 	require.NoError(t, err)
@@ -585,13 +585,13 @@ func TestSnapshotRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), snapc)
 
-	err = tree.BulkInsert([]*KV{
+	err = tree.BulkInsert([]*KVT{
 		{K: []byte("key2"), V: []byte("value2")},
 		{K: []byte("key3"), V: []byte("value3")},
 	})
 	require.NoError(t, err)
 
-	err = tree.BulkInsert([]*KV{
+	err = tree.BulkInsert([]*KVT{
 		{K: []byte("key4"), V: []byte("value4")},
 	})
 	require.NoError(t, err)
@@ -691,7 +691,7 @@ func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
 		key := make([]byte, opts.maxKeySize/4)
 		key[0] = i
 
-		err = tree.BulkInsert([]*KV{
+		err = tree.BulkInsert([]*KVT{
 			{K: key, V: make([]byte, 1)},
 		})
 		require.NoError(t, err)
@@ -702,7 +702,7 @@ func TestTBTreeSplitWithKeyUpdates(t *testing.T) {
 		key := make([]byte, opts.maxKeySize/4)
 		key[0] = i
 
-		err = tree.BulkInsert([]*KV{
+		err = tree.BulkInsert([]*KVT{
 			{K: key, V: key},
 		})
 		require.NoError(t, err)
@@ -726,7 +726,7 @@ func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
 		key := make([]byte, opts.maxKeySize)
 		key[0] = i
 
-		err = tree.BulkInsert([]*KV{
+		err = tree.BulkInsert([]*KVT{
 			{K: key, V: make([]byte, 1)},
 		})
 		require.NoError(t, err)
@@ -736,7 +736,7 @@ func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
 		key := make([]byte, opts.maxKeySize/8)
 		key[0] = i + 3
 
-		err = tree.BulkInsert([]*KV{
+		err = tree.BulkInsert([]*KVT{
 			{K: key, V: make([]byte, 1)},
 		})
 		require.NoError(t, err)
@@ -744,7 +744,7 @@ func TestTBTreeSplitMultiLeafSplit(t *testing.T) {
 
 	key := make([]byte, opts.maxKeySize)
 
-	err = tree.BulkInsert([]*KV{
+	err = tree.BulkInsert([]*KVT{
 		{K: key, V: make([]byte, opts.maxValueSize)},
 	})
 	require.NoError(t, err)
@@ -760,7 +760,7 @@ func TestTBTreeCompactionEdgeCases(t *testing.T) {
 	tree, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
-	err = tree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	err = tree.BulkInsert([]*KVT{{K: []byte("k0"), V: []byte("v0")}})
 	require.NoError(t, err)
 
 	snap, err := tree.Snapshot()
@@ -877,7 +877,7 @@ func TestTBTreeHistory(t *testing.T) {
 	tbtree, err := Open(dir, opts)
 	require.NoError(t, err)
 
-	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	err = tbtree.BulkInsert([]*KVT{{K: []byte("k0"), V: []byte("v0")}})
 	require.NoError(t, err)
 
 	err = tbtree.Close()
@@ -886,7 +886,7 @@ func TestTBTreeHistory(t *testing.T) {
 	tbtree, err = Open(dir, opts)
 	require.NoError(t, err)
 
-	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v00")}})
+	err = tbtree.BulkInsert([]*KVT{{K: []byte("k0"), V: []byte("v00")}})
 	require.NoError(t, err)
 
 	err = tbtree.Close()
@@ -919,7 +919,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.BulkInsert(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	err = tbtree.BulkInsert([]*KV{{}})
+	err = tbtree.BulkInsert([]*KVT{{}})
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, _, err = tbtree.Flush()
@@ -1345,7 +1345,7 @@ func bulkInsert(tbtree *TBtree, bulkCount, bulkSize int, asc bool) error {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
 
-	kvs := make([]*KV, bulkSize)
+	kvs := make([]*KVT, bulkSize)
 
 	for i := 0; i < bulkCount; i++ {
 		for j := 0; j < bulkSize; j++ {
@@ -1359,7 +1359,7 @@ func bulkInsert(tbtree *TBtree, bulkCount, bulkSize int, asc bool) error {
 			value := make([]byte, 32)
 			rnd.Read(value)
 
-			kvs[j] = &KV{K: key, V: value}
+			kvs[j] = &KVT{K: key, V: value}
 		}
 
 		err := tbtree.BulkInsert(kvs)
@@ -1388,7 +1388,7 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 		kBulkCount := 1000
 		kBulkSize := 1000
 
-		kvs := make([]*KV, kBulkSize)
+		kvs := make([]*KVT, kBulkSize)
 
 		for i := 0; i < kBulkCount; i++ {
 			for j := 0; j < kBulkSize; j++ {
@@ -1398,7 +1398,7 @@ func BenchmarkRandomBulkInsertion(b *testing.B) {
 				rnd.Read(k)
 				rnd.Read(v)
 
-				kvs[j] = &KV{K: k, V: v}
+				kvs[j] = &KVT{K: k, V: v}
 			}
 
 			err = tbtree.BulkInsert(kvs)

@@ -224,7 +224,7 @@ type pathNode struct {
 }
 
 type node interface {
-	insertAt(kvs []*KV, ts uint64) ([]node, int, error)
+	insert(kvts []*KVT) ([]node, int, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, uint64, error)
 	findLeafNode(keyPrefix []byte, path path, offset int, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
@@ -1549,71 +1549,95 @@ func (t *TBtree) IncreaseTs(ts uint64) error {
 	return nil
 }
 
-type KV struct {
+type KVT struct {
 	K []byte
 	V []byte
+	T uint64
+}
+
+func (t *TBtree) lock() {
+	t.rwmutex.Lock()
+}
+
+func (t *TBtree) unlock() {
+	slowDown := t.compacting && t.delayDuringCompaction > 0
+
+	t.rwmutex.Unlock()
+
+	if slowDown {
+		time.Sleep(t.delayDuringCompaction)
+	}
 }
 
 func (t *TBtree) Insert(key []byte, value []byte) error {
-	return t.BulkInsert([]*KV{{K: key, V: value}})
+	t.lock()
+	defer t.unlock()
+
+	return t.bulkInsert([]*KVT{{K: key, V: value}})
 }
 
-func (t *TBtree) BulkInsert(kvs []*KV) error {
-	if len(kvs) == 0 {
-		return ErrIllegalArguments
-	}
+func (t *TBtree) BulkInsert(kvts []*KVT) error {
+	t.lock()
+	defer t.unlock()
 
-	// validated immutable copy of input kv pairs
-	immutableKVs := make([]*KV, len(kvs))
+	return t.bulkInsert(kvts)
+}
 
-	for i, kv := range kvs {
-		if kv == nil || kv.K == nil || kv.V == nil {
-			return ErrIllegalArguments
-		}
-
-		if len(kv.K) > t.maxKeySize {
-			return ErrorMaxKeySizeExceeded
-		}
-
-		if len(kv.V) > t.maxValueSize {
-			return ErrorMaxValueSizeExceeded
-		}
-
-		k := make([]byte, len(kv.K))
-		copy(k, kv.K)
-
-		v := make([]byte, len(kv.V))
-		copy(v, kv.V)
-
-		immutableKVs[i] = &KV{
-			K: k,
-			V: v,
-		}
-	}
-
-	t.rwmutex.Lock()
-
-	defer func() {
-		slowDown := false
-
-		if t.compacting && t.delayDuringCompaction > 0 {
-			slowDown = true
-		}
-
-		t.rwmutex.Unlock()
-
-		if slowDown {
-			time.Sleep(t.delayDuringCompaction)
-		}
-	}()
-
+func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	if t.closed {
 		return ErrAlreadyClosed
 	}
 
-	ts := t.root.ts() + 1
+	if len(kvts) == 0 {
+		return ErrIllegalArguments
+	}
 
-	nodes, depth, err := t.root.insertAt(immutableKVs, ts)
+	ts := t.root.ts()
+
+	// validated immutable copy of input kv pairs
+	immutableKVTs := make([]*KVT, len(kvts))
+
+	newTs := ts + 1
+
+	for i, kvt := range kvts {
+		if kvt == nil || kvt.K == nil || kvt.V == nil {
+			return ErrIllegalArguments
+		}
+
+		if len(kvt.K) > t.maxKeySize {
+			return ErrorMaxKeySizeExceeded
+		}
+
+		if len(kvt.V) > t.maxValueSize {
+			return ErrorMaxValueSizeExceeded
+		}
+
+		k := make([]byte, len(kvt.K))
+		copy(k, kvt.K)
+
+		v := make([]byte, len(kvt.V))
+		copy(v, kvt.V)
+
+		t := kvt.T
+
+		if kvt.T == 0 {
+			t = ts + 1
+		} else if kvt.T < ts {
+			return ErrIllegalArguments
+		}
+
+		immutableKVTs[i] = &KVT{
+			K: k,
+			V: v,
+			T: t,
+		}
+
+		if t > newTs {
+			newTs = t
+		}
+	}
+
+	nodes, depth, err := t.root.insert(immutableKVTs)
 	if err != nil {
 		return err
 	}
@@ -1622,7 +1646,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		newRoot := &innerNode{
 			t:     t,
 			nodes: nodes,
-			_ts:   ts,
+			_ts:   newTs,
 			mut:   true,
 		}
 
@@ -1638,9 +1662,9 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	metricsBtreeDepth.WithLabelValues(t.path).Set(float64(depth))
 
-	t.insertionCountSinceFlush += len(immutableKVs)
-	t.insertionCountSinceSync += len(immutableKVs)
-	t.insertionCountSinceCleanup += len(immutableKVs)
+	t.insertionCountSinceFlush += len(immutableKVTs)
+	t.insertionCountSinceSync += len(immutableKVTs)
+	t.insertionCountSinceCleanup += len(immutableKVTs)
 
 	if t.insertionCountSinceFlush >= t.flushThld {
 		_, _, err := t.flushTree(t.cleanupPercentage, false, false, "BulkInsert")
@@ -1766,9 +1790,9 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
-func (n *innerNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (n *innerNode) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 	if n.mutated() {
-		return n.updateOnInsertAt(kvs, ts)
+		return n.updateOnInsert(kvts)
 	}
 
 	newNode := &innerNode{
@@ -1781,47 +1805,54 @@ func (n *innerNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err
 
 	copy(newNode.nodes, n.nodes)
 
-	return newNode.updateOnInsertAt(kvs, ts)
+	return newNode.updateOnInsert(kvts)
 }
 
-func (n *innerNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (n *innerNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err error) {
 	// group kvs by child at which they will be inserted
-	kvsPerChild := make(map[int][]*KV)
+	kvtsPerChild := make(map[int][]*KVT)
 
-	for _, kv := range kvs {
-		childIndex := n.indexOf(kv.K)
-		kvsPerChild[childIndex] = append(kvsPerChild[childIndex], kv)
+	for _, kvt := range kvts {
+		childIndex := n.indexOf(kvt.K)
+		kvtsPerChild[childIndex] = append(kvtsPerChild[childIndex], kvt)
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(kvsPerChild))
+	wg.Add(len(kvtsPerChild))
 
 	nodesPerChild := make(map[int][]node)
 	var nodesMutex sync.Mutex
 
-	for childIndex, childKVs := range kvsPerChild {
+	for childIndex, childKVTs := range kvtsPerChild {
 		// insert kvs at every child simultaneously
-		go func(childIndex int, childKVs []*KV) {
+		go func(childIndex int, childKVTs []*KVT) {
 			defer wg.Done()
 
-			c := n.nodes[childIndex]
+			child := n.nodes[childIndex]
 
-			cs, cdepth, cerr := c.insertAt(childKVs, ts)
+			newChildren, childrenDepth, childrenErr := child.insert(childKVTs)
 
 			nodesMutex.Lock()
 			defer nodesMutex.Unlock()
 
 			if err != nil {
 				// if any of its children fail to insert, insertion fails
-				err = cerr
+				err = childrenErr
 				return
 			}
 
-			nodesPerChild[childIndex] = cs
-			if cdepth > depth {
-				depth = cdepth
+			nodesPerChild[childIndex] = newChildren
+			if childrenDepth > depth {
+				depth = childrenDepth
 			}
-		}(childIndex, childKVs)
+
+			for _, newChild := range newChildren {
+				if newChild.ts() > n._ts {
+					n._ts = newChild.ts()
+				}
+			}
+
+		}(childIndex, childKVTs)
 	}
 
 	// wait for all the insertions to be done
@@ -1830,8 +1861,6 @@ func (n *innerNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth 
 	if err != nil {
 		return nil, 0, err
 	}
-
-	n._ts = ts
 
 	// count the number of children after insertion
 	nsSize := len(n.nodes)
@@ -2063,12 +2092,12 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 
-func (r *nodeRef) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (r *nodeRef) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 	n, err := r.t.nodeAt(r.off, true)
 	if err != nil {
 		return nil, 0, err
 	}
-	return n.insertAt(kvs, ts)
+	return n.insert(kvts)
 }
 
 func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
@@ -2135,9 +2164,9 @@ func (r *nodeRef) offset() int64 {
 
 ////////////////////////////////////////////////////////////
 
-func (l *leafNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
+func (l *leafNode) insert(kvts []*KVT) (nodes []node, depth int, err error) {
 	if l.mutated() {
-		return l.updateOnInsertAt(kvs, ts)
+		return l.updateOnInsert(kvts)
 	}
 
 	newLeaf := &leafNode{
@@ -2161,27 +2190,34 @@ func (l *leafNode) insertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err 
 		}
 	}
 
-	return newLeaf.updateOnInsertAt(kvs, ts)
+	return newLeaf.updateOnInsert(kvts)
 }
 
-func (l *leafNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth int, err error) {
-	for _, kv := range kvs {
-		i, found := l.indexOf(kv.K)
+func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err error) {
+	for _, kvt := range kvts {
+		i, found := l.indexOf(kvt.K)
 
 		if found {
-			l.values[i].value = kv.V
-			l.values[i].ts = ts
-			l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
+			lv := l.values[i]
+
+			if kvt.T < lv.ts {
+				// TODO: this validation can be made upfront at bulkInsert, specific error may be declared
+				return nil, 0, fmt.Errorf("%w: attempt to insert an older value", ErrIllegalState)
+			}
+
+			lv.value = kvt.V
+			lv.ts = kvt.T
+			lv.tss = append([]uint64{kvt.T}, lv.tss...)
 		} else {
 			values := make([]*leafValue, len(l.values)+1)
 
 			copy(values, l.values[:i])
 
 			values[i] = &leafValue{
-				key:    kv.K,
-				value:  kv.V,
-				ts:     ts,
-				tss:    []uint64{ts},
+				key:    kvt.K,
+				value:  kvt.V,
+				ts:     kvt.T,
+				tss:    []uint64{kvt.T},
 				hOff:   -1,
 				hCount: 0,
 			}
@@ -2190,9 +2226,11 @@ func (l *leafNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth i
 
 			l.values = values
 		}
-	}
 
-	l._ts = ts
+		if l._ts < kvt.T {
+			l._ts = kvt.T
+		}
+	}
 
 	nodes, err = l.split()
 
