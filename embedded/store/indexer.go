@@ -320,6 +320,14 @@ func (idx *indexer) Pause() {
 	idx.stateCond.L.Unlock()
 }
 
+func (idx *indexer) bulkSize(txID uint64) int {
+	if txID == 1 {
+		return 1
+	}
+
+	return idx.store.indexingBulkSize
+}
+
 func (idx *indexer) doIndexing() {
 	committedTxID := idx.store.LastCommittedTxID()
 	idx.metricsLastCommittedTrx.Set(float64(committedTxID))
@@ -332,7 +340,7 @@ func (idx *indexer) doIndexing() {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
 
-		err := idx.store.commitWHub.WaitFor(lastIndexedTx+uint64(idx.store.indexingBulkSize), idx.ctx.Done())
+		err := idx.store.commitWHub.WaitFor(lastIndexedTx+uint64(idx.bulkSize(lastIndexedTx)), idx.ctx.Done())
 		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
 			return
 		}
@@ -372,9 +380,11 @@ func (idx *indexer) doIndexing() {
 }
 
 func (idx *indexer) indexTx(txID uint64) error {
+	bulkSize := idx.bulkSize(txID)
+
 	indexableEntries := 0
 
-	for g := 0; g < idx.store.indexingBulkSize; g++ {
+	for g := 0; g < bulkSize; g++ {
 
 		err := idx.store.readTx(txID+uint64(g), false, idx.tx)
 		if err != nil {
@@ -440,7 +450,7 @@ func (idx *indexer) indexTx(txID uint64) error {
 	var err error
 
 	if indexableEntries == 0 {
-		err = idx.index.IncreaseTs(txID + uint64(idx.store.indexingBulkSize-1))
+		err = idx.index.IncreaseTs(txID + uint64(bulkSize-1))
 	} else {
 		err = idx.index.BulkInsert(idx.store._kvs[:indexableEntries])
 	}
@@ -448,7 +458,7 @@ func (idx *indexer) indexTx(txID uint64) error {
 		return err
 	}
 
-	idx.metricsLastIndexedTrx.Set(float64(txID + uint64(idx.store.indexingBulkSize-1)))
+	idx.metricsLastIndexedTrx.Set(float64(txID + uint64(bulkSize-1)))
 
 	return nil
 }
