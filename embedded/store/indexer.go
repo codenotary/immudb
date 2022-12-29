@@ -441,6 +441,7 @@ func (idx *indexer) indexTx(txID uint64) error {
 
 			idx.store._kvs[indexableEntries].K = e.key()
 			idx.store._kvs[indexableEntries].V = b[:o]
+			idx.store._kvs[indexableEntries].T = txID + uint64(g)
 
 			indexableEntries++
 		}
