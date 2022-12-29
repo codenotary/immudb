@@ -182,9 +182,9 @@ type ImmuStore struct {
 	waiteesMutex sync.Mutex
 	waiteesCount int // current number of go-routines waiting for a tx to be indexed or committed
 
-	_txbs     []byte       // pre-allocated buffer to support tx serialization
-	_kvs      []*tbtree.KV //pre-allocated for indexing
-	_valBs    []byte       // pre-allocated buffer to support tx exportation
+	_txbs     []byte        // pre-allocated buffer to support tx serialization
+	_kvs      []*tbtree.KVT //pre-allocated for indexing
+	_valBs    []byte        // pre-allocated buffer to support tx exportation
 	_valBsMux sync.Mutex
 
 	aht                  *ahtree.AHtree
@@ -463,11 +463,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
-	kvs := make([]*tbtree.KV, maxTxEntries)
+	kvs := make([]*tbtree.KVT, maxTxEntries)
 	for i := range kvs {
 		// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
 		elen := lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen
-		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, elen)}
+		kvs[i] = &tbtree.KVT{K: make([]byte, maxKeyLen), V: make([]byte, elen)}
 	}
 
 	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
