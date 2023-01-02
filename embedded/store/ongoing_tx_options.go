@@ -32,7 +32,9 @@ const (
 type TxOptions struct {
 	Mode TxMode
 	// SnapshotMustIncludeTxID is a function which receives the latest precommitted transaction ID as parameter.
-	// It gaves the possibility to require a snapshot which includes a percentage of the transactions already indexed.
+	// It gives the possibility to reuse a snapshot which includes a percentage of the transactions already indexed
+	// e.g. func(lastPrecommittedTxID uint64) uint64 { return  lastPrecommittedTxID * 90 / 100 }
+	// or just a fixed transaction ID e.g. func(_ uint64) uint64 { return  1_000 }
 	SnapshotMustIncludeTxID func(lastPrecommittedTxID uint64) uint64
 	// SnapshotRenewalPeriod determines for how long a snaphsot may reuse existent dumped root
 	SnapshotRenewalPeriod time.Duration
