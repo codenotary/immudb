@@ -1825,6 +1825,7 @@ func (n *innerNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth 
 		return nil, 0, err
 	}
 
+	currTs := n._ts // if split unexpectedly fails, changes will be rolled back
 	n._ts = ts
 
 	// count the number of children after insertion
@@ -1853,7 +1854,11 @@ func (n *innerNode) updateOnInsertAt(kvs []*KV, ts uint64) (nodes []node, depth 
 
 	n.nodes = ns
 
-	nodes, _ = n.split()
+	nodes, err = n.split()
+	if err != nil {
+		n._ts = currTs
+		return nil, 0, err
+	}
 
 	return nodes, depth + 1, nil
 }
