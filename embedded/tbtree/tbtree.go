@@ -1678,13 +1678,15 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 	return t.SnapshotMustIncludeTs(0)
 }
 
-func (t *TBtree) SnapshotMustIncludeTs(snapshotMustIncludeTs uint64) (*Snapshot, error) {
-	return t.SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs, t.renewSnapRootAfter)
+func (t *TBtree) SnapshotMustIncludeTs(ts uint64) (*Snapshot, error) {
+	return t.SnapshotMustIncludeTsWithRenewalPeriod(ts, t.renewSnapRootAfter)
 }
 
 // SnapshotMustIncludeTsWithRenewalPeriod returns a new snapshot based on an existent dumped root (snapshot reuse).
 // Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
-func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
+// If ts is 0, any snapshot not older than renewalPeriod may be used.
+// If renewalPeriod is 0, renewal period is not taken into consideration
+func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(ts uint64, renewalPeriod time.Duration) (*Snapshot, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -1692,14 +1694,16 @@ func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs ui
 		return nil, ErrAlreadyClosed
 	}
 
-	if snapshotMustIncludeTs > t.root.ts() {
-		return nil, fmt.Errorf("%w: snapshotMustIncludeTs is greater than current ts", ErrIllegalArguments)
+	if ts > t.root.ts() {
+		return nil, fmt.Errorf("%w: ts is greater than current ts", ErrIllegalArguments)
 	}
 
 	if len(t.snapshots) == t.maxActiveSnapshots {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
+	// the tbtree will be flushed if the current root is mutated, the data on disk is not synchronized,
+	// and no snapshot on disk can be re-used.
 	if t.root.mutated() {
 		// it means the current root is not stored on disk
 
@@ -1708,8 +1712,8 @@ func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs ui
 		if t.lastSnapRoot == nil {
 			snapshotRenewalNeeded = true
 		} else if t.lastSnapRoot.ts() < t.root.ts() {
-			snapshotRenewalNeeded = t.lastSnapRoot.ts() < snapshotMustIncludeTs ||
-				(snapshotRenewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= snapshotRenewalPeriod)
+			snapshotRenewalNeeded = t.lastSnapRoot.ts() < ts ||
+				(renewalPeriod > 0 && time.Since(t.lastSnapRootAt) >= renewalPeriod)
 		}
 
 		if snapshotRenewalNeeded {

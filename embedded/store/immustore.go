@@ -806,21 +806,28 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	}, nil
 }
 
-func (s *ImmuStore) SnapshotMustIncludeTxID(snapshotMustIncludeTxID uint64) (*Snapshot, error) {
-	return s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, 0)
+// SnapshotMustIncludeTxID returns a new snapshot based on an existent dumped root (snapshot reuse).
+// Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
+// If txID is 0, any snapshot may be used.
+func (s *ImmuStore) SnapshotMustIncludeTxID(txID uint64) (*Snapshot, error) {
+	return s.SnapshotMustIncludeTxIDWithRenewalPeriod(txID, 0)
 }
 
-func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
-	if snapshotMustIncludeTxID > s.lastPrecommittedTxID() {
-		return nil, fmt.Errorf("%w: snapshotMustIncludeTxID is greater than the last precommitted transaction", ErrIllegalArguments)
+// SnapshotMustIncludeTxIDWithRenewalPeriod returns a new snapshot based on an existent dumped root (snapshot reuse).
+// Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
+// If txID is 0, any snapshot not older than renewalPeriod may be used.
+// If renewalPeriod is 0, renewal period is not taken into consideration
+func (s *ImmuStore) SnapshotMustIncludeTxIDWithRenewalPeriod(txID uint64, renewalPeriod time.Duration) (*Snapshot, error) {
+	if txID > s.lastPrecommittedTxID() {
+		return nil, fmt.Errorf("%w: txID is greater than the last precommitted transaction", ErrIllegalArguments)
 	}
 
-	err := s.WaitForIndexingUpto(snapshotMustIncludeTxID, nil)
+	err := s.WaitForIndexingUpto(txID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	snap, err := s.indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, snapshotRenewalPeriod)
+	snap, err := s.indexer.SnapshotMustIncludeTxIDWithRenewalPeriod(txID, renewalPeriod)
 	if err != nil {
 		return nil, err
 	}
