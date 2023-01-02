@@ -858,7 +858,7 @@ func (d *db) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	opts := store.DefaultTxOptions()
 
 	if req.SinceTx > 0 {
-		opts.WithSnapshotMustIncludeTxID(func(lastPrecommittedTxID uint64) uint64 {
+		opts.WithSnapshotMustIncludeTxID(func(_ uint64) uint64 {
 			return req.SinceTx
 		})
 	}

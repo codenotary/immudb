@@ -1680,6 +1680,8 @@ func (t *TBtree) SnapshotMustIncludeTs(snapshotMustIncludeTs uint64) (*Snapshot,
 	return t.SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs, t.renewSnapRootAfter)
 }
 
+// SnapshotMustIncludeTsWithRenewalPeriod returns a new snapshot based on an existent dumped root (snapshot reuse).
+// Current root may be dumped if there are no previous root already stored on disk or if the dumped one was old enough.
 func (t *TBtree) SnapshotMustIncludeTsWithRenewalPeriod(snapshotMustIncludeTs uint64, snapshotRenewalPeriod time.Duration) (*Snapshot, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
