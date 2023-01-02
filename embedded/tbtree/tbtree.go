@@ -1576,6 +1576,11 @@ func (t *TBtree) Insert(key []byte, value []byte) error {
 	return t.bulkInsert([]*KVT{{K: key, V: value}})
 }
 
+// BulkInsert inserts multiple entries atomically.
+// It is possible to specify a logical timestamp for each entry.
+// Timestamps with zero will be associated with the current time plus one.
+// The specified timestamp must be greater than the root's current timestamp.
+// Timestamps must be increased by one for each additional entry for a key.
 func (t *TBtree) BulkInsert(kvts []*KVT) error {
 	t.lock()
 	defer t.unlock()
@@ -1623,7 +1628,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 		if kvt.T == 0 {
 			t = ts + 1
 		} else if kvt.T < ts {
-			return ErrIllegalArguments
+			return fmt.Errorf("%w: specific timestamp is older than root's current timestamp", ErrIllegalArguments)
 		}
 
 		immutableKVTs[i] = &KVT{
@@ -2201,8 +2206,10 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 			lv := l.values[i]
 
 			if kvt.T < lv.ts {
-				// TODO: this validation can be made upfront at bulkInsert, specific error may be declared
-				return nil, 0, fmt.Errorf("%w: attempt to insert an older value", ErrIllegalState)
+				// The validation can be done upfront at bulkInsert,
+				// but postponing it could reduce resource requirements during the earlier stages,
+				// resulting in higher performance due to concurrency.
+				return nil, 0, fmt.Errorf("%w: attempt to insert a value with an older ts", ErrIllegalArguments)
 			}
 
 			lv.value = kvt.V
