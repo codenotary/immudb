@@ -640,7 +640,9 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	if validatedCLogEntry == nil {
-		t.root = &leafNode{t: t, mut: false}
+		// even when starting with a fresh btree, it's better to make the changes in a copy of the node,
+		// so that you can rollback if necessary.
+		t.root = &leafNode{t: t}
 	} else {
 		t.root, err = t.readNodeAt(validatedCLogEntry.finalNLogSize - int64(validatedCLogEntry.rootNodeSize))
 		if err != nil {
