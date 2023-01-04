@@ -168,8 +168,6 @@ type ImmuStore struct {
 	maxKeyLen             int
 	maxValueLen           int
 
-	maxTxSize int
-
 	writeTxHeaderVersion int
 
 	timeFunc TimeFunc
@@ -182,9 +180,8 @@ type ImmuStore struct {
 	waiteesMutex sync.Mutex
 	waiteesCount int // current number of go-routines waiting for a tx to be indexed or committed
 
-	_txbs     []byte        // pre-allocated buffer to support tx serialization
-	_kvs      []*tbtree.KVT //pre-allocated for indexing
-	_valBs    []byte        // pre-allocated buffer to support tx exportation
+	_txbs     []byte // pre-allocated buffer to support tx serialization
+	_valBs    []byte // pre-allocated buffer to support tx exportation
 	_valBsMux sync.Mutex
 
 	aht                  *ahtree.AHtree
@@ -463,13 +460,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, fmt.Errorf("could not open aht: %w", err)
 	}
 
-	kvs := make([]*tbtree.KVT, maxTxEntries)
-	for i := range kvs {
-		// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
-		elen := lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen
-		kvs[i] = &tbtree.KVT{K: make([]byte, maxKeyLen), V: make([]byte, elen)}
-	}
-
 	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize) // TODO: optionally it could include up to opts.MaxActiveTransactions upon start
 	if err != nil {
 		return nil, err
@@ -507,8 +497,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		maxKeyLen:             maxKeyLen,
 		maxValueLen:           maxInt(maxValueLen, opts.MaxValueLen),
 
-		maxTxSize: maxTxSize,
-
 		writeTxHeaderVersion: opts.WriteTxHeaderVersion,
 
 		timeFunc: opts.TimeFunc,
@@ -523,7 +511,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		commitWHub:           watchers.New(0, 1+opts.MaxActiveTransactions+opts.MaxWaitees), // including indexer
 
 		txPool: txPool,
-		_kvs:   kvs,
 		_txbs:  txbs,
 		_valBs: make([]byte, maxValueLen),
 
@@ -598,7 +585,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	indexPath := filepath.Join(store.path, indexDirname)
 
-	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
+	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees, opts.IndexOpts.MaxBulkSize, opts.IndexOpts.BulkPreparationTimeout)
 	if err != nil {
 		store.Close()
 		return nil, fmt.Errorf("could not open indexer: %w", err)

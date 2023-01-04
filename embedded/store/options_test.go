@@ -77,6 +77,8 @@ func TestInvalidIndexOptions(t *testing.T) {
 		{"MaxActiveSnapshots", DefaultIndexOptions().WithMaxActiveSnapshots(0)},
 		{"MaxNodeSize", DefaultIndexOptions().WithMaxNodeSize(0)},
 		{"RenewSnapRootAfter", DefaultIndexOptions().WithRenewSnapRootAfter(-1)},
+		{"MaxBulkSize", DefaultIndexOptions().WithMaxBulkSize(0)},
+		{"BulkPreparationTimeout", DefaultIndexOptions().WithBulkPreparationTimeout(-1)},
 		{"CompactionThld", DefaultIndexOptions().WithCompactionThld(0)},
 		{"DelayDuringCompaction", DefaultIndexOptions().WithDelayDuringCompaction(-1)},
 		{"NodesLogMaxOpenedFiles", DefaultIndexOptions().WithNodesLogMaxOpenedFiles(0)},
@@ -180,6 +182,9 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).MaxNodeSize)
 	require.Equal(t, time.Duration(1000)*time.Millisecond,
 		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).RenewSnapRootAfter)
+	require.Equal(t, 1_000, indexOpts.WithMaxBulkSize(1_000).MaxBulkSize)
+	require.Equal(t, time.Duration(500)*time.Millisecond,
+		indexOpts.WithBulkPreparationTimeout(time.Duration(500)*time.Millisecond).BulkPreparationTimeout)
 	require.Equal(t, 10, indexOpts.WithNodesLogMaxOpenedFiles(10).NodesLogMaxOpenedFiles)
 	require.Equal(t, 11, indexOpts.WithHistoryLogMaxOpenedFiles(11).HistoryLogMaxOpenedFiles)
 	require.Equal(t, 12, indexOpts.WithCommitLogMaxOpenedFiles(12).CommitLogMaxOpenedFiles)
