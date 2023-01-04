@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(t.TempDir(), nil, nil, 0)
+	indexer, err := newIndexer(t.TempDir(), nil, nil, 0, DefaultIndexingMaxBulkSize, DefaultBulkPreparationTimeout)
 	require.Nil(t, indexer)
 	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
 }
