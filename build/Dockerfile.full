@@ -33,7 +33,7 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
-    adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
+    adduser --system --uid $IMMU_UID --ingroup immu immu && \
     mkdir -p "$IMMUDB_HOME" && \
     mkdir -p "$IMMUDB_DIR" && \
     chown -R immu:immu "$IMMUDB_HOME" "$IMMUDB_DIR" && \
