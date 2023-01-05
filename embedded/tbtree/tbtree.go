@@ -1597,12 +1597,13 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 		return ErrIllegalArguments
 	}
 
-	ts := t.root.ts()
+	currTs := t.root.ts()
+
+	// newTs will hold the greatest time, the minimun value will be currTs + 1
+	var newTs uint64
 
 	// validated immutable copy of input kv pairs
 	immutableKVTs := make([]*KVT, len(kvts))
-
-	newTs := ts + 1
 
 	for i, kvt := range kvts {
 		if kvt == nil || kvt.K == nil || kvt.V == nil {
@@ -1625,9 +1626,10 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 
 		t := kvt.T
 
-		if kvt.T == 0 {
-			t = ts + 1
-		} else if kvt.T < ts {
+		if t == 0 {
+			// zero-valued timestamps are associated with current time plus one
+			t = currTs + 1
+		} else if kvt.T < currTs {
 			return fmt.Errorf("%w: specific timestamp is older than root's current timestamp", ErrIllegalArguments)
 		}
 
