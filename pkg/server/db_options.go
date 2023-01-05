@@ -99,19 +99,21 @@ func (fs featureState) isEnabled() bool {
 }
 
 type indexOptions struct {
-	FlushThreshold           int     `json:"flushThreshold"`
-	SyncThreshold            int     `json:"syncThreshold"`
-	FlushBufferSize          int     `json:"flushBufferSize"`
-	CleanupPercentage        float32 `json:"cleanupPercentage"`
-	CacheSize                int     `json:"cacheSize"`
-	MaxNodeSize              int     `json:"maxNodeSize"` // permanent
-	MaxActiveSnapshots       int     `json:"maxActiveSnapshots"`
-	RenewSnapRootAfter       int64   `json:"renewSnapRootAfter"` // ms
-	CompactionThld           int     `json:"compactionThld"`
-	DelayDuringCompaction    int64   `json:"delayDuringCompaction"` // ms
-	NodesLogMaxOpenedFiles   int     `json:"nodesLogMaxOpenedFiles"`
-	HistoryLogMaxOpenedFiles int     `json:"historyLogMaxOpenedFiles"`
-	CommitLogMaxOpenedFiles  int     `json:"commitLogMaxOpenedFiles"`
+	FlushThreshold           int          `json:"flushThreshold"`
+	SyncThreshold            int          `json:"syncThreshold"`
+	FlushBufferSize          int          `json:"flushBufferSize"`
+	CleanupPercentage        float32      `json:"cleanupPercentage"`
+	CacheSize                int          `json:"cacheSize"`
+	MaxNodeSize              int          `json:"maxNodeSize"` // permanent
+	MaxActiveSnapshots       int          `json:"maxActiveSnapshots"`
+	RenewSnapRootAfter       int64        `json:"renewSnapRootAfter"` // ms
+	CompactionThld           int          `json:"compactionThld"`
+	DelayDuringCompaction    int64        `json:"delayDuringCompaction"` // ms
+	NodesLogMaxOpenedFiles   int          `json:"nodesLogMaxOpenedFiles"`
+	HistoryLogMaxOpenedFiles int          `json:"historyLogMaxOpenedFiles"`
+	CommitLogMaxOpenedFiles  int          `json:"commitLogMaxOpenedFiles"`
+	MaxBulkSize              int          `json:"maxBulkSize"`
+	BulkPreparationTimeout   Milliseconds `json:"bulkPreparationTimeout"` // ms
 }
 
 type ahtOptions struct {
@@ -196,6 +198,8 @@ func (s *ImmuServer) defaultIndexOptions() *indexOptions {
 		NodesLogMaxOpenedFiles:   tbtree.DefaultNodesLogMaxOpenedFiles,
 		HistoryLogMaxOpenedFiles: tbtree.DefaultHistoryLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles:  tbtree.DefaultCommitLogMaxOpenedFiles,
+		MaxBulkSize:              store.DefaultIndexingMaxBulkSize,
+		BulkPreparationTimeout:   Milliseconds(store.DefaultBulkPreparationTimeout.Milliseconds()),
 	}
 }
 
@@ -233,7 +237,9 @@ func (opts *dbOptions) storeOptions() *store.Options {
 			WithDelayDuringCompaction(time.Millisecond * time.Duration(opts.IndexOptions.DelayDuringCompaction)).
 			WithNodesLogMaxOpenedFiles(opts.IndexOptions.NodesLogMaxOpenedFiles).
 			WithHistoryLogMaxOpenedFiles(opts.IndexOptions.HistoryLogMaxOpenedFiles).
-			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles)
+			WithCommitLogMaxOpenedFiles(opts.IndexOptions.CommitLogMaxOpenedFiles).
+			WithMaxBulkSize(opts.IndexOptions.MaxBulkSize).
+			WithBulkPreparationTimeout(time.Millisecond * time.Duration(opts.IndexOptions.BulkPreparationTimeout))
 	}
 
 	ahtOpts := store.DefaultAHTOptions()
@@ -324,6 +330,8 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 			NodesLogMaxOpenedFiles:   &schema.NullableUint32{Value: uint32(opts.IndexOptions.NodesLogMaxOpenedFiles)},
 			HistoryLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.IndexOptions.HistoryLogMaxOpenedFiles)},
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: uint32(opts.IndexOptions.CommitLogMaxOpenedFiles)},
+			MaxBulkSize:              &schema.NullableUint32{Value: uint32(opts.IndexOptions.MaxBulkSize)},
+			BulkPreparationTimeout:   &schema.NullableMilliseconds{Value: int64(opts.IndexOptions.BulkPreparationTimeout)},
 		},
 
 		AhtSettings: &schema.AHTNullableSettings{
@@ -591,6 +599,12 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		if settings.IndexSettings.CommitLogMaxOpenedFiles != nil {
 			opts.IndexOptions.CommitLogMaxOpenedFiles = int(settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
 		}
+		if settings.IndexSettings.MaxBulkSize != nil {
+			opts.IndexOptions.MaxBulkSize = int(settings.IndexSettings.MaxBulkSize.Value)
+		}
+		if settings.IndexSettings.BulkPreparationTimeout != nil {
+			opts.IndexOptions.BulkPreparationTimeout = Milliseconds(settings.IndexSettings.BulkPreparationTimeout.Value)
+		}
 	}
 
 	// aht options
@@ -822,6 +836,8 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.IndexOptions.NodesLogMaxOpenedFiles: %v", database, opts.IndexOptions.NodesLogMaxOpenedFiles)
 	s.Logger.Infof("%s.IndexOptions.HistoryLogMaxOpenedFiles: %v", database, opts.IndexOptions.HistoryLogMaxOpenedFiles)
 	s.Logger.Infof("%s.IndexOptions.CommitLogMaxOpenedFiles: %v", database, opts.IndexOptions.CommitLogMaxOpenedFiles)
+	s.Logger.Infof("%s.IndexOptions.MaxBulkSize: %v", database, opts.IndexOptions.MaxBulkSize)
+	s.Logger.Infof("%s.IndexOptions.BulkPreparationTimeout: %v", database, opts.IndexOptions.BulkPreparationTimeout)
 	s.Logger.Infof("%s.AHTOptions.SyncThreshold: %v", database, opts.AHTOptions.SyncThreshold)
 	s.Logger.Infof("%s.AHTOptions.WriteBufferSize: %v", database, opts.AHTOptions.WriteBufferSize)
 }

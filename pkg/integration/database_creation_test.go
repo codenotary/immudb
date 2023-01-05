@@ -87,6 +87,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 			NodesLogMaxOpenedFiles:   &schema.NullableUint32{Value: 20},
 			HistoryLogMaxOpenedFiles: &schema.NullableUint32{Value: 15},
 			CommitLogMaxOpenedFiles:  &schema.NullableUint32{Value: 3},
+			MaxBulkSize:              &schema.NullableUint32{Value: 35},
+			BulkPreparationTimeout:   &schema.NullableMilliseconds{Value: 150},
 		},
 		AhtSettings: &schema.AHTNullableSettings{
 			SyncThreshold:   &schema.NullableUint32{Value: 10_000},
@@ -130,6 +132,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.IndexSettings.NodesLogMaxOpenedFiles.Value, res.Settings.IndexSettings.NodesLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.HistoryLogMaxOpenedFiles.Value, res.Settings.IndexSettings.HistoryLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.IndexSettings.CommitLogMaxOpenedFiles.Value, res.Settings.IndexSettings.CommitLogMaxOpenedFiles.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.MaxBulkSize.Value, res.Settings.IndexSettings.MaxBulkSize.Value)
+	require.Equal(t, dbNullableSettings.IndexSettings.BulkPreparationTimeout.Value, res.Settings.IndexSettings.BulkPreparationTimeout.Value)
 
 	require.Equal(t, dbNullableSettings.AhtSettings.SyncThreshold.Value, res.Settings.AhtSettings.SyncThreshold.Value)
 	require.Equal(t, dbNullableSettings.AhtSettings.WriteBufferSize.Value, res.Settings.AhtSettings.WriteBufferSize.Value)

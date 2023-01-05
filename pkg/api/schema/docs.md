@@ -879,6 +879,8 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | commitLogMaxOpenedFiles | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of simultaneously opened commit log files |
 | flushBufferSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the in-memory flush buffer (in bytes) |
 | cleanupPercentage | [NullableFloat](#immudb.schema.NullableFloat) |  | Percentage of node files cleaned up during each flush |
+| maxBulkSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of transactions indexed together |
+| bulkPreparationTimeout | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Maximum time waiting for more transactions to be committed and included into the same bulk |
 
 
 
