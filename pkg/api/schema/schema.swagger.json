@@ -2569,6 +2569,14 @@
         "cleanupPercentage": {
           "$ref": "#/definitions/schemaNullableFloat",
           "title": "Percentage of node files cleaned up during each flush"
+        },
+        "maxBulkSize": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Maximum number of transactions indexed together"
+        },
+        "bulkPreparationTimeout": {
+          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "title": "Maximum time waiting for more transactions to be committed and included into the same bulk"
         }
       }
     },

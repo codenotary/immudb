@@ -1104,6 +1104,12 @@ message IndexNullableSettings {
 
   // Percentage of node files cleaned up during each flush
   NullableFloat cleanupPercentage = 13;
+
+  // Maximum number of transactions indexed together
+  NullableUint32 maxBulkSize = 14;
+
+  // Maximum time waiting for more transactions to be committed and included into the same bulk
+  NullableMilliseconds bulkPreparationTimeout = 15;
 }
 
 message AHTNullableSettings {
