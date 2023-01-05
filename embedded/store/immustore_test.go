@@ -666,8 +666,14 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		}
 
 		for i, checkApp := range mockedApps {
+			injectedError = fmt.Errorf("Injected error %d", i)
+			checkApp.SyncFn = func() error { return injectedError }
+
 			store, err := OpenWith(t.TempDir(), vLogs, txLog, cLog, DefaultOptions().WithSyncFrequency(time.Duration(1)*time.Second))
 			require.NoError(t, err)
+
+			var wg sync.WaitGroup
+			wg.Add(1)
 
 			go func() {
 				tx, err := store.NewWriteOnlyTx()
@@ -678,19 +684,21 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 				_, err = tx.AsyncCommit()
 				require.ErrorIs(t, err, ErrAlreadyClosed)
+
+				wg.Done()
 			}()
 
 			// wait for the tx to be waiting for sync to happen
-			time.Sleep(10 * time.Millisecond)
-
-			injectedError = fmt.Errorf("Injected error %d", i)
-			checkApp.SyncFn = func() error { return injectedError }
+			err = store.inmemPrecommitWHub.WaitFor(1, nil)
+			require.NoError(t, err)
 
 			err = store.Sync()
 			require.ErrorIs(t, err, injectedError)
 
 			err = store.Close()
 			require.NoError(t, err)
+
+			wg.Wait()
 
 			checkApp.SyncFn = func() error { return nil }
 		}
