@@ -20,10 +20,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -82,15 +85,46 @@ var (
 	})
 )
 
-func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWaitees int, maxBulkSize int, bulkPreparationTimeout time.Duration) (*indexer, error) {
+func newIndexer(path string, store *ImmuStore, opts *Options) (*indexer, error) {
+	if store == nil {
+		return nil, fmt.Errorf("%w: nil store", ErrIllegalArguments)
+	}
+
+	indexOpts := tbtree.DefaultOptions().
+		WithReadOnly(opts.ReadOnly).
+		WithFileMode(opts.FileMode).
+		WithLogger(opts.logger).
+		WithFileSize(opts.FileSize).
+		WithCacheSize(opts.IndexOpts.CacheSize).
+		WithFlushThld(opts.IndexOpts.FlushThld).
+		WithSyncThld(opts.IndexOpts.SyncThld).
+		WithFlushBufferSize(opts.IndexOpts.FlushBufferSize).
+		WithCleanupPercentage(opts.IndexOpts.CleanupPercentage).
+		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
+		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
+		WithMaxKeySize(opts.MaxKeyLen).
+		WithMaxValueSize(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
+		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).
+		WithHistoryLogMaxOpenedFiles(opts.IndexOpts.HistoryLogMaxOpenedFiles).
+		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
+		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
+		WithCompactionThld(opts.IndexOpts.CompactionThld).
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+
+	if opts.appFactory != nil {
+		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
+			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
+		})
+	}
+
 	index, err := tbtree.Open(path, indexOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	var wHub *watchers.WatchersHub
-	if maxWaitees > 0 {
-		wHub = watchers.New(0, maxWaitees)
+	if opts.MaxWaitees > 0 {
+		wHub = watchers.New(0, opts.MaxWaitees)
 	}
 
 	tx, err := store.fetchAllocTx()
@@ -98,7 +132,7 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 		return nil, err
 	}
 
-	kvs := make([]*tbtree.KVT, store.maxTxEntries*maxBulkSize)
+	kvs := make([]*tbtree.KVT, store.maxTxEntries*opts.IndexOpts.MaxBulkSize)
 	for i := range kvs {
 		// vLen + vOff + vHash + txmdLen + txmd + kvmdLen + kvmd
 		elen := lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen
@@ -108,8 +142,8 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 	indexer := &indexer{
 		store:                  store,
 		tx:                     tx,
-		maxBulkSize:            maxBulkSize,
-		bulkPreparationTimeout: bulkPreparationTimeout,
+		maxBulkSize:            opts.IndexOpts.MaxBulkSize,
+		bulkPreparationTimeout: opts.IndexOpts.BulkPreparationTimeout,
 		_kvs:                   kvs,
 		path:                   path,
 		index:                  index,
