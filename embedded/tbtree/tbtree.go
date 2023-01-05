@@ -1859,7 +1859,7 @@ func (n *innerNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err er
 			nodesMutex.Lock()
 			defer nodesMutex.Unlock()
 
-			if cerr != nil {
+			if childrenErr != nil {
 				// if any of its children fail to insert, insertion fails
 				err = childrenErr
 				return
