@@ -640,9 +640,9 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	if validatedCLogEntry == nil {
-		// even when starting with a fresh btree, it's better to make the changes in a copy of the node,
-		// so that you can rollback if necessary.
-		t.root = &leafNode{t: t}
+		// It is not necessary to copy the root node when starting with a fresh btree.
+		// A fresh root will be used if insertion fails
+		t.root = &leafNode{t: t, mut: true}
 	} else {
 		t.root, err = t.readNodeAt(validatedCLogEntry.finalNLogSize - int64(validatedCLogEntry.rootNodeSize))
 		if err != nil {
@@ -1225,6 +1225,10 @@ func (t *TBtree) flushTree(cleanupPercentageHint float32, forceSync bool, forceC
 
 	metricsBtreeNodesDataEndOffset.WithLabelValues(t.path).Set(float64(t.committedNLogSize))
 
+	// current root can be used as latest snapshot as !t.root.mutated() holds
+	t.lastSnapRoot = t.root
+	t.lastSnapRootAt = time.Now()
+
 	return wN, wH, nil
 }
 
@@ -1646,6 +1650,19 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 
 	nodes, depth, err := t.root.insert(immutableKVTs)
 	if err != nil {
+		// INVARIANT: if !node.mutated() then for every node 'n' in the subtree with node as root !n.mutated() also holds
+		// if t.root is not mutated it means no change was made on any node of the tree. Thus no rollback is needed
+
+		if t.root.mutated() {
+			// changes may need to be rolled back
+			// the most recent snapshot becomes the root again or a fresh start if no snapshots are stored
+			if t.lastSnapRoot == nil {
+				t.root = &leafNode{t: t, mut: true}
+			} else {
+				t.root = t.lastSnapRoot
+			}
+		}
+
 		return err
 	}
 
@@ -2207,11 +2224,11 @@ func (l *leafNode) updateOnInsert(kvts []*KVT) (nodes []node, depth int, err err
 		if found {
 			lv := l.values[i]
 
-			if kvt.T < lv.ts {
+			if kvt.T <= lv.ts {
 				// The validation can be done upfront at bulkInsert,
 				// but postponing it could reduce resource requirements during the earlier stages,
 				// resulting in higher performance due to concurrency.
-				return nil, 0, fmt.Errorf("%w: attempt to insert a value with an older ts", ErrIllegalArguments)
+				return nil, 0, fmt.Errorf("%w: attempt to insert a value without a newer timestamp", ErrIllegalArguments)
 			}
 
 			lv.value = kvt.V
