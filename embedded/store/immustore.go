@@ -550,42 +550,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	indexOpts := tbtree.DefaultOptions().
-		WithReadOnly(opts.ReadOnly).
-		WithFileMode(opts.FileMode).
-		WithLogger(opts.logger).
-		WithFileSize(fileSize).
-		WithCacheSize(opts.IndexOpts.CacheSize).
-		WithFlushThld(opts.IndexOpts.FlushThld).
-		WithSyncThld(opts.IndexOpts.SyncThld).
-		WithFlushBufferSize(opts.IndexOpts.FlushBufferSize).
-		WithCleanupPercentage(opts.IndexOpts.CleanupPercentage).
-		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
-		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
-		WithMaxKeySize(opts.MaxKeyLen).
-		WithMaxValueSize(lszSize + offsetSize + sha256.Size + sszSize + maxTxMetadataLen + sszSize + maxKVMetadataLen). // indexed values
-		WithNodesLogMaxOpenedFiles(opts.IndexOpts.NodesLogMaxOpenedFiles).
-		WithHistoryLogMaxOpenedFiles(opts.IndexOpts.HistoryLogMaxOpenedFiles).
-		WithCommitLogMaxOpenedFiles(opts.IndexOpts.CommitLogMaxOpenedFiles).
-		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
-		WithCompactionThld(opts.IndexOpts.CompactionThld).
-		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
-
-	err = indexOpts.Validate()
-	if err != nil {
-		store.Close()
-		return nil, fmt.Errorf("%w: invalid index options", err)
-	}
-
-	if opts.appFactory != nil {
-		indexOpts.WithAppFactory(func(rootPath, subPath string, appOpts *multiapp.Options) (appendable.Appendable, error) {
-			return opts.appFactory(store.path, filepath.Join(indexDirname, subPath), appOpts)
-		})
-	}
-
 	indexPath := filepath.Join(store.path, indexDirname)
 
-	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees, opts.IndexOpts.MaxBulkSize, opts.IndexOpts.BulkPreparationTimeout)
+	store.indexer, err = newIndexer(indexPath, store, opts)
 	if err != nil {
 		store.Close()
 		return nil, fmt.Errorf("could not open indexer: %w", err)

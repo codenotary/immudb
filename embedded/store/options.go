@@ -107,6 +107,7 @@ type Options struct {
 	// Version of transaction header to use (limits available features)
 	WriteTxHeaderVersion int
 
+	// Maximum number of go-routines waiting for specific transactions to be in a committed or indexed state
 	MaxWaitees int
 
 	TimeFunc TimeFunc

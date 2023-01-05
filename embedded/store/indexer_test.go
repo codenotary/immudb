@@ -23,16 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/embedded/watchers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewIndexerFailure(t *testing.T) {
-	indexer, err := newIndexer(t.TempDir(), nil, nil, 0, DefaultIndexingMaxBulkSize, DefaultBulkPreparationTimeout)
+	indexer, err := newIndexer(t.TempDir(), nil, nil)
 	require.Nil(t, indexer)
-	require.ErrorIs(t, err, tbtree.ErrIllegalArguments)
+	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
 func TestClosedIndexerFailures(t *testing.T) {
