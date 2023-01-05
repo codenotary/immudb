@@ -1500,20 +1500,29 @@ func TestMultiTimedBulkInsertion(t *testing.T) {
 	})
 
 	t.Run("bulk-insertion of the same key should not be possible with non-increasing timestamp", func(t *testing.T) {
+		_, _, err = tbtree.Flush()
+		require.NoError(t, err)
+
+		initialTs := tbtree.Ts()
+
+		err = tbtree.Insert([]byte("key1_2"), []byte("key1_2"))
+		require.NoError(t, err)
+
 		currTs := tbtree.Ts()
 
 		kvts := []*KVT{
-			{K: []byte("key1_2"), V: []byte("value2_2"), T: currTs + 2},
-			{K: []byte("key1_2"), V: []byte("value1_2")},
+			{K: []byte("key2_2"), V: []byte("value2_2"), T: currTs + 2},
+			{K: []byte("key2_2"), V: []byte("value3_2")},
 		}
 
 		err = tbtree.BulkInsert(kvts)
 		require.ErrorIs(t, err, ErrIllegalArguments)
 
+		// rollback to latest snapshot should be made if insertion fails
 		_, _, _, err := tbtree.Get([]byte("key1_2"))
 		require.ErrorIs(t, err, ErrKeyNotFound)
 
-		require.Equal(t, currTs, tbtree.Ts())
+		require.Equal(t, initialTs, tbtree.Ts())
 	})
 
 	err = tbtree.Close()
