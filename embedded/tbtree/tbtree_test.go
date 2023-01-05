@@ -1436,4 +1436,86 @@ func TestLastUpdateBetween(t *testing.T) {
 			require.Equal(t, uint64(f+1), tx)
 		}
 	}
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
+func TestMultiTimedBulkInsertion(t *testing.T) {
+	tbtree, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+
+	t.Run("multi-timed bulk insertion should succeed", func(t *testing.T) {
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key1_0"), V: []byte("value1_0")},
+			{K: []byte("key2_0"), V: []byte("value2_0")},
+			{K: []byte("key3_0"), V: []byte("value3_0"), T: currTs + 1},
+			{K: []byte("key4_0"), V: []byte("value4_0"), T: currTs + 1},
+			{K: []byte("key5_0"), V: []byte("value5_0"), T: currTs + 2},
+			{K: []byte("key6_0"), V: []byte("value6_0")},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.NoError(t, err)
+
+		for _, kvt := range kvts {
+			v, ts, hc, err := tbtree.Get(kvt.K)
+			require.NoError(t, err)
+			require.Equal(t, kvt.V, v)
+			require.Equal(t, uint64(1), hc)
+
+			if kvt.T == 0 {
+				//zero-valued timestamps should be associated with current time plus one
+				require.Equal(t, currTs+1, ts)
+			} else {
+				require.Equal(t, kvt.T, ts)
+			}
+		}
+
+		// root's ts should match the greatest inserted timestamp
+		require.Equal(t, currTs+2, tbtree.Ts())
+	})
+
+	t.Run("bulk-insertion of the same key should be possible with increasing timestamp", func(t *testing.T) {
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key1_1"), V: []byte("value1_1")},
+			{K: []byte("key1_1"), V: []byte("value2_1"), T: currTs + 2},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.NoError(t, err)
+
+		v, ts, hc, err := tbtree.Get([]byte("key1_1"))
+		require.NoError(t, err)
+		require.Equal(t, []byte("value2_1"), v)
+		require.Equal(t, uint64(2), hc)
+		require.Equal(t, currTs+2, ts)
+
+		// root's ts should match the greatest inserted timestamp
+		require.Equal(t, currTs+2, tbtree.Ts())
+	})
+
+	t.Run("bulk-insertion of the same key should not be possible with non-increasing timestamp", func(t *testing.T) {
+		currTs := tbtree.Ts()
+
+		kvts := []*KVT{
+			{K: []byte("key1_2"), V: []byte("value2_2"), T: currTs + 2},
+			{K: []byte("key1_2"), V: []byte("value1_2")},
+		}
+
+		err = tbtree.BulkInsert(kvts)
+		require.ErrorIs(t, err, ErrIllegalArguments)
+
+		_, _, _, err := tbtree.Get([]byte("key1_2"))
+		require.ErrorIs(t, err, ErrKeyNotFound)
+
+		require.Equal(t, currTs, tbtree.Ts())
+	})
+
+	err = tbtree.Close()
+	require.NoError(t, err)
 }
