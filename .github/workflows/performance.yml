@@ -51,7 +51,11 @@ jobs:
       - run: go build -o perf-test-suite ./test/performance-test-suite/cmd/perf-test/
       - name: Run performance tests
         id: performance
-        run: ./perf-test-suite $ARG_DURATION > perf-test-results.json
+        run: |
+          SECONDS=0
+          ./perf-test-suite $ARG_DURATION > perf-test-results.json
+          echo "duration=$SECONDS" >> $GITHUB_ENV
+          echo "version=$(cat Makefile | grep '\<VERSION=' | awk -F= '{print $2}' | tr -d [\',])" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
@@ -61,8 +65,9 @@ jobs:
       - name: Create the Mattermost message
         if: github.event.schedule == '0 0 * * *'
         run: >
-          echo "{\"text\":\"### Performance tests results for scheduled daily run on branch ${{ github.ref_name }} and runner ${{ matrix.target.name }}\n
+          echo "{\"text\":\"### Performance tests results for scheduled daily run on ${{ github.ref_name }} branch and ${{ matrix.target.name }} runner\n
           **Result**: ${{ steps.performance.outcome }}\n
+          **Duration**: ${{ env.duration }} - **immudb version**: ${{ env.version }}\n
           $(jq -r '.benchmarks[] | .name + "\n" + .summary' perf-test-results.json) \n
           **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
           \"}" > mattermost.json
@@ -71,7 +76,7 @@ jobs:
         uses: mattermost/action-mattermost-notify@master
         env:
           MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
-          MATTERMOST_CHANNEL: 'immudb'
+          MATTERMOST_CHANNEL: 'immudb-tests'
 
   performance-test-suite-upload-s3:
     if: github.event.schedule != '0 0 * * *'

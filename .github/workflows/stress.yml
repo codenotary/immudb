@@ -49,4 +49,4 @@ jobs:
       uses: mattermost/action-mattermost-notify@master
       env:
         MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
-        MATTERMOST_CHANNEL: 'immudb'
+        MATTERMOST_CHANNEL: 'immudb-tests'
