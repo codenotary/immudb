@@ -56,7 +56,7 @@ func immustoreClose(t *testing.T, immuStore *ImmuStore) {
 }
 
 func tempTxHolder(t *testing.T, immuStore *ImmuStore) *Tx {
-	return newTx(immuStore.maxTxEntries, immuStore.maxKeyLen)
+	return NewTx(immuStore.maxTxEntries, immuStore.maxKeyLen)
 }
 
 func TestImmudbStoreConcurrency(t *testing.T) {
@@ -753,9 +753,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = immuStore.DualProof(nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	sourceTx := newTx(1, 1)
+	sourceTx := NewTx(1, 1)
 	sourceTx.header.ID = 2
-	targetTx := newTx(1, 1)
+	targetTx := NewTx(1, 1)
 	targetTx.header.ID = 1
 	_, err = immuStore.DualProof(sourceTx.Header(), targetTx.Header())
 	require.ErrorIs(t, err, ErrSourceTxNewerThanTargetTx)

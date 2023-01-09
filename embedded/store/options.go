@@ -49,6 +49,7 @@ const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
 const DefaultWriteBufferSize = 1 << 22 //4Mb
 const DefaultIndexingMaxBulkSize = 1
 const DefaultBulkPreparationTimeout = DefaultSyncFrequency
+const DefaultTruncationFrequency = 24 * time.Hour
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
