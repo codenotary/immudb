@@ -1729,7 +1729,7 @@ func truncateToDay(t time.Time) time.Time {
 // getRetentionPeriod returns the timestamp that is used to determine
 // which transaction up to which the data may be deleted from the value-log.
 func getRetentionPeriod(ts time.Time, retentionPeriod time.Duration) time.Time {
-	return truncateToDay(ts.Add(-1 * retentionPeriod))
+	return (ts.Add(-1 * retentionPeriod))
 }
 
 // runTruncator triggers periodically to truncate multiple appendable logs

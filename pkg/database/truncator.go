@@ -17,7 +17,6 @@ limitations under the License.
 package database
 
 import (
-	"context"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -68,15 +67,18 @@ func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
 	}(time.Now())
 
 	// copy sql catalogue
-	tx, err := v.db.CopyCatalog(context.Background())
+	tx, err := v.db.st.NewTx(store.DefaultTxOptions())
+	// tx, err := v.db.CopyCatalog(context.Background())
 	if err != nil {
 		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", v.db.name, err, hdr.ID)
 		return err
 	}
 	defer tx.Cancel()
 
-	// setting the metadata to record the transaction upto which the log was truncated
-	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(hdr.ID))
+	// // setting the metadata to record the transaction upto which the log was truncated
+	// tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(hdr.ID))
+
+	err = tx.Set([]byte("truncatedTxID"), nil, []byte("truncatedTxID"))
 
 	// commit catalogue as a new transaction
 	_, err = tx.Commit()
@@ -85,11 +87,11 @@ func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
 		return err
 	}
 
-	// truncate upto hdr.ID
-	err = v.db.st.TruncateUptoTx(hdr.ID)
-	if err != nil {
-		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=truncate_upto}", v.db.name, err, hdr.ID)
-	}
+	// // truncate upto hdr.ID
+	// err = v.db.st.TruncateUptoTx(hdr.ID)
+	// if err != nil {
+	// 	v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=truncate_upto}", v.db.name, err, hdr.ID)
+	// }
 
 	return err
 }
