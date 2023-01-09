@@ -448,6 +448,8 @@ DEPRECATED
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 | maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
+| retentionPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Retention Period for data in the database |
+| truncationFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Truncation Frequency for the database |
 
 
 

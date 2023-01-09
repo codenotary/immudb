@@ -18,8 +18,10 @@ package sql
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -492,4 +494,266 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	}
 
 	return nparams, nil
+}
+
+// CopyCatalog returns a new transaction with a copy of the current catalog.
+func (e *Engine) CopyCatalog(ctx context.Context) (*store.OngoingTx, error) {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	sqltx, err := e.NewTx(context.Background(), DefaultTxOptions())
+	if err != nil {
+		return nil, err
+	}
+
+	catalog := newCatalog()
+	err = catalog.addSchemaToTx(e.prefix, sqltx.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return sqltx.tx, nil
+}
+
+// addSchemaToTx adds the schema to the ongoing transaction.
+func (t *Table) addIndexesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	initialKey := mapKey(sqlPrefix, catalogIndexPrefix, EncodeID(t.db.id), EncodeID(t.id))
+
+	idxReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	idxSpecReader, err := tx.NewKeyReader(idxReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer idxSpecReader.Close()
+
+	for {
+		mkey, vref, err := idxSpecReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, _, err := unmapIndex(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if t.id != tableID || t.db.id != dbID {
+			return ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// addSchemaToTx adds the schema of the catalog to the given transaction.
+func (d *Database) addTablesToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  mapKey(sqlPrefix, catalogTablePrefix, EncodeID(d.id)),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	tableReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer tableReader.Close()
+
+	for {
+		mkey, vref, err := tableReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		dbID, tableID, err := unmapTableID(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		if dbID != d.id {
+			return ErrCorruptedData
+		}
+
+		// read col specs into tx
+		colSpecs, err := addColSpecsToTx(d.id, tableID, tx, sqlPrefix)
+		if err != nil {
+			return err
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+
+		table, err := d.newTable(string(v), colSpecs)
+		if err != nil {
+			return err
+		}
+
+		if tableID != table.id {
+			return ErrCorruptedData
+		}
+
+		// read index specs into tx
+		err = table.addIndexesToTx(sqlPrefix, tx)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// addSchemaToTx adds the schema of the catalog to the given transaction.
+func (c *Catalog) addSchemaToTx(sqlPrefix []byte, tx *store.OngoingTx) error {
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  mapKey(sqlPrefix, catalogDatabasePrefix),
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	dbReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return err
+	}
+	defer dbReader.Close()
+
+	for {
+		mkey, vref, err := dbReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		id, err := unmapDatabaseID(sqlPrefix, mkey)
+		if err != nil {
+			return err
+		}
+
+		v, err := vref.Resolve()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return err
+		}
+
+		db, err := c.newDatabase(id, string(v))
+		if err != nil {
+			return err
+		}
+
+		// read tables and indexes into tx
+		err = db.addTablesToTx(sqlPrefix, tx)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// addColSpecsToTx adds the column specs of the given table to the given transaction.
+func addColSpecsToTx(dbID, tableID uint32, tx *store.OngoingTx, sqlPrefix []byte) (specs []*ColSpec, err error) {
+	initialKey := mapKey(sqlPrefix, catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+
+	dbReaderSpec := store.KeyReaderSpec{
+		Prefix:  initialKey,
+		Filters: []store.FilterFn{store.IgnoreExpired, store.IgnoreDeleted},
+	}
+
+	colSpecReader, err := tx.NewKeyReader(dbReaderSpec)
+	if err != nil {
+		return nil, err
+	}
+	defer colSpecReader.Close()
+
+	specs = make([]*ColSpec, 0)
+
+	for {
+		mkey, vref, err := colSpecReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		mdbID, mtableID, colID, colType, err := unmapColSpec(sqlPrefix, mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		if dbID != mdbID || tableID != mtableID {
+			return nil, ErrCorruptedData
+		}
+
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+		if len(v) < 6 {
+			return nil, ErrCorruptedData
+		}
+
+		err = tx.Set(mkey, nil, v)
+		if err != nil {
+			return nil, err
+		}
+
+		spec := &ColSpec{
+			colName:       string(v[5:]),
+			colType:       colType,
+			maxLen:        int(binary.BigEndian.Uint32(v[1:])),
+			autoIncrement: v[0]&autoIncrementFlag != 0,
+			notNull:       v[0]&nullableFlag != 0,
+		}
+
+		specs = append(specs, spec)
+
+		if int(colID) != len(specs) {
+			return nil, ErrCorruptedData
+		}
+	}
+
+	return
 }

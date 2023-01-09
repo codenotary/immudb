@@ -67,6 +67,13 @@ type EntrySpec struct {
 	Key      []byte
 	Metadata *KVMetadata
 	Value    []byte
+	// hashValue is the hash of the value
+	// if the actual value is truncated. This is
+	// used during replication.
+	hashValue []byte
+	// isValueTruncated is true if the value is
+	// truncated. This is used during replication.
+	isValueTruncated bool
 }
 
 func newOngoingTx(s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
@@ -177,7 +184,7 @@ func (tx *OngoingTx) Metadata() *TxMetadata {
 	return tx.metadata
 }
 
-func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
+func (tx *OngoingTx) set(key []byte, md *KVMetadata, value []byte, hashValue []byte, isValueTruncated bool) error {
 	if tx.closed {
 		return ErrAlreadyClosed
 	}
@@ -217,9 +224,11 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	}
 
 	e := &EntrySpec{
-		Key:      key,
-		Metadata: md,
-		Value:    value,
+		Key:              key,
+		Metadata:         md,
+		Value:            value,
+		hashValue:        hashValue,
+		isValueTruncated: isValueTruncated,
 	}
 
 	if isKeyUpdate {
@@ -230,6 +239,10 @@ func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
 	}
 
 	return nil
+}
+
+func (tx *OngoingTx) Set(key []byte, md *KVMetadata, value []byte) error {
+	return tx.set(key, md, value, nil, false)
 }
 
 func (tx *OngoingTx) AddPrecondition(c Precondition) error {

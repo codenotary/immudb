@@ -1,12 +1,9 @@
 /*
 Copyright 2022 Codenotary Inc. All rights reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +15,7 @@ package database
 
 import (
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
@@ -39,12 +37,14 @@ func TestDefaultOptions(t *testing.T) {
 		WithCorruptionChecker(true).
 		WithStoreOptions(storeOpts).
 		WithReadTxPoolSize(789).
-		WithSyncReplication(true)
+		WithSyncReplication(true).
+		WithTruncationFrequency(1 * time.Hour)
 
 	require.Equal(t, op.GetDBRootPath(), rootpath)
 	require.True(t, op.GetCorruptionChecker())
 	require.Equal(t, op.GetTxPoolSize(), 789)
 	require.True(t, op.syncReplication)
+	require.Equal(t, op.TruncationFrequency, 1*time.Hour)
 
 	require.Equal(t, storeOpts, op.storeOpts)
 }

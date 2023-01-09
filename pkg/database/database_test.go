@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2166,3 +2167,110 @@ db := makeDb(t)
 	require.NoError(t, err)
 }
 */
+
+func Test_database_truncate(t *testing.T) {
+	rootPath := t.TempDir()
+
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.MaxIOConcurrency = 1
+
+	db := makeDbWith(t, "db", options)
+
+	var queryTime time.Time
+	for i := 2; i <= 20; i++ {
+		kv := &schema.KeyValue{
+			Key:   []byte(fmt.Sprintf("key_%d", i)),
+			Value: []byte(fmt.Sprintf("val_%d", i)),
+		}
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		require.NoError(t, err)
+		if i == 10 {
+			queryTime = time.Now()
+		}
+	}
+
+	c := newVlogTruncator(db)
+	hdr, err := c.Plan(queryTime)
+	require.NoError(t, err)
+	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
+
+	err = db.truncate(queryTime)
+	require.NoError(t, err)
+
+	for i := hdr.ID; i <= 20; i++ {
+		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		err = db.st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := db.st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+
+	for i := hdr.ID - 1; i > 0; i-- {
+		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+		err = db.st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := db.st.ReadValue(e)
+			require.Error(t, err)
+		}
+	}
+
+}
+
+func Test_truncateToDay(t *testing.T) {
+	type args struct {
+		t time.Time
+	}
+	tests := []struct {
+		name string
+		args args
+		want time.Time
+	}{
+		{
+			args: args{t: time.Date(2020, 1, 1, 10, 20, 30, 40, time.UTC)},
+			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := truncateToDay(tt.args.t); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("truncateToDay() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getRetentionPeriod(t *testing.T) {
+	type args struct {
+		ts              time.Time
+		retentionPeriod time.Duration
+	}
+	tests := []struct {
+		name string
+		args args
+		want time.Time
+	}{
+		{
+			args: args{
+				ts:              time.Date(2020, 1, 1, 10, 20, 30, 40, time.UTC),
+				retentionPeriod: 24 * time.Hour,
+			},
+			want: time.Date(2019, 12, 31, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			args: args{
+				ts:              time.Date(2020, 1, 2, 10, 20, 30, 40, time.UTC),
+				retentionPeriod: 24 * time.Hour,
+			},
+			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getRetentionPeriod(tt.args.ts, tt.args.retentionPeriod); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getRetentionPeriod() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

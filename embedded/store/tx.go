@@ -49,7 +49,7 @@ type TxHeader struct {
 	Eh       [sha256.Size]byte
 }
 
-func newTx(nentries int, maxKeyLen int) *Tx {
+func NewTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*TxEntry, nentries)
 
 	keyBuffer := make([]byte, maxKeyLen*nentries)
@@ -78,10 +78,11 @@ func NewTxWithEntries(header *TxHeader, entries []*TxEntry) *Tx {
 func (tx *Tx) Header() *TxHeader {
 	var txmd *TxMetadata
 
-	if tx.header.Metadata != nil {
-		txmd = &TxMetadata{}
+	if tx.header.Metadata == nil {
+		txmd = NewTxMetadata()
+	} else {
+		txmd = tx.header.Metadata
 	}
-
 	return &TxHeader{
 		ID:      tx.header.ID,
 		Ts:      tx.header.Ts,
@@ -205,7 +206,7 @@ func (hdr *TxHeader) ReadFrom(b []byte) error {
 			}
 
 			if mdLen > 0 {
-				hdr.Metadata = &TxMetadata{}
+				hdr.Metadata = NewTxMetadata()
 
 				err := hdr.Metadata.ReadFrom(b[i : i+mdLen])
 				if err != nil {
@@ -487,7 +488,7 @@ func (t *txDataReader) readHeader(maxEntries int) (*TxHeader, error) {
 					return nil, err
 				}
 
-				txmd = &TxMetadata{}
+				txmd = NewTxMetadata()
 
 				err = txmd.ReadFrom(mdBs[:mdLen])
 				if err != nil {

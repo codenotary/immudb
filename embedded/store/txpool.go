@@ -53,7 +53,7 @@ func newTxPool(opts txPoolOptions) (TxPool, error) {
 
 	if opts.preallocated {
 		for i := 0; i < opts.poolSize; i++ {
-			ret.pool = append(ret.pool, newTx(opts.maxTxEntries, opts.maxKeyLen))
+			ret.pool = append(ret.pool, NewTx(opts.maxTxEntries, opts.maxKeyLen))
 		}
 	}
 
@@ -69,7 +69,7 @@ func (p *txPool) Alloc() (*Tx, error) {
 			return nil, ErrTxPoolExhausted
 		}
 
-		p.pool = append(p.pool, newTx(p.opts.maxTxEntries, p.opts.maxKeyLen))
+		p.pool = append(p.pool, NewTx(p.opts.maxTxEntries, p.opts.maxKeyLen))
 	}
 
 	tx := p.pool[p.used]
