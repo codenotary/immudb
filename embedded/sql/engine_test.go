@@ -5897,3 +5897,211 @@ func TestSQLTxWithClosedContext(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }
+
+func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *store.ImmuStore) {
+	st, err := store.Open(t.TempDir(), sopts)
+	require.NoError(t, err)
+	t.Cleanup(func() { closeStore(t, st) })
+
+	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
+	require.NoError(t, err)
+
+	return engine, st
+}
+
+func TestCopyCatalog(t *testing.T) {
+	opts := store.DefaultOptions()
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(6)
+	engine, st := setupCommonTestWithOptions(t, opts)
+
+	exec := func(t *testing.T, stmt string) *SQLTx {
+		ret, _, err := engine.Exec(stmt, nil, nil)
+		require.NoError(t, err)
+		return ret
+	}
+
+	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
+		reader, err := engine.Query(stmt, nil, nil)
+		require.NoError(t, err)
+
+		for _, expectedRow := range expectedRows {
+			row, err := reader.Read()
+			require.NoError(t, err)
+			require.EqualValues(t, expectedRow, row)
+		}
+
+		_, err = reader.Read()
+		require.ErrorIs(t, err, ErrNoMoreRows)
+
+		err = reader.Close()
+		require.NoError(t, err)
+	}
+
+	colVal := func(t *testing.T, v interface{}, tp SQLValueType) TypedValue {
+		switch v := v.(type) {
+		case nil:
+			return &NullValue{t: tp}
+		case int:
+			return &Number{val: int64(v)}
+		case string:
+			return &Varchar{val: v}
+		case []byte:
+			return &Blob{val: v}
+		case bool:
+			return &Bool{val: v}
+		}
+		require.Fail(t, "Unknown type of value")
+		return nil
+	}
+
+	tRow := func(
+		table string,
+		id int64,
+		v1, v2, v3 interface{},
+	) *Row {
+		idVal := &Number{val: id}
+		v1Val := colVal(t, v1, IntegerType)
+		v2Val := colVal(t, v2, VarcharType)
+		v3Val := colVal(t, v3, AnyType)
+
+		return &Row{
+			ValuesByPosition: []TypedValue{
+				idVal,
+				v1Val,
+				v3Val,
+				v2Val,
+			},
+			ValuesBySelector: map[string]TypedValue{
+				EncodeSelector("", "db1", table, "id"):      idVal,
+				EncodeSelector("", "db1", table, "name"):    v1Val,
+				EncodeSelector("", "db1", table, "amount"):  v3Val,
+				EncodeSelector("", "db1", table, "surname"): v2Val,
+			},
+		}
+	}
+
+	// create two tables
+	exec(t, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], amount INTEGER, PRIMARY KEY id)")
+	exec(t, "CREATE UNIQUE INDEX ON table1 (name)")
+	exec(t, "CREATE UNIQUE INDEX ON table1 (name, amount)")
+	query(t, "SELECT * FROM table1")
+
+	exec(t, "CREATE TABLE table2 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], amount INTEGER, PRIMARY KEY id)")
+	exec(t, "CREATE UNIQUE INDEX ON table2 (name)")
+	exec(t, "CREATE UNIQUE INDEX ON table2 (name, amount)")
+	query(t, "SELECT * FROM table2")
+
+	t.Run("should fail due to unique index", func(t *testing.T) {
+		_, _, err := engine.Exec("INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil, nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
+	})
+
+	// insert some data
+	var deleteUptoTx *store.TxHeader
+	t.Run("insert few transactions", func(t *testing.T) {
+		for i := 1; i <= 5; i++ {
+			key := []byte(fmt.Sprintf("key_%d", i))
+			value := []byte(fmt.Sprintf("val_%d", i))
+			tx, err := st.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set(key, nil, value)
+			require.NoError(t, err)
+
+			deleteUptoTx, err = tx.Commit()
+			require.NoError(t, err)
+		}
+	})
+
+	// alter table to add a new column to both tables
+	t.Run("alter table and add data", func(t *testing.T) {
+		exec(t, "ALTER TABLE table1 ADD COLUMN surname VARCHAR")
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('Foo', 'Bar', 0)")
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('Fin', 'Baz', 0)")
+
+		exec(t, "ALTER TABLE table2 ADD COLUMN surname VARCHAR")
+		exec(t, "INSERT INTO table2(name, surname, amount) VALUES('Foo', 'Bar', 0)")
+		exec(t, "INSERT INTO table2(name, surname, amount) VALUES('Fin', 'Baz', 0)")
+	})
+
+	// copy current catalog for recreating the catalog for database/table
+	t.Run("succeed copying catalog for db", func(t *testing.T) {
+		tx, err := engine.CopyCatalog(context.Background())
+		require.NoError(t, err)
+		hdr, err := tx.Commit()
+		require.NoError(t, err)
+		// ensure that the last committed txn is the one we just committed
+		require.Equal(t, hdr.ID, st.LastCommittedTxID())
+	})
+
+	// delete txns in the store upto a certain txn
+	t.Run("succeed truncating sql catalog", func(t *testing.T) {
+		hdr, err := st.ReadTxHeader(deleteUptoTx.ID, false)
+		require.NoError(t, err)
+		require.NoError(t, st.TruncateUptoTx(hdr.ID))
+	})
+
+	// add more data in table post truncation
+	t.Run("add data post truncation", func(t *testing.T) {
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('John', 'Doe', 0)")
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('Smith', 'John', 0)")
+
+		exec(t, "INSERT INTO table2(name, surname, amount) VALUES('John', 'Doe', 0)")
+		exec(t, "INSERT INTO table2(name, surname, amount) VALUES('Smith', 'John', 0)")
+
+	})
+
+	// check if can query the table with new catalogue
+	t.Run("succeed loading catalog from latest schema", func(t *testing.T) {
+		query(t,
+			"SELECT * FROM table1",
+			tRow("table1", 1, "Foo", "Bar", 0),
+			tRow("table1", 2, "Fin", "Baz", 0),
+			tRow("table1", 3, "John", "Doe", 0),
+			tRow("table1", 4, "Smith", "John", 0),
+		)
+
+		query(t,
+			"SELECT * FROM table2",
+			tRow("table2", 1, "Foo", "Bar", 0),
+			tRow("table2", 2, "Fin", "Baz", 0),
+			tRow("table2", 3, "John", "Doe", 0),
+			tRow("table2", 4, "Smith", "John", 0),
+		)
+
+	})
+
+	t.Run("indexing should work with new catalogue", func(t *testing.T) {
+		_, _, err := engine.Exec("INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil, nil)
+		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
+
+		// should fail due non-available index
+		_, err = engine.Query("SELECT * FROM table1 ORDER BY amount DESC", nil, nil)
+		require.ErrorIs(t, err, ErrNoAvailableIndex)
+
+		// should use primary index by default
+		r, err := engine.Query("SELECT * FROM table1", nil, nil)
+		require.NoError(t, err)
+
+		orderBy := r.OrderBy()
+		require.NotNil(t, orderBy)
+		require.Len(t, orderBy, 1)
+		require.Equal(t, "id", orderBy[0].Column)
+
+		scanSpecs := r.ScanSpecs()
+		require.NotNil(t, scanSpecs)
+		require.NotNil(t, scanSpecs.Index)
+		require.True(t, scanSpecs.Index.IsPrimary())
+		require.Empty(t, scanSpecs.rangesByColID)
+		require.False(t, scanSpecs.DescOrder)
+
+		err = r.Close()
+		require.NoError(t, err)
+
+	})

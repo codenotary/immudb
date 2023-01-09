@@ -86,6 +86,9 @@ type dbOptions struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedBy string    `json:"updatedBy"`
 	UpdatedAt time.Time `json:"updatedAt"`
+
+	RetentionPeriod     Milliseconds `json:"retentionPeriod"`
+	TruncationFrequency Milliseconds `json:"truncationFrequency"` // ms
 }
 
 type featureState int
@@ -159,7 +162,8 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 
 		Autoload: unspecifiedState,
 
-		CreatedAt: time.Now(),
+		CreatedAt:           time.Now(),
+		TruncationFrequency: Milliseconds(store.DefaultTruncationFrequency.Milliseconds()),
 	}
 
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
@@ -220,7 +224,9 @@ func (s *ImmuServer) databaseOptionsFrom(opts *dbOptions) *database.Options {
 		AsReplica(opts.Replica).
 		WithSyncReplication(opts.SyncReplication).
 		WithSyncAcks(opts.SyncAcks).
-		WithReadTxPoolSize(opts.ReadTxPoolSize)
+		WithReadTxPoolSize(opts.ReadTxPoolSize).
+		WithRetentionPeriod(time.Millisecond * time.Duration(opts.RetentionPeriod)).
+		WithTruncationFrequency(time.Millisecond * time.Duration(opts.TruncationFrequency))
 }
 
 func (opts *dbOptions) storeOptions() *store.Options {
@@ -349,6 +355,9 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		Autoload: &schema.NullableBool{Value: opts.Autoload.isEnabled()},
 
 		ReadTxPoolSize: &schema.NullableUint32{Value: uint32(opts.ReadTxPoolSize)},
+
+		RetentionPeriod:     &schema.NullableMilliseconds{Value: int64(opts.RetentionPeriod)},
+		TruncationFrequency: &schema.NullableMilliseconds{Value: int64(opts.TruncationFrequency)},
 	}
 }
 
@@ -560,6 +569,14 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		} else {
 			opts.Autoload = disabledState
 		}
+	}
+
+	if settings.RetentionPeriod != nil {
+		opts.RetentionPeriod = Milliseconds(settings.RetentionPeriod.Value)
+	}
+
+	if settings.TruncationFrequency != nil {
+		opts.TruncationFrequency = Milliseconds(settings.TruncationFrequency.Value)
 	}
 
 	// index options
@@ -832,6 +849,8 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.CommitLogMaxOpenedFiles: %v", database, opts.CommitLogMaxOpenedFiles)
 	s.Logger.Infof("%s.WriteTxHeaderVersion: %v", database, opts.WriteTxHeaderVersion)
 	s.Logger.Infof("%s.ReadTxPoolSize: %v", database, opts.ReadTxPoolSize)
+	s.Logger.Infof("%s.TruncationFrequency: %v", database, opts.TruncationFrequency)
+	s.Logger.Infof("%s.RetentionPeriod: %v", database, opts.RetentionPeriod)
 	s.Logger.Infof("%s.IndexOptions.FlushThreshold: %v", database, opts.IndexOptions.FlushThreshold)
 	s.Logger.Infof("%s.IndexOptions.SyncThreshold: %v", database, opts.IndexOptions.SyncThreshold)
 	s.Logger.Infof("%s.IndexOptions.FlushBufferSize: %v", database, opts.IndexOptions.FlushBufferSize)

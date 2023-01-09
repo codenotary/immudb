@@ -16,11 +16,16 @@ limitations under the License.
 
 package database
 
-import "github.com/codenotary/immudb/embedded/store"
+import (
+	"time"
+
+	"github.com/codenotary/immudb/embedded/store"
+)
 
 const (
-	DefaultDbRootPath     = "./data"
-	DefaultReadTxPoolSize = 128
+	DefaultDbRootPath          = "./data"
+	DefaultReadTxPoolSize      = 128
+	DefaultTruncationFrequency = 12 * time.Hour
 )
 
 // Options database instance options
@@ -36,14 +41,21 @@ type Options struct {
 	corruptionChecker bool
 
 	readTxPoolSize int
+
+	// TruncationFrequency determines how frequently to truncate data from the database.
+	TruncationFrequency time.Duration
+
+	// RetentionPeriod determines how long to store data in the database.
+	RetentionPeriod time.Duration
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *Options {
 	return &Options{
-		dbRootPath:     DefaultDbRootPath,
-		storeOpts:      store.DefaultOptions(),
-		readTxPoolSize: DefaultReadTxPoolSize,
+		dbRootPath:          DefaultDbRootPath,
+		storeOpts:           store.DefaultOptions(),
+		readTxPoolSize:      DefaultReadTxPoolSize,
+		TruncationFrequency: DefaultTruncationFrequency,
 	}
 }
 
@@ -103,4 +115,14 @@ func (o *Options) WithReadTxPoolSize(txPoolSize int) *Options {
 
 func (o *Options) GetTxPoolSize() int {
 	return o.readTxPoolSize
+}
+
+func (o *Options) WithTruncationFrequency(c time.Duration) *Options {
+	o.TruncationFrequency = c
+	return o
+}
+
+func (o *Options) WithRetentionPeriod(c time.Duration) *Options {
+	o.RetentionPeriod = c
+	return o
 }

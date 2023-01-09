@@ -1031,6 +1031,12 @@ message DatabaseNullableSettings {
 
   // Size of the LRU cache for value logs
   NullableUint32 vLogCacheSize = 28;
+
+  // Retention Period for data in the database
+  NullableMilliseconds retentionPeriod = 29;
+
+  // Truncation Frequency for the database
+  NullableMilliseconds truncationFrequency = 30;
 }
 
 message ReplicationNullableSettings {

@@ -103,6 +103,7 @@ var ErrMetadataUnsupported = errors.New(
 )
 
 var ErrUnsupportedTxHeaderVersion = errors.New("missing tx header serialization method")
+var ErrIllegalTruncationArgument = fmt.Errorf("%w: invalid truncation info", ErrIllegalArguments)
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 const MaxParallelIO = 127
@@ -1171,7 +1172,11 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 		txe.setKey(e.Key)
 		txe.md = e.Metadata
 		txe.vLen = len(e.Value)
-		txe.hVal = sha256.Sum256(e.Value)
+		if e.isValueTruncated {
+			txe.hVal = byte32(e.hashValue)
+		} else {
+			txe.hVal = sha256.Sum256(e.Value)
+		}
 	}
 
 	err = tx.BuildHashTree()
@@ -2048,6 +2053,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 		return nil, err
 	}
 
+	var isValueTruncated bool
 	for _, e := range tx.Entries() {
 		var blen [lszSize]byte
 
@@ -2094,17 +2100,61 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 		// TODO: improve value reading implementation, get rid of _valBs
 		s._valBsMux.Lock()
 		_, err = s.readValueAt(s._valBs[:e.vLen], e.vOff, e.hVal)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			s._valBsMux.Unlock()
 			return nil, err
 		}
 
-		_, err = buf.Write(s._valBs[:e.vLen])
-		if err != nil {
-			s._valBsMux.Unlock()
-			return nil, err
+		// if the error is eof, the value has been truncated, so we do not write the value bytes
+		if err == io.EOF {
+			isValueTruncated = true
+			// vHash
+			binary.BigEndian.PutUint32(blen[:], uint32(len(e.hVal)))
+			_, err = buf.Write(blen[:])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
+			_, err = buf.Write(e.hVal[:])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
+		} else {
+			// vLen
+			binary.BigEndian.PutUint32(blen[:], uint32(e.vLen))
+			_, err = buf.Write(blen[:])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
+
+			_, err = buf.Write(s._valBs[:e.vLen])
+			if err != nil {
+				s._valBsMux.Unlock()
+				return nil, err
+			}
 		}
 		s._valBsMux.Unlock()
+	}
+
+	// NOTE: adding a boolean to the header to indicate if the transaction has values or not,
+	// so that ReplicateTx knows if the transaction should be precommited with no values
+	var truncatedValByte [1]byte
+	truncatedValByte[0] = 0
+	if isValueTruncated {
+		truncatedValByte[0] = 1
+	}
+
+	binary.BigEndian.PutUint16(b[:], uint16(len(truncatedValByte)))
+	_, err = buf.Write(b[:sszSize])
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(truncatedValByte[:])
+	if err != nil {
+		return nil, err
 	}
 
 	return buf.Bytes(), nil
@@ -2142,6 +2192,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 
 	txSpec.metadata = hdr.Metadata
 
+	var entries []*EntrySpec = make([]*EntrySpec, 0)
 	for e := 0; e < hdr.NEntries; e++ {
 		if len(exportedTx) < i+2*sszSize+lszSize {
 			return nil, ErrIllegalArguments
@@ -2177,6 +2228,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 			i += mdLen
 		}
 
+		// value
 		vLen := int(binary.BigEndian.Uint32(exportedTx[i:]))
 		i += lszSize
 
@@ -2184,16 +2236,51 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 			return nil, ErrIllegalArguments
 		}
 
-		err = txSpec.Set(key, md, exportedTx[i:i+vLen])
-		if err != nil {
-			return nil, err
-		}
+		entries = append(entries, &EntrySpec{
+			Key:      key,
+			Metadata: md,
+			Value:    exportedTx[i : i+vLen],
+		})
 
 		i += vLen
 	}
 
+	var isTruncated bool
+
+	// check if there is truncated value information in the transaction
+	if i < len(exportedTx) {
+		// information for truncated value
+		tLen := int(binary.BigEndian.Uint16(exportedTx[i:]))
+		i += sszSize
+		if len(exportedTx) < i+tLen {
+			return nil, ErrIllegalArguments
+		}
+
+		v := exportedTx[i : i+tLen]
+		// v[0] == 1 means that the value is truncated
+		// validate that the value is either 0 or 1
+		if v != nil && len(v) > 0 && v[0] > 1 {
+			return nil, ErrIllegalTruncationArgument
+		}
+		isTruncated = v[0] == 1
+		i += tLen
+	}
+
 	if i != len(exportedTx) {
 		return nil, ErrIllegalArguments
+	}
+
+	// add entries to tx
+	for _, e := range entries {
+		var err error
+		if isTruncated {
+			err = txSpec.set(e.Key, e.Metadata, nil, e.Value, isTruncated)
+		} else {
+			err = txSpec.set(e.Key, e.Metadata, e.Value, nil, isTruncated)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	txHdr, err := s.precommit(ctx, txSpec, hdr)
@@ -2468,9 +2555,14 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 
 	b := make([]byte, entry.vLen)
 
-	_, err := s.readValueAt(b, entry.vOff, entry.hVal)
+	bval, err := s.readValueAt(b, entry.vOff, entry.hVal)
 	if err != nil {
 		return nil, err
+	}
+
+	// if bval == 0, the value is nil
+	if bval == 0 {
+		return nil, nil
 	}
 
 	return b, nil
@@ -2507,13 +2599,15 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 				return n, err
 			}
 		}
+
+		if hvalue != sha256.Sum256(b) {
+			return len(b), ErrCorruptedData
+		}
+
+		return len(b), nil
 	}
 
-	if hvalue != sha256.Sum256(b) {
-		return len(b), ErrCorruptedData
-	}
-
-	return len(b), nil
+	return 0, nil
 }
 
 func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
@@ -2772,5 +2866,164 @@ func minUint64(a, b uint64) uint64 {
 	if a >= b {
 		return b
 	}
+	return a
+}
+
+// readTxOffsetAt reads the value-log offset of a specific entry (index) in a transaction (txID)
+func (s *ImmuStore) readTxOffsetAt(txID uint64, allowPrecommitted bool, index int) (*TxEntry, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
+	if err != nil {
+		return nil, err
+	}
+
+	tdr := &txDataReader{r: r}
+
+	hdr, err := tdr.readHeader(s.maxTxEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	if hdr.NEntries < index {
+		return nil, ErrCorruptedTxDataMaxTxEntriesExceeded
+	}
+
+	e := &TxEntry{k: make([]byte, s.maxKeyLen)}
+
+	for i := 0; i < index; i++ {
+		err = tdr.readEntry(e)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return e, nil
+}
+
+// TruncateUptoTx deletes the value-log file up to transactions
+// that are strictly below the specified minTxID.
+func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
+	/*
+		When values are appended to the value log file, they are not
+		inserted in strict monotic order of time. Depending on the
+		maxConcurrency value, there could be n transactions trying
+		to insert into the log at the same time. This could lead to
+		the situation where a transaction (n+1) could be inserted
+		in the value log before transaction (n)
+						  discard point
+								|
+								v
+				--------+-------+--------+----------
+						|       |        |
+					tn+1:vx   tn:vx  tn-1:vx
+						|                |
+						+----------------+
+						max concurrency
+							range
+		If the log is truncated upto tn, it could lead to removal of
+		data for tn+1. To avoid this overlap, we first go back from
+		the discard point to fetch offsets across vlogs for safe delete
+		points, and then check for transactions further than the
+		discard point to figure out the least offset from the range
+		which can safely be deleted. This offset, tn+1 in the above
+		scenario is the safest point to discard upto to avoid deletion
+		of values for any future transaction.
+	*/
+
+	s.logger.Infof("running truncation up to transaction '%d'", minTxID)
+
+	var err error
+	stones := make(map[byte]int64)
+
+	readFirstEntryOffset := func(id uint64) (*TxEntry, error) {
+		return s.readTxOffsetAt(id, false, 1)
+	}
+
+	back := func(id uint64) error {
+		first, err := readFirstEntryOffset(id)
+		if err != nil {
+			return err
+		}
+
+		// Iterate over all past transactions and store the minimum offset for each value log file.
+		v, off := decodeOffset(first.VOff())
+		if _, ok := stones[v]; !ok {
+			stones[v] = off
+		}
+		return nil
+	}
+
+	front := func(id uint64) error {
+		first, err := readFirstEntryOffset(id)
+		if err != nil {
+			return err
+		}
+
+		// Check if any future transaction offset lies before past transaction(s)
+		// If so, then update the offset to the minimum offset for that value log file.
+		v, off := decodeOffset(first.VOff())
+		if val, ok := stones[v]; ok {
+			if off < val {
+				stones[v] = off
+			}
+		}
+		return nil
+	}
+
+	// Walk back to get offsets across vlogs which can be deleted safely.
+	// This way, we can calculate the minimum offset for each value log file.
+	{
+		var i uint64 = minTxID
+		for i > 0 && len(stones) != s.MaxIOConcurrency() {
+			err = back(i)
+			i--
+			if err != nil { // if txn not found, then continue as previous txn could have been deleted
+				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
+			}
+		}
+	}
+
+	// Walk front to check if any future transaction offset lies before past transaction(s)
+	{
+		// Check for transactions upto the last committed transaction to avoid deletion of values for any future transaction.
+		maxTxID := s.LastCommittedTxID()
+		s.logger.Infof("running truncation check between transaction '%d' and '%d'", minTxID, maxTxID)
+
+		// TODO: add more integration tests
+		// Iterate over all future transactions to check if any offset lies before past transaction(s) offset.
+		for j := minTxID; j <= maxTxID; j++ {
+			err = front(j)
+			if err != nil {
+				s.logger.Errorf("failed to fetch transaction %d {traversal=front, err = %v}", j, err)
+				return err
+			}
+		}
+	}
+
+	// Delete offset from different value logs
+	merr := multierr.NewMultiErr()
+	{
+		for vLogID, offset := range stones {
+			vlog := s.fetchVLog(vLogID)
+			defer s.releaseVLog(vLogID)
+			s.logger.Infof("truncating vlog '%d' at offset '%d'", vLogID, offset)
+			err := vlog.DiscardUpto(offset)
+			merr.Append(err)
+		}
+	}
+
+	return merr.Reduce()
+}
+
+// TODO!! test this
+func byte32(s []byte) [32]byte {
+	var a [32]byte
+	copy(a[:], s)
 	return a
 }
