@@ -252,7 +252,7 @@ func (st *ImmuStore) valueRefFrom(tx, hc uint64, indexedVal []byte) (ValueRef, e
 		}
 
 		if txmdLen > 0 {
-			txmd = &TxMetadata{}
+			txmd = NewTxMetadata()
 
 			err := txmd.ReadFrom(indexedVal[i : i+txmdLen])
 			if err != nil {

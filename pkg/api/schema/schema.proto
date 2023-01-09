@@ -1028,6 +1028,12 @@ message DatabaseNullableSettings {
 
   // Limit the number of read entries per transaction
   NullableUint32 mvccReadSetLimit = 27;
+
+  // Retention Period for data in the database
+  NullableMilliseconds retentionPeriod = 28;
+
+  // Truncation Frequency for the database
+  NullableMilliseconds truncationFrequency = 29;
 }
 
 message ReplicationNullableSettings {

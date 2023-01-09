@@ -1,12 +1,9 @@
 /*
 Copyright 2022 Codenotary Inc. All rights reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,7 +20,7 @@ import (
 )
 
 func TestTxMetadata(t *testing.T) {
-	md := &TxMetadata{}
+	md := NewTxMetadata()
 
 	bs := md.Bytes()
 	require.Nil(t, bs)
@@ -31,7 +28,7 @@ func TestTxMetadata(t *testing.T) {
 	err := md.ReadFrom(bs)
 	require.NoError(t, err)
 
-	desmd := &TxMetadata{}
+	desmd := NewTxMetadata()
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
 
@@ -39,4 +36,39 @@ func TestTxMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, md.Equal(desmd))
+}
+
+func TestTxMetadataWithAttributes(t *testing.T) {
+	md := NewTxMetadata()
+
+	bs := md.Bytes()
+	require.Len(t, bs, 0)
+
+	err := md.ReadFrom(bs)
+	require.NoError(t, err)
+	require.False(t, md.HasTruncatedTxID())
+
+	desmd := NewTxMetadata()
+
+	err = desmd.ReadFrom(nil)
+	require.NoError(t, err)
+
+	desmd.WithTruncatedTxID(1)
+	require.True(t, desmd.HasTruncatedTxID())
+	v, err := desmd.GetTruncatedTxID()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), v)
+
+	desmd.WithTruncatedTxID(10)
+	v, err = desmd.GetTruncatedTxID()
+	require.NoError(t, err)
+	require.Equal(t, uint64(10), v)
+
+	bs = desmd.Bytes()
+	require.NotNil(t, bs)
+	require.Len(t, bs, maxTxMetadataLen)
+
+	err = desmd.ReadFrom(bs)
+	require.NoError(t, err)
+	require.True(t, desmd.HasTruncatedTxID())
 }

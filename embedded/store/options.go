@@ -47,6 +47,7 @@ const DefaultTxLogMaxOpenedFiles = 10
 const DefaultCommitLogMaxOpenedFiles = 10
 const DefaultWriteTxHeaderVersion = MaxTxHeaderVersion
 const DefaultWriteBufferSize = 1 << 22 //4Mb
+const DefaultTruncationFrequency = 24 * time.Hour
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
