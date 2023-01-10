@@ -67,7 +67,7 @@ jobs:
         run: >
           echo "{\"text\":\"### Performance tests results for scheduled daily run on ${{ github.ref_name }} branch and ${{ matrix.target.name }} runner\n
           **Result**: ${{ steps.performance.outcome }}\n
-          **Duration**: ${{ env.duration }} - **immudb version**: ${{ env.version }}\n
+          **Duration**: ${{ env.duration }}s | **immudb version**: ${{ env.version }}\n
           $(jq -r '.benchmarks[] | .name + "\n" + .summary' perf-test-results.json) \n
           **Check details [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
           \"}" > mattermost.json
