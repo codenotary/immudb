@@ -336,7 +336,7 @@ func (t *EdgeCasesTestSuite) TestShouldFailWhileValidatingDLogSize() {
 		return cLogEntrySize, nil
 	}
 	t.pLog.SizeFn = func() (int64, error) {
-		return 8, nil
+		return szSize + 8, nil
 	}
 	t.dLog.SizeFn = func() (int64, error) {
 		return 0, nil
@@ -356,7 +356,7 @@ func (t *EdgeCasesTestSuite) TestShouldFailReadingDLogSize() {
 		return cLogEntrySize, nil
 	}
 	t.pLog.SizeFn = func() (int64, error) {
-		return 8, nil
+		return szSize + 8, nil
 	}
 	t.dLog.SizeFn = func() (int64, error) {
 		return 0, t.injectedErr
@@ -531,6 +531,7 @@ func TestAppend(t *testing.T) {
 		WithDataCacheSlots(100)
 
 	tree, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
 
 	N := 100
 
@@ -574,6 +575,7 @@ func TestAppend(t *testing.T) {
 
 func TestIntegrity(t *testing.T) {
 	tree, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
 
 	N := 1024
 
@@ -884,6 +886,9 @@ func TestResetCornerCases(t *testing.T) {
 	t.Run("should fail on cLog read error", func(t *testing.T) {
 		injectedErr := errors.New("injected error")
 		pLog := appendableFromBuffer(nil)
+		pLog.SizeFn = func() (int64, error) {
+			return 2 * szSize, nil
+		}
 		dLog := appendableFromBuffer(make([]byte, 3*sha256.Size))
 		cLog := appendableFromBuffer(make([]byte, 12*2))
 		cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
@@ -906,6 +911,9 @@ func TestResetCornerCases(t *testing.T) {
 	t.Run("should fail on getting pLogSize", func(t *testing.T) {
 		injectedErr := errors.New("injected error")
 		pLog := appendableFromBuffer(nil)
+		pLog.SizeFn = func() (int64, error) {
+			return 2 * szSize, nil
+		}
 		dLog := appendableFromBuffer(make([]byte, 3*sha256.Size))
 		cLog := appendableFromBuffer(make([]byte, 12*2))
 		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
@@ -922,6 +930,9 @@ func TestResetCornerCases(t *testing.T) {
 
 	t.Run("should fail on corrupted older cLog entries", func(t *testing.T) {
 		pLog := appendableFromBuffer(nil)
+		pLog.SizeFn = func() (int64, error) {
+			return szSize, nil
+		}
 		dLog := appendableFromBuffer(make([]byte, 3*sha256.Size))
 		cLog := appendableFromBuffer([]byte{
 			1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, // Corrupted entry, offset way outside pLog size
@@ -940,6 +951,9 @@ func TestResetCornerCases(t *testing.T) {
 	t.Run("should fail on dLog size error", func(t *testing.T) {
 		injectedErr := errors.New("injected error")
 		pLog := appendableFromBuffer(nil)
+		pLog.SizeFn = func() (int64, error) {
+			return 2 * szSize, nil
+		}
 		dLog := appendableFromBuffer(make([]byte, 3*sha256.Size))
 		cLog := appendableFromBuffer(make([]byte, 2*12))
 		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
@@ -956,6 +970,9 @@ func TestResetCornerCases(t *testing.T) {
 
 	t.Run("should fail on incorrect dlog size", func(t *testing.T) {
 		pLog := appendableFromBuffer(nil)
+		pLog.SizeFn = func() (int64, error) {
+			return 2 * szSize, nil
+		}
 		dLog := appendableFromBuffer(make([]byte, 3*sha256.Size))
 		cLog := appendableFromBuffer(make([]byte, 2*12))
 		tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
@@ -992,4 +1009,30 @@ func BenchmarkAppend(b *testing.B) {
 	}
 
 	tree.Close()
+}
+
+func TestAppendAfterReopening(t *testing.T) {
+	opts := DefaultOptions().
+		WithWriteBufferSize(1 << 26). //64Mb
+		WithRetryableSync(true).
+		WithAutoSync(true).
+		WithSyncThld(2_000).
+		WithFileSize(1 << 16).
+		WithDigestsCacheSlots(2)
+
+	path := t.TempDir()
+
+	for i := 0; i < 10; i++ {
+		tree, err := Open(path, opts)
+		require.NoError(t, err)
+
+		var bs [1]byte
+
+		for j := 0; j < 1025; j++ {
+			_, _, err = tree.Append(bs[:])
+			require.NoError(t, err)
+		}
+
+		tree.Close()
+	}
 }

@@ -214,7 +214,7 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 	pOff := binary.BigEndian.Uint64(b[:])
 	pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
-	t.pLogSize = int64(pOff) + int64(pSize)
+	t.pLogSize = int64(pOff) + int64(szSize+pSize)
 
 	pLogFileSize, err := pLog.Size()
 	if err != nil {
@@ -409,7 +409,7 @@ func (t *AHtree) ResetSize(newSize uint64) error {
 		pOff := binary.BigEndian.Uint64(b[:])
 		pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
-		pLogSize = int64(pOff) + int64(pSize)
+		pLogSize = int64(pOff) + int64(szSize+pSize)
 
 		pLogFileSize, err := t.pLog.Size()
 		if err != nil {
