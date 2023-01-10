@@ -414,6 +414,16 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 		return ErrReadOnly
 	}
 
+	currOffset := mf.offset()
+
+	if off > currOffset {
+		return fmt.Errorf("%w: provided offset %d is bigger than current one %d", ErrIllegalArguments, off, currOffset)
+	}
+
+	if off == currOffset {
+		return nil
+	}
+
 	appID := appendableID(off, mf.fileSize)
 
 	if mf.currAppID != appID {
