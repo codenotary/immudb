@@ -25,7 +25,7 @@ import (
 )
 
 // valid matches are up to minute level (y,w,d,h,m)
-var validDurationRE = regexp.MustCompile("^(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?$")
+var validDurationRE = regexp.MustCompile("^(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?$")
 
 // ParseDuration parses a string into a time.Duration
 func ParseDuration(p string) (time.Duration, error) {
@@ -46,11 +46,9 @@ func ParseDuration(p string) (time.Duration, error) {
 	week := time.Duration(day * 7)
 	year := time.Duration(day * 365)
 
-	d += match(m[2], year)    // y
-	d += match(m[4], week)    // w
-	d += match(m[6], day)     // d
-	d += match(m[8], hour)    // h
-	d += match(m[10], minute) // m
+	d += match(m[2], year) // y
+	d += match(m[4], week) // w
+	d += match(m[6], day)  // d
 
 	return d, nil
 }

@@ -18,11 +18,17 @@ package database
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	// ErrNoTxBeforeTime is returned when retention period is not reached.
+	ErrRetentionPeriodNotReached = errors.New("retention period not reached")
 )
 
 // Truncator provides truncation against an underlying storage
@@ -56,8 +62,30 @@ type vlogTruncator struct {
 // When resulting transaction before specified time does not exists
 //  * No transaction header is returned.
 //  * Returns nil TxHeader, and an error.
-func (v *vlogTruncator) Plan(ts time.Time) (*store.TxHeader, error) {
-	return v.db.st.FirstTxSince(ts)
+// The retentionPeriod time is truncated to the day.
+func (v *vlogTruncator) Plan(retentionPeriod time.Time) (*store.TxHeader, error) {
+	hdr, err := v.db.st.FirstTxSince(retentionPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	// if the transaction is on or before the retention period, then we can truncate upto this
+	// transaction otherwise, we cannot truncate since the retention period has not been reached
+	// and truncation would otherwise add an extra transaction to the log for sql catalogue.
+	err = v.isRetentionPeriodReached(retentionPeriod, time.Unix(hdr.Ts, 0))
+	if err != nil {
+		return nil, err
+	}
+	return hdr, nil
+}
+
+// isRetentionPeriodReached returns an error if the retention period has not been reached.
+func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTimestamp time.Time) error {
+	txTime := truncateToDay(txTimestamp)
+	if txTime.Unix() <= retentionPeriod.Unix() {
+		return nil
+	}
+	return ErrRetentionPeriodNotReached
 }
 
 // Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
