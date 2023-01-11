@@ -150,7 +150,7 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 		return nil, err
 	}
 
-	ntx, err := tx.engine.NewTx(tx.ctx, tx.opts)
+	ntx, err := tx.engine.NewTx(tx.Context(), tx.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{})
 	}
 
 	if tx.engine.multidbHandler != nil {
-		return nil, tx.engine.multidbHandler.CreateDatabase(tx.ctx, stmt.DB, stmt.ifNotExists)
+		return nil, tx.engine.multidbHandler.CreateDatabase(tx.Context(), stmt.DB, stmt.ifNotExists)
 	}
 
 	id := uint32(len(tx.catalog.dbsByID) + 1)
@@ -243,7 +243,7 @@ func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	}
 
 	if tx.engine.multidbHandler != nil {
-		return tx, tx.engine.multidbHandler.UseDatabase(tx.ctx, stmt.DB)
+		return tx, tx.engine.multidbHandler.UseDatabase(tx.Context(), stmt.DB)
 	}
 
 	_, exists := tx.catalog.dbsByName[stmt.DB]
@@ -3685,7 +3685,7 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]
 			dbs[i] = db.name
 		}
 	} else {
-		dbs, err = tx.engine.multidbHandler.ListDatabases(tx.ctx)
+		dbs, err = tx.engine.multidbHandler.ListDatabases(tx.Context())
 		if err != nil {
 			return nil, err
 		}

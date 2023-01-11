@@ -18,6 +18,7 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -27,7 +28,10 @@ import (
 // OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
 // The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
-	st       *ImmuStore
+	st *ImmuStore
+
+	ctx context.Context
+
 	snap     *Snapshot
 	readOnly bool // MVCC validations are not needed for read-only transactions
 
@@ -69,7 +73,7 @@ type EntrySpec struct {
 	Value    []byte
 }
 
-func newOngoingTx(s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
+func newOngoingTx(s *ImmuStore, ctx context.Context, opts *TxOptions) (*OngoingTx, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -77,6 +81,7 @@ func newOngoingTx(s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
 
 	tx := &OngoingTx{
 		st:           s,
+		ctx:          ctx,
 		entriesByKey: make(map[[sha256.Size]byte]int),
 		ts:           time.Now(),
 	}
@@ -154,6 +159,10 @@ func (oref *ongoingValRef) HVal() [sha256.Size]byte {
 
 func (oref *ongoingValRef) Len() uint32 {
 	return uint32(len(oref.value))
+}
+
+func (tx *OngoingTx) Context() context.Context {
+	return tx.ctx
 }
 
 func (tx *OngoingTx) IsWriteOnly() bool {
