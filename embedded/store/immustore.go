@@ -2902,7 +2902,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	s.logger.Infof("running truncation up to transaction '%d'", minTxID)
 
 	var err error
-	stones := make(map[byte]int64)
+	// tombstones maintain the minimum offset for each value log file that can be safely deleted.
+	tombstones := make(map[byte]int64)
 
 	readFirstEntryOffset := func(id uint64) (*TxEntry, error) {
 		return s.readTxOffsetAt(id, false, 1)
@@ -2916,8 +2917,8 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 
 		// Iterate over all past transactions and store the minimum offset for each value log file.
 		v, off := decodeOffset(first.VOff())
-		if _, ok := stones[v]; !ok {
-			stones[v] = off
+		if _, ok := tombstones[v]; !ok {
+			tombstones[v] = off
 		}
 		return nil
 	}
@@ -2931,9 +2932,9 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		// Check if any future transaction offset lies before past transaction(s)
 		// If so, then update the offset to the minimum offset for that value log file.
 		v, off := decodeOffset(first.VOff())
-		if val, ok := stones[v]; ok {
+		if val, ok := tombstones[v]; ok {
 			if off < val {
-				stones[v] = off
+				tombstones[v] = off
 			}
 		}
 		return nil
@@ -2943,7 +2944,7 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	// This way, we can calculate the minimum offset for each value log file.
 	{
 		var i uint64 = minTxID
-		for i > 0 && len(stones) != s.MaxIOConcurrency() {
+		for i > 0 && len(tombstones) != s.MaxIOConcurrency() {
 			err = back(i)
 			i--
 			if err != nil { // if txn not found, then continue as previous txn could have been deleted
@@ -2972,7 +2973,7 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	// Delete offset from different value logs
 	merr := multierr.NewMultiErr()
 	{
-		for vLogID, offset := range stones {
+		for vLogID, offset := range tombstones {
 			vlog := s.fetchVLog(vLogID)
 			defer s.releaseVLog(vLogID)
 			s.logger.Infof("truncating vlog '%d' at offset '%d'", vLogID, offset)
