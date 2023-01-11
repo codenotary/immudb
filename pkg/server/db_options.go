@@ -750,6 +750,12 @@ func (opts *dbOptions) Validate() error {
 		)
 	}
 
+	if opts.RetentionPeriod < 0 || (opts.RetentionPeriod > 0 && opts.RetentionPeriod < Milliseconds(store.MinimumRetentionPeriod.Milliseconds())) {
+		return fmt.Errorf(
+			"%w: invalid retention period for database '%s'. RetentionPeriod should at least 1 day",
+			ErrIllegalArguments, opts.Database)
+	}
+
 	return opts.storeOptions().Validate()
 }
 

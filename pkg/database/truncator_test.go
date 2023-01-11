@@ -416,13 +416,13 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 	db := setupCommonTest(t)
 
 	exec := func(t *testing.T, stmt string) {
-		_, ctx, err := db.SQLExec(&schema.SQLExecRequest{Sql: stmt}, nil)
+		_, ctx, err := db.SQLExec(context.TODO(), nil, &schema.SQLExecRequest{Sql: stmt})
 		require.NoError(t, err)
 		require.Len(t, ctx, 1)
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows int) {
-		res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: stmt}, nil)
+		res, err := db.SQLQuery(context.TODO(), nil, &schema.SQLQueryRequest{Sql: stmt})
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.Len(t, res.Rows, expectedRows)
@@ -470,7 +470,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 			Key:   []byte(fmt.Sprintf("key_%d", i)),
 			Value: []byte(fmt.Sprintf("val_%d", i)),
 		}
-		deleteUptoTx, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		deleteUptoTx, err = db.Set(context.TODO(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
 	}
 
@@ -557,4 +557,55 @@ func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_vlogCompactor_for_read_conflict(t *testing.T) {
+	rootPath := t.TempDir()
+
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithFileSize(60)
+
+	db := makeDbWith(t, "db", options)
+	require.Equal(t, uint64(1), db.st.LastCommittedTxID())
+
+	for i := 1; i <= 10; i++ {
+		kv := &schema.KeyValue{
+			Key:   []byte(fmt.Sprintf("key_%d", i)),
+			Value: []byte(fmt.Sprintf("val_%d", i)),
+		}
+		_, err := db.Set(context.TODO(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		require.NoError(t, err)
+	}
+
+	once := sync.Once{}
+	doneTruncateCh := make(chan bool, 0)
+	startWritesCh := make(chan bool, 0)
+	doneWritesCh := make(chan bool, 0)
+	go func() {
+		for i := 11; i <= 40; i++ {
+			kv := &schema.KeyValue{
+				Key:   []byte(fmt.Sprintf("key_%d", i)),
+				Value: []byte(fmt.Sprintf("val_%d", i)),
+			}
+			_, err := db.Set(context.TODO(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+			once.Do(func() {
+				close(startWritesCh)
+			})
+			require.NoError(t, err)
+		}
+		close(doneWritesCh)
+	}()
+
+	go func() {
+		<-startWritesCh
+		deletePointTx := uint64(5)
+		hdr, err := db.st.ReadTxHeader(deletePointTx, false)
+		require.NoError(t, err)
+		c := newVlogTruncator(db)
+		require.NoError(t, c.Truncate(hdr))
+		close(doneTruncateCh)
+	}()
+
+	<-doneWritesCh
+	<-doneTruncateCh
 }
