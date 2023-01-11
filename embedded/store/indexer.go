@@ -254,9 +254,9 @@ func (idx *indexer) Close() error {
 	return idx.index.Close()
 }
 
-func (idx *indexer) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
+func (idx *indexer) WaitForIndexingUpto(txID uint64, ctx context.Context) error {
 	if idx.wHub != nil {
-		err := idx.wHub.WaitFor(txID, cancellation)
+		err := idx.wHub.WaitFor(txID, ctx)
 		if err == watchers.ErrAlreadyClosed {
 			return ErrAlreadyClosed
 		}
@@ -381,7 +381,7 @@ func (idx *indexer) doIndexing() {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
 
-		err := idx.store.commitWHub.WaitFor(lastIndexedTx+1, idx.ctx.Done())
+		err := idx.store.commitWHub.WaitFor(lastIndexedTx+1, idx.ctx)
 		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
 			return
 		}

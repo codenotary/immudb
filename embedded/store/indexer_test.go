@@ -86,7 +86,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	errCh := make(chan error)
 	for i := 0; i < 2; i++ {
 		go func() {
-			errCh <- store.WaitForIndexingUpto(1, make(<-chan struct{}))
+			errCh <- store.WaitForIndexingUpto(1, context.Background())
 		}()
 	}
 

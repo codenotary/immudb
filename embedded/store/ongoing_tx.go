@@ -98,7 +98,7 @@ func newOngoingTx(s *ImmuStore, ctx context.Context, opts *TxOptions) (*OngoingT
 		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.lastPrecommittedTxID())
 	}
 
-	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod)
+	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod, ctx)
 	if err != nil {
 		return nil, err
 	}
