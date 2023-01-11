@@ -95,7 +95,7 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 	return nil
 }
 
-func (w *WatchersHub) WaitFor(t uint64, ctx context.Context) error {
+func (w *WatchersHub) WaitFor(ctx context.Context, t uint64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
