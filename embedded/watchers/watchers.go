@@ -17,6 +17,7 @@ limitations under the License.
 package watchers
 
 import (
+	"context"
 	"errors"
 	"sync"
 )
@@ -94,7 +95,7 @@ func (w *WatchersHub) DoneUpto(t uint64) error {
 	return nil
 }
 
-func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
+func (w *WatchersHub) WaitFor(t uint64, ctx context.Context) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -126,7 +127,7 @@ func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 	select {
 	case <-wp.ch:
 		break
-	case <-cancellation:
+	case <-ctx.Done():
 		cancelled = true
 	}
 

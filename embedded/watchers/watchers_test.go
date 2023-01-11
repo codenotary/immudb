@@ -37,7 +37,7 @@ func TestWatchersHub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := wHub.WaitFor(1, ctx.Done())
+	err := wHub.WaitFor(1, ctx)
 	require.ErrorIs(t, err, ErrCancellationRequested)
 
 	doneUpto, waiting, err := wHub.Status()
@@ -52,7 +52,7 @@ func TestWatchersHub(t *testing.T) {
 		for i := 1; i <= waitessCount; i++ {
 			go func(i uint64) {
 				defer wg.Done()
-				err := wHub.WaitFor(i, nil)
+				err := wHub.WaitFor(i, context.Background())
 				require.NoError(t, err)
 			}(uint64(i))
 		}
@@ -60,7 +60,7 @@ func TestWatchersHub(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	err = wHub.WaitFor(uint64(waitessCount*2+1), nil)
+	err = wHub.WaitFor(uint64(waitessCount*2+1), context.Background())
 	require.ErrorIs(t, err, ErrMaxWaitessLimitExceeded)
 
 	done := make(chan struct{})
@@ -92,14 +92,14 @@ func TestWatchersHub(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = wHub.WaitFor(5, nil)
+	err = wHub.WaitFor(5, context.Background())
 	require.NoError(t, err)
 
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		err := wHub.WaitFor(uint64(waitessCount)+1, nil)
+		err := wHub.WaitFor(uint64(waitessCount)+1, context.Background())
 		if !errors.Is(err, ErrAlreadyClosed) {
 			require.NoError(t, err)
 		}
@@ -116,7 +116,7 @@ func TestWatchersHub(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = wHub.WaitFor(0, nil)
+	err = wHub.WaitFor(0, context.Background())
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = wHub.DoneUpto(0)
@@ -149,7 +149,7 @@ func TestSimultaneousCancellationAndNotification(t *testing.T) {
 					doneUpTo, _, err := wHub.Status()
 					require.NoError(t, err)
 
-					err = wHub.WaitFor(j, ctx.Done())
+					err = wHub.WaitFor(j, ctx)
 					if errors.Is(err, ErrCancellationRequested) {
 						// Check internal invariant of the wHub
 						// Since we got cancel request it must only happen
