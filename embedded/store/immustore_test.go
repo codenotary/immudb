@@ -1475,7 +1475,7 @@ func TestImmudbStoreKVMetadata(t *testing.T) {
 	require.Equal(t, uint64(1), valRef.HC())
 	require.Equal(t, uint32(3), valRef.Len())
 	require.Equal(t, sha256.Sum256([]byte{3, 2, 1}), valRef.HVal())
-	require.True(t, NewTxMetadata().Equal(valRef.TxMetadata()))
+	require.Nil(t, valRef.TxMetadata())
 
 	v, err := valRef.Resolve()
 	require.NoError(t, err)
@@ -4196,4 +4196,468 @@ func TestImmudbStoreMVCCBoundaries(t *testing.T) {
 		err = tx2.Cancel()
 		require.NoError(t, err)
 	})
+}
+
+func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxConcurrency(100).
+		WithMaxIOConcurrency(5)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	for i := 1; i <= 20; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		hdr, err := tx.Commit()
+		require.NoError(t, err)
+
+		readTx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(hdr.ID, readTx)
+		require.NoError(t, err)
+
+		for _, e := range readTx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+
+	deletePointTx := uint64(15)
+	hdr, err := st.ReadTxHeader(deletePointTx, false)
+	require.NoError(t, err)
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+
+	for i := deletePointTx; i <= 20; i++ {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		require.NoError(t, err)
+
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+}
+
+func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxIOConcurrency(1)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	for i := 1; i <= 10; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+	}
+
+	deletePointTx := uint64(5)
+	hdr, err := st.ReadTxHeader(deletePointTx, false)
+	require.NoError(t, err)
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+
+	for i := deletePointTx; i <= 10; i++ {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+
+	for i := deletePointTx - 1; i > 0; i-- {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.Error(t, err)
+		}
+	}
+}
+
+func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxIOConcurrency(1)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	for i := 1; i <= 10; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+	}
+
+	deletePointTx := uint64(5)
+	hdr, err := st.ReadTxHeader(deletePointTx, false)
+	require.NoError(t, err)
+
+	// TruncateUptoTx should be idempotent
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+
+	for i := deletePointTx; i <= 10; i++ {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+
+	for i := deletePointTx - 1; i > 0; i-- {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.Error(t, err)
+		}
+	}
+
+}
+
+func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxConcurrency(100).
+		WithMaxIOConcurrency(3)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	wg := sync.WaitGroup{}
+	for i := 1; i <= 3; i++ {
+		wg.Add(1)
+		go func(j int) {
+			defer wg.Done()
+			for k := 1*(j-1)*10 + 1; k < (j*10)+1; k++ {
+				key := []byte(fmt.Sprintf("key_%d", k))
+				value := []byte(fmt.Sprintf("val_%d", k))
+				tx, err := st.NewWriteOnlyTx()
+				require.NoError(t, err)
+
+				err = tx.Set(key, nil, value)
+				require.NoError(t, err)
+
+				_, err = tx.Commit()
+				require.NoError(t, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	deletePointTx := uint64(15)
+	hdr, err := st.ReadTxHeader(deletePointTx, false)
+	require.NoError(t, err)
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+
+	for i := deletePointTx; i <= 30; i++ {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+}
+
+func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxIOConcurrency(1)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	waitCh := make(chan struct{})
+	doneCh := make(chan struct{})
+
+	for i := 1; i <= 20; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		if i == 10 {
+			close(waitCh)
+		}
+	}
+
+	deletePointTx := uint64(5)
+
+	go func() {
+		<-waitCh
+		hdr, err := st.ReadTxHeader(deletePointTx, false)
+		require.NoError(t, err)
+		require.NoError(t, st.TruncateUptoTx(hdr.ID))
+		close(doneCh)
+	}()
+
+	<-doneCh
+	for i := deletePointTx; i <= 20; i++ {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
+
+	for i := deletePointTx - 1; i > 0; i-- {
+		tx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(i, tx)
+		for _, e := range tx.Entries() {
+			_, err := st.ReadValue(e)
+			require.Error(t, err)
+		}
+	}
+}
+
+func TestExportTxWithTruncation(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxIOConcurrency(1)
+
+	// Create a master store
+	masterDir := t.TempDir()
+	masterStore, err := Open(masterDir, opts)
+	require.NoError(t, err)
+	defer immustoreClose(t, masterStore)
+
+	// Create a replica store
+	replicaDir := t.TempDir()
+	replicaStore, err := Open(replicaDir, DefaultOptions())
+	require.NoError(t, err)
+	defer immustoreClose(t, replicaStore)
+
+	t.Run("validate replication post truncation on master", func(t *testing.T) {
+		hdrs := make([]*TxHeader, 0, 5)
+
+		// Add 10 transactions on master store
+		for i := 1; i <= 10; i++ {
+			key := []byte(fmt.Sprintf("key_%d", i))
+			value := []byte(fmt.Sprintf("val_%d", i))
+			tx, err := masterStore.NewWriteOnlyTx()
+			require.NoError(t, err)
+
+			err = tx.Set(key, nil, value)
+			require.NoError(t, err)
+
+			hdr, err := tx.Commit()
+			require.NoError(t, err)
+			require.NotNil(t, hdr)
+			hdrs = append(hdrs, hdr)
+		}
+
+		// Truncate upto 5th transaction on master store
+		deletePointTx := uint64(5)
+		hdr, err := masterStore.ReadTxHeader(deletePointTx, false)
+		require.NoError(t, err)
+		require.NoError(t, masterStore.TruncateUptoTx(hdr.ID))
+
+		// Validate that the values are not accessible for transactions that are truncated
+		for i := deletePointTx - 1; i > 0; i-- {
+			tx := NewTx(masterStore.MaxTxEntries(), masterStore.MaxKeyLen())
+			err = masterStore.ReadTx(i, tx)
+			for _, e := range tx.Entries() {
+				_, err := masterStore.ReadValue(e)
+				require.Error(t, err)
+			}
+		}
+
+		// Replicate all the transactions to replica store
+		for i := uint64(1); i <= 10; i++ {
+			txholder := tempTxHolder(t, masterStore)
+
+			etx, err := masterStore.ExportTx(i, false, txholder)
+			require.NoError(t, err)
+
+			rhdr, err := replicaStore.ReplicateTx(etx, false)
+			require.NoError(t, err)
+			require.NotNil(t, rhdr)
+		}
+
+		// Validate that the alh is matching with master when data is exported to replica
+		for i := uint64(1); i <= 10; i++ {
+			tx := NewTx(replicaStore.MaxTxEntries(), replicaStore.MaxKeyLen())
+			err = replicaStore.ReadTx(i, tx)
+
+			hdr := hdrs[i-1]
+			require.Equal(t, hdr.ID, tx.header.ID)
+			require.Equal(t, hdr.Alh(), tx.header.Alh())
+		}
+
+		// Validate that the values are not copied on replica for truncated transaction on master
+		for i := deletePointTx - 1; i > 0; i-- {
+			tx := NewTx(replicaStore.MaxTxEntries(), replicaStore.MaxKeyLen())
+			err = replicaStore.ReadTx(i, tx)
+			for _, e := range tx.Entries() {
+				val, err := replicaStore.ReadValue(e)
+				require.NoError(t, err)
+				require.Nil(t, val)
+			}
+		}
+
+		// Validate that the values are copied on replica for non truncated transaction on master
+		for i := deletePointTx; i <= 10; i++ {
+			tx := NewTx(replicaStore.MaxTxEntries(), replicaStore.MaxKeyLen())
+			err = replicaStore.ReadTx(i, tx)
+			for _, e := range tx.Entries() {
+				val, err := replicaStore.ReadValue(e)
+				require.NoError(t, err)
+				require.NotNil(t, val)
+			}
+		}
+	})
+}
+
+func TestImmudbStoreTxMetadata(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+
+	defer immustoreClose(t, immuStore)
+
+	t.Run("test tx metadata with truncation header", func(t *testing.T) {
+		tx, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+
+		tx.WithMetadata(NewTxMetadata().WithTruncatedTxID(10))
+
+		err = tx.Set([]byte{1, 2, 3}, nil, []byte{3, 2, 1})
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+
+		valRef, err := immuStore.Get([]byte{1, 2, 3})
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), valRef.Tx())
+		require.Equal(t, uint64(1), valRef.HC())
+		require.Equal(t, uint32(3), valRef.Len())
+		require.Equal(t, sha256.Sum256([]byte{3, 2, 1}), valRef.HVal())
+
+		require.True(t, valRef.TxMetadata().HasTruncatedTxID())
+		trid, err := valRef.TxMetadata().GetTruncatedTxID()
+		require.NoError(t, err)
+		require.Equal(t, uint64(10), trid)
+	})
+
+	t.Run("test tx metadata with no truncation header", func(t *testing.T) {
+		tx, err := immuStore.NewTx(DefaultTxOptions())
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+
+		err = tx.Set([]byte{1, 2, 3}, nil, []byte{1, 1, 1})
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+		valRef, err := immuStore.Get([]byte{1, 2, 3})
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), valRef.Tx())
+
+		v, err := valRef.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, []byte{1, 1, 1}, v)
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), valRef.Tx())
+		require.Nil(t, valRef.TxMetadata())
+		require.Equal(t, uint64(2), valRef.HC())
+		require.Equal(t, uint32(3), valRef.Len())
+		require.Equal(t, sha256.Sum256([]byte{1, 1, 1}), valRef.HVal())
+	})
+
+}
+
+func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
+	opts := DefaultOptions().
+		WithFileSize(6).
+		WithMaxIOConcurrency(1)
+
+	st, err := Open(t.TempDir(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, st)
+	defer immustoreClose(t, st)
+
+	for i := 1; i <= 10; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		_, err = tx.Commit()
+		require.NoError(t, err)
+	}
+
+	deletePointTx := uint64(1)
+	hdr, err := st.ReadTxHeader(deletePointTx, false)
+	require.NoError(t, err)
+
+	require.NoError(t, st.TruncateUptoTx(hdr.ID))
+
+	for i := 11; i <= 20; i++ {
+		key := []byte(fmt.Sprintf("key_%d", i))
+		value := []byte(fmt.Sprintf("val_%d", i))
+		tx, err := st.NewWriteOnlyTx()
+		require.NoError(t, err)
+
+		err = tx.Set(key, nil, value)
+		require.NoError(t, err)
+
+		hdr, err = tx.Commit()
+		require.NoError(t, err)
+
+		rtx := NewTx(st.MaxTxEntries(), st.MaxKeyLen())
+		err = st.ReadTx(hdr.ID, rtx)
+		for _, e := range rtx.Entries() {
+			_, err := st.ReadValue(e)
+			require.NoError(t, err)
+		}
+	}
 }

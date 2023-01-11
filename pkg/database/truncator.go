@@ -88,18 +88,13 @@ func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTi
 	return ErrRetentionPeriodNotReached
 }
 
-// Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
-func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
-	defer func(t time.Time) {
-		v.metrics.ran.Inc()
-		v.metrics.duration.Observe(time.Since(t).Seconds())
-	}(time.Now())
-
+// commitCatalog commits the current sql catalogue as a new transaction.
+func (v *vlogTruncator) commitCatalog(hdr *store.TxHeader) (*store.TxHeader, error) {
 	// copy sql catalogue
 	tx, err := v.db.CopyCatalog(context.Background())
 	if err != nil {
 		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", v.db.name, err, hdr.ID)
-		return err
+		return nil, err
 	}
 	defer tx.Cancel()
 
@@ -107,11 +102,23 @@ func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
 	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(hdr.ID))
 
 	// commit catalogue as a new transaction
-	_, err = tx.Commit()
+	return tx.Commit()
+}
+
+// Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
+func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
+	defer func(t time.Time) {
+		v.metrics.ran.Inc()
+		v.metrics.duration.Observe(time.Since(t).Seconds())
+	}(time.Now())
+	v.db.Logger.Infof("copying sql catalog before truncation for database '%s' at tx %d", v.db.name, hdr.ID)
+	// copy sql catalogue
+	sqlCommitHdr, err := v.commitCatalog(hdr)
 	if err != nil {
 		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_commit}", v.db.name, err, hdr.ID)
 		return err
 	}
+	v.db.Logger.Infof("committed sql catalog before truncation for database '%s' at tx %d", v.db.name, sqlCommitHdr.ID)
 
 	// truncate upto hdr.ID
 	err = v.db.st.TruncateUptoTx(hdr.ID)
