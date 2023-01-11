@@ -2069,13 +2069,6 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 			return nil, err
 		}
 
-		// vLen
-		binary.BigEndian.PutUint32(blen[:], uint32(e.vLen))
-		_, err = buf.Write(blen[:])
-		if err != nil {
-			return nil, err
-		}
-
 		// val
 		// TODO: improve value reading implementation, get rid of _valBs
 		s._valBsMux.Lock()
@@ -2088,13 +2081,15 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 		// if the error is eof, the value has been truncated, so we do not write the value bytes
 		if err == io.EOF {
 			isValueTruncated = true
-			// vHash
+			// vHashLen
 			binary.BigEndian.PutUint32(blen[:], uint32(len(e.hVal)))
 			_, err = buf.Write(blen[:])
 			if err != nil {
 				s._valBsMux.Unlock()
 				return nil, err
 			}
+
+			// vHash
 			_, err = buf.Write(e.hVal[:])
 			if err != nil {
 				s._valBsMux.Unlock()
@@ -2109,6 +2104,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 				return nil, err
 			}
 
+			// val
 			_, err = buf.Write(s._valBs[:e.vLen])
 			if err != nil {
 				s._valBsMux.Unlock()
@@ -2949,6 +2945,7 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 			i--
 			if err != nil { // if txn not found, then continue as previous txn could have been deleted
 				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
+				return err
 			}
 		}
 	}
@@ -2985,7 +2982,6 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 	return merr.Reduce()
 }
 
-// TODO!! test this
 func byte32(s []byte) [32]byte {
 	var a [32]byte
 	copy(a[:], s)

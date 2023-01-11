@@ -26,7 +26,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/replication"
-	"github.com/codenotary/immudb/pkg/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -53,7 +52,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("write-buffer-size", store.DefaultWriteBufferSize, "set the size of in-memory buffers for file abstractions")
 	c.Flags().Uint32("read-tx-pool-size", database.DefaultReadTxPoolSize, "set transaction read pool size (used for reading transaction objects)")
 	c.Flags().Bool("autoload", true, "enable database autoloading")
-	c.Flags().String("retention-period", "", "duration of time to retain data in storage. Units Supported: y, w, d, h, m.")
+	c.Flags().Duration("retention-period", 0, "duration of time to retain data in storage")
 	c.Flags().Duration("truncation-frequency", store.DefaultTruncationFrequency, "set the truncation frequency for the database")
 
 	flagNameMapping := map[string]string{
@@ -472,18 +471,9 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	rps, err := condString("retention-period")
+	ret.RetentionPeriod, err = condDuration("retention-period")
 	if err != nil {
 		return nil, err
-	}
-
-	if rps != nil && rps.Value != "" {
-		dur, err := util.ParseDuration(rps.Value)
-		if err != nil {
-			return nil, err
-		}
-
-		ret.RetentionPeriod = &schema.NullableMilliseconds{Value: dur.Milliseconds()}
 	}
 
 	ret.TruncationFrequency, err = condDuration("truncation-frequency")

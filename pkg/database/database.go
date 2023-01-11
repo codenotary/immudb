@@ -33,7 +33,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/util"
 )
 
 const MaxKeyResolutionLimit = 1
@@ -1771,17 +1770,19 @@ func (d *db) runTruncator() {
 //		tn-1:vx  tn:vx   tn+1:vx
 //
 func (d *db) truncate(ts time.Time) error {
-	defer util.HandlePanic(d.Logger)
 	for _, c := range d.truncators {
 		// Plan determines the transaction header before time period ts. If a
 		// transaction is not found, or if an error occurs fetching the transaction,
 		// then truncation does not run for the specified appendable.
 		hdr, err := c.Plan(ts)
 		if err != nil {
-			if err == store.ErrTxNotFound {
-				d.Logger.Infof("no transaction found beyond specified truncation timeframe '%s' {err = %v}", d.name, err)
-			} else {
-				d.Logger.Errorf("failed to plan truncation for db '%s' {err = %v}", d.name, err)
+			switch err {
+			case ErrRetentionPeriodNotReached:
+				d.Logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", d.name, ts.String())
+			case store.ErrTxNotFound:
+				d.Logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {err = %v}", d.name, err)
+			default:
+				d.Logger.Errorf("failed to plan truncation for database '%s' {err = %v}", d.name, err)
 			}
 			// If no transaction is found, or if an error occurs, then continue
 			continue
@@ -1791,7 +1792,7 @@ func (d *db) truncate(ts time.Time) error {
 		// specified in the transaction hdr
 		err = c.Truncate(hdr)
 		if err != nil {
-			d.Logger.Errorf("failed to truncate db '%s' {err = %v}", d.name, err)
+			d.Logger.Errorf("failed to truncate database '%s' {err = %v}", d.name, err)
 		}
 	}
 
@@ -1801,7 +1802,5 @@ func (d *db) truncate(ts time.Time) error {
 // CopyCatalog creates a copy of the sql catalog and returns a transaction
 // that can be used to commit the copy.
 func (d *db) CopyCatalog(ctx context.Context) (*store.OngoingTx, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 	return d.sqlEngine.CopyCatalog(ctx)
 }
