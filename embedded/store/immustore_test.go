@@ -906,7 +906,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 			for {
 				txID, _ := immuStore.CommittedAlh()
 
-				snap, err := immuStore.SnapshotMustIncludeTxID(txID, context.Background())
+				snap, err := immuStore.SnapshotMustIncludeTxID(context.Background(), txID)
 				require.NoError(t, err)
 
 				for i := 0; i < int(snap.Ts()); i++ {
@@ -1873,7 +1873,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		err = immuStore.WaitForTx(txhdr.ID, false, context.Background())
 		require.NoError(t, err)
 
-		err = immuStore.WaitForIndexingUpto(txhdr.ID, context.Background())
+		err = immuStore.WaitForIndexingUpto(context.Background(), txhdr.ID)
 		require.NoError(t, err)
 
 		var k0 [8]byte
@@ -3078,7 +3078,7 @@ func TestImmudbStoreTruncatedCommitLog(t *testing.T) {
 	immuStore, err = Open(dir, DefaultOptions())
 	require.NoError(t, err)
 
-	err = immuStore.WaitForIndexingUpto(hdr1.ID, context.Background())
+	err = immuStore.WaitForIndexingUpto(context.Background(), hdr1.ID)
 	require.NoError(t, err)
 
 	valRef, err := immuStore.Get([]byte("key1"))

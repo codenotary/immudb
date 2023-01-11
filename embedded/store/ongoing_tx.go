@@ -28,9 +28,9 @@ import (
 // OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
 // The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
-	st *ImmuStore
-
 	ctx context.Context
+
+	st *ImmuStore
 
 	snap     *Snapshot
 	readOnly bool // MVCC validations are not needed for read-only transactions
@@ -73,7 +73,7 @@ type EntrySpec struct {
 	Value    []byte
 }
 
-func newOngoingTx(s *ImmuStore, ctx context.Context, opts *TxOptions) (*OngoingTx, error) {
+func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func newOngoingTx(s *ImmuStore, ctx context.Context, opts *TxOptions) (*OngoingT
 		snapshotMustIncludeTxID = opts.SnapshotMustIncludeTxID(s.lastPrecommittedTxID())
 	}
 
-	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod, ctx)
+	snap, err := s.SnapshotMustIncludeTxIDWithRenewalPeriod(ctx, snapshotMustIncludeTxID, opts.SnapshotRenewalPeriod)
 	if err != nil {
 		return nil, err
 	}
