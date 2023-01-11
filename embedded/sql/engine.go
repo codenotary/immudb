@@ -195,7 +195,7 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	tx, err := e.store.NewTx(txOpts)
+	tx, err := e.store.NewTx(ctx, txOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,6 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 
 	return &SQLTx{
 		engine:           e,
-		ctx:              ctx,
 		opts:             opts,
 		tx:               tx,
 		catalog:          catalog,
@@ -256,7 +255,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		var opts *TxOptions
 
 		if tx != nil {
-			ctx = tx.ctx
+			ctx = tx.Context()
 			opts = tx.opts
 		} else {
 			ctx = context.Background()
@@ -308,10 +307,10 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			var opts *TxOptions
 
 			if currTx != nil {
-				ctx = currTx.ctx
+				ctx = currTx.Context()
 				opts = currTx.opts
 			} else if tx != nil {
-				ctx = tx.ctx
+				ctx = tx.Context()
 				opts = tx.opts
 			} else {
 				ctx = context.Background()

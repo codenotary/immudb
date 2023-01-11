@@ -28,8 +28,6 @@ import (
 type SQLTx struct {
 	engine *Engine
 
-	ctx context.Context
-
 	opts *TxOptions
 
 	tx *store.OngoingTx
@@ -47,6 +45,10 @@ type SQLTx struct {
 
 	committed bool
 	closed    bool
+}
+
+func (sqlTx *SQLTx) Context() context.Context {
+	return sqlTx.tx.Context()
 }
 
 func (sqlTx *SQLTx) useDatabase(dbName string) error {

@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"testing"
@@ -37,7 +38,7 @@ func TestTxReader(t *testing.T) {
 	eCount := 10
 
 	for i := 0; i < txCount; i++ {
-		tx, err := immuStore.NewWriteOnlyTx()
+		tx, err := immuStore.NewWriteOnlyTx(context.Background())
 		require.NoError(t, err)
 
 		for j := 0; j < eCount; j++ {

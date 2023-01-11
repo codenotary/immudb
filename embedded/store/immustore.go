@@ -19,6 +19,7 @@ package store
 import (
 	"bytes"
 	"container/list"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
@@ -1072,12 +1073,12 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) NewWriteOnlyTx() (*OngoingTx, error) {
-	return newOngoingTx(s, &TxOptions{Mode: WriteOnlyTx})
+func (s *ImmuStore) NewWriteOnlyTx(ctx context.Context) (*OngoingTx, error) {
+	return newOngoingTx(s, ctx, &TxOptions{Mode: WriteOnlyTx})
 }
 
-func (s *ImmuStore) NewTx(opts *TxOptions) (*OngoingTx, error) {
-	return newOngoingTx(s, opts)
+func (s *ImmuStore) NewTx(ctx context.Context, opts *TxOptions) (*OngoingTx, error) {
+	return newOngoingTx(s, ctx, opts)
 }
 
 func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
@@ -1606,8 +1607,8 @@ func (s *ImmuStore) mayCommit() error {
 	return nil
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error), waitForIndexing bool) (*TxHeader, error) {
-	hdr, err := s.preCommitWith(callback)
+func (s *ImmuStore) CommitWith(ctx context.Context, callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error), waitForIndexing bool) (*TxHeader, error) {
+	hdr, err := s.preCommitWith(ctx, callback)
 	if err != nil {
 		return nil, err
 	}
@@ -1658,7 +1659,7 @@ func (index *unsafeIndex) GetWithPrefixAndFilters(prefix []byte, neq []byte, fil
 	return index.st.GetWithPrefixAndFilters(prefix, neq, filters...)
 }
 
-func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
+func (s *ImmuStore) preCommitWith(ctx context.Context, callback func(txID uint64, index KeyIndex) ([]*EntrySpec, []Precondition, error)) (*TxHeader, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1670,7 +1671,7 @@ func (s *ImmuStore) preCommitWith(callback func(txID uint64, index KeyIndex) ([]
 		return nil, ErrAlreadyClosed
 	}
 
-	otx, err := s.NewWriteOnlyTx()
+	otx, err := s.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2087,7 +2088,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byt
 	return buf.Bytes(), nil
 }
 
-func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {
 	if len(exportedTx) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -2112,7 +2113,7 @@ func (s *ImmuStore) ReplicateTx(exportedTx []byte, waitForIndexing bool) (*TxHea
 	}
 	i += hdrLen
 
-	txSpec, err := s.NewWriteOnlyTx()
+	txSpec, err := s.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
