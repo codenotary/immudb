@@ -410,3 +410,150 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ptx.Header().Metadata.HasTruncatedTxID())
 }
+
+func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
+	db := setupCommonTest(t)
+
+	exec := func(t *testing.T, stmt string) {
+		_, ctx, err := db.SQLExec(&schema.SQLExecRequest{Sql: stmt}, nil)
+		require.NoError(t, err)
+		require.Len(t, ctx, 1)
+	}
+
+	query := func(t *testing.T, stmt string, expectedRows int) {
+		res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: stmt}, nil)
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.Len(t, res.Rows, expectedRows)
+	}
+
+	verify := func(t *testing.T, txID uint64) {
+		lastCommitTx := db.st.LastCommittedTxID()
+		hdr, err := db.st.ReadTxHeader(lastCommitTx, false)
+		require.NoError(t, err)
+		require.NotNil(t, hdr.Metadata)
+		require.True(t, hdr.Metadata.HasTruncatedTxID())
+
+		truncatedTxId, err := hdr.Metadata.GetTruncatedTxID()
+		require.NoError(t, err)
+		require.Equal(t, txID, truncatedTxId)
+	}
+
+	// create a new table
+	exec(t, "CREATE TABLE table1 (id INTEGER AUTO_INCREMENT, name VARCHAR[50], amount INTEGER, PRIMARY KEY id)")
+	exec(t, "CREATE UNIQUE INDEX ON table1 (name)")
+	exec(t, "CREATE UNIQUE INDEX ON table1 (name, amount)")
+	exec(t, "ALTER TABLE table1 ADD COLUMN surname VARCHAR")
+
+	t.Run("succeed truncating sql catalog", func(t *testing.T) {
+		lastCommitTx := db.st.LastCommittedTxID()
+		hdr, err := db.st.ReadTxHeader(lastCommitTx, false)
+		require.NoError(t, err)
+		c := newVlogTruncator(db)
+		require.NoError(t, c.Truncate(hdr))
+
+		// should add an extra transaction with catalogue
+		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		verify(t, hdr.ID)
+	})
+
+	t.Run("succeed loading catalog from latest schema", func(t *testing.T) {
+		query(t, "SELECT * FROM table1", 0)
+	})
+
+	// insert some data
+	var deleteUptoTx *schema.TxHeader
+	for i := 1; i <= 5; i++ {
+		var err error
+		kv := &schema.KeyValue{
+			Key:   []byte(fmt.Sprintf("key_%d", i)),
+			Value: []byte(fmt.Sprintf("val_%d", i)),
+		}
+		deleteUptoTx, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		require.NoError(t, err)
+	}
+
+	// delete txns in the store upto a certain txn
+	t.Run("succeed truncating sql catalog again", func(t *testing.T) {
+		lastCommitTx := db.st.LastCommittedTxID()
+		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false)
+		require.NoError(t, err)
+		c := newVlogTruncator(db)
+		require.NoError(t, c.Truncate(hdr))
+
+		// should add an extra transaction with catalogue
+		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
+		verify(t, hdr.ID)
+	})
+
+	t.Run("insert sql transaction", func(t *testing.T) {
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('Foo', 'Bar', 0)")
+		exec(t, "INSERT INTO table1(name, surname, amount) VALUES('Fin', 'Baz', 0)")
+	})
+
+	// check if can query the table with new catalogue
+	t.Run("succeed loading catalog from latest schema", func(t *testing.T) {
+		query(t, "SELECT * FROM table1", 2)
+	})
+}
+
+func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
+	type args struct {
+		retentionPeriod time.Time
+		txTs            time.Time
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "retention period not reached",
+			args: args{
+				retentionPeriod: truncateToDay(time.Now().Add(-24 * time.Hour)),
+				txTs:            truncateToDay(time.Now()),
+			},
+			wantErr: true,
+		},
+		{
+			name: "retention period reached",
+			args: args{
+				retentionPeriod: truncateToDay(time.Now().Add(-1 * time.Hour)),
+				txTs:            truncateToDay(time.Now().Add(-2 * time.Hour)),
+			},
+			wantErr: false,
+		},
+		{
+			name: "tx period before retention",
+			args: args{
+				retentionPeriod: truncateToDay(time.Now()),
+				txTs:            truncateToDay(time.Now().Add(-48 * time.Hour)),
+			},
+			wantErr: false,
+		},
+		{
+			name: "tx period after retention",
+			args: args{
+				retentionPeriod: truncateToDay(time.Now()),
+				txTs:            truncateToDay(time.Now().Add(48 * time.Hour)),
+			},
+			wantErr: true,
+		},
+		{
+			name: "tx period equal to retention",
+			args: args{
+				retentionPeriod: truncateToDay(time.Now().Add(48 * time.Hour)),
+				txTs:            truncateToDay(time.Now().Add(48 * time.Hour)),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &vlogTruncator{}
+			if err := v.isRetentionPeriodReached(tt.args.retentionPeriod, tt.args.txTs); (err != nil) != tt.wantErr {
+				t.Errorf("vlogTruncator.isRetentionPeriodReached() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
