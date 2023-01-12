@@ -147,7 +147,7 @@ func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
 }
 
 func (e *Engine) SetCurrentDatabase(dbName string) error {
-	tx, err := e.NewTx(context.Background(), DefaultTxOptions())
+	tx, err := e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions())
+		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
@@ -430,14 +430,14 @@ func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions())
+		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
 		defer qtx.Cancel()
 	}
 
-	return qtx.catalog, nil
+	return qtx.Catalog(), nil
 }
 
 func (e *Engine) InferParameters(sql string, tx *SQLTx) (params map[string]SQLValueType, err error) {
@@ -457,7 +457,7 @@ func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (param
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions())
+		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
