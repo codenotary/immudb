@@ -864,7 +864,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
-func (s *ImmuStore) WaitForTx(txID uint64, allowPrecommitted bool, ctx context.Context) error {
+func (s *ImmuStore) WaitForTx(ctx context.Context, txID uint64, allowPrecommitted bool) error {
 	s.waiteesMutex.Lock()
 
 	if s.waiteesCount == s.maxWaitees {

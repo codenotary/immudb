@@ -1870,7 +1870,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txhdr.ID)
 
-		err = immuStore.WaitForTx(txhdr.ID, false, context.Background())
+		err = immuStore.WaitForTx(context.Background(), txhdr.ID, false)
 		require.NoError(t, err)
 
 		err = immuStore.WaitForIndexingUpto(context.Background(), txhdr.ID)
@@ -2586,7 +2586,7 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 		return
 	}
 
-	err = replicaStore.WaitForTx(uint64(txCount), false, context.Background())
+	err = replicaStore.WaitForTx(context.Background(), uint64(txCount), false)
 	require.NoError(t, err)
 }
 
@@ -3392,7 +3392,7 @@ func TestImmudbStoreExternalCommitAllowance(t *testing.T) {
 		}()
 	}
 
-	err = immuStore.WaitForTx(uint64(txCount), true, context.Background())
+	err = immuStore.WaitForTx(context.Background(), uint64(txCount), true)
 	require.NoError(t, err)
 
 	go func() {
@@ -3450,7 +3450,7 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 		}()
 	}
 
-	err = immuStore.WaitForTx(uint64(txCount), true, context.Background())
+	err = immuStore.WaitForTx(context.Background(), uint64(txCount), true)
 	require.NoError(t, err)
 
 	err = immuStore.Close()
@@ -3462,7 +3462,7 @@ func TestImmudbStorePrecommittedTxLoading(t *testing.T) {
 	err = immuStore.AllowCommitUpto(uint64(txCount))
 	require.NoError(t, err)
 
-	err = immuStore.WaitForTx(uint64(txCount), false, context.Background())
+	err = immuStore.WaitForTx(context.Background(), uint64(txCount), false)
 	require.NoError(t, err)
 
 	err = immuStore.Close()
@@ -3510,7 +3510,7 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 		}()
 	}
 
-	err = immuStore.WaitForTx(uint64(txCount), true, context.Background())
+	err = immuStore.WaitForTx(context.Background(), uint64(txCount), true)
 	require.NoError(t, err)
 
 	err = immuStore.Close()
@@ -3530,7 +3530,7 @@ func TestImmudbStorePrecommittedTxDiscarding(t *testing.T) {
 	require.ErrorIs(t, err, ErrIllegalArguments)
 	require.Zero(t, n)
 
-	err = immuStore.WaitForTx(uint64(txCount/2), false, context.Background())
+	err = immuStore.WaitForTx(context.Background(), uint64(txCount/2), false)
 	require.NoError(t, err)
 
 	// discard all expect one precommitted tx
