@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"math"
 	"testing"
 
@@ -28,10 +29,10 @@ import (
 func TestStoreIndexExists(t *testing.T) {
 	db := makeDb(t)
 
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)}}})
 
-	_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)}}})
+	_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)}}})
 	require.NoError(t, err)
 
 	zaddOpts1 := &schema.ZAddRequest{
@@ -40,7 +41,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Score: float64(14.6),
 	}
 
-	reference1, err1 := db.ZAdd(zaddOpts1)
+	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
 	require.Exactly(t, uint64(5), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
@@ -51,7 +52,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Score: float64(6),
 	}
 
-	reference2, err2 := db.ZAdd(zaddOpts2)
+	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
 	require.Exactly(t, uint64(6), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
@@ -63,7 +64,7 @@ func TestStoreIndexExists(t *testing.T) {
 		AtTx:     0,
 		BoundRef: true,
 	}
-	_, err2 = db.ZAdd(zaddOpts2)
+	_, err2 = db.ZAdd(context.Background(), zaddOpts2)
 	require.Equal(t, ErrIllegalArguments, err2)
 
 	zaddOpts3 := &schema.ZAddRequest{
@@ -72,7 +73,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Score: float64(14.5),
 	}
 
-	reference3, err3 := db.ZAdd(zaddOpts3)
+	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
 	require.Exactly(t, uint64(7), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
@@ -82,7 +83,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Limit: uint64(db.MaxResultSize() + 1),
 	}
 
-	_, err = db.ZScan(zscanOpts)
+	_, err = db.ZScan(context.Background(), zscanOpts)
 	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
 	//try to retrieve directly the value or full scan to debug
@@ -91,7 +92,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Set: []byte(`firstIndex`),
 	}
 
-	itemList1, err := db.ZScan(zscanOpts1)
+	itemList1, err := db.ZScan(context.Background(), zscanOpts1)
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`mySecondElementKey`), itemList1.Entries[0].Entry.Key)
@@ -104,7 +105,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Desc:     true,
 	}
 
-	itemList2, err := db.ZScan(zscanOpts2)
+	itemList2, err := db.ZScan(context.Background(), zscanOpts2)
 	require.NoError(t, err)
 	require.Len(t, itemList2.Entries, 3)
 	require.Equal(t, []byte(`myFirstElementKey`), itemList2.Entries[0].Entry.Key)
@@ -115,14 +116,14 @@ func TestStoreIndexExists(t *testing.T) {
 func TestStoreIndexEqualKeys(t *testing.T) {
 	db := makeDb(t)
 
-	_, err := db.ZAdd(nil)
+	_, err := db.ZAdd(context.Background(), nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
-	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
-	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
+	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
+	i3, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
-	i, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`SignerId1`), AtTx: i1.Id, BoundRef: true})
+	i, err := db.SetReference(context.Background(), &schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`SignerId1`), AtTx: i1.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	zaddOpts := &schema.ZAddRequest{
@@ -133,7 +134,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference1, err := db.ZAdd(zaddOpts)
+	reference1, err := db.ZAdd(context.Background(), zaddOpts)
 	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
 
 	zaddOpts1 := &schema.ZAddRequest{
@@ -144,7 +145,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference1, err1 := db.ZAdd(zaddOpts1)
+	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
 	require.Exactly(t, uint64(6), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
@@ -157,7 +158,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference2, err2 := db.ZAdd(zaddOpts2)
+	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
 	require.Exactly(t, uint64(7), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
@@ -170,7 +171,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference3, err3 := db.ZAdd(zaddOpts3)
+	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
 	require.Exactly(t, uint64(8), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
@@ -181,7 +182,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		SinceTx: reference3.Id,
 	}
 
-	itemList1, err := db.ZScan(zscanOpts1)
+	itemList1, err := db.ZScan(context.Background(), zscanOpts1)
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
@@ -192,9 +193,9 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	db := makeDb(t)
 
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
-	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
-	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
+	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
+	i3, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
 	score := float64(1.1)
 
@@ -206,7 +207,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference1, err1 := db.ZAdd(zaddOpts1)
+	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 
 	require.NoError(t, err1)
 	require.Exactly(t, uint64(5), reference1.Id)
@@ -220,7 +221,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference2, err2 := db.ZAdd(zaddOpts2)
+	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 
 	require.NoError(t, err2)
 	require.Exactly(t, uint64(6), reference2.Id)
@@ -234,7 +235,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference3, err3 := db.ZAdd(zaddOpts3)
+	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 
 	require.NoError(t, err3)
 	require.Exactly(t, uint64(7), reference3.Id)
@@ -246,7 +247,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 		SinceTx: reference3.Id,
 	}
 
-	itemList1, err := db.ZScan(zscanOpts1)
+	itemList1, err := db.ZScan(context.Background(), zscanOpts1)
 
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
@@ -262,7 +263,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 	db := makeDb(t)
 
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:      []byte(`hashA`),
@@ -272,7 +273,7 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 		BoundRef: true,
 	}
 
-	_, err := db.ZAdd(zaddOpts1)
+	_, err := db.ZAdd(context.Background(), zaddOpts1)
 
 	require.Equal(t, store.ErrKeyNotFound, err)
 }
@@ -289,12 +290,12 @@ func TestStore_ZScanPagination(t *testing.T) {
 	db := makeDb(t)
 
 	setName := []byte(`set1`)
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
-	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2`)}}})
-	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3`)}}})
-	i4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key4`), Value: []byte(`val4`)}}})
-	i5, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key5`), Value: []byte(`val5`)}}})
-	i6, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
+	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2`)}}})
+	i3, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3`)}}})
+	i4, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key4`), Value: []byte(`val4`)}}})
+	i5, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key5`), Value: []byte(`val5`)}}})
+	i6, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:      setName,
@@ -339,13 +340,13 @@ func TestStore_ZScanPagination(t *testing.T) {
 		BoundRef: true,
 	}
 
-	db.ZAdd(zaddOpts1)
-	db.ZAdd(zaddOpts2)
-	db.ZAdd(zaddOpts3)
-	db.ZAdd(zaddOpts4)
-	db.ZAdd(zaddOpts5)
+	db.ZAdd(context.Background(), zaddOpts1)
+	db.ZAdd(context.Background(), zaddOpts2)
+	db.ZAdd(context.Background(), zaddOpts3)
+	db.ZAdd(context.Background(), zaddOpts4)
+	db.ZAdd(context.Background(), zaddOpts5)
 
-	meta, err := db.ZAdd(zaddOpts6)
+	meta, err := db.ZAdd(context.Background(), zaddOpts6)
 	require.NoError(t, err)
 
 	zScanOption0 := &schema.ZScanRequest{
@@ -354,7 +355,7 @@ func TestStore_ZScanPagination(t *testing.T) {
 		SinceTx:  meta.Id,
 	}
 
-	list0, err := db.ZScan(zScanOption0)
+	list0, err := db.ZScan(context.Background(), zScanOption0)
 	require.NoError(t, err)
 	require.Empty(t, list0.Entries)
 
@@ -368,7 +369,7 @@ func TestStore_ZScanPagination(t *testing.T) {
 		SinceTx:  meta.Id,
 	}
 
-	list1, err := db.ZScan(zScanOption1)
+	list1, err := db.ZScan(context.Background(), zScanOption1)
 	require.NoError(t, err)
 	require.Len(t, list1.Entries, 2)
 	require.Equal(t, list1.Entries[0].Entry.Key, []byte(`key3`))
@@ -388,7 +389,7 @@ func TestStore_ZScanPagination(t *testing.T) {
 		SinceTx:   meta.Id,
 	}
 
-	list, err := db.ZScan(zScanOption2)
+	list, err := db.ZScan(context.Background(), zScanOption2)
 	require.NoError(t, err)
 	require.Len(t, list.Entries, 2)
 	require.Equal(t, list.Entries[0].Entry.Key, []byte(`key5`))
@@ -407,12 +408,12 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	db := makeDb(t)
 
 	setName := []byte(`set1`)
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
-	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2`)}}})
-	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3`)}}})
-	i4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key4`), Value: []byte(`val4`)}}})
-	i5, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key5`), Value: []byte(`val5`)}}})
-	i6, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1`)}}})
+	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2`)}}})
+	i3, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3`)}}})
+	i4, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key4`), Value: []byte(`val4`)}}})
+	i5, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key5`), Value: []byte(`val5`)}}})
+	i6, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:      setName,
@@ -457,12 +458,12 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 		BoundRef: true,
 	}
 
-	db.ZAdd(zaddOpts1)
-	db.ZAdd(zaddOpts2)
-	db.ZAdd(zaddOpts3)
-	db.ZAdd(zaddOpts4)
-	db.ZAdd(zaddOpts5)
-	meta, err := db.ZAdd(zaddOpts6)
+	db.ZAdd(context.Background(), zaddOpts1)
+	db.ZAdd(context.Background(), zaddOpts2)
+	db.ZAdd(context.Background(), zaddOpts3)
+	db.ZAdd(context.Background(), zaddOpts4)
+	db.ZAdd(context.Background(), zaddOpts5)
+	meta, err := db.ZAdd(context.Background(), zaddOpts6)
 	require.NoError(t, err)
 
 	zScanOption1 := &schema.ZScanRequest{
@@ -477,7 +478,7 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 		SinceTx:       meta.Id,
 	}
 
-	list1, err := db.ZScan(zScanOption1)
+	list1, err := db.ZScan(context.Background(), zScanOption1)
 	require.NoError(t, err)
 	require.Len(t, list1.Entries, 2)
 	require.Equal(t, list1.Entries[0].Entry.Key, []byte(`key6`))
@@ -496,7 +497,7 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 		SinceTx:       meta.Id,
 	}
 
-	list2, err := db.ZScan(zScanOption2)
+	list2, err := db.ZScan(context.Background(), zScanOption2)
 	require.NoError(t, err)
 	require.Len(t, list2.Entries, 2)
 	require.Equal(t, list2.Entries[0].Entry.Key, []byte(`key5`))
@@ -513,7 +514,7 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 		SinceTx:       meta.Id,
 	}
 
-	list3, err := db.ZScan(zScanOption3)
+	list3, err := db.ZScan(context.Background(), zScanOption3)
 	require.NoError(t, err)
 	require.Len(t, list3.Entries, 2)
 	require.Equal(t, list3.Entries[0].Entry.Key, []byte(`key4`))
@@ -526,44 +527,44 @@ func TestStore_ZScanInvalidSet(t *testing.T) {
 	opt := &schema.ZScanRequest{
 		Set: nil,
 	}
-	_, err := db.ZScan(opt)
+	_, err := db.ZScan(context.Background(), opt)
 	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
 func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
 	db := makeDb(t)
 
-	idx0, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-A`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2-A`)}}})
-	idx2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-B`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3-A`)}}})
-	idx4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
+	idx0, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-A`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2-A`)}}})
+	idx2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-B`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3-A`)}}})
+	idx4, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
 
-	db.ZAdd(&schema.ZAddRequest{
+	db.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:      []byte(`mySet`),
 		Score:    0,
 		Key:      []byte(`key1`),
 		AtTx:     idx2.Id,
 		BoundRef: true,
 	})
-	db.ZAdd(&schema.ZAddRequest{
+	db.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:      []byte(`mySet`),
 		Score:    0,
 		Key:      []byte(`key1`),
 		AtTx:     idx0.Id,
 		BoundRef: true,
 	})
-	db.ZAdd(&schema.ZAddRequest{
+	db.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:   []byte(`mySet`),
 		Score: 0,
 		Key:   []byte(`key2`),
 	})
-	db.ZAdd(&schema.ZAddRequest{
+	db.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:   []byte(`mySet`),
 		Score: 0,
 		Key:   []byte(`key3`),
 	})
-	meta, _ := db.ZAdd(&schema.ZAddRequest{
+	meta, _ := db.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:      []byte(`mySet`),
 		Score:    0,
 		Key:      []byte(`key1`),
@@ -576,7 +577,7 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 		SinceTx: meta.Id,
 	}
 
-	list, err := db.ZScan(ZScanRequest)
+	list, err := db.ZScan(context.Background(), ZScanRequest)
 	require.NoError(t, err)
 	// same key, sorted by internal timestamp
 	require.Exactly(t, []byte(`val1-A`), list.Entries[0].Entry.Value)
@@ -589,9 +590,9 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	db := makeDb(t)
 
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
-	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
-	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
+	i2, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
+	i3, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:      []byte(`hashA`),
@@ -601,7 +602,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference1, err1 := db.ZAdd(zaddOpts1)
+	reference1, err1 := db.ZAdd(context.Background(), zaddOpts1)
 	require.NoError(t, err1)
 	require.Exactly(t, uint64(5), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
@@ -614,7 +615,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference2, err2 := db.ZAdd(zaddOpts2)
+	reference2, err2 := db.ZAdd(context.Background(), zaddOpts2)
 	require.NoError(t, err2)
 	require.Exactly(t, uint64(6), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
@@ -627,7 +628,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 		BoundRef: true,
 	}
 
-	reference3, err3 := db.ZAdd(zaddOpts3)
+	reference3, err3 := db.ZAdd(context.Background(), zaddOpts3)
 	require.NoError(t, err3)
 	require.Exactly(t, uint64(7), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
@@ -638,7 +639,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 		SinceTx: reference3.Id,
 	}
 
-	itemList1, err := db.ZScan(zscanOpts1)
+	itemList1, err := db.ZScan(context.Background(), zscanOpts1)
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
@@ -650,18 +651,18 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 func TestStoreVerifiableZAdd(t *testing.T) {
 	db := makeDb(t)
 
-	_, err := db.VerifiableZAdd(nil)
+	_, err := db.VerifiableZAdd(context.Background(), nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
+	i1, _ := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
 
-	vtx, err := db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+	vtx, err := db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id + 1,
 	})
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	vtx, err = db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+	vtx, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  nil,
 		ProveSinceTx: i1.Id,
 	})
@@ -675,7 +676,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		BoundRef: true,
 	}
 
-	vtx, err = db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+	vtx, err = db.VerifiableZAdd(context.Background(), &schema.VerifiableZAddRequest{
 		ZAddRequest:  req,
 		ProveSinceTx: i1.Id,
 	})
@@ -702,7 +703,7 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		SinceTx: vtx.Tx.Header.Id,
 	}
 
-	itemList1, err := db.ZScan(zscanReq)
+	itemList1, err := db.ZScan(context.Background(), zscanReq)
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 1)
 	require.Equal(t, req.Key, itemList1.Entries[0].Entry.Key)

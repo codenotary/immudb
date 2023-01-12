@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -40,10 +41,10 @@ func TestReadOnlyReplica(t *testing.T) {
 	replica, err = OpenDB("db", nil, options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	require.NoError(t, err)
 
-	_, err = replica.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
+	_, err = replica.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte("key1"), Value: []byte("value1")}}})
 	require.Equal(t, ErrIsReplica, err)
 
-	_, err = replica.ExecAll(&schema.ExecAllRequest{
+	_, err = replica.ExecAll(context.Background(), &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
 				Operation: &schema.Op_Kv{
@@ -57,13 +58,13 @@ func TestReadOnlyReplica(t *testing.T) {
 	)
 	require.Equal(t, ErrIsReplica, err)
 
-	_, err = replica.SetReference(&schema.ReferenceRequest{
+	_, err = replica.SetReference(context.Background(), &schema.ReferenceRequest{
 		Key:           []byte("key"),
 		ReferencedKey: []byte("refkey"),
 	})
 	require.Equal(t, ErrIsReplica, err)
 
-	_, err = replica.ZAdd(&schema.ZAddRequest{
+	_, err = replica.ZAdd(context.Background(), &schema.ZAddRequest{
 		Set:   []byte("set"),
 		Score: 1,
 		Key:   []byte("key"),
@@ -82,7 +83,7 @@ func TestReadOnlyReplica(t *testing.T) {
 	_, err = replica.DescribeTable("mytable", nil)
 	require.Equal(t, ErrSQLNotReady, err)
 
-	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = replica.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "mytable",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -121,7 +122,7 @@ func TestSwitchToReplica(t *testing.T) {
 	_, err = replica.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT * FROM mytable"}, nil)
 	require.NoError(t, err)
 
-	_, err = replica.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = replica.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "mytable",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},

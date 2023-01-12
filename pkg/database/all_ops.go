@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 
@@ -27,7 +28,7 @@ import (
 // ExecAll like Set it permits many insertions at once.
 // The difference is that is possible to to specify a list of a mix of key value set and zAdd insertions.
 // If zAdd reference is not yet present on disk it's possible to add it as a regular key value and the reference is done onFly
-func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
+func (d *db) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -45,7 +46,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 
 	if !req.NoWait {
 		lastTxID, _ := d.st.CommittedAlh()
-		err := d.st.WaitForIndexingUpto(lastTxID, nil)
+		err := d.st.WaitForIndexingUpto(ctx, lastTxID)
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +205,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxHeader, error) {
 		return entries, preconditions, nil
 	}
 
-	hdr, err := d.st.CommitWith(callback, !req.NoWait)
+	hdr, err := d.st.CommitWith(ctx, callback, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}
