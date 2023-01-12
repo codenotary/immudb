@@ -80,67 +80,67 @@ func (db *closedDB) Size() (uint64, error) {
 	return 0, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) Set(req *schema.SetRequest) (*schema.TxHeader, error) {
+func (db *closedDB) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+func (db *closedDB) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) Get(req *schema.KeyRequest) (*schema.Entry, error) {
+func (db *closedDB) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Entry, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
+func (db *closedDB) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
+func (db *closedDB) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.Entries, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) Delete(req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
+func (db *closedDB) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {
+func (db *closedDB) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
+func (db *closedDB) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
+func (db *closedDB) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) History(req *schema.HistoryRequest) (*schema.Entries, error) {
+func (db *closedDB) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ExecAll(operations *schema.ExecAllRequest) (*schema.TxHeader, error) {
+func (db *closedDB) ExecAll(ctx context.Context, operations *schema.ExecAllRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
+func (db *closedDB) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) CountAll() (*schema.EntryCount, error) {
+func (db *closedDB) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
+func (db *closedDB) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
+func (db *closedDB) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
+func (db *closedDB) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -176,7 +176,7 @@ func (db *closedDB) SQLQueryRowReader(stmt sql.DataSource, params map[string]int
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
+func (db *closedDB) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -188,23 +188,23 @@ func (db *closedDB) DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQuery
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) WaitForTx(txID uint64, allowPrecommitted bool, cancellation <-chan struct{}) error {
+func (db *closedDB) WaitForTx(ctx context.Context, txID uint64, allowPrecommitted bool) error {
 	return store.ErrAlreadyClosed
 }
 
-func (db *closedDB) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
+func (db *closedDB) WaitForIndexingUpto(ctx context.Context, txID uint64) error {
 	return store.ErrAlreadyClosed
 }
 
-func (db *closedDB) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
+func (db *closedDB) TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ExportTxByID(req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
+func (db *closedDB) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
 	return nil, 0, mayCommitUpToAlh, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ReplicateTx(exportedTx []byte) (*schema.TxHeader, error) {
+func (db *closedDB) ReplicateTx(ctx context.Context, exportedTx []byte) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -216,11 +216,11 @@ func (db *closedDB) DiscardPrecommittedTxsSince(txID uint64) error {
 	return store.ErrAlreadyClosed
 }
 
-func (db *closedDB) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
+func (db *closedDB) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
+func (db *closedDB) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

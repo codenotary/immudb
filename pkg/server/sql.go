@@ -30,7 +30,7 @@ func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	ventry, err := db.VerifiableSQLGet(req)
+	ventry, err := db.VerifiableSQLGet(ctx, req)
 	if err != nil {
 		return nil, err
 	}

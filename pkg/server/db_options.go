@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -745,7 +746,7 @@ func (s *ImmuServer) saveDBOptions(options *dbOptions) error {
 	optionsKey[0] = KeyPrefixDBSettings
 	copy(optionsKey[1:], []byte(options.Database))
 
-	_, err = s.sysDB.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: optionsKey, Value: serializedOptions}}})
+	_, err = s.sysDB.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: optionsKey, Value: serializedOptions}}})
 
 	return err
 }
@@ -755,7 +756,7 @@ func (s *ImmuServer) deleteDBOptionsFor(db string) error {
 	optionsKey[0] = KeyPrefixDBSettings
 	copy(optionsKey[1:], []byte(db))
 
-	_, err := s.sysDB.Delete(&schema.DeleteKeysRequest{
+	_, err := s.sysDB.Delete(context.Background(), &schema.DeleteKeysRequest{
 		Keys: [][]byte{
 			optionsKey,
 		},
@@ -775,7 +776,7 @@ func (s *ImmuServer) loadDBOptions(database string, createIfNotExists bool) (*db
 
 	options := s.defaultDBOptions(database)
 
-	e, err := s.sysDB.Get(&schema.KeyRequest{Key: optionsKey})
+	e, err := s.sysDB.Get(context.Background(), &schema.KeyRequest{Key: optionsKey})
 	if err == store.ErrKeyNotFound && createIfNotExists {
 		err = s.saveDBOptions(options)
 		if err != nil {

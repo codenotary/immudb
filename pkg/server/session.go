@@ -20,7 +20,7 @@ func (s *ImmuServer) OpenSession(ctx context.Context, r *schema.OpenSessionReque
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
 
-	u, err := s.getValidatedUser(r.Username, r.Password)
+	u, err := s.getValidatedUser(ctx, r.Username, r.Password)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrInvalidUsernameOrPassword)
 	}
