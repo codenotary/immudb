@@ -51,6 +51,10 @@ func (sqlTx *SQLTx) Context() context.Context {
 	return sqlTx.tx.Context()
 }
 
+func (sqlTx *SQLTx) Catalog() *Catalog {
+	return sqlTx.catalog
+}
+
 func (sqlTx *SQLTx) useDatabase(dbName string) error {
 	db, err := sqlTx.catalog.GetDatabaseByName(dbName)
 	if err != nil {
