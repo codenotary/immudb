@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"net"
@@ -139,7 +140,7 @@ func (s *session) getUser(username []byte) (*auth.User, error) {
 	key[0] = 1
 	copy(key[1:], username)
 
-	item, err := s.sysDb.Get(&schema.KeyRequest{Key: key})
+	item, err := s.sysDb.Get(context.Background(), &schema.KeyRequest{Key: key})
 	if err != nil {
 		return nil, err
 	}

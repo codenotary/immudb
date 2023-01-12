@@ -34,7 +34,7 @@ func (s *ImmuServer) ExportTx(req *schema.ExportTxRequest, txsServer schema.Immu
 		return err
 	}
 
-	txbs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(req)
+	txbs, mayCommitUpToTxID, mayCommitUpToAlh, err := db.ExportTxByID(txsServer.Context(), req)
 
 	defer func() {
 		if req.ReplicaState != nil {
@@ -96,7 +96,7 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return err
 	}
 
-	md, err := db.ReplicateTx(bs)
+	md, err := db.ReplicateTx(replicateTxServer.Context(), bs)
 	if err != nil {
 		return err
 	}

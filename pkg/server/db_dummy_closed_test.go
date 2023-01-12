@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"testing"
 
@@ -47,52 +48,52 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.Size()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Set(nil)
+	_, err = cdb.Set(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableSet(nil)
+	_, err = cdb.VerifiableSet(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Get(nil)
+	_, err = cdb.Get(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableGet(nil)
+	_, err = cdb.VerifiableGet(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.GetAll(nil)
+	_, err = cdb.GetAll(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Delete(nil)
+	_, err = cdb.Delete(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.SetReference(nil)
+	_, err = cdb.SetReference(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableSetReference(nil)
+	_, err = cdb.VerifiableSetReference(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Scan(nil)
+	_, err = cdb.Scan(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.History(nil)
+	_, err = cdb.History(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ExecAll(nil)
+	_, err = cdb.ExecAll(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.Count(nil)
+	_, err = cdb.Count(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.CountAll()
+	_, err = cdb.CountAll(context.Background())
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ZAdd(nil)
+	_, err = cdb.ZAdd(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableZAdd(nil)
+	_, err = cdb.VerifiableZAdd(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ZScan(nil)
+	_, err = cdb.ZScan(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.NewSQLTx(nil, nil)
@@ -119,7 +120,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.SQLQueryRowReader(nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableSQLGet(nil)
+	_, err = cdb.VerifiableSQLGet(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.ListTables(nil)
@@ -128,23 +129,23 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.DescribeTable("", nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	err = cdb.WaitForTx(0, true, nil)
+	err = cdb.WaitForTx(context.Background(), 0, true)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	err = cdb.WaitForIndexingUpto(0, nil)
+	err = cdb.WaitForIndexingUpto(context.Background(), 0)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.TxByID(nil)
+	_, err = cdb.TxByID(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	require.False(t, cdb.IsSyncReplicationEnabled())
 
 	cdb.SetSyncReplication(true)
 
-	_, _, _, err = cdb.ExportTxByID(nil)
+	_, _, _, err = cdb.ExportTxByID(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ReplicateTx(nil)
+	_, err = cdb.ReplicateTx(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.AllowCommitUpto(1, sha256.Sum256(nil))
@@ -153,10 +154,10 @@ func TestDummyClosedDatabase(t *testing.T) {
 	err = cdb.DiscardPrecommittedTxsSince(1)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.VerifiableTxByID(nil)
+	_, err = cdb.VerifiableTxByID(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.TxScan(nil)
+	_, err = cdb.TxScan(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.FlushIndex(nil)

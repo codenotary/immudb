@@ -379,12 +379,12 @@ func (s *ImmuServer) printUsageCallToAction() {
 	}
 }
 
-func (s *ImmuServer) resetAdminPassword(adminPassword string) (bool, error) {
+func (s *ImmuServer) resetAdminPassword(ctx context.Context, adminPassword string) (bool, error) {
 	if s.sysDB.IsReplica() {
 		return false, errors.New("database is running as a replica")
 	}
 
-	adminUser, err := s.getUser([]byte(auth.SysAdminUsername))
+	adminUser, err := s.getUser(ctx, []byte(auth.SysAdminUsername))
 	if err != nil {
 		return false, fmt.Errorf("could not read sysadmin user data: %v", err)
 	}
@@ -401,7 +401,7 @@ func (s *ImmuServer) resetAdminPassword(adminPassword string) (bool, error) {
 		return false, err
 	}
 
-	err = s.saveUser(adminUser)
+	err = s.saveUser(ctx, adminUser)
 	if err != nil {
 		return false, err
 	}
@@ -435,7 +435,7 @@ func (s *ImmuServer) loadSystemDatabase(
 		}
 
 		if forceAdminPasswordReset {
-			changed, err := s.resetAdminPassword(adminPassword)
+			changed, err := s.resetAdminPassword(context.Background(), adminPassword)
 			if err != nil {
 				s.Logger.Errorf("Can not reset admin password, %v", err)
 				return ErrCantUpdateAdminPassword
@@ -449,7 +449,7 @@ func (s *ImmuServer) loadSystemDatabase(
 
 		} else if adminPassword != auth.SysAdminPassword {
 			// Add warning that the password is not changed even though manually specified
-			user, err := s.getUser([]byte(auth.SysAdminUsername))
+			user, err := s.getUser(context.Background(), []byte(auth.SysAdminUsername))
 			if err != nil {
 				s.Logger.Errorf("Can not validate admin user: %v", err)
 				return err
@@ -486,7 +486,7 @@ func (s *ImmuServer) loadSystemDatabase(
 	if !s.sysDB.IsReplica() {
 		s.sysDB.SetSyncReplication(false)
 
-		adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
+		adminUsername, _, err := s.insertNewUser(context.Background(), []byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 		if err != nil {
 			return logErr(s.Logger, "%v", err)
 		}
@@ -1565,7 +1565,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	}
 
 	//check if there is only sysadmin on systemdb and no other user
-	itemList, err := s.sysDB.Scan(&schema.ScanRequest{
+	itemList, err := s.sysDB.Scan(context.Background(), &schema.ScanRequest{
 		Prefix: []byte{KeyPrefixUser},
 	})
 

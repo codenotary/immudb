@@ -78,7 +78,7 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.SetRequest) (*schema.Tx
 		return nil, err
 	}
 
-	return db.Set(kv)
+	return db.Set(ctx, kv)
 }
 
 // VerifiableSet ...
@@ -92,7 +92,7 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 		return nil, err
 	}
 
-	vtx, err := db.VerifiableSet(req)
+	vtx, err := db.VerifiableSet(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.E
 		return nil, err
 	}
 
-	return db.Get(req)
+	return db.Get(ctx, req)
 }
 
 // VerifiableGet ...
@@ -135,7 +135,7 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 		return nil, err
 	}
 
-	vEntry, err := db.VerifiableGet(req)
+	vEntry, err := db.VerifiableGet(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 		return nil, err
 	}
 
-	return db.Scan(req)
+	return db.Scan(ctx, req)
 }
 
 // Count ...
@@ -188,7 +188,7 @@ func (s *ImmuServer) TxById(ctx context.Context, req *schema.TxRequest) (*schema
 		return nil, err
 	}
 
-	return db.TxByID(req)
+	return db.TxByID(ctx, req)
 }
 
 // VerifiableTxByID ...
@@ -198,7 +198,7 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	vtx, err := db.VerifiableTxByID(req)
+	vtx, err := db.VerifiableTxByID(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (s *ImmuServer) TxScan(ctx context.Context, req *schema.TxScanRequest) (*sc
 		return nil, err
 	}
 
-	return db.TxScan(req)
+	return db.TxScan(ctx, req)
 }
 
 // History ...
@@ -241,7 +241,7 @@ func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*
 		return nil, err
 	}
 
-	return db.History(req)
+	return db.History(ctx, req)
 }
 
 // SetReference ...
@@ -255,7 +255,7 @@ func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequ
 		return nil, err
 	}
 
-	return db.SetReference(req)
+	return db.SetReference(ctx, req)
 }
 
 // VerifibleSetReference ...
@@ -269,7 +269,7 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 		return nil, err
 	}
 
-	vtx, err := db.VerifiableSetReference(req)
+	vtx, err := db.VerifiableSetReference(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema
 		return nil, err
 	}
 
-	return db.ZAdd(req)
+	return db.ZAdd(ctx, req)
 }
 
 // ZScan ...
@@ -316,7 +316,7 @@ func (s *ImmuServer) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 		return nil, err
 	}
 
-	return db.ZScan(req)
+	return db.ZScan(ctx, req)
 }
 
 // VerifiableZAdd ...
@@ -330,7 +330,7 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 		return nil, err
 	}
 
-	vtx, err := db.VerifiableZAdd(req)
+	vtx, err := db.VerifiableZAdd(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +390,7 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 		return nil, err
 	}
 
-	return db.GetAll(req)
+	return db.GetAll(ctx, req)
 }
 
 func (s *ImmuServer) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema.TxHeader, error) {
@@ -403,7 +403,7 @@ func (s *ImmuServer) Delete(ctx context.Context, req *schema.DeleteKeysRequest) 
 		return nil, err
 	}
 
-	return db.Delete(req)
+	return db.Delete(ctx, req)
 }
 
 func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxHeader, error) {
@@ -416,5 +416,5 @@ func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*
 		return nil, err
 	}
 
-	return db.ExecAll(req)
+	return db.ExecAll(ctx, req)
 }

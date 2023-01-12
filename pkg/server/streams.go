@@ -40,7 +40,7 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 
 	kvsr := s.StreamServiceFactory.NewKvStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
-	entry, err := db.Get(kr)
+	entry, err := db.Get(str.Context(), kr)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
 	}
 
-	txMeta, err := db.Set(&schema.SetRequest{KVs: kvs})
+	txMeta, err := db.Set(str.Context(), &schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded)
 	}
@@ -125,7 +125,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 
 	vess := s.StreamServiceFactory.NewVEntryStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
-	vEntry, err := db.VerifiableGet(req)
+	vEntry, err := db.VerifiableGet(str.Context(), req)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		SetRequest:   &schema.SetRequest{KVs: kvs},
 		ProveSinceTx: proveSinceTx,
 	}
-	verifiableTx, err := db.VerifiableSet(&vSetReq)
+	verifiableTx, err := db.VerifiableSet(str.Context(), &vSetReq)
 	if err == store.ErrorMaxValueLenExceeded {
 		return errors.Wrap(err, stream.ErrMaxValueLenExceeded).WithCode(errors.CodDataException)
 	}
@@ -297,7 +297,7 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 		return err
 	}
 
-	r, err := db.Scan(req)
+	r, err := db.Scan(str.Context(), req)
 	if err != nil {
 		return err
 	}
@@ -332,7 +332,7 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 		return err
 	}
 
-	r, err := db.ZScan(request)
+	r, err := db.ZScan(server.Context(), request)
 	if err != nil {
 		return err
 	}
@@ -389,7 +389,7 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 		return err
 	}
 
-	r, err := db.History(request)
+	r, err := db.History(server.Context(), request)
 	if err != nil {
 		return err
 	}
@@ -467,7 +467,7 @@ func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) e
 		}
 	}
 
-	txMeta, err := db.ExecAll(&schema.ExecAllRequest{Operations: sops})
+	txMeta, err := db.ExecAll(str.Context(), &schema.ExecAllRequest{Operations: sops})
 	if err != nil {
 		return err
 	}

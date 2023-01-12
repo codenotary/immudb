@@ -23,7 +23,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		return nil, errors.New(ErrAuthDisabled).WithCode(errors.CodProtocolViolation)
 	}
 
-	u, err := s.getValidatedUser(r.User, r.Password)
+	u, err := s.getValidatedUser(ctx, r.User, r.Password)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrInvalidUsernameOrPassword)
 	}
@@ -130,12 +130,12 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, fmt.Errorf("can not create another system admin")
 	}
 
-	_, err = s.getUser(r.User)
+	_, err = s.getUser(ctx, r.User)
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
 
-	_, _, err = s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
+	_, _, err = s.insertNewUser(ctx, r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 	}
 
-	itemList, err := s.sysDB.Scan(&schema.ScanRequest{
+	itemList, err := s.sysDB.Scan(ctx, &schema.ScanRequest{
 		Prefix: []byte{KeyPrefixUser},
 		NoWait: true,
 	})
@@ -322,7 +322,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return nil, fmt.Errorf("username can not be empty")
 	}
 
-	targetUser, err := s.getUser(r.User)
+	targetUser, err := s.getUser(ctx, r.User)
 	if err != nil {
 		return nil, fmt.Errorf("user %s was not found or it was not created by you", string(r.User))
 	}
@@ -341,7 +341,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
-	if err := s.saveUser(targetUser); err != nil {
+	if err := s.saveUser(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
@@ -402,7 +402,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	}
 
 	//check if user exists
-	targetUser, err := s.getUser([]byte(r.Username))
+	targetUser, err := s.getUser(ctx, []byte(r.Username))
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
 	}
@@ -428,7 +428,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
 
-	if err := s.saveUser(targetUser); err != nil {
+	if err := s.saveUser(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
@@ -471,7 +471,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		return nil, fmt.Errorf("changing your own status is not allowed")
 	}
 
-	targetUser, err := s.getUser([]byte(r.Username))
+	targetUser, err := s.getUser(ctx, []byte(r.Username))
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
@@ -485,7 +485,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
 
-	if err := s.saveUser(targetUser); err != nil {
+	if err := s.saveUser(ctx, targetUser); err != nil {
 		return nil, err
 	}
 
@@ -503,7 +503,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // insertNewUser inserts a new user to the system database and returns username and plain text password
 // A new password is generated automatically if passed parameter is empty
 // If enforceStrongAuth is true it checks if username and password meet security criteria
-func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permission uint32, database string, enforceStrongAuth bool, createdBy string) ([]byte, []byte, error) {
+func (s *ImmuServer) insertNewUser(ctx context.Context, username []byte, plainPassword []byte, permission uint32, database string, enforceStrongAuth bool, createdBy string) ([]byte, []byte, error) {
 	if enforceStrongAuth {
 		if !auth.IsValidUsername(string(username)) {
 			return nil, nil, status.Errorf(
@@ -538,13 +538,13 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 		return nil, nil, fmt.Errorf("unknown permission")
 	}
 
-	err = s.saveUser(userdata)
+	err = s.saveUser(ctx, userdata)
 
 	return username, plainpassword, err
 }
 
-func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.User, error) {
-	userdata, err := s.getUser(username)
+func (s *ImmuServer) getValidatedUser(ctx context.Context, username []byte, password []byte) (*auth.User, error) {
+	userdata, err := s.getUser(ctx, username)
 	if err != nil {
 		return nil, err
 	}
@@ -558,12 +558,12 @@ func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.U
 }
 
 // getUser returns userdata (username,hashed password, permission, active) from username
-func (s *ImmuServer) getUser(username []byte) (*auth.User, error) {
+func (s *ImmuServer) getUser(ctx context.Context, username []byte) (*auth.User, error) {
 	key := make([]byte, 1+len(username))
 	key[0] = KeyPrefixUser
 	copy(key[1:], username)
 
-	item, err := s.sysDB.Get(&schema.KeyRequest{Key: key})
+	item, err := s.sysDB.Get(ctx, &schema.KeyRequest{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -578,7 +578,7 @@ func (s *ImmuServer) getUser(username []byte) (*auth.User, error) {
 	return &usr, nil
 }
 
-func (s *ImmuServer) saveUser(user *auth.User) error {
+func (s *ImmuServer) saveUser(ctx context.Context, user *auth.User) error {
 	userData, err := json.Marshal(user)
 	if err != nil {
 		return logErr(s.Logger, "error saving user: %v", err)
@@ -589,7 +589,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := &schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.sysDB.Set(&schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
+	_, err = s.sysDB.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
 
 	time.Sleep(time.Duration(10) * time.Millisecond)
 

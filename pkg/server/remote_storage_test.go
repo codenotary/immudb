@@ -402,7 +402,7 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	st, err := store.Open(filepath.Join(dir, "testdb"), stOpts)
 	require.NoError(t, err)
 
-	tx, err := st.NewWriteOnlyTx()
+	tx, err := st.NewWriteOnlyTx(context.Background())
 	require.NoError(t, err)
 
 	err = tx.Set([]byte{1}, nil, []byte{2})

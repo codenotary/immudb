@@ -161,10 +161,10 @@ func TestServerResetAdminPassword(t *testing.T) {
 		err := s.loadSystemDatabase(dbRootpath, nil, "password1", false)
 		require.NoError(t, err)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password1"))
 		require.NoError(t, err)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.ErrorContains(t, err, "password")
 
 		txID, err = s.sysDB.Size()
@@ -182,10 +182,10 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, txID, currTxID)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password1"))
 		require.NoError(t, err)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.ErrorContains(t, err, "password")
 	})
 
@@ -201,10 +201,10 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password1"))
 		require.ErrorContains(t, err, "password")
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.NoError(t, err)
 	})
 
@@ -220,10 +220,10 @@ func TestServerResetAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, txID+1, currTxID)
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password1"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password1"))
 		require.ErrorContains(t, err, "password")
 
-		_, err = s.getValidatedUser([]byte(auth.SysAdminUsername), []byte("password2"))
+		_, err = s.getValidatedUser(context.Background(), []byte(auth.SysAdminUsername), []byte("password2"))
 		require.NoError(t, err)
 	})
 
@@ -234,7 +234,7 @@ type dbMockResetAdminPasswordCornerCases struct {
 	setErr error
 }
 
-func (d *dbMockResetAdminPasswordCornerCases) Set(req *schema.SetRequest) (*schema.TxHeader, error) {
+func (d *dbMockResetAdminPasswordCornerCases) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader, error) {
 	return nil, d.setErr
 }
 
@@ -249,7 +249,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err := s.Initialize()
 		require.NoError(t, err)
 
-		_, err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword(context.Background(), "newPassword")
 		require.ErrorContains(t, err, "database is running as a replica")
 	})
 
@@ -265,7 +265,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err = s.CloseDatabases()
 		require.NoError(t, err)
 
-		_, err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword(context.Background(), "newPassword")
 		require.ErrorContains(t, err, "could not read sysadmin user data")
 	})
 
@@ -281,7 +281,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err = s.CloseDatabases()
 		require.NoError(t, err)
 
-		_, err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword(context.Background(), "newPassword")
 		require.ErrorContains(t, err, "could not read sysadmin user data")
 	})
 
@@ -294,7 +294,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 		err := s.Initialize()
 		require.NoError(t, err)
 
-		_, err = s.resetAdminPassword("")
+		_, err = s.resetAdminPassword(context.Background(), "")
 		require.ErrorContains(t, err, "password is empty")
 	})
 
@@ -313,7 +313,7 @@ func TestResetAdminPasswordCornerCases(t *testing.T) {
 			DB:     s.sysDB,
 			setErr: injectedErr,
 		}
-		_, err = s.resetAdminPassword("newPassword")
+		_, err = s.resetAdminPassword(context.Background(), "newPassword")
 		require.ErrorIs(t, err, injectedErr)
 	})
 }
@@ -1394,7 +1394,7 @@ func TestServerErrors(t *testing.T) {
 	adminCtx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
-	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), []byte("%"), nil, 1, DefaultDBName, true, auth.SysAdminUsername)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "username can only contain letters, digits and underscores")
 
@@ -1402,7 +1402,7 @@ func TestServerErrors(t *testing.T) {
 	usernameBytes := []byte(username)
 	password := "$omePassword1"
 	passwordBytes := []byte(password)
-	_, _, err = s.insertNewUser(usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), usernameBytes, []byte("a"), 1, DefaultDBName, true, auth.SysAdminUsername)
 	require.Error(t, err)
 	require.Contains(
 		t,
@@ -1410,7 +1410,7 @@ func TestServerErrors(t *testing.T) {
 		"password must have between 8 and 32 letters, digits and special characters "+
 			"of which at least 1 uppercase letter, 1 digit and 1 special character")
 
-	_, _, err = s.insertNewUser(usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
+	_, _, err = s.insertNewUser(context.Background(), usernameBytes, passwordBytes, 99, DefaultDBName, false, auth.SysAdminUsername)
 	require.Equal(t, errors.New("unknown permission"), err)
 
 	// getLoggedInUserDataFromUsername errors
@@ -1874,18 +1874,18 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, err)
 
-	_, err = s.getUser([]byte(username))
+	_, err = s.getUser(context.Background(), []byte(username))
 	require.NoError(t, err)
 
-	_, err = s.getValidatedUser([]byte(username), []byte("wrongpass"))
+	_, err = s.getValidatedUser(context.Background(), []byte(username), []byte("wrongpass"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 
-	_, err = s.getValidatedUser([]byte(username), nil)
+	_, err = s.getValidatedUser(context.Background(), []byte(username), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 
-	_, err = s.getValidatedUser([]byte(username), []byte{})
+	_, err = s.getValidatedUser(context.Background(), []byte(username), []byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "crypto/bcrypt: hashedPassword is not the hash of the given password")
 }
