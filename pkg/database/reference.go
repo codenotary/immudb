@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -29,7 +30,7 @@ var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be 
 var ErrNoWaitOperationMustBeSelfContained = fmt.Errorf("no wait operation must be self-contained: %w", store.ErrIllegalArguments)
 
 // Reference ...
-func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error) {
+func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxHeader, error) {
 	if req == nil || len(req.Key) == 0 || len(req.ReferencedKey) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -46,7 +47,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 	}
 
 	lastTxID, _ := d.st.CommittedAlh()
-	err := d.st.WaitForIndexingUpto(lastTxID, nil)
+	err := d.st.WaitForIndexingUpto(ctx, lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +70,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	tx, err := d.st.NewWriteOnlyTx()
+	tx, err := d.st.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxHeader, error
 }
 
 // SafeReference ...
-func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
+func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -131,7 +132,7 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	}
 	defer d.releaseTx(lastTx)
 
-	txMetatadata, err := d.SetReference(req.ReferenceRequest)
+	txMetatadata, err := d.SetReference(ctx, req.ReferenceRequest)
 	if err != nil {
 		return nil, err
 	}

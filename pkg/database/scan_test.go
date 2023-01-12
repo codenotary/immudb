@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -30,24 +31,24 @@ func TestStoreScan(t *testing.T) {
 
 	db.maxResultSize = 3
 
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
 
 	scanOptions := schema.ScanRequest{
 		Prefix: []byte(`z`),
 	}
-	list, err := db.Scan(&scanOptions)
+	list, err := db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Empty(t, list.Entries)
 
-	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
+	meta, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
-	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), SinceTx: meta.Id})
+	item, err := db.Get(context.Background(), &schema.KeyRequest{Key: []byte(`abc`), SinceTx: meta.Id})
 	require.Equal(t, []byte(`abc`), item.Key)
 	require.NoError(t, err)
 
-	_, err = db.Scan(nil)
+	_, err = db.Scan(context.Background(), nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
 	scanOptions = schema.ScanRequest{
@@ -57,7 +58,7 @@ func TestStoreScan(t *testing.T) {
 		Desc:    true,
 	}
 
-	_, err = db.Scan(&scanOptions)
+	_, err = db.Scan(context.Background(), &scanOptions)
 	require.ErrorIs(t, err, ErrResultSizeLimitExceeded)
 
 	scanOptions = schema.ScanRequest{
@@ -67,7 +68,7 @@ func TestStoreScan(t *testing.T) {
 		Desc:    true,
 	}
 
-	list, err = db.Scan(&scanOptions)
+	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 2, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`abc`))
@@ -82,7 +83,7 @@ func TestStoreScan(t *testing.T) {
 		Desc:    false,
 	}
 
-	list1, err := db.Scan(&scanOptions1)
+	list1, err := db.Scan(context.Background(), &scanOptions1)
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	require.Exactly(t, 3, len(list1.Entries))
 	require.Equal(t, list1.Entries[0].Key, []byte(`aaa`))
@@ -96,10 +97,10 @@ func TestStoreScan(t *testing.T) {
 func TestStoreScanPrefix(t *testing.T) {
 	db := makeDb(t)
 
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix1`), Value: []byte(`item1`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix2`), Value: []byte(`item2`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix1`), Value: []byte(`item1`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix2`), Value: []byte(`item2`)}}})
 
-	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix3`), Value: []byte(`item3`)}}})
+	meta, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix3`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
 	scanOptions := schema.ScanRequest{
@@ -110,7 +111,7 @@ func TestStoreScanPrefix(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err := db.Scan(&scanOptions)
+	list, err := db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 3, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix1`))
@@ -125,7 +126,7 @@ func TestStoreScanPrefix(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err = db.Scan(&scanOptions)
+	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 3, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix3`))
@@ -136,10 +137,10 @@ func TestStoreScanPrefix(t *testing.T) {
 func TestStoreScanDesc(t *testing.T) {
 	db := makeDb(t)
 
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`item1`)}}})
-	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`item2`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`item1`)}}})
+	db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`item2`)}}})
 
-	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`item3`)}}})
+	meta, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
 	scanOptions := schema.ScanRequest{
@@ -150,7 +151,7 @@ func TestStoreScanDesc(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err := db.Scan(&scanOptions)
+	list, err := db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 3, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`key1`))
@@ -165,7 +166,7 @@ func TestStoreScanDesc(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err = db.Scan(&scanOptions)
+	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 2, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`key2`))
@@ -179,7 +180,7 @@ func TestStoreScanDesc(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err = db.Scan(&scanOptions)
+	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 1, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`key1`))
@@ -192,7 +193,7 @@ func TestStoreScanDesc(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err = db.Scan(&scanOptions)
+	list, err = db.Scan(context.Background(), &scanOptions)
 	require.NoError(t, err)
 	require.Len(t, list.Entries, 3)
 }
@@ -201,7 +202,7 @@ func TestStoreScanEndKey(t *testing.T) {
 	db := makeDb(t)
 
 	for i := 1; i < 100; i++ {
-		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{
+		_, err := db.Set(context.Background(), &schema.SetRequest{KVs: []*schema.KeyValue{{
 			Key:   []byte(fmt.Sprintf("key_%02d", i)),
 			Value: []byte(fmt.Sprintf("val_%02d", i)),
 		}}})
@@ -209,7 +210,7 @@ func TestStoreScanEndKey(t *testing.T) {
 	}
 
 	t.Run("not inclusive", func(t *testing.T) {
-		res, err := db.Scan(&schema.ScanRequest{
+		res, err := db.Scan(context.Background(), &schema.ScanRequest{
 			SeekKey: []byte("key_11"),
 			EndKey:  []byte("key_44"),
 		})
@@ -222,7 +223,7 @@ func TestStoreScanEndKey(t *testing.T) {
 	})
 
 	t.Run("inclusive seek", func(t *testing.T) {
-		res, err := db.Scan(&schema.ScanRequest{
+		res, err := db.Scan(context.Background(), &schema.ScanRequest{
 			SeekKey:       []byte("key_11"),
 			EndKey:        []byte("key_44"),
 			InclusiveSeek: true,
@@ -236,7 +237,7 @@ func TestStoreScanEndKey(t *testing.T) {
 	})
 
 	t.Run("inclusive end", func(t *testing.T) {
-		res, err := db.Scan(&schema.ScanRequest{
+		res, err := db.Scan(context.Background(), &schema.ScanRequest{
 			SeekKey:      []byte("key_11"),
 			EndKey:       []byte("key_44"),
 			InclusiveEnd: true,
@@ -250,7 +251,7 @@ func TestStoreScanEndKey(t *testing.T) {
 	})
 
 	t.Run("inclusive seek and end", func(t *testing.T) {
-		res, err := db.Scan(&schema.ScanRequest{
+		res, err := db.Scan(context.Background(), &schema.ScanRequest{
 			SeekKey:       []byte("key_11"),
 			EndKey:        []byte("key_44"),
 			InclusiveSeek: true,

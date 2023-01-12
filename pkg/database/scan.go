@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -24,7 +25,7 @@ import (
 )
 
 // Scan ...
-func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
+func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -56,7 +57,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		endKey = EncodeKey(req.EndKey)
 	}
 
-	snap, err := d.snapshotSince(req.SinceTx)
+	snap, err := d.snapshotSince(ctx, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}

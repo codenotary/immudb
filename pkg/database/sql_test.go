@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -109,10 +110,10 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
 
-	_, err = db.VerifiableSQLGet(nil)
+	_, err = db.VerifiableSQLGet(context.Background(), nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -121,7 +122,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	})
 	require.Equal(t, store.ErrIllegalState, err)
 
-	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table2",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -130,7 +131,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	})
 	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
-	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_B{B: true}}},
@@ -139,7 +140,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	})
 	require.ErrorIs(t, err, sql.ErrInvalidValue)
 
-	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
@@ -148,7 +149,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	})
 	require.Equal(t, store.ErrKeyNotFound, err)
 
-	ve, err := db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	ve, err := db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -158,7 +159,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ve)
 
-	ve, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	ve, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
@@ -169,7 +170,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ve)
 
-	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+	_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{
 		SqlGetRequest: &schema.SQLGetRequest{
 			Table:    "table1",
 			PkValues: []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 4}}},
@@ -203,7 +204,7 @@ func TestVerifiableSQLGet(t *testing.T) {
 		`}, nil)
 		require.NoError(t, err)
 
-		_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
+		_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
 			Table: "table1",
 			PkValues: []*schema.SQLValue{{
 				Value: &schema.SQLValue_N{N: 1},
@@ -212,7 +213,7 @@ func TestVerifiableSQLGet(t *testing.T) {
 		require.ErrorIs(t, err, ErrIllegalArguments)
 		require.Contains(t, err.Error(), "incorrect number of primary key values")
 
-		_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
+		_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
 			Table: "table1",
 			PkValues: []*schema.SQLValue{
 				{Value: &schema.SQLValue_N{N: 1}},

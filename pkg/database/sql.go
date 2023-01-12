@@ -40,7 +40,7 @@ func (d *db) reloadSQLCatalog() error {
 	return err
 }
 
-func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
+func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	if req == nil || req.SqlGetRequest == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -60,12 +60,13 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		}
 	}
 
-	catalog, err := d.sqlEngine.Catalog(nil)
+	sqlTx, err := d.sqlEngine.NewTx(ctx, sql.DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return nil, err
 	}
+	defer sqlTx.Cancel()
 
-	table, err := catalog.GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
+	table, err := sqlTx.Catalog().GetTableByName(dbInstanceName, req.SqlGetRequest.Table)
 	if err != nil {
 		return nil, err
 	}

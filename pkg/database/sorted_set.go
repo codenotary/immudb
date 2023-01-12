@@ -17,6 +17,7 @@ limitations under the License.
 package database
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -34,7 +35,7 @@ const txIDLen = 8
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 // If ZAddOptions.index is provided key is optional
-func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
+func (d *db) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	if req == nil || len(req.Set) == 0 || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -51,7 +52,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 	}
 
 	lastTxID, _ := d.st.CommittedAlh()
-	err := d.st.WaitForIndexingUpto(lastTxID, nil)
+	err := d.st.WaitForIndexingUpto(ctx, lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	tx, err := d.st.NewWriteOnlyTx()
+	tx, err := d.st.NewWriteOnlyTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxHeader, error) {
 }
 
 // ZScan ...
-func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
+func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	if req == nil || len(req.Set) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -155,7 +156,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
-	snap, err := d.snapshotSince(req.SinceTx)
+	snap, err := d.snapshotSince(ctx, req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 }
 
 // VerifiableZAdd ...
-func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
+func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -251,7 +252,7 @@ func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.Verifiab
 	}
 	defer d.releaseTx(lastTx)
 
-	txMetatadata, err := d.ZAdd(req.ZAddRequest)
+	txMetatadata, err := d.ZAdd(ctx, req.ZAddRequest)
 	if err != nil {
 		return nil, err
 	}
