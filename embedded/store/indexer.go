@@ -505,6 +505,9 @@ func (idx *indexer) indexSince(txID uint64) error {
 	var err error
 
 	if indexableEntries == 0 {
+		// if there are no entries to be indexed, the logical time in the tree
+		// is still moved forward to indicate up to what point has transaction
+		// indexing been completed
 		err = idx.index.IncreaseTs(txID + uint64(bulkSize-1))
 	} else {
 		err = idx.index.BulkInsert(idx._kvs[:indexableEntries])
