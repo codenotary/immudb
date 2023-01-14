@@ -17,8 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/replication"
@@ -26,9 +24,7 @@ import (
 )
 
 func TestDefaultOptions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()
@@ -42,9 +38,7 @@ func TestDefaultOptions(t *testing.T) {
 }
 
 func TestReplicaOptions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()
@@ -70,9 +64,7 @@ func TestReplicaOptions(t *testing.T) {
 }
 
 func TestPrimaryOptions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	s, closer := testServer(DefaultOptions().WithDir(dir))
 	defer closer()

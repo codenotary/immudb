@@ -18,9 +18,7 @@ package server
 
 import (
 	"crypto/tls"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
@@ -28,9 +26,7 @@ import (
 )
 
 func TestStartWebServerHTTP(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	options := DefaultOptions().WithDir(dir)
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
@@ -58,9 +54,7 @@ func TestStartWebServerHTTP(t *testing.T) {
 }
 
 func TestStartWebServerHTTPS(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	options := DefaultOptions().WithDir(dir)
 	server := DefaultServer().WithOptions(options).(*ImmuServer)

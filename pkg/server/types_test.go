@@ -17,8 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/database"
@@ -27,9 +25,7 @@ import (
 )
 
 func TestWithLogger(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	logger := &mockLogger{}
 
@@ -42,9 +38,7 @@ func TestWithLogger(t *testing.T) {
 }
 
 func TestWithStreamServiceFactory(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	streamServiceFactory := stream.NewStreamServiceFactory(4096)
 
@@ -57,9 +51,7 @@ func TestWithStreamServiceFactory(t *testing.T) {
 }
 
 func TestWithDbList(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dbList := database.NewDatabaseList()
 

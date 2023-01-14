@@ -201,9 +201,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
-	auditorDir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(auditorDir)
+	auditorDir := t.TempDir()
 
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
@@ -294,9 +292,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		},
 	}
 
-	auditorDir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(auditorDir)
+	auditorDir := t.TempDir()
 
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),
@@ -390,9 +386,7 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
-	auditorDir, err := ioutil.TempDir("", "auditor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(auditorDir)
+	auditorDir := t.TempDir()
 
 	da, err := auditor.DefaultAuditor(
 		time.Duration(0),

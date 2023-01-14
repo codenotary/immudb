@@ -19,8 +19,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -32,9 +30,7 @@ import (
 )
 
 func TestServerDatabaseRuntime(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	opts := DefaultOptions().WithDir(dir)
 
@@ -144,9 +140,7 @@ func TestServerDatabaseRuntime(t *testing.T) {
 }
 
 func TestServerDatabaseRuntimeEdgeCases(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	opts := DefaultOptions().WithDir(dir)
 

@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -12,15 +10,13 @@ import (
 )
 
 func TestImmuServer_Transaction(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	s := DefaultServer()
 
 	s.WithOptions(DefaultOptions().WithDir(dir).WithMaintenance(true))
 
-	_, err = s.NewTx(context.Background(), nil)
+	_, err := s.NewTx(context.Background(), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	_, err = s.NewTx(context.Background(), &schema.NewTxRequest{Mode: schema.TxMode_ReadWrite})

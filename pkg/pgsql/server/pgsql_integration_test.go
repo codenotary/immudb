@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"sync"
@@ -39,14 +38,13 @@ import (
 )
 
 func TestPgsqlServer_SimpleQuery(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -70,14 +68,13 @@ func TestPgsqlServer_SimpleQuery(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryBlob(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -107,14 +104,13 @@ func TestPgsqlServer_SimpleQueryBlob(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryBool(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -139,14 +135,13 @@ func TestPgsqlServer_SimpleQueryBool(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryExecError(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -159,14 +154,13 @@ func TestPgsqlServer_SimpleQueryExecError(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryError(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -179,14 +173,13 @@ func TestPgsqlServer_SimpleQueryQueryError(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingDatabase(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -199,14 +192,13 @@ func TestPgsqlServer_SimpleQueryQueryMissingDatabase(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryDatabaseNotExists(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -219,14 +211,13 @@ func TestPgsqlServer_SimpleQueryQueryDatabaseNotExists(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingUsername(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -239,14 +230,13 @@ func TestPgsqlServer_SimpleQueryQueryMissingUsername(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryMissingPassword(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -259,13 +249,12 @@ func TestPgsqlServer_SimpleQueryQueryMissingPassword(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryClosedConnError(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -279,14 +268,13 @@ func TestPgsqlServer_SimpleQueryQueryClosedConnError(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryTerminate(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -313,14 +301,13 @@ func TestPgsqlServer_SimpleQueryTerminate(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -344,14 +331,13 @@ func TestPgsqlServer_SimpleQueryQueryEmptyQueryMessage(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -367,14 +353,13 @@ func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.
 }
 
 func TestPgsqlServer_SimpleQueryQueryExecError(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -392,7 +377,7 @@ func TestPgsqlServer_SimpleQueryQueryExecError(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryQuerySSLConn(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 
 	certPem := []byte(`-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
@@ -421,7 +406,6 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -435,14 +419,13 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 }
 
 func TestPgsqlServer_SSLNotEnabled(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -457,14 +440,13 @@ func TestPgsqlServer_SSLNotEnabled(t *testing.T) {
 }
 
 func _TestPgsqlServer_SimpleQueryAsynch(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -498,14 +480,13 @@ func _TestPgsqlServer_SimpleQueryAsynch(t *testing.T) {
 }
 
 func TestPgsqlServer_VersionStatement(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -520,14 +501,13 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 }
 
 func TestPgsqlServerSetStatement(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -540,14 +520,13 @@ func TestPgsqlServerSetStatement(t *testing.T) {
 }
 
 func TestPgsqlServer_SimpleQueryNilValues(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -579,14 +558,13 @@ func getRandomTableName() string {
 }
 
 func TestPgsqlServer_ExtendedQueryPG(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -610,14 +588,13 @@ func TestPgsqlServer_ExtendedQueryPG(t *testing.T) {
 }
 
 func TestPgsqlServer_ExtendedQueryPGxNamedStatements(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -644,14 +621,13 @@ func TestPgsqlServer_ExtendedQueryPGxNamedStatements(t *testing.T) {
 }
 
 func TestPgsqlServer_ExtendedQueryPGxMultiFieldsPreparedStatements(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -688,14 +664,13 @@ func TestPgsqlServer_ExtendedQueryPGxMultiFieldsPreparedStatements(t *testing.T)
 }
 
 func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedStatements(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -730,14 +705,13 @@ func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedStatements(t *testing.T) 
 }
 
 func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedInsert(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -772,14 +746,13 @@ func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedInsert(t *testing.T) {
 }
 
 func TestPgsqlServer_ExtendedQueryPGxMultiInsertStatements(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()
@@ -806,14 +779,13 @@ func TestPgsqlServer_ExtendedQueryPGxMultiInsertStatements(t *testing.T) {
 }
 
 func TestPgsqlServer_ExtendedQueryPGMultiFieldsPreparedMultiInsertError(t *testing.T) {
-	td, _ := ioutil.TempDir("", "_pgsql")
+	td := t.TempDir()
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
 	defer bs.Stop()
 
-	defer os.RemoveAll(td)
 	defer os.Remove(".state-")
 
 	bs.WaitForPgsqlListener()

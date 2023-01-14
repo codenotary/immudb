@@ -17,8 +17,6 @@ limitations under the License.
 package integration
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -27,9 +25,7 @@ import (
 )
 
 func TestServerRecovertMode(t *testing.T) {
-	dir, err := ioutil.TempDir("", "integration_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := server.DefaultOptions().
 		WithDir(dir).
@@ -41,7 +37,7 @@ func TestServerRecovertMode(t *testing.T) {
 
 	s := server.DefaultServer().WithOptions(serverOptions).(*server.ImmuServer)
 
-	err = s.Initialize()
+	err := s.Initialize()
 	require.Equal(t, server.ErrAuthMustBeDisabled, err)
 
 	serverOptions = server.DefaultOptions().

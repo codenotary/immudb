@@ -17,8 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -31,9 +29,7 @@ func TestService(t *testing.T) {
 	bufSize := 1024 * 1024
 	l := bufconn.Listen(bufSize)
 
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	options := DefaultOptions().
 		WithDir(dir).
@@ -44,7 +40,7 @@ func TestService(t *testing.T) {
 
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
-	err = server.Initialize()
+	err := server.Initialize()
 	require.NoError(t, err)
 	srvc := &Service{
 		ImmuServerIf: server,

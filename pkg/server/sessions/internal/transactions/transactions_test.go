@@ -18,7 +18,6 @@ package transactions
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -29,9 +28,7 @@ import (
 )
 
 func TestNewTx(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "tx_session_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
 	db, err := database.NewDB("db1", nil, database.DefaultOption().WithDBRootPath(path), logger.NewSimpleLogger("logger", os.Stdout))
 	require.NoError(t, err)
