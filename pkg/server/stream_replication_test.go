@@ -19,8 +19,6 @@ package server
 import (
 	"context"
 	"errors"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -31,9 +29,7 @@ import (
 )
 
 func TestExportTxEdgeCases(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -44,7 +40,7 @@ func TestExportTxEdgeCases(t *testing.T) {
 
 	s.Initialize()
 
-	err = s.ExportTx(nil, nil)
+	err := s.ExportTx(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = s.ExportTx(&schema.ExportTxRequest{Tx: 1}, &immuServiceExportTxServer{})
@@ -69,9 +65,7 @@ func TestExportTxEdgeCases(t *testing.T) {
 }
 
 func TestReplicateTxEdgeCases(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -82,7 +76,7 @@ func TestReplicateTxEdgeCases(t *testing.T) {
 
 	s.Initialize()
 
-	err = s.ReplicateTx(nil)
+	err := s.ReplicateTx(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = s.ReplicateTx(&immuServiceReplicateTxServer{ctx: context.Background()})

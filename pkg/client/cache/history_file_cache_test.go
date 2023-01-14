@@ -30,22 +30,18 @@ import (
 )
 
 func TestNewHistoryFileCache(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 	require.IsType(t, &historyFileCache{}, fc)
 }
 
 func TestNewHistoryFileCacheSet(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 
-	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
+	err := fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
 	require.NoError(t, err)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 2, TxHash: []byte{2}})
@@ -60,11 +56,9 @@ func TestNewHistoryFileCacheSet(t *testing.T) {
 }
 
 func TestNewHistoryFileCacheGet(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 
 	root, err := fc.Get("uuid", "dbName")
 	require.NoError(t, err)
@@ -72,11 +66,9 @@ func TestNewHistoryFileCacheGet(t *testing.T) {
 }
 
 func TestNewHistoryFileCacheWalk(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 
 	iface, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
@@ -99,26 +91,22 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 }
 
 func TestHistoryFileCache_SetError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 
-	err = fc.Set("uuid", "dbName", nil)
+	err := fc.Set("uuid", "dbName", nil)
 	require.Error(t, err)
 }
 
 func TestHistoryFileCache_GetError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	fc := NewHistoryFileCache(dir)
-	defer os.RemoveAll(dir)
 
 	// create a dummy file so that the cache can't create the directory
 	// automatically
-	err = ioutil.WriteFile(filepath.Join(dir, "exists"), []byte("data"), 0644)
+	err := ioutil.WriteFile(filepath.Join(dir, "exists"), []byte("data"), 0644)
 	require.NoError(t, err)
 	_, err = fc.Get("exists", "dbName")
 	require.Error(t, err)
@@ -135,29 +123,23 @@ func TestHistoryFileCache_SetMissingFolder(t *testing.T) {
 }
 
 func TestHistoryFileCache_WalkFolderNotExistsCreated(t *testing.T) {
-	dir, err := ioutil.TempDir("", "history-cache")
-	require.NoError(t, err)
-
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	notExists := filepath.Join(dir, "not-exists")
 	fc := NewHistoryFileCache(notExists)
 
-	_, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
+	_, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
 	require.NoError(t, err)
 }
 
 func TestHistoryFileCache_getStatesFileInfosError(t *testing.T) {
-	dir, err := ioutil.TempDir("", "history-cache")
-	require.NoError(t, err)
-
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	notExists := filepath.Join(dir, "does-not-exist")
 	fc := &historyFileCache{dir: notExists}
-	_, err = fc.getStatesFileInfos(dir)
+	_, err := fc.getStatesFileInfos(dir)
 	require.NoError(t, err)
 }
 

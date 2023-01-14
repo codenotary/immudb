@@ -17,7 +17,6 @@ limitations under the License.
 package replication
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -28,11 +27,9 @@ import (
 )
 
 func TestReplication(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "replication_data")
-	require.NoError(t, err)
-	defer os.RemoveAll(path)
+	path := t.TempDir()
 
-	_, err = NewTxReplicator(xid.New(), nil, nil, nil)
+	_, err := NewTxReplicator(xid.New(), nil, nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	rOpts := DefaultOptions().

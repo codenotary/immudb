@@ -18,8 +18,6 @@ package server
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -31,9 +29,7 @@ import (
 )
 
 func TestSQLInteraction(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -47,7 +43,7 @@ func TestSQLInteraction(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = s.ListTables(ctx, &emptypb.Empty{})
+	_, err := s.ListTables(ctx, &emptypb.Empty{})
 	require.Error(t, err)
 
 	_, err = s.SQLExec(ctx, nil)
@@ -114,9 +110,7 @@ func TestSQLInteraction(t *testing.T) {
 }
 
 func TestSQLExecResult(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -151,9 +145,7 @@ func TestSQLExecResult(t *testing.T) {
 }
 
 func TestSQLExecCreateDatabase(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).

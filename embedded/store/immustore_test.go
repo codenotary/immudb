@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -996,9 +995,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 }
 
 func TestImmudbStoreRWTransactions(t *testing.T) {
-	dir, err := ioutil.TempDir("", "data_rwtx")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open(dir, opts)

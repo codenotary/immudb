@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -12,21 +11,17 @@ import (
 )
 
 func TestNewFileCache(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
 	require.IsType(t, &fileCache{}, fc)
 }
 
 func TestFileCacheSetErrorNotLocked(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
+	err := fc.Set("uuid", "dbName", &schema.ImmutableState{
 		TxId:      0,
 		TxHash:    []byte(`hash`),
 		Signature: nil,
@@ -35,12 +30,10 @@ func TestFileCacheSetErrorNotLocked(t *testing.T) {
 }
 
 func TestFileCacheSet(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	err = fc.Lock("uuid")
+	err := fc.Lock("uuid")
 	require.NoError(t, err)
 	defer fc.Unlock()
 
@@ -53,12 +46,10 @@ func TestFileCacheSet(t *testing.T) {
 }
 
 func TestFileCacheGet(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	err = fc.Lock("uuid")
+	err := fc.Lock("uuid")
 	require.NoError(t, err)
 	defer fc.Unlock()
 
@@ -76,24 +67,20 @@ func TestFileCacheGet(t *testing.T) {
 }
 
 func TestFileCacheGetFailNotLocked(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	_, err = fc.Get("uuid", "dbName")
+	_, err := fc.Get("uuid", "dbName")
 
 	require.ErrorIs(t, err, ErrCacheNotLocked)
 }
 
 func TestFileCacheGetSingleLineError(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	dbName := "dbt"
 
-	err = ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":"), 0666)
+	err := ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":"), 0666)
 	require.NoError(t, err)
 
 	fc := NewFileCache(dirname)
@@ -106,13 +93,11 @@ func TestFileCacheGetSingleLineError(t *testing.T) {
 }
 
 func TestFileCacheGetRootUnableToDecodeErr(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	dbName := "dbt"
 
-	err = ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":firstLine"), 0666)
+	err := ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":firstLine"), 0666)
 	require.NoError(t, err)
 
 	fc := NewFileCache(dirname)
@@ -125,13 +110,11 @@ func TestFileCacheGetRootUnableToDecodeErr(t *testing.T) {
 }
 
 func TestFileCacheGetRootUnmarshalErr(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	dbName := "dbt"
 
-	err = ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":"+base64.StdEncoding.EncodeToString([]byte("wrong-content"))), 0666)
+	err := ioutil.WriteFile(dirname+"/.state-test", []byte(dbName+":"+base64.StdEncoding.EncodeToString([]byte("wrong-content"))), 0666)
 	require.NoError(t, err)
 
 	fc := NewFileCache(dirname)
@@ -144,13 +127,11 @@ func TestFileCacheGetRootUnmarshalErr(t *testing.T) {
 }
 
 func TestFileCacheGetEmptyFile(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	dbName := "dbt"
 
-	err = ioutil.WriteFile(dirname+"/.state-test", []byte(""), 0666)
+	err := ioutil.WriteFile(dirname+"/.state-test", []byte(""), 0666)
 	require.NoError(t, err)
 
 	fc := NewFileCache(dirname)
@@ -163,12 +144,10 @@ func TestFileCacheGetEmptyFile(t *testing.T) {
 }
 
 func TestFileCacheOverwriteHash(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	err = fc.Lock("test")
+	err := fc.Lock("test")
 	require.NoError(t, err)
 	defer fc.Unlock()
 
@@ -188,12 +167,10 @@ func TestFileCacheOverwriteHash(t *testing.T) {
 }
 
 func TestFileCacheMultipleDatabases(t *testing.T) {
-	dirname, err := ioutil.TempDir("", "example")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirname)
+	dirname := t.TempDir()
 
 	fc := NewFileCache(dirname)
-	err = fc.Lock("test")
+	err := fc.Lock("test")
 	require.NoError(t, err)
 	defer fc.Unlock()
 

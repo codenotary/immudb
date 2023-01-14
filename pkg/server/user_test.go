@@ -18,8 +18,6 @@ package server
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -31,9 +29,7 @@ import (
 )
 
 func TestServerLogin(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -59,9 +55,7 @@ func TestServerLogin(t *testing.T) {
 }
 
 func TestServerLogout(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -72,7 +66,7 @@ func TestServerLogout(t *testing.T) {
 
 	s.Initialize()
 
-	_, err = s.Logout(context.Background(), &emptypb.Empty{})
+	_, err := s.Logout(context.Background(), &emptypb.Empty{})
 	if err == nil || err.Error() != ErrNotLoggedIn.Message() {
 		t.Fatalf("Logout expected error, got %v", err)
 	}
@@ -92,9 +86,7 @@ func TestServerLogout(t *testing.T) {
 }
 
 func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -105,15 +97,13 @@ func TestServerLoginLogoutWithAuthDisabled(t *testing.T) {
 
 	s.Initialize()
 
-	_, err = s.Logout(context.Background(), &emptypb.Empty{})
+	_, err := s.Logout(context.Background(), &emptypb.Empty{})
 	require.NotNil(t, err)
 	require.Equal(t, ErrAuthDisabled, err.Error())
 }
 
 func TestServerListUsersAdmin(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).
@@ -229,9 +219,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 }
 
 func TestServerUsermanagement(t *testing.T) {
-	dir, err := ioutil.TempDir("", "server_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	serverOptions := DefaultOptions().
 		WithDir(dir).

@@ -1,19 +1,19 @@
 package streamutils
 
 import (
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestStreamUtilsFiles(t *testing.T) {
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "streamutils")
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	// stat will fail
-	_, err = GetKeyValuesFromFiles(filepath.Join(tmpdir, "non-existant"))
+	_, err := GetKeyValuesFromFiles(filepath.Join(tmpdir, "non-existant"))
 	require.Error(t, err)
 
 	unreadable := filepath.Join(tmpdir, "dir")

@@ -18,9 +18,7 @@ package integration
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -191,9 +189,7 @@ func TestReplication(t *testing.T) {
 
 func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	// init primary server
-	primaryDir, err := ioutil.TempDir("", "primary-data")
-	require.NoError(t, err)
-	defer os.RemoveAll(primaryDir)
+	primaryDir := t.TempDir()
 
 	primaryServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
@@ -204,7 +200,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	primaryServer := server.DefaultServer().WithOptions(primaryServerOpts).(*server.ImmuServer)
 
-	err = primaryServer.Initialize()
+	err := primaryServer.Initialize()
 	require.NoError(t, err)
 
 	go func() {
@@ -225,9 +221,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 	defer primaryClient.CloseSession(context.Background())
 
 	// init replica server
-	replicaDir, err := ioutil.TempDir("", "replica-data")
-	require.NoError(t, err)
-	defer os.RemoveAll(replicaDir)
+	replicaDir := t.TempDir()
 
 	replicationOpts := &server.ReplicationOptions{
 		IsReplica:                    true,
