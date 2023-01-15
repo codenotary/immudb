@@ -754,6 +754,12 @@ func (opts *dbOptions) Validate() error {
 			ErrIllegalArguments, opts.Database, store.MinimumTruncationFrequency.Hours())
 	}
 
+	if opts.TruncationFrequency < 0 || (opts.TruncationFrequency > 0 && opts.TruncationFrequency < Milliseconds(store.MinimumTruncationFrequency.Milliseconds())) {
+		return fmt.Errorf(
+			"%w: invalid truncation frequency for database '%s'. TruncationFrequency should at least 1 hour",
+			ErrIllegalArguments, opts.Database)
+	}
+
 	return opts.storeOptions().Validate()
 }
 
