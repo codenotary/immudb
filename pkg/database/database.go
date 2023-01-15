@@ -1733,7 +1733,7 @@ func getRetentionPeriod(ts time.Time, retentionPeriod time.Duration) time.Time {
 
 // runTruncator triggers periodically to truncate multiple appendable logs
 func (d *db) runTruncator() {
-	d.Logger.Infof("starting truncator for db '%s' with retention period '%.2f' and truncation frequency '%.2f'", d.name, d.options.RetentionPeriod.Seconds(), d.options.TruncationFrequency.Seconds())
+	d.Logger.Infof("starting truncator for db '%s' with retention period '%v' and truncation frequency '%v'", d.name, d.options.RetentionPeriod.Seconds(), d.options.TruncationFrequency.Seconds())
 	for {
 		select {
 		case <-d.stopc:
