@@ -161,7 +161,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		Autoload: unspecifiedState,
 
 		CreatedAt:           time.Now(),
-		TruncationFrequency: Milliseconds(store.DefaultTruncationFrequency.Milliseconds()),
+		TruncationFrequency: Milliseconds(database.DefaultTruncationFrequency.Milliseconds()),
 	}
 
 	if dbName == s.Options.systemAdminDBName || dbName == s.Options.defaultDBName {
@@ -746,6 +746,12 @@ func (opts *dbOptions) Validate() error {
 	if opts.RetentionPeriod < 0 || (opts.RetentionPeriod > 0 && opts.RetentionPeriod < Milliseconds(store.MinimumRetentionPeriod.Milliseconds())) {
 		return fmt.Errorf(
 			"%w: invalid retention period for database '%s'. RetentionPeriod should at least 1 day",
+			ErrIllegalArguments, opts.Database)
+	}
+
+	if opts.TruncationFrequency < 0 || (opts.TruncationFrequency > 0 && opts.TruncationFrequency < Milliseconds(store.MinimumTruncationFrequency.Milliseconds())) {
+		return fmt.Errorf(
+			"%w: invalid truncation frequency for database '%s'. TruncationFrequency should at least 1 hour",
 			ErrIllegalArguments, opts.Database)
 	}
 

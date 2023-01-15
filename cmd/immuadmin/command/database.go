@@ -53,7 +53,7 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("read-tx-pool-size", database.DefaultReadTxPoolSize, "set transaction read pool size (used for reading transaction objects)")
 	c.Flags().Bool("autoload", true, "enable database autoloading")
 	c.Flags().Duration("retention-period", 0, "duration of time to retain data in storage")
-	c.Flags().Duration("truncation-frequency", store.DefaultTruncationFrequency, "set the truncation frequency for the database")
+	c.Flags().Duration("truncation-frequency", database.DefaultTruncationFrequency, "set the truncation frequency for the database")
 
 	flagNameMapping := map[string]string{
 		"replication-enabled":           "replication-is-replica",

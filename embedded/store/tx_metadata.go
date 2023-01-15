@@ -158,7 +158,7 @@ func (md *TxMetadata) HasTruncatedTxID() bool {
 func (md *TxMetadata) GetTruncatedTxID() (uint64, error) {
 	attr, ok := md.attributes[truncatedUptoTxAttrCode]
 	if !ok {
-		return 0, ErrTxNotFound
+		return 0, ErrTxNotPresentInMetadata
 	}
 
 	return attr.(*truncatedUptoTxAttribute).txID, nil
