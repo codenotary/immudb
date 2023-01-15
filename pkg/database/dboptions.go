@@ -25,7 +25,7 @@ import (
 const (
 	DefaultDbRootPath          = "./data"
 	DefaultReadTxPoolSize      = 128
-	DefaultTruncationFrequency = 12 * time.Hour
+	DefaultTruncationFrequency = 24 * time.Hour
 )
 
 // Options database instance options

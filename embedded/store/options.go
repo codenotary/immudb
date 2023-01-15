@@ -52,6 +52,7 @@ const DefaultIndexingMaxBulkSize = 1
 const DefaultBulkPreparationTimeout = DefaultSyncFrequency
 const DefaultTruncationFrequency = 24 * time.Hour
 const MinimumRetentionPeriod = 24 * time.Hour
+const MinimumTruncationFrequency = 1 * time.Hour
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
