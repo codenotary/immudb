@@ -28,7 +28,7 @@ import (
 
 var (
 	// ErrNoTxBeforeTime is returned when retention period is not reached.
-	ErrRetentionPeriodNotReached = errors.New("retention period not reached")
+	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
 )
 
 // Truncator provides truncation against an underlying storage

@@ -239,3 +239,7 @@ func (db *closedDB) IsClosed() bool {
 func (db *closedDB) Close() error {
 	return store.ErrAlreadyClosed
 }
+
+func (db *closedDB) Truncate(ts time.Duration) error {
+	return store.ErrAlreadyClosed
+}
