@@ -105,7 +105,7 @@ func TestMaxIndexWaitees(t *testing.T) {
 	err = tx.Set([]byte{1}, nil, []byte{2})
 	require.NoError(t, err)
 
-	hdr, err := tx.AsyncCommit()
+	hdr, err := tx.AsyncCommit(context.Background())
 	require.NoError(t, err)
 	require.EqualValues(t, 1, hdr.ID)
 

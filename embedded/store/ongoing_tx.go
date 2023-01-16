@@ -28,8 +28,6 @@ import (
 // OngoingTx (no-thread safe) represents an interactive or incremental transaction with support of RYOW.
 // The snapshot may be locally modified but isolated from other transactions
 type OngoingTx struct {
-	ctx context.Context
-
 	st *ImmuStore
 
 	snap     *Snapshot
@@ -81,7 +79,6 @@ func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingT
 
 	tx := &OngoingTx{
 		st:           s,
-		ctx:          ctx,
 		entriesByKey: make(map[[sha256.Size]byte]int),
 		ts:           time.Now(),
 	}
@@ -159,10 +156,6 @@ func (oref *ongoingValRef) HVal() [sha256.Size]byte {
 
 func (oref *ongoingValRef) Len() uint32 {
 	return uint32(len(oref.value))
-}
-
-func (tx *OngoingTx) Context() context.Context {
-	return tx.ctx
 }
 
 func (tx *OngoingTx) IsWriteOnly() bool {
@@ -407,15 +400,15 @@ func (tx *OngoingTx) NewKeyReader(spec KeyReaderSpec) (KeyReader, error) {
 	return newOngoingTxKeyReader(tx, spec)
 }
 
-func (tx *OngoingTx) Commit() (*TxHeader, error) {
-	return tx.commit(true)
+func (tx *OngoingTx) Commit(ctx context.Context) (*TxHeader, error) {
+	return tx.commit(ctx, true)
 }
 
-func (tx *OngoingTx) AsyncCommit() (*TxHeader, error) {
-	return tx.commit(false)
+func (tx *OngoingTx) AsyncCommit(ctx context.Context) (*TxHeader, error) {
+	return tx.commit(ctx, false)
 }
 
-func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
+func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeader, error) {
 	if tx.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -433,7 +426,7 @@ func (tx *OngoingTx) commit(waitForIndexing bool) (*TxHeader, error) {
 
 	tx.closed = true
 
-	return tx.st.commit(tx, nil, waitForIndexing)
+	return tx.st.commit(ctx, tx, nil, waitForIndexing)
 }
 
 func (tx *OngoingTx) Cancel() error {
