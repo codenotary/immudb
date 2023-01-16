@@ -378,3 +378,7 @@ func (s *ServerMock) DescribeTable(ctx context.Context, req *schema.Table) (*sch
 func (s *ServerMock) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
 	return s.Srv.VerifiableSQLGet(ctx, req)
 }
+
+func (s *ServerMock) TruncateDatabase(ctx context.Context, req *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error) {
+	return s.Srv.TruncateDatabase(ctx, req)
+}

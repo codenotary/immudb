@@ -1586,3 +1586,65 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	//systemdb exists but there are no other users created
 	return false
 }
+
+func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateDatabaseRequest) (res *schema.TruncateDatabaseResponse, err error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	s.Logger.Infof("Truncating database '%s'...", req.Database)
+
+	defer func() {
+		if err == nil {
+			s.Logger.Infof("Database '%s' succesfully truncated", req.Database)
+		} else {
+			s.Logger.Infof("Database '%s' could not be truncated. Reason: %v", req.Database, err)
+		}
+	}()
+
+	if !s.Options.GetAuth() {
+		return nil, ErrAuthMustBeEnabled
+	}
+
+	if req.Database == s.Options.defaultDBName || req.Database == s.Options.systemAdminDBName {
+		return nil, ErrReservedDatabase
+	}
+
+	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get loggedin user data")
+	}
+
+	//if the requesting user has admin permission on this database
+	if (!user.IsSysAdmin) &&
+		(!user.HasPermission(req.Database, auth.PermissionAdmin)) {
+		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
+	}
+
+	if req.RetentionPeriod == nil {
+		return nil, fmt.Errorf("retention period can not be empty for database '%s'", req.Database)
+	}
+	if req.RetentionPeriod.Value < 0 || (req.RetentionPeriod.Value > 0 && req.RetentionPeriod.Value < (store.MinimumRetentionPeriod.Milliseconds())) {
+		return nil, fmt.Errorf(
+			"%w: invalid retention period for database '%s'. RetentionPeriod should at least 1 day",
+			ErrIllegalArguments, req.Database)
+	}
+
+	s.dbListMutex.Lock()
+	defer s.dbListMutex.Unlock()
+
+	db, err := s.dbList.GetByName(req.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	rp := time.Duration(req.RetentionPeriod.Value) * time.Millisecond
+	err = db.Truncate(rp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.TruncateDatabaseResponse{
+		Database: req.Database,
+	}, nil
+}
