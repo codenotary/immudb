@@ -110,6 +110,7 @@ type ImmuServiceClient interface {
 	ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	DescribeTable(ctx context.Context, in *Table, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	VerifiableSQLGet(ctx context.Context, in *VerifiableSQLGetRequest, opts ...grpc.CallOption) (*VerifiableSQLEntry, error)
+	TruncateDatabase(ctx context.Context, in *TruncateDatabaseRequest, opts ...grpc.CallOption) (*TruncateDatabaseResponse, error)
 }
 
 type immuServiceClient struct {
@@ -997,6 +998,15 @@ func (c *immuServiceClient) VerifiableSQLGet(ctx context.Context, in *Verifiable
 	return out, nil
 }
 
+func (c *immuServiceClient) TruncateDatabase(ctx context.Context, in *TruncateDatabaseRequest, opts ...grpc.CallOption) (*TruncateDatabaseResponse, error) {
+	out := new(TruncateDatabaseResponse)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/TruncateDatabase", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImmuServiceServer is the server API for ImmuService service.
 // All implementations should embed UnimplementedImmuServiceServer
 // for forward compatibility
@@ -1092,6 +1102,7 @@ type ImmuServiceServer interface {
 	ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error)
 	DescribeTable(context.Context, *Table) (*SQLQueryResult, error)
 	VerifiableSQLGet(context.Context, *VerifiableSQLGetRequest) (*VerifiableSQLEntry, error)
+	TruncateDatabase(context.Context, *TruncateDatabaseRequest) (*TruncateDatabaseResponse, error)
 }
 
 // UnimplementedImmuServiceServer should be embedded to have forward compatible implementations.
@@ -1307,6 +1318,9 @@ func (UnimplementedImmuServiceServer) DescribeTable(context.Context, *Table) (*S
 }
 func (UnimplementedImmuServiceServer) VerifiableSQLGet(context.Context, *VerifiableSQLGetRequest) (*VerifiableSQLEntry, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VerifiableSQLGet not implemented")
+}
+func (UnimplementedImmuServiceServer) TruncateDatabase(context.Context, *TruncateDatabaseRequest) (*TruncateDatabaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TruncateDatabase not implemented")
 }
 
 // UnsafeImmuServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -2630,6 +2644,24 @@ func _ImmuService_VerifiableSQLGet_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_TruncateDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TruncateDatabaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).TruncateDatabase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/TruncateDatabase",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).TruncateDatabase(ctx, req.(*TruncateDatabaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ImmuService_ServiceDesc is the grpc.ServiceDesc for ImmuService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2876,6 +2908,10 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifiableSQLGet",
 			Handler:    _ImmuService_VerifiableSQLGet_Handler,
+		},
+		{
+			MethodName: "TruncateDatabase",
+			Handler:    _ImmuService_TruncateDatabase_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

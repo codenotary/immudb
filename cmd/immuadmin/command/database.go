@@ -78,7 +78,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "load", "unload", "delete", "update", "use", "flush", "compact"},
+		ValidArgs:         []string{"list", "create", "load", "unload", "delete", "update", "use", "flush", "compact", "truncate"},
 	}
 
 	listCmd := &cobra.Command{
@@ -317,6 +317,45 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(0),
 	}
 
+	truncateCmd := &cobra.Command{
+		Use:               "truncate",
+		Short:             "Truncate database (unrecoverable operation)",
+		Example:           "delete --yes-i-know-what-i-am-doing {database_name}",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			safetyFlag, err := cmd.Flags().GetBool("yes-i-know-what-i-am-doing")
+			if err != nil {
+				return err
+			}
+
+			if !safetyFlag {
+				fmt.Fprintf(cmd.OutOrStdout(), "database '%s' was not truncated. Safety flag not set\n", args[0])
+				return nil
+			}
+
+			retentionPeriod, err := cmd.Flags().GetDuration("retention-period")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "truncating database '%s' up to retention period '%s'...\n", args[0], retentionPeriod.String())
+
+			_, err = cl.immuClient.TruncateDatabase(cl.context, &schema.TruncateDatabaseRequest{
+				Database:        args[0],
+				RetentionPeriod: &schema.NullableMilliseconds{Value: retentionPeriod.Milliseconds()},
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "database '%s' successfully truncated\n", args[0])
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	addDbTruncateFlags(truncateCmd)
+
 	dbCmd.AddCommand(listCmd)
 	dbCmd.AddCommand(createCmd)
 	dbCmd.AddCommand(loadCmd)
@@ -326,6 +365,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	dbCmd.AddCommand(updateCmd)
 	dbCmd.AddCommand(flushCmd)
 	dbCmd.AddCommand(compactCmd)
+	dbCmd.AddCommand(truncateCmd)
 
 	cmd.AddCommand(dbCmd)
 }
@@ -531,4 +571,10 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 	}
 
 	return strings.Join(propertiesStr, ", ")
+}
+
+func addDbTruncateFlags(c *cobra.Command) {
+	c.Flags().Bool("yes-i-know-what-i-am-doing", false, "safety flag to confirm database truncation")
+	c.Flags().Duration("retention-period", 0, "duration of time to retain data in storage")
+	c.MarkFlagRequired("yes-i-know-what-i-am-doing")
 }

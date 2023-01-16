@@ -505,6 +505,12 @@ type ImmuClient interface {
 	//
 	// Note: Currently such transaction can only be used for SQL operations.
 	NewTx(ctx context.Context) (Tx, error)
+
+	// TruncateDatabase truncates a database.
+	// This truncates the locally stored value log files used by the database.
+	//
+	// This call requires SysAdmin permission level or admin permission to the database.
+	TruncateDatabase(ctx context.Context, r *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error)
 }
 
 const DefaultDB = "defaultdb"
@@ -2316,4 +2322,19 @@ func decodeTxEntries(entries []*schema.TxEntry) {
 	for _, it := range entries {
 		it.Key = it.Key[1:]
 	}
+}
+
+// TruncateDatabase truncates the database to the given retention period.
+func (c *immuClient) TruncateDatabase(ctx context.Context, r *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	res, err := c.ServiceClient.TruncateDatabase(ctx, r)
+
+	c.Logger.Debugf("TruncateDatabase finished in %s", time.Since(start))
+
+	return res, err
 }

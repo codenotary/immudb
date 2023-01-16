@@ -98,6 +98,8 @@
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
     - [Table](#immudb.schema.Table)
+    - [TruncateDatabaseRequest](#immudb.schema.TruncateDatabaseRequest)
+    - [TruncateDatabaseResponse](#immudb.schema.TruncateDatabaseResponse)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxHeader](#immudb.schema.TxHeader)
@@ -1732,6 +1734,37 @@ ServerInfoResponse contains information about the server instance.
 
 
 
+<a name="immudb.schema.TruncateDatabaseRequest"></a>
+
+### TruncateDatabaseRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | Database name |
+| retentionPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Retention Period of data |
+
+
+
+
+
+
+<a name="immudb.schema.TruncateDatabaseResponse"></a>
+
+### TruncateDatabaseResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| database | [string](#string) |  | Database name |
+
+
+
+
+
+
 <a name="immudb.schema.Tx"></a>
 
 ### Tx
@@ -2422,6 +2455,7 @@ immudb gRPC &amp; REST service
 | ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
+| TruncateDatabase | [TruncateDatabaseRequest](#immudb.schema.TruncateDatabaseRequest) | [TruncateDatabaseResponse](#immudb.schema.TruncateDatabaseResponse) |  |
 
  
 
