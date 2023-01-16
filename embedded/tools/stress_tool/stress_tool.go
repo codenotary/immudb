@@ -129,7 +129,7 @@ func main() {
 		panic(err)
 	}
 
-	hdr, err := tx.Commit()
+	hdr, err := tx.Commit(context.Background())
 	if err != nil {
 		panic(err)
 	}
@@ -189,7 +189,7 @@ func main() {
 				panic(err)
 			}
 
-			_, err = tx.Commit()
+			_, err = tx.Commit(context.Background())
 			if err != nil {
 				panic(err)
 			}
@@ -282,7 +282,7 @@ func main() {
 						}
 					}
 
-					txhdr, err := tx.Commit()
+					txhdr, err := tx.Commit(context.Background())
 					if err != nil {
 						panic(err)
 					}
