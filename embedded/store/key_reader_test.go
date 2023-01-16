@@ -49,7 +49,7 @@ func TestImmudbStoreReader(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = tx.Commit()
+		_, err = tx.Commit(context.Background())
 		require.NoError(t, err)
 	}
 
@@ -108,7 +108,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = tx.Commit()
+		_, err = tx.Commit(context.Background())
 		require.NoError(t, err)
 	}
 
@@ -172,7 +172,7 @@ func TestImmudbStoreReaderWithOffset(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = tx.Commit()
+		_, err = tx.Commit(context.Background())
 		require.NoError(t, err)
 	}
 
@@ -235,7 +235,7 @@ func TestImmudbStoreReaderAsBeforeWithOffset(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = tx.Commit()
+		_, err = tx.Commit(context.Background())
 		require.NoError(t, err)
 	}
 
