@@ -1088,18 +1088,18 @@ func (s *ImmuStore) commit(otx *OngoingTx, expectedHeader *TxHeader, waitForInde
 	}
 
 	// note: durability is ensured only if the store is in sync mode
-	// the use of a non-cancellable context is to enforce waiting for syncing to happen before exposing the header
-	err = s.commitWHub.WaitFor(context.Background(), hdr.ID)
+	err = s.commitWHub.WaitFor(otx.Context(), hdr.ID)
 	if err == watchers.ErrAlreadyClosed {
-		return hdr, ErrAlreadyClosed
+		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
-		return hdr, err
+		return nil, err
 	}
 
 	if waitForIndexing {
 		err = s.WaitForIndexingUpto(otx.Context(), hdr.ID)
 		if err != nil {
+			// header is returned because transaction is already committed
 			return hdr, err
 		}
 	}
@@ -1615,18 +1615,18 @@ func (s *ImmuStore) CommitWith(ctx context.Context, callback func(txID uint64, i
 	}
 
 	// note: durability is ensured only if the store is in sync mode
-	// the use of a non-cancellable context is to enforce waiting for syncing to happen before exposing the header
 	err = s.commitWHub.WaitFor(context.Background(), hdr.ID)
 	if errors.Is(err, watchers.ErrAlreadyClosed) {
-		return hdr, ErrAlreadyClosed
+		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
-		return hdr, err
+		return nil, err
 	}
 
 	if waitForIndexing {
 		err = s.WaitForIndexingUpto(ctx, hdr.ID)
 		if err != nil {
+			// header is returned because transaction is already committed
 			return hdr, err
 		}
 	}
