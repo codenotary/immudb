@@ -839,6 +839,38 @@
         ]
       }
     },
+    "/db/truncate": {
+      "post": {
+        "operationId": "ImmuService_TruncateDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTruncateDatabaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaTruncateDatabaseRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/tx": {
       "post": {
         "operationId": "ImmuService_TxScan",
@@ -3337,6 +3369,28 @@
         "tableName": {
           "type": "string",
           "title": "Table name"
+        }
+      }
+    },
+    "schemaTruncateDatabaseRequest": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "title": "Database name"
+        },
+        "retentionPeriod": {
+          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "title": "Retention Period of data"
+        }
+      }
+    },
+    "schemaTruncateDatabaseResponse": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "title": "Database name"
         }
       }
     },

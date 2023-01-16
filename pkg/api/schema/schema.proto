@@ -1448,6 +1448,19 @@ message RetryInfo {
   int32 retry_delay = 1;
 }
 
+message TruncateDatabaseRequest {
+  // Database name
+  string database = 1;
+
+  // Retention Period of data
+  NullableMilliseconds retentionPeriod = 2;
+}
+
+message TruncateDatabaseResponse {
+  // Database name
+  string database = 1;
+}
+
 // immudb gRPC & REST service
 service ImmuService {
   rpc ListUsers(google.protobuf.Empty) returns (UserList) {
@@ -1863,4 +1876,12 @@ service ImmuService {
       body: "*"
     };
   }
+
+  rpc TruncateDatabase(TruncateDatabaseRequest) returns (TruncateDatabaseResponse) {
+    option (google.api.http) = {
+      post: "/db/truncate"
+      body: "*"
+    };
+  }
+
 }
