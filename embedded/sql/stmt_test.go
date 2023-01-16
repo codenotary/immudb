@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -674,11 +675,11 @@ func TestAliasing(t *testing.T) {
 
 func TestEdgeCases(t *testing.T) {
 	stmt := &CreateIndexStmt{}
-	_, err := stmt.execAt(nil, nil)
+	_, err := stmt.execAt(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	stmt.cols = make([]string, MaxNumberOfColumnsInIndex+1)
-	_, err = stmt.execAt(nil, nil)
+	_, err = stmt.execAt(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ErrMaxNumberOfColumnsInIndexExceeded)
 }
 
@@ -794,19 +795,19 @@ func TestUnionSelectErrors(t *testing.T) {
 
 		stmt := &UnionStmt{
 			left: &dummyDataSource{
-				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 					return reader1, nil
 				},
 			},
 			right: &dummyDataSource{
-				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 					return reader2, nil
 				},
 			},
 			distinct: true,
 		}
 
-		reader, err := stmt.Resolve(nil, nil, nil)
+		reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
 		require.ErrorIs(t, err, errDummy)
 		require.Nil(t, reader)
 		require.True(t, reader1.closed)
@@ -825,19 +826,19 @@ func TestUnionSelectErrors(t *testing.T) {
 
 		stmt := &UnionStmt{
 			left: &dummyDataSource{
-				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 					return reader1, nil
 				},
 			},
 			right: &dummyDataSource{
-				ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+				ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 					return reader2, nil
 				},
 			},
 			distinct: true,
 		}
 
-		reader, err := stmt.Resolve(nil, nil, nil)
+		reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
 		require.ErrorIs(t, err, errDummy)
 		require.Nil(t, reader)
 		require.True(t, reader1.closed)
@@ -852,7 +853,7 @@ func TestJoinErrors(t *testing.T) {
 
 	stmt := &SelectStmt{
 		ds: &dummyDataSource{
-			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+			ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 				return baseReader, nil
 			},
 		},
@@ -861,7 +862,7 @@ func TestJoinErrors(t *testing.T) {
 		}},
 	}
 
-	reader, err := stmt.Resolve(nil, nil, nil)
+	reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, ErrUnsupportedJoinType)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)
@@ -875,13 +876,13 @@ func TestProjectedRowReaderErrors(t *testing.T) {
 
 	stmt := &SelectStmt{
 		ds: &dummyDataSource{
-			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+			ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 				return baseReader, nil
 			},
 		},
 	}
 
-	reader, err := stmt.Resolve(nil, nil, nil)
+	reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, errDummy)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)
@@ -895,14 +896,14 @@ func TestDistinctRowReaderErrors(t *testing.T) {
 
 	stmt := &SelectStmt{
 		ds: &dummyDataSource{
-			ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+			ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 				return baseReader, nil
 			},
 		},
 		distinct: true,
 	}
 
-	reader, err := stmt.Resolve(nil, nil, nil)
+	reader, err := stmt.Resolve(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, errDummy)
 	require.Nil(t, reader)
 	require.True(t, baseReader.closed)

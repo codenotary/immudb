@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -75,8 +76,8 @@ func (gr *groupedRowReader) ScanSpecs() *ScanSpecs {
 	return gr.rowReader.ScanSpecs()
 }
 
-func (gr *groupedRowReader) Columns() ([]ColDescriptor, error) {
-	colsBySel, err := gr.colsBySelector()
+func (gr *groupedRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
+	colsBySel, err := gr.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +92,8 @@ func (gr *groupedRowReader) Columns() ([]ColDescriptor, error) {
 	return colsByPos, nil
 }
 
-func (gr *groupedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
-	colDescriptors, err := gr.rowReader.colsBySelector()
+func (gr *groupedRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
+	colDescriptors, err := gr.rowReader.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +172,8 @@ func zeroForType(t SQLValueType) TypedValue {
 	return nil
 }
 
-func (gr *groupedRowReader) InferParameters(params map[string]SQLValueType) error {
-	return gr.rowReader.InferParameters(params)
+func (gr *groupedRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	return gr.rowReader.InferParameters(ctx, params)
 }
 
 func (gr *groupedRowReader) Parameters() map[string]interface{} {
@@ -183,9 +184,9 @@ func (gr *groupedRowReader) SetParameters(params map[string]interface{}) error {
 	return gr.rowReader.SetParameters(params)
 }
 
-func (gr *groupedRowReader) Read() (*Row, error) {
+func (gr *groupedRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
-		row, err := gr.rowReader.Read()
+		row, err := gr.rowReader.Read(ctx)
 		if err == store.ErrNoMoreEntries {
 			if !gr.nonEmpty && allAgregations(gr.selectors) {
 				// special case when all selectors are aggregations
@@ -194,7 +195,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 					ValuesBySelector: make(map[string]TypedValue, len(gr.selectors)),
 				}
 
-				colsBySelector, err := gr.colsBySelector()
+				colsBySelector, err := gr.colsBySelector(ctx)
 				if err != nil {
 					return nil, err
 				}

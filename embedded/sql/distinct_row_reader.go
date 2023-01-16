@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "crypto/sha256"
+import (
+	"context"
+	"crypto/sha256"
+)
 
 type distinctRowReader struct {
 	rowReader RowReader
@@ -25,8 +28,8 @@ type distinctRowReader struct {
 	readRows map[[sha256.Size]byte]struct{}
 }
 
-func newDistinctRowReader(rowReader RowReader) (*distinctRowReader, error) {
-	cols, err := rowReader.Columns()
+func newDistinctRowReader(ctx context.Context, rowReader RowReader) (*distinctRowReader, error) {
+	cols, err := rowReader.Columns(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -70,25 +73,25 @@ func (dr *distinctRowReader) ScanSpecs() *ScanSpecs {
 	return dr.rowReader.ScanSpecs()
 }
 
-func (dr *distinctRowReader) Columns() ([]ColDescriptor, error) {
-	return dr.rowReader.Columns()
+func (dr *distinctRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
+	return dr.rowReader.Columns(ctx)
 }
 
-func (dr *distinctRowReader) colsBySelector() (map[string]ColDescriptor, error) {
-	return dr.rowReader.colsBySelector()
+func (dr *distinctRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
+	return dr.rowReader.colsBySelector(ctx)
 }
 
-func (dr *distinctRowReader) InferParameters(params map[string]SQLValueType) error {
-	return dr.rowReader.InferParameters(params)
+func (dr *distinctRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	return dr.rowReader.InferParameters(ctx, params)
 }
 
-func (dr *distinctRowReader) Read() (*Row, error) {
+func (dr *distinctRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
 		if len(dr.readRows) == dr.rowReader.Tx().distinctLimit() {
 			return nil, ErrTooManyRows
 		}
 
-		row, err := dr.rowReader.Read()
+		row, err := dr.rowReader.Read(ctx)
 		if err != nil {
 			return nil, err
 		}

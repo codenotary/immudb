@@ -17,13 +17,14 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestUnionRowReader(t *testing.T) {
-	_, err := newUnionRowReader(nil)
+	_, err := newUnionRowReader(context.Background(), nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	dummyr := &dummyRowReader{
@@ -31,12 +32,12 @@ func TestUnionRowReader(t *testing.T) {
 		failReturningColumns: true,
 	}
 
-	_, err = newUnionRowReader([]RowReader{dummyr})
+	_, err = newUnionRowReader(context.Background(), []RowReader{dummyr})
 	require.ErrorIs(t, err, errDummy)
 
 	dummyr.failReturningColumns = false
 
-	rowReader, err := newUnionRowReader([]RowReader{dummyr})
+	rowReader, err := newUnionRowReader(context.Background(), []RowReader{dummyr})
 	require.NoError(t, err)
 	require.NotNil(t, rowReader)
 
@@ -59,10 +60,10 @@ func TestUnionRowReader(t *testing.T) {
 	require.Equal(t, params, rowReader.Parameters())
 
 	paramTypes := make(map[string]string)
-	err = rowReader.InferParameters(paramTypes)
+	err = rowReader.InferParameters(context.Background(), paramTypes)
 	require.NoError(t, err)
 
 	dummyr.failInferringParams = true
-	err = rowReader.InferParameters(paramTypes)
+	err = rowReader.InferParameters(context.Background(), paramTypes)
 	require.ErrorIs(t, err, errDummy)
 }

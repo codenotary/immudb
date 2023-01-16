@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,12 +27,12 @@ func TestDistinctRowReader(t *testing.T) {
 	dummyr := &dummyRowReader{failReturningColumns: false}
 
 	dummyr.failReturningColumns = true
-	_, err := newDistinctRowReader(dummyr)
+	_, err := newDistinctRowReader(context.Background(), dummyr)
 	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = false
 
-	rowReader, err := newDistinctRowReader(dummyr)
+	rowReader, err := newDistinctRowReader(context.Background(), dummyr)
 	require.NoError(t, err)
 
 	require.Equal(t, dummyr.Database(), rowReader.Database())
@@ -41,20 +42,20 @@ func TestDistinctRowReader(t *testing.T) {
 
 	require.Nil(t, rowReader.Tx())
 
-	_, err = rowReader.colsBySelector()
+	_, err = rowReader.colsBySelector(context.Background())
 	require.Equal(t, errDummy, err)
 
 	dummyr.failReturningColumns = true
-	_, err = rowReader.Columns()
+	_, err = rowReader.Columns(context.Background())
 	require.Equal(t, errDummy, err)
 
 	require.Nil(t, rowReader.Parameters())
 
-	err = rowReader.InferParameters(nil)
+	err = rowReader.InferParameters(context.Background(), nil)
 	require.NoError(t, err)
 
 	dummyr.failInferringParams = true
 
-	err = rowReader.InferParameters(nil)
+	err = rowReader.InferParameters(context.Background(), nil)
 	require.Equal(t, errDummy, err)
 }

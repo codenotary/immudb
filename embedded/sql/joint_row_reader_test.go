@@ -70,7 +70,7 @@ func TestJointRowReader(t *testing.T) {
 	require.Equal(t, "id", orderBy[0].Column)
 	require.Equal(t, "table1", orderBy[0].Table)
 
-	cols, err := jr.Columns()
+	cols, err := jr.Columns(context.Background())
 	require.NoError(t, err)
 	require.Len(t, cols, 4)
 	require.Equal(t, cols[0].Table, "table1")
@@ -93,7 +93,7 @@ func TestJointRowReader(t *testing.T) {
 			jr, err = newJointRowReader(r, []*JoinSpec{{joinType: InnerJoin, ds: &tableRef{table: "table1"}}})
 			require.NoError(t, err)
 
-			_, err = jr.colsBySelector()
+			_, err = jr.colsBySelector(context.Background())
 			require.ErrorIs(t, err, ErrAmbiguousSelector)
 		})
 
@@ -102,7 +102,7 @@ func TestJointRowReader(t *testing.T) {
 				rowReader: &dummyRowReader{},
 			}
 
-			cols, err := jr.colsBySelector()
+			cols, err := jr.colsBySelector(context.Background())
 			require.ErrorIs(t, err, errDummy)
 			require.Nil(t, cols)
 		})
@@ -114,11 +114,11 @@ func TestJointRowReader(t *testing.T) {
 				},
 			}
 
-			err := jr.InferParameters(make(map[string]SQLValueType))
+			err := jr.InferParameters(context.Background(), make(map[string]SQLValueType))
 			require.ErrorIs(t, err, errDummy)
 
 			jr.rowReader.(*dummyRowReader).failInferringParams = false
-			err = jr.InferParameters(make(map[string]SQLValueType))
+			err = jr.InferParameters(context.Background(), make(map[string]SQLValueType))
 			require.ErrorIs(t, err, errDummy)
 		})
 
@@ -130,7 +130,7 @@ func TestJointRowReader(t *testing.T) {
 				},
 			}
 
-			cols, err := jr.Columns()
+			cols, err := jr.Columns(context.Background())
 			require.ErrorIs(t, err, errDummy)
 			require.Nil(t, cols)
 		})
@@ -140,13 +140,13 @@ func TestJointRowReader(t *testing.T) {
 
 			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return nil, injectedErr
 					},
 				}}})
 			require.NoError(t, err)
 
-			cols, err := jr.colsBySelector()
+			cols, err := jr.colsBySelector(context.Background())
 			require.ErrorIs(t, err, injectedErr)
 			require.Nil(t, cols)
 		})
@@ -155,13 +155,13 @@ func TestJointRowReader(t *testing.T) {
 
 			jr, err := newJointRowReader(r,
 				[]*JoinSpec{{joinType: InnerJoin, ds: &dummyDataSource{
-					ResolveFunc: func(tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
+					ResolveFunc: func(ctx context.Context, tx *SQLTx, params map[string]interface{}, ScanSpecs *ScanSpecs) (RowReader, error) {
 						return &dummyRowReader{}, nil
 					},
 				}}})
 			require.NoError(t, err)
 
-			cols, err := jr.colsBySelector()
+			cols, err := jr.colsBySelector(context.Background())
 			require.ErrorIs(t, err, errDummy)
 			require.Nil(t, cols)
 		})

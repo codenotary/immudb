@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type valuesRowReader struct {
 	tx        *SQLTx
@@ -35,7 +38,7 @@ type valuesRowReader struct {
 	closed          bool
 }
 
-func newValuesRowReader(tx *SQLTx, cols []ColDescriptor, dbAlias, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
+func newValuesRowReader(ctx context.Context, tx *SQLTx, cols []ColDescriptor, dbAlias, tableAlias string, values [][]ValueExp) (*valuesRowReader, error) {
 	if len(cols) == 0 {
 		return nil, fmt.Errorf("%w: empty column list", ErrIllegalArguments)
 	}
@@ -126,15 +129,15 @@ func (vr *valuesRowReader) ScanSpecs() *ScanSpecs {
 	return nil
 }
 
-func (vr *valuesRowReader) Columns() ([]ColDescriptor, error) {
+func (vr *valuesRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
 	return vr.colsByPos, nil
 }
 
-func (vr *valuesRowReader) colsBySelector() (map[string]ColDescriptor, error) {
+func (vr *valuesRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
 	return vr.colsBySel, nil
 }
 
-func (vr *valuesRowReader) InferParameters(params map[string]SQLValueType) error {
+func (vr *valuesRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
 	for _, vs := range vr.values {
 		for _, v := range vs {
 			v.inferType(vr.colsBySel, params, vr.dbAlias, vr.tableAlias)
@@ -143,7 +146,7 @@ func (vr *valuesRowReader) InferParameters(params map[string]SQLValueType) error
 	return nil
 }
 
-func (vr *valuesRowReader) Read() (*Row, error) {
+func (vr *valuesRowReader) Read(ctx context.Context) (*Row, error) {
 	if vr.read == len(vr.values) {
 		return nil, ErrNoMoreRows
 	}

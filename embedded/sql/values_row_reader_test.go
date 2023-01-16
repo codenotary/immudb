@@ -17,29 +17,30 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestValuesRowReader(t *testing.T) {
-	_, err := newValuesRowReader(nil, nil, "", "", nil)
+	_, err := newValuesRowReader(context.Background(), nil, nil, "", "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
 	cols := []ColDescriptor{
 		{Column: "col1"},
 	}
 
-	_, err = newValuesRowReader(nil, cols, "", "", nil)
+	_, err = newValuesRowReader(context.Background(), nil, cols, "", "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, cols, "db1", "", nil)
+	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "", nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 
-	_, err = newValuesRowReader(nil, cols, "db1", "table1", nil)
+	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "table1", nil)
 	require.NoError(t, err)
 
-	_, err = newValuesRowReader(nil, cols, "db1", "table1",
+	_, err = newValuesRowReader(context.Background(), nil, cols, "db1", "table1",
 		[][]ValueExp{
 			{
 				&Bool{val: true},
@@ -48,7 +49,7 @@ func TestValuesRowReader(t *testing.T) {
 		})
 	require.ErrorIs(t, err, ErrInvalidNumberOfValues)
 
-	_, err = newValuesRowReader(nil,
+	_, err = newValuesRowReader(context.Background(), nil,
 		[]ColDescriptor{
 			{Table: "table1", Column: "col1"},
 		}, "", "", nil)
@@ -60,7 +61,7 @@ func TestValuesRowReader(t *testing.T) {
 		},
 	}
 
-	rowReader, err := newValuesRowReader(nil, cols, "db1", "table1", values)
+	rowReader, err := newValuesRowReader(context.Background(), nil, cols, "db1", "table1", values)
 	require.NoError(t, err)
 
 	require.Equal(t, "db1", rowReader.Database())
@@ -85,7 +86,7 @@ func TestValuesRowReader(t *testing.T) {
 	require.Equal(t, params, rowReader.Parameters())
 
 	paramTypes := make(map[string]string)
-	err = rowReader.InferParameters(paramTypes)
+	err = rowReader.InferParameters(context.Background(), paramTypes)
 	require.NoError(t, err)
 
 	require.NoError(t, rowReader.Close())

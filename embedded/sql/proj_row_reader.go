@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type projectedRowReader struct {
 	rowReader RowReader
@@ -26,10 +29,10 @@ type projectedRowReader struct {
 	selectors []Selector
 }
 
-func newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
+func newProjectedRowReader(ctx context.Context, rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
 	// case: SELECT *
 	if len(selectors) == 0 {
-		cols, err := rowReader.Columns()
+		cols, err := rowReader.Columns(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -79,8 +82,8 @@ func (pr *projectedRowReader) ScanSpecs() *ScanSpecs {
 	return pr.rowReader.ScanSpecs()
 }
 
-func (pr *projectedRowReader) Columns() ([]ColDescriptor, error) {
-	colsBySel, err := pr.colsBySelector()
+func (pr *projectedRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
+	colsBySel, err := pr.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +125,8 @@ func (pr *projectedRowReader) Columns() ([]ColDescriptor, error) {
 	return colsByPos, nil
 }
 
-func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error) {
-	dsColDescriptors, err := pr.rowReader.colsBySelector()
+func (pr *projectedRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
+	dsColDescriptors, err := pr.rowReader.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +174,8 @@ func (pr *projectedRowReader) colsBySelector() (map[string]ColDescriptor, error)
 	return colDescriptors, nil
 }
 
-func (pr *projectedRowReader) InferParameters(params map[string]SQLValueType) error {
-	return pr.rowReader.InferParameters(params)
+func (pr *projectedRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	return pr.rowReader.InferParameters(ctx, params)
 }
 
 func (pr *projectedRowReader) Parameters() map[string]interface{} {
@@ -183,8 +186,8 @@ func (pr *projectedRowReader) SetParameters(params map[string]interface{}) error
 	return pr.rowReader.SetParameters(params)
 }
 
-func (pr *projectedRowReader) Read() (*Row, error) {
-	row, err := pr.rowReader.Read()
+func (pr *projectedRowReader) Read(ctx context.Context) (*Row, error) {
+	row, err := pr.rowReader.Read(ctx)
 	if err != nil {
 		return nil, err
 	}
