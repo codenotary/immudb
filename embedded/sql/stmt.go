@@ -18,6 +18,7 @@ package sql
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -122,18 +123,18 @@ const (
 )
 
 type SQLStmt interface {
-	execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
-	inferParameters(tx *SQLTx, params map[string]SQLValueType) error
+	execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error)
+	inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error
 }
 
 type BeginTransactionStmt struct {
 }
 
-func (stmt *BeginTransactionStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *BeginTransactionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *BeginTransactionStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.explicitClose {
 		return nil, ErrNestedTxNotSupported
 	}
@@ -145,12 +146,12 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 
 	// explicit tx initialization with implicit tx in progress
 
-	err := tx.commit()
+	err := tx.commit(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	ntx, err := tx.engine.NewTx(tx.Context(), tx.opts)
+	ntx, err := tx.engine.NewTx(ctx, tx.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -162,26 +163,26 @@ func (stmt *BeginTransactionStmt) execAt(tx *SQLTx, params map[string]interface{
 type CommitStmt struct {
 }
 
-func (stmt *CommitStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *CommitStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CommitStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *CommitStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.explicitClose {
 		return nil, ErrNoOngoingTx
 	}
 
-	return nil, tx.commit()
+	return nil, tx.commit(ctx)
 }
 
 type RollbackStmt struct {
 }
 
-func (stmt *RollbackStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *RollbackStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *RollbackStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *RollbackStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if !tx.explicitClose {
 		return nil, ErrNoOngoingTx
 	}
@@ -194,17 +195,17 @@ type CreateDatabaseStmt struct {
 	ifNotExists bool
 }
 
-func (stmt *CreateDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *CreateDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *CreateDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.explicitClose {
 		return nil, fmt.Errorf("%w: database creation can not be done within a transaction", ErrNonTransactionalStmt)
 	}
 
 	if tx.engine.multidbHandler != nil {
-		return nil, tx.engine.multidbHandler.CreateDatabase(tx.Context(), stmt.DB, stmt.ifNotExists)
+		return nil, tx.engine.multidbHandler.CreateDatabase(ctx, stmt.DB, stmt.ifNotExists)
 	}
 
 	id := uint32(len(tx.catalog.dbsByID) + 1)
@@ -229,11 +230,11 @@ type UseDatabaseStmt struct {
 	DB string
 }
 
-func (stmt *UseDatabaseStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *UseDatabaseStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *UseDatabaseStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if stmt.DB == "" {
 		return nil, fmt.Errorf("%w: no database name was provided", ErrIllegalArguments)
 	}
@@ -243,7 +244,7 @@ func (stmt *UseDatabaseStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	}
 
 	if tx.engine.multidbHandler != nil {
-		return tx, tx.engine.multidbHandler.UseDatabase(tx.Context(), stmt.DB)
+		return tx, tx.engine.multidbHandler.UseDatabase(ctx, stmt.DB)
 	}
 
 	_, exists := tx.catalog.dbsByName[stmt.DB]
@@ -262,11 +263,11 @@ type UseSnapshotStmt struct {
 	period period
 }
 
-func (stmt *UseSnapshotStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *UseSnapshotStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *UseSnapshotStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *UseSnapshotStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return nil, ErrNoSupported
 }
 
@@ -305,11 +306,11 @@ type CreateTableStmt struct {
 	pkColNames  []string
 }
 
-func (stmt *CreateTableStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *CreateTableStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *CreateTableStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -324,7 +325,7 @@ func (stmt *CreateTableStmt) execAt(tx *SQLTx, params map[string]interface{}) (*
 	}
 
 	createIndexStmt := &CreateIndexStmt{unique: true, table: table.name, cols: stmt.pkColNames}
-	_, err = createIndexStmt.execAt(tx, params)
+	_, err = createIndexStmt.execAt(ctx, tx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -367,11 +368,11 @@ type CreateIndexStmt struct {
 	cols        []string
 }
 
-func (stmt *CreateIndexStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *CreateIndexStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *CreateIndexStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *CreateIndexStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if len(stmt.cols) < 1 {
 		return nil, ErrIllegalArguments
 	}
@@ -453,11 +454,11 @@ type AddColumnStmt struct {
 	colSpec *ColSpec
 }
 
-func (stmt *AddColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *AddColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *AddColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *AddColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -486,11 +487,11 @@ type RenameColumnStmt struct {
 	newName string
 }
 
-func (stmt *RenameColumnStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *RenameColumnStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *RenameColumnStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *RenameColumnStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -528,7 +529,7 @@ type RowSpec struct {
 type OnConflictDo struct {
 }
 
-func (stmt *UpsertIntoStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *UpsertIntoStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
@@ -579,7 +580,7 @@ func (stmt *UpsertIntoStmt) validate(table *Table) (map[uint32]int, error) {
 	return selPosByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *UpsertIntoStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -695,7 +696,7 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 			}
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, !stmt.isInsert)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, !stmt.isInsert)
 		if err != nil {
 			return nil, err
 		}
@@ -704,11 +705,11 @@ func (stmt *UpsertIntoStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	return tx, nil
 }
 
-func (tx *SQLTx) doUpsert(pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
+func (tx *SQLTx) doUpsert(ctx context.Context, pkEncVals []byte, valuesByColID map[uint32]TypedValue, table *Table, reuseIndex bool) error {
 	var reusableIndexEntries map[uint32]struct{}
 
 	if reuseIndex && len(table.indexes) > 1 {
-		currPKRow, err := tx.fetchPKRow(table, valuesByColID)
+		currPKRow, err := tx.fetchPKRow(ctx, table, valuesByColID)
 		if err != nil && err != ErrNoMoreRows {
 			return err
 		}
@@ -871,7 +872,7 @@ func encodedPK(table *Table, valuesByColID map[uint32]TypedValue) ([]byte, error
 	return valbuf.Bytes(), nil
 }
 
-func (tx *SQLTx) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (*Row, error) {
+func (tx *SQLTx) fetchPKRow(ctx context.Context, table *Table, valuesByColID map[uint32]TypedValue) (*Row, error) {
 	pkRanges := make(map[uint32]*typedValueRange, len(table.primaryIndex.cols))
 
 	for _, pkCol := range table.primaryIndex.cols {
@@ -897,7 +898,7 @@ func (tx *SQLTx) fetchPKRow(table *Table, valuesByColID map[uint32]TypedValue) (
 		r.Close()
 	}()
 
-	return r.Read()
+	return r.Read(ctx)
 }
 
 // deprecateIndexEntries mark previous index entries as deleted
@@ -988,7 +989,7 @@ type colUpdate struct {
 	val ValueExp
 }
 
-func (stmt *UpdateStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *UpdateStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	if tx.currentDB == nil {
 		return ErrNoDatabaseSelected
 	}
@@ -998,7 +999,7 @@ func (stmt *UpdateStmt) inferParameters(tx *SQLTx, params map[string]SQLValueTyp
 		where: stmt.where,
 	}
 
-	err := selectStmt.inferParameters(tx, params)
+	err := selectStmt.inferParameters(ctx, tx, params)
 	if err != nil {
 		return err
 	}
@@ -1051,7 +1052,7 @@ func (stmt *UpdateStmt) validate(table *Table) error {
 	return nil
 }
 
-func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *UpdateStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -1064,7 +1065,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 		offset:  stmt.offset,
 	}
 
-	rowReader, err := selectStmt.Resolve(tx, params, nil)
+	rowReader, err := selectStmt.Resolve(ctx, tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,13 +1078,13 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 		return nil, err
 	}
 
-	cols, err := rowReader.colsBySelector()
+	cols, err := rowReader.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
-		row, err := rowReader.Read()
+		row, err := rowReader.Read(ctx)
 		if err == ErrNoMoreRows {
 			break
 		}
@@ -1133,7 +1134,7 @@ func (stmt *UpdateStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 			return nil, err
 		}
 
-		err = tx.doUpsert(pkEncVals, valuesByColID, table, true)
+		err = tx.doUpsert(ctx, pkEncVals, valuesByColID, table, true)
 		if err != nil {
 			return nil, err
 		}
@@ -1150,15 +1151,15 @@ type DeleteFromStmt struct {
 	offset   int
 }
 
-func (stmt *DeleteFromStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *DeleteFromStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	selectStmt := &SelectStmt{
 		ds:    stmt.tableRef,
 		where: stmt.where,
 	}
-	return selectStmt.inferParameters(tx, params)
+	return selectStmt.inferParameters(ctx, tx, params)
 }
 
-func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *DeleteFromStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -1171,7 +1172,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 		offset:  stmt.offset,
 	}
 
-	rowReader, err := selectStmt.Resolve(tx, params, nil)
+	rowReader, err := selectStmt.Resolve(ctx, tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1180,7 +1181,7 @@ func (stmt *DeleteFromStmt) execAt(tx *SQLTx, params map[string]interface{}) (*S
 	table := rowReader.ScanSpecs().Index.table
 
 	for {
-		row, err := rowReader.Read()
+		row, err := rowReader.Read(ctx)
 		if err == ErrNoMoreRows {
 			break
 		}
@@ -2068,7 +2069,7 @@ const (
 
 type DataSource interface {
 	SQLStmt
-	Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error)
+	Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error)
 	Alias() string
 }
 
@@ -2095,23 +2096,23 @@ func (stmt *SelectStmt) Offset() int {
 	return stmt.offset
 }
 
-func (stmt *SelectStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	_, err := stmt.execAt(tx, nil)
+func (stmt *SelectStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	_, err := stmt.execAt(ctx, tx, nil)
 	if err != nil {
 		return err
 	}
 
 	// TODO (jeroiraz) may be optimized so to resolve the query statement just once
-	rowReader, err := stmt.Resolve(tx, nil, nil)
+	rowReader, err := stmt.Resolve(ctx, tx, nil, nil)
 	if err != nil {
 		return err
 	}
 	defer rowReader.Close()
 
-	return rowReader.InferParameters(params)
+	return rowReader.InferParameters(ctx, params)
 }
 
-func (stmt *SelectStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *SelectStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	if tx.currentDB == nil {
 		return nil, ErrNoDatabaseSelected
 	}
@@ -2153,13 +2154,13 @@ func (stmt *SelectStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx
 	return tx, nil
 }
 
-func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+func (stmt *SelectStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
 	scanSpecs, err := stmt.genScanSpecs(tx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	rowReader, err := stmt.ds.Resolve(tx, params, scanSpecs)
+	rowReader, err := stmt.ds.Resolve(ctx, tx, params, scanSpecs)
 	if err != nil {
 		return nil, err
 	}
@@ -2206,14 +2207,14 @@ func (stmt *SelectStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Sca
 		}
 	}
 
-	projectedRowReader, err := newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
+	projectedRowReader, err := newProjectedRowReader(ctx, rowReader, stmt.as, stmt.selectors)
 	if err != nil {
 		return nil, err
 	}
 	rowReader = projectedRowReader
 
 	if stmt.distinct {
-		distinctRowReader, err := newDistinctRowReader(rowReader)
+		distinctRowReader, err := newDistinctRowReader(ctx, rowReader)
 		if err != nil {
 			return nil, err
 		}
@@ -2325,26 +2326,26 @@ type UnionStmt struct {
 	left, right DataSource
 }
 
-func (stmt *UnionStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
-	err := stmt.left.inferParameters(tx, params)
+func (stmt *UnionStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
+	err := stmt.left.inferParameters(ctx, tx, params)
 	if err != nil {
 		return err
 	}
 
-	return stmt.right.inferParameters(tx, params)
+	return stmt.right.inferParameters(ctx, tx, params)
 }
 
-func (stmt *UnionStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
-	_, err := stmt.left.execAt(tx, params)
+func (stmt *UnionStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+	_, err := stmt.left.execAt(ctx, tx, params)
 	if err != nil {
 		return tx, err
 	}
 
-	return stmt.right.execAt(tx, params)
+	return stmt.right.execAt(ctx, tx, params)
 }
 
-func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{}) (ret RowReader, err error) {
-	leftRowReader, err := stmt.left.Resolve(tx, params, nil)
+func (stmt *UnionStmt) resolveUnionAll(ctx context.Context, tx *SQLTx, params map[string]interface{}) (ret RowReader, err error) {
+	leftRowReader, err := stmt.left.Resolve(ctx, tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2354,7 +2355,7 @@ func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{})
 		}
 	}()
 
-	rightRowReader, err := stmt.right.Resolve(tx, params, nil)
+	rightRowReader, err := stmt.right.Resolve(ctx, tx, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2364,7 +2365,7 @@ func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{})
 		}
 	}()
 
-	rowReader, err := newUnionRowReader([]RowReader{leftRowReader, rightRowReader})
+	rowReader, err := newUnionRowReader(ctx, []RowReader{leftRowReader, rightRowReader})
 	if err != nil {
 		return nil, err
 	}
@@ -2372,8 +2373,8 @@ func (stmt *UnionStmt) resolveUnionAll(tx *SQLTx, params map[string]interface{})
 	return rowReader, nil
 }
 
-func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
-	rowReader, err := stmt.resolveUnionAll(tx, params)
+func (stmt *UnionStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (ret RowReader, err error) {
+	rowReader, err := stmt.resolveUnionAll(ctx, tx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2384,7 +2385,7 @@ func (stmt *UnionStmt) Resolve(tx *SQLTx, params map[string]interface{}, _ *Scan
 	}()
 
 	if stmt.distinct {
-		distinctReader, err := newDistinctRowReader(rowReader)
+		distinctReader, err := newDistinctRowReader(ctx, rowReader)
 		if err != nil {
 			return nil, err
 		}
@@ -2530,15 +2531,15 @@ func (stmt *tableRef) referencedTable(tx *SQLTx) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *tableRef) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *tableRef) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
-func (stmt *tableRef) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *tableRef) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return tx, nil
 }
 
-func (stmt *tableRef) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
+func (stmt *tableRef) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (RowReader, error) {
 	if tx == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -3602,11 +3603,11 @@ type FnDataSourceStmt struct {
 	as     string
 }
 
-func (stmt *FnDataSourceStmt) execAt(tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
+func (stmt *FnDataSourceStmt) execAt(ctx context.Context, tx *SQLTx, params map[string]interface{}) (*SQLTx, error) {
 	return tx, nil
 }
 
-func (stmt *FnDataSourceStmt) inferParameters(tx *SQLTx, params map[string]SQLValueType) error {
+func (stmt *FnDataSourceStmt) inferParameters(ctx context.Context, tx *SQLTx, params map[string]SQLValueType) error {
 	return nil
 }
 
@@ -3638,7 +3639,7 @@ func (stmt *FnDataSourceStmt) Alias() string {
 	return ""
 }
 
-func (stmt *FnDataSourceStmt) Resolve(tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) Resolve(ctx context.Context, tx *SQLTx, params map[string]interface{}, scanSpecs *ScanSpecs) (rowReader RowReader, err error) {
 	if stmt.fnCall == nil {
 		return nil, fmt.Errorf("%w: function is unspecified", ErrIllegalArguments)
 	}
@@ -3646,26 +3647,26 @@ func (stmt *FnDataSourceStmt) Resolve(tx *SQLTx, params map[string]interface{}, 
 	switch strings.ToUpper(stmt.fnCall.fn) {
 	case DatabasesFnCall:
 		{
-			return stmt.resolveListDatabases(tx, params, scanSpecs)
+			return stmt.resolveListDatabases(ctx, tx, params, scanSpecs)
 		}
 	case TablesFnCall:
 		{
-			return stmt.resolveListTables(tx, params, scanSpecs)
+			return stmt.resolveListTables(ctx, tx, params, scanSpecs)
 		}
 	case ColumnsFnCall:
 		{
-			return stmt.resolveListColumns(tx, params, scanSpecs)
+			return stmt.resolveListColumns(ctx, tx, params, scanSpecs)
 		}
 	case IndexesFnCall:
 		{
-			return stmt.resolveListIndexes(tx, params, scanSpecs)
+			return stmt.resolveListIndexes(ctx, tx, params, scanSpecs)
 		}
 	}
 
 	return nil, fmt.Errorf("%w (%s)", ErrFunctionDoesNotExist, stmt.fnCall.fn)
 }
 
-func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) resolveListDatabases(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
 	if len(stmt.fnCall.params) > 0 {
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, DatabasesFnCall, len(stmt.fnCall.params))
 	}
@@ -3685,7 +3686,7 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]
 			dbs[i] = db.name
 		}
 	} else {
-		dbs, err = tx.engine.multidbHandler.ListDatabases(tx.Context())
+		dbs, err = tx.engine.multidbHandler.ListDatabases(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -3697,10 +3698,10 @@ func (stmt *FnDataSourceStmt) resolveListDatabases(tx *SQLTx, params map[string]
 		values[i] = []ValueExp{&Varchar{val: db}}
 	}
 
-	return newValuesRowReader(tx, cols, "*", stmt.Alias(), values)
+	return newValuesRowReader(ctx, tx, cols, "*", stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
+func (stmt *FnDataSourceStmt) resolveListTables(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (rowReader RowReader, err error) {
 	if len(stmt.fnCall.params) > 0 {
 		return nil, fmt.Errorf("%w: function '%s' expect no parameters but %d were provided", ErrIllegalArguments, TablesFnCall, len(stmt.fnCall.params))
 	}
@@ -3721,10 +3722,10 @@ func (stmt *FnDataSourceStmt) resolveListTables(tx *SQLTx, params map[string]int
 		values[i] = []ValueExp{&Varchar{val: t.name}}
 	}
 
-	return newValuesRowReader(tx, cols, db.name, stmt.Alias(), values)
+	return newValuesRowReader(ctx, tx, cols, db.name, stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+func (stmt *FnDataSourceStmt) resolveListColumns(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
 	if len(stmt.fnCall.params) != 1 {
 		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, ColumnsFnCall)
 	}
@@ -3816,10 +3817,10 @@ func (stmt *FnDataSourceStmt) resolveListColumns(tx *SQLTx, params map[string]in
 		}
 	}
 
-	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
+	return newValuesRowReader(ctx, tx, cols, table.db.name, stmt.Alias(), values)
 }
 
-func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
+func (stmt *FnDataSourceStmt) resolveListIndexes(ctx context.Context, tx *SQLTx, params map[string]interface{}, _ *ScanSpecs) (RowReader, error) {
 	if len(stmt.fnCall.params) != 1 {
 		return nil, fmt.Errorf("%w: function '%s' expect table name as parameter", ErrIllegalArguments, IndexesFnCall)
 	}
@@ -3873,5 +3874,5 @@ func (stmt *FnDataSourceStmt) resolveListIndexes(tx *SQLTx, params map[string]in
 		}
 	}
 
-	return newValuesRowReader(tx, cols, table.db.name, stmt.Alias(), values)
+	return newValuesRowReader(ctx, tx, cols, table.db.name, stmt.Alias(), values)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"math"
@@ -30,13 +31,13 @@ type RowReader interface {
 	TableAlias() string
 	Parameters() map[string]interface{}
 	SetParameters(params map[string]interface{}) error
-	Read() (*Row, error)
+	Read(ctx context.Context) (*Row, error)
 	Close() error
-	Columns() ([]ColDescriptor, error)
+	Columns(ctx context.Context) ([]ColDescriptor, error)
 	OrderBy() []ColDescriptor
 	ScanSpecs() *ScanSpecs
-	InferParameters(params map[string]SQLValueType) error
-	colsBySelector() (map[string]ColDescriptor, error)
+	InferParameters(ctx context.Context, params map[string]SQLValueType) error
+	colsBySelector(ctx context.Context) (map[string]ColDescriptor, error)
 	onClose(func())
 }
 
@@ -297,7 +298,7 @@ func (r *rawRowReader) ScanSpecs() *ScanSpecs {
 	return r.scanSpecs
 }
 
-func (r *rawRowReader) Columns() ([]ColDescriptor, error) {
+func (r *rawRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
 	ret := make([]ColDescriptor, len(r.colsByPos))
 	for i := range r.colsByPos {
 		ret[i] = r.colsByPos[i]
@@ -305,7 +306,7 @@ func (r *rawRowReader) Columns() ([]ColDescriptor, error) {
 	return ret, nil
 }
 
-func (r *rawRowReader) colsBySelector() (map[string]ColDescriptor, error) {
+func (r *rawRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
 	ret := make(map[string]ColDescriptor, len(r.colsBySel))
 	for sel := range r.colsBySel {
 		ret[sel] = r.colsBySel[sel]
@@ -313,8 +314,8 @@ func (r *rawRowReader) colsBySelector() (map[string]ColDescriptor, error) {
 	return ret, nil
 }
 
-func (r *rawRowReader) InferParameters(params map[string]SQLValueType) error {
-	cols, err := r.colsBySelector()
+func (r *rawRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	cols, err := r.colsBySelector(ctx)
 	if err != nil {
 		return err
 	}
@@ -380,7 +381,7 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 	return nil
 }
 
-func (r *rawRowReader) Read() (row *Row, err error) {
+func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
 	var mkey []byte
 	var vref store.ValueRef
 

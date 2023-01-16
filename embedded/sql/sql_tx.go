@@ -47,10 +47,6 @@ type SQLTx struct {
 	closed    bool
 }
 
-func (sqlTx *SQLTx) Context() context.Context {
-	return sqlTx.tx.Context()
-}
-
 func (sqlTx *SQLTx) Catalog() *Catalog {
 	return sqlTx.catalog
 }
@@ -129,7 +125,7 @@ func (sqlTx *SQLTx) Cancel() error {
 	return sqlTx.tx.Cancel()
 }
 
-func (sqlTx *SQLTx) commit() error {
+func (sqlTx *SQLTx) commit(ctx context.Context) error {
 	if sqlTx.closed {
 		return ErrAlreadyClosed
 	}
@@ -137,7 +133,7 @@ func (sqlTx *SQLTx) commit() error {
 	sqlTx.committed = true
 	sqlTx.closed = true
 
-	hdr, err := sqlTx.tx.Commit()
+	hdr, err := sqlTx.tx.Commit(ctx)
 	if err != nil && err != store.ErrorNoEntriesProvided {
 		return err
 	}

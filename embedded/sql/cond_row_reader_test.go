@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,14 +28,14 @@ func TestConditionalRowReader(t *testing.T) {
 
 	rowReader := newConditionalRowReader(dummyr, &Bool{val: true})
 
-	_, err := rowReader.Columns()
+	_, err := rowReader.Columns(context.Background())
 	require.Equal(t, errDummy, err)
 
-	err = rowReader.InferParameters(nil)
+	err = rowReader.InferParameters(context.Background(), nil)
 	require.Equal(t, errDummy, err)
 
 	dummyr.failInferringParams = true
 
-	err = rowReader.InferParameters(nil)
+	err = rowReader.InferParameters(context.Background(), nil)
 	require.Equal(t, errDummy, err)
 }

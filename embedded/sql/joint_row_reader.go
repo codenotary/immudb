@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/multierr"
@@ -76,12 +77,12 @@ func (jointr *jointRowReader) ScanSpecs() *ScanSpecs {
 	return jointr.rowReader.ScanSpecs()
 }
 
-func (jointr *jointRowReader) Columns() ([]ColDescriptor, error) {
-	return jointr.colsByPos()
+func (jointr *jointRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
+	return jointr.colsByPos(ctx)
 }
 
-func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error) {
-	colDescriptors, err := jointr.rowReader.colsBySelector()
+func (jointr *jointRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
+	colDescriptors, err := jointr.rowReader.colsBySelector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,13 +93,13 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
+		rr, err := jspec.ds.Resolve(ctx, jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
 		defer rr.Close()
 
-		cd, err := rr.colsBySelector()
+		cd, err := rr.colsBySelector(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -120,8 +121,8 @@ func (jointr *jointRowReader) colsBySelector() (map[string]ColDescriptor, error)
 	return colDescriptors, nil
 }
 
-func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
-	colDescriptors, err := jointr.rowReader.Columns()
+func (jointr *jointRowReader) colsByPos(ctx context.Context) ([]ColDescriptor, error) {
+	colDescriptors, err := jointr.rowReader.Columns(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -132,13 +133,13 @@ func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
 		//            on jointRowReader creation,
 		// Note: We're using a dummy ScanSpec object that is only used during read, we're only interested
 		//       in column list though
-		rr, err := jspec.ds.Resolve(jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
+		rr, err := jspec.ds.Resolve(ctx, jointr.Tx(), nil, &ScanSpecs{Index: &Index{}})
 		if err != nil {
 			return nil, err
 		}
 		defer rr.Close()
 
-		cd, err := rr.Columns()
+		cd, err := rr.Columns(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -149,19 +150,19 @@ func (jointr *jointRowReader) colsByPos() ([]ColDescriptor, error) {
 	return colDescriptors, nil
 }
 
-func (jointr *jointRowReader) InferParameters(params map[string]SQLValueType) error {
-	err := jointr.rowReader.InferParameters(params)
+func (jointr *jointRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	err := jointr.rowReader.InferParameters(ctx, params)
 	if err != nil {
 		return err
 	}
 
-	cols, err := jointr.colsBySelector()
+	cols, err := jointr.colsBySelector(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, join := range jointr.joins {
-		err = join.ds.inferParameters(jointr.Tx(), params)
+		err = join.ds.inferParameters(ctx, jointr.Tx(), params)
 		if err != nil {
 			return err
 		}
@@ -183,7 +184,7 @@ func (jointr *jointRowReader) SetParameters(params map[string]interface{}) error
 	return jointr.rowReader.SetParameters(params)
 }
 
-func (jointr *jointRowReader) Read() (row *Row, err error) {
+func (jointr *jointRowReader) Read(ctx context.Context) (row *Row, err error) {
 	for {
 		row := &Row{
 			ValuesByPosition: make([]TypedValue, 0),
@@ -193,7 +194,7 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 		for len(jointr.rowReaders) > 0 {
 			lastReader := jointr.rowReaders[len(jointr.rowReaders)-1]
 
-			r, err := lastReader.Read()
+			r, err := lastReader.Read(ctx)
 			if err == ErrNoMoreRows {
 				// previous reader will need to read next row
 				jointr.rowReaders = jointr.rowReaders[:len(jointr.rowReaders)-1]
@@ -240,12 +241,12 @@ func (jointr *jointRowReader) Read() (row *Row, err error) {
 				indexOn: jspec.indexOn,
 			}
 
-			reader, err := jointq.Resolve(jointr.Tx(), jointr.Parameters(), nil)
+			reader, err := jointq.Resolve(ctx, jointr.Tx(), jointr.Parameters(), nil)
 			if err != nil {
 				return nil, err
 			}
 
-			r, err := reader.Read()
+			r, err := reader.Read(ctx)
 			if err == ErrNoMoreRows {
 				// previous reader will need to read next row
 				unsolvedFK = true

@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type conditionalRowReader struct {
 	rowReader RowReader
@@ -63,21 +66,21 @@ func (cr *conditionalRowReader) ScanSpecs() *ScanSpecs {
 	return cr.rowReader.ScanSpecs()
 }
 
-func (cr *conditionalRowReader) Columns() ([]ColDescriptor, error) {
-	return cr.rowReader.Columns()
+func (cr *conditionalRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
+	return cr.rowReader.Columns(ctx)
 }
 
-func (cr *conditionalRowReader) colsBySelector() (map[string]ColDescriptor, error) {
-	return cr.rowReader.colsBySelector()
+func (cr *conditionalRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
+	return cr.rowReader.colsBySelector(ctx)
 }
 
-func (cr *conditionalRowReader) InferParameters(params map[string]SQLValueType) error {
-	err := cr.rowReader.InferParameters(params)
+func (cr *conditionalRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
+	err := cr.rowReader.InferParameters(ctx, params)
 	if err != nil {
 		return err
 	}
 
-	cols, err := cr.colsBySelector()
+	cols, err := cr.colsBySelector(ctx)
 	if err != nil {
 		return err
 	}
@@ -87,9 +90,9 @@ func (cr *conditionalRowReader) InferParameters(params map[string]SQLValueType) 
 	return err
 }
 
-func (cr *conditionalRowReader) Read() (*Row, error) {
+func (cr *conditionalRowReader) Read(ctx context.Context) (*Row, error) {
 	for {
-		row, err := cr.rowReader.Read()
+		row, err := cr.rowReader.Read(ctx)
 		if err != nil {
 			return nil, err
 		}

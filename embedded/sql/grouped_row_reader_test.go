@@ -60,7 +60,7 @@ func TestGroupedRowReader(t *testing.T) {
 	require.Equal(t, "id", orderBy[0].Column)
 	require.Equal(t, "table1", orderBy[0].Table)
 
-	cols, err := gr.Columns()
+	cols, err := gr.Columns(context.Background())
 	require.NoError(t, err)
 	require.Len(t, cols, 1)
 

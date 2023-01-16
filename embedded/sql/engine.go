@@ -146,8 +146,8 @@ func (e *Engine) SetMultiDBHandler(handler MultiDBHandler) {
 	e.multidbHandler = handler
 }
 
-func (e *Engine) SetCurrentDatabase(dbName string) error {
-	tx, err := e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
+func (e *Engine) SetCurrentDatabase(ctx context.Context, dbName string) error {
+	tx, err := e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
 	if err != nil {
 		return err
 	}
@@ -229,17 +229,17 @@ func (e *Engine) NewTx(ctx context.Context, opts *TxOptions) (*SQLTx, error) {
 	}, nil
 }
 
-func (e *Engine) Exec(sql string, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
+func (e *Engine) Exec(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
 
-	return e.ExecPreparedStmts(stmts, params, tx)
+	return e.ExecPreparedStmts(ctx, tx, stmts, params)
 }
 
-func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
-	ntx, ctxs, pendingStmts, err := e.execPreparedStmts(stmts, params, tx)
+func (e *Engine) ExecPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, err error) {
+	ntx, ctxs, pendingStmts, err := e.execPreparedStmts(ctx, tx, stmts, params)
 	if err != nil {
 		return ntx, ctxs, err
 	}
@@ -251,14 +251,11 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			return ntx, ctxs, fmt.Errorf("%w: all statements should have been executed when not using a multidbHandler", ErrUnexpected)
 		}
 
-		var ctx context.Context
 		var opts *TxOptions
 
 		if tx != nil {
-			ctx = tx.Context()
 			opts = tx.opts
 		} else {
-			ctx = context.Background()
 			opts = DefaultTxOptions()
 		}
 
@@ -270,7 +267,7 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	return ntx, ctxs, nil
 }
 
-func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{}, tx *SQLTx) (ntx *SQLTx, committedTxs []*SQLTx, pendingStmts []SQLStmt, err error) {
+func (e *Engine) execPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLStmt, params map[string]interface{}) (ntx *SQLTx, committedTxs []*SQLTx, pendingStmts []SQLStmt, err error) {
 	if len(stmts) == 0 {
 		return nil, nil, stmts, ErrIllegalArguments
 	}
@@ -293,7 +290,7 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 
 		// handle the case when working in non-autocommit mode outside a transaction block
 		if isDBSelectionStmt && (currTx != nil && !currTx.closed) && !currTx.explicitClose {
-			err = currTx.commit()
+			err = currTx.commit(ctx)
 			if err == nil {
 				committedTxs = append(committedTxs, currTx)
 			}
@@ -303,17 +300,13 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		}
 
 		if currTx == nil || currTx.closed {
-			var ctx context.Context
 			var opts *TxOptions
 
 			if currTx != nil {
-				ctx = currTx.Context()
 				opts = currTx.opts
 			} else if tx != nil {
-				ctx = tx.Context()
 				opts = tx.opts
 			} else {
-				ctx = context.Background()
 				opts = DefaultTxOptions()
 			}
 
@@ -324,14 +317,14 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 			}
 		}
 
-		ntx, err := stmt.execAt(currTx, nparams)
+		ntx, err := stmt.execAt(ctx, currTx, nparams)
 		if err != nil {
 			currTx.Cancel()
 			return nil, committedTxs, stmts[execStmts:], err
 		}
 
 		if !currTx.closed && !currTx.explicitClose && e.autocommit {
-			err = currTx.commit()
+			err = currTx.commit(ctx)
 			if err != nil {
 				return nil, committedTxs, stmts[execStmts:], err
 			}
@@ -351,7 +344,7 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	}
 
 	if currTx != nil && !currTx.closed && !currTx.explicitClose {
-		err = currTx.commit()
+		err = currTx.commit(ctx)
 		if err != nil {
 			return nil, committedTxs, stmts[execStmts:], err
 		}
@@ -366,7 +359,7 @@ func (e *Engine) execPreparedStmts(stmts []SQLStmt, params map[string]interface{
 	return currTx, committedTxs, stmts[execStmts:], nil
 }
 
-func (e *Engine) Query(sql string, params map[string]interface{}, tx *SQLTx) (RowReader, error) {
+func (e *Engine) Query(ctx context.Context, tx *SQLTx, sql string, params map[string]interface{}) (RowReader, error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
@@ -380,10 +373,10 @@ func (e *Engine) Query(sql string, params map[string]interface{}, tx *SQLTx) (Ro
 		return nil, ErrExpectingDQLStmt
 	}
 
-	return e.QueryPreparedStmt(stmt, params, tx)
+	return e.QueryPreparedStmt(ctx, tx, stmt, params)
 }
 
-func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{}, tx *SQLTx) (rowReader RowReader, err error) {
+func (e *Engine) QueryPreparedStmt(ctx context.Context, tx *SQLTx, stmt DataSource, params map[string]interface{}) (rowReader RowReader, err error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -391,7 +384,7 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
+		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
@@ -407,12 +400,12 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 		return nil, err
 	}
 
-	_, err = stmt.execAt(qtx, nparams)
+	_, err = stmt.execAt(ctx, qtx, nparams)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := stmt.Resolve(qtx, nparams, nil)
+	r, err := stmt.Resolve(ctx, qtx, nparams, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -426,11 +419,11 @@ func (e *Engine) QueryPreparedStmt(stmt DataSource, params map[string]interface{
 	return r, nil
 }
 
-func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
+func (e *Engine) Catalog(ctx context.Context, tx *SQLTx) (catalog *Catalog, err error) {
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
+		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
@@ -440,16 +433,16 @@ func (e *Engine) Catalog(tx *SQLTx) (catalog *Catalog, err error) {
 	return qtx.Catalog(), nil
 }
 
-func (e *Engine) InferParameters(sql string, tx *SQLTx) (params map[string]SQLValueType, err error) {
+func (e *Engine) InferParameters(ctx context.Context, tx *SQLTx, sql string) (params map[string]SQLValueType, err error) {
 	stmts, err := Parse(strings.NewReader(sql))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrParsingError, err)
 	}
 
-	return e.InferParametersPreparedStmts(stmts, tx)
+	return e.InferParametersPreparedStmts(ctx, tx, stmts)
 }
 
-func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (params map[string]SQLValueType, err error) {
+func (e *Engine) InferParametersPreparedStmts(ctx context.Context, tx *SQLTx, stmts []SQLStmt) (params map[string]SQLValueType, err error) {
 	if len(stmts) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -457,7 +450,7 @@ func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (param
 	qtx := tx
 
 	if qtx == nil {
-		qtx, err = e.NewTx(context.Background(), DefaultTxOptions().WithReadOnly(true))
+		qtx, err = e.NewTx(ctx, DefaultTxOptions().WithReadOnly(true))
 		if err != nil {
 			return nil, err
 		}
@@ -467,7 +460,7 @@ func (e *Engine) InferParametersPreparedStmts(stmts []SQLStmt, tx *SQLTx) (param
 	params = make(map[string]SQLValueType)
 
 	for _, stmt := range stmts {
-		err = stmt.inferParameters(qtx, params)
+		err = stmt.inferParameters(ctx, qtx, params)
 		if err != nil {
 			return nil, err
 		}

@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"context"
 	"errors"
 )
 
@@ -48,7 +49,7 @@ func (r *dummyRowReader) TableAlias() string {
 	return "table1"
 }
 
-func (r *dummyRowReader) Read() (*Row, error) {
+func (r *dummyRowReader) Read(ctx context.Context) (*Row, error) {
 	return nil, errDummy
 }
 
@@ -71,7 +72,7 @@ func (r *dummyRowReader) ScanSpecs() *ScanSpecs {
 	return nil
 }
 
-func (r *dummyRowReader) Columns() ([]ColDescriptor, error) {
+func (r *dummyRowReader) Columns(ctx context.Context) ([]ColDescriptor, error) {
 	if r.failReturningColumns {
 		return nil, errDummy
 	}
@@ -93,7 +94,7 @@ func (r *dummyRowReader) SetParameters(params map[string]interface{}) error {
 	return nil
 }
 
-func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
+func (r *dummyRowReader) InferParameters(ctx context.Context, params map[string]SQLValueType) error {
 	if r.failInferringParams {
 		return errDummy
 	}
@@ -101,6 +102,6 @@ func (r *dummyRowReader) InferParameters(params map[string]SQLValueType) error {
 	return nil
 }
 
-func (r *dummyRowReader) colsBySelector() (map[string]ColDescriptor, error) {
+func (r *dummyRowReader) colsBySelector(ctx context.Context) (map[string]ColDescriptor, error) {
 	return nil, errDummy
 }
