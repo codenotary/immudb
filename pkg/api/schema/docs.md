@@ -1846,6 +1846,12 @@ ServerInfoResponse contains information about the server instance.
 TxMetadata contains metadata set to whole transaction
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| hasTruncatedTxID | [bool](#bool) |  | True if this metadata has a truncated transaction |
+| truncatedTxID | [uint64](#uint64) |  | Entry expiration information |
+
+
 
 
 
