@@ -3516,6 +3516,17 @@
     },
     "schemaTxMetadata": {
       "type": "object",
+      "properties": {
+        "hasTruncatedTxID": {
+          "type": "boolean",
+          "title": "True if this metadata has a truncated transaction"
+        },
+        "truncatedTxID": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Entry expiration information"
+        }
+      },
       "title": "TxMetadata contains metadata set to whole transaction"
     },
     "schemaTxMode": {
