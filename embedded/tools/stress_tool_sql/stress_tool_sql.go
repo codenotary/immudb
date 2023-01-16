@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"math/rand"
@@ -148,18 +149,18 @@ func main() {
 	}
 	log.Printf("SQL engine successfully initialized!\r\n")
 
-	_, _, err = engine.Exec("CREATE DATABASE defaultdb;", map[string]interface{}{}, nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE defaultdb;", map[string]interface{}{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, _, err = engine.Exec("USE DATABASE defaultdb;", map[string]interface{}{}, nil)
+	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE defaultdb;", map[string]interface{}{})
 	if err != nil {
 		panic(err)
 	}
 
 	log.Printf("Creating tables\r\n")
-	_, _, err = engine.Exec("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{})
 	if err != nil {
 		panic(err)
 	}
@@ -199,8 +200,9 @@ func main() {
 			log.Printf("Committer %d is inserting data...\r\n", id)
 			for i := 0; i < c.kvCount; i++ {
 				entry := <-entries
-				_, _, err = engine.Exec("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
-					map[string]interface{}{"id": entry.id, "value": entry.value}, nil)
+				_, _, err = engine.Exec(context.Background(), nil,
+					"INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
+					map[string]interface{}{"id": entry.id, "value": entry.value})
 				if err != nil {
 					panic(err)
 				}
@@ -217,12 +219,12 @@ func main() {
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				r, err := engine.Query("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, nil)
+				r, err := engine.Query(context.Background(), nil, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i})
 				if err != nil {
 					log.Printf("Error querying val %d: %s", i, err.Error())
 					panic(err)
 				}
-				ret, err := r.Read()
+				ret, err := r.Read(context.Background())
 				if err != nil {
 					log.Printf("Error reading val %d: %s", i, err.Error())
 					panic(err)
@@ -243,11 +245,11 @@ func main() {
 	wg.Wait()
 	log.Printf("All committers done...\r\n")
 
-	r, err := engine.Query("SELECT count() FROM  entries;", map[string]interface{}{}, nil)
+	r, err := engine.Query(context.Background(), nil, "SELECT count() FROM  entries;", map[string]interface{}{})
 	if err != nil {
 		panic(err)
 	}
-	row, err := r.Read()
+	row, err := r.Read(context.Background())
 	if err != nil {
 		panic(err)
 	}
