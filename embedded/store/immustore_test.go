@@ -689,7 +689,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 			}()
 
 			// wait for the tx to be waiting for sync to happen
-			err = store.inmemPrecommitWHub.WaitFor(1, nil)
+			err = store.inmemPrecommitWHub.WaitFor(context.Background(), 1)
 			require.NoError(t, err)
 
 			err = store.Sync()
