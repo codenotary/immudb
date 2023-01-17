@@ -382,6 +382,10 @@ func (r *rawRowReader) reduceTxRange() (err error) {
 }
 
 func (r *rawRowReader) Read(ctx context.Context) (row *Row, err error) {
+	if ctx.Err() != nil {
+		return nil, err
+	}
+
 	var mkey []byte
 	var vref store.ValueRef
 
