@@ -103,20 +103,20 @@ type DB interface {
 	// SQL-related
 	NewSQLTx(ctx context.Context, opts *sql.TxOptions) (*sql.SQLTx, error)
 
-	SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
-	SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	SQLExec(ctx context.Context, tx *sql.SQLTx, req *schema.SQLExecRequest) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
+	SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQLStmt, params map[string]interface{}) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error)
 
-	InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
-	InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error)
+	InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (map[string]sql.SQLValueType, error)
+	InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error)
 
-	SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error)
+	SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error)
+	SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error)
 
 	VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 
-	ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error)
-	DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	ListTables(ctx context.Context, tx *sql.SQLTx) (*schema.SQLQueryResult, error)
+	DescribeTable(ctx context.Context, tx *sql.SQLTx, table string) (*schema.SQLQueryResult, error)
 
 	// Transactional layer
 	WaitForTx(ctx context.Context, txID uint64, allowPrecommitted bool) error
@@ -234,7 +234,7 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 		dbi.Logger.Infof("Loading SQL Engine for database '%s' {replica = %v}...", dbName, op.replica)
 
-		err := dbi.initSQLEngine()
+		err := dbi.initSQLEngine(context.Background())
 		if err != nil {
 			dbi.Logger.Errorf("Unable to load SQL Engine for database '%s' {replica = %v}. %v", dbName, op.replica, err)
 			return
@@ -266,8 +266,8 @@ func (d *db) releaseTx(tx *store.Tx) {
 	d.txPool.Release(tx)
 }
 
-func (d *db) initSQLEngine() error {
-	err := d.sqlEngine.SetCurrentDatabase(dbInstanceName)
+func (d *db) initSQLEngine(ctx context.Context) error {
+	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
 	if err != nil && err != sql.ErrDatabaseDoesNotExist {
 		return err
 	}
@@ -341,12 +341,12 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	if !op.replica {
 		// TODO: get rid off this sql initialization
-		_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil, nil)
+		_, _, err = dbi.sqlEngine.ExecPreparedStmts(context.Background(), nil, []sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbInstanceName}}, nil)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
 
-		err = dbi.sqlEngine.SetCurrentDatabase(dbInstanceName)
+		err = dbi.sqlEngine.SetCurrentDatabase(context.Background(), dbInstanceName)
 		if err != nil {
 			return nil, logErr(dbi.Logger, "Unable to open database: %s", err)
 		}
@@ -446,9 +446,9 @@ func (d *db) set(ctx context.Context, req *schema.SetRequest) (*schema.TxHeader,
 	var hdr *store.TxHeader
 
 	if req.NoWait {
-		hdr, err = tx.AsyncCommit()
+		hdr, err = tx.AsyncCommit(ctx)
 	} else {
-		hdr, err = tx.Commit()
+		hdr, err = tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -888,9 +888,9 @@ func (d *db) Delete(ctx context.Context, req *schema.DeleteKeysRequest) (*schema
 
 	var hdr *store.TxHeader
 	if req.NoWait {
-		hdr, err = tx.AsyncCommit()
+		hdr, err = tx.AsyncCommit(ctx)
 	} else {
-		hdr, err = tx.Commit()
+		hdr, err = tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err
