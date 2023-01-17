@@ -31,8 +31,8 @@ import (
 
 var ErrSQLNotReady = errors.New("SQL catalog not yet replicated")
 
-func (d *db) reloadSQLCatalog() error {
-	err := d.sqlEngine.SetCurrentDatabase(dbInstanceName)
+func (d *db) reloadSQLCatalog(ctx context.Context) error {
+	err := d.sqlEngine.SetCurrentDatabase(ctx, dbInstanceName)
 	if err == sql.ErrDatabaseDoesNotExist {
 		return ErrSQLNotReady
 	}
@@ -54,7 +54,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	defer d.mutex.Unlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -224,18 +224,18 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex) (entry *sch
 	}, err
 }
 
-func (d *db) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (d *db) ListTables(ctx context.Context, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	catalog, err := d.sqlEngine.Catalog(tx)
+	catalog, err := d.sqlEngine.Catalog(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -254,18 +254,18 @@ func (d *db) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	return res, nil
 }
 
-func (d *db) DescribeTable(tableName string, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (d *db) DescribeTable(ctx context.Context, tx *sql.SQLTx, tableName string) (*schema.SQLQueryResult, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	catalog, err := d.sqlEngine.Catalog(tx)
+	catalog, err := d.sqlEngine.Catalog(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +328,44 @@ func (d *db) DescribeTable(tableName string, tx *sql.SQLTx) (*schema.SQLQueryRes
 	return res, nil
 }
 
-func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (*sql.SQLTx, error) {
-	return d.sqlEngine.NewTx(ctx, opts)
+func (d *db) NewSQLTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.SQLTx, err error) {
+	txCtx, txCancel := context.WithCancel(context.Background())
+
+	defer func() {
+		if err != nil {
+			txCancel()
+
+			if tx != nil {
+				tx.Cancel()
+			}
+		}
+	}()
+
+	txChan := make(chan *sql.SQLTx)
+	errChan := make(chan error)
+
+	go func() {
+		tx, err = d.sqlEngine.NewTx(txCtx, opts)
+		if err != nil {
+			errChan <- err
+		} else {
+			txChan <- tx
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		{
+			return nil, ctx.Err()
+		}
+	case tx := <-txChan:
+		{
+			return tx, nil
+		}
+	}
 }
 
-func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (d *db) SQLExec(ctx context.Context, tx *sql.SQLTx, req *schema.SQLExecRequest) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	if req == nil {
 		return nil, nil, ErrIllegalArguments
 	}
@@ -348,10 +381,10 @@ func (d *db) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx,
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	return d.SQLExecPrepared(stmts, params, tx)
+	return d.SQLExecPrepared(ctx, tx, stmts, params)
 }
 
-func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (d *db) SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQLStmt, params map[string]interface{}) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	if len(stmts) == 0 {
 		return nil, nil, ErrIllegalArguments
 	}
@@ -363,10 +396,10 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{},
 		return nil, nil, ErrIsReplica
 	}
 
-	return d.sqlEngine.ExecPreparedStmts(stmts, params, tx)
+	return d.sqlEngine.ExecPreparedStmts(ctx, tx, stmts, params)
 }
 
-func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -381,23 +414,23 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQu
 		return nil, sql.ErrExpectingDQLStmt
 	}
 
-	return d.SQLQueryPrepared(stmt, req.Params, tx)
+	return d.SQLQueryPrepared(ctx, tx, stmt, req.Params)
 }
 
-func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	r, err := d.SQLQueryRowReader(stmt, params, tx)
+	r, err := d.SQLQueryRowReader(ctx, tx, stmt, params)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	colDescriptors, err := r.Columns()
+	colDescriptors, err := r.Columns(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +456,7 @@ func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedPa
 	res := &schema.SQLQueryResult{Columns: cols}
 
 	for l := 1; ; l++ {
-		row, err := r.Read()
+		row, err := r.Read(ctx)
 		if err == sql.ErrNoMoreRows {
 			break
 		}
@@ -461,7 +494,7 @@ func (d *db) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedPa
 	return res, nil
 }
 
-func (d *db) SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
+func (d *db) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -470,41 +503,41 @@ func (d *db) SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.sqlEngine.QueryPreparedStmt(stmt, params, tx)
+	return d.sqlEngine.QueryPreparedStmt(ctx, tx, stmt, params)
 }
 
-func (d *db) InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
+func (d *db) InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.sqlEngine.InferParameters(sql, tx)
+	return d.sqlEngine.InferParameters(ctx, tx, sql)
 }
 
-func (d *db) InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
+func (d *db) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	if d.isReplica() {
-		err := d.reloadSQLCatalog()
+		err := d.reloadSQLCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.sqlEngine.InferParametersPreparedStmts([]sql.SQLStmt{stmt}, tx)
+	return d.sqlEngine.InferParametersPreparedStmts(ctx, tx, []sql.SQLStmt{stmt})
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {

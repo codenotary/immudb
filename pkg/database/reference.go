@@ -103,9 +103,9 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	var hdr *store.TxHeader
 
 	if req.NoWait {
-		hdr, err = tx.AsyncCommit()
+		hdr, err = tx.AsyncCommit(ctx)
 	} else {
-		hdr, err = tx.Commit()
+		hdr, err = tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err

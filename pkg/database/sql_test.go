@@ -31,42 +31,42 @@ func TestSQLExecAndQuery(t *testing.T) {
 
 	db.maxResultSize = 2
 
-	_, _, err := db.SQLExecPrepared(nil, nil, nil)
+	_, _, err := db.SQLExecPrepared(context.Background(), nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, _, err = db.SQLExec(nil, nil)
+	_, _, err = db.SQLExec(context.Background(), nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "invalid sql statement"}, nil)
+	_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "invalid sql statement"})
 	require.Error(t, err)
 
-	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
+	_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "CREATE DATABASE db1"})
 	require.Error(t, err)
 
-	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
+	_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "USE DATABASE db1"})
 	require.Error(t, err)
 
-	ntx, ctxs, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
+	ntx, ctxs, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: `
 		CREATE TABLE table1(id INTEGER AUTO_INCREMENT, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)
-	`}, nil)
+	`})
 	require.NoError(t, err)
 	require.Nil(t, ntx)
 	require.Len(t, ctxs, 1)
 
-	res, err := db.ListTables(nil)
+	res, err := db.ListTables(context.Background(), nil)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 
-	_, err = db.DescribeTable("table2", nil)
+	_, err = db.DescribeTable(context.Background(), nil, "table2")
 	require.ErrorIs(t, err, sql.ErrTableDoesNotExist)
 
-	res, err = db.DescribeTable("table1", nil)
+	res, err = db.DescribeTable(context.Background(), nil, "table1")
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 4)
 
-	ntx, ctxs, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
+	ntx, ctxs, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: `
 		INSERT INTO table1(title, active, payload) VALUES ('title1', null, null), ('title2', true, null), ('title3', false, x'AADD')
-	`}, nil)
+	`})
 	require.NoError(t, err)
 	require.Nil(t, ntx)
 	require.Len(t, ctxs, 1)
@@ -74,29 +74,29 @@ func TestSQLExecAndQuery(t *testing.T) {
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
-	_, err = db.SQLQueryPrepared(nil, nil, nil)
+	_, err = db.SQLQueryPrepared(context.Background(), nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = db.SQLQuery(nil, nil)
+	_, err = db.SQLQuery(context.Background(), nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "invalid sql statement"}, nil)
+	_, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "invalid sql statement"})
 	require.Error(t, err)
 
-	_, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"}, nil)
+	_, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: "CREATE INDEX ON table1(title)"})
 	require.Equal(t, sql.ErrExpectingDQLStmt, err)
 
 	q := "SELECT * FROM table1 LIMIT 1"
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
+	res, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 
 	q = "SELECT t.id, t.id as id2, title, active, payload FROM table1 t WHERE id <= 3 AND active != @active"
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: q, Params: params}, nil)
+	res, err = db.SQLQuery(context.Background(), nil, &schema.SQLQueryRequest{Sql: q, Params: params})
 	require.ErrorIs(t, err, ErrResultSizeLimitReached)
 	require.Len(t, res.Rows, 2)
 
-	inferredParams, err := db.InferParameters(q, nil)
+	inferredParams, err := db.InferParameters(context.Background(), nil, q)
 	require.NoError(t, err)
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
@@ -105,7 +105,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stmts, 1)
 
-	inferredParams, err = db.InferParametersPrepared(stmts[0], nil)
+	inferredParams, err = db.InferParametersPrepared(context.Background(), nil, stmts[0])
 	require.NoError(t, err)
 	require.Len(t, inferredParams, 1)
 	require.Equal(t, sql.BooleanType, inferredParams["active"])
@@ -184,24 +184,24 @@ func TestSQLExecAndQuery(t *testing.T) {
 func TestVerifiableSQLGet(t *testing.T) {
 	db := makeDb(t)
 
-	_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "CREATE DATABASE db1"}, nil)
+	_, _, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "CREATE DATABASE db1"})
 	require.Error(t, err)
 
-	_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: "USE DATABASE db1"}, nil)
+	_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: "USE DATABASE db1"})
 	require.Error(t, err)
 
 	t.Run("correctly handle verified get when incorrect number of primary key values is given", func(t *testing.T) {
-		_, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
+		_, _, err := db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: `
 			CREATE TABLE table1(
 				pk1 INTEGER,
 				pk2 INTEGER,
 				PRIMARY KEY (pk1, pk2))
-		`}, nil)
+		`})
 		require.NoError(t, err)
 
-		_, _, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
+		_, _, err = db.SQLExec(context.Background(), nil, &schema.SQLExecRequest{Sql: `
 			INSERT INTO table1(pk1, pk2) VALUES (1,11), (2,22), (3,33)
-		`}, nil)
+		`})
 		require.NoError(t, err)
 
 		_, err = db.VerifiableSQLGet(context.Background(), &schema.VerifiableSQLGetRequest{SqlGetRequest: &schema.SQLGetRequest{
