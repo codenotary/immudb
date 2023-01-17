@@ -40,15 +40,15 @@ func TestNewTx(t *testing.T) {
 	err = tx.Rollback()
 	require.NoError(t, err)
 
-	_, err = tx.SQLQuery(nil)
+	_, err = tx.SQLQuery(context.Background(), nil)
 	require.ErrorIs(t, err, sql.ErrNoOngoingTx)
 
-	err = tx.SQLExec(nil)
+	err = tx.SQLExec(context.Background(), nil)
 	require.ErrorIs(t, err, sql.ErrNoOngoingTx)
 
 	err = tx.Rollback()
 	require.ErrorIs(t, err, sql.ErrNoOngoingTx)
 
-	_, err = tx.Commit()
+	_, err = tx.Commit(context.Background())
 	require.ErrorIs(t, err, sql.ErrNoOngoingTx)
 }

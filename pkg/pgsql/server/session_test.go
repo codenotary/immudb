@@ -17,12 +17,14 @@ limitations under the License.
 package server
 
 import (
+	"context"
+
 	"github.com/codenotary/immudb/pkg/database"
 )
 
 type sessionMock struct {
 	InitializeSessionF func() error
-	QueryMachineF      func() error
+	QueryMachineF      func(ctx context.Context) error
 	HandleStartupF     func() error
 }
 
@@ -31,7 +33,7 @@ func NewSessionMock() *sessionMock {
 		InitializeSessionF: func() error {
 			return nil
 		},
-		QueryMachineF: func() error {
+		QueryMachineF: func(ctx context.Context) error {
 			return nil
 		},
 		HandleStartupF: func() error {
@@ -45,8 +47,8 @@ func (s *sessionMock) InitializeSession() error {
 	return s.InitializeSessionF()
 }
 
-func (s *sessionMock) QueriesMachine() error {
-	return s.QueryMachineF()
+func (s *sessionMock) QueriesMachine(ctx context.Context) error {
+	return s.QueryMachineF(ctx)
 }
 
 func (s *sessionMock) HandleStartup(dbList database.DatabaseList) error {

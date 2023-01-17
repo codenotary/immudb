@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -31,8 +32,8 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 )
 
-//QueriesMachine ...
-func (s *session) QueriesMachine() (err error) {
+// QueriesMachine ...
+func (s *session) QueriesMachine(ctx context.Context) (err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -66,7 +67,7 @@ func (s *session) QueriesMachine() (err error) {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			if err = s.fetchAndWriteResults(v.GetStatements(), nil, nil, false); err != nil {
+			if err = s.fetchAndWriteResults(ctx, v.GetStatements(), nil, nil, false); err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
@@ -83,7 +84,7 @@ func (s *session) QueriesMachine() (err error) {
 			var resCols []*schema.Column
 			var stmt sql.SQLStmt
 			if !s.isInBlackList(v.Statements) {
-				if paramCols, resCols, err = s.inferParamAndResultCols(v.Statements); err != nil {
+				if paramCols, resCols, err = s.inferParamAndResultCols(ctx, v.Statements); err != nil {
 					s.ErrorHandle(err)
 					waitForSync = true
 					continue
@@ -199,7 +200,7 @@ func (s *session) QueriesMachine() (err error) {
 			}
 		case fm.Execute:
 			//query execution
-			if err = s.fetchAndWriteResults(s.portals[v.PortalName].Statement.SQLStatement,
+			if err = s.fetchAndWriteResults(ctx, s.portals[v.PortalName].Statement.SQLStatement,
 				s.portals[v.PortalName].Parameters,
 				s.portals[v.PortalName].ResultColumnFormatCodes,
 				true); err != nil {
@@ -220,7 +221,7 @@ func (s *session) QueriesMachine() (err error) {
 	}
 }
 
-func (s *session) fetchAndWriteResults(statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) fetchAndWriteResults(ctx context.Context, statements string, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	if s.isInBlackList(statements) {
 		return nil
 	}
@@ -246,11 +247,11 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 				return pserr.ErrCreateDBStatementNotSupported
 			}
 		case *sql.SelectStmt:
-			if err = s.query(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.query(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
 				return err
 			}
 		case sql.SQLStmt:
-			if err = s.exec(st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
+			if err = s.exec(ctx, st, parameters, resultColumnFormatCodes, skipRowDesc); err != nil {
 				return err
 			}
 		}
@@ -258,8 +259,8 @@ func (s *session) fetchAndWriteResults(statements string, parameters []*schema.N
 	return nil
 }
 
-func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
-	res, err := s.database.SQLQueryPrepared(st, parameters, nil)
+func (s *session) query(ctx context.Context, st *sql.SelectStmt, parameters []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+	res, err := s.database.SQLQueryPrepared(ctx, nil, st, parameters)
 	if err != nil {
 		return err
 	}
@@ -280,14 +281,14 @@ func (s *session) query(st *sql.SelectStmt, parameters []*schema.NamedParam, res
 	return nil
 }
 
-func (s *session) exec(st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
+func (s *session) exec(ctx context.Context, st sql.SQLStmt, namedParams []*schema.NamedParam, resultColumnFormatCodes []int16, skipRowDesc bool) error {
 	params := make(map[string]interface{}, len(namedParams))
 
 	for _, p := range namedParams {
 		params[p.Name] = schema.RawValue(p.Value)
 	}
 
-	if _, _, err := s.database.SQLExecPrepared([]sql.SQLStmt{st}, params, nil); err != nil {
+	if _, _, err := s.database.SQLExecPrepared(ctx, nil, []sql.SQLStmt{st}, params); err != nil {
 		return err
 	}
 
@@ -309,7 +310,7 @@ type statement struct {
 	Results      []*schema.Column
 }
 
-func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, []*schema.Column, error) {
+func (s *session) inferParamAndResultCols(ctx context.Context, statement string) ([]*schema.Column, []*schema.Column, error) {
 	// todo @Michele The query string contained in a Parse message cannot include more than one SQL statement;
 	// else a syntax error is reported. This restriction does not exist in the simple-query protocol,
 	// but it does exist in the extended protocol, because allowing prepared statements or portals to contain
@@ -334,11 +335,11 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 
 	sel, ok := stmt.(*sql.SelectStmt)
 	if ok {
-		rr, err := s.database.SQLQueryRowReader(sel, nil, nil)
+		rr, err := s.database.SQLQueryRowReader(ctx, nil, sel, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := rr.Columns()
+		cols, err := rr.Columns(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -347,7 +348,7 @@ func (s *session) inferParamAndResultCols(statement string) ([]*schema.Column, [
 		}
 	}
 
-	r, err := s.database.InferParametersPrepared(stmt, nil)
+	r, err := s.database.InferParametersPrepared(ctx, nil, stmt)
 	if err != nil {
 		return nil, nil, err
 	}

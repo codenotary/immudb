@@ -50,7 +50,7 @@ type session struct {
 type Session interface {
 	InitializeSession() error
 	HandleStartup(dbList database.DatabaseList) error
-	QueriesMachine() (err error)
+	QueriesMachine(ctx context.Context) (err error)
 	ErrorHandle(err error)
 }
 

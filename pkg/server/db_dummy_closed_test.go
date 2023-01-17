@@ -99,34 +99,34 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, err = cdb.NewSQLTx(nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, _, err = cdb.SQLExec(nil, nil)
+	_, _, err = cdb.SQLExec(context.Background(), nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, _, err = cdb.SQLExecPrepared(nil, nil, nil)
+	_, _, err = cdb.SQLExecPrepared(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.InferParameters("", nil)
+	_, err = cdb.InferParameters(context.Background(), nil, "")
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.InferParametersPrepared(nil, nil)
+	_, err = cdb.InferParametersPrepared(context.Background(), nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.SQLQuery(nil, nil)
+	_, err = cdb.SQLQuery(context.Background(), nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.SQLQueryPrepared(nil, nil, nil)
+	_, err = cdb.SQLQueryPrepared(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.SQLQueryRowReader(nil, nil, nil)
+	_, err = cdb.SQLQueryRowReader(context.Background(), nil, nil, nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	_, err = cdb.VerifiableSQLGet(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ListTables(nil)
+	_, err = cdb.ListTables(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.DescribeTable("", nil)
+	_, err = cdb.DescribeTable(context.Background(), nil, "")
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.WaitForTx(context.Background(), 0, true)

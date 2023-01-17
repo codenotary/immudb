@@ -71,7 +71,7 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 		return nil, err
 	}
 
-	ntx, ctxs, err := db.SQLExec(req, tx)
+	ntx, ctxs, err := db.SQLExec(ctx, tx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) 
 	}
 	defer tx.Cancel()
 
-	return db.SQLQuery(req, tx)
+	return db.SQLQuery(ctx, tx, req)
 }
 
 func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQLQueryResult, error) {
@@ -129,7 +129,7 @@ func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQ
 		return nil, err
 	}
 
-	return db.ListTables(nil)
+	return db.ListTables(ctx, nil)
 }
 
 func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
@@ -142,5 +142,5 @@ func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*sch
 		return nil, err
 	}
 
-	return db.DescribeTable(req.TableName, nil)
+	return db.DescribeTable(ctx, nil, req.TableName)
 }

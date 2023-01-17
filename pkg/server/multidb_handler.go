@@ -82,5 +82,5 @@ func (h *multidbHandler) ExecPreparedStmts(
 		return nil, nil, err
 	}
 
-	return db.SQLExecPrepared(stmts, params, tx)
+	return db.SQLExecPrepared(ctx, tx, stmts, params)
 }

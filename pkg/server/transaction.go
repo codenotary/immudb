@@ -76,7 +76,7 @@ func (s *ImmuServer) Commit(ctx context.Context, _ *empty.Empty) (*schema.Commit
 		return nil, err
 	}
 
-	cTxs, err := s.SessManager.CommitTransaction(tx)
+	cTxs, err := s.SessManager.CommitTransaction(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *ImmuServer) TxSQLExec(ctx context.Context, request *schema.SQLExecReque
 		return new(empty.Empty), err
 	}
 
-	res := tx.SQLExec(request)
+	res := tx.SQLExec(ctx, request)
 
 	if tx.IsClosed() {
 		s.SessManager.DeleteTransaction(tx)
@@ -143,5 +143,5 @@ func (s *ImmuServer) TxSQLQuery(ctx context.Context, request *schema.SQLQueryReq
 		return nil, err
 	}
 
-	return tx.SQLQuery(request)
+	return tx.SQLQuery(ctx, request)
 }

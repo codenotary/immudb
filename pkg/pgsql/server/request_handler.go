@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"net"
 )
 
@@ -34,7 +35,7 @@ func (s *srv) handleRequest(conn net.Conn) (err error) {
 		return err
 	}
 	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
-	err = ss.QueriesMachine()
+	err = ss.QueriesMachine(context.Background())
 	if err != nil {
 		return err
 	}
