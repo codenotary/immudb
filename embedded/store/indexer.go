@@ -492,7 +492,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 
 		if bulkSize < idx.maxBulkSize {
 			// wait for the next tx to be committed
-			err = idx.store.commitWHub.WaitFor(txID+uint64(i+1), ctx.Done())
+			err = idx.store.commitWHub.WaitFor(ctx, txID+uint64(i+1))
 		}
 		if err == watchers.ErrCancellationRequested {
 			break
