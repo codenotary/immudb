@@ -408,7 +408,7 @@ func TestStoreOptionsForDBWithRemoteStorage(t *testing.T) {
 	err = tx.Set([]byte{1}, nil, []byte{2})
 	require.NoError(t, err)
 
-	_, err = tx.Commit()
+	_, err = tx.Commit(context.Background())
 	require.NoError(t, err)
 
 	err = st.Close()

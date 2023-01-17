@@ -148,31 +148,31 @@ func (db *closedDB) NewSQLTx(ctx context.Context, _ *sql.TxOptions) (*sql.SQLTx,
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLExec(req *schema.SQLExecRequest, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (db *closedDB) SQLExec(ctx context.Context, tx *sql.SQLTx, req *schema.SQLExecRequest) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	return nil, nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLExecPrepared(stmts []sql.SQLStmt, params map[string]interface{}, tx *sql.SQLTx) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
+func (db *closedDB) SQLExecPrepared(ctx context.Context, tx *sql.SQLTx, stmts []sql.SQLStmt, params map[string]interface{}) (ntx *sql.SQLTx, ctxs []*sql.SQLTx, err error) {
 	return nil, nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) InferParameters(sql string, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
+func (db *closedDB) InferParameters(ctx context.Context, tx *sql.SQLTx, sql string) (map[string]sql.SQLValueType, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) InferParametersPrepared(stmt sql.SQLStmt, tx *sql.SQLTx) (map[string]sql.SQLValueType, error) {
+func (db *closedDB) InferParametersPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.SQLStmt) (map[string]sql.SQLValueType, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQuery(req *schema.SQLQueryRequest, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQuery(ctx context.Context, tx *sql.SQLTx, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryPrepared(stmt sql.DataSource, namedParams []*schema.NamedParam, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (db *closedDB) SQLQueryPrepared(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) SQLQueryRowReader(stmt sql.DataSource, params map[string]interface{}, tx *sql.SQLTx) (sql.RowReader, error) {
+func (db *closedDB) SQLQueryRowReader(ctx context.Context, tx *sql.SQLTx, stmt sql.DataSource, params map[string]interface{}) (sql.RowReader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
@@ -180,11 +180,11 @@ func (db *closedDB) VerifiableSQLGet(ctx context.Context, req *schema.Verifiable
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ListTables(tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (db *closedDB) ListTables(ctx context.Context, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
 	return nil, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) DescribeTable(table string, tx *sql.SQLTx) (*schema.SQLQueryResult, error) {
+func (db *closedDB) DescribeTable(ctx context.Context, tx *sql.SQLTx, table string) (*schema.SQLQueryResult, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

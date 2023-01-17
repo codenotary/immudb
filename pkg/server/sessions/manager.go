@@ -55,7 +55,7 @@ type Manager interface {
 	GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error)
 	GetSessionFromContext(ctx context.Context) (*Session, error)
 	DeleteTransaction(transactions.Transaction) error
-	CommitTransaction(transaction transactions.Transaction) ([]*sql.SQLTx, error)
+	CommitTransaction(ctx context.Context, transaction transactions.Transaction) ([]*sql.SQLTx, error)
 	RollbackTransaction(transaction transactions.Transaction) error
 }
 
@@ -300,12 +300,12 @@ func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
 	return sess.RemoveTransaction(tx.GetID())
 }
 
-func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx, error) {
+func (sm *manager) CommitTransaction(ctx context.Context, tx transactions.Transaction) ([]*sql.SQLTx, error) {
 	err := sm.DeleteTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
-	cTxs, err := tx.Commit()
+	cTxs, err := tx.Commit(ctx)
 	if err != nil {
 		return nil, err
 	}

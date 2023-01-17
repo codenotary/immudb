@@ -38,10 +38,10 @@ type Transaction interface {
 	GetID() string
 	IsClosed() bool
 	Rollback() error
-	Commit() ([]*sql.SQLTx, error)
+	Commit(ctx context.Context) ([]*sql.SQLTx, error)
 	GetSessionID() string
-	SQLExec(request *schema.SQLExecRequest) error
-	SQLQuery(request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	SQLExec(ctx context.Context, request *schema.SQLExecRequest) error
+	SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 }
 
 func NewTransaction(ctx context.Context, opts *sql.TxOptions, db database.DB, sessionID string) (*transaction, error) {
@@ -52,7 +52,7 @@ func NewTransaction(ctx context.Context, opts *sql.TxOptions, db database.DB, se
 		return nil, err
 	}
 
-	sqlTx, _, err := db.SQLExec(&schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"}, tx)
+	sqlTx, _, err := db.SQLExec(ctx, tx, &schema.SQLExecRequest{Sql: "BEGIN TRANSACTION;"})
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (tx *transaction) Rollback() error {
 	return tx.sqlTx.Cancel()
 }
 
-func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
+func (tx *transaction) Commit(ctx context.Context) ([]*sql.SQLTx, error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
@@ -98,7 +98,7 @@ func (tx *transaction) Commit() ([]*sql.SQLTx, error) {
 		return nil, sql.ErrNoOngoingTx
 	}
 
-	_, cTxs, err := tx.db.SQLExec(&schema.SQLExecRequest{Sql: "COMMIT;"}, tx.sqlTx)
+	_, cTxs, err := tx.db.SQLExec(ctx, tx.sqlTx, &schema.SQLExecRequest{Sql: "COMMIT;"})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (tx *transaction) GetSessionID() string {
 	return tx.sessionID
 }
 
-func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (err error) {
+func (tx *transaction) SQLExec(ctx context.Context, request *schema.SQLExecRequest) (err error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
@@ -121,12 +121,12 @@ func (tx *transaction) SQLExec(request *schema.SQLExecRequest) (err error) {
 		return sql.ErrNoOngoingTx
 	}
 
-	tx.sqlTx, _, err = tx.db.SQLExec(request, tx.sqlTx)
+	tx.sqlTx, _, err = tx.db.SQLExec(ctx, tx.sqlTx, request)
 
 	return err
 }
 
-func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (res *schema.SQLQueryResult, err error) {
+func (tx *transaction) SQLQuery(ctx context.Context, request *schema.SQLQueryRequest) (res *schema.SQLQueryResult, err error) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
@@ -134,5 +134,5 @@ func (tx *transaction) SQLQuery(request *schema.SQLQueryRequest) (res *schema.SQ
 		return nil, sql.ErrNoOngoingTx
 	}
 
-	return tx.db.SQLQuery(request, tx.sqlTx)
+	return tx.db.SQLQuery(ctx, tx.sqlTx, request)
 }

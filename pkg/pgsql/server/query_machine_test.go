@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -416,7 +417,7 @@ func TestSession_QueriesMachine(t *testing.T) {
 			}
 			go tt.in(c2)
 
-			err := s.QueriesMachine()
+			err := s.QueriesMachine(context.Background())
 
 			require.Equal(t, tt.out, err)
 		})

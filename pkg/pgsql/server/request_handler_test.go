@@ -2,9 +2,10 @@ package server
 
 import (
 	"errors"
-	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandleRequestNil(t *testing.T) {
