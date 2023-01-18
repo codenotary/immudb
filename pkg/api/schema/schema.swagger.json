@@ -2095,6 +2095,10 @@
         "mvccReadSetLimit": {
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Limit the number of read entries per transaction"
+        },
+        "vLogCacheSize": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the LRU cache for value logs"
         }
       }
     },

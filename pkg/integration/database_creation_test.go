@@ -69,6 +69,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 		MaxConcurrency:          &schema.NullableUint32{Value: 10},
 		MaxIOConcurrency:        &schema.NullableUint32{Value: 2},
 		TxLogCacheSize:          &schema.NullableUint32{Value: 2000},
+		VLogCacheSize:           &schema.NullableUint32{Value: 2200},
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: 8},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: 4},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: 2},
@@ -114,6 +115,7 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.MaxConcurrency.Value, res.Settings.MaxConcurrency.Value)
 	require.Equal(t, dbNullableSettings.MaxIOConcurrency.Value, res.Settings.MaxIOConcurrency.Value)
 	require.Equal(t, dbNullableSettings.TxLogCacheSize.Value, res.Settings.TxLogCacheSize.Value)
+	require.Equal(t, dbNullableSettings.VLogCacheSize.Value, res.Settings.VLogCacheSize.Value)
 	require.Equal(t, dbNullableSettings.VLogMaxOpenedFiles.Value, res.Settings.VLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.TxLogMaxOpenedFiles.Value, res.Settings.TxLogMaxOpenedFiles.Value)
 	require.Equal(t, dbNullableSettings.CommitLogMaxOpenedFiles.Value, res.Settings.CommitLogMaxOpenedFiles.Value)
