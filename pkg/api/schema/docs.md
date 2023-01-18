@@ -448,6 +448,7 @@ DEPRECATED
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 | maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
+| vLogCacheSize | [NullableUint32](#immudb.schema.NullableUint32) |  | Size of the LRU cache for value logs |
 
 
 

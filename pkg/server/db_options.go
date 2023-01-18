@@ -68,6 +68,7 @@ type dbOptions struct {
 	WriteBufferSize int `json:"writeBufferSize"`
 
 	TxLogCacheSize          int `json:"txLogCacheSize"`
+	VLogCacheSize           int `json:"vLogCacheSize"`
 	VLogMaxOpenedFiles      int `json:"vLogMaxOpenedFiles"`
 	TxLogMaxOpenedFiles     int `json:"txLogMaxOpenedFiles"`
 	CommitLogMaxOpenedFiles int `json:"commitLogMaxOpenedFiles"`
@@ -145,6 +146,7 @@ func (s *ImmuServer) defaultDBOptions(dbName string) *dbOptions {
 		MaxIOConcurrency:        store.DefaultMaxIOConcurrency,
 		WriteBufferSize:         store.DefaultWriteBufferSize,
 		TxLogCacheSize:          store.DefaultTxLogCacheSize,
+		VLogCacheSize:           store.DefaultVLogCacheSize,
 		VLogMaxOpenedFiles:      store.DefaultVLogMaxOpenedFiles,
 		TxLogMaxOpenedFiles:     store.DefaultTxLogMaxOpenedFiles,
 		CommitLogMaxOpenedFiles: store.DefaultCommitLogMaxOpenedFiles,
@@ -264,6 +266,7 @@ func (opts *dbOptions) storeOptions() *store.Options {
 		WithMaxIOConcurrency(opts.MaxIOConcurrency).
 		WithWriteBufferSize(opts.WriteBufferSize).
 		WithTxLogCacheSize(opts.TxLogCacheSize).
+		WithVLogCacheSize(opts.VLogCacheSize).
 		WithVLogMaxOpenedFiles(opts.VLogMaxOpenedFiles).
 		WithTxLogMaxOpenedFiles(opts.TxLogMaxOpenedFiles).
 		WithCommitLogMaxOpenedFiles(opts.CommitLogMaxOpenedFiles).
@@ -313,6 +316,7 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 		WriteBufferSize: &schema.NullableUint32{Value: uint32(opts.WriteBufferSize)},
 
 		TxLogCacheSize:          &schema.NullableUint32{Value: uint32(opts.TxLogCacheSize)},
+		VLogCacheSize:           &schema.NullableUint32{Value: uint32(opts.VLogCacheSize)},
 		VLogMaxOpenedFiles:      &schema.NullableUint32{Value: uint32(opts.VLogMaxOpenedFiles)},
 		TxLogMaxOpenedFiles:     &schema.NullableUint32{Value: uint32(opts.TxLogMaxOpenedFiles)},
 		CommitLogMaxOpenedFiles: &schema.NullableUint32{Value: uint32(opts.CommitLogMaxOpenedFiles)},
@@ -532,6 +536,9 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 
 	if settings.TxLogCacheSize != nil {
 		opts.TxLogCacheSize = int(settings.TxLogCacheSize.Value)
+	}
+	if settings.VLogCacheSize != nil {
+		opts.VLogCacheSize = int(settings.VLogCacheSize.Value)
 	}
 	if settings.VLogMaxOpenedFiles != nil {
 		opts.VLogMaxOpenedFiles = int(settings.VLogMaxOpenedFiles.Value)
@@ -819,6 +826,7 @@ func (s *ImmuServer) logDBOptions(database string, opts *dbOptions) {
 	s.Logger.Infof("%s.MaxIOConcurrency: %v", database, opts.MaxIOConcurrency)
 	s.Logger.Infof("%s.WriteBufferSize: %v", database, opts.WriteBufferSize)
 	s.Logger.Infof("%s.TxLogCacheSize: %v", database, opts.TxLogCacheSize)
+	s.Logger.Infof("%s.VLogCacheSize: %v", database, opts.VLogCacheSize)
 	s.Logger.Infof("%s.VLogMaxOpenedFiles: %v", database, opts.VLogMaxOpenedFiles)
 	s.Logger.Infof("%s.TxLogMaxOpenedFiles: %v", database, opts.TxLogMaxOpenedFiles)
 	s.Logger.Infof("%s.CommitLogMaxOpenedFiles: %v", database, opts.CommitLogMaxOpenedFiles)
