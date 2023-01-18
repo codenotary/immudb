@@ -1615,7 +1615,7 @@ func (s *ImmuStore) CommitWith(ctx context.Context, callback func(txID uint64, i
 	}
 
 	// note: durability is ensured only if the store is in sync mode
-	err = s.commitWHub.WaitFor(context.Background(), hdr.ID)
+	err = s.commitWHub.WaitFor(ctx, hdr.ID)
 	if errors.Is(err, watchers.ErrAlreadyClosed) {
 		return nil, ErrAlreadyClosed
 	}
@@ -2181,8 +2181,8 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 		return nil, err
 	}
 
-	// the use of a non-cancellable context is to enforce waiting for syncing to happen before exposing the header
-	err = s.durablePrecommitWHub.WaitFor(context.Background(), txHdr.ID)
+	// wait for syncing to happen before exposing the header
+	err = s.durablePrecommitWHub.WaitFor(ctx, txHdr.ID)
 	if err == watchers.ErrAlreadyClosed {
 		return nil, ErrAlreadyClosed
 	}
@@ -2191,7 +2191,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 	}
 
 	if !s.useExternalCommitAllowance {
-		err = s.commitWHub.WaitFor(context.Background(), txHdr.ID)
+		err = s.commitWHub.WaitFor(ctx, txHdr.ID)
 		if err == watchers.ErrAlreadyClosed {
 			return nil, ErrAlreadyClosed
 		}
