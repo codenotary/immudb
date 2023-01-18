@@ -41,6 +41,7 @@ func TestInvalidOptions(t *testing.T) {
 		{"MaxIOConcurrency", DefaultOptions().WithMaxIOConcurrency(0)},
 		{"MaxIOConcurrency-max", DefaultOptions().WithMaxIOConcurrency(MaxParallelIO + 1)},
 		{"TxLogCacheSize", DefaultOptions().WithTxLogCacheSize(-1)},
+		{"VLogCacheSize", DefaultOptions().WithVLogCacheSize(-1)},
 		{"VLogMaxOpenedFiles", DefaultOptions().WithVLogMaxOpenedFiles(0)},
 		{"TxLogMaxOpenedFiles", DefaultOptions().WithTxLogMaxOpenedFiles(0)},
 		{"CommitLogMaxOpenedFiles", DefaultOptions().WithCommitLogMaxOpenedFiles(0)},
@@ -129,6 +130,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultMaxTxEntries, opts.WithMaxTxEntries(DefaultMaxTxEntries).MaxTxEntries)
 	require.Equal(t, DefaultMaxValueLen, opts.WithMaxValueLen(DefaultMaxValueLen).MaxValueLen)
 	require.Equal(t, DefaultTxLogCacheSize, opts.WithTxLogCacheSize(DefaultOptions().TxLogCacheSize).TxLogCacheSize)
+	require.Equal(t, DefaultVLogCacheSize, opts.WithVLogCacheSize(DefaultOptions().VLogCacheSize).VLogCacheSize)
 	require.Equal(t, 2, opts.WithTxLogMaxOpenedFiles(2).TxLogMaxOpenedFiles)
 	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).VLogMaxOpenedFiles)
 	require.Equal(t, DefaultMaxWaitees, opts.WithMaxWaitees(DefaultMaxWaitees).MaxWaitees)

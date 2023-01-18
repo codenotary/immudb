@@ -41,6 +41,7 @@ const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultTxLogCacheSize = 1000
+const DefaultVLogCacheSize = 1000
 const DefaultMaxWaitees = 1000
 const DefaultVLogMaxOpenedFiles = 10
 const DefaultTxLogMaxOpenedFiles = 10
@@ -97,6 +98,9 @@ type Options struct {
 
 	// Maximum number of simultaneous value files opened
 	VLogMaxOpenedFiles int
+
+	// Size of the LRU cache for value logs
+	VLogCacheSize int
 
 	// Maximum number of simultaneous transaction log files opened
 	TxLogMaxOpenedFiles int
@@ -200,6 +204,7 @@ func DefaultOptions() *Options {
 		MaxIOConcurrency: DefaultMaxIOConcurrency,
 
 		TxLogCacheSize: DefaultTxLogCacheSize,
+		VLogCacheSize:  DefaultVLogCacheSize,
 
 		VLogMaxOpenedFiles:      DefaultVLogMaxOpenedFiles,
 		TxLogMaxOpenedFiles:     DefaultTxLogMaxOpenedFiles,
@@ -293,8 +298,12 @@ func (opts *Options) Validate() error {
 		return fmt.Errorf("%w: invalid CommitLogMaxOpenedFiles", ErrInvalidOptions)
 	}
 
-	if opts.TxLogCacheSize < 0 {
+	if opts.TxLogCacheSize <= 0 {
 		return fmt.Errorf("%w: invalid TxLogCacheSize", ErrInvalidOptions)
+	}
+
+	if opts.VLogCacheSize < 0 {
+		return fmt.Errorf("%w: invalid VLogCacheSize", ErrInvalidOptions)
 	}
 
 	if opts.MaxWaitees < 0 {
@@ -481,6 +490,11 @@ func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
 
 func (opts *Options) WithTxLogCacheSize(txLogCacheSize int) *Options {
 	opts.TxLogCacheSize = txLogCacheSize
+	return opts
+}
+
+func (opts *Options) WithVLogCacheSize(vLogCacheSize int) *Options {
+	opts.VLogCacheSize = vLogCacheSize
 	return opts
 }
 

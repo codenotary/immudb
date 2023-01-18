@@ -4225,3 +4225,26 @@ func TestImmudbStoreWithClosedContext(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }
+
+func TestImmudbStoreWithoutVLogCache(t *testing.T) {
+	immuStore, err := Open(t.TempDir(), DefaultOptions().WithVLogCacheSize(0))
+	require.NoError(t, err)
+
+	defer immuStore.Close()
+
+	tx1, err := immuStore.NewTx(context.Background(), DefaultTxOptions())
+	require.NoError(t, err)
+
+	err = tx1.Set([]byte("key1"), nil, []byte("value1"))
+	require.NoError(t, err)
+
+	_, err = tx1.Commit(context.Background())
+	require.NoError(t, err)
+
+	valRef, err := immuStore.Get([]byte("key1"))
+	require.NoError(t, err)
+
+	val, err := valRef.Resolve()
+	require.NoError(t, err)
+	require.Equal(t, []byte("value1"), val)
+}
