@@ -203,7 +203,7 @@ func (txr *TxReplicator) replicateSingleTx(data []byte) bool {
 
 	// replication must be retried as many times as necessary
 	for {
-		_, err := txr.db.ReplicateTx(context.Background(), data)
+		_, err := txr.db.ReplicateTx(txr.context, data)
 		if err == nil {
 			break // transaction successfully replicated
 		}
