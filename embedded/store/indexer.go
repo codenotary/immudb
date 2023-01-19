@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -382,7 +383,7 @@ func (idx *indexer) doIndexing() {
 		}
 
 		err := idx.store.commitWHub.WaitFor(idx.ctx, lastIndexedTx+1)
-		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
+		if idx.ctx.Err() != nil || errors.Is(err, watchers.ErrAlreadyClosed) {
 			return
 		}
 		if err != nil {
@@ -494,7 +495,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 			// wait for the next tx to be committed
 			err = idx.store.commitWHub.WaitFor(ctx, txID+uint64(i+1))
 		}
-		if err == watchers.ErrCancellationRequested {
+		if ctx.Err() != nil {
 			break
 		}
 		if err != nil {

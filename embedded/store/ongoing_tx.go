@@ -72,6 +72,10 @@ type EntrySpec struct {
 }
 
 func newOngoingTx(ctx context.Context, s *ImmuStore, opts *TxOptions) (*OngoingTx, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -425,6 +429,10 @@ func (tx *OngoingTx) commit(ctx context.Context, waitForIndexing bool) (*TxHeade
 	}
 
 	tx.closed = true
+
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
 	return tx.st.commit(ctx, tx, nil, waitForIndexing)
 }
