@@ -247,7 +247,7 @@ func TestImmudbStoreWithTimeFunction(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer immustoreClose(t, immuStore)
 
 	err = immuStore.UseTimeFunc(nil)
 	require.ErrorIs(t, err, ErrIllegalArguments)
@@ -2609,7 +2609,7 @@ func TestImmudbStoreCommitWithPreconditions(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer immustoreClose(t, immuStore)
 
 	// set initial value
 	otx, err := immuStore.NewTx(context.Background(), DefaultTxOptions())
@@ -3557,7 +3557,7 @@ func TestImmudbStoreMVCC(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions())
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer immustoreClose(t, immuStore)
 
 	t.Run("no read conflict should be detected when read keys are not updated by another transaction", func(t *testing.T) {
 		tx1, err := immuStore.NewTx(context.Background(), DefaultTxOptions())
@@ -4032,7 +4032,7 @@ func TestImmudbStoreMVCCBoundaries(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions().WithMVCCReadSetLimit(mvccReadsetLimit))
 	require.NoError(t, err)
 
-	defer immuStore.Close()
+	defer immustoreClose(t, immuStore)
 
 	t.Run("MVCC read-set limit should be reached when randomly reading keys", func(t *testing.T) {
 		tx1, err := immuStore.NewTx(context.Background(), DefaultTxOptions())
@@ -4193,5 +4193,35 @@ func TestImmudbStoreMVCCBoundaries(t *testing.T) {
 
 		err = tx2.Cancel()
 		require.NoError(t, err)
+	})
+}
+
+func TestImmudbStoreWithClosedContext(t *testing.T) {
+	immuStore, err := Open(t.TempDir(), DefaultOptions())
+	require.NoError(t, err)
+
+	defer immustoreClose(t, immuStore)
+
+	t.Run("transaction creation should fail with a cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := immuStore.NewTx(ctx, DefaultTxOptions())
+		require.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("transaction commit should fail with a cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		tx, err := immuStore.NewTx(ctx, DefaultTxOptions())
+		require.NoError(t, err)
+
+		err = tx.Set([]byte("key1"), nil, []byte("value1"))
+		require.NoError(t, err)
+
+		cancel()
+
+		_, err = tx.Commit(ctx)
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }
