@@ -18,7 +18,6 @@ package integration
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -252,40 +251,51 @@ func TestImmuClient_SQL_Errors(t *testing.T) {
 	_, err = client.SQLExec(context.Background(), "", map[string]interface{}{
 		"param1": struct{}{},
 	})
-	require.True(t, errors.Is(err, sql.ErrInvalidValue))
+	require.ErrorIs(t, err, sql.ErrInvalidValue)
 
 	_, err = client.SQLQuery(context.Background(), "", map[string]interface{}{
 		"param1": struct{}{},
 	}, false)
-	require.True(t, errors.Is(err, sql.ErrInvalidValue))
+	require.ErrorIs(t, err, sql.ErrInvalidValue)
 
 	err = client.VerifyRow(context.Background(), &schema.Row{
 		Columns: []string{"col1"},
 		Values:  []*schema.SQLValue{},
 	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
-	require.True(t, errors.Is(err, sql.ErrCorruptedData))
+	require.ErrorIs(t, err, sql.ErrCorruptedData)
 
 	err = client.VerifyRow(context.Background(), nil, "", nil)
-	require.True(t, errors.Is(err, ic.ErrIllegalArguments))
+	require.ErrorIs(t, err, ic.ErrIllegalArguments)
+
+	t.Run("sql operations should fail with a cancelled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := client.SQLExec(ctx, "BEGIN TRANSACTION; COMMIT;", nil)
+		require.Contains(t, err.Error(), context.Canceled.Error())
+
+		_, err = client.SQLQuery(ctx, "SELECT * FROM table1", nil, true)
+		require.Contains(t, err.Error(), context.Canceled.Error())
+	})
 
 	err = client.Disconnect()
 	require.NoError(t, err)
 
 	_, err = client.SQLExec(context.Background(), "", nil)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.SQLQuery(context.Background(), "", nil, false)
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.ListTables(context.Background())
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	_, err = client.DescribeTable(context.Background(), "")
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 
 	err = client.VerifyRow(context.Background(), &schema.Row{
 		Columns: []string{"col1"},
 		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}},
 	}, "table1", []*schema.SQLValue{{Value: &schema.SQLValue_N{N: 1}}})
-	require.True(t, errors.Is(err, ic.ErrNotConnected))
+	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
