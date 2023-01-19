@@ -3513,10 +3513,6 @@
     "schemaTxMetadata": {
       "type": "object",
       "properties": {
-        "hasTruncatedTxID": {
-          "type": "boolean",
-          "title": "True if this metadata has a truncated transaction"
-        },
         "truncatedTxID": {
           "type": "string",
           "format": "uint64",

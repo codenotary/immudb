@@ -166,7 +166,6 @@ func TxMetadataToProto(md *store.TxMetadata) *TxMetadata {
 
 	txmd := &TxMetadata{}
 	if md.HasTruncatedTxID() {
-		txmd.HasTruncatedTxID = md.HasTruncatedTxID()
 		txID, _ := md.GetTruncatedTxID()
 		txmd.TruncatedTxID = txID
 	}
@@ -233,7 +232,7 @@ func TxMetadataFromProto(md *TxMetadata) *store.TxMetadata {
 	}
 
 	txmd := store.NewTxMetadata()
-	if md.HasTruncatedTxID {
+	if md.TruncatedTxID > 0 {
 		txmd.WithTruncatedTxID(md.TruncatedTxID)
 	}
 
