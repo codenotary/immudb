@@ -2265,6 +2265,13 @@ func Test_getRetentionPeriod(t *testing.T) {
 			},
 			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
+		{
+			args: args{
+				ts:              time.Date(2020, 1, 1, 11, 20, 30, 40, time.UTC),
+				retentionPeriod: 0,
+			},
+			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2273,4 +2280,62 @@ func Test_getRetentionPeriod(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDatabase_truncate_with_duration(t *testing.T) {
+	rootPath := t.TempDir()
+
+	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.MaxIOConcurrency = 1
+
+	db := makeDbWith(t, "db", options)
+
+	t.Run("truncate with duration", func(t *testing.T) {
+		var queryTime time.Time
+		for i := 2; i <= 20; i++ {
+			kv := &schema.KeyValue{
+				Key:   []byte(fmt.Sprintf("key_%d", i)),
+				Value: []byte(fmt.Sprintf("val_%d", i)),
+			}
+			_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+			require.NoError(t, err)
+			if i == 10 {
+				queryTime = time.Now()
+			}
+		}
+
+		c := newVlogTruncator(db)
+		hdr, err := c.Plan(queryTime)
+		require.NoError(t, err)
+		require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
+
+		dur := time.Since(queryTime)
+		err = db.Truncate(dur)
+		require.NoError(t, err)
+
+		for i := hdr.ID; i <= 20; i++ {
+			tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
+			err = db.st.ReadTx(i, tx)
+			for _, e := range tx.Entries() {
+				_, err := db.st.ReadValue(e)
+				require.NoError(t, err)
+			}
+		}
+	})
+
+	t.Run("truncate with retention period in the past", func(t *testing.T) {
+		ts := time.Now().Add(-24 * time.Hour)
+		dur := time.Since(ts)
+		err := db.Truncate(dur)
+		require.ErrorIs(t, err, ErrRetentionPeriodNotReached)
+	})
+
+	t.Run("truncate with retention period in the future", func(t *testing.T) {
+		ts := time.Now().Add(24 * time.Hour)
+		dur := time.Since(ts)
+		err := db.Truncate(dur)
+		require.ErrorIs(t, err, store.ErrTxNotFound)
+	})
+
 }

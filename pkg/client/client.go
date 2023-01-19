@@ -510,7 +510,7 @@ type ImmuClient interface {
 	// This truncates the locally stored value log files used by the database.
 	//
 	// This call requires SysAdmin permission level or admin permission to the database.
-	TruncateDatabase(ctx context.Context, r *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error)
+	TruncateDatabase(ctx context.Context, db string, retentionPeriod time.Duration) error
 }
 
 const DefaultDB = "defaultdb"
@@ -2325,16 +2325,21 @@ func decodeTxEntries(entries []*schema.TxEntry) {
 }
 
 // TruncateDatabase truncates the database to the given retention period.
-func (c *immuClient) TruncateDatabase(ctx context.Context, r *schema.TruncateDatabaseRequest) (*schema.TruncateDatabaseResponse, error) {
+func (c *immuClient) TruncateDatabase(ctx context.Context, db string, retentionPeriod time.Duration) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
 
-	res, err := c.ServiceClient.TruncateDatabase(ctx, r)
+	in := &schema.TruncateDatabaseRequest{
+		Database:        db,
+		RetentionPeriod: &schema.NullableMilliseconds{Value: retentionPeriod.Milliseconds()},
+	}
+
+	_, err := c.ServiceClient.TruncateDatabase(ctx, in)
 
 	c.Logger.Debugf("TruncateDatabase finished in %s", time.Since(start))
 
-	return res, err
+	return err
 }

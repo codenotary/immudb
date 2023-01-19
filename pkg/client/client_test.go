@@ -17,12 +17,16 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 func TestLogErr(t *testing.T) {
@@ -32,4 +36,20 @@ func TestLogErr(t *testing.T) {
 
 	err := fmt.Errorf("expected error")
 	require.Error(t, logErr(logger, "error: %v", err))
+}
+
+func TestImmuClient_Truncate(t *testing.T) {
+	c := NewClient().WithOptions(DefaultOptions().WithDir("false"))
+	c.ServiceClient = &immuServiceClientMock{
+		TruncateF: func(ctx context.Context, in *schema.TruncateDatabaseRequest, opts ...grpc.CallOption) (*schema.TruncateDatabaseResponse, error) {
+			return &schema.TruncateDatabaseResponse{
+				Database: "test",
+			}, nil
+		},
+	}
+
+	st := time.Now().Add(-24 * time.Hour)
+	dur := time.Since(st)
+	err := c.TruncateDatabase(context.TODO(), "defaultdb", dur)
+	require.Error(t, err)
 }

@@ -2032,3 +2032,88 @@ func TestServerMaintenanceMode(t *testing.T) {
 	err = s.StreamExecAll(nil)
 	require.Contains(t, err.Error(), ErrNotAllowedInMaintenanceMode.Error())
 }
+
+func TestServerDatabaseTruncate(t *testing.T) {
+	dir := t.TempDir()
+	opts := DefaultOptions().WithDir(dir)
+
+	s := DefaultServer()
+	s.WithOptions(opts)
+
+	s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	t.Run("attempt to delete without retention period should fail", func(t *testing.T) {
+		_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
+			Name: "db1",
+		})
+		require.NoError(t, err)
+
+		_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
+		require.NoError(t, err)
+
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{})
+		require.Error(t, err)
+	})
+
+	t.Run("attempt to delete without database should fail", func(t *testing.T) {
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{})
+		require.Error(t, err)
+	})
+
+	t.Run("attempt to delete with retention period < 0 should fail", func(t *testing.T) {
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
+			Database:        "db1",
+			RetentionPeriod: &schema.NullableMilliseconds{Value: -1},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("attempt to delete with retention period < 1 day should fail", func(t *testing.T) {
+		rp := 23 * time.Hour
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
+			Database:        "db1",
+			RetentionPeriod: &schema.NullableMilliseconds{Value: rp.Milliseconds()},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("attempt to delete with retention period >= 1 day should fail if retention period is not reached", func(t *testing.T) {
+		uR, err := s.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
+		require.NoError(t, err)
+
+		for i := 0; i < 64; i++ {
+			md := metadata.Pairs("authorization", uR.Token)
+			ctx := metadata.NewIncomingContext(context.Background(), md)
+
+			_, err = s.Set(ctx, &schema.SetRequest{
+				KVs: []*schema.KeyValue{
+					{
+						Key:   []byte(fmt.Sprintf("key%d", i)),
+						Value: []byte(fmt.Sprintf("value%d", i)),
+					},
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		rp := 24 * time.Hour
+
+		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
+			Database:        "db1",
+			RetentionPeriod: &schema.NullableMilliseconds{Value: rp.Milliseconds()},
+		})
+		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
+	})
+}
