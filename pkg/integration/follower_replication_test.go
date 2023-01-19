@@ -27,7 +27,6 @@ import (
 	ic "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestReplication(t *testing.T) {
@@ -81,18 +80,19 @@ func TestReplication(t *testing.T) {
 
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
-	primaryClient, err := ic.NewImmuClient(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(primaryPort))
-	require.NoError(t, err)
-	require.NotNil(t, primaryClient)
 
-	mlr, err := primaryClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	primaryOpts := ic.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithPort(primaryPort)
+
+	primaryClient := ic.NewClient().WithOptions(primaryOpts)
 	require.NoError(t, err)
 
-	mmd := metadata.Pairs("authorization", mlr.Token)
-	pctx := metadata.NewOutgoingContext(context.Background(), mmd)
+	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
 
 	// create database as primarydb in primary server
-	_, err = primaryClient.CreateDatabaseV2(pctx, "primarydb", &schema.DatabaseNullableSettings{
+	_, err = primaryClient.CreateDatabaseV2(context.Background(), "primarydb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			SyncReplication: &schema.NullableBool{Value: true},
 			SyncAcks:        &schema.NullableUint32{Value: 1},
@@ -100,33 +100,35 @@ func TestReplication(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mdb, err := primaryClient.UseDatabase(pctx, &schema.Database{DatabaseName: "primarydb"})
-	require.NoError(t, err)
-	require.NotNil(t, mdb)
-
-	mmd = metadata.Pairs("authorization", mdb.Token)
-	pctx = metadata.NewOutgoingContext(context.Background(), mmd)
-
-	err = primaryClient.CreateUser(pctx, []byte("replicator"), []byte("replicator1Pwd!"), auth.PermissionAdmin, "primarydb")
+	err = primaryClient.CloseSession(context.Background())
 	require.NoError(t, err)
 
-	err = primaryClient.SetActiveUser(pctx, &schema.SetActiveUserRequest{Active: true, Username: "replicator"})
+	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "primarydb")
+	require.NoError(t, err)
+
+	defer primaryClient.CloseSession(context.Background())
+
+	err = primaryClient.CreateUser(context.Background(), []byte("replicator"), []byte("replicator1Pwd!"), auth.PermissionAdmin, "primarydb")
+	require.NoError(t, err)
+
+	err = primaryClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{Active: true, Username: "replicator"})
 	require.NoError(t, err)
 
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
-	replicaClient, err := ic.NewImmuClient(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(replicaPort))
-	require.NoError(t, err)
-	require.NotNil(t, replicaClient)
 
-	flr, err := replicaClient.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	replicaOpts := ic.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithPort(replicaPort)
+
+	replicaClient := ic.NewClient().WithOptions(replicaOpts)
 	require.NoError(t, err)
 
-	fmd := metadata.Pairs("authorization", flr.Token)
-	rctx := metadata.NewOutgoingContext(context.Background(), fmd)
+	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
 
 	// create database as replica in replica server
-	_, err = replicaClient.CreateDatabaseV2(rctx, "replicadb", &schema.DatabaseNullableSettings{
+	_, err = replicaClient.CreateDatabaseV2(context.Background(), "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			Replica:         &schema.NullableBool{Value: true},
 			SyncReplication: &schema.NullableBool{Value: true},
@@ -141,50 +143,51 @@ func TestReplication(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	_, err = replicaClient.UpdateDatabaseV2(rctx, "replicadb", &schema.DatabaseNullableSettings{
+	_, err = replicaClient.UpdateDatabaseV2(context.Background(), "replicadb", &schema.DatabaseNullableSettings{
 		ReplicationSettings: &schema.ReplicationNullableSettings{
 			PrimaryPassword: &schema.NullableString{Value: "replicator1Pwd!"},
 		},
 	})
 	require.NoError(t, err)
 
-	fdb, err := replicaClient.UseDatabase(rctx, &schema.Database{DatabaseName: "replicadb"})
+	err = replicaClient.CloseSession(context.Background())
 	require.NoError(t, err)
-	require.NotNil(t, fdb)
 
-	fmd = metadata.Pairs("authorization", fdb.Token)
-	rctx = metadata.NewOutgoingContext(context.Background(), fmd)
+	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "replicadb")
+	require.NoError(t, err)
 
 	t.Run("key1 should not exist", func(t *testing.T) {
-		_, err = replicaClient.Get(rctx, []byte("key1"))
+		_, err = replicaClient.Get(context.Background(), []byte("key1"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "key not found")
 	})
 
-	_, err = primaryClient.Set(pctx, []byte("key1"), []byte("value1"))
+	_, err = primaryClient.Set(context.Background(), []byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	_, err = primaryClient.Set(pctx, []byte("key2"), []byte("value2"))
+	_, err = primaryClient.Set(context.Background(), []byte("key2"), []byte("value2"))
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
 	t.Run("key1 should exist in replicadb@replica", func(t *testing.T) {
-		_, err = replicaClient.Get(rctx, []byte("key1"))
+		_, err = replicaClient.Get(context.Background(), []byte("key1"))
 		require.NoError(t, err)
 	})
 
-	fdb, err = replicaClient.UseDatabase(rctx, &schema.Database{DatabaseName: "defaultdb"})
+	err = replicaClient.CloseSession(context.Background())
 	require.NoError(t, err)
-	require.NotNil(t, fdb)
 
-	fmd = metadata.Pairs("authorization", fdb.Token)
-	rctx = metadata.NewOutgoingContext(context.Background(), fmd)
+	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	require.NoError(t, err)
 
 	t.Run("key1 should not exist in defaultdb@replica", func(t *testing.T) {
-		_, err = replicaClient.Get(rctx, []byte("key1"))
+		_, err = replicaClient.Get(context.Background(), []byte("key1"))
 		require.Contains(t, err.Error(), "key not found")
 	})
+
+	err = replicaClient.CloseSession(context.Background())
+	require.NoError(t, err)
 }
 
 func TestSystemDBAndDefaultDBReplication(t *testing.T) {
@@ -213,11 +216,17 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	// init primary client
 	primaryPort := primaryServer.Listener.Addr().(*net.TCPAddr).Port
-	primaryClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(primaryPort))
-	require.NotNil(t, primaryClient)
+
+	primaryOpts := ic.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithPort(primaryPort)
+
+	primaryClient := ic.NewClient().WithOptions(primaryOpts)
+	require.NoError(t, err)
 
 	err = primaryClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
+
 	defer primaryClient.CloseSession(context.Background())
 
 	// init replica server
@@ -232,6 +241,7 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 		PrefetchTxBufferSize:         100,
 		ReplicationCommitConcurrency: 1,
 	}
+
 	replicaServerOpts := server.DefaultOptions().
 		WithMetricsServer(false).
 		WithWebServer(false).
@@ -255,11 +265,17 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	// init replica client
 	replicaPort := replicaServer.Listener.Addr().(*net.TCPAddr).Port
-	replicaClient := ic.NewClient().WithOptions(ic.DefaultOptions().WithDir(t.TempDir()).WithPort(replicaPort))
-	require.NotNil(t, replicaClient)
+
+	replicaOpts := ic.DefaultOptions().
+		WithDir(t.TempDir()).
+		WithPort(replicaPort)
+
+	replicaClient := ic.NewClient().WithOptions(replicaOpts)
+	require.NoError(t, err)
 
 	err = replicaClient.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
+
 	defer replicaClient.CloseSession(context.Background())
 
 	t.Run("key1 should not exist", func(t *testing.T) {
