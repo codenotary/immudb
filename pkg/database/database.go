@@ -30,7 +30,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/watchers"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -1295,7 +1294,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 	defer cancel()
 
 	err = d.WaitForTx(ctx, req.Tx, req.AllowPreCommitted)
-	if errors.Is(err, watchers.ErrCancellationRequested) {
+	if ctx.Err() != nil {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, nil
 	}
 	if err != nil {
