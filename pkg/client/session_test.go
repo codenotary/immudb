@@ -89,11 +89,17 @@ type immuServiceClientMock struct {
 	schema.ImmuServiceClient
 	OpenSessionF func(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error)
 	KeepAliveF   func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	TruncateF    func(ctx context.Context, in *schema.TruncateDatabaseRequest, opts ...grpc.CallOption) (*schema.TruncateDatabaseResponse, error)
 }
 
 func (icm *immuServiceClientMock) OpenSession(ctx context.Context, in *schema.OpenSessionRequest, opts ...grpc.CallOption) (*schema.OpenSessionResponse, error) {
 	return icm.OpenSessionF(ctx, in, opts...)
 }
+
 func (icm *immuServiceClientMock) KeepAlive(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return icm.KeepAliveF(ctx, in, opts...)
+}
+
+func (icm *immuServiceClientMock) TruncateDatabase(ctx context.Context, in *schema.TruncateDatabaseRequest, opts ...grpc.CallOption) (*schema.TruncateDatabaseResponse, error) {
+	return icm.TruncateF(ctx, in, opts...)
 }

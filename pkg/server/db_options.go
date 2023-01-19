@@ -752,14 +752,14 @@ func (opts *dbOptions) Validate() error {
 
 	if opts.RetentionPeriod < 0 || (opts.RetentionPeriod > 0 && opts.RetentionPeriod < Milliseconds(store.MinimumRetentionPeriod.Milliseconds())) {
 		return fmt.Errorf(
-			"%w: invalid retention period for database '%s'. RetentionPeriod should at least 1 day",
-			ErrIllegalArguments, opts.Database)
+			"%w: invalid retention period for database '%s'. RetentionPeriod should at least '%v' hours",
+			ErrIllegalArguments, opts.Database, store.MinimumRetentionPeriod.Hours())
 	}
 
 	if opts.TruncationFrequency < 0 || (opts.TruncationFrequency > 0 && opts.TruncationFrequency < Milliseconds(store.MinimumTruncationFrequency.Milliseconds())) {
 		return fmt.Errorf(
-			"%w: invalid truncation frequency for database '%s'. TruncationFrequency should at least 1 hour",
-			ErrIllegalArguments, opts.Database)
+			"%w: invalid truncation frequency for database '%s'. TruncationFrequency should at least '%v' hours",
+			ErrIllegalArguments, opts.Database, store.MinimumTruncationFrequency.Hours())
 	}
 
 	return opts.storeOptions().Validate()
