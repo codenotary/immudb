@@ -53,9 +53,12 @@ func TestTxMetadataWithAttributes(t *testing.T) {
 	err = desmd.ReadFrom(nil)
 	require.NoError(t, err)
 
+	v, err := desmd.GetTruncatedTxID()
+	require.ErrorIs(t, err, ErrTxNotPresentInMetadata)
+
 	desmd.WithTruncatedTxID(1)
 	require.True(t, desmd.HasTruncatedTxID())
-	v, err := desmd.GetTruncatedTxID()
+	v, err = desmd.GetTruncatedTxID()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), v)
 

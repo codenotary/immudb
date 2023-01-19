@@ -366,11 +366,8 @@ message TxHeader {
 
 // TxMetadata contains metadata set to whole transaction
 message TxMetadata {
-  // True if this metadata has a truncated transaction
-  bool hasTruncatedTxID = 1;
-
   // Entry expiration information
-  uint64 truncatedTxID = 2;
+  uint64 truncatedTxID = 1;
 }
 
 // LinearProof contains the linear part of the proof (outside the main Merkle Tree)
