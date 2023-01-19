@@ -24,7 +24,6 @@ import (
 
 var ErrMaxWaitessLimitExceeded = errors.New("watchers: max waiting limit exceeded")
 var ErrAlreadyClosed = errors.New("watchers: already closed")
-var ErrCancellationRequested = errors.New("watchers: cancellation requested")
 
 type WatchersHub struct {
 	wpoints map[uint64]*waitingPoint
@@ -154,7 +153,7 @@ func (w *WatchersHub) WaitFor(ctx context.Context, t uint64) error {
 			}
 		}
 
-		return ErrCancellationRequested
+		return ctx.Err()
 	}
 
 	return nil

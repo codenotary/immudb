@@ -38,7 +38,7 @@ func TestWatchersHub(t *testing.T) {
 	defer cancel()
 
 	err := wHub.WaitFor(ctx, 1)
-	require.ErrorIs(t, err, ErrCancellationRequested)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	doneUpto, waiting, err := wHub.Status()
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestSimultaneousCancellationAndNotification(t *testing.T) {
 					require.NoError(t, err)
 
 					err = wHub.WaitFor(ctx, j)
-					if errors.Is(err, ErrCancellationRequested) {
+					if errors.Is(err, context.DeadlineExceeded) {
 						// Check internal invariant of the wHub
 						// Since we got cancel request it must only happen
 						// as long as we did not already cross the waiting point
