@@ -5861,3 +5861,39 @@ func TestConcurrentInsertions(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestSQLTxWithClosedContext(t *testing.T) {
+	engine := setupCommonTest(t)
+
+	_, _, err := engine.Exec(context.Background(), nil, "CREATE TABLE table1 (id INTEGER, title VARCHAR[10], active BOOLEAN, payload BLOB[2], PRIMARY KEY id);", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1 (title);", nil)
+	require.NoError(t, err)
+
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE INDEX ON table1 (active);", nil)
+	require.NoError(t, err)
+
+	t.Run("transaction creation should fail with a cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, _, err := engine.Exec(ctx, nil, "BEGIN TRANSACTION;", nil)
+		require.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("transaction commit should fail with a cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		tx, _, err := engine.Exec(ctx, nil, "BEGIN TRANSACTION;", nil)
+		require.NoError(t, err)
+
+		_, _, err = engine.Exec(ctx, tx, "INSERT INTO table1 (id, title, active, payload) VALUES (1, 'title1', true, x'00A1');", nil)
+		require.NoError(t, err)
+
+		cancel()
+
+		_, _, err = engine.Exec(ctx, tx, "COMMIT;", nil)
+		require.ErrorIs(t, err, context.Canceled)
+	})
+}
