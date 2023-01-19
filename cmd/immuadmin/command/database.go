@@ -320,7 +320,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	truncateCmd := &cobra.Command{
 		Use:               "truncate",
 		Short:             "Truncate database (unrecoverable operation)",
-		Example:           "delete --yes-i-know-what-i-am-doing {database_name}",
+		Example:           "truncate --yes-i-know-what-i-am-doing {database_name} --retention-period {retention_period}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -341,10 +341,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "truncating database '%s' up to retention period '%s'...\n", args[0], retentionPeriod.String())
 
-			_, err = cl.immuClient.TruncateDatabase(cl.context, &schema.TruncateDatabaseRequest{
-				Database:        args[0],
-				RetentionPeriod: &schema.NullableMilliseconds{Value: retentionPeriod.Milliseconds()},
-			})
+			err = cl.immuClient.TruncateDatabase(cl.context, args[0], retentionPeriod)
 			if err != nil {
 				return err
 			}

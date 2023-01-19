@@ -165,8 +165,10 @@ func TestDummyClosedDatabase(t *testing.T) {
 
 	err = cdb.CompactIndex()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
-
 	require.True(t, cdb.IsClosed())
+
+	err = cdb.Truncate(0)
+	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.Close()
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)

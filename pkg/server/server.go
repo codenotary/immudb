@@ -1626,8 +1626,8 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 	}
 	if req.RetentionPeriod.Value < 0 || (req.RetentionPeriod.Value > 0 && req.RetentionPeriod.Value < (store.MinimumRetentionPeriod.Milliseconds())) {
 		return nil, fmt.Errorf(
-			"%w: invalid retention period for database '%s'. RetentionPeriod should at least 1 day",
-			ErrIllegalArguments, req.Database)
+			"%w: invalid retention period for database '%s'. RetentionPeriod should at least '%v' hours",
+			ErrIllegalArguments, req.Database, store.MinimumRetentionPeriod)
 	}
 
 	s.dbListMutex.Lock()
