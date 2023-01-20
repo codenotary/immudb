@@ -5903,40 +5903,42 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
+	ctx := context.TODO()
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("CREATE DATABASE db1;", nil, nil)
+	_, _, err = engine.Exec(ctx, nil, "CREATE DATABASE db1;", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec("USE DATABASE db1;", nil, nil)
+	_, _, err = engine.Exec(ctx, nil, "USE DATABASE db1;", nil)
 	require.NoError(t, err)
 
 	return engine, st
 }
 
-func TestCopyCatalog(t *testing.T) {
+func TestCopyCatalogToTx(t *testing.T) {
 	opts := store.DefaultOptions()
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(6)
 	engine, st := setupCommonTestWithOptions(t, opts)
 
+	ctx := context.TODO()
 	exec := func(t *testing.T, stmt string) *SQLTx {
-		ret, _, err := engine.Exec(stmt, nil, nil)
+		ret, _, err := engine.Exec(ctx, nil, stmt, nil)
 		require.NoError(t, err)
 		return ret
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
-		reader, err := engine.Query(stmt, nil, nil)
+		reader, err := engine.Query(ctx, nil, stmt, nil)
 		require.NoError(t, err)
 
 		for _, expectedRow := range expectedRows {
-			row, err := reader.Read()
+			row, err := reader.Read(ctx)
 			require.NoError(t, err)
 			require.EqualValues(t, expectedRow, row)
 		}
 
-		_, err = reader.Read()
+		_, err = reader.Read(ctx)
 		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = reader.Close()
@@ -5998,7 +6000,7 @@ func TestCopyCatalog(t *testing.T) {
 	query(t, "SELECT * FROM table2")
 
 	t.Run("should fail due to unique index", func(t *testing.T) {
-		_, _, err := engine.Exec("INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil, nil)
+		_, _, err := engine.Exec(ctx, nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 	})
 
@@ -6008,13 +6010,13 @@ func TestCopyCatalog(t *testing.T) {
 		for i := 1; i <= 5; i++ {
 			key := []byte(fmt.Sprintf("key_%d", i))
 			value := []byte(fmt.Sprintf("val_%d", i))
-			tx, err := st.NewWriteOnlyTx()
+			tx, err := st.NewWriteOnlyTx(ctx)
 			require.NoError(t, err)
 
 			err = tx.Set(key, nil, value)
 			require.NoError(t, err)
 
-			deleteUptoTx, err = tx.Commit()
+			deleteUptoTx, err = tx.Commit(ctx)
 			require.NoError(t, err)
 		}
 	})
@@ -6032,9 +6034,12 @@ func TestCopyCatalog(t *testing.T) {
 
 	// copy current catalog for recreating the catalog for database/table
 	t.Run("succeed copying catalog for db", func(t *testing.T) {
-		tx, err := engine.CopyCatalog(context.Background())
+		tx, err := engine.store.NewTx(ctx, store.DefaultTxOptions())
 		require.NoError(t, err)
-		hdr, err := tx.Commit()
+
+		err = engine.CopyCatalogToTx(context.Background(), tx)
+		require.NoError(t, err)
+		hdr, err := tx.Commit(ctx)
 		require.NoError(t, err)
 		// ensure that the last committed txn is the one we just committed
 		require.Equal(t, hdr.ID, st.LastCommittedTxID())
@@ -6078,15 +6083,15 @@ func TestCopyCatalog(t *testing.T) {
 	})
 
 	t.Run("indexing should work with new catalogue", func(t *testing.T) {
-		_, _, err := engine.Exec("INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil, nil)
+		_, _, err := engine.Exec(ctx, nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
 		// should fail due non-available index
-		_, err = engine.Query("SELECT * FROM table1 ORDER BY amount DESC", nil, nil)
+		_, err = engine.Query(ctx, nil, "SELECT * FROM table1 ORDER BY amount DESC", nil)
 		require.ErrorIs(t, err, ErrNoAvailableIndex)
 
 		// should use primary index by default
-		r, err := engine.Query("SELECT * FROM table1", nil, nil)
+		r, err := engine.Query(ctx, nil, "SELECT * FROM table1", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -6105,3 +6110,4 @@ func TestCopyCatalog(t *testing.T) {
 		require.NoError(t, err)
 
 	})
+}

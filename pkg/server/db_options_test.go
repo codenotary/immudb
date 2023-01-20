@@ -109,4 +109,10 @@ func TestPrimaryOptions(t *testing.T) {
 
 	opts.SyncAcks = -1
 	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
+
+	opts.TruncationFrequency = -1
+	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
+
+	opts.RetentionPeriod = -1
+	require.ErrorIs(t, opts.Validate(), ErrIllegalArguments)
 }

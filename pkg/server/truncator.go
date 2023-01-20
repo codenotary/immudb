@@ -1,0 +1,85 @@
+/*
+Copyright 2022 Codenotary Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package server
+
+import (
+	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/truncator"
+)
+
+func (s *ImmuServer) truncationInProgressFor(db string) bool {
+	_, ok := s.truncators[db]
+	return ok
+}
+
+func (s *ImmuServer) startTruncatorFor(db database.DB, dbOpts *dbOptions) error {
+	if !dbOpts.isDataRetentionEnabled() {
+		s.Logger.Infof("Truncation for database '%s' is not required.", db.GetName())
+		return ErrTruncatorNotNeeded
+	}
+
+	s.truncatorMutex.Lock()
+	defer s.truncatorMutex.Unlock()
+
+	if s.truncationInProgressFor(db.GetName()) {
+		return database.ErrTruncatorAlreadyRunning
+	}
+
+	t := truncator.NewTruncator(db, s.Logger)
+	err := t.Start()
+	if err != nil {
+		return err
+	}
+
+	s.truncators[db.GetName()] = t
+
+	return nil
+}
+
+func (s *ImmuServer) stopTruncatorFor(db string) error {
+	s.truncatorMutex.Lock()
+	defer s.truncatorMutex.Unlock()
+
+	t, ok := s.truncators[db]
+	if !ok {
+		return ErrTruncatorNotInProgress
+	}
+
+	err := t.Stop()
+	if err == truncator.ErrTruncatorAlreadyStopped {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	delete(s.truncators, db)
+
+	return nil
+}
+
+func (s *ImmuServer) stopTruncation() {
+	s.truncatorMutex.Lock()
+	defer s.truncatorMutex.Unlock()
+
+	for db, f := range s.truncators {
+		err := f.Stop()
+		if err != nil {
+			s.Logger.Warningf("Error stopping truncator for '%s'. Reason: %v", db, err)
+		}
+	}
+}

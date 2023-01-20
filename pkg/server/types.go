@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/pkg/truncator"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
@@ -60,6 +61,9 @@ type ImmuServer struct {
 	replicators      map[string]*replication.TxReplicator
 	replicationMutex sync.Mutex
 
+	truncators     map[string]*truncator.Truncator
+	truncatorMutex sync.Mutex
+
 	Logger      logger.Logger
 	Options     *Options
 	Listener    net.Listener
@@ -90,6 +94,7 @@ func DefaultServer() *ImmuServer {
 		OS:                   immuos.NewStandardOS(),
 		dbList:               database.NewDatabaseList(),
 		replicators:          make(map[string]*replication.TxReplicator),
+		truncators:           make(map[string]*truncator.Truncator),
 		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:              DefaultOptions(),
 		quit:                 make(chan struct{}),
