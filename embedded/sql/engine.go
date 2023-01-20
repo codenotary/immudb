@@ -488,23 +488,18 @@ func normalizeParams(params map[string]interface{}) (map[string]interface{}, err
 	return nparams, nil
 }
 
-// CopyCatalog returns a new transaction with a copy of the current catalog.
-func (e *Engine) CopyCatalog(ctx context.Context) (*store.OngoingTx, error) {
+// CopyCatalogToTx copies the current sql catalog to the ongoing transaction.
+func (e *Engine) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	sqltx, err := e.NewTx(context.Background(), DefaultTxOptions())
-	if err != nil {
-		return nil, err
-	}
-
 	catalog := newCatalog()
-	err = catalog.addSchemaToTx(e.prefix, sqltx.tx)
+	err := catalog.addSchemaToTx(e.prefix, tx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return sqltx.tx, nil
+	return nil
 }
 
 // addSchemaToTx adds the schema to the ongoing transaction.

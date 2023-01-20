@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"github.com/codenotary/immudb/pkg/server/sessions"
+	"github.com/codenotary/immudb/pkg/truncator"
 
 	"github.com/codenotary/immudb/embedded/remotestorage"
 	"github.com/codenotary/immudb/embedded/store"
@@ -616,6 +617,13 @@ func (s *ImmuServer) loadUserDatabases(dataDir string, remoteStorage remotestora
 			}
 		}
 
+		if dbOpts.isDataRetentionEnabled() {
+			err = s.startTruncatorFor(db, dbOpts)
+			if err != nil {
+				s.Logger.Errorf("Error starting truncation for database '%s'. Reason: %v", db.GetName(), err)
+			}
+		}
+
 		s.dbList.Put(db)
 	}
 
@@ -716,6 +724,8 @@ func (s *ImmuServer) Stop() error {
 	s.SessManager.StopSessionsGuard()
 
 	s.stopReplication()
+
+	s.stopTruncation()
 
 	return s.CloseDatabases()
 }
@@ -932,6 +942,11 @@ func (s *ImmuServer) CreateDatabaseV2(ctx context.Context, req *schema.CreateDat
 		return nil, fmt.Errorf("%w: while starting replication", err)
 	}
 
+	err = s.startTruncatorFor(db, dbOpts)
+	if err != nil && err != ErrTruncatorNotNeeded {
+		return nil, fmt.Errorf("%w: while starting truncation", err)
+	}
+
 	return &schema.CreateDatabaseResponse{
 		Name:     req.Name,
 		Settings: dbOpts.databaseNullableSettings(),
@@ -1006,6 +1021,11 @@ func (s *ImmuServer) LoadDatabase(ctx context.Context, req *schema.LoadDatabaseR
 		}
 	}
 
+	err = s.startTruncatorFor(db, dbOpts)
+	if err != nil && err != ErrTruncatorNotNeeded {
+		return nil, fmt.Errorf("%w: while starting truncation", err)
+	}
+
 	return &schema.LoadDatabaseResponse{
 		Database: req.Database,
 	}, nil
@@ -1066,6 +1086,13 @@ func (s *ImmuServer) UnloadDatabase(ctx context.Context, req *schema.UnloadDatab
 		err = s.stopReplicationFor(req.Database)
 		if err != nil && err != ErrReplicationNotInProgress {
 			return nil, fmt.Errorf("%w: while stopping replication", err)
+		}
+	}
+
+	if dbOpts.isDataRetentionEnabled() {
+		err = s.stopTruncatorFor(req.Database)
+		if err != nil && err != ErrTruncatorNotInProgress {
+			return nil, fmt.Errorf("%w: while stopping truncation", err)
 		}
 	}
 
@@ -1215,6 +1242,13 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		}
 	}
 
+	if req.Settings.RetentionPeriod != nil && req.Settings.TruncationFrequency != nil && !db.IsClosed() {
+		err = s.stopTruncatorFor(req.Database)
+		if err != nil && err != ErrTruncatorNotInProgress {
+			return nil, fmt.Errorf("%w: while stopping truncation", err)
+		}
+	}
+
 	err = s.overwriteWith(dbOpts, req.Settings, true)
 	if err != nil {
 		return nil, err
@@ -1237,6 +1271,13 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		err = s.startReplicationFor(db, dbOpts)
 		if err != nil && err != ErrReplicatorNotNeeded {
 			return nil, fmt.Errorf("%w: while staring replication", err)
+		}
+	}
+
+	if req.Settings.RetentionPeriod != nil && req.Settings.TruncationFrequency != nil && !db.IsClosed() {
+		err = s.startTruncatorFor(db, dbOpts)
+		if err != nil && err != ErrTruncatorNotNeeded {
+			return nil, fmt.Errorf("%w: while starting truncation", err)
 		}
 	}
 
@@ -1639,7 +1680,8 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 	}
 
 	rp := time.Duration(req.RetentionPeriod.Value) * time.Millisecond
-	err = db.Truncate(rp)
+	truncator := truncator.NewTruncator(db, s.Logger)
+	err = truncator.Truncate(rp)
 	if err != nil {
 		return nil, err
 	}

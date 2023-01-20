@@ -54,6 +54,8 @@ var (
 	ErrReadWriteTxNotOngoing       = errors.New("read write transaction not ongoing")
 	ErrTxReadConflict              = errors.New(store.ErrTxReadConflict.Error()).WithCode(errors.CodInFailedSqlTransaction)
 	ErrDatabaseAlreadyLoaded       = errors.New("database already loaded")
+	ErrTruncatorNotNeeded          = errors.New("truncator is not needed")
+	ErrTruncatorNotInProgress      = errors.New("truncation is not in progress")
 )
 
 func mapServerError(err error) error {

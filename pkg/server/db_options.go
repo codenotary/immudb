@@ -765,6 +765,10 @@ func (opts *dbOptions) isReplicatorRequired() bool {
 		opts.PrimaryPort > 0
 }
 
+func (opts *dbOptions) isDataRetentionEnabled() bool {
+	return opts.RetentionPeriod > 0
+}
+
 func (s *ImmuServer) saveDBOptions(options *dbOptions) error {
 	serializedOptions, err := json.Marshal(options)
 	if err != nil {
