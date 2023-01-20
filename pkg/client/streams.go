@@ -301,7 +301,10 @@ func (c *immuClient) _streamVerifiedGet(ctx context.Context, req *schema.Verifia
 		return nil, err
 	}
 
-	gs, _ := c.streamVerifiableGet(ctx, req)
+	gs, err := c.streamVerifiableGet(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	ver := c.StreamServiceFactory.NewVEntryStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 
