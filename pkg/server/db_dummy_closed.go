@@ -243,3 +243,5 @@ func (db *closedDB) Close() error {
 func (db *closedDB) Truncate(ts time.Duration) error {
 	return store.ErrAlreadyClosed
 }
+
+func (db *closedDB) ResetTruncationFrequency() {}

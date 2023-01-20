@@ -29,6 +29,7 @@ import (
 var (
 	// ErrNoTxBeforeTime is returned when retention period is not reached.
 	ErrRetentionPeriodNotReached = errors.New("retention period has not been reached")
+	ErrTruncatorAlreadyRunning   = errors.New("truncator already running")
 )
 
 // Truncator provides truncation against an underlying storage
@@ -45,10 +46,10 @@ type Truncator interface {
 	Truncate(*store.TxHeader) error
 }
 
-func newVlogTruncator(d *db) Truncator {
+func NewVlogTruncator(d DB) Truncator {
 	return &vlogTruncator{
-		db:      d,
-		metrics: newTruncatorMetrics(d.name),
+		db:      d.(*db),
+		metrics: newTruncatorMetrics(d.GetName()),
 	}
 }
 
@@ -62,9 +63,9 @@ type vlogTruncator struct {
 // When resulting transaction before specified time does not exists
 //  * No transaction header is returned.
 //  * Returns nil TxHeader, and an error.
-// The retentionPeriod time is truncated to the day.
-func (v *vlogTruncator) Plan(retentionPeriod time.Time) (*store.TxHeader, error) {
-	hdr, err := v.db.st.FirstTxSince(retentionPeriod)
+// ts time is truncated to the start of the day.
+func (v *vlogTruncator) Plan(ts time.Time) (*store.TxHeader, error) {
+	hdr, err := v.db.st.FirstTxSince(ts)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (v *vlogTruncator) Plan(retentionPeriod time.Time) (*store.TxHeader, error)
 	// if the transaction is on or before the retention period, then we can truncate upto this
 	// transaction otherwise, we cannot truncate since the retention period has not been reached
 	// and truncation would otherwise add an extra transaction to the log for sql catalogue.
-	err = v.isRetentionPeriodReached(retentionPeriod, time.Unix(hdr.Ts, 0))
+	err = v.isRetentionPeriodReached(ts, time.Unix(hdr.Ts, 0))
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (v *vlogTruncator) Plan(retentionPeriod time.Time) (*store.TxHeader, error)
 
 // isRetentionPeriodReached returns an error if the retention period has not been reached.
 func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTimestamp time.Time) error {
-	txTime := truncateToDay(txTimestamp)
+	txTime := TruncateToDay(txTimestamp)
 	if txTime.Unix() <= retentionPeriod.Unix() {
 		return nil
 	}
@@ -91,7 +92,12 @@ func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTi
 // commitCatalog commits the current sql catalogue as a new transaction.
 func (v *vlogTruncator) commitCatalog(hdr *store.TxHeader) (*store.TxHeader, error) {
 	// copy sql catalogue
-	tx, err := v.db.CopyCatalog(context.Background())
+	tx, err := v.db.st.NewTx(store.DefaultTxOptions())
+	if err != nil {
+		return nil, err
+	}
+
+	err = v.db.CopyCatalogToTx(context.Background(), tx)
 	if err != nil {
 		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", v.db.name, err, hdr.ID)
 		return nil, err
@@ -156,4 +162,9 @@ func newTruncatorMetrics(db string) *truncatorMetrics {
 	).WithLabelValues(db)
 
 	return m
+}
+
+// TruncateToDay truncates the time to the beginning of the day.
+func TruncateToDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

@@ -18,6 +18,7 @@ package database
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -89,7 +90,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	deletePointTx := uint64(15)
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
-	c := newVlogTruncator(db)
+	c := NewVlogTruncator(db)
 	require.NoError(t, c.Truncate(hdr))
 
 	for i := deletePointTx; i <= 20; i++ {
@@ -125,7 +126,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	deletePointTx := uint64(5)
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
-	c := newVlogTruncator(db)
+	c := NewVlogTruncator(db)
 	require.NoError(t, c.Truncate(hdr))
 
 	for i := deletePointTx; i <= 10; i++ {
@@ -180,7 +181,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	deletePointTx := uint64(15)
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
-	c := newVlogTruncator(db)
+	c := NewVlogTruncator(db)
 	require.NoError(t, c.Truncate(hdr))
 
 	for i := deletePointTx; i <= 30; i++ {
@@ -249,7 +250,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 		}
 	}
 
-	c := newVlogTruncator(db)
+	c := NewVlogTruncator(db)
 	hdr, err := c.Plan(queryTime)
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
@@ -320,7 +321,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		lastCommitTx := db.st.LastCommittedTxID()
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false)
 		require.NoError(t, err)
-		c := newVlogTruncator(db)
+		c := NewVlogTruncator(db)
 		require.NoError(t, c.Truncate(hdr))
 
 		// should add an extra transaction with catalogue
@@ -392,7 +393,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	deletePointTx := uint64(1)
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
-	c := newVlogTruncator(db)
+	c := NewVlogTruncator(db)
 	require.NoError(t, c.Truncate(hdr))
 
 	// ensure that a transaction is added for the sql catalog commit
@@ -449,7 +450,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		lastCommitTx := db.st.LastCommittedTxID()
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false)
 		require.NoError(t, err)
-		c := newVlogTruncator(db)
+		c := NewVlogTruncator(db)
 		require.NoError(t, c.Truncate(hdr))
 
 		// should add an extra transaction with catalogue
@@ -478,7 +479,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		lastCommitTx := db.st.LastCommittedTxID()
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false)
 		require.NoError(t, err)
-		c := newVlogTruncator(db)
+		c := NewVlogTruncator(db)
 		require.NoError(t, c.Truncate(hdr))
 
 		// should add an extra transaction with catalogue
@@ -510,40 +511,40 @@ func Test_vlogTruncator_isRetentionPeriodReached(t *testing.T) {
 		{
 			name: "retention period not reached",
 			args: args{
-				retentionPeriod: truncateToDay(time.Now().Add(-24 * time.Hour)),
-				txTs:            truncateToDay(time.Now()),
+				retentionPeriod: TruncateToDay(time.Now().Add(-24 * time.Hour)),
+				txTs:            TruncateToDay(time.Now()),
 			},
 			wantErr: true,
 		},
 		{
 			name: "retention period reached",
 			args: args{
-				retentionPeriod: truncateToDay(time.Now().Add(-1 * time.Hour)),
-				txTs:            truncateToDay(time.Now().Add(-2 * time.Hour)),
+				retentionPeriod: TruncateToDay(time.Now().Add(-1 * time.Hour)),
+				txTs:            TruncateToDay(time.Now().Add(-2 * time.Hour)),
 			},
 			wantErr: false,
 		},
 		{
 			name: "tx period before retention",
 			args: args{
-				retentionPeriod: truncateToDay(time.Now()),
-				txTs:            truncateToDay(time.Now().Add(-48 * time.Hour)),
+				retentionPeriod: TruncateToDay(time.Now()),
+				txTs:            TruncateToDay(time.Now().Add(-48 * time.Hour)),
 			},
 			wantErr: false,
 		},
 		{
 			name: "tx period after retention",
 			args: args{
-				retentionPeriod: truncateToDay(time.Now()),
-				txTs:            truncateToDay(time.Now().Add(48 * time.Hour)),
+				retentionPeriod: TruncateToDay(time.Now()),
+				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
 			},
 			wantErr: true,
 		},
 		{
 			name: "tx period equal to retention",
 			args: args{
-				retentionPeriod: truncateToDay(time.Now().Add(48 * time.Hour)),
-				txTs:            truncateToDay(time.Now().Add(48 * time.Hour)),
+				retentionPeriod: TruncateToDay(time.Now().Add(48 * time.Hour)),
+				txTs:            TruncateToDay(time.Now().Add(48 * time.Hour)),
 			},
 			wantErr: false,
 		},
@@ -600,11 +601,34 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 		deletePointTx := uint64(5)
 		hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 		require.NoError(t, err)
-		c := newVlogTruncator(db)
+		c := NewVlogTruncator(db)
 		require.NoError(t, c.Truncate(hdr))
 		close(doneTruncateCh)
 	}()
 
 	<-doneWritesCh
 	<-doneTruncateCh
+}
+
+func Test_TruncateToDay(t *testing.T) {
+	type args struct {
+		t time.Time
+	}
+	tests := []struct {
+		name string
+		args args
+		want time.Time
+	}{
+		{
+			args: args{t: time.Date(2020, 1, 1, 10, 20, 30, 40, time.UTC)},
+			want: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TruncateToDay(tt.args.t); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TruncateToDay() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

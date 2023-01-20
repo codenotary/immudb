@@ -137,8 +137,6 @@ type DB interface {
 
 	IsClosed() bool
 	Close() error
-
-	Truncate(rp time.Duration) error
 }
 
 type uuid = string
@@ -170,12 +168,6 @@ type db struct {
 
 	replicaStates      map[uuid]*replicaState
 	replicaStatesMutex sync.Mutex
-
-	truncators      []Truncator // specifies truncators for multiple appendable logs
-	truncationMutex sync.Mutex
-	quitOnce        sync.Once
-	donec           chan struct{}
-	stopc           chan struct{}
 }
 
 // OpenDB Opens an existing Database from disk
@@ -199,9 +191,6 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 		replicaStates: replicaStates,
 		maxResultSize: MaxKeyScanLimit,
 		mutex:         &instrumentedRWMutex{},
-		truncators:    make([]Truncator, 0),
-		donec:         make(chan struct{}),
-		stopc:         make(chan struct{}),
 	}
 
 	dbDir := dbi.Path()
@@ -255,13 +244,6 @@ func OpenDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log l
 
 		dbi.Logger.Infof("SQL Engine ready for database '%s' {replica = %v}", dbName, op.replica)
 	}()
-
-	// add default truncators
-	dbi.truncators = append(dbi.truncators, newVlogTruncator(dbi))
-
-	if dbi.isDataRetentionEnabled() {
-		go dbi.runTruncator()
-	}
 
 	dbi.Logger.Infof("Database '%s' {replica = %v} successfully opened", dbName, op.replica)
 
@@ -319,9 +301,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 		replicaStates: replicaStates,
 		maxResultSize: MaxKeyScanLimit,
 		mutex:         &instrumentedRWMutex{},
-		truncators:    make([]Truncator, 0),
-		donec:         make(chan struct{}),
-		stopc:         make(chan struct{})}
+	}
 
 	dbDir := filepath.Join(op.GetDBRootPath(), dbName)
 
@@ -374,13 +354,7 @@ func NewDB(dbName string, multidbHandler sql.MultiDBHandler, op *Options, log lo
 
 	dbi.sqlEngine.SetMultiDBHandler(multidbHandler)
 
-	// add default truncators
-	dbi.truncators = append(dbi.truncators, newVlogTruncator(dbi))
-
 	dbi.Logger.Infof("Database '%s' successfully created {replica = %v}", dbName, op.replica)
-	if dbi.isDataRetentionEnabled() {
-		go dbi.runTruncator()
-	}
 	return dbi, nil
 }
 
@@ -1642,13 +1616,6 @@ func (d *db) Close() (err error) {
 
 	d.sqlInit.Wait() // Wait for SQL Engine initialization to conclude
 
-	if d.isDataRetentionEnabled() {
-		d.quitOnce.Do(func() {
-			close(d.stopc)
-			<-d.donec
-		})
-	}
-
 	return d.st.Close()
 }
 
@@ -1719,115 +1686,8 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 	return err
 }
 
-func (d *db) isDataRetentionEnabled() bool {
-	return d.options.RetentionPeriod > 0
-}
-
-// truncateToDay truncates the time to the beginning of the day.
-func truncateToDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-}
-
-// getRetentionPeriod returns the timestamp that is used to determine
-// which transaction up to which the data may be deleted from the value-log.
-func getRetentionPeriod(ts time.Time, retentionPeriod time.Duration) time.Time {
-	return truncateToDay(ts.Add(-1 * retentionPeriod))
-}
-
-// runTruncator triggers periodically to truncate multiple appendable logs
-func (d *db) runTruncator() {
-	d.Logger.Infof("starting truncator for db '%s' with retention period '%v' and truncation frequency '%v'", d.name, d.options.RetentionPeriod.Seconds(), d.options.TruncationFrequency.Seconds())
-	for {
-		select {
-		case <-d.stopc:
-			close(d.donec)
-			return
-		case <-time.After(d.options.TruncationFrequency):
-			// The timestamp ts is used to determine which transaction onwards the data
-			// may be deleted from the value-log.
-			//
-			// Subtracting a duration from ts will add a buffer for when transactions are
-			// considered safe for deletion.
-
-			// Truncate time to the beginning of the day.
-			ts := getRetentionPeriod(time.Now(), d.options.RetentionPeriod)
-			d.Logger.Infof("start truncating database '%s' {ts = %v}", d.name, ts)
-			if err := d.truncate(ts); err != nil {
-				if errors.Is(err, ErrRetentionPeriodNotReached) {
-					d.Logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", d.name, ts.String())
-				} else if errors.Is(err, store.ErrTxNotFound) {
-					d.Logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {err = %v}", d.name, err)
-				} else {
-					d.Logger.Errorf("failed to truncate database '%s' {ts = %v}", d.name, err)
-				}
-			} else {
-				d.Logger.Infof("finished truncating database '%s' {ts = %v}", d.name, ts)
-			}
-		}
-	}
-}
-
-//	truncate discards an appendable log upto a given offset
-//	before time ts. First, the transaction is fetched which lies
-//	before the specified time period, and then the values are
-//	discarded upto the specified offset.
-//
-//			  discard point
-//					|
-//					|
-//					v
-//	--------+-------+--------+----------
-//			|       |        |
-//		tn-1:vx  tn:vx   tn+1:vx
-//
-func (d *db) truncate(ts time.Time) error {
-	d.truncationMutex.Lock()
-	defer d.truncationMutex.Unlock()
-
-	for _, c := range d.truncators {
-		// Plan determines the transaction header before time period ts. If a
-		// transaction is not found, or if an error occurs fetching the transaction,
-		// then truncation does not run for the specified appendable.
-		hdr, err := c.Plan(ts)
-		if err != nil {
-			if err != ErrRetentionPeriodNotReached && err != store.ErrTxNotFound {
-				d.Logger.Errorf("failed to plan truncation for database '%s' {err = %v}", d.name, err)
-			}
-			// If no transaction is found, or if an error occurs, then continue
-			return err
-		}
-
-		// Truncate discards the appendable log upto the offset
-		// specified in the transaction hdr
-		err = c.Truncate(hdr)
-		if err != nil {
-			d.Logger.Errorf("failed to truncate database '%s' {err = %v}", d.name, err)
-		}
-	}
-
-	return nil
-}
-
 // CopyCatalog creates a copy of the sql catalog and returns a transaction
 // that can be used to commit the copy.
-func (d *db) CopyCatalog(ctx context.Context) (*store.OngoingTx, error) {
-	return d.sqlEngine.CopyCatalog(ctx)
-}
-
-// Truncate discards all data from the database that is older than the retention period.
-func (d *db) Truncate(retentionPeriod time.Duration) error {
-	ts := getRetentionPeriod(time.Now(), retentionPeriod)
-	d.Logger.Infof("start truncating database '%s' {ts = %v}", d.name, ts)
-	if err := d.truncate(ts); err != nil {
-		if errors.Is(err, ErrRetentionPeriodNotReached) {
-			d.Logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", d.name, ts.String())
-		} else if errors.Is(err, store.ErrTxNotFound) {
-			d.Logger.Infof("no transaction found beyond specified truncation timeframe for database '%s' {err = %v}", d.name, err)
-		} else {
-			d.Logger.Errorf("failed truncating database '%s' {ts = %v}", d.name, err)
-		}
-		return err
-	}
-	d.Logger.Infof("finished truncating database '%s' {ts = %v}", d.name, ts)
-	return nil
+func (d *db) CopyCatalogToTx(ctx context.Context, tx *store.OngoingTx) error {
+	return d.sqlEngine.CopyCatalogToTx(ctx, tx)
 }

@@ -5846,7 +5846,7 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 	return engine, st
 }
 
-func TestCopyCatalog(t *testing.T) {
+func TestCopyCatalogToTx(t *testing.T) {
 	opts := store.DefaultOptions()
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(6)
 	engine, st := setupCommonTestWithOptions(t, opts)
@@ -5963,7 +5963,10 @@ func TestCopyCatalog(t *testing.T) {
 
 	// copy current catalog for recreating the catalog for database/table
 	t.Run("succeed copying catalog for db", func(t *testing.T) {
-		tx, err := engine.CopyCatalog(context.Background())
+		tx, err := engine.store.NewTx(store.DefaultTxOptions())
+		require.NoError(t, err)
+
+		err = engine.CopyCatalogToTx(context.Background(), tx)
 		require.NoError(t, err)
 		hdr, err := tx.Commit()
 		require.NoError(t, err)
