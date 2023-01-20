@@ -18,14 +18,18 @@ package integration
 
 import (
 	"context"
+	"encoding/binary"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	ic "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/replication"
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/stretchr/testify/require"
 )
 
@@ -296,4 +300,126 @@ func TestSystemDBAndDefaultDBReplication(t *testing.T) {
 
 	_, err = replicaClient.Set(context.Background(), []byte("key2"), []byte("value2"))
 	require.Contains(t, err.Error(), "database is read-only because it's a replica")
+}
+
+func BenchmarkExportTx(b *testing.B) {
+	//init  server
+	serverOpts := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0).
+		WithDir(b.TempDir())
+
+	srv := server.DefaultServer().WithOptions(serverOpts).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	if err != nil {
+		b.FailNow()
+	}
+
+	go func() {
+		srv.Start()
+	}()
+
+	defer func() {
+		srv.Stop()
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	// init primary client
+	port := srv.Listener.Addr().(*net.TCPAddr).Port
+
+	opts := ic.DefaultOptions().
+		WithDir(b.TempDir()).
+		WithPort(port)
+
+	client := ic.NewClient().WithOptions(opts)
+
+	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	if err != nil {
+		b.FailNow()
+	}
+
+	// create database as primarydb in primary server
+	_, err = client.CreateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{
+		MaxConcurrency: &schema.NullableUint32{Value: 200},
+		//VLogCacheSize:  &schema.NullableUint32{Value: 0}, // disable vLogCache
+	})
+	if err != nil {
+		b.FailNow()
+	}
+
+	err = client.CloseSession(context.Background())
+	if err != nil {
+		b.FailNow()
+	}
+
+	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "db1")
+	if err != nil {
+		b.FailNow()
+	}
+	defer client.CloseSession(context.Background())
+
+	// commit some transactions
+	workers := 100
+	txsPerWorker := 10
+	entriesPerTx := 10
+	keyLen := 128
+	valLen := 1024 * 200
+
+	kvs := make([]*schema.KeyValue, entriesPerTx)
+
+	for i := 0; i < entriesPerTx; i++ {
+		kvs[i] = &schema.KeyValue{
+			Key:   make([]byte, keyLen),
+			Value: make([]byte, valLen),
+		}
+
+		binary.BigEndian.PutUint64(kvs[i].Key, uint64(i))
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			for j := 0; j < txsPerWorker; j++ {
+				_, err := client.SetAll(context.Background(), &schema.SetRequest{
+					KVs: kvs,
+				})
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	streamSrvFactory := stream.NewStreamServiceFactory(replication.DefaultChunkSize)
+
+	b.ResetTimer()
+
+	// measure exportTx performance
+	for i := 0; i < b.N; i++ {
+		for tx := 1; tx <= workers*txsPerWorker; tx++ {
+			exportTxStream, err := client.ExportTx(context.Background(), &schema.ExportTxRequest{
+				Tx:                uint64(tx),
+				AllowPreCommitted: false,
+			})
+			if err != nil {
+				b.FailNow()
+			}
+
+			receiver := streamSrvFactory.NewMsgReceiver(exportTxStream)
+			_, err = receiver.ReadFully()
+			if err != nil {
+				b.FailNow()
+			}
+		}
+	}
 }
