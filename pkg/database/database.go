@@ -1206,7 +1206,6 @@ func (d *db) mayUpdateReplicaState(committedTxID uint64, newReplicaState *schema
 }
 
 func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txbs []byte, mayCommitUpToTxID uint64, mayCommitUpToAlh [sha256.Size]byte, err error) {
-
 	if req == nil {
 		return nil, 0, mayCommitUpToAlh, ErrIllegalArguments
 	}
@@ -1289,7 +1288,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 
 	// TODO: under some circumstances, replica might not be able to do further progress until primary
 	// has made changes, such wait doesn't need to have a timeout, reducing networking and CPU utilization
-	ctx, cancel := context.WithTimeout(context.Background(), d.options.storeOpts.SyncFrequency*4)
+	ctx, cancel := context.WithTimeout(ctx, d.options.storeOpts.SyncFrequency*4)
 	defer cancel()
 
 	err = d.WaitForTx(ctx, req.Tx, req.AllowPreCommitted)
