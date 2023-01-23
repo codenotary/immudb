@@ -1242,7 +1242,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		}
 	}
 
-	if req.Settings.RetentionPeriod != nil && req.Settings.TruncationFrequency != nil && !db.IsClosed() {
+	if req.Settings.TruncationSettings != nil && !db.IsClosed() {
 		err = s.stopTruncatorFor(req.Database)
 		if err != nil && err != ErrTruncatorNotInProgress {
 			return nil, fmt.Errorf("%w: while stopping truncation", err)
@@ -1274,7 +1274,7 @@ func (s *ImmuServer) UpdateDatabaseV2(ctx context.Context, req *schema.UpdateDat
 		}
 	}
 
-	if req.Settings.RetentionPeriod != nil && req.Settings.TruncationFrequency != nil && !db.IsClosed() {
+	if req.Settings.TruncationSettings != nil && !db.IsClosed() {
 		err = s.startTruncatorFor(db, dbOpts)
 		if err != nil && err != ErrTruncatorNotNeeded {
 			return nil, fmt.Errorf("%w: while starting truncation", err)

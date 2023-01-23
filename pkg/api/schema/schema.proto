@@ -1032,11 +1032,9 @@ message DatabaseNullableSettings {
   // Limit the number of read entries per transaction
   NullableUint32 mvccReadSetLimit = 27;
 
-  // Retention Period for data in the database
-  NullableMilliseconds retentionPeriod = 28;
+  // Truncation settings
+  TruncationNullableSettings truncationSettings = 28;
 
-  // Truncation Frequency for the database
-  NullableMilliseconds truncationFrequency = 29;
 }
 
 message ReplicationNullableSettings {
@@ -1072,6 +1070,14 @@ message ReplicationNullableSettings {
 
   // Allow precommitted transactions to be discarded if the replica diverges from the primary
   NullableBool AllowTxDiscarding = 11;
+}
+
+message TruncationNullableSettings {
+  // Retention Period for data in the database
+  NullableMilliseconds retentionPeriod = 28;
+
+  // Truncation Frequency for the database
+  NullableMilliseconds truncationFrequency = 29;
 }
 
 message IndexNullableSettings {

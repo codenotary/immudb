@@ -100,6 +100,7 @@
     - [Table](#immudb.schema.Table)
     - [TruncateDatabaseRequest](#immudb.schema.TruncateDatabaseRequest)
     - [TruncateDatabaseResponse](#immudb.schema.TruncateDatabaseResponse)
+    - [TruncationNullableSettings](#immudb.schema.TruncationNullableSettings)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxHeader](#immudb.schema.TxHeader)
@@ -450,8 +451,7 @@ DEPRECATED
 | ahtSettings | [AHTNullableSettings](#immudb.schema.AHTNullableSettings) |  | Settings of Appendable Hash Tree |
 | maxActiveTransactions | [NullableUint32](#immudb.schema.NullableUint32) |  | Maximum number of pre-committed transactions |
 | mvccReadSetLimit | [NullableUint32](#immudb.schema.NullableUint32) |  | Limit the number of read entries per transaction |
-| retentionPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Retention Period for data in the database |
-| truncationFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Truncation Frequency for the database |
+| truncationSettings | [TruncationNullableSettings](#immudb.schema.TruncationNullableSettings) |  | Truncation settings |
 
 
 
@@ -1759,6 +1759,22 @@ ServerInfoResponse contains information about the server instance.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  | Database name |
+
+
+
+
+
+
+<a name="immudb.schema.TruncationNullableSettings"></a>
+
+### TruncationNullableSettings
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| retentionPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Retention Period for data in the database |
+| truncationFrequency | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Truncation Frequency for the database |
 
 
 

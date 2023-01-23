@@ -352,8 +352,10 @@ func (opts *dbOptions) databaseNullableSettings() *schema.DatabaseNullableSettin
 
 		ReadTxPoolSize: &schema.NullableUint32{Value: uint32(opts.ReadTxPoolSize)},
 
-		RetentionPeriod:     &schema.NullableMilliseconds{Value: int64(opts.RetentionPeriod)},
-		TruncationFrequency: &schema.NullableMilliseconds{Value: int64(opts.TruncationFrequency)},
+		TruncationSettings: &schema.TruncationNullableSettings{
+			RetentionPeriod:     &schema.NullableMilliseconds{Value: int64(opts.RetentionPeriod)},
+			TruncationFrequency: &schema.NullableMilliseconds{Value: int64(opts.TruncationFrequency)},
+		},
 	}
 }
 
@@ -564,12 +566,14 @@ func (s *ImmuServer) overwriteWith(opts *dbOptions, settings *schema.DatabaseNul
 		}
 	}
 
-	if settings.RetentionPeriod != nil {
-		opts.RetentionPeriod = Milliseconds(settings.RetentionPeriod.Value)
-	}
+	if settings.TruncationSettings != nil {
+		if settings.TruncationSettings.RetentionPeriod != nil {
+			opts.RetentionPeriod = Milliseconds(settings.TruncationSettings.RetentionPeriod.Value)
+		}
 
-	if settings.TruncationFrequency != nil {
-		opts.TruncationFrequency = Milliseconds(settings.TruncationFrequency.Value)
+		if settings.TruncationSettings.TruncationFrequency != nil {
+			opts.TruncationFrequency = Milliseconds(settings.TruncationSettings.TruncationFrequency.Value)
+		}
 	}
 
 	// index options
