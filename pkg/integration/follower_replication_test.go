@@ -309,13 +309,16 @@ func BenchmarkExportTx(b *testing.B) {
 		WithWebServer(false).
 		WithPgsqlServer(false).
 		WithPort(0).
+		WithMaxRecvMsgSize(204939000).
 		WithDir(b.TempDir())
+
+	serverOpts.SessionsOptions.WithMaxSessions(200)
 
 	srv := server.DefaultServer().WithOptions(serverOpts).(*server.ImmuServer)
 
 	err := srv.Initialize()
 	if err != nil {
-		b.FailNow()
+		panic(err)
 	}
 
 	go func() {
@@ -339,7 +342,7 @@ func BenchmarkExportTx(b *testing.B) {
 
 	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	if err != nil {
-		b.FailNow()
+		panic(err)
 	}
 
 	// create database as primarydb in primary server
@@ -348,22 +351,22 @@ func BenchmarkExportTx(b *testing.B) {
 		//VLogCacheSize:  &schema.NullableUint32{Value: 0}, // disable vLogCache
 	})
 	if err != nil {
-		b.FailNow()
+		panic(err)
 	}
 
 	err = client.CloseSession(context.Background())
 	if err != nil {
-		b.FailNow()
+		panic(err)
 	}
 
 	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "db1")
 	if err != nil {
-		b.FailNow()
+		panic(err)
 	}
 	defer client.CloseSession(context.Background())
 
 	// commit some transactions
-	workers := 100
+	workers := 10
 	txsPerWorker := 10
 	entriesPerTx := 10
 	keyLen := 128
@@ -400,26 +403,60 @@ func BenchmarkExportTx(b *testing.B) {
 
 	wg.Wait()
 
-	streamSrvFactory := stream.NewStreamServiceFactory(replication.DefaultChunkSize)
+	replicators := 1
+	txsPerReplicator := workers * txsPerWorker / replicators
+
+	clientReplicators := make([]ic.ImmuClient, replicators)
+
+	for r := 0; r < replicators; r++ {
+		opts := ic.DefaultOptions().
+			WithDir(b.TempDir()).
+			WithPort(port)
+
+		client := ic.NewClient().WithOptions(opts)
+
+		err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "db1")
+		if err != nil {
+			panic(err)
+		}
+		defer client.CloseSession(context.Background())
+
+		clientReplicators[r] = client
+	}
+
+	streamServiceFactory := stream.NewStreamServiceFactory(replication.DefaultChunkSize)
 
 	b.ResetTimer()
 
 	// measure exportTx performance
 	for i := 0; i < b.N; i++ {
-		for tx := 1; tx <= workers*txsPerWorker; tx++ {
-			exportTxStream, err := client.ExportTx(context.Background(), &schema.ExportTxRequest{
-				Tx:                uint64(tx),
-				AllowPreCommitted: false,
-			})
-			if err != nil {
-				b.FailNow()
-			}
+		var wg sync.WaitGroup
+		wg.Add(replicators)
 
-			receiver := streamSrvFactory.NewMsgReceiver(exportTxStream)
-			_, err = receiver.ReadFully()
-			if err != nil {
-				b.FailNow()
-			}
+		for r := 0; r < replicators; r++ {
+			go func(r int) {
+				defer wg.Done()
+
+				client := clientReplicators[r]
+
+				for tx := 1; tx <= txsPerReplicator; tx++ {
+					exportTxStream, err := client.ExportTx(context.Background(), &schema.ExportTxRequest{
+						Tx:                uint64(r*txsPerReplicator + tx),
+						AllowPreCommitted: false,
+					})
+					if err != nil {
+						panic(err)
+					}
+
+					receiver := streamServiceFactory.NewMsgReceiver(exportTxStream)
+					_, err = receiver.ReadFully()
+					if err != nil {
+						panic(err)
+					}
+				}
+			}(r)
 		}
+
+		wg.Wait()
 	}
 }
