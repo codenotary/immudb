@@ -508,14 +508,21 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 		return nil, err
 	}
 
-	ret.RetentionPeriod, err = condDuration("retention-period")
+	retentionPeriod, err := condDuration("retention-period")
 	if err != nil {
 		return nil, err
 	}
 
-	ret.TruncationFrequency, err = condDuration("truncation-frequency")
+	truncationFrequency, err := condDuration("truncation-frequency")
 	if err != nil {
 		return nil, err
+	}
+
+	if retentionPeriod != nil || truncationFrequency != nil {
+		ret.TruncationSettings = &schema.TruncationNullableSettings{
+			RetentionPeriod:     retentionPeriod,
+			TruncationFrequency: truncationFrequency,
+		}
 	}
 
 	return ret, nil
@@ -557,14 +564,16 @@ func databaseNullableSettingsStr(settings *schema.DatabaseNullableSettings) stri
 		propertiesStr = append(propertiesStr, fmt.Sprintf("autoload: %v", settings.Autoload.GetValue()))
 	}
 
-	if settings.RetentionPeriod != nil {
-		retDur := time.Duration(settings.GetRetentionPeriod().GetValue()) * time.Millisecond
-		propertiesStr = append(propertiesStr, fmt.Sprintf("retention-period: %v", retDur))
-	}
+	if settings.TruncationSettings != nil {
+		if settings.TruncationSettings.RetentionPeriod != nil {
+			retDur := time.Duration(settings.TruncationSettings.GetRetentionPeriod().GetValue()) * time.Millisecond
+			propertiesStr = append(propertiesStr, fmt.Sprintf("retention-period: %v", retDur))
+		}
 
-	if settings.TruncationFrequency != nil {
-		freq := time.Duration(settings.GetTruncationFrequency().GetValue()) * time.Millisecond
-		propertiesStr = append(propertiesStr, fmt.Sprintf("truncation-frequency: %v", freq))
+		if settings.TruncationSettings.TruncationFrequency != nil {
+			freq := time.Duration(settings.TruncationSettings.GetTruncationFrequency().GetValue()) * time.Millisecond
+			propertiesStr = append(propertiesStr, fmt.Sprintf("truncation-frequency: %v", freq))
+		}
 	}
 
 	return strings.Join(propertiesStr, ", ")

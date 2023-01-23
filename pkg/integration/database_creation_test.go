@@ -96,8 +96,10 @@ func TestCreateDatabaseV2(t *testing.T) {
 			SyncThreshold:   &schema.NullableUint32{Value: 10_000},
 			WriteBufferSize: &schema.NullableUint32{Value: 8000},
 		},
-		RetentionPeriod:     &schema.NullableMilliseconds{Value: 24 * time.Hour.Milliseconds()},
-		TruncationFrequency: &schema.NullableMilliseconds{Value: 1 * time.Hour.Milliseconds()},
+		TruncationSettings: &schema.TruncationNullableSettings{
+			RetentionPeriod:     &schema.NullableMilliseconds{Value: 24 * time.Hour.Milliseconds()},
+			TruncationFrequency: &schema.NullableMilliseconds{Value: 1 * time.Hour.Milliseconds()},
+		},
 	}
 	_, err := client.CreateDatabaseV2(ctx, "db1", dbNullableSettings)
 	require.NoError(t, err)
@@ -143,8 +145,8 @@ func TestCreateDatabaseV2(t *testing.T) {
 	require.Equal(t, dbNullableSettings.AhtSettings.SyncThreshold.Value, res.Settings.AhtSettings.SyncThreshold.Value)
 	require.Equal(t, dbNullableSettings.AhtSettings.WriteBufferSize.Value, res.Settings.AhtSettings.WriteBufferSize.Value)
 
-	require.Equal(t, dbNullableSettings.RetentionPeriod.Value, res.Settings.RetentionPeriod.Value)
-	require.Equal(t, dbNullableSettings.TruncationFrequency.Value, res.Settings.TruncationFrequency.Value)
+	require.Equal(t, dbNullableSettings.TruncationSettings.RetentionPeriod.Value, res.Settings.TruncationSettings.RetentionPeriod.Value)
+	require.Equal(t, dbNullableSettings.TruncationSettings.TruncationFrequency.Value, res.Settings.TruncationSettings.TruncationFrequency.Value)
 
 	_, err = client.UpdateDatabaseV2(ctx, "db1", &schema.DatabaseNullableSettings{})
 	require.NoError(t, err)

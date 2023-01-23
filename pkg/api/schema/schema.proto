@@ -1035,11 +1035,8 @@ message DatabaseNullableSettings {
   // Size of the LRU cache for value logs
   NullableUint32 vLogCacheSize = 28;
 
-  // Retention Period for data in the database
-  NullableMilliseconds retentionPeriod = 29;
-
-  // Truncation Frequency for the database
-  NullableMilliseconds truncationFrequency = 30;
+  // Truncation settings
+  TruncationNullableSettings truncationSettings = 29;
 }
 
 message ReplicationNullableSettings {
@@ -1075,6 +1072,14 @@ message ReplicationNullableSettings {
 
   // Allow precommitted transactions to be discarded if the replica diverges from the primary
   NullableBool AllowTxDiscarding = 11;
+}
+
+message TruncationNullableSettings {
+  // Retention Period for data in the database
+  NullableMilliseconds retentionPeriod = 1;
+
+  // Truncation Frequency for the database
+  NullableMilliseconds truncationFrequency = 2;
 }
 
 message IndexNullableSettings {

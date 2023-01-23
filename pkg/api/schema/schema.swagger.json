@@ -2132,13 +2132,9 @@
           "$ref": "#/definitions/schemaNullableUint32",
           "title": "Size of the LRU cache for value logs"
         },
-        "retentionPeriod": {
-          "$ref": "#/definitions/schemaNullableMilliseconds",
-          "title": "Retention Period for data in the database"
-        },
-        "truncationFrequency": {
-          "$ref": "#/definitions/schemaNullableMilliseconds",
-          "title": "Truncation Frequency for the database"
+        "truncationSettings": {
+          "$ref": "#/definitions/schemaTruncationNullableSettings",
+          "title": "Truncation settings"
         }
       }
     },
@@ -3391,6 +3387,19 @@
         "database": {
           "type": "string",
           "title": "Database name"
+        }
+      }
+    },
+    "schemaTruncationNullableSettings": {
+      "type": "object",
+      "properties": {
+        "retentionPeriod": {
+          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "title": "Retention Period for data in the database"
+        },
+        "truncationFrequency": {
+          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "title": "Truncation Frequency for the database"
         }
       }
     },

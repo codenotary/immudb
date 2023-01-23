@@ -71,7 +71,7 @@ func (t *Truncator) Start() error {
 
 	opts := t.db.GetOptions()
 	t.hasStarted = true
-	t.logger.Infof("starting truncator for db '%s' with retention period '%v' and truncation frequency '%v'", t.db.GetName(), opts.RetentionPeriod.Seconds(), opts.TruncationFrequency.Seconds())
+	t.logger.Infof("starting truncator for database '%s' with retention period '%v' and truncation frequency '%v'", t.db.GetName(), opts.RetentionPeriod.Seconds(), opts.TruncationFrequency.Seconds())
 
 	go func() {
 		ticker := time.NewTicker(opts.TruncationFrequency)

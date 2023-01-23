@@ -58,8 +58,10 @@ func TestServerTruncator(t *testing.T) {
 	newdb := &schema.CreateDatabaseRequest{
 		Name: "db",
 		Settings: &schema.DatabaseNullableSettings{
-			RetentionPeriod:     &schema.NullableMilliseconds{Value: dt.Milliseconds()},
-			TruncationFrequency: &schema.NullableMilliseconds{Value: dt.Milliseconds()},
+			TruncationSettings: &schema.TruncationNullableSettings{
+				RetentionPeriod:     &schema.NullableMilliseconds{Value: dt.Milliseconds()},
+				TruncationFrequency: &schema.NullableMilliseconds{Value: dt.Milliseconds()},
+			},
 		},
 	}
 
