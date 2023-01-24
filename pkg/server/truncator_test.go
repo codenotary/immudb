@@ -82,5 +82,67 @@ func TestServerTruncator(t *testing.T) {
 	err = s.stopTruncatorFor("db2")
 	require.ErrorIs(t, err, ErrTruncatorNotInProgress)
 
+	err = s.startTruncatorFor(db, dbOpts)
+	require.NoError(t, err)
+
 	s.stopTruncation()
+}
+
+func TestServerLoadDatabaseWithRetention(t *testing.T) {
+	dir := t.TempDir()
+
+	serverOptions := DefaultOptions().
+		WithDir(dir).
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword)
+
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	dt := 24 * time.Hour
+	newdb := &schema.CreateDatabaseRequest{
+		Name: testDatabase,
+		Settings: &schema.DatabaseNullableSettings{
+			TruncationSettings: &schema.TruncationNullableSettings{
+				RetentionPeriod:     &schema.NullableMilliseconds{Value: dt.Milliseconds()},
+				TruncationFrequency: &schema.NullableMilliseconds{Value: dt.Milliseconds()},
+			},
+		},
+	}
+	_, err = s.CreateDatabaseV2(ctx, newdb)
+	require.NoError(t, err)
+
+	err = s.CloseDatabases()
+	require.NoError(t, err)
+
+	s.dbList = database.NewDatabaseList()
+	s.sysDB = nil
+
+	t.Run("attempt to load database should pass", func(t *testing.T) {
+		err = s.loadSystemDatabase(s.Options.Dir, nil, auth.SysAdminPassword, false)
+		require.NoError(t, err)
+
+		err = s.loadDefaultDatabase(s.Options.Dir, nil)
+		require.NoError(t, err)
+
+		err = s.loadUserDatabases(s.Options.Dir, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("attempt to unload user database should pass", func(t *testing.T) {
+		_, err = s.UnloadDatabase(ctx, &schema.UnloadDatabaseRequest{Database: testDatabase})
+		require.NoError(t, err)
+	})
 }

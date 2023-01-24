@@ -92,7 +92,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
 	c := NewVlogTruncator(db)
-	require.NoError(t, c.Truncate(hdr))
+	require.NoError(t, c.Truncate(hdr.ID))
 
 	for i := deletePointTx; i <= 20; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
@@ -128,7 +128,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
 	c := NewVlogTruncator(db)
-	require.NoError(t, c.Truncate(hdr))
+	require.NoError(t, c.Truncate(hdr.ID))
 
 	for i := deletePointTx; i <= 10; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
@@ -183,7 +183,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
 	c := NewVlogTruncator(db)
-	require.NoError(t, c.Truncate(hdr))
+	require.NoError(t, c.Truncate(hdr.ID))
 
 	for i := deletePointTx; i <= 30; i++ {
 		tx := store.NewTx(db.st.MaxTxEntries(), db.st.MaxKeyLen())
@@ -323,7 +323,7 @@ func Test_vlogCompactor_with_sql(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false)
 		require.NoError(t, err)
 		c := NewVlogTruncator(db)
-		require.NoError(t, c.Truncate(hdr))
+		require.NoError(t, c.Truncate(hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -395,7 +395,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 	require.NoError(t, err)
 	c := NewVlogTruncator(db)
-	require.NoError(t, c.Truncate(hdr))
+	require.NoError(t, c.Truncate(hdr.ID))
 
 	// ensure that a transaction is added for the sql catalog commit
 	require.Equal(t, uint64(2), db.st.LastCommittedTxID())
@@ -452,7 +452,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(lastCommitTx, false)
 		require.NoError(t, err)
 		c := NewVlogTruncator(db)
-		require.NoError(t, c.Truncate(hdr))
+		require.NoError(t, c.Truncate(hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -481,7 +481,7 @@ func Test_vlogCompactor_with_multiple_truncates(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deleteUptoTx.Id, false)
 		require.NoError(t, err)
 		c := NewVlogTruncator(db)
-		require.NoError(t, c.Truncate(hdr))
+		require.NoError(t, c.Truncate(hdr.ID))
 
 		// should add an extra transaction with catalogue
 		require.Equal(t, lastCommitTx+1, db.st.LastCommittedTxID())
@@ -603,7 +603,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 		hdr, err := db.st.ReadTxHeader(deletePointTx, false)
 		require.NoError(t, err)
 		c := NewVlogTruncator(db)
-		require.NoError(t, c.Truncate(hdr))
+		require.NoError(t, c.Truncate(hdr.ID))
 		close(doneTruncateCh)
 	}()
 

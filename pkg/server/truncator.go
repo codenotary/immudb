@@ -80,6 +80,8 @@ func (s *ImmuServer) stopTruncation() {
 		err := f.Stop()
 		if err != nil {
 			s.Logger.Warningf("Error stopping truncator for '%s'. Reason: %v", db, err)
+		} else {
+			delete(s.truncators, db)
 		}
 	}
 }

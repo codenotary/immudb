@@ -123,6 +123,9 @@ func (t *Truncator) Start() error {
 //		tn-1:vx  tn:vx   tn+1:vx
 //
 func (t *Truncator) truncate(ts time.Time) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	for _, c := range t.truncators {
 		// Plan determines the transaction header before time period ts. If a
 		// transaction is not found, or if an error occurs fetching the transaction,
@@ -138,7 +141,7 @@ func (t *Truncator) truncate(ts time.Time) error {
 
 		// Truncate discards the appendable log upto the offset
 		// specified in the transaction hdr
-		err = c.Truncate(hdr)
+		err = c.Truncate(hdr.ID)
 		if err != nil {
 			t.logger.Errorf("failed to truncate database '%s' {err = %v}", t.db.GetName(), err)
 		}
