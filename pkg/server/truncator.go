@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"time"
+
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/truncator"
 )
@@ -39,7 +41,10 @@ func (s *ImmuServer) startTruncatorFor(db database.DB, dbOpts *dbOptions) error 
 		return database.ErrTruncatorAlreadyRunning
 	}
 
-	t := truncator.NewTruncator(db, s.Logger)
+	rp := time.Millisecond * time.Duration(dbOpts.RetentionPeriod)
+	tf := time.Millisecond * time.Duration(dbOpts.TruncationFrequency)
+
+	t := truncator.NewTruncator(db, rp, tf, s.Logger)
 	err := t.Start()
 	if err != nil {
 		return err
@@ -80,6 +85,8 @@ func (s *ImmuServer) stopTruncation() {
 		err := f.Stop()
 		if err != nil {
 			s.Logger.Warningf("Error stopping truncator for '%s'. Reason: %v", db, err)
+		} else {
+			delete(s.truncators, db)
 		}
 	}
 }

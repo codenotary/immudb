@@ -2194,7 +2194,7 @@ func Test_database_truncate(t *testing.T) {
 	require.NoError(t, err)
 	require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
-	err = c.Truncate(hdr)
+	err = c.Truncate(hdr.ID)
 	require.NoError(t, err)
 
 	for i := hdr.ID; i <= 20; i++ {
