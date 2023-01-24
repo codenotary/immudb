@@ -31,14 +31,20 @@ var (
 	ErrTruncatorAlreadyStopped = errors.New("truncator already stopped")
 )
 
-func NewTruncator(db database.DB, logger logger.Logger) *Truncator {
+func NewTruncator(
+	db database.DB,
+	retentionPeriod time.Duration,
+	truncationFrequency time.Duration,
+	logger logger.Logger) *Truncator {
 	t := &Truncator{
-		db:               db,
-		logger:           logger,
-		retentionPeriodF: getRetentionPeriod,
-		truncators:       make([]database.Truncator, 0),
-		donech:           make(chan struct{}),
-		stopch:           make(chan struct{}),
+		db:                  db,
+		logger:              logger,
+		retentionPeriodF:    getRetentionPeriod,
+		truncators:          make([]database.Truncator, 0),
+		donech:              make(chan struct{}),
+		stopch:              make(chan struct{}),
+		retentionPeriod:     retentionPeriod,
+		truncationFrequency: truncationFrequency,
 	}
 	t.truncators = append(t.truncators, database.NewVlogTruncator(db))
 	return t
@@ -52,6 +58,9 @@ type Truncator struct {
 	hasStarted bool
 
 	db database.DB
+
+	retentionPeriod     time.Duration
+	truncationFrequency time.Duration
 
 	logger           logger.Logger
 	retentionPeriodF func(ts time.Time, retentionPeriod time.Duration) time.Time
@@ -69,12 +78,11 @@ func (t *Truncator) Start() error {
 		return ErrTruncatorAlreadyRunning
 	}
 
-	opts := t.db.GetOptions()
 	t.hasStarted = true
-	t.logger.Infof("starting truncator for database '%s' with retention period '%v' and truncation frequency '%v'", t.db.GetName(), opts.RetentionPeriod.Seconds(), opts.TruncationFrequency.Seconds())
+	t.logger.Infof("starting truncator for database '%s' with retention period '%vs' and truncation frequency '%vs'", t.db.GetName(), t.retentionPeriod.Seconds(), t.truncationFrequency.Seconds())
 
 	go func() {
-		ticker := time.NewTicker(opts.TruncationFrequency)
+		ticker := time.NewTicker(t.truncationFrequency)
 		for {
 			select {
 			case <-t.stopch:
@@ -89,7 +97,7 @@ func (t *Truncator) Start() error {
 				// considered safe for deletion.
 
 				// Truncate time to the beginning of the day.
-				ts := t.retentionPeriodF(time.Now(), opts.RetentionPeriod)
+				ts := t.retentionPeriodF(time.Now(), t.retentionPeriod)
 				t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), ts)
 				if err := t.truncate(ts); err != nil {
 					if errors.Is(err, database.ErrRetentionPeriodNotReached) {
@@ -102,7 +110,6 @@ func (t *Truncator) Start() error {
 				} else {
 					t.logger.Infof("finished truncating database '%s' {ts = %v}", t.db.GetName(), ts)
 				}
-				t.logger.Infof("finished truncating database '%s' {ts = %v}", t.db.GetName(), ts)
 			}
 		}
 	}()
@@ -138,9 +145,10 @@ func (t *Truncator) truncate(ts time.Time) error {
 
 		// Truncate discards the appendable log upto the offset
 		// specified in the transaction hdr
-		err = c.Truncate(hdr)
+		err = c.Truncate(hdr.ID)
 		if err != nil {
 			t.logger.Errorf("failed to truncate database '%s' {err = %v}", t.db.GetName(), err)
+			return err
 		}
 	}
 

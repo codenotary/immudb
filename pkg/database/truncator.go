@@ -43,7 +43,7 @@ type Truncator interface {
 
 	// Truncate runs truncation against the relevant appendable logs. Must
 	// be called after result of Plan().
-	Truncate(*store.TxHeader) error
+	Truncate(txID uint64) error
 }
 
 func NewVlogTruncator(d DB) Truncator {
@@ -90,7 +90,7 @@ func (v *vlogTruncator) isRetentionPeriodReached(retentionPeriod time.Time, txTi
 }
 
 // commitCatalog commits the current sql catalogue as a new transaction.
-func (v *vlogTruncator) commitCatalog(hdr *store.TxHeader) (*store.TxHeader, error) {
+func (v *vlogTruncator) commitCatalog(txID uint64) (*store.TxHeader, error) {
 	// copy sql catalogue
 	ctx := context.Background()
 	tx, err := v.db.st.NewTx(ctx, store.DefaultTxOptions())
@@ -100,37 +100,37 @@ func (v *vlogTruncator) commitCatalog(hdr *store.TxHeader) (*store.TxHeader, err
 
 	err = v.db.CopyCatalogToTx(ctx, tx)
 	if err != nil {
-		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", v.db.name, err, hdr.ID)
+		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_copy}", v.db.name, err, txID)
 		return nil, err
 	}
 	defer tx.Cancel()
 
 	// setting the metadata to record the transaction upto which the log was truncated
-	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(hdr.ID))
+	tx.WithMetadata(store.NewTxMetadata().WithTruncatedTxID(txID))
 
 	// commit catalogue as a new transaction
 	return tx.Commit(context.Background())
 }
 
 // Truncate runs truncation against the relevant appendable logs upto the specified transaction offset.
-func (v *vlogTruncator) Truncate(hdr *store.TxHeader) error {
+func (v *vlogTruncator) Truncate(txID uint64) error {
 	defer func(t time.Time) {
 		v.metrics.ran.Inc()
 		v.metrics.duration.Observe(time.Since(t).Seconds())
 	}(time.Now())
-	v.db.Logger.Infof("copying sql catalog before truncation for database '%s' at tx %d", v.db.name, hdr.ID)
+	v.db.Logger.Infof("copying sql catalog before truncation for database '%s' at tx %d", v.db.name, txID)
 	// copy sql catalogue
-	sqlCommitHdr, err := v.commitCatalog(hdr)
+	sqlCommitHdr, err := v.commitCatalog(txID)
 	if err != nil {
-		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_commit}", v.db.name, err, hdr.ID)
+		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=sql_catalogue_commit}", v.db.name, err, txID)
 		return err
 	}
 	v.db.Logger.Infof("committed sql catalog before truncation for database '%s' at tx %d", v.db.name, sqlCommitHdr.ID)
 
-	// truncate upto hdr.ID
-	err = v.db.st.TruncateUptoTx(hdr.ID)
+	// truncate upto txID
+	err = v.db.st.TruncateUptoTx(txID)
 	if err != nil {
-		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=truncate_upto}", v.db.name, err, hdr.ID)
+		v.db.Logger.Errorf("error during truncation for database '%s' {err = %v, id = %v, type=truncate_upto}", v.db.name, err, txID)
 	}
 
 	return err

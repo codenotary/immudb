@@ -55,7 +55,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
-	tr := NewTruncator(db, logger.NewSimpleLogger("immudb ", os.Stderr))
+	tr := NewTruncator(db, 0, 0, logger.NewSimpleLogger("immudb ", os.Stderr))
 	tr.retentionPeriodF = func(ts time.Time, retentionPeriod time.Duration) time.Time {
 		return ts.Add(-1 * retentionPeriod)
 	}
@@ -132,7 +132,7 @@ func TestTruncator(t *testing.T) {
 	options.WithStoreOptions(so)
 
 	db := makeDbWith(t, "db", options)
-	tr := NewTruncator(db, logger.NewSimpleLogger("immudb ", os.Stderr))
+	tr := NewTruncator(db, 0, options.TruncationFrequency, logger.NewSimpleLogger("immudb ", os.Stderr))
 
 	err := tr.Stop()
 	require.ErrorIs(t, err, ErrTruncatorAlreadyStopped)
@@ -155,10 +155,9 @@ func TestTruncator_with_truncation_frequency(t *testing.T) {
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	so.MaxIOConcurrency = 1
 	options.WithStoreOptions(so)
-	options.WithTruncationFrequency(10 * time.Millisecond)
 
 	db := makeDbWith(t, "db", options)
-	tr := NewTruncator(db, logger.NewSimpleLogger("immudb ", os.Stderr))
+	tr := NewTruncator(db, 0, 10*time.Millisecond, logger.NewSimpleLogger("immudb ", os.Stderr))
 
 	err := tr.Start()
 	require.NoError(t, err)

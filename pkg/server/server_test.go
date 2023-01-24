@@ -2042,17 +2042,13 @@ func TestServerDatabaseTruncate(t *testing.T) {
 
 	s.Initialize()
 
-	r := &schema.LoginRequest{
-		User:     []byte(auth.SysAdminUsername),
-		Password: []byte(auth.SysAdminPassword),
-	}
-
-	ctx := context.Background()
-	lr, err := s.Login(ctx, r)
+	resp, err := s.OpenSession(context.Background(), &schema.OpenSessionRequest{
+		Username:     []byte(auth.SysAdminUsername),
+		Password:     []byte(auth.SysAdminPassword),
+		DatabaseName: DefaultDBName,
+	})
 	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx = metadata.NewIncomingContext(context.Background(), md)
+	ctx := metadata.NewIncomingContext(context.TODO(), metadata.New(map[string]string{"sessionid": resp.GetSessionID()}))
 
 	t.Run("attempt to delete without retention period should fail", func(t *testing.T) {
 		_, err = s.CreateDatabaseV2(ctx, &schema.CreateDatabaseRequest{
@@ -2090,13 +2086,10 @@ func TestServerDatabaseTruncate(t *testing.T) {
 	})
 
 	t.Run("attempt to delete with retention period >= 1 day should fail if retention period is not reached", func(t *testing.T) {
-		uR, err := s.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
+		_, err := s.UseDatabase(ctx, &schema.Database{DatabaseName: "db1"})
 		require.NoError(t, err)
 
 		for i := 0; i < 64; i++ {
-			md := metadata.Pairs("authorization", uR.Token)
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-
 			_, err = s.Set(ctx, &schema.SetRequest{
 				KVs: []*schema.KeyValue{
 					{
@@ -2116,4 +2109,7 @@ func TestServerDatabaseTruncate(t *testing.T) {
 		})
 		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
 	})
+
+	_, err = s.CloseSession(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
 }

@@ -1680,7 +1680,7 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 	}
 
 	rp := time.Duration(req.RetentionPeriod.Value) * time.Millisecond
-	truncator := truncator.NewTruncator(db, s.Logger)
+	truncator := truncator.NewTruncator(db, rp, 0, s.Logger)
 	err = truncator.Truncate(rp)
 	if err != nil {
 		return nil, err

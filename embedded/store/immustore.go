@@ -2830,6 +2830,9 @@ func minUint64(a, b uint64) uint64 {
 }
 
 // readTxOffsetAt reads the value-log offset of a specific entry (index) in a transaction (txID)
+// txID is the transaction ID
+// index is the index of the entry in the transaction
+// allowPrecommitted indicates if a precommitted transaction can be read
 func (s *ImmuStore) readTxOffsetAt(txID uint64, allowPrecommitted bool, index int) (*TxEntry, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -2906,32 +2909,32 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		return s.readTxOffsetAt(id, false, 1)
 	}
 
-	back := func(id uint64) error {
-		first, err := readFirstEntryOffset(id)
+	back := func(txID uint64) error {
+		firstTxEntry, err := readFirstEntryOffset(txID)
 		if err != nil {
 			return err
 		}
 
-		// Iterate over all past transactions and store the minimum offset for each value log file.
-		v, off := decodeOffset(first.VOff())
-		if _, ok := tombstones[v]; !ok {
-			tombstones[v] = off
+		// Iterate over past transactions and store the minimum offset for each value log file.
+		vLogID, off := decodeOffset(firstTxEntry.VOff())
+		if _, ok := tombstones[vLogID]; !ok {
+			tombstones[vLogID] = off
 		}
 		return nil
 	}
 
-	front := func(id uint64) error {
-		first, err := readFirstEntryOffset(id)
+	front := func(txID uint64) error {
+		firstTxEntry, err := readFirstEntryOffset(txID)
 		if err != nil {
 			return err
 		}
 
 		// Check if any future transaction offset lies before past transaction(s)
 		// If so, then update the offset to the minimum offset for that value log file.
-		v, off := decodeOffset(first.VOff())
-		if val, ok := tombstones[v]; ok {
+		vLogID, off := decodeOffset(firstTxEntry.VOff())
+		if val, ok := tombstones[vLogID]; ok {
 			if off < val {
-				tombstones[v] = off
+				tombstones[vLogID] = off
 			}
 		}
 		return nil
@@ -2943,11 +2946,11 @@ func (s *ImmuStore) TruncateUptoTx(minTxID uint64) error {
 		var i uint64 = minTxID
 		for i > 0 && len(tombstones) != s.MaxIOConcurrency() {
 			err = back(i)
-			i--
-			if err != nil { // if txn not found, then continue as previous txn could have been deleted
+			if err != nil { // if there is an error reading a transaction, stop the traversal and return the error.
 				s.logger.Errorf("failed to fetch transaction %d {traversal=back, err = %v}", i, err)
 				return err
 			}
+			i--
 		}
 	}
 
