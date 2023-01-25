@@ -1035,6 +1035,8 @@ message DatabaseNullableSettings {
   // Truncation settings
   TruncationNullableSettings truncationSettings = 28;
 
+  // Size of the LRU cache for value logs
+  NullableUint32 vLogCacheSize = 29;
 }
 
 message ReplicationNullableSettings {

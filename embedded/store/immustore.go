@@ -142,6 +142,8 @@ type ImmuStore struct {
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
 
+	vLogCache *cache.LRUCache
+
 	txLog      appendable.Appendable
 	txLogCache *cache.LRUCache
 
@@ -441,6 +443,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
+	var vLogCache *cache.LRUCache
+
+	if opts.VLogCacheSize > 0 {
+		vLogCache, err = cache.NewLRUCache(opts.VLogCacheSize)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	ahtPath := filepath.Join(path, ahtDirname)
 
 	ahtOpts := ahtree.DefaultOptions().
@@ -476,6 +487,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogs:            vLogsMap,
 		vLogUnlockedList: vLogUnlockedList,
 		vLogsCond:        sync.NewCond(&sync.Mutex{}),
+		vLogCache:        vLogCache,
 
 		cLog: cLog,
 
@@ -1070,6 +1082,14 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 			return
 		}
 		offsets[i] = encodeOffset(voff, vLogID)
+
+		if s.vLogCache != nil {
+			_, _, err = s.vLogCache.Put(offsets[i], entries[i].Value)
+			if err != nil {
+				donec <- appendableResult{nil, err}
+				return
+			}
+		}
 	}
 
 	donec <- appendableResult{offsets, nil}
@@ -2545,19 +2565,36 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 	return b, nil
 }
 
-func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
-	vLogID, offset := decodeOffset(off)
+func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (n int, err error) {
+	mustReadFromVLog := true
 
-	if vLogID > 0 {
-		vLog := s.fetchVLog(vLogID)
-		defer s.releaseVLog(vLogID)
-
-		n, err := vLog.ReadAt(b, offset)
-		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
-			return n, ErrAlreadyClosed
+	if s.vLogCache != nil {
+		val, err := s.vLogCache.Get(off)
+		if err == nil {
+			// the requested value was found in the value cache
+			copy(b, val.([]byte))
+			mustReadFromVLog = false
+		} else {
+			if !errors.Is(err, cache.ErrKeyNotFound) {
+				return 0, err
+			}
 		}
-		if err != nil {
-			return n, err
+	}
+
+	if mustReadFromVLog {
+		vLogID, offset := decodeOffset(off)
+
+		if vLogID > 0 {
+			vLog := s.fetchVLog(vLogID)
+			defer s.releaseVLog(vLogID)
+
+			n, err := vLog.ReadAt(b, offset)
+			if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+				return n, ErrAlreadyClosed
+			}
+			if err != nil {
+				return n, err
+			}
 		}
 
 		if hvalue != sha256.Sum256(b) {

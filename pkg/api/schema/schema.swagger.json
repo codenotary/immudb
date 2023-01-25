@@ -2131,6 +2131,10 @@
         "truncationSettings": {
           "$ref": "#/definitions/schemaTruncationNullableSettings",
           "title": "Truncation settings"
+        },
+        "vLogCacheSize": {
+          "$ref": "#/definitions/schemaNullableUint32",
+          "title": "Size of the LRU cache for value logs"
         }
       }
     },
