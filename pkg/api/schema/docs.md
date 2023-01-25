@@ -1743,7 +1743,7 @@ ServerInfoResponse contains information about the server instance.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | database | [string](#string) |  | Database name |
-| retentionPeriod | [NullableMilliseconds](#immudb.schema.NullableMilliseconds) |  | Retention Period of data |
+| retentionPeriod | [int64](#int64) |  | Retention Period of data |
 
 
 

@@ -2071,7 +2071,7 @@ func TestServerDatabaseTruncate(t *testing.T) {
 	t.Run("attempt to delete with retention period < 0 should fail", func(t *testing.T) {
 		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
 			Database:        "db1",
-			RetentionPeriod: &schema.NullableMilliseconds{Value: -1},
+			RetentionPeriod: -1,
 		})
 		require.Error(t, err)
 	})
@@ -2080,7 +2080,7 @@ func TestServerDatabaseTruncate(t *testing.T) {
 		rp := 23 * time.Hour
 		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
 			Database:        "db1",
-			RetentionPeriod: &schema.NullableMilliseconds{Value: rp.Milliseconds()},
+			RetentionPeriod: rp.Milliseconds(),
 		})
 		require.Error(t, err)
 	})
@@ -2105,7 +2105,7 @@ func TestServerDatabaseTruncate(t *testing.T) {
 
 		_, err = s.TruncateDatabase(ctx, &schema.TruncateDatabaseRequest{
 			Database:        "db1",
-			RetentionPeriod: &schema.NullableMilliseconds{Value: rp.Milliseconds()},
+			RetentionPeriod: rp.Milliseconds(),
 		})
 		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
 	})

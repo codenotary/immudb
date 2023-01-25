@@ -2334,7 +2334,7 @@ func (c *immuClient) TruncateDatabase(ctx context.Context, db string, retentionP
 
 	in := &schema.TruncateDatabaseRequest{
 		Database:        db,
-		RetentionPeriod: &schema.NullableMilliseconds{Value: retentionPeriod.Milliseconds()},
+		RetentionPeriod: retentionPeriod.Milliseconds(),
 	}
 
 	_, err := c.ServiceClient.TruncateDatabase(ctx, in)

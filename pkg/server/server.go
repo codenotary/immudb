@@ -1662,10 +1662,7 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 		return nil, fmt.Errorf("the database '%s' does not exist or you do not have admin permission on this database", req.Database)
 	}
 
-	if req.RetentionPeriod == nil {
-		return nil, fmt.Errorf("retention period can not be empty for database '%s'", req.Database)
-	}
-	if req.RetentionPeriod.Value < 0 || (req.RetentionPeriod.Value > 0 && req.RetentionPeriod.Value < (store.MinimumRetentionPeriod.Milliseconds())) {
+	if req.RetentionPeriod < 0 || (req.RetentionPeriod > 0 && req.RetentionPeriod < store.MinimumRetentionPeriod.Milliseconds()) {
 		return nil, fmt.Errorf(
 			"%w: invalid retention period for database '%s'. RetentionPeriod should at least '%v' hours",
 			ErrIllegalArguments, req.Database, store.MinimumRetentionPeriod)
@@ -1679,7 +1676,7 @@ func (s *ImmuServer) TruncateDatabase(ctx context.Context, req *schema.TruncateD
 		return nil, err
 	}
 
-	rp := time.Duration(req.RetentionPeriod.Value) * time.Millisecond
+	rp := time.Duration(req.RetentionPeriod) * time.Millisecond
 	truncator := truncator.NewTruncator(db, rp, 0, s.Logger)
 	err = truncator.Truncate(rp)
 	if err != nil {

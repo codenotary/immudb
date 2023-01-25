@@ -3372,7 +3372,8 @@
           "title": "Database name"
         },
         "retentionPeriod": {
-          "$ref": "#/definitions/schemaNullableMilliseconds",
+          "type": "string",
+          "format": "int64",
           "title": "Retention Period of data"
         }
       }
