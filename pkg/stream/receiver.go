@@ -63,7 +63,7 @@ func (r *msgReceiver) ReadFully() ([]byte, error) {
 	copy(b, firstChunk.Content[8:])
 	i += len(firstChunk.Content) - 8
 
-	for {
+	for i < messageLen {
 		chunk, err := r.stream.Recv()
 		if err == io.EOF {
 			break
