@@ -1461,7 +1461,7 @@ message TruncateDatabaseRequest {
   string database = 1;
 
   // Retention Period of data
-  NullableMilliseconds retentionPeriod = 2;
+  int64 retentionPeriod = 2;
 }
 
 message TruncateDatabaseResponse {
