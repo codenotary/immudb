@@ -1082,14 +1082,6 @@ func (s *ImmuStore) appendData(entries []*EntrySpec, donec chan<- appendableResu
 			return
 		}
 		offsets[i] = encodeOffset(voff, vLogID)
-
-		if s.vLogCache != nil {
-			_, _, err = s.vLogCache.Put(offsets[i], entries[i].Value)
-			if err != nil {
-				donec <- appendableResult{nil, err}
-				return
-			}
-		}
 	}
 
 	donec <- appendableResult{offsets, nil}
@@ -2566,45 +2558,26 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 }
 
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (n int, err error) {
-	mustReadFromVLog := true
+	vLogID, offset := decodeOffset(off)
 
-	if s.vLogCache != nil {
-		val, err := s.vLogCache.Get(off)
-		if err == nil {
-			// the requested value was found in the value cache
-			copy(b, val.([]byte))
-			mustReadFromVLog = false
-		} else {
-			if !errors.Is(err, cache.ErrKeyNotFound) {
-				return 0, err
-			}
+	if vLogID > 0 {
+		vLog := s.fetchVLog(vLogID)
+		defer s.releaseVLog(vLogID)
+
+		n, err := vLog.ReadAt(b, offset)
+		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+			return n, ErrAlreadyClosed
+		}
+		if err != nil {
+			return n, err
 		}
 	}
 
-	if mustReadFromVLog {
-		vLogID, offset := decodeOffset(off)
-
-		if vLogID > 0 {
-			vLog := s.fetchVLog(vLogID)
-			defer s.releaseVLog(vLogID)
-
-			n, err := vLog.ReadAt(b, offset)
-			if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
-				return n, ErrAlreadyClosed
-			}
-			if err != nil {
-				return n, err
-			}
-		}
-
-		if hvalue != sha256.Sum256(b) {
-			return len(b), ErrCorruptedData
-		}
-
-		return len(b), nil
+	if hvalue != sha256.Sum256(b) {
+		return len(b), ErrCorruptedData
 	}
 
-	return 0, nil
+	return len(b), nil
 }
 
 func (s *ImmuStore) validateEntries(entries []*EntrySpec) error {
