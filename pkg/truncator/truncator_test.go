@@ -54,6 +54,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	so.MaxIOConcurrency = 1
 	options.WithStoreOptions(so)
 
+	ctx := context.TODO()
 	db := makeDbWith(t, "db", options)
 	tr := NewTruncator(db, 0, 0, logger.NewSimpleLogger("immudb ", os.Stderr))
 	tr.retentionPeriodF = func(ts time.Time, retentionPeriod time.Duration) time.Time {
@@ -67,7 +68,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 				Key:   []byte(fmt.Sprintf("key_%d", i)),
 				Value: []byte(fmt.Sprintf("val_%d", i)),
 			}
-			_, err := db.Set(context.TODO(), &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+			_, err := db.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 			require.NoError(t, err)
 			if i == 10 {
 				queryTime = time.Now()
@@ -80,7 +81,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 		require.LessOrEqual(t, time.Unix(hdr.Ts, 0), queryTime)
 
 		dur := time.Since(queryTime)
-		err = tr.Truncate(dur)
+		err = tr.Truncate(ctx, dur)
 		require.NoError(t, err)
 
 		for i := uint64(1); i < hdr.ID-1; i++ {
@@ -89,7 +90,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 				Value: []byte(fmt.Sprintf("val_%d", i)),
 			}
 
-			_, err := db.Get(context.TODO(), &schema.KeyRequest{Key: kv.Key})
+			_, err := db.Get(ctx, &schema.KeyRequest{Key: kv.Key})
 			require.Error(t, err)
 		}
 
@@ -99,7 +100,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 				Value: []byte(fmt.Sprintf("val_%d", i)),
 			}
 
-			item, err := db.Get(context.TODO(), &schema.KeyRequest{Key: kv.Key})
+			item, err := db.Get(ctx, &schema.KeyRequest{Key: kv.Key})
 			require.NoError(t, err)
 			require.Equal(t, kv.Key, item.Key)
 			require.Equal(t, kv.Value, item.Value)
@@ -109,14 +110,14 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	t.Run("truncate with retention period in the past", func(t *testing.T) {
 		ts := time.Now().Add(-24 * time.Hour)
 		dur := time.Since(ts)
-		err := tr.Truncate(dur)
+		err := tr.Truncate(ctx, dur)
 		require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
 	})
 
 	t.Run("truncate with retention period in the future", func(t *testing.T) {
 		ts := time.Now().Add(24 * time.Hour)
 		dur := time.Since(ts)
-		err := tr.Truncate(dur)
+		err := tr.Truncate(ctx, dur)
 		require.ErrorIs(t, err, store.ErrTxNotFound)
 	})
 

@@ -17,6 +17,7 @@ limitations under the License.
 package truncator
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -99,7 +100,7 @@ func (t *Truncator) Start() error {
 				// Truncate time to the beginning of the day.
 				ts := t.retentionPeriodF(time.Now(), t.retentionPeriod)
 				t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), ts)
-				if err := t.truncate(ts); err != nil {
+				if err := t.truncate(context.Background(), ts); err != nil {
 					if errors.Is(err, database.ErrRetentionPeriodNotReached) {
 						t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", t.db.GetName(), ts.String())
 					} else if errors.Is(err, store.ErrTxNotFound) {
@@ -129,7 +130,7 @@ func (t *Truncator) Start() error {
 //			|       |        |
 //		tn-1:vx  tn:vx   tn+1:vx
 //
-func (t *Truncator) truncate(ts time.Time) error {
+func (t *Truncator) truncate(ctx context.Context, ts time.Time) error {
 	for _, c := range t.truncators {
 		// Plan determines the transaction header before time period ts. If a
 		// transaction is not found, or if an error occurs fetching the transaction,
@@ -145,7 +146,7 @@ func (t *Truncator) truncate(ts time.Time) error {
 
 		// Truncate discards the appendable log upto the offset
 		// specified in the transaction hdr
-		err = c.Truncate(hdr.ID)
+		err = c.Truncate(ctx, hdr.ID)
 		if err != nil {
 			t.logger.Errorf("failed to truncate database '%s' {err = %v}", t.db.GetName(), err)
 			return err
@@ -173,10 +174,10 @@ func (t *Truncator) Stop() error {
 }
 
 // Truncate discards all data from the database that is older than the retention period.
-func (t *Truncator) Truncate(retentionPeriod time.Duration) error {
+func (t *Truncator) Truncate(ctx context.Context, retentionPeriod time.Duration) error {
 	ts := t.retentionPeriodF(time.Now(), retentionPeriod)
 	t.logger.Infof("start truncating database '%s' {ts = %v}", t.db.GetName(), ts)
-	if err := t.truncate(ts); err != nil {
+	if err := t.truncate(ctx, ts); err != nil {
 		if errors.Is(err, database.ErrRetentionPeriodNotReached) {
 			t.logger.Infof("retention period not reached for truncating database '%s' at {ts = %s}", t.db.GetName(), ts.String())
 		} else if errors.Is(err, store.ErrTxNotFound) {
