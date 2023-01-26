@@ -2571,6 +2571,9 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 		if err == nil {
 			// the requested value was found in the value cache
 			copy(b, val.([]byte))
+			if hvalue != sha256.Sum256(b) {
+				return len(b), ErrCorruptedData
+			}
 			return len(b), nil
 		} else {
 			if !errors.Is(err, cache.ErrKeyNotFound) {
@@ -2580,7 +2583,6 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	}
 
 	vLogID, offset := decodeOffset(off)
-
 	if vLogID > 0 {
 		vLog := s.fetchVLog(vLogID)
 		defer s.releaseVLog(vLogID)

@@ -4253,8 +4253,7 @@ func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
 		WithMaxConcurrency(100).
-		WithMaxIOConcurrency(5).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(5)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4304,8 +4303,7 @@ func TestImmudbStoreTruncateUptoTx_WithMultipleIOConcurrency(t *testing.T) {
 func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
-		WithMaxIOConcurrency(1).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4353,8 +4351,7 @@ func TestImmudbStoreTruncateUptoTx_WithSingleIOConcurrency(t *testing.T) {
 func TestImmudbStoreTruncateUptoTx_ForIdempotency(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
-		WithMaxIOConcurrency(1).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4408,8 +4405,7 @@ func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
 		WithMaxConcurrency(100).
-		WithMaxIOConcurrency(3).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(3)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4457,8 +4453,7 @@ func TestImmudbStore_WithConcurrentWritersOnMultipleIO(t *testing.T) {
 func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
-		WithMaxIOConcurrency(1).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4519,8 +4514,7 @@ func TestImmudbStore_WithConcurrentTruncate(t *testing.T) {
 func TestExportTxWithTruncation(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
-		WithMaxIOConcurrency(1).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(1)
 
 	// Create a master store
 	masterDir := t.TempDir()
@@ -4566,9 +4560,6 @@ func TestExportTxWithTruncation(t *testing.T) {
 			err = masterStore.ReadTx(i, tx)
 			for _, e := range tx.Entries() {
 				_, err := masterStore.ReadValue(e)
-				if err == nil {
-					fmt.Println("i: ", i)
-				}
 				require.Error(t, err)
 			}
 		}
@@ -4620,7 +4611,7 @@ func TestExportTxWithTruncation(t *testing.T) {
 }
 
 func TestImmudbStoreTxMetadata(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1).WithVLogCacheSize(0)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 
 	immuStore, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
@@ -4682,8 +4673,7 @@ func TestImmudbStoreTxMetadata(t *testing.T) {
 func TestImmudbStoreTruncateUptoTx_WithDataPostTruncationPoint(t *testing.T) {
 	opts := DefaultOptions().
 		WithFileSize(6).
-		WithMaxIOConcurrency(1).
-		WithVLogCacheSize(0)
+		WithMaxIOConcurrency(1)
 
 	st, err := Open(t.TempDir(), opts)
 	require.NoError(t, err)
