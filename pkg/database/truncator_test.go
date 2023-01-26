@@ -76,6 +76,7 @@ func Test_vlogCompactor_WithMultipleIO(t *testing.T) {
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.storeOpts.MaxIOConcurrency = 5
 	options.storeOpts.MaxConcurrency = 500
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
@@ -112,6 +113,7 @@ func Test_vlogCompactor_WithSingleIO(t *testing.T) {
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
@@ -157,6 +159,7 @@ func Test_vlogCompactor_WithConcurrentWritersOnSingleIO(t *testing.T) {
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.storeOpts.MaxIOConcurrency = 1
 	options.storeOpts.MaxConcurrency = 500
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
@@ -235,6 +238,7 @@ func Test_vlogCompactor_Plan(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(600)
 	options.storeOpts.MaxIOConcurrency = 1
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
@@ -272,6 +276,7 @@ func setupCommonTest(t *testing.T) *db {
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db1", options)
 	return db
@@ -386,6 +391,7 @@ func Test_vlogCompactor_without_data(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.storeOpts.MaxIOConcurrency = 1
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 
@@ -565,6 +571,7 @@ func Test_vlogCompactor_for_read_conflict(t *testing.T) {
 
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithFileSize(60)
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 	require.Equal(t, uint64(1), db.st.LastCommittedTxID())

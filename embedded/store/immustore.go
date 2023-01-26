@@ -2566,14 +2566,12 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 }
 
 func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (n int, err error) {
-	mustReadFromVLog := true
-
 	if s.vLogCache != nil {
 		val, err := s.vLogCache.Get(off)
 		if err == nil {
 			// the requested value was found in the value cache
 			copy(b, val.([]byte))
-			mustReadFromVLog = false
+			return len(b), nil
 		} else {
 			if !errors.Is(err, cache.ErrKeyNotFound) {
 				return 0, err
@@ -2581,20 +2579,18 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 		}
 	}
 
-	if mustReadFromVLog {
-		vLogID, offset := decodeOffset(off)
+	vLogID, offset := decodeOffset(off)
 
-		if vLogID > 0 {
-			vLog := s.fetchVLog(vLogID)
-			defer s.releaseVLog(vLogID)
+	if vLogID > 0 {
+		vLog := s.fetchVLog(vLogID)
+		defer s.releaseVLog(vLogID)
 
-			n, err := vLog.ReadAt(b, offset)
-			if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
-				return n, ErrAlreadyClosed
-			}
-			if err != nil {
-				return n, err
-			}
+		n, err := vLog.ReadAt(b, offset)
+		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+			return n, ErrAlreadyClosed
+		}
+		if err != nil {
+			return n, err
 		}
 
 		if hvalue != sha256.Sum256(b) {

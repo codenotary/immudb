@@ -2173,6 +2173,7 @@ func Test_database_truncate(t *testing.T) {
 	options := DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	options.storeOpts.MaxIOConcurrency = 1
+	options.storeOpts.VLogCacheSize = 0
 
 	db := makeDbWith(t, "db", options)
 

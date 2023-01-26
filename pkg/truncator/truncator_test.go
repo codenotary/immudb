@@ -52,6 +52,7 @@ func TestDatabase_truncate_with_duration(t *testing.T) {
 	so := options.GetStoreOptions()
 	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
 	so.MaxIOConcurrency = 1
+	so.VLogCacheSize = 0
 	options.WithStoreOptions(so)
 
 	ctx := context.TODO()
