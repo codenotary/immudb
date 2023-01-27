@@ -2965,6 +2965,49 @@ func BenchmarkAsyncAppendWithExtCommitAllowance(b *testing.B) {
 	}
 }
 
+func BenchmarkExportTx(b *testing.B) {
+	opts := DefaultOptions().WithSynced(false)
+
+	immuStore, _ := Open(b.TempDir(), opts)
+
+	txCount := 1_000
+	eCount := 1_000
+	keyLen := 40
+	valLen := 256
+
+	for i := 0; i < txCount; i++ {
+		tx, err := immuStore.NewWriteOnlyTx(context.Background())
+		require.NoError(b, err)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, keyLen)
+			binary.BigEndian.PutUint64(k, uint64(i*eCount+j))
+
+			v := make([]byte, valLen)
+			binary.BigEndian.PutUint64(v, uint64(j))
+
+			err = tx.Set(k, nil, v)
+			require.NoError(b, err)
+		}
+
+		_, err = tx.Commit(context.Background())
+		require.NoError(b, err)
+	}
+
+	tx, err := immuStore.fetchAllocTx()
+	require.NoError(b, err)
+	defer immuStore.releaseAllocTx(tx)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < txCount; i++ {
+			_, err := immuStore.ExportTx(uint64(i+1), false, tx)
+			require.NoError(b, err)
+		}
+	}
+}
+
 func TestImmudbStoreIncompleteCommitWrite(t *testing.T) {
 	dir := t.TempDir()
 
