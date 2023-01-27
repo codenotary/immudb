@@ -174,7 +174,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 				}
 				require.NoError(t, err)
 
-				err = immuStore.ReadTx(hdr.ID, txHolder)
+				err = immuStore.ReadTx(hdr.ID, true, txHolder)
 				require.NoError(t, err)
 
 				for _, e := range txHolder.Entries() {
@@ -199,7 +199,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	immuStore, err := Open(t.TempDir(), DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 
-	err = immuStore.ReadTx(1, nil)
+	err = immuStore.ReadTx(1, true, nil)
 	require.ErrorIs(t, err, ErrTxNotFound)
 
 	err = immuStore.Close()
@@ -219,7 +219,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	}}, nil, false)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
-	err = immuStore.ReadTx(1, nil)
+	err = immuStore.ReadTx(1, true, nil)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	_, err = immuStore.NewTxReader(1, false, nil)
@@ -1619,7 +1619,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	require.NoError(t, err)
 	defer immuStore.releaseAllocTx(tx)
 
-	immuStore.ReadTx(hdr.ID, tx)
+	immuStore.ReadTx(hdr.ID, true, tx)
 
 	entry, err := tx.EntryOf([]byte(fmt.Sprintf("keyInsertedAtTx%d", hdr.ID)))
 	require.NoError(t, err)
@@ -1690,7 +1690,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 							tx := tempTxHolder(t, immuStore)
 
-							err = immuStore.ReadTx(txID, tx)
+							err = immuStore.ReadTx(txID, true, tx)
 							require.NoError(t, err)
 
 							entry, err := tx.EntryOf(k)
@@ -1884,7 +1884,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 	tx := tempTxHolder(t, immuStore)
 
 	for i := 0; i < txCount; i++ {
-		err := immuStore.ReadTx(uint64(i+1), tx)
+		err := immuStore.ReadTx(uint64(i+1), true, tx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), tx.header.ID)
 
@@ -1931,7 +1931,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 	tx := tempTxHolder(t, immuStore)
 
 	for i := 0; i < txCount; i++ {
-		err := immuStore.ReadTx(uint64(i+1), tx)
+		err := immuStore.ReadTx(uint64(i+1), true, tx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), tx.header.ID)
 
@@ -1983,14 +1983,14 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 	for i := 0; i < txCount; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, sourceTx)
+		err := immuStore.ReadTx(sourceTxID, true, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		for j := i; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
-			err := immuStore.ReadTx(targetTxID, targetTx)
+			err := immuStore.ReadTx(targetTxID, true, targetTx)
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.header.ID)
 
@@ -2039,14 +2039,14 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 	targetTx := tempTxHolder(t, immuStore)
 
 	targetTxID := uint64(txCount)
-	err = immuStore.ReadTx(targetTxID, targetTx)
+	err = immuStore.ReadTx(targetTxID, true, targetTx)
 	require.NoError(t, err)
 	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, sourceTx)
+		err := immuStore.ReadTx(sourceTxID, true, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
@@ -2129,14 +2129,14 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	for i := 0; i < txCount; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, sourceTx)
+		err := immuStore.ReadTx(sourceTxID, true, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
 		for j := i + 1; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
-			err := immuStore.ReadTx(targetTxID, targetTx)
+			err := immuStore.ReadTx(targetTxID, true, targetTx)
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.header.ID)
 
@@ -2387,7 +2387,7 @@ func TestExportAndReplicateTx(t *testing.T) {
 
 	txholder := tempTxHolder(t, primaryStore)
 
-	etx, err := primaryStore.ExportTx(1, false, txholder)
+	etx, err := primaryStore.ExportTx(1, false, true, txholder)
 	require.NoError(t, err)
 
 	rhdr, err := replicaStore.ReplicateTx(context.Background(), etx, false)
@@ -2429,7 +2429,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 	txholder := tempTxHolder(t, primaryStore)
 
 	t.Run("prevent replicating broken data", func(t *testing.T) {
-		etx, err := primaryStore.ExportTx(1, false, txholder)
+		etx, err := primaryStore.ExportTx(1, false, true, txholder)
 		require.NoError(t, err)
 
 		for i := range etx {
@@ -2490,7 +2490,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 			require.NotNil(t, hdr)
 
 			txholder := tempTxHolder(t, replicaStore)
-			etx, err := primaryStore.ExportTx(hdr.ID, false, txholder)
+			etx, err := primaryStore.ExportTx(hdr.ID, false, true, txholder)
 			require.NoError(t, err)
 
 			// Replicate the same transactions concurrently, only one must succeed
@@ -2552,7 +2552,7 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, hdr)
 
-		etx, err := primaryStore.ExportTx(hdr.ID, false, txholder)
+		etx, err := primaryStore.ExportTx(hdr.ID, false, true, txholder)
 		require.NoError(t, err)
 
 		etxs <- etx
@@ -3002,7 +3002,7 @@ func BenchmarkExportTx(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < txCount; i++ {
-			_, err := immuStore.ExportTx(uint64(i+1), false, tx)
+			_, err := immuStore.ExportTx(uint64(i+1), false, true, tx)
 			require.NoError(b, err)
 		}
 	}
@@ -3377,10 +3377,10 @@ func TestBlTXOrdering(t *testing.T) {
 
 		for i := uint64(1); i < maxTxID; i++ {
 
-			srcTxHeader, err := immuStore.ReadTxHeader(i, false)
+			srcTxHeader, err := immuStore.ReadTxHeader(i, false, true)
 			require.NoError(t, err)
 
-			dstTxHeader, err := immuStore.ReadTxHeader(i+1, false)
+			dstTxHeader, err := immuStore.ReadTxHeader(i+1, false, true)
 			require.NoError(t, err)
 
 			require.LessOrEqual(t, srcTxHeader.BlTxID, dstTxHeader.BlTxID)

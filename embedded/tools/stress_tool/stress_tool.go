@@ -309,7 +309,7 @@ func main() {
 					defer txHolderPool.Release(txHolder)
 
 					for i := range ids {
-						immuStore.ReadTx(ids[i], txHolder)
+						immuStore.ReadTx(ids[i], true, txHolder)
 
 						for ei, e := range txHolder.Entries() {
 							if !bytes.Equal(e.Key(), entries[i][ei].Key) {

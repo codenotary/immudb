@@ -352,7 +352,7 @@ func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte,
 			return nil, nil, err
 		}
 
-		e, header, err := r.snap.st.ReadTxEntry(ktxID, key)
+		e, header, err := r.snap.st.ReadTxEntry(ktxID, key, true)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -91,14 +91,14 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	targetTx := tempTxHolder(t, immuStore)
 
 	targetTxID := uint64(txCount)
-	err = immuStore.ReadTx(targetTxID, targetTx)
+	err = immuStore.ReadTx(targetTxID, true, targetTx)
 	require.NoError(t, err)
 	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, sourceTx)
+		err := immuStore.ReadTx(sourceTxID, true, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
@@ -144,7 +144,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 
 		t.Run("transactions 1-10 do not use linear proof longer than 1", func(t *testing.T) {
 			for txID := uint64(1); txID <= 10; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, false)
+				hdr, err := immuStore.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.Equal(t, txID-1, hdr.BlTxID)
 			}
@@ -152,7 +152,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 
 		t.Run("transactions 11-20 use long linear proof", func(t *testing.T) {
 			for txID := uint64(11); txID <= 20; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, false)
+				hdr, err := immuStore.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.EqualValues(t, 10, hdr.BlTxID)
 			}
@@ -160,7 +160,7 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 
 		t.Run("transactions 21-30 do not use linear proof longer than 1", func(t *testing.T) {
 			for txID := uint64(21); txID <= 30; txID++ {
-				hdr, err := immuStore.ReadTxHeader(txID, false)
+				hdr, err := immuStore.ReadTxHeader(txID, true, false)
 				require.NoError(t, err)
 				require.Equal(t, txID-1, hdr.BlTxID)
 			}
@@ -175,10 +175,10 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 				sourceTx := tempTxHolder(t, immuStore)
 				targetTx := tempTxHolder(t, immuStore)
 
-				err := immuStore.ReadTx(sourceTxID, sourceTx)
+				err := immuStore.ReadTx(sourceTxID, true, sourceTx)
 				require.NoError(t, err)
 
-				err = immuStore.ReadTx(targetTxID, targetTx)
+				err = immuStore.ReadTx(targetTxID, true, targetTx)
 				require.NoError(t, err)
 
 				dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())
