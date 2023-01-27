@@ -1610,7 +1610,7 @@ func (t *TBtree) bulkInsert(kvts []*KVT) error {
 	immutableKVTs := make([]*KVT, len(kvts))
 
 	for i, kvt := range kvts {
-		if kvt == nil || kvt.K == nil || kvt.V == nil {
+		if kvt == nil || len(kvt.K) == 0 || len(kvt.V) == 0 {
 			return ErrIllegalArguments
 		}
 
