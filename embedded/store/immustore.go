@@ -381,7 +381,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		tx, _ := txPool.Alloc()
 
-		err = tx.readFrom(txReader)
+		err = tx.readFrom(txReader, true)
 		if err != nil {
 			txPool.Release(tx)
 			return nil, fmt.Errorf("corrupted transaction log: could not read the last transaction: %w", err)
@@ -405,7 +405,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	tx, _ := txPool.Alloc()
 
 	for {
-		err = tx.readFrom(txReader)
+		err = tx.readFrom(txReader, true)
 		if err == io.EOF {
 			break
 		}
@@ -851,7 +851,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.newTxReader(s.aht.Size()+1, false, true, tx)
+	txReader, err := s.newTxReader(s.aht.Size()+1, false, true, true, tx)
 	if err != nil {
 		return err
 	}
@@ -1839,7 +1839,7 @@ func (s *ImmuStore) DualProof(sourceTxHdr, targetTxHdr *TxHeader) (proof *DualPr
 	}
 
 	if targetTxHdr.BlTxID > 0 {
-		targetBlTxHdr, err := s.ReadTxHeader(targetTxHdr.BlTxID, false)
+		targetBlTxHdr, err := s.ReadTxHeader(targetTxHdr.BlTxID, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -2029,8 +2029,8 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 	return available, nil
 }
 
-func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, tx *Tx) ([]byte, error) {
-	err := s.readTx(txID, allowPrecommitted, tx)
+func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, checkIntegrity bool, tx *Tx) ([]byte, error) {
+	err := s.readTx(txID, allowPrecommitted, checkIntegrity, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -2321,7 +2321,7 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 	for left < right {
 		middle := left + (right-left)/2
 
-		header, err := s.ReadTxHeader(middle, false)
+		header, err := s.ReadTxHeader(middle, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -2333,7 +2333,7 @@ func (s *ImmuStore) FirstTxSince(ts time.Time) (*TxHeader, error) {
 		}
 	}
 
-	header, err := s.ReadTxHeader(left, false)
+	header, err := s.ReadTxHeader(left, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -2352,7 +2352,7 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 	for left < right {
 		middle := left + ((right-left)+1)/2
 
-		header, err := s.ReadTxHeader(middle, false)
+		header, err := s.ReadTxHeader(middle, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -2364,7 +2364,7 @@ func (s *ImmuStore) LastTxUntil(ts time.Time) (*TxHeader, error) {
 		}
 	}
 
-	header, err := s.ReadTxHeader(left, false)
+	header, err := s.ReadTxHeader(left, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -2418,7 +2418,7 @@ func (s *ImmuStore) appendableReaderForTx(txID uint64, allowPrecommitted bool) (
 	return appendable.NewReaderFrom(txr, txOff, txSize), nil
 }
 
-func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+func (s *ImmuStore) ReadTx(txID uint64, checkIntegrity bool, tx *Tx) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -2426,16 +2426,16 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		return ErrAlreadyClosed
 	}
 
-	return s.readTx(txID, false, tx)
+	return s.readTx(txID, false, checkIntegrity, tx)
 }
 
-func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, tx *Tx) error {
+func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, checkIntegrity bool, tx *Tx) error {
 	r, err := s.appendableReaderForTx(txID, allowPrecommitted)
 	if err != nil {
 		return err
 	}
 
-	err = tx.readFrom(r)
+	err = tx.readFrom(r, checkIntegrity)
 	if err == io.EOF {
 		return fmt.Errorf("%w: unexpected EOF while reading tx %d", ErrorCorruptedTxData, txID)
 	}
@@ -2443,7 +2443,7 @@ func (s *ImmuStore) readTx(txID uint64, allowPrecommitted bool, tx *Tx) error {
 	return err
 }
 
-func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool) (*TxHeader, error) {
+func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool, checkIntegrity bool) (*TxHeader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -2456,7 +2456,7 @@ func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool) (*TxHeader
 		return nil, err
 	}
 
-	tdr := &txDataReader{r: r}
+	tdr := &txDataReader{r: r, checkIntegrity: checkIntegrity}
 
 	header, err := tdr.readHeader(s.maxTxEntries)
 	if err != nil {
@@ -2485,7 +2485,7 @@ func (s *ImmuStore) ReadTxHeader(txID uint64, allowPrecommitted bool) (*TxHeader
 	return header, nil
 }
 
-func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, error) {
+func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte, checkIntegrity bool) (*TxEntry, *TxHeader, error) {
 	var ret *TxEntry
 
 	r, err := s.appendableReaderForTx(txID, false)
@@ -2493,7 +2493,7 @@ func (s *ImmuStore) ReadTxEntry(txID uint64, key []byte) (*TxEntry, *TxHeader, e
 		return nil, nil, err
 	}
 
-	tdr := &txDataReader{r: r}
+	tdr := &txDataReader{r: r, checkIntegrity: checkIntegrity}
 
 	header, err := tdr.readHeader(s.maxTxEntries)
 	if err != nil {
