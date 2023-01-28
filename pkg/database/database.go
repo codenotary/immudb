@@ -517,14 +517,14 @@ func (d *db) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Entry, er
 	}
 
 	if req.AtRevision != 0 {
-		return d.getAtRevision(EncodeKey(req.Key), req.AtRevision)
+		return d.getAtRevision(EncodeKey(req.Key), req.AtRevision, true)
 	}
 
-	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0)
+	return d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0, true)
 }
 
-func (d *db) get(key []byte, index store.KeyIndex) (*schema.Entry, error) {
-	return d.getAtTx(key, 0, 0, index, 0)
+func (d *db) get(key []byte, index store.KeyIndex, checkIntegrity bool) (*schema.Entry, error) {
+	return d.getAtTx(key, 0, 0, index, 0, checkIntegrity)
 }
 
 func (d *db) getAtTx(
@@ -533,6 +533,7 @@ func (d *db) getAtTx(
 	resolved int,
 	index store.KeyIndex,
 	revision uint64,
+	checkIntegrity bool,
 ) (entry *schema.Entry, err error) {
 	var txID uint64
 	var val []byte
@@ -559,16 +560,16 @@ func (d *db) getAtTx(
 	} else {
 		txID = atTx
 
-		md, val, err = d.readMetadataAndValue(key, atTx)
+		md, val, err = d.readMetadataAndValue(key, atTx, checkIntegrity)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return d.resolveValue(key, val, resolved, txID, md, index, revision)
+	return d.resolveValue(key, val, resolved, txID, md, index, revision, checkIntegrity)
 }
 
-func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, err error) {
+func (d *db) getAtRevision(key []byte, atRevision int64, checkIntegrity bool) (entry *schema.Entry, err error) {
 	var offset uint64
 	var desc bool
 
@@ -592,7 +593,7 @@ func (d *db) getAtRevision(key []byte, atRevision int64) (entry *schema.Entry, e
 		atRevision = int64(hCount) + atRevision
 	}
 
-	entry, err = d.getAtTx(key, txs[0], 0, d.st, uint64(atRevision))
+	entry, err = d.getAtTx(key, txs[0], 0, d.st, uint64(atRevision), checkIntegrity)
 	if err != nil {
 		return nil, err
 	}
@@ -608,6 +609,7 @@ func (d *db) resolveValue(
 	md *store.KVMetadata,
 	index store.KeyIndex,
 	revision uint64,
+	checkIntegrity bool,
 ) (entry *schema.Entry, err error) {
 	if md != nil && md.Deleted() {
 		return nil, store.ErrKeyNotFound
@@ -637,7 +639,7 @@ func (d *db) resolveValue(
 		copy(refKey, val[1+8:])
 
 		if index != nil {
-			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, 0)
+			entry, err = d.getAtTx(refKey, atTx, resolved+1, index, 0, checkIntegrity)
 			if err != nil {
 				return nil, err
 			}
@@ -668,8 +670,8 @@ func (d *db) resolveValue(
 	}, nil
 }
 
-func (d *db) readMetadataAndValue(key []byte, atTx uint64) (*store.KVMetadata, []byte, error) {
-	entry, _, err := d.st.ReadTxEntry(atTx, key)
+func (d *db) readMetadataAndValue(key []byte, atTx uint64, checkIntegrity bool) (*store.KVMetadata, []byte, error) {
+	entry, _, err := d.st.ReadTxEntry(atTx, key, checkIntegrity)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -732,7 +734,7 @@ func (d *db) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txhdr.Id), lastTx)
+	err = d.st.ReadTx(uint64(txhdr.Id), true, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -742,7 +744,7 @@ func (d *db) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -793,7 +795,7 @@ func (d *db) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest
 	}
 	defer d.releaseTx(tx)
 
-	err = d.st.ReadTx(vTxID, tx)
+	err = d.st.ReadTx(vTxID, true, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -803,7 +805,7 @@ func (d *db) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -908,7 +910,7 @@ func (d *db) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.En
 	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		e, err := d.get(EncodeKey(key), snap)
+		e, err := d.get(EncodeKey(key), snap, true)
 		if err == nil || err == store.ErrKeyNotFound {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
@@ -960,12 +962,12 @@ func (d *db) TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, err
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(req.Tx, tx)
+	err = d.st.ReadTx(req.Tx, true, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return d.serializeTx(tx, req.EntriesSpec, snap)
+	return d.serializeTx(tx, req.EntriesSpec, snap, true)
 }
 
 func (d *db) snapshotSince(ctx context.Context, txID uint64) (*store.Snapshot, error) {
@@ -983,7 +985,7 @@ func (d *db) snapshotSince(ctx context.Context, txID uint64) (*store.Snapshot, e
 	return d.st.SnapshotMustIncludeTxID(ctx, waitUntilTx)
 }
 
-func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot) (*schema.Tx, error) {
+func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Snapshot, checkIntegrity bool) (*schema.Tx, error) {
 	if spec == nil {
 		return schema.TxToProto(tx), nil
 	}
@@ -1026,7 +1028,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 					index = snap
 				}
 
-				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0)
+				kve, err := d.resolveValue(e.Key(), v, 0, tx.Header().ID, e.Metadata(), index, 0, checkIntegrity)
 				if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 					// ignore deleted ones (referenced key may have been deleted)
 					break
@@ -1084,7 +1086,7 @@ func (d *db) serializeTx(tx *store.Tx, spec *schema.EntriesSpec, snap *store.Sna
 				var err error
 
 				if snap != nil {
-					entry, err = d.getAtTx(key, atTx, 1, snap, 0)
+					entry, err = d.getAtTx(key, atTx, 1, snap, 0, checkIntegrity)
 					if err == store.ErrKeyNotFound || err == store.ErrExpiredEntry {
 						// ignore deleted ones (referenced key may have been deleted)
 						break
@@ -1231,7 +1233,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 					fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
-			expectedReplicaCommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.CommittedTxID, false)
+			expectedReplicaCommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.CommittedTxID, false, !req.SkipIntegrityCheck)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1251,7 +1253,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 					fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
-			expectedReplicaPrecommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.PrecommittedTxID, true)
+			expectedReplicaPrecommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.PrecommittedTxID, true, !req.SkipIntegrityCheck)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1299,7 +1301,7 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 	}
 
-	txbs, err = d.st.ExportTx(req.Tx, req.AllowPreCommitted, tx)
+	txbs, err = d.st.ExportTx(req.Tx, req.AllowPreCommitted, !req.SkipIntegrityCheck, tx)
 	if err != nil {
 		return nil, mayCommitUpToTxID, mayCommitUpToAlh, err
 	}
@@ -1343,7 +1345,7 @@ func (d *db) AllowCommitUpto(txID uint64, alh [sha256.Size]byte) error {
 		return nil
 	}
 
-	hdr, err := d.st.ReadTxHeader(txID, true)
+	hdr, err := d.st.ReadTxHeader(txID, true, false)
 	if err != nil {
 		return err
 	}
@@ -1392,7 +1394,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 	}
 	defer d.releaseTx(reqTx)
 
-	err = d.st.ReadTx(req.Tx, reqTx)
+	err = d.st.ReadTx(req.Tx, true, reqTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1403,7 +1405,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = reqTx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -1422,7 +1424,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 		return nil, err
 	}
 
-	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec, snap)
+	sReqTx, err := d.serializeTx(reqTx, req.EntriesSpec, snap, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1478,7 +1480,7 @@ func (d *db) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxL
 			return nil, err
 		}
 
-		sTx, err := d.serializeTx(tx, req.EntriesSpec, snap)
+		sTx, err := d.serializeTx(tx, req.EntriesSpec, snap, true)
 		if err != nil {
 			return nil, err
 		}
@@ -1546,7 +1548,7 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 	}
 
 	for i, txID := range txs {
-		entry, _, err := d.st.ReadTxEntry(txID, key)
+		entry, _, err := d.st.ReadTxEntry(txID, key, true)
 		if err != nil {
 			return nil, err
 		}

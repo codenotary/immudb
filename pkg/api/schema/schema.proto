@@ -842,6 +842,8 @@ message ExportTxRequest {
 	bool allowPreCommitted = 2;
   // Used on synchronous replication to notify the primary about replica state
 	ReplicaState replicaState = 3;
+  // If set to true, integrity checks are skipped when reading data
+  bool skipIntegrityCheck = 4;
 }
 
 message ReplicaState {

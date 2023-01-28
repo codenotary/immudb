@@ -348,7 +348,7 @@ func BenchmarkExportTx(b *testing.B) {
 	// create database as primarydb in primary server
 	_, err = client.CreateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{
 		MaxConcurrency: &schema.NullableUint32{Value: 200},
-		//VLogCacheSize:  &schema.NullableUint32{Value: 0}, // disable vLogCache
+		VLogCacheSize:  &schema.NullableUint32{Value: 0}, // disable vLogCache
 	})
 	if err != nil {
 		panic(err)
@@ -367,10 +367,10 @@ func BenchmarkExportTx(b *testing.B) {
 
 	// commit some transactions
 	workers := 10
-	txsPerWorker := 10
-	entriesPerTx := 10
-	keyLen := 128
-	valLen := 1024 * 200
+	txsPerWorker := 100
+	entriesPerTx := 100
+	keyLen := 40
+	valLen := 256
 
 	kvs := make([]*schema.KeyValue, entriesPerTx)
 

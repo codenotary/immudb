@@ -328,9 +328,10 @@ func (txr *TxReplicator) fetchNextTx() error {
 	}
 
 	exportTxStream, err := txr.client.ExportTx(txr.context, &schema.ExportTxRequest{
-		Tx:                nextTx,
-		ReplicaState:      state,
-		AllowPreCommitted: syncReplicationEnabled,
+		Tx:                 nextTx,
+		ReplicaState:       state,
+		AllowPreCommitted:  syncReplicationEnabled,
+		SkipIntegrityCheck: true,
 	})
 	if err != nil {
 		return err

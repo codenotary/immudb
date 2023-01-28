@@ -60,7 +60,7 @@ func (d *db) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxHeade
 	// check referenced key exists and it's not a reference
 	key := EncodeKey(req.Key)
 
-	refEntry, err := d.getAtTx(key, req.AtTx, 0, d.st, 0)
+	refEntry, err := d.getAtTx(key, req.AtTx, 0, d.st, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (d *db) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntr
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		e, err := d.getAtTx(key, atTx, 1, snap, 0)
+		e, err := d.getAtTx(key, atTx, 1, snap, 0, true)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue
@@ -257,7 +257,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
+	err = d.st.ReadTx(uint64(txMetatadata.Id), true, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}
