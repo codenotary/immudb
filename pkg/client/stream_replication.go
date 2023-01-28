@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"google.golang.org/grpc"
 )
 
 // ExportTx retrieves serialized transaction object.
@@ -42,4 +43,12 @@ func (c *immuClient) ReplicateTx(ctx context.Context) (schema.ImmuService_Replic
 	}
 
 	return c.ServiceClient.ReplicateTx(ctx)
+}
+
+func (c *immuClient) StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (schema.ImmuService_StreamExportTxClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.StreamExportTx(ctx, opts...)
 }

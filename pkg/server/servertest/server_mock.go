@@ -116,6 +116,10 @@ func (s *ServerMock) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 	return s.Srv.ReplicateTx(replicateTxServer)
 }
 
+func (s *ServerMock) StreamExportTx(stream schema.ImmuService_StreamExportTxServer) error {
+	return s.Srv.StreamExportTx(stream)
+}
+
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	return s.Srv.ListUsers(ctx, req)
 }

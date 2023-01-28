@@ -19,6 +19,8 @@ package integration
 import (
 	"context"
 	"encoding/binary"
+	"errors"
+	"io"
 	"net"
 	"sync"
 	"testing"
@@ -310,6 +312,7 @@ func BenchmarkExportTx(b *testing.B) {
 		WithPgsqlServer(false).
 		WithPort(0).
 		WithMaxRecvMsgSize(204939000).
+		WithSynced(false).
 		WithDir(b.TempDir())
 
 	serverOpts.SessionsOptions.WithMaxSessions(200)
@@ -441,8 +444,9 @@ func BenchmarkExportTx(b *testing.B) {
 
 				for tx := 1; tx <= txsPerReplicator; tx++ {
 					exportTxStream, err := client.ExportTx(context.Background(), &schema.ExportTxRequest{
-						Tx:                uint64(r*txsPerReplicator + tx),
-						AllowPreCommitted: false,
+						Tx:                 uint64(1 + r*txsPerReplicator + tx),
+						AllowPreCommitted:  false,
+						SkipIntegrityCheck: true,
 					})
 					if err != nil {
 						panic(err)
@@ -453,6 +457,196 @@ func BenchmarkExportTx(b *testing.B) {
 					if err != nil {
 						panic(err)
 					}
+				}
+			}(r)
+		}
+
+		wg.Wait()
+	}
+}
+
+func BenchmarkStreamExportTx(b *testing.B) {
+	//init  server
+	serverOpts := server.DefaultOptions().
+		WithMetricsServer(false).
+		WithWebServer(false).
+		WithPgsqlServer(false).
+		WithPort(0).
+		WithMaxRecvMsgSize(204939000).
+		WithSynced(false).
+		WithDir(b.TempDir())
+
+	serverOpts.SessionsOptions.WithMaxSessions(200)
+
+	srv := server.DefaultServer().WithOptions(serverOpts).(*server.ImmuServer)
+
+	err := srv.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		srv.Start()
+	}()
+
+	defer func() {
+		srv.Stop()
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	// init primary client
+	port := srv.Listener.Addr().(*net.TCPAddr).Port
+
+	opts := ic.DefaultOptions().
+		WithDir(b.TempDir()).
+		WithPort(port)
+
+	client := ic.NewClient().WithOptions(opts)
+
+	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	if err != nil {
+		panic(err)
+	}
+
+	// create database as primarydb in primary server
+	_, err = client.CreateDatabaseV2(context.Background(), "db1", &schema.DatabaseNullableSettings{
+		MaxConcurrency: &schema.NullableUint32{Value: 200},
+		VLogCacheSize:  &schema.NullableUint32{Value: 0}, // disable vLogCache
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = client.CloseSession(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "db1")
+	if err != nil {
+		panic(err)
+	}
+	defer client.CloseSession(context.Background())
+
+	// commit some transactions
+	workers := 10
+	txsPerWorker := 100
+	entriesPerTx := 100
+	keyLen := 40
+	valLen := 256
+
+	kvs := make([]*schema.KeyValue, entriesPerTx)
+
+	for i := 0; i < entriesPerTx; i++ {
+		kvs[i] = &schema.KeyValue{
+			Key:   make([]byte, keyLen),
+			Value: make([]byte, valLen),
+		}
+
+		binary.BigEndian.PutUint64(kvs[i].Key, uint64(i))
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			for j := 0; j < txsPerWorker; j++ {
+				_, err := client.SetAll(context.Background(), &schema.SetRequest{
+					KVs: kvs,
+				})
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	replicators := 1
+	txsPerReplicator := workers * txsPerWorker / replicators
+
+	clientReplicators := make([]ic.ImmuClient, replicators)
+
+	for r := 0; r < replicators; r++ {
+		opts := ic.DefaultOptions().
+			WithDir(b.TempDir()).
+			WithPort(port)
+
+		client := ic.NewClient().WithOptions(opts)
+
+		err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "db1")
+		if err != nil {
+			panic(err)
+		}
+		defer client.CloseSession(context.Background())
+
+		clientReplicators[r] = client
+	}
+
+	b.ResetTimer()
+
+	// measure exportTx performance
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(replicators)
+
+		for r := 0; r < replicators; r++ {
+			go func(r int) {
+				defer wg.Done()
+
+				client := clientReplicators[r]
+
+				streamExportTxClient, err := client.StreamExportTx(context.Background())
+				if err != nil {
+					panic(err)
+				}
+
+				streamSrvFactory := stream.NewStreamServiceFactory(opts.StreamChunkSize)
+				exportTxStreamReceiver := streamSrvFactory.NewMsgReceiver(streamExportTxClient)
+
+				doneCh := make(chan struct{})
+				recvTxCount := 0
+
+				go func() {
+					for {
+						_, err := exportTxStreamReceiver.ReadFully()
+						if errors.Is(err, io.EOF) {
+							doneCh <- struct{}{}
+							return
+						}
+						if err != nil {
+							panic(err)
+						}
+
+						recvTxCount++
+					}
+				}()
+
+				for tx := 1; tx <= txsPerReplicator; tx++ {
+					err = streamExportTxClient.Send(&schema.ExportTxRequest{
+						Tx:                 uint64(1 + r*txsPerReplicator + tx),
+						AllowPreCommitted:  false,
+						SkipIntegrityCheck: true,
+					})
+					if err != nil {
+						panic(err)
+					}
+				}
+
+				err = streamExportTxClient.CloseSend()
+				if err != nil {
+					panic(err)
+				}
+
+				<-doneCh
+
+				if recvTxCount != txsPerReplicator {
+					panic("recvTxCount != txsPerReplicator")
 				}
 			}(r)
 		}

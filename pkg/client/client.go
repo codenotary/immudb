@@ -476,6 +476,9 @@ type ImmuClient interface {
 	// ReplicateTx sends a previously serialized transaction object replicating it on another database.
 	ReplicateTx(ctx context.Context) (schema.ImmuService_ReplicateTxClient, error)
 
+	// StreamExportTx provides a bidirectional endpoint for retrieving serialized transactions
+	StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (schema.ImmuService_StreamExportTxClient, error)
+
 	// SQLExec performs a modifying SQL query within the transaction.
 	// Such query does not return SQL result.
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
@@ -569,6 +572,7 @@ func NewImmuClient(options *Options) (*immuClient, error) {
 	}
 
 	options.DialOptions = c.SetupDialOptions(options)
+
 	if db, err := c.Tkns.GetDatabase(); err == nil && len(db) > 0 {
 		options.CurrentDatabase = db
 	}
