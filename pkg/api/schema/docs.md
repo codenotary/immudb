@@ -2475,6 +2475,7 @@ immudb gRPC &amp; REST service
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
 | exportTx | [ExportTxRequest](#immudb.schema.ExportTxRequest) | [Chunk](#immudb.schema.Chunk) stream | Replication |
 | replicateTx | [Chunk](#immudb.schema.Chunk) stream | [TxHeader](#immudb.schema.TxHeader) |  |
+| streamExportTx | [ExportTxRequest](#immudb.schema.ExportTxRequest) stream | [Chunk](#immudb.schema.Chunk) stream |  |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) |  |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |

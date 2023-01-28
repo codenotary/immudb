@@ -1859,6 +1859,8 @@ service ImmuService {
 
   rpc replicateTx(stream Chunk) returns (TxHeader) {}
 
+  rpc streamExportTx(stream ExportTxRequest) returns (stream Chunk) {}
+
   rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
     option (google.api.http) = {
       post: "/db/sqlexec"

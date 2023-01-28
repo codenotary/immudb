@@ -105,6 +105,7 @@ type ImmuServiceClient interface {
 	// Replication
 	ExportTx(ctx context.Context, in *ExportTxRequest, opts ...grpc.CallOption) (ImmuService_ExportTxClient, error)
 	ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error)
+	StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExportTxClient, error)
 	SQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*SQLExecResult, error)
 	SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	ListTables(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
@@ -953,6 +954,37 @@ func (x *immuServiceReplicateTxClient) CloseAndRecv() (*TxHeader, error) {
 	return m, nil
 }
 
+func (c *immuServiceClient) StreamExportTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamExportTxClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ImmuService_ServiceDesc.Streams[10], "/immudb.schema.ImmuService/streamExportTx", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamExportTxClient{stream}
+	return x, nil
+}
+
+type ImmuService_StreamExportTxClient interface {
+	Send(*ExportTxRequest) error
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamExportTxClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamExportTxClient) Send(m *ExportTxRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *immuServiceStreamExportTxClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *immuServiceClient) SQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*SQLExecResult, error) {
 	out := new(SQLExecResult)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SQLExec", in, out, opts...)
@@ -1097,6 +1129,7 @@ type ImmuServiceServer interface {
 	// Replication
 	ExportTx(*ExportTxRequest, ImmuService_ExportTxServer) error
 	ReplicateTx(ImmuService_ReplicateTxServer) error
+	StreamExportTx(ImmuService_StreamExportTxServer) error
 	SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error)
 	SQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
 	ListTables(context.Context, *empty.Empty) (*SQLQueryResult, error)
@@ -1303,6 +1336,9 @@ func (UnimplementedImmuServiceServer) ExportTx(*ExportTxRequest, ImmuService_Exp
 }
 func (UnimplementedImmuServiceServer) ReplicateTx(ImmuService_ReplicateTxServer) error {
 	return status.Errorf(codes.Unimplemented, "method ReplicateTx not implemented")
+}
+func (UnimplementedImmuServiceServer) StreamExportTx(ImmuService_StreamExportTxServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamExportTx not implemented")
 }
 func (UnimplementedImmuServiceServer) SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SQLExec not implemented")
@@ -2554,6 +2590,32 @@ func (x *immuServiceReplicateTxServer) Recv() (*Chunk, error) {
 	return m, nil
 }
 
+func _ImmuService_StreamExportTx_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ImmuServiceServer).StreamExportTx(&immuServiceStreamExportTxServer{stream})
+}
+
+type ImmuService_StreamExportTxServer interface {
+	Send(*Chunk) error
+	Recv() (*ExportTxRequest, error)
+	grpc.ServerStream
+}
+
+type immuServiceStreamExportTxServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamExportTxServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *immuServiceStreamExportTxServer) Recv() (*ExportTxRequest, error) {
+	m := new(ExportTxRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _ImmuService_SQLExec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SQLExecRequest)
 	if err := dec(in); err != nil {
@@ -2963,6 +3025,12 @@ var ImmuService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "replicateTx",
 			Handler:       _ImmuService_ReplicateTx_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "streamExportTx",
+			Handler:       _ImmuService_StreamExportTx_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},
