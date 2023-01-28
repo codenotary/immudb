@@ -2102,7 +2102,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 		}
 
 		// if the error is eof, the value has been truncated, so we do not write the value bytes
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			isValueTruncated = true
 			// vHashLen
 			binary.BigEndian.PutUint32(blen[:], uint32(len(e.hVal)))
