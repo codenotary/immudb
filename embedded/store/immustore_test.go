@@ -1810,7 +1810,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 			require.Equal(t, j, ki)
 
 			value := make([]byte, txEntries[j].vLen)
-			_, err = immuStore.readValueAt(value, txEntries[j].VOff(), txEntries[j].HVal())
+			_, err = immuStore.readValueAt(value, txEntries[j].VOff(), txEntries[j].HVal(), true)
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -2341,7 +2341,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 			require.NoError(t, err)
 
 			value := make([]byte, txe.vLen)
-			_, err = immuStore.readValueAt(value, txe.vOff, txe.hVal)
+			_, err = immuStore.readValueAt(value, txe.vOff, txe.hVal, true)
 			require.NoError(t, err)
 
 			e := &EntrySpec{Key: txe.key(), Value: value}

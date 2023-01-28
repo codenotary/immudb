@@ -2093,8 +2093,8 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, checkIntegrity
 		// val
 		// TODO: improve value reading implementation, get rid of _valBs
 		s._valBsMux.Lock()
-		_, err = s.readValueAt(s._valBs[:e.vLen], e.vOff, e.hVal)
-		if err != nil && err != io.EOF {
+		_, err = s.readValueAt(s._valBs[:e.vLen], e.vOff, e.hVal, checkIntegrity)
+		if err != nil && !errors.Is(err, io.EOF) {
 			s._valBsMux.Unlock()
 			return nil, err
 		}
@@ -2550,28 +2550,27 @@ func (s *ImmuStore) ReadValue(entry *TxEntry) ([]byte, error) {
 		return nil, ErrExpiredEntry
 	}
 
-	b := make([]byte, entry.vLen)
-
-	bval, err := s.readValueAt(b, entry.vOff, entry.hVal)
-	if err != nil {
-		return nil, err
+	if entry.vLen == 0 {
+		return nil, nil
 	}
 
-	// if bval == 0, the value is nil
-	if bval == 0 {
-		return nil, nil
+	b := make([]byte, entry.vLen)
+
+	_, err := s.readValueAt(b, entry.vOff, entry.hVal, true)
+	if err != nil {
+		return nil, err
 	}
 
 	return b, nil
 }
 
-func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (n int, err error) {
+func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte, checkIntegrity bool) (n int, err error) {
 	if s.vLogCache != nil {
 		val, err := s.vLogCache.Get(off)
 		if err == nil {
 			// the requested value was found in the value cache
 			copy(b, val.([]byte))
-			if hvalue != sha256.Sum256(b) {
+			if checkIntegrity && hvalue != sha256.Sum256(b) {
 				return len(b), ErrCorruptedData
 			}
 			return len(b), nil
@@ -2583,6 +2582,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	}
 
 	vLogID, offset := decodeOffset(off)
+
 	if vLogID > 0 {
 		vLog := s.fetchVLog(vLogID)
 		defer s.releaseVLog(vLogID)
@@ -2595,7 +2595,7 @@ func (s *ImmuStore) readValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 			return n, err
 		}
 
-		if hvalue != sha256.Sum256(b) {
+		if checkIntegrity && hvalue != sha256.Sum256(b) {
 			return len(b), ErrCorruptedData
 		}
 
