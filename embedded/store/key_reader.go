@@ -303,7 +303,7 @@ func (v *valueRef) Resolve() (val []byte, err error) {
 		return nil, ErrExpiredEntry
 	}
 
-	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal)
+	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal, true)
 	if err != nil {
 		return nil, err
 	}
