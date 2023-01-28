@@ -103,7 +103,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 		sql.EncodeID(sql.PKIndexID),
 		valbuf.Bytes())
 
-	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st)
+	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, true)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	defer d.releaseTx(tx)
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(e.Tx, tx)
+	err = d.st.ReadTx(e.Tx, true, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +188,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex) (entry *schema.SQLEntry, err error) {
+func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, checkIntegrity bool) (entry *schema.SQLEntry, err error) {
 	var txID uint64
 	var md *store.KVMetadata
 	var val []byte
@@ -210,7 +210,7 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex) (entry *sch
 	} else {
 		txID = atTx
 
-		md, val, err = d.readMetadataAndValue(key, atTx)
+		md, val, err = d.readMetadataAndValue(key, atTx, checkIntegrity)
 		if err != nil {
 			return nil, err
 		}

@@ -90,7 +90,7 @@ func (d *db) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries
 			return nil, err
 		}
 
-		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC())
+		e, err := d.getAtTx(key, valRef.Tx(), 0, snap, valRef.HC(), true)
 		if err == store.ErrKeyNotFound {
 			// ignore deleted ones (referenced key may have been deleted)
 			continue

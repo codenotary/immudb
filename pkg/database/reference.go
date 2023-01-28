@@ -53,7 +53,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	}
 
 	// check key does not exists or it's already a reference
-	entry, err := d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0)
+	entry, err := d.getAtTx(EncodeKey(req.Key), req.AtTx, 0, d.st, 0, true)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (d *db) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*s
 	}
 
 	// check referenced key exists and it's not a reference
-	refEntry, err := d.getAtTx(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, 0)
+	refEntry, err := d.getAtTx(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableR
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
+	err = d.st.ReadTx(uint64(txMetatadata.Id), true, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (d *db) VerifiableSetReference(ctx context.Context, req *schema.VerifiableR
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
 		if err != nil {
 			return nil, err
 		}

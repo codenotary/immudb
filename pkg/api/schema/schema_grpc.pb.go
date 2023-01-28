@@ -4,10 +4,10 @@ package schema
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,27 +19,27 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ImmuServiceClient interface {
-	ListUsers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserList, error)
-	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*UserList, error)
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Deprecated: Do not use.
-	UpdateAuthConfig(ctx context.Context, in *AuthConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateAuthConfig(ctx context.Context, in *AuthConfig, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Deprecated: Do not use.
-	UpdateMTLSConfig(ctx context.Context, in *MTLSConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateMTLSConfig(ctx context.Context, in *MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error)
 	OpenSession(ctx context.Context, in *OpenSessionRequest, opts ...grpc.CallOption) (*OpenSessionResponse, error)
-	CloseSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	KeepAlive(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CloseSession(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	KeepAlive(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	NewTx(ctx context.Context, in *NewTxRequest, opts ...grpc.CallOption) (*NewTxResponse, error)
-	Commit(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CommittedSQLTx, error)
-	Rollback(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	TxSQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Commit(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*CommittedSQLTx, error)
+	Rollback(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	TxSQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	TxSQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	// Deprecated: Do not use.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	// Deprecated: Do not use.
-	Logout(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Logout(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*TxHeader, error)
 	VerifiableSet(ctx context.Context, in *VerifiableSetRequest, opts ...grpc.CallOption) (*VerifiableTx, error)
 	Get(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Entry, error)
@@ -51,7 +51,7 @@ type ImmuServiceClient interface {
 	// NOT YET SUPPORTED
 	Count(ctx context.Context, in *KeyPrefix, opts ...grpc.CallOption) (*EntryCount, error)
 	// NOT YET SUPPORTED
-	CountAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EntryCount, error)
+	CountAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*EntryCount, error)
 	TxById(ctx context.Context, in *TxRequest, opts ...grpc.CallOption) (*Tx, error)
 	VerifiableTxById(ctx context.Context, in *VerifiableTxRequest, opts ...grpc.CallOption) (*VerifiableTx, error)
 	TxScan(ctx context.Context, in *TxScanRequest, opts ...grpc.CallOption) (*TxList, error)
@@ -60,9 +60,9 @@ type ImmuServiceClient interface {
 	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error)
 	// DEPRECATED: Use ServerInfo
-	Health(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
-	DatabaseHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error)
-	CurrentState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ImmutableState, error)
+	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
+	DatabaseHealth(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error)
+	CurrentState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ImmutableState, error)
 	SetReference(ctx context.Context, in *ReferenceRequest, opts ...grpc.CallOption) (*TxHeader, error)
 	VerifiableSetReference(ctx context.Context, in *VerifiableReferenceRequest, opts ...grpc.CallOption) (*VerifiableTx, error)
 	ZAdd(ctx context.Context, in *ZAddRequest, opts ...grpc.CallOption) (*TxHeader, error)
@@ -70,29 +70,29 @@ type ImmuServiceClient interface {
 	ZScan(ctx context.Context, in *ZScanRequest, opts ...grpc.CallOption) (*ZEntries, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use CreateDatabaseV2
-	CreateDatabase(ctx context.Context, in *Database, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateDatabase(ctx context.Context, in *Database, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use CreateDatabaseV2
-	CreateDatabaseWith(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateDatabaseWith(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error)
 	CreateDatabaseV2(ctx context.Context, in *CreateDatabaseRequest, opts ...grpc.CallOption) (*CreateDatabaseResponse, error)
 	LoadDatabase(ctx context.Context, in *LoadDatabaseRequest, opts ...grpc.CallOption) (*LoadDatabaseResponse, error)
 	UnloadDatabase(ctx context.Context, in *UnloadDatabaseRequest, opts ...grpc.CallOption) (*UnloadDatabaseResponse, error)
 	DeleteDatabase(ctx context.Context, in *DeleteDatabaseRequest, opts ...grpc.CallOption) (*DeleteDatabaseResponse, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use DatabaseListV2
-	DatabaseList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseListResponse, error)
+	DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseListResponse, error)
 	DatabaseListV2(ctx context.Context, in *DatabaseListRequestV2, opts ...grpc.CallOption) (*DatabaseListResponseV2, error)
 	UseDatabase(ctx context.Context, in *Database, opts ...grpc.CallOption) (*UseDatabaseReply, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use UpdateDatabaseV2
-	UpdateDatabase(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateDatabase(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error)
 	UpdateDatabaseV2(ctx context.Context, in *UpdateDatabaseRequest, opts ...grpc.CallOption) (*UpdateDatabaseResponse, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use GetDatabaseSettingsV2
-	GetDatabaseSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseSettings, error)
+	GetDatabaseSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseSettings, error)
 	GetDatabaseSettingsV2(ctx context.Context, in *DatabaseSettingsRequest, opts ...grpc.CallOption) (*DatabaseSettingsResponse, error)
 	FlushIndex(ctx context.Context, in *FlushIndexRequest, opts ...grpc.CallOption) (*FlushIndexResponse, error)
-	CompactIndex(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CompactIndex(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Streams
 	StreamGet(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamGetClient, error)
 	StreamSet(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSetClient, error)
@@ -107,7 +107,7 @@ type ImmuServiceClient interface {
 	ReplicateTx(ctx context.Context, opts ...grpc.CallOption) (ImmuService_ReplicateTxClient, error)
 	SQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*SQLExecResult, error)
 	SQLQuery(ctx context.Context, in *SQLQueryRequest, opts ...grpc.CallOption) (*SQLQueryResult, error)
-	ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
+	ListTables(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	DescribeTable(ctx context.Context, in *Table, opts ...grpc.CallOption) (*SQLQueryResult, error)
 	VerifiableSQLGet(ctx context.Context, in *VerifiableSQLGetRequest, opts ...grpc.CallOption) (*VerifiableSQLEntry, error)
 	TruncateDatabase(ctx context.Context, in *TruncateDatabaseRequest, opts ...grpc.CallOption) (*TruncateDatabaseResponse, error)
@@ -121,7 +121,7 @@ func NewImmuServiceClient(cc grpc.ClientConnInterface) ImmuServiceClient {
 	return &immuServiceClient{cc}
 }
 
-func (c *immuServiceClient) ListUsers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserList, error) {
+func (c *immuServiceClient) ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*UserList, error) {
 	out := new(UserList)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ListUsers", in, out, opts...)
 	if err != nil {
@@ -130,8 +130,8 @@ func (c *immuServiceClient) ListUsers(ctx context.Context, in *emptypb.Empty, op
 	return out, nil
 }
 
-func (c *immuServiceClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CreateUser", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -139,8 +139,8 @@ func (c *immuServiceClient) CreateUser(ctx context.Context, in *CreateUserReques
 	return out, nil
 }
 
-func (c *immuServiceClient) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ChangePassword", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -148,8 +148,8 @@ func (c *immuServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 	return out, nil
 }
 
-func (c *immuServiceClient) ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ChangePermission", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -157,8 +157,8 @@ func (c *immuServiceClient) ChangePermission(ctx context.Context, in *ChangePerm
 	return out, nil
 }
 
-func (c *immuServiceClient) SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SetActiveUser", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -167,8 +167,8 @@ func (c *immuServiceClient) SetActiveUser(ctx context.Context, in *SetActiveUser
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) UpdateAuthConfig(ctx context.Context, in *AuthConfig, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) UpdateAuthConfig(ctx context.Context, in *AuthConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/UpdateAuthConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -177,8 +177,8 @@ func (c *immuServiceClient) UpdateAuthConfig(ctx context.Context, in *AuthConfig
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) UpdateMTLSConfig(ctx context.Context, in *MTLSConfig, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) UpdateMTLSConfig(ctx context.Context, in *MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/UpdateMTLSConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -195,8 +195,8 @@ func (c *immuServiceClient) OpenSession(ctx context.Context, in *OpenSessionRequ
 	return out, nil
 }
 
-func (c *immuServiceClient) CloseSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) CloseSession(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CloseSession", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -204,8 +204,8 @@ func (c *immuServiceClient) CloseSession(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
-func (c *immuServiceClient) KeepAlive(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) KeepAlive(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/KeepAlive", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (c *immuServiceClient) NewTx(ctx context.Context, in *NewTxRequest, opts ..
 	return out, nil
 }
 
-func (c *immuServiceClient) Commit(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CommittedSQLTx, error) {
+func (c *immuServiceClient) Commit(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*CommittedSQLTx, error) {
 	out := new(CommittedSQLTx)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/Commit", in, out, opts...)
 	if err != nil {
@@ -231,8 +231,8 @@ func (c *immuServiceClient) Commit(ctx context.Context, in *emptypb.Empty, opts 
 	return out, nil
 }
 
-func (c *immuServiceClient) Rollback(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) Rollback(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/Rollback", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -240,8 +240,8 @@ func (c *immuServiceClient) Rollback(ctx context.Context, in *emptypb.Empty, opt
 	return out, nil
 }
 
-func (c *immuServiceClient) TxSQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) TxSQLExec(ctx context.Context, in *SQLExecRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/TxSQLExec", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -269,8 +269,8 @@ func (c *immuServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) Logout(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) Logout(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/Logout", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -359,7 +359,7 @@ func (c *immuServiceClient) Count(ctx context.Context, in *KeyPrefix, opts ...gr
 	return out, nil
 }
 
-func (c *immuServiceClient) CountAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EntryCount, error) {
+func (c *immuServiceClient) CountAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*EntryCount, error) {
 	out := new(EntryCount)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CountAll", in, out, opts...)
 	if err != nil {
@@ -413,7 +413,7 @@ func (c *immuServiceClient) ServerInfo(ctx context.Context, in *ServerInfoReques
 	return out, nil
 }
 
-func (c *immuServiceClient) Health(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error) {
+func (c *immuServiceClient) Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error) {
 	out := new(HealthResponse)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/Health", in, out, opts...)
 	if err != nil {
@@ -422,7 +422,7 @@ func (c *immuServiceClient) Health(ctx context.Context, in *emptypb.Empty, opts 
 	return out, nil
 }
 
-func (c *immuServiceClient) DatabaseHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error) {
+func (c *immuServiceClient) DatabaseHealth(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseHealthResponse, error) {
 	out := new(DatabaseHealthResponse)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/DatabaseHealth", in, out, opts...)
 	if err != nil {
@@ -431,7 +431,7 @@ func (c *immuServiceClient) DatabaseHealth(ctx context.Context, in *emptypb.Empt
 	return out, nil
 }
 
-func (c *immuServiceClient) CurrentState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ImmutableState, error) {
+func (c *immuServiceClient) CurrentState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ImmutableState, error) {
 	out := new(ImmutableState)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CurrentState", in, out, opts...)
 	if err != nil {
@@ -486,8 +486,8 @@ func (c *immuServiceClient) ZScan(ctx context.Context, in *ZScanRequest, opts ..
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) CreateDatabase(ctx context.Context, in *Database, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) CreateDatabase(ctx context.Context, in *Database, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CreateDatabase", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -496,8 +496,8 @@ func (c *immuServiceClient) CreateDatabase(ctx context.Context, in *Database, op
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) CreateDatabaseWith(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) CreateDatabaseWith(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CreateDatabaseWith", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -542,7 +542,7 @@ func (c *immuServiceClient) DeleteDatabase(ctx context.Context, in *DeleteDataba
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) DatabaseList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseListResponse, error) {
+func (c *immuServiceClient) DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseListResponse, error) {
 	out := new(DatabaseListResponse)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/DatabaseList", in, out, opts...)
 	if err != nil {
@@ -570,8 +570,8 @@ func (c *immuServiceClient) UseDatabase(ctx context.Context, in *Database, opts 
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) UpdateDatabase(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) UpdateDatabase(ctx context.Context, in *DatabaseSettings, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/UpdateDatabase", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -589,7 +589,7 @@ func (c *immuServiceClient) UpdateDatabaseV2(ctx context.Context, in *UpdateData
 }
 
 // Deprecated: Do not use.
-func (c *immuServiceClient) GetDatabaseSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DatabaseSettings, error) {
+func (c *immuServiceClient) GetDatabaseSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DatabaseSettings, error) {
 	out := new(DatabaseSettings)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/GetDatabaseSettings", in, out, opts...)
 	if err != nil {
@@ -616,8 +616,8 @@ func (c *immuServiceClient) FlushIndex(ctx context.Context, in *FlushIndexReques
 	return out, nil
 }
 
-func (c *immuServiceClient) CompactIndex(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *immuServiceClient) CompactIndex(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/CompactIndex", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -971,7 +971,7 @@ func (c *immuServiceClient) SQLQuery(ctx context.Context, in *SQLQueryRequest, o
 	return out, nil
 }
 
-func (c *immuServiceClient) ListTables(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error) {
+func (c *immuServiceClient) ListTables(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SQLQueryResult, error) {
 	out := new(SQLQueryResult)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ListTables", in, out, opts...)
 	if err != nil {
@@ -1011,27 +1011,27 @@ func (c *immuServiceClient) TruncateDatabase(ctx context.Context, in *TruncateDa
 // All implementations should embed UnimplementedImmuServiceServer
 // for forward compatibility
 type ImmuServiceServer interface {
-	ListUsers(context.Context, *emptypb.Empty) (*UserList, error)
-	CreateUser(context.Context, *CreateUserRequest) (*emptypb.Empty, error)
-	ChangePassword(context.Context, *ChangePasswordRequest) (*emptypb.Empty, error)
-	ChangePermission(context.Context, *ChangePermissionRequest) (*emptypb.Empty, error)
-	SetActiveUser(context.Context, *SetActiveUserRequest) (*emptypb.Empty, error)
+	ListUsers(context.Context, *empty.Empty) (*UserList, error)
+	CreateUser(context.Context, *CreateUserRequest) (*empty.Empty, error)
+	ChangePassword(context.Context, *ChangePasswordRequest) (*empty.Empty, error)
+	ChangePermission(context.Context, *ChangePermissionRequest) (*empty.Empty, error)
+	SetActiveUser(context.Context, *SetActiveUserRequest) (*empty.Empty, error)
 	// Deprecated: Do not use.
-	UpdateAuthConfig(context.Context, *AuthConfig) (*emptypb.Empty, error)
+	UpdateAuthConfig(context.Context, *AuthConfig) (*empty.Empty, error)
 	// Deprecated: Do not use.
-	UpdateMTLSConfig(context.Context, *MTLSConfig) (*emptypb.Empty, error)
+	UpdateMTLSConfig(context.Context, *MTLSConfig) (*empty.Empty, error)
 	OpenSession(context.Context, *OpenSessionRequest) (*OpenSessionResponse, error)
-	CloseSession(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	KeepAlive(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	CloseSession(context.Context, *empty.Empty) (*empty.Empty, error)
+	KeepAlive(context.Context, *empty.Empty) (*empty.Empty, error)
 	NewTx(context.Context, *NewTxRequest) (*NewTxResponse, error)
-	Commit(context.Context, *emptypb.Empty) (*CommittedSQLTx, error)
-	Rollback(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	TxSQLExec(context.Context, *SQLExecRequest) (*emptypb.Empty, error)
+	Commit(context.Context, *empty.Empty) (*CommittedSQLTx, error)
+	Rollback(context.Context, *empty.Empty) (*empty.Empty, error)
+	TxSQLExec(context.Context, *SQLExecRequest) (*empty.Empty, error)
 	TxSQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
 	// Deprecated: Do not use.
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	// Deprecated: Do not use.
-	Logout(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Logout(context.Context, *empty.Empty) (*empty.Empty, error)
 	Set(context.Context, *SetRequest) (*TxHeader, error)
 	VerifiableSet(context.Context, *VerifiableSetRequest) (*VerifiableTx, error)
 	Get(context.Context, *KeyRequest) (*Entry, error)
@@ -1043,7 +1043,7 @@ type ImmuServiceServer interface {
 	// NOT YET SUPPORTED
 	Count(context.Context, *KeyPrefix) (*EntryCount, error)
 	// NOT YET SUPPORTED
-	CountAll(context.Context, *emptypb.Empty) (*EntryCount, error)
+	CountAll(context.Context, *empty.Empty) (*EntryCount, error)
 	TxById(context.Context, *TxRequest) (*Tx, error)
 	VerifiableTxById(context.Context, *VerifiableTxRequest) (*VerifiableTx, error)
 	TxScan(context.Context, *TxScanRequest) (*TxList, error)
@@ -1052,9 +1052,9 @@ type ImmuServiceServer interface {
 	// ServerInfoRequest is defined for future extensions.
 	ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error)
 	// DEPRECATED: Use ServerInfo
-	Health(context.Context, *emptypb.Empty) (*HealthResponse, error)
-	DatabaseHealth(context.Context, *emptypb.Empty) (*DatabaseHealthResponse, error)
-	CurrentState(context.Context, *emptypb.Empty) (*ImmutableState, error)
+	Health(context.Context, *empty.Empty) (*HealthResponse, error)
+	DatabaseHealth(context.Context, *empty.Empty) (*DatabaseHealthResponse, error)
+	CurrentState(context.Context, *empty.Empty) (*ImmutableState, error)
 	SetReference(context.Context, *ReferenceRequest) (*TxHeader, error)
 	VerifiableSetReference(context.Context, *VerifiableReferenceRequest) (*VerifiableTx, error)
 	ZAdd(context.Context, *ZAddRequest) (*TxHeader, error)
@@ -1062,29 +1062,29 @@ type ImmuServiceServer interface {
 	ZScan(context.Context, *ZScanRequest) (*ZEntries, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use CreateDatabaseV2
-	CreateDatabase(context.Context, *Database) (*emptypb.Empty, error)
+	CreateDatabase(context.Context, *Database) (*empty.Empty, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use CreateDatabaseV2
-	CreateDatabaseWith(context.Context, *DatabaseSettings) (*emptypb.Empty, error)
+	CreateDatabaseWith(context.Context, *DatabaseSettings) (*empty.Empty, error)
 	CreateDatabaseV2(context.Context, *CreateDatabaseRequest) (*CreateDatabaseResponse, error)
 	LoadDatabase(context.Context, *LoadDatabaseRequest) (*LoadDatabaseResponse, error)
 	UnloadDatabase(context.Context, *UnloadDatabaseRequest) (*UnloadDatabaseResponse, error)
 	DeleteDatabase(context.Context, *DeleteDatabaseRequest) (*DeleteDatabaseResponse, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use DatabaseListV2
-	DatabaseList(context.Context, *emptypb.Empty) (*DatabaseListResponse, error)
+	DatabaseList(context.Context, *empty.Empty) (*DatabaseListResponse, error)
 	DatabaseListV2(context.Context, *DatabaseListRequestV2) (*DatabaseListResponseV2, error)
 	UseDatabase(context.Context, *Database) (*UseDatabaseReply, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use UpdateDatabaseV2
-	UpdateDatabase(context.Context, *DatabaseSettings) (*emptypb.Empty, error)
+	UpdateDatabase(context.Context, *DatabaseSettings) (*empty.Empty, error)
 	UpdateDatabaseV2(context.Context, *UpdateDatabaseRequest) (*UpdateDatabaseResponse, error)
 	// Deprecated: Do not use.
 	// DEPRECATED: Use GetDatabaseSettingsV2
-	GetDatabaseSettings(context.Context, *emptypb.Empty) (*DatabaseSettings, error)
+	GetDatabaseSettings(context.Context, *empty.Empty) (*DatabaseSettings, error)
 	GetDatabaseSettingsV2(context.Context, *DatabaseSettingsRequest) (*DatabaseSettingsResponse, error)
 	FlushIndex(context.Context, *FlushIndexRequest) (*FlushIndexResponse, error)
-	CompactIndex(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	CompactIndex(context.Context, *empty.Empty) (*empty.Empty, error)
 	// Streams
 	StreamGet(*KeyRequest, ImmuService_StreamGetServer) error
 	StreamSet(ImmuService_StreamSetServer) error
@@ -1099,7 +1099,7 @@ type ImmuServiceServer interface {
 	ReplicateTx(ImmuService_ReplicateTxServer) error
 	SQLExec(context.Context, *SQLExecRequest) (*SQLExecResult, error)
 	SQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error)
-	ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error)
+	ListTables(context.Context, *empty.Empty) (*SQLQueryResult, error)
 	DescribeTable(context.Context, *Table) (*SQLQueryResult, error)
 	VerifiableSQLGet(context.Context, *VerifiableSQLGetRequest) (*VerifiableSQLEntry, error)
 	TruncateDatabase(context.Context, *TruncateDatabaseRequest) (*TruncateDatabaseResponse, error)
@@ -1109,46 +1109,46 @@ type ImmuServiceServer interface {
 type UnimplementedImmuServiceServer struct {
 }
 
-func (UnimplementedImmuServiceServer) ListUsers(context.Context, *emptypb.Empty) (*UserList, error) {
+func (UnimplementedImmuServiceServer) ListUsers(context.Context, *empty.Empty) (*UserList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListUsers not implemented")
 }
-func (UnimplementedImmuServiceServer) CreateUser(context.Context, *CreateUserRequest) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) CreateUser(context.Context, *CreateUserRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateUser not implemented")
 }
-func (UnimplementedImmuServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChangePassword not implemented")
 }
-func (UnimplementedImmuServiceServer) ChangePermission(context.Context, *ChangePermissionRequest) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) ChangePermission(context.Context, *ChangePermissionRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChangePermission not implemented")
 }
-func (UnimplementedImmuServiceServer) SetActiveUser(context.Context, *SetActiveUserRequest) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) SetActiveUser(context.Context, *SetActiveUserRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetActiveUser not implemented")
 }
-func (UnimplementedImmuServiceServer) UpdateAuthConfig(context.Context, *AuthConfig) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) UpdateAuthConfig(context.Context, *AuthConfig) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAuthConfig not implemented")
 }
-func (UnimplementedImmuServiceServer) UpdateMTLSConfig(context.Context, *MTLSConfig) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) UpdateMTLSConfig(context.Context, *MTLSConfig) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateMTLSConfig not implemented")
 }
 func (UnimplementedImmuServiceServer) OpenSession(context.Context, *OpenSessionRequest) (*OpenSessionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OpenSession not implemented")
 }
-func (UnimplementedImmuServiceServer) CloseSession(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) CloseSession(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloseSession not implemented")
 }
-func (UnimplementedImmuServiceServer) KeepAlive(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) KeepAlive(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KeepAlive not implemented")
 }
 func (UnimplementedImmuServiceServer) NewTx(context.Context, *NewTxRequest) (*NewTxResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewTx not implemented")
 }
-func (UnimplementedImmuServiceServer) Commit(context.Context, *emptypb.Empty) (*CommittedSQLTx, error) {
+func (UnimplementedImmuServiceServer) Commit(context.Context, *empty.Empty) (*CommittedSQLTx, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
 }
-func (UnimplementedImmuServiceServer) Rollback(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) Rollback(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rollback not implemented")
 }
-func (UnimplementedImmuServiceServer) TxSQLExec(context.Context, *SQLExecRequest) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) TxSQLExec(context.Context, *SQLExecRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TxSQLExec not implemented")
 }
 func (UnimplementedImmuServiceServer) TxSQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
@@ -1157,7 +1157,7 @@ func (UnimplementedImmuServiceServer) TxSQLQuery(context.Context, *SQLQueryReque
 func (UnimplementedImmuServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedImmuServiceServer) Logout(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) Logout(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Logout not implemented")
 }
 func (UnimplementedImmuServiceServer) Set(context.Context, *SetRequest) (*TxHeader, error) {
@@ -1187,7 +1187,7 @@ func (UnimplementedImmuServiceServer) Scan(context.Context, *ScanRequest) (*Entr
 func (UnimplementedImmuServiceServer) Count(context.Context, *KeyPrefix) (*EntryCount, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Count not implemented")
 }
-func (UnimplementedImmuServiceServer) CountAll(context.Context, *emptypb.Empty) (*EntryCount, error) {
+func (UnimplementedImmuServiceServer) CountAll(context.Context, *empty.Empty) (*EntryCount, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CountAll not implemented")
 }
 func (UnimplementedImmuServiceServer) TxById(context.Context, *TxRequest) (*Tx, error) {
@@ -1205,13 +1205,13 @@ func (UnimplementedImmuServiceServer) History(context.Context, *HistoryRequest) 
 func (UnimplementedImmuServiceServer) ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerInfo not implemented")
 }
-func (UnimplementedImmuServiceServer) Health(context.Context, *emptypb.Empty) (*HealthResponse, error) {
+func (UnimplementedImmuServiceServer) Health(context.Context, *empty.Empty) (*HealthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
 }
-func (UnimplementedImmuServiceServer) DatabaseHealth(context.Context, *emptypb.Empty) (*DatabaseHealthResponse, error) {
+func (UnimplementedImmuServiceServer) DatabaseHealth(context.Context, *empty.Empty) (*DatabaseHealthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DatabaseHealth not implemented")
 }
-func (UnimplementedImmuServiceServer) CurrentState(context.Context, *emptypb.Empty) (*ImmutableState, error) {
+func (UnimplementedImmuServiceServer) CurrentState(context.Context, *empty.Empty) (*ImmutableState, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CurrentState not implemented")
 }
 func (UnimplementedImmuServiceServer) SetReference(context.Context, *ReferenceRequest) (*TxHeader, error) {
@@ -1229,10 +1229,10 @@ func (UnimplementedImmuServiceServer) VerifiableZAdd(context.Context, *Verifiabl
 func (UnimplementedImmuServiceServer) ZScan(context.Context, *ZScanRequest) (*ZEntries, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ZScan not implemented")
 }
-func (UnimplementedImmuServiceServer) CreateDatabase(context.Context, *Database) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) CreateDatabase(context.Context, *Database) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateDatabase not implemented")
 }
-func (UnimplementedImmuServiceServer) CreateDatabaseWith(context.Context, *DatabaseSettings) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) CreateDatabaseWith(context.Context, *DatabaseSettings) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateDatabaseWith not implemented")
 }
 func (UnimplementedImmuServiceServer) CreateDatabaseV2(context.Context, *CreateDatabaseRequest) (*CreateDatabaseResponse, error) {
@@ -1247,7 +1247,7 @@ func (UnimplementedImmuServiceServer) UnloadDatabase(context.Context, *UnloadDat
 func (UnimplementedImmuServiceServer) DeleteDatabase(context.Context, *DeleteDatabaseRequest) (*DeleteDatabaseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDatabase not implemented")
 }
-func (UnimplementedImmuServiceServer) DatabaseList(context.Context, *emptypb.Empty) (*DatabaseListResponse, error) {
+func (UnimplementedImmuServiceServer) DatabaseList(context.Context, *empty.Empty) (*DatabaseListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DatabaseList not implemented")
 }
 func (UnimplementedImmuServiceServer) DatabaseListV2(context.Context, *DatabaseListRequestV2) (*DatabaseListResponseV2, error) {
@@ -1256,13 +1256,13 @@ func (UnimplementedImmuServiceServer) DatabaseListV2(context.Context, *DatabaseL
 func (UnimplementedImmuServiceServer) UseDatabase(context.Context, *Database) (*UseDatabaseReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseDatabase not implemented")
 }
-func (UnimplementedImmuServiceServer) UpdateDatabase(context.Context, *DatabaseSettings) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) UpdateDatabase(context.Context, *DatabaseSettings) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDatabase not implemented")
 }
 func (UnimplementedImmuServiceServer) UpdateDatabaseV2(context.Context, *UpdateDatabaseRequest) (*UpdateDatabaseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDatabaseV2 not implemented")
 }
-func (UnimplementedImmuServiceServer) GetDatabaseSettings(context.Context, *emptypb.Empty) (*DatabaseSettings, error) {
+func (UnimplementedImmuServiceServer) GetDatabaseSettings(context.Context, *empty.Empty) (*DatabaseSettings, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDatabaseSettings not implemented")
 }
 func (UnimplementedImmuServiceServer) GetDatabaseSettingsV2(context.Context, *DatabaseSettingsRequest) (*DatabaseSettingsResponse, error) {
@@ -1271,7 +1271,7 @@ func (UnimplementedImmuServiceServer) GetDatabaseSettingsV2(context.Context, *Da
 func (UnimplementedImmuServiceServer) FlushIndex(context.Context, *FlushIndexRequest) (*FlushIndexResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FlushIndex not implemented")
 }
-func (UnimplementedImmuServiceServer) CompactIndex(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedImmuServiceServer) CompactIndex(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompactIndex not implemented")
 }
 func (UnimplementedImmuServiceServer) StreamGet(*KeyRequest, ImmuService_StreamGetServer) error {
@@ -1310,7 +1310,7 @@ func (UnimplementedImmuServiceServer) SQLExec(context.Context, *SQLExecRequest) 
 func (UnimplementedImmuServiceServer) SQLQuery(context.Context, *SQLQueryRequest) (*SQLQueryResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SQLQuery not implemented")
 }
-func (UnimplementedImmuServiceServer) ListTables(context.Context, *emptypb.Empty) (*SQLQueryResult, error) {
+func (UnimplementedImmuServiceServer) ListTables(context.Context, *empty.Empty) (*SQLQueryResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTables not implemented")
 }
 func (UnimplementedImmuServiceServer) DescribeTable(context.Context, *Table) (*SQLQueryResult, error) {
@@ -1335,7 +1335,7 @@ func RegisterImmuServiceServer(s grpc.ServiceRegistrar, srv ImmuServiceServer) {
 }
 
 func _ImmuService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1347,7 +1347,7 @@ func _ImmuService_ListUsers_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/immudb.schema.ImmuService/ListUsers",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).ListUsers(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).ListUsers(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1479,7 +1479,7 @@ func _ImmuService_OpenSession_Handler(srv interface{}, ctx context.Context, dec 
 }
 
 func _ImmuService_CloseSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1491,13 +1491,13 @@ func _ImmuService_CloseSession_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/immudb.schema.ImmuService/CloseSession",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CloseSession(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).CloseSession(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ImmuService_KeepAlive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1509,7 +1509,7 @@ func _ImmuService_KeepAlive_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/immudb.schema.ImmuService/KeepAlive",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).KeepAlive(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).KeepAlive(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1533,7 +1533,7 @@ func _ImmuService_NewTx_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _ImmuService_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1545,13 +1545,13 @@ func _ImmuService_Commit_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: "/immudb.schema.ImmuService/Commit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).Commit(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).Commit(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ImmuService_Rollback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1563,7 +1563,7 @@ func _ImmuService_Rollback_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: "/immudb.schema.ImmuService/Rollback",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).Rollback(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).Rollback(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1623,7 +1623,7 @@ func _ImmuService_Login_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _ImmuService_Logout_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1635,7 +1635,7 @@ func _ImmuService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: "/immudb.schema.ImmuService/Logout",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).Logout(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).Logout(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1803,7 +1803,7 @@ func _ImmuService_Count_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _ImmuService_CountAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1815,7 +1815,7 @@ func _ImmuService_CountAll_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: "/immudb.schema.ImmuService/CountAll",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CountAll(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).CountAll(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1911,7 +1911,7 @@ func _ImmuService_ServerInfo_Handler(srv interface{}, ctx context.Context, dec f
 }
 
 func _ImmuService_Health_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1923,13 +1923,13 @@ func _ImmuService_Health_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: "/immudb.schema.ImmuService/Health",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).Health(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).Health(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ImmuService_DatabaseHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1941,13 +1941,13 @@ func _ImmuService_DatabaseHealth_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/immudb.schema.ImmuService/DatabaseHealth",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).DatabaseHealth(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).DatabaseHealth(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ImmuService_CurrentState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1959,7 +1959,7 @@ func _ImmuService_CurrentState_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/immudb.schema.ImmuService/CurrentState",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CurrentState(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).CurrentState(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2163,7 +2163,7 @@ func _ImmuService_DeleteDatabase_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _ImmuService_DatabaseList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -2175,7 +2175,7 @@ func _ImmuService_DatabaseList_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/immudb.schema.ImmuService/DatabaseList",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).DatabaseList(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).DatabaseList(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2253,7 +2253,7 @@ func _ImmuService_UpdateDatabaseV2_Handler(srv interface{}, ctx context.Context,
 }
 
 func _ImmuService_GetDatabaseSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -2265,7 +2265,7 @@ func _ImmuService_GetDatabaseSettings_Handler(srv interface{}, ctx context.Conte
 		FullMethod: "/immudb.schema.ImmuService/GetDatabaseSettings",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).GetDatabaseSettings(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).GetDatabaseSettings(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2307,7 +2307,7 @@ func _ImmuService_FlushIndex_Handler(srv interface{}, ctx context.Context, dec f
 }
 
 func _ImmuService_CompactIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -2319,7 +2319,7 @@ func _ImmuService_CompactIndex_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/immudb.schema.ImmuService/CompactIndex",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).CompactIndex(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).CompactIndex(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2591,7 +2591,7 @@ func _ImmuService_SQLQuery_Handler(srv interface{}, ctx context.Context, dec fun
 }
 
 func _ImmuService_ListTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -2603,7 +2603,7 @@ func _ImmuService_ListTables_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/immudb.schema.ImmuService/ListTables",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImmuServiceServer).ListTables(ctx, req.(*emptypb.Empty))
+		return srv.(ImmuServiceServer).ListTables(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

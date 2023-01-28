@@ -754,6 +754,7 @@ DualProof contains inclusion and consistency proofs for dual Merkle-Tree &#43; L
 | tx | [uint64](#uint64) |  | Id of transaction to export |
 | allowPreCommitted | [bool](#bool) |  | If set to true, non-committed transactions can be exported |
 | replicaState | [ReplicaState](#immudb.schema.ReplicaState) |  | Used on synchronous replication to notify the primary about replica state |
+| skipIntegrityCheck | [bool](#bool) |  | If set to true, integrity checks are skipped when reading data |
 
 
 
