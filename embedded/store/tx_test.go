@@ -41,7 +41,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
 	}
-	err := tx.readFrom(r, true)
+	err := tx.readFrom(r, false)
 	require.Error(t, err)
 
 	// Should fail while reading Ts
@@ -52,7 +52,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 		}
 		return 0, errors.New("error")
 	}
-	err = tx.readFrom(r, true)
+	err = tx.readFrom(r, false)
 	require.Error(t, err)
 
 	// Should fail while reading BlTxID
@@ -63,7 +63,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 		}
 		return 0, errors.New("error")
 	}
-	err = tx.readFrom(r, true)
+	err = tx.readFrom(r, false)
 	require.Error(t, err)
 
 	// Should fail while reading BlRoot
@@ -74,7 +74,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 		}
 		return 0, errors.New("error")
 	}
-	err = tx.readFrom(r, true)
+	err = tx.readFrom(r, false)
 	require.Error(t, err)
 
 	// Should fail while reading PrevAlh
@@ -85,7 +85,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 		}
 		return 0, errors.New("error")
 	}
-	err = tx.readFrom(r, true)
+	err = tx.readFrom(r, false)
 	require.Error(t, err)
 
 	// Should fail while reading nentries
@@ -96,7 +96,7 @@ func TestReadTxFromCorruptedData(t *testing.T) {
 		}
 		return 0, errors.New("error")
 	}
-	err = tx.readFrom(r, true)
+	err = tx.readFrom(r, false)
 	require.Error(t, err)
 }
 

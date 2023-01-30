@@ -188,7 +188,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	}, nil
 }
 
-func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, checkIntegrity bool) (entry *schema.SQLEntry, err error) {
+func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, skipIntegrityCheck bool) (entry *schema.SQLEntry, err error) {
 	var txID uint64
 	var md *store.KVMetadata
 	var val []byte
@@ -210,7 +210,7 @@ func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, checkIntegr
 	} else {
 		txID = atTx
 
-		md, val, err = d.readMetadataAndValue(key, atTx, checkIntegrity)
+		md, val, err = d.readMetadataAndValue(key, atTx, skipIntegrityCheck)
 		if err != nil {
 			return nil, err
 		}

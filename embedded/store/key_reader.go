@@ -303,7 +303,7 @@ func (v *valueRef) Resolve() (val []byte, err error) {
 		return nil, ErrExpiredEntry
 	}
 
-	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal, true)
+	_, err = v.st.readValueAt(refVal, v.vOff, v.hVal, false)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +352,7 @@ func (r *storeKeyReader) ReadBetween(initialTxID, finalTxID uint64) (key []byte,
 			return nil, nil, err
 		}
 
-		e, header, err := r.snap.st.ReadTxEntry(ktxID, key, true)
+		e, header, err := r.snap.st.ReadTxEntry(ktxID, key, false)
 		if err != nil {
 			return nil, nil, err
 		}
