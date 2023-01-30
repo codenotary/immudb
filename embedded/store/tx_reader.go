@@ -25,8 +25,8 @@ type TxReader struct {
 	InitialTxID uint64
 	Desc        bool
 
-	allowPrecommitted bool
-	checkIntegrity    bool
+	allowPrecommitted  bool
+	skipIntegrityCheck bool
 
 	CurrTxID uint64
 	CurrAlh  [sha256.Size]byte
@@ -43,10 +43,10 @@ func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 		return nil, ErrAlreadyClosed
 	}
 
-	return s.newTxReader(initialTxID, desc, false, true, tx)
+	return s.newTxReader(initialTxID, desc, false, false, tx)
 }
 
-func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool, checkIntegrity bool, tx *Tx) (*TxReader, error) {
+func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool, skipIntegrityCheck bool, tx *Tx) (*TxReader, error) {
 	if initialTxID == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -56,13 +56,13 @@ func (s *ImmuStore) newTxReader(initialTxID uint64, desc, allowPrecommitted bool
 	}
 
 	return &TxReader{
-		InitialTxID:       initialTxID,
-		Desc:              desc,
-		CurrTxID:          initialTxID,
-		allowPrecommitted: allowPrecommitted,
-		checkIntegrity:    checkIntegrity,
-		st:                s,
-		_tx:               tx,
+		InitialTxID:        initialTxID,
+		Desc:               desc,
+		CurrTxID:           initialTxID,
+		allowPrecommitted:  allowPrecommitted,
+		skipIntegrityCheck: skipIntegrityCheck,
+		st:                 s,
+		_tx:                tx,
 	}, nil
 }
 
@@ -71,7 +71,7 @@ func (txr *TxReader) Read() (*Tx, error) {
 		return nil, ErrNoMoreEntries
 	}
 
-	err := txr.st.readTx(txr.CurrTxID, txr.allowPrecommitted, txr.checkIntegrity, txr._tx)
+	err := txr.st.readTx(txr.CurrTxID, txr.allowPrecommitted, txr.skipIntegrityCheck, txr._tx)
 	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
 	}

@@ -91,14 +91,14 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	targetTx := tempTxHolder(t, immuStore)
 
 	targetTxID := uint64(txCount)
-	err = immuStore.ReadTx(targetTxID, true, targetTx)
+	err = immuStore.ReadTx(targetTxID, false, targetTx)
 	require.NoError(t, err)
 	require.Equal(t, uint64(txCount), targetTx.header.ID)
 
 	for i := 0; i < txCount-1; i++ {
 		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(sourceTxID, true, sourceTx)
+		err := immuStore.ReadTx(sourceTxID, false, sourceTx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), sourceTx.header.ID)
 
@@ -175,10 +175,10 @@ func TestVerifyDualProofWithAdditionalLinearInclusionProof(t *testing.T) {
 				sourceTx := tempTxHolder(t, immuStore)
 				targetTx := tempTxHolder(t, immuStore)
 
-				err := immuStore.ReadTx(sourceTxID, true, sourceTx)
+				err := immuStore.ReadTx(sourceTxID, false, sourceTx)
 				require.NoError(t, err)
 
-				err = immuStore.ReadTx(targetTxID, true, targetTx)
+				err = immuStore.ReadTx(targetTxID, false, targetTx)
 				require.NoError(t, err)
 
 				dproof, err := immuStore.DualProof(sourceTx.Header(), targetTx.Header())

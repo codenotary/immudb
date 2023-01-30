@@ -389,8 +389,8 @@ func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
 	return tx.htree.InclusionProof(kindex)
 }
 
-func (tx *Tx) readFrom(r *appendable.Reader, checkIntegrity bool) error {
-	tdr := &txDataReader{r: r, checkIntegrity: checkIntegrity}
+func (tx *Tx) readFrom(r *appendable.Reader, skipIntegrityCheck bool) error {
+	tdr := &txDataReader{r: r, skipIntegrityCheck: skipIntegrityCheck}
 
 	header, err := tdr.readHeader(len(tx.entries))
 	if err != nil {
@@ -415,11 +415,11 @@ func (tx *Tx) readFrom(r *appendable.Reader, checkIntegrity bool) error {
 }
 
 type txDataReader struct {
-	r              *appendable.Reader
-	h              *TxHeader
-	digests        [][sha256.Size]byte
-	digestFunc     TxEntryDigest
-	checkIntegrity bool
+	r                  *appendable.Reader
+	h                  *TxHeader
+	digests            [][sha256.Size]byte
+	digestFunc         TxEntryDigest
+	skipIntegrityCheck bool
 }
 
 func (t *txDataReader) readHeader(maxEntries int) (*TxHeader, error) {
@@ -517,7 +517,7 @@ func (t *txDataReader) readHeader(maxEntries int) (*TxHeader, error) {
 
 	t.h = header
 
-	if t.checkIntegrity {
+	if !t.skipIntegrityCheck {
 		t.digestFunc, err = header.TxEntryDigest()
 		if err != nil {
 			return nil, err
@@ -590,7 +590,7 @@ func (t *txDataReader) readEntry(entry *TxEntry) error {
 
 	entry.readonly = true
 
-	if t.checkIntegrity {
+	if !t.skipIntegrityCheck {
 		digest, err := t.digestFunc(entry)
 		if err != nil {
 			return err
@@ -602,7 +602,7 @@ func (t *txDataReader) readEntry(entry *TxEntry) error {
 }
 
 func (t *txDataReader) buildAndValidateHtree(htree *htree.HTree) error {
-	if !t.checkIntegrity {
+	if t.skipIntegrityCheck {
 		return nil
 	}
 

@@ -429,7 +429,7 @@ func (idx *indexer) indexSince(txID uint64) error {
 	indexableEntries := 0
 
 	for i := 0; i < idx.maxBulkSize; i++ {
-		err := idx.store.readTx(txID+uint64(i), false, true, idx.tx)
+		err := idx.store.readTx(txID+uint64(i), false, false, idx.tx)
 		if err != nil {
 			return err
 		}
