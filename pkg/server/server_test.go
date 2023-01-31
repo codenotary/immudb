@@ -1156,7 +1156,7 @@ func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerTxScan(ctx context.Context, s *ImmuServer, t *testing.T) {
-	txmd, err := s.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kvs[0]}})
+	hdr, err := s.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kvs[0]}})
 	require.NoError(t, err)
 
 	_, err = s.ZAdd(ctx, &schema.ZAddRequest{
@@ -1177,7 +1177,7 @@ func testServerTxScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.NoError(t, err)
 
 	txls, err := s.TxScan(ctx, &schema.TxScanRequest{
-		InitialTx: txmd.Id,
+		InitialTx: hdr.Id,
 	})
 	require.NoError(t, err)
 	require.Len(t, txls.Txs, 3)

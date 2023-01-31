@@ -233,14 +233,14 @@ func testVerifiedZAddAt(ctx context.Context, t *testing.T, set []byte, scores []
 }
 
 func testGet(ctx context.Context, t *testing.T, client ic.ImmuClient) {
-	txmd, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	hdr, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
-	item, err := client.GetSince(ctx, []byte("key-n11"), txmd.Id)
+	item, err := client.GetSince(ctx, []byte("key-n11"), hdr.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte("key-n11"), item.Key)
 
-	item, err = client.GetAt(ctx, []byte("key-n11"), txmd.Id)
+	item, err = client.GetAt(ctx, []byte("key-n11"), hdr.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte("key-n11"), item.Key)
 }
@@ -893,12 +893,12 @@ func TestImmuClient_History(t *testing.T) {
 	_, client, ctx := setupTestServerAndClient(t)
 
 	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
-	txmd, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+	hdr, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
 	require.NoError(t, err)
 
 	sil, err := client.History(ctx, &schema.HistoryRequest{
 		Key:     []byte(`key1`),
-		SinceTx: txmd.Id,
+		SinceTx: hdr.Id,
 	})
 
 	require.NoError(t, err)
