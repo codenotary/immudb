@@ -257,7 +257,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txMetatadata.Id), true, lastTx)
+	err = d.st.ReadTx(uint64(txMetatadata.Id), false, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (d *db) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddReque
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}

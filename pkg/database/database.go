@@ -734,7 +734,7 @@ func (d *db) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest
 		return nil, err
 	}
 
-	err = d.st.ReadTx(uint64(txhdr.Id), true, lastTx)
+	err = d.st.ReadTx(uint64(txhdr.Id), false, lastTx)
 	if err != nil {
 		return nil, err
 	}
@@ -744,7 +744,7 @@ func (d *db) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest
 	if req.ProveSinceTx == 0 {
 		prevTxHdr = lastTx.Header()
 	} else {
-		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
+		prevTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -795,7 +795,7 @@ func (d *db) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest
 	}
 	defer d.releaseTx(tx)
 
-	err = d.st.ReadTx(vTxID, true, tx)
+	err = d.st.ReadTx(vTxID, false, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -805,7 +805,7 @@ func (d *db) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -962,7 +962,7 @@ func (d *db) TxByID(ctx context.Context, req *schema.TxRequest) (*schema.Tx, err
 	}
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(req.Tx, true, tx)
+	err = d.st.ReadTx(req.Tx, false, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -1233,7 +1233,8 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 					fmt.Errorf("%w: replica commit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
-			expectedReplicaCommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.CommittedTxID, false, req.SkipIntegrityCheck)
+			// integrityCheck is currently required to validate Alh
+			expectedReplicaCommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.CommittedTxID, false, false)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1253,7 +1254,8 @@ func (d *db) ExportTxByID(ctx context.Context, req *schema.ExportTxRequest) (txb
 					fmt.Errorf("%w: replica precommit state diverged from primary's", ErrReplicaDivergedFromPrimary)
 			}
 
-			expectedReplicaPrecommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.PrecommittedTxID, true, req.SkipIntegrityCheck)
+			// integrityCheck is currently required to validate Alh
+			expectedReplicaPrecommitHdr, err := d.st.ReadTxHeader(req.ReplicaState.PrecommittedTxID, true, false)
 			if err != nil {
 				return nil, committedTxID, committedAlh, err
 			}
@@ -1394,7 +1396,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 	}
 	defer d.releaseTx(reqTx)
 
-	err = d.st.ReadTx(req.Tx, true, reqTx)
+	err = d.st.ReadTx(req.Tx, false, reqTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1405,7 +1407,7 @@ func (d *db) VerifiableTxByID(ctx context.Context, req *schema.VerifiableTxReque
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = reqTx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1548,7 +1550,7 @@ func (d *db) History(ctx context.Context, req *schema.HistoryRequest) (*schema.E
 	}
 
 	for i, txID := range txs {
-		entry, _, err := d.st.ReadTxEntry(txID, key, true)
+		entry, _, err := d.st.ReadTxEntry(txID, key, false)
 		if err != nil {
 			return nil, err
 		}

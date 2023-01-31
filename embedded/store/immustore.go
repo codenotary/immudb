@@ -1193,9 +1193,11 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	}
 
 	if hdr != nil {
-		if tx.header.Eh != hdr.Eh {
-			return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
-		}
+		// TODO: Eh validation is currently disabled as it's not provided
+		// when the tx was exported without integrity checks
+		//if tx.header.Eh != hdr.Eh {
+		//	return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
+		//}
 
 		lastPreCommittedTxID := s.lastPrecommittedTxID()
 

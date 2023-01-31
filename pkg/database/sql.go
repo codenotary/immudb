@@ -115,7 +115,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	defer d.releaseTx(tx)
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(e.Tx, true, tx)
+	err = d.st.ReadTx(e.Tx, false, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (d *db) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetR
 	if req.ProveSinceTx == 0 {
 		rootTxHdr = tx.Header()
 	} else {
-		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, true)
+		rootTxHdr, err = d.st.ReadTxHeader(req.ProveSinceTx, false, false)
 		if err != nil {
 			return nil, err
 		}
