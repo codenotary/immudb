@@ -210,3 +210,67 @@ func Test_GetRetentionPeriod(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncator_with_retention_period(t *testing.T) {
+	rootPath := t.TempDir()
+
+	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	so := options.GetStoreOptions()
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	so.MaxIOConcurrency = 1
+	options.WithStoreOptions(so)
+
+	db := makeDbWith(t, "db", options)
+	tr := NewTruncator(db, 25*time.Hour, 5*time.Millisecond, logger.NewSimpleLogger("immudb ", os.Stderr))
+
+	err := tr.Start()
+	require.NoError(t, err)
+
+	time.Sleep(15 * time.Millisecond)
+
+	err = tr.truncate(context.Background(), getRetentionPeriod(time.Now(), 25*time.Hour))
+	require.ErrorIs(t, err, database.ErrRetentionPeriodNotReached)
+
+	err = tr.Stop()
+	require.NoError(t, err)
+}
+
+type mockTruncator struct {
+	err error
+}
+
+func (m *mockTruncator) Plan(time.Time) (*store.TxHeader, error) {
+	return nil, m.err
+}
+
+// Truncate runs truncation against the relevant appendable logs. Must
+// be called after result of Plan().
+func (m *mockTruncator) Truncate(context.Context, uint64) error {
+	return m.err
+}
+
+func TestTruncator_with_invalid_transaction_id(t *testing.T) {
+	rootPath := t.TempDir()
+
+	options := database.DefaultOption().WithDBRootPath(rootPath).WithCorruptionChecker(false)
+	so := options.GetStoreOptions()
+	so.WithIndexOptions(so.IndexOpts.WithCompactionThld(2)).WithFileSize(6)
+	so.MaxIOConcurrency = 1
+	options.WithStoreOptions(so)
+
+	db := makeDbWith(t, "db", options)
+	tr := NewTruncator(db, 25*time.Hour, 5*time.Millisecond, logger.NewSimpleLogger("immudb ", os.Stderr))
+	tr.truncators = make([]database.Truncator, 0)
+	tr.truncators = append(tr.truncators, &mockTruncator{err: store.ErrTxNotFound})
+
+	err := tr.Start()
+	require.NoError(t, err)
+
+	time.Sleep(15 * time.Millisecond)
+
+	err = tr.truncate(context.Background(), getRetentionPeriod(time.Now(), 2*time.Hour))
+	require.ErrorIs(t, err, store.ErrTxNotFound)
+
+	err = tr.Stop()
+	require.NoError(t, err)
+}
