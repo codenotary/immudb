@@ -24,21 +24,43 @@ import (
 func getBenchmarksToRun() []benchmarks.Benchmark {
 	return []benchmarks.Benchmark{
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write TX/s",
+			Name:       "Write TX/s - single server",
 			Workers:    30,
 			BatchSize:  1,
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
+			Replica:    false,
 		}),
 
 		writetxs.NewBenchmark(writetxs.Config{
-			Name:       "Write KV/s",
+			Name:       "Write KV/s - single server",
 			Workers:    30,
 			BatchSize:  1000,
 			KeySize:    32,
 			ValueSize:  128,
 			AsyncWrite: true,
+			Replica:    false,
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write TX/s - one async replica",
+			Workers:    30,
+			BatchSize:  1,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+			Replica:    true,
+		}),
+
+		writetxs.NewBenchmark(writetxs.Config{
+			Name:       "Write KV/s - one async replica",
+			Workers:    30,
+			BatchSize:  1000,
+			KeySize:    32,
+			ValueSize:  128,
+			AsyncWrite: true,
+			Replica:    true,
 		}),
 	}
 }

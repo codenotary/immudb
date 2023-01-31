@@ -47,6 +47,7 @@ type Config struct {
 	KeySize    int
 	ValueSize  int
 	AsyncWrite bool
+	Replica    bool
 }
 
 type benchmark struct {
@@ -64,8 +65,9 @@ type benchmark struct {
 
 	m sync.Mutex
 
-	server  *servertest.BufconnServer
-	clients []client.ImmuClient
+	server        *servertest.BufconnServer
+	replicaServer *servertest.BufconnServer
+	clients       []client.ImmuClient
 }
 
 type Result struct {
@@ -128,6 +130,27 @@ func (b *benchmark) Warmup() error {
 	err = b.server.Start()
 	if err != nil {
 		return err
+	}
+
+	if b.cfg.Replica {
+		const replicaDirName = "replica-tx-test"
+
+		replicaOptions := server.
+			ReplicationOptions{}
+
+		options_2 := server.
+			DefaultOptions().
+			WithDir(replicaDirName).
+			WithLogFormat(logger.LogFormatJSON).
+			WithReplicationOptions(replicaOptions.WithIsReplica(true))
+
+		b.replicaServer = servertest.NewBufconnServer(options_2)
+		b.replicaServer.Server.Srv.WithLogger(logger.NewMemoryLoggerWithLevel(logger.LogDebug))
+
+		err = b.replicaServer.Start()
+		if err != nil {
+			return err
+		}
 	}
 
 	b.clients = []client.ImmuClient{}
