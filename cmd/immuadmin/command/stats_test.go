@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
@@ -46,7 +47,7 @@ func TestStats_Status(t *testing.T) {
 	defer bs.Stop()
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDir(t.TempDir())
 	cliopt.DialOptions = dialOptions
@@ -96,7 +97,7 @@ func TestStats_StatsText(t *testing.T) {
 	defer server.Close()
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDir(t.TempDir())
 	cliopt.DialOptions = dialOptions
@@ -146,7 +147,7 @@ func TestStats_StatsRaw(t *testing.T) {
 	defer server.Close()
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	cliopt := Options().WithDir(t.TempDir())
 	cliopt.DialOptions = dialOptions

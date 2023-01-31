@@ -46,7 +46,7 @@ defer bs.Stop()
 	viper.Set("pidfile", pidPath)
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	ad := new(auditAgent)
 	ad.logger = logger.NewSimpleLogger("TestInitAgent", os.Stderr)

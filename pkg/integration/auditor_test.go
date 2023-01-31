@@ -45,6 +45,7 @@ import (
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -105,7 +106,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	defer bs.Stop()
 
 	ds := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	clientConn, err := grpc.Dial("add", ds...)
@@ -163,7 +164,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	}
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.
@@ -193,7 +194,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 
 	ds := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	var clientConn *grpc.ClientConn
@@ -243,7 +244,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	}
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.
@@ -271,7 +272,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 
 	ds := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	var clientConn *grpc.ClientConn
@@ -350,7 +351,7 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	}
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	tkf := cmdtest.RandString()
 	ts := tokenservice.
@@ -378,7 +379,7 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	require.NoError(t, err)
 
 	ds := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	var clientConn *grpc.ClientConn

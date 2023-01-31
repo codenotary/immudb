@@ -66,7 +66,7 @@ defer bs.Stop()
 	ad.logger = logger.NewSimpleLogger("immuclientd", logfile)
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
@@ -120,7 +120,7 @@ defer bs.Stop()
 	ad.logger = logger.NewSimpleLogger("immuclientd", logfile)
 
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	ad.opts = options().WithMetrics(false).WithDialOptions(dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()

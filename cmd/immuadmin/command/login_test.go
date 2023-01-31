@@ -40,6 +40,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var pwReaderCounter = 0
@@ -68,7 +69,7 @@ func TestCommandLine_Connect(t *testing.T) {
 	opts := Options().
 		WithDir(t.TempDir()).
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
 	cmdl := commandline{
 		context: context.Background(),
@@ -89,7 +90,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	opts := Options().
 		WithDir(t.TempDir()).
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
 	tkf := cmdtest.RandString()
 	cmdl := commandline{
@@ -143,7 +144,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	cliopt := Options().
 		WithDir(t.TempDir()).
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		})
 
 	tkf := cmdtest.RandString()
@@ -211,7 +212,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl.context = context.Background()
 	cl.passwordReader = pwReaderMock
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cmd.SetArgs([]string{"login", "immudb"})
@@ -230,7 +231,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	tkf := cmdtest.RandString()
 	cl1.ts = tokenservice.NewFileTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName(tkf)
 	dialOptions1 := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	cl1.options = Options().WithDir(tempDir)

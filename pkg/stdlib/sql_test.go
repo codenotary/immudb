@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func getRandomTableName() string {
@@ -51,7 +52,7 @@ func testServerClient(t *testing.T) (*servertest.BufconnServer, *sql.DB) {
 	opts.Database = "defaultdb"
 
 	opts.
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 		WithDir(t.TempDir())
 
 	db := OpenDB(opts)
@@ -264,7 +265,7 @@ func TestImmuConnector_ConnectLoginErr(t *testing.T) {
 	opts.Database = "defaultdb"
 
 	opts.
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 		WithDir(t.TempDir())
 
 	db := OpenDB(opts)
@@ -287,7 +288,7 @@ func TestImmuConnector_ConnectUseDatabaseErr(t *testing.T) {
 	opts.Database = "wrong-db"
 
 	opts.
-		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+		WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials())}).
 		WithDir(t.TempDir())
 
 	db := OpenDB(opts)

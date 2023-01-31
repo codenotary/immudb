@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestLogin(t *testing.T) {
@@ -38,7 +39,7 @@ func TestLogin(t *testing.T) {
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		}).
 		WithPasswordReader(&test.PasswordReader{
 			Pass: []string{"immudb"},
@@ -66,7 +67,7 @@ func TestLogout(t *testing.T) {
 	opts := OptionsFromEnv()
 	opts.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(bs.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		}).
 		WithPasswordReader(&test.PasswordReader{
 			Pass: []string{"immudb"},

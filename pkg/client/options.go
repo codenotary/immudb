@@ -25,6 +25,7 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // AdminTokenFileSuffix is the suffix used for the token file name
@@ -74,7 +75,7 @@ func DefaultOptions() *Options {
 		Auth:                 true,
 		MaxRecvMsgSize:       4 * 1024 * 1024, //4Mb
 		Config:               "configs/immuclient.toml",
-		DialOptions:          []grpc.DialOption{grpc.WithInsecure()},
+		DialOptions:          []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
 		PasswordReader:       c.DefaultPasswordReader,
 		Metrics:              true,
 		PidPath:              "",

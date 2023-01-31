@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ClientTest struct {
@@ -113,7 +114,7 @@ func (c *ClientTest) Connect(dialer servertest.BuffDialer) {
 	c.Options.WithRevisionSeparator("@")
 	c.Options.GetImmudbClientOptions().
 		WithDialOptions([]grpc.DialOption{
-			grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+			grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 		}).
 		WithPasswordReader(c.Pr)
 	c.Dialer = dialer
