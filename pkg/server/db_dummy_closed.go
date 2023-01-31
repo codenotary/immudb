@@ -204,7 +204,7 @@ func (db *closedDB) ExportTxByID(ctx context.Context, req *schema.ExportTxReques
 	return nil, 0, mayCommitUpToAlh, store.ErrAlreadyClosed
 }
 
-func (db *closedDB) ReplicateTx(ctx context.Context, exportedTx []byte) (*schema.TxHeader, error) {
+func (db *closedDB) ReplicateTx(ctx context.Context, exportedTx []byte, skipIntegrityCheck bool, waitForIndexing bool) (*schema.TxHeader, error) {
 	return nil, store.ErrAlreadyClosed
 }
 

@@ -69,7 +69,9 @@ type TxReplicator struct {
 	prefetchTxBuffer       chan prefetchTxEntry // buffered channel of exported txs
 	replicationConcurrency int
 
-	allowTxDiscarding bool
+	allowTxDiscarding  bool
+	skipIntegrityCheck bool
+	waitForIndexing    bool
 
 	delayer             Delayer
 	consecutiveFailures int
@@ -96,6 +98,8 @@ func NewTxReplicator(uuid xid.ID, db database.DB, opts *Options, logger logger.L
 		prefetchTxBuffer:       make(chan prefetchTxEntry, opts.prefetchTxBufferSize),
 		replicationConcurrency: opts.replicationCommitConcurrency,
 		allowTxDiscarding:      opts.allowTxDiscarding,
+		skipIntegrityCheck:     opts.skipIntegrityCheck,
+		waitForIndexing:        opts.waitForIndexing,
 		delayer:                opts.delayer,
 		metrics:                metricsForDb(db.GetName()),
 	}, nil
@@ -203,7 +207,7 @@ func (txr *TxReplicator) replicateSingleTx(data []byte) bool {
 
 	// replication must be retried as many times as necessary
 	for {
-		_, err := txr.db.ReplicateTx(txr.context, data)
+		_, err := txr.db.ReplicateTx(txr.context, data, txr.skipIntegrityCheck, txr.waitForIndexing)
 		if err == nil {
 			break // transaction successfully replicated
 		}
@@ -331,7 +335,7 @@ func (txr *TxReplicator) fetchNextTx() error {
 		Tx:                 nextTx,
 		ReplicaState:       state,
 		AllowPreCommitted:  syncReplicationEnabled,
-		SkipIntegrityCheck: true,
+		SkipIntegrityCheck: txr.skipIntegrityCheck,
 	})
 	if err != nil {
 		return err

@@ -46,6 +46,8 @@ func addDbUpdateFlags(c *cobra.Command) {
 	c.Flags().Uint32("replication-prefetch-tx-buffer-size", uint32(replication.DefaultPrefetchTxBufferSize), "maximum number of prefeched transactions")
 	c.Flags().Uint32("replication-commit-concurrency", uint32(replication.DefaultReplicationCommitConcurrency), "number of concurrent replications")
 	c.Flags().Bool("replication-allow-tx-discarding", replication.DefaultAllowTxDiscarding, "allow precommitted transactions to be discarded if the replica diverges from the primary")
+	c.Flags().Bool("replication-skip-integrity-check", replication.DefaultSkipIntegrityCheck, "disable integrity check when reading data during replication")
+	c.Flags().Bool("replication-wait-for-indexing", replication.DefaultWaitForIndexing, "wait for indexing to be up to date during replication")
 	c.Flags().Uint32("write-tx-header-version", 1, "set write tx header version (use 0 for compatibility with immudb 1.1, 1 for immudb 1.2+)")
 	c.Flags().Uint32("max-commit-concurrency", store.DefaultMaxConcurrency, "set the maximum commit concurrency")
 	c.Flags().Duration("sync-frequency", store.DefaultSyncFrequency, "set the fsync frequency during commit process")
@@ -474,6 +476,16 @@ func prepareDatabaseNullableSettings(flags *pflag.FlagSet) (*schema.DatabaseNull
 	}
 
 	ret.ReplicationSettings.AllowTxDiscarding, err = condBool("replication-allow-tx-discarding")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.SkipIntegrityCheck, err = condBool("replication-skip-integrity-check")
+	if err != nil {
+		return nil, err
+	}
+
+	ret.ReplicationSettings.WaitForIndexing, err = condBool("replication-wait-for-indexing")
 	if err != nil {
 		return nil, err
 	}

@@ -656,6 +656,8 @@ func (s *ImmuServer) startReplicationFor(db database.DB, dbOpts *dbOptions) erro
 		WithPrefetchTxBufferSize(dbOpts.PrefetchTxBufferSize).
 		WithReplicationCommitConcurrency(dbOpts.ReplicationCommitConcurrency).
 		WithAllowTxDiscarding(dbOpts.AllowTxDiscarding).
+		WithSkipIntegrityCheck(dbOpts.SkipIntegrityCheck).
+		WithWaitForIndexing(dbOpts.WaitForIndexing).
 		WithStreamChunkSize(s.Options.StreamChunkSize)
 
 	f, err := replication.NewTxReplicator(s.UUID, db, replicatorOpts, s.Logger)

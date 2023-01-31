@@ -19,6 +19,7 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"strconv"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/grpc/metadata"
@@ -80,13 +81,35 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return ErrIllegalArguments
 	}
 
-	db, err := s.getDBFromCtx(replicateTxServer.Context(), "ReplicateTx")
+	ctx := replicateTxServer.Context()
+
+	db, err := s.getDBFromCtx(ctx, "ReplicateTx")
 	if err != nil {
 		return err
 	}
 
 	if s.replicationInProgressFor(db.GetName()) {
 		return ErrReplicationInProgress
+	}
+
+	var skipIntegrityCheck bool
+	var waitForIndexing bool
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if len(md.Get("skip-integrity-check")) > 0 {
+			skipIntegrityCheck, err = strconv.ParseBool(md.Get("skip-integrity-check")[0])
+			if err != nil {
+				return err
+			}
+		}
+
+		if len(md.Get("wait-for-indexing")) > 0 {
+			waitForIndexing, err = strconv.ParseBool(md.Get("wait-for-indexing")[0])
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	receiver := s.StreamServiceFactory.NewMsgReceiver(replicateTxServer)
@@ -96,10 +119,10 @@ func (s *ImmuServer) ReplicateTx(replicateTxServer schema.ImmuService_ReplicateT
 		return err
 	}
 
-	md, err := db.ReplicateTx(replicateTxServer.Context(), bs)
+	hdr, err := db.ReplicateTx(replicateTxServer.Context(), bs, skipIntegrityCheck, waitForIndexing)
 	if err != nil {
 		return err
 	}
 
-	return replicateTxServer.SendAndClose(md)
+	return replicateTxServer.SendAndClose(hdr)
 }

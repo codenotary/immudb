@@ -22,6 +22,8 @@ const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 const DefaultPrefetchTxBufferSize int = 100
 const DefaultReplicationCommitConcurrency int = 10
 const DefaultAllowTxDiscarding = false
+const DefaultSkipIntegrityCheck = false
+const DefaultWaitForIndexing = false
 
 type Options struct {
 	primaryDatabase string
@@ -35,7 +37,9 @@ type Options struct {
 	prefetchTxBufferSize         int
 	replicationCommitConcurrency int
 
-	allowTxDiscarding bool
+	allowTxDiscarding  bool
+	skipIntegrityCheck bool
+	waitForIndexing    bool
 
 	delayer Delayer
 }
@@ -54,6 +58,8 @@ func DefaultOptions() *Options {
 		prefetchTxBufferSize:         DefaultPrefetchTxBufferSize,
 		replicationCommitConcurrency: DefaultReplicationCommitConcurrency,
 		allowTxDiscarding:            DefaultAllowTxDiscarding,
+		skipIntegrityCheck:           DefaultSkipIntegrityCheck,
+		waitForIndexing:              DefaultWaitForIndexing,
 	}
 }
 
@@ -116,6 +122,18 @@ func (o *Options) WithReplicationCommitConcurrency(replicationCommitConcurrency 
 // WithAllowTxDiscarding enable auto discarding of precommitted transactions
 func (o *Options) WithAllowTxDiscarding(allowTxDiscarding bool) *Options {
 	o.allowTxDiscarding = allowTxDiscarding
+	return o
+}
+
+// WithSkipIntegrityCheck disable integrity checks when reading data during replication
+func (o *Options) WithSkipIntegrityCheck(skipIntegrityCheck bool) *Options {
+	o.skipIntegrityCheck = skipIntegrityCheck
+	return o
+}
+
+// WithWaitForIndexing wait for indexing to be up to date during replication
+func (o *Options) WithWaitForIndexing(waitForIndexing bool) *Options {
+	o.waitForIndexing = waitForIndexing
 	return o
 }
 

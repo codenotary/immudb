@@ -1073,7 +1073,13 @@ message ReplicationNullableSettings {
   NullableUint32 replicationCommitConcurrency = 10;
 
   // Allow precommitted transactions to be discarded if the replica diverges from the primary
-  NullableBool AllowTxDiscarding = 11;
+  NullableBool allowTxDiscarding = 11;
+
+  // Disable integrity check when reading data during replication
+  NullableBool skipIntegrityCheck = 12;
+
+  // Wait for indexing to be up to date during replication
+  NullableBool waitForIndexing = 13;
 }
 
 message TruncationNullableSettings {

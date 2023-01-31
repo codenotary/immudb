@@ -94,6 +94,8 @@ type ReplicationOptions struct {
 	PrefetchTxBufferSize         int    // only if IsReplica
 	ReplicationCommitConcurrency int    // only if IsReplica
 	AllowTxDiscarding            bool   // only if IsReplica
+	SkipIntegrityCheck           bool   // only if IsReplica
+	WaitForIndexing              bool   // only if IsReplica
 }
 
 // DefaultOptions returns default server options
@@ -536,5 +538,15 @@ func (opts *ReplicationOptions) WithReplicationCommitConcurrency(replicationComm
 
 func (opts *ReplicationOptions) WithAllowTxDiscarding(allowTxDiscarding bool) *ReplicationOptions {
 	opts.AllowTxDiscarding = allowTxDiscarding
+	return opts
+}
+
+func (opts *ReplicationOptions) WithSkipIntegrityCheck(skipIntegrityCheck bool) *ReplicationOptions {
+	opts.SkipIntegrityCheck = skipIntegrityCheck
+	return opts
+}
+
+func (opts *ReplicationOptions) WithWaitForIndexing(waitForIndexingç bool) *ReplicationOptions {
+	opts.WaitForIndexing = waitForIndexingç
 	return opts
 }

@@ -145,7 +145,7 @@ func TestDummyClosedDatabase(t *testing.T) {
 	_, _, _, err = cdb.ExportTxByID(context.Background(), nil)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
-	_, err = cdb.ReplicateTx(context.Background(), nil)
+	_, err = cdb.ReplicateTx(context.Background(), nil, false, false)
 	require.ErrorIs(t, err, store.ErrAlreadyClosed)
 
 	err = cdb.AllowCommitUpto(1, sha256.Sum256(nil))
