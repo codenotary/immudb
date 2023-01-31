@@ -1319,11 +1319,7 @@ func (d *db) ReplicateTx(ctx context.Context, exportedTx []byte, skipIntegrityCh
 		return nil, ErrNotReplica
 	}
 
-<<<<<<< HEAD
 	hdr, err := d.st.ReplicateTx(ctx, exportedTx, skipIntegrityCheck, waitForIndexing)
-=======
-	hdr, err := d.st.ReplicateTx(ctx, exportedTx, true, false)
->>>>>>> 51dfa473 (chore(embedded/store): validate Eh only when integrity checks are not disabled)
 	if err != nil {
 		return nil, err
 	}
