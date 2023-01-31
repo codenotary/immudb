@@ -5917,7 +5917,7 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 
 func TestCopyCatalogToTx(t *testing.T) {
 	opts := store.DefaultOptions()
-	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(6)
+	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(256)
 
 	engine, st := setupCommonTestWithOptions(t, opts)
 
