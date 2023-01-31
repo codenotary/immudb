@@ -50,6 +50,6 @@ func TestImmuClient_Truncate(t *testing.T) {
 
 	st := time.Now().Add(-24 * time.Hour)
 	dur := time.Since(st)
-	err := c.TruncateDatabase(context.TODO(), "defaultdb", dur)
+	err := c.TruncateDatabase(context.Background(), "defaultdb", dur)
 	require.Error(t, err)
 }

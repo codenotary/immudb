@@ -27,7 +27,7 @@ import (
 
 func TestImmuClient_Errors(t *testing.T) {
 	client := NewClient()
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	_, err := client.StreamVerifiedSet(ctx, nil)
 	require.Error(t, err)

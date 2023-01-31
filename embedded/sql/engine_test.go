@@ -5903,14 +5903,13 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 	require.NoError(t, err)
 	t.Cleanup(func() { closeStore(t, st) })
 
-	ctx := context.TODO()
 	engine, err := NewEngine(st, DefaultOptions().WithPrefix(sqlPrefix))
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(ctx, nil, "CREATE DATABASE db1;", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "CREATE DATABASE db1;", nil)
 	require.NoError(t, err)
 
-	_, _, err = engine.Exec(ctx, nil, "USE DATABASE db1;", nil)
+	_, _, err = engine.Exec(context.Background(), nil, "USE DATABASE db1;", nil)
 	require.NoError(t, err)
 
 	return engine, st
@@ -5919,26 +5918,26 @@ func setupCommonTestWithOptions(t *testing.T, sopts *store.Options) (*Engine, *s
 func TestCopyCatalogToTx(t *testing.T) {
 	opts := store.DefaultOptions()
 	opts.WithIndexOptions(opts.IndexOpts.WithMaxActiveSnapshots(10)).WithFileSize(6)
+
 	engine, st := setupCommonTestWithOptions(t, opts)
 
-	ctx := context.TODO()
 	exec := func(t *testing.T, stmt string) *SQLTx {
-		ret, _, err := engine.Exec(ctx, nil, stmt, nil)
+		ret, _, err := engine.Exec(context.Background(), nil, stmt, nil)
 		require.NoError(t, err)
 		return ret
 	}
 
 	query := func(t *testing.T, stmt string, expectedRows ...*Row) {
-		reader, err := engine.Query(ctx, nil, stmt, nil)
+		reader, err := engine.Query(context.Background(), nil, stmt, nil)
 		require.NoError(t, err)
 
 		for _, expectedRow := range expectedRows {
-			row, err := reader.Read(ctx)
+			row, err := reader.Read(context.Background())
 			require.NoError(t, err)
 			require.EqualValues(t, expectedRow, row)
 		}
 
-		_, err = reader.Read(ctx)
+		_, err = reader.Read(context.Background())
 		require.ErrorIs(t, err, ErrNoMoreRows)
 
 		err = reader.Close()
@@ -6000,23 +5999,25 @@ func TestCopyCatalogToTx(t *testing.T) {
 	query(t, "SELECT * FROM table2")
 
 	t.Run("should fail due to unique index", func(t *testing.T) {
-		_, _, err := engine.Exec(ctx, nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
+		_, _, err := engine.Exec(context.Background(), nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 	})
 
 	// insert some data
 	var deleteUptoTx *store.TxHeader
+
 	t.Run("insert few transactions", func(t *testing.T) {
 		for i := 1; i <= 5; i++ {
+			tx, err := st.NewWriteOnlyTx(context.Background())
+			require.NoError(t, err)
+
 			key := []byte(fmt.Sprintf("key_%d", i))
 			value := []byte(fmt.Sprintf("val_%d", i))
-			tx, err := st.NewWriteOnlyTx(ctx)
-			require.NoError(t, err)
 
 			err = tx.Set(key, nil, value)
 			require.NoError(t, err)
 
-			deleteUptoTx, err = tx.Commit(ctx)
+			deleteUptoTx, err = tx.Commit(context.Background())
 			require.NoError(t, err)
 		}
 	})
@@ -6034,12 +6035,13 @@ func TestCopyCatalogToTx(t *testing.T) {
 
 	// copy current catalog for recreating the catalog for database/table
 	t.Run("succeed copying catalog for db", func(t *testing.T) {
-		tx, err := engine.store.NewTx(ctx, store.DefaultTxOptions())
+		tx, err := engine.store.NewTx(context.Background(), store.DefaultTxOptions())
 		require.NoError(t, err)
 
 		err = engine.CopyCatalogToTx(context.Background(), tx)
 		require.NoError(t, err)
-		hdr, err := tx.Commit(ctx)
+
+		hdr, err := tx.Commit(context.Background())
 		require.NoError(t, err)
 		// ensure that the last committed txn is the one we just committed
 		require.Equal(t, hdr.ID, st.LastCommittedTxID())
@@ -6047,7 +6049,7 @@ func TestCopyCatalogToTx(t *testing.T) {
 
 	// delete txns in the store upto a certain txn
 	t.Run("succeed truncating sql catalog", func(t *testing.T) {
-		hdr, err := st.ReadTxHeader(deleteUptoTx.ID, false)
+		hdr, err := st.ReadTxHeader(deleteUptoTx.ID, false, false)
 		require.NoError(t, err)
 		require.NoError(t, st.TruncateUptoTx(hdr.ID))
 	})
@@ -6083,15 +6085,15 @@ func TestCopyCatalogToTx(t *testing.T) {
 	})
 
 	t.Run("indexing should work with new catalogue", func(t *testing.T) {
-		_, _, err := engine.Exec(ctx, nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
+		_, _, err := engine.Exec(context.Background(), nil, "INSERT INTO table1 (name, amount) VALUES ('name1', 10), ('name1', 10)", nil)
 		require.ErrorIs(t, err, store.ErrKeyAlreadyExists)
 
 		// should fail due non-available index
-		_, err = engine.Query(ctx, nil, "SELECT * FROM table1 ORDER BY amount DESC", nil)
+		_, err = engine.Query(context.Background(), nil, "SELECT * FROM table1 ORDER BY amount DESC", nil)
 		require.ErrorIs(t, err, ErrNoAvailableIndex)
 
 		// should use primary index by default
-		r, err := engine.Query(ctx, nil, "SELECT * FROM table1", nil)
+		r, err := engine.Query(context.Background(), nil, "SELECT * FROM table1", nil)
 		require.NoError(t, err)
 
 		orderBy := r.OrderBy()
@@ -6108,6 +6110,5 @@ func TestCopyCatalogToTx(t *testing.T) {
 
 		err = r.Close()
 		require.NoError(t, err)
-
 	})
 }

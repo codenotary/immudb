@@ -64,16 +64,16 @@ func TestOpenDB(t *testing.T) {
 	_, db := testServerClient(t)
 
 	table := getRandomTableName()
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
+	_, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s(id INTEGER, name VARCHAR, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (1, 'immu1')", table))
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (1, 'immu1')", table))
 	require.NoError(t, err)
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (2, 'immu2')", table))
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, name) VALUES (2, 'immu2')", table))
 	require.NoError(t, err)
 
-	rows, err := db.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s ", table))
+	rows, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT * FROM %s ", table))
 	require.NoError(t, err)
 
 	var id uint64
@@ -92,7 +92,7 @@ func TestOpenDB(t *testing.T) {
 	require.Equal(t, uint64(2), id)
 	require.Equal(t, "immu2", name)
 
-	rowsw, err := db.QueryContext(context.TODO(), fmt.Sprintf("SELECT * FROM %s WHERE id = 2", table))
+	rowsw, err := db.QueryContext(context.Background(), fmt.Sprintf("SELECT * FROM %s WHERE id = 2", table))
 	require.NoError(t, err)
 
 	rowsw.Next()
@@ -109,16 +109,16 @@ func TestQueryCapabilities(t *testing.T) {
 	_, db := testServerClient(t)
 
 	table := getRandomTableName()
-	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	result, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
 	binaryContent := []byte("my blob content1")
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 1, 1000, 6000, "title 1", binaryContent, true)
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 1, 1000, 6000, "title 1", binaryContent, true)
 	require.NoError(t, err)
 
 	binaryContent2 := []byte("my blob content2")
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 2, 2000, 12000, "title 2", binaryContent2, true)
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), 2, 2000, 12000, "title 2", binaryContent2, true)
 	require.NoError(t, err)
 
 	var id int64
@@ -147,19 +147,19 @@ func TestQueryCapabilitiesWithPointers(t *testing.T) {
 
 	table := getRandomTableName()
 
-	_, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
+	_, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,name VARCHAR,manager_id INTEGER,PRIMARY KEY ID)", table))
 	require.NoError(t, err)
 
 	table1 := getRandomTableName()
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,user_id INTEGER,name VARCHAR,PRIMARY KEY ID)", table1))
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER AUTO_INCREMENT,user_id INTEGER,name VARCHAR,PRIMARY KEY ID)", table1))
 	require.NoError(t, err)
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (name,manager_id) VALUES (?,?)", table), "name", 1)
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (name,manager_id) VALUES (?,?)", table), "name", 1)
 	require.NoError(t, err)
 
 	id := uint(1)
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (user_id,name) VALUES (?,?),(?,?) ", table1), &id, "name1", &id, "name2")
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (user_id,name) VALUES (?,?),(?,?) ", table1), &id, "name1", &id, "name2")
 	require.NoError(t, err)
 }
 
@@ -168,11 +168,11 @@ func TestNilValues(t *testing.T) {
 
 	table := getRandomTableName()
 
-	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, PRIMARY KEY id)", table))
+	result, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content) VALUES (?, ?, ?, ?, ?)", table), 1, nil, nil, nil, nil)
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content) VALUES (?, ?, ?, ?, ?)", table), 1, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	var id int64
@@ -207,14 +207,14 @@ func TestDriverValuer(t *testing.T) {
 
 	table := getRandomTableName()
 
-	result, err := db.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
+	result, err := db.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
 	binaryContent := []byte("my blob content1")
 
 	argsV := []interface{}{&valuer{1}, &valuer{100}, &valuer{200}, &valuer{"title 1"}, &valuer{binaryContent}, &valuer{true}}
-	_, err = db.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), argsV...)
+	_, err = db.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), argsV...)
 	require.NoError(t, err)
 
 	var id int64
@@ -271,7 +271,7 @@ func TestImmuConnector_ConnectLoginErr(t *testing.T) {
 	db := OpenDB(opts)
 	defer db.Close()
 
-	_, err := db.ExecContext(context.TODO(), "this will not be executed")
+	_, err := db.ExecContext(context.Background(), "this will not be executed")
 	require.ErrorContains(t, err, "invalid user name or password")
 }
 
@@ -294,7 +294,7 @@ func TestImmuConnector_ConnectUseDatabaseErr(t *testing.T) {
 	db := OpenDB(opts)
 	defer db.Close()
 
-	_, err := db.ExecContext(context.TODO(), "this will not be executed")
+	_, err := db.ExecContext(context.Background(), "this will not be executed")
 	require.ErrorContains(t, err, "database does not exist")
 }
 

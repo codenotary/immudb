@@ -112,19 +112,19 @@ func worker(jobs, okJobs chan *schema.KeyValue, done chan bool, wwg *sync.WaitGr
 
 			client = immudb.NewClient().WithOptions(opts)
 
-			err = client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
+			err = client.OpenSession(context.Background(), []byte(config.Username), []byte(config.Password), config.DBName)
 			if err != nil {
 				log.Fatalln("Failed to connect. Reason:", err)
 			}
 
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(5000)))
 
-			_, err = client.Set(context.TODO(), keyVal.Key, keyVal.Value)
+			_, err = client.Set(context.Background(), keyVal.Key, keyVal.Value)
 			if err != nil && err.Error() != "session not found" {
 				log.Fatalln("Failed to insert. Reason:", err)
 			}
 
-			err = client.CloseSession(context.TODO())
+			err = client.CloseSession(context.Background())
 			if err != nil && err.Error() != "session not found" {
 				log.Fatalln("Failed to close session. Reason:", err)
 			}
@@ -146,7 +146,7 @@ func reader(okJobs chan *schema.KeyValue, done chan bool, rwg *sync.WaitGroup) {
 	opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
 	client = immudb.NewClient().WithOptions(opts)
 
-	err = client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
+	err = client.OpenSession(context.Background(), []byte(config.Username), []byte(config.Password), config.DBName)
 	if err != nil {
 		log.Fatalln("Failed to connect. Reason:", err)
 	}
@@ -155,7 +155,7 @@ outer:
 	for {
 		select {
 		case keyVal = <-okJobs:
-			_, err = client.VerifiedGet(context.TODO(), keyVal.Key)
+			_, err = client.VerifiedGet(context.Background(), keyVal.Key)
 			if err != nil {
 				log.Fatalln("Failed to get. Reason:", err)
 			}
@@ -163,7 +163,7 @@ outer:
 			break outer
 		}
 	}
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	if err != nil && err.Error() != "session not found" {
 		log.Fatalln("Failed to close session. Reason:", err)
 	}
@@ -189,7 +189,7 @@ func compactor(done chan bool) {
 	opts := immudb.DefaultOptions().WithAddress(config.IpAddr).WithPort(config.Port)
 	client := immudb.NewClient().WithOptions(opts)
 
-	err := client.OpenSession(context.TODO(), []byte(config.Username), []byte(config.Password), config.DBName)
+	err := client.OpenSession(context.Background(), []byte(config.Username), []byte(config.Password), config.DBName)
 	if err != nil {
 		log.Fatalln("Failed to connect. Reason:", err)
 	}
@@ -200,7 +200,7 @@ outer:
 		select {
 		case <-ticker.C:
 			log.Printf("Compaction started")
-			err = client.CompactIndex(context.TODO(), &emptypb.Empty{})
+			err = client.CompactIndex(context.Background(), &emptypb.Empty{})
 			if err != nil {
 				log.Fatalln("Failed to compact. Reason:", err)
 			}
@@ -209,6 +209,6 @@ outer:
 			break outer
 		}
 	}
-	client.CloseSession(context.TODO())
+	client.CloseSession(context.Background())
 	return
 }

@@ -46,7 +46,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 }
 
 func (c *Conn) Close() error {
-	return c.immuClient.CloseSession(context.TODO())
+	return c.immuClient.CloseSession(context.Background())
 }
 
 func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.NamedValue) (driver.Result, error) {

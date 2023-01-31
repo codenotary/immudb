@@ -205,6 +205,6 @@ func Test_GetTransactionEntries(t *testing.T) {
 		}
 	})
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }

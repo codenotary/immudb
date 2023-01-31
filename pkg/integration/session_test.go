@@ -38,23 +38,23 @@ import (
 func TestSession_OpenCloseSession(t *testing.T) {
 	_, client, _ := setupTestServerAndClient(t)
 
-	err := client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.ErrorIs(t, err, ic.ErrSessionAlreadyOpen)
 
-	client.Set(context.TODO(), []byte("myKey"), []byte("myValue"))
+	client.Set(context.Background(), []byte("myKey"), []byte("myValue"))
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 
-	err = client.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err = client.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.NoError(t, err)
 
-	entry, err := client.Get(context.TODO(), []byte("myKey"))
+	entry, err := client.Get(context.Background(), []byte("myKey"))
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 	require.Equal(t, []byte("myValue"), entry.Value)
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }
 
@@ -109,7 +109,7 @@ func TestSession_OpenCloseSessionMulti(t *testing.T) {
 
 func TestSession_OpenSessionNotConnected(t *testing.T) {
 	client := ic.NewClient()
-	err := client.CloseSession(context.TODO())
+	err := client.CloseSession(context.Background())
 	require.ErrorIs(t, ic.ErrNotConnected, err)
 }
 
@@ -178,6 +178,6 @@ func TestSession_CreateDBFromSQLStmts(t *testing.T) {
 	`, nil)
 	require.NoError(t, err)
 
-	err = client.CloseSession(context.TODO())
+	err = client.CloseSession(context.Background())
 	require.NoError(t, err)
 }

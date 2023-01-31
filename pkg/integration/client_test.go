@@ -105,7 +105,7 @@ func setupTestServerAndClientWithToken(t *testing.T) (*servertest.BufconnServer,
 	client.WithTokenService(tokenservice.NewInmemoryTokenService())
 	require.NoError(t, err)
 
-	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	resp, err := client.Login(context.Background(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", resp.Token)
@@ -564,35 +564,35 @@ func TestDatabasesSwitching(t *testing.T) {
 func TestDatabasesSwitchingWithInMemoryToken(t *testing.T) {
 	_, client, _ := setupTestServerAndClient(t)
 
-	err := client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+	err := client.CreateDatabase(context.Background(), &schema.DatabaseSettings{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
 
-	resp, err := client.UseDatabase(context.TODO(), &schema.Database{
+	resp, err := client.UseDatabase(context.Background(), &schema.Database{
 		DatabaseName: "db1",
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Token)
 
-	_, err = client.VerifiedSet(context.TODO(), []byte(`db1-my`), []byte(`item`))
+	_, err = client.VerifiedSet(context.Background(), []byte(`db1-my`), []byte(`item`))
 	require.NoError(t, err)
 
-	err = client.CreateDatabase(context.TODO(), &schema.DatabaseSettings{
+	err = client.CreateDatabase(context.Background(), &schema.DatabaseSettings{
 		DatabaseName: "db2",
 	})
 	require.NoError(t, err)
 
-	resp2, err := client.UseDatabase(context.TODO(), &schema.Database{
+	resp2, err := client.UseDatabase(context.Background(), &schema.Database{
 		DatabaseName: "db2",
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp2.Token)
 
-	_, err = client.VerifiedSet(context.TODO(), []byte(`db2-my`), []byte(`item`))
+	_, err = client.VerifiedSet(context.Background(), []byte(`db2-my`), []byte(`item`))
 	require.NoError(t, err)
 
-	vi, err := client.VerifiedGet(context.TODO(), []byte(`db1-my`))
+	vi, err := client.VerifiedGet(context.Background(), []byte(`db1-my`))
 	require.Error(t, err)
 	require.Nil(t, vi)
 }
@@ -623,133 +623,133 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.FlushIndex(ctx, 100, true)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
+	_, err = client.Login(context.Background(), []byte("user"), []byte("passwd"))
 	require.True(t, errors.Is(err.(immuErrors.ImmuError), ic.ErrNotConnected))
 
-	require.True(t, errors.Is(client.Logout(context.TODO()), ic.ErrNotConnected))
+	require.True(t, errors.Is(client.Logout(context.Background()), ic.ErrNotConnected))
 
-	_, err = client.Get(context.TODO(), []byte("key"))
+	_, err = client.Get(context.Background(), []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.CurrentState(context.TODO())
+	_, err = client.CurrentState(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
+	_, err = client.VerifiedGet(context.Background(), []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.GetAll(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
+	_, err = client.GetAll(context.Background(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
+	_, err = client.Scan(context.Background(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
+	_, err = client.ZScan(context.Background(), &schema.ZScanRequest{Set: []byte("key")})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Count(context.TODO(), []byte("key"))
+	_, err = client.Count(context.Background(), []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.CountAll(context.TODO())
+	_, err = client.CountAll(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
+	_, err = client.Set(context.Background(), []byte("key"), []byte("value"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedSet(context.TODO(), []byte("key"), []byte("value"))
+	_, err = client.VerifiedSet(context.Background(), []byte("key"), []byte("value"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Set(context.TODO(), nil, nil)
+	_, err = client.Set(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.Delete(context.TODO(), nil)
+	_, err = client.Delete(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.ExecAll(context.TODO(), nil)
+	_, err = client.ExecAll(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.TxByID(context.TODO(), 1)
+	_, err = client.TxByID(context.Background(), 1)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedTxByID(context.TODO(), 1)
+	_, err = client.VerifiedTxByID(context.Background(), 1)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.TxByIDWithSpec(context.TODO(), nil)
+	_, err = client.TxByIDWithSpec(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.TxScan(context.TODO(), nil)
+	_, err = client.TxScan(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.History(context.TODO(), &schema.HistoryRequest{
+	_, err = client.History(context.Background(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
+	_, err = client.SetReference(context.Background(), []byte("ref"), []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedSetReference(context.TODO(), []byte("ref"), []byte("key"))
+	_, err = client.VerifiedSetReference(context.Background(), []byte("ref"), []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	_, err = client.ZAdd(context.Background(), []byte("set"), 1, []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	_, err = client.VerifiedZAdd(context.Background(), []byte("set"), 1, []byte("key"))
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	//_, err = client.Dump(context.TODO(), nil)
+	//_, err = client.Dump(context.Background(), nil)
 	//require.Equal(t, ic.ErrNotConnected, err)
 
-	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
+	_, err = client.GetSince(context.Background(), []byte("key"), 0)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.GetAt(context.TODO(), []byte("key"), 0)
+	_, err = client.GetAt(context.Background(), []byte("key"), 0)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.ServerInfo(context.TODO(), nil)
+	_, err = client.ServerInfo(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	err = client.HealthCheck(context.TODO())
+	err = client.HealthCheck(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	err = client.CreateDatabase(context.TODO(), nil)
+	err = client.CreateDatabase(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.UseDatabase(context.TODO(), nil)
+	_, err = client.UseDatabase(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	err = client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
+	err = client.ChangePermission(context.Background(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	err = client.SetActiveUser(context.TODO(), nil)
+	err = client.SetActiveUser(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.ListUsers(context.TODO())
+	_, err = client.ListUsers(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.DatabaseList(context.TODO())
+	_, err = client.DatabaseList(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.DatabaseListV2(context.TODO())
+	_, err = client.DatabaseListV2(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.UpdateDatabaseV2(context.TODO(), "defaultdb", nil)
+	_, err = client.UpdateDatabaseV2(context.Background(), "defaultdb", nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.CurrentState(context.TODO())
+	_, err = client.CurrentState(context.Background())
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedSet(context.TODO(), nil, nil)
+	_, err = client.VerifiedSet(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedGet(context.TODO(), nil)
+	_, err = client.VerifiedGet(context.Background(), nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedZAdd(context.TODO(), nil, 0, nil)
+	_, err = client.VerifiedZAdd(context.Background(), nil, 0, nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 
-	_, err = client.VerifiedSetReference(context.TODO(), nil, nil)
+	_, err = client.VerifiedSetReference(context.Background(), nil, nil)
 	require.ErrorIs(t, err, ic.ErrNotConnected)
 }
 
@@ -765,13 +765,13 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 func TestWaitForHealthCheck(t *testing.T) {
 	_, client, _ := setupTestServerAndClient(t)
 
-	err := client.WaitForHealthCheck(context.TODO())
+	err := client.WaitForHealthCheck(context.Background())
 	require.NoError(t, err)
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
 	client := ic.NewClient()
-	err := client.WaitForHealthCheck(context.TODO())
+	err := client.WaitForHealthCheck(context.Background())
 	require.Error(t, err)
 }
 
@@ -1138,7 +1138,7 @@ func TestImmuClient_Logout(t *testing.T) {
 		}
 		client.WithTokenService(tokenServices[i])
 
-		lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+		lr, err := client.Login(context.Background(), []byte(`immudb`), []byte(`immudb`))
 		if err != nil {
 			expect(err)
 			continue
@@ -1219,7 +1219,7 @@ func TestImmuClient_SetBatchConcurrent(t *testing.T) {
 				Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
 				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
 			}
-			idx, err := client.SetBatch(context.TODO(), &br)
+			idx, err := client.SetBatch(context.Background(), &br)
 			require.NoError(t, err)
 			ris <- int(idx.Index)
 		}()
@@ -1250,7 +1250,7 @@ func TestImmuClient_GetBatchConcurrent(t *testing.T) {
 				Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
 				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
 			}
-			_, err := client.SetBatch(context.TODO(), &br)
+			_, err := client.SetBatch(context.Background(), &br)
 			require.NoError(t, err)
 		}()
 	}
@@ -1261,14 +1261,14 @@ func TestImmuClient_GetBatchConcurrent(t *testing.T) {
 	wg1.Add(1)
 	go func() {
 		defer wg1.Done()
-		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key1`), []byte(`key2`)})
+		sil, err := client.GetBatch(context.Background(), [][]byte{[]byte(`key1`), []byte(`key2`)})
 		require.NoError(t, err)
 		sils <- sil
 	}()
 	wg1.Add(1)
 	go func() {
 		defer wg1.Done()
-		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key3`)})
+		sil, err := client.GetBatch(context.Background(), [][]byte{[]byte(`key3`)})
 		require.NoError(t, err)
 		sils <- sil
 	}()
@@ -1300,11 +1300,11 @@ func (p BytesSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func TestImmuClient_GetReference(t *testing.T) {
 	setup()
-	idx, err := client.Set(context.TODO(), []byte(`key`), []byte(`value`))
+	idx, err := client.Set(context.Background(), []byte(`key`), []byte(`value`))
 	require.NoError(t, err)
-	_, err = client.Reference(context.TODO(), []byte(`reference`), []byte(`key`), idx)
+	_, err = client.Reference(context.Background(), []byte(`reference`), []byte(`key`), idx)
 	require.NoError(t, err)
-	op, err := client.GetReference(context.TODO(), &schema.Key{Key: []byte(`reference`)})
+	op, err := client.GetReference(context.Background(), &schema.Key{Key: []byte(`reference`)})
 	require.IsType(t, &schema.StructuredItem{}, op)
 	require.NoError(t, err)
 	client.Disconnect()
@@ -1322,7 +1322,7 @@ func TestEnforcedLogoutAfterPasswordChangeWithToken(t *testing.T) {
 		userNewPassword = "2Password!*"
 		testDBName      = "test"
 		testDB          = &schema.Database{DatabaseName: testDBName}
-		testUserContext = context.TODO()
+		testUserContext = context.Background()
 	)
 	// step 1: create test database
 	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})
@@ -1339,7 +1339,7 @@ func TestEnforcedLogoutAfterPasswordChangeWithToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// step 3: create test client and context
-	lr, err := client.Login(context.TODO(), []byte(userName), []byte(userPassword))
+	lr, err := client.Login(context.Background(), []byte(userName), []byte(userPassword))
 	require.NoError(t, err)
 
 	md := metadata.Pairs("authorization", lr.Token)
@@ -1376,7 +1376,7 @@ func TestEnforcedLogoutAfterPasswordChangeWithSessions(t *testing.T) {
 		userPassword    = "1Password!*"
 		userNewPassword = "2Password!*"
 		testDBName      = "test"
-		testUserContext = context.TODO()
+		testUserContext = context.Background()
 	)
 	// step 1: create test database
 	err := client.CreateDatabase(ctx, &schema.DatabaseSettings{DatabaseName: testDBName})

@@ -49,7 +49,7 @@ func (s *StreamServerMock) Recv() (*schema.Chunk, error) {
 	return nil, nil
 }
 func (s *StreamServerMock) Context() context.Context {
-	return context.TODO()
+	return context.Background()
 }
 
 type StreamVerifiableServerMock struct {
@@ -67,5 +67,5 @@ func (s *StreamVerifiableServerMock) Recv() (*schema.Chunk, error) {
 	return nil, nil
 }
 func (s *StreamVerifiableServerMock) Context() context.Context {
-	return context.TODO()
+	return context.Background()
 }

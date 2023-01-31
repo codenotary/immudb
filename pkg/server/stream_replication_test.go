@@ -116,7 +116,7 @@ func (s *immuServiceExportTxServer) Recv() (*schema.Chunk, error) {
 }
 
 func (s *immuServiceExportTxServer) Context() context.Context {
-	return context.TODO()
+	return context.Background()
 }
 
 type immuServiceReplicateTxServer struct {

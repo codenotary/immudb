@@ -71,7 +71,7 @@ func (i *immuc) Login(args []string) (string, error) {
 func (i *immuc) Logout(args []string) (string, error) {
 	var err error
 	i.isLoggedin = false
-	err = i.ImmuClient.Logout(context.TODO())
+	err = i.ImmuClient.Logout(context.Background())
 	st, ok := status.FromError(err)
 	if ok && st.Message() == "not logged in" {
 		return "User not logged in", nil

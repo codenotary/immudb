@@ -67,22 +67,22 @@ func TestConnErr(t *testing.T) {
 	_, err := c.Prepare("")
 	require.Error(t, err)
 
-	_, err = c.PrepareContext(context.TODO(), "")
+	_, err = c.PrepareContext(context.Background(), "")
 	require.Error(t, err)
 
 	_, err = c.Begin()
 	require.Error(t, err)
 
-	_, err = c.BeginTx(context.TODO(), driver.TxOptions{})
+	_, err = c.BeginTx(context.Background(), driver.TxOptions{})
 	require.Error(t, err)
 
-	_, err = c.ExecContext(context.TODO(), "", nil)
+	_, err = c.ExecContext(context.Background(), "", nil)
 	require.Error(t, err)
 
-	_, err = c.QueryContext(context.TODO(), "", nil)
+	_, err = c.QueryContext(context.Background(), "", nil)
 	require.Error(t, err)
 
-	err = c.ResetSession(context.TODO())
+	err = c.ResetSession(context.Background())
 	require.Error(t, err)
 
 	ris := c.CheckNamedValue(nil)
@@ -107,13 +107,13 @@ func TestConn_QueryContextErr(t *testing.T) {
 	db := OpenDB(opts)
 	defer db.Close()
 
-	_, err := db.QueryContext(context.TODO(), "query", 10.5)
+	_, err := db.QueryContext(context.Background(), "query", 10.5)
 	require.Error(t, err)
 
-	_, err = db.ExecContext(context.TODO(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO myTable(id, name) VALUES (2, 'immu2')")
 	require.Error(t, err)
 
-	_, err = db.QueryContext(context.TODO(), "SELECT * FROM myTable")
+	_, err = db.QueryContext(context.Background(), "SELECT * FROM myTable")
 	require.Error(t, err)
 }
 
@@ -139,7 +139,7 @@ func TestConn_QueryContext(t *testing.T) {
 	}
 
 	table := "mytable"
-	result, err := c.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table), nil)
+	result, err := c.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table), nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -152,7 +152,7 @@ func TestConn_QueryContext(t *testing.T) {
 		{Name: "content", Value: binaryContent},
 		{Name: "isPresent", Value: true},
 	}
-	_, err = c.ExecContext(context.TODO(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), argsV)
+	_, err = c.ExecContext(context.Background(), fmt.Sprintf("INSERT INTO %s (id, amount, total, title, content, isPresent) VALUES (?, ?, ?, ?, ?, ?)", table), argsV)
 	require.NoError(t, err)
 
 	rows, err := c.QueryContext(ctx, "SELECT * FROM myTable limit 1", nil)
@@ -192,7 +192,7 @@ func TestConn_QueryContextEmptyTable(t *testing.T) {
 	}
 
 	table := "emptytable"
-	result, err := c.ExecContext(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table), nil)
+	result, err := c.ExecContext(context.Background(), fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, total INTEGER, title VARCHAR, content BLOB, isPresent BOOLEAN, PRIMARY KEY id)", table), nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -230,6 +230,6 @@ func TestConn_QueryContextEmptyTable(t *testing.T) {
 
 	immuConn := conn.(driver.Pinger)
 
-	err = immuConn.Ping(context.TODO())
+	err = immuConn.Ping(context.Background())
 	require.NoError(t, err)
 }*/

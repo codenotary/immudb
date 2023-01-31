@@ -31,14 +31,14 @@ import (
 
 func TestImmuClient_OpenSession_ErrParsingKey(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithServerSigningPubKey("invalid"))
-	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
 	require.ErrorIs(t, err, syscall.ENOENT)
 }
 
 func TestImmuClient_OpenSession_ErrDefaultChunkTooSmall(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithStreamChunkSize(1))
-	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
 	require.Equal(t, err.Error(), stream.ErrChunkTooSmall)
 }
@@ -47,25 +47,25 @@ func TestImmuClient_OpenSession_DialError(t *testing.T) {
 	c := NewClient().WithOptions(DefaultOptions().WithDialOptions([]grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return nil, syscall.ECONNREFUSED
 	})}))
-	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
 }
 
 func TestImmuClient_OpenSession_OpenSessionError(t *testing.T) {
 	c := NewClient()
-	err := c.OpenSession(context.TODO(), nil, nil, "")
+	err := c.OpenSession(context.Background(), nil, nil, "")
 	require.Error(t, err)
 }
 
 func TestImmuClient_OpenSession_OpenAndCloseSessionAfterError_AvoidPanic(t *testing.T) {
 	c := NewClient()
-	err := c.OpenSession(context.TODO(), nil, nil, "")
+	err := c.OpenSession(context.Background(), nil, nil, "")
 	require.Error(t, err)
 	// try open session again
-	err = c.OpenSession(context.TODO(), nil, nil, "")
+	err = c.OpenSession(context.Background(), nil, nil, "")
 	require.NotErrorIs(t, err, ErrSessionAlreadyOpen)
 	// close over not open session
-	err = c.CloseSession(context.TODO())
+	err = c.CloseSession(context.Background())
 	require.NotErrorIs(t, err, ErrSessionAlreadyOpen)
 }
 
@@ -81,7 +81,7 @@ func TestImmuClient_OpenSession_StateServiceError(t *testing.T) {
 			return new(empty.Empty), nil
 		},
 	}
-	err := c.OpenSession(context.TODO(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
+	err := c.OpenSession(context.Background(), []byte(`immudb`), []byte(`immudb`), "defaultdb")
 	require.Error(t, err)
 }
 

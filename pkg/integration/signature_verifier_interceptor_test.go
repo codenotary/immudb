@@ -50,7 +50,7 @@ func TestSignatureVerifierInterceptor(t *testing.T) {
 		return nil
 	}
 
-	err = c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
+	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 
 	require.NoError(t, err)
 
@@ -73,7 +73,7 @@ func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil
 	}
-	err = c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
+	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 	require.Error(t, err)
 }
 
@@ -97,7 +97,7 @@ func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 		return nil
 	}
 
-	err = c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
+	err = c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 
 	require.Error(t, err)
 }
@@ -114,7 +114,7 @@ func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
 		return nil
 	}
 
-	err := c.SignatureVerifierInterceptor(context.TODO(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
+	err := c.SignatureVerifierInterceptor(context.Background(), "/immudb.schema.ImmuService/CurrentState", &empty.Empty{}, state, nil, invoker, nil)
 
 	require.Error(t, err)
 }

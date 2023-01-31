@@ -132,7 +132,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	)
 	require.NoError(t, err)
 	auditorDone := make(chan struct{}, 2)
-	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
+	err = da.Run(time.Duration(10), true, context.Background().Done(), auditorDone)
 	require.NoError(t, err)
 }
 
@@ -222,9 +222,9 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
-	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
+	err = da.Run(time.Duration(10), true, context.Background().Done(), auditorDone)
 	require.NoError(t, err)
-	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
+	err = da.Run(time.Duration(10), true, context.Background().Done(), auditorDone)
 	require.NoError(t, err)
 }
 
@@ -407,8 +407,8 @@ func testDefaultAuditorRunOnDbWithSignature(t *testing.T, pk *ecdsa.PublicKey) {
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
-	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
+	err = da.Run(time.Duration(10), true, context.Background().Done(), auditorDone)
 	require.NoError(t, err)
-	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
+	err = da.Run(time.Duration(10), true, context.Background().Done(), auditorDone)
 	require.NoError(t, err)
 }
