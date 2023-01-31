@@ -1255,16 +1255,16 @@ func (c *immuClient) set(ctx context.Context, key []byte, md *schema.KVMetadata,
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Metadata: md, Value: value}}})
+	hdr, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Metadata: md, Value: value}}})
 	if err != nil {
 		return nil, err
 	}
 
-	if int(txmd.Nentries) != 1 {
+	if int(hdr.Nentries) != 1 {
 		return nil, store.ErrCorruptedData
 	}
 
-	return txmd, nil
+	return hdr, nil
 }
 
 // VerifiedSet commits a change of a value for a single key.
@@ -1409,16 +1409,16 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 		return nil, errors.FromError(ErrNotConnected)
 	}
 
-	txmd, err := c.ServiceClient.Set(ctx, req)
+	hdr, err := c.ServiceClient.Set(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if int(txmd.Nentries) != len(req.KVs) {
+	if int(hdr.Nentries) != len(req.KVs) {
 		return nil, store.ErrCorruptedData
 	}
 
-	return txmd, nil
+	return hdr, nil
 }
 
 // ExecAll performs multiple write operations (values, references, sorted set entries)
@@ -1786,7 +1786,7 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	start := time.Now()
 	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
 
-	txmd, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
+	hdr, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:      set,
 		Score:    score,
 		Key:      key,
@@ -1797,11 +1797,11 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 		return nil, err
 	}
 
-	if int(txmd.Nentries) != 1 {
+	if int(hdr.Nentries) != 1 {
 		return nil, store.ErrCorruptedData
 	}
 
-	return txmd, nil
+	return hdr, nil
 }
 
 // VerifiedZAdd adds a new entry to sorted set.
