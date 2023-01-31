@@ -1103,8 +1103,8 @@ func (s *ImmuStore) NewTx(ctx context.Context, opts *TxOptions) (*OngoingTx, err
 	return newOngoingTx(ctx, s, opts)
 }
 
-func (s *ImmuStore) commit(ctx context.Context, otx *OngoingTx, expectedHeader *TxHeader, waitForIndexing bool) (*TxHeader, error) {
-	hdr, err := s.precommit(ctx, otx, expectedHeader)
+func (s *ImmuStore) commit(ctx context.Context, otx *OngoingTx, expectedHeader *TxHeader, skipIntegrityCheck bool, waitForIndexing bool) (*TxHeader, error) {
+	hdr, err := s.precommit(ctx, otx, expectedHeader, skipIntegrityCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -1129,7 +1129,7 @@ func (s *ImmuStore) commit(ctx context.Context, otx *OngoingTx, expectedHeader *
 	return hdr, nil
 }
 
-func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader) (*TxHeader, error) {
+func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader, skipIntegrityCheck bool) (*TxHeader, error) {
 	if otx == nil {
 		return nil, fmt.Errorf("%w: no transaction", ErrIllegalArguments)
 	}
@@ -1193,11 +1193,11 @@ func (s *ImmuStore) precommit(ctx context.Context, otx *OngoingTx, hdr *TxHeader
 	}
 
 	if hdr != nil {
-		// TODO: Eh validation is currently disabled as it's not provided
+		// TODO: Eh validation is disabled as it's not provided
 		// when the tx was exported without integrity checks
-		//if tx.header.Eh != hdr.Eh {
-		//	return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
-		//}
+		if !skipIntegrityCheck && tx.header.Eh != hdr.Eh {
+			return nil, fmt.Errorf("%w: entries hash (Eh) differs", ErrIllegalArguments)
+		}
 
 		lastPreCommittedTxID := s.lastPrecommittedTxID()
 
@@ -2159,7 +2159,7 @@ func (s *ImmuStore) ExportTx(txID uint64, allowPrecommitted bool, skipIntegrityC
 	return buf.Bytes(), nil
 }
 
-func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForIndexing bool) (*TxHeader, error) {
+func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, skipIntegrityCheck bool, waitForIndexing bool) (*TxHeader, error) {
 	if len(exportedTx) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -2282,7 +2282,7 @@ func (s *ImmuStore) ReplicateTx(ctx context.Context, exportedTx []byte, waitForI
 		}
 	}
 
-	txHdr, err := s.precommit(ctx, txSpec, hdr)
+	txHdr, err := s.precommit(ctx, txSpec, hdr, skipIntegrityCheck)
 	if err != nil {
 		return nil, err
 	}

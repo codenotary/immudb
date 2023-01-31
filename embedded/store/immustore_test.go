@@ -216,7 +216,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 
 	_, err = immuStore.commit(context.Background(), &OngoingTx{entries: []*EntrySpec{
 		{Key: []byte("key1")},
-	}}, nil, false)
+	}}, nil, false, false)
 	require.ErrorIs(t, err, ErrAlreadyClosed)
 
 	err = immuStore.ReadTx(1, false, nil)
@@ -2390,14 +2390,14 @@ func TestExportAndReplicateTx(t *testing.T) {
 	etx, err := primaryStore.ExportTx(1, false, false, txholder)
 	require.NoError(t, err)
 
-	rhdr, err := replicaStore.ReplicateTx(context.Background(), etx, false)
+	rhdr, err := replicaStore.ReplicateTx(context.Background(), etx, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, rhdr)
 
 	require.Equal(t, hdr.ID, rhdr.ID)
 	require.Equal(t, hdr.Alh(), rhdr.Alh())
 
-	_, err = replicaStore.ReplicateTx(context.Background(), nil, false)
+	_, err = replicaStore.ReplicateTx(context.Background(), nil, false, false)
 	require.ErrorIs(t, err, ErrIllegalArguments)
 }
 
@@ -2445,7 +2445,7 @@ func TestExportAndReplicateTxCornerCases(t *testing.T) {
 				copy(brokenEtx, etx)
 				brokenEtx[i]++
 
-				_, err = replicaStore.ReplicateTx(context.Background(), brokenEtx, false)
+				_, err = replicaStore.ReplicateTx(context.Background(), brokenEtx, false, false)
 				require.Error(t, err)
 
 				if !errors.Is(err, ErrIllegalArguments) &&
@@ -2500,7 +2500,7 @@ func TestExportAndReplicateTxSimultaneousWriters(t *testing.T) {
 				wg.Add(1)
 				go func(j int) {
 					defer wg.Done()
-					_, errors[j] = replicaStore.ReplicateTx(context.Background(), etx, false)
+					_, errors[j] = replicaStore.ReplicateTx(context.Background(), etx, false, false)
 				}(j)
 			}
 			wg.Wait()
@@ -2573,7 +2573,7 @@ func TestExportAndReplicateTxDisorderedReplication(t *testing.T) {
 			for etx := range etxs {
 				time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
-				_, err = replicaStore.ReplicateTx(context.Background(), etx, false)
+				_, err = replicaStore.ReplicateTx(context.Background(), etx, false, false)
 				require.NoError(t, err)
 			}
 		}(r)
